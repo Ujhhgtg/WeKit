@@ -91,7 +91,11 @@ class CategorySettingsDialog(
                 item.startLoad()
             } else {
                 Logger.i("[CategorySettings] Unloading HookItem: ${item.path}")
-                item.unload(context.classLoader)
+                try {
+                    item.unload(context.classLoader)
+                } catch (e: Throwable) {
+                    Logger.e("[CategorySettings] Unload HookItem Failed", e)
+                }
             }
         }
 

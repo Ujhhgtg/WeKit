@@ -32,6 +32,8 @@ import moe.ouom.wekit.config.ConfigManager;
 import moe.ouom.wekit.util.log.Logger;
 
 public class TargetManager {
+    // 更新此版本可在宿主无版本更新的时候强制要求用户重新搜索被混淆的方法
+    // 如果你尝试搜索了新的方法，请更新这里的版本
     public static final int TargetManager_VERSION = 2;
 
     // 缓存 Key 定义
