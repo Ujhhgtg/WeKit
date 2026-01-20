@@ -11,6 +11,7 @@ import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.constants.Constants.Companion.CLAZZ_ICON_PREFERENCE
+import moe.ouom.wekit.constants.Constants.Companion.CLAZZ_MAIN_SETTINGS_UI
 import moe.ouom.wekit.constants.Constants.Companion.CLAZZ_MMActivity
 import moe.ouom.wekit.constants.Constants.Companion.CLAZZ_SETTINGS_UI
 import moe.ouom.wekit.dexkit.TargetManager
@@ -28,9 +29,6 @@ class WeSettingInjector : ApiHookItem() {
         private const val KEY_WEKIT_ENTRY = "wekit_settings_entry"
         private const val TITLE_WEKIT_ENTRY = "WeKit 设置"
         private const val MENU_ID_WEKIT = 11451419
-
-        // 新版 UI 类名
-        private const val CLAZZ_MAIN_SETTINGS_UI = "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI"
     }
 
     override fun entry(classLoader: ClassLoader) {

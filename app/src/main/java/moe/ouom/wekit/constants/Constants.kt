@@ -9,6 +9,7 @@ class Constants private constructor() {
         const val CLAZZ_WECHAT_LAUNCHER_UI: String = "com.tencent.mm.ui.LauncherUI"
         const val CLAZZ_BASE_APPLICATION: String = "com.tencent.mm.app.Application"
         const val CLAZZ_SETTINGS_UI = "com.tencent.mm.plugin.setting.ui.setting.SettingsUI"
+        const val CLAZZ_MAIN_SETTINGS_UI = "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI"
         const val CLAZZ_ICON_PREFERENCE = "com.tencent.mm.ui.base.preference.IconPreference"
         const val CLAZZ_MMActivity = "com.tencent.mm.ui.MMActivity"
         const val CLAZZ_I_PREFERENCE_SCREEN = "com.tencent.mm.ui.base.preference.IPreferenceScreen"
