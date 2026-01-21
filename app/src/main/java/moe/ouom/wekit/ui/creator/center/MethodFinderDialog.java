@@ -93,7 +93,7 @@ public class MethodFinderDialog extends Dialog {
                 if (btnClose != null) btnClose.setVisibility(View.GONE);
                 if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
 
-                TargetManager.runMethodFinder(ai, cl, activity,
+                TargetManager.INSTANCE.runMethodFinder(ai, cl, activity,
                     result -> {
                         Logger.i("MethodFinderDialog: onTaskComplete", result);
                         if (tvTip != null) tvTip.setText(result);
@@ -103,7 +103,8 @@ public class MethodFinderDialog extends Dialog {
                         }
                         flag = true;
                         if (progressBar != null) progressBar.setVisibility(View.GONE);
-                        TargetManager.setIsNeedFindTarget(false);
+                        TargetManager.INSTANCE.setNeedFindTarget(false);
+                        return null;
                     }
                 );
             });

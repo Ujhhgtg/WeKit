@@ -1,7 +1,6 @@
 package moe.ouom.wekit.loader.core;
 
 import static moe.ouom.wekit.constants.Constants.CLAZZ_WECHAT_LAUNCHER_UI;
-import static moe.ouom.wekit.dexkit.TargetManager.getTargetManagerVersion;
 import static moe.ouom.wekit.util.common.SyncUtils.postDelayed;
 
 import android.app.Activity;
@@ -43,17 +42,18 @@ public class WeLauncher {
                 RuntimeConfig.setWechatVersionName(pInfo.versionName);
                 RuntimeConfig.setWechatVersionCode(pInfo.getLongVersionCode());
 
-                if (!Objects.equals(pInfo.versionName, TargetManager.getLastWeChatVersion())){
-                    TargetManager.setIsNeedFindTarget(true);
+                if (!Objects.equals(pInfo.versionName, TargetManager.INSTANCE.getLastWeChatVersion())){
+                    TargetManager.INSTANCE.setNeedFindTarget(true);
                 }
 
-                if (getTargetManagerVersion() != TargetManager.TargetManager_VERSION) {
-                    TargetManager.setIsNeedFindTarget(true);
+                if (TargetManager.INSTANCE.getTargetManagerVersion() != TargetManager.VERSION) {
+                    TargetManager.INSTANCE.setNeedFindTarget(true);
                 }
 
 
-                TargetManager.setLastWeChatVersion(pInfo.versionName);
-                TargetManager.setTargetManagerVersion(TargetManager.TargetManager_VERSION);
+                assert pInfo.versionName != null;
+                TargetManager.INSTANCE.setLastWeChatVersion(pInfo.versionName);
+                TargetManager.INSTANCE.setTargetManagerVersion(TargetManager.VERSION);
 
                 Logger.i("WeChat Version cached: " + RuntimeConfig.getWechatVersionName() + " (" + RuntimeConfig.getWechatVersionCode() + ")");
             }
@@ -104,7 +104,7 @@ public class WeLauncher {
 //                    Logger.d("login_weixin_username: " + login_weixin_username + "\nlast_login_nick_name: " + last_login_nick_name + "\nlogin_user_name: " + login_user_name + "\nlast_login_uin: " + last_login_uin);
 
                     postDelayed(0, () -> {
-                        if (!TargetManager.isNeedFindTarget()){
+                        if (!TargetManager.INSTANCE.isNeedFindTarget()){
                             Logger.i("[TargetManager] same version since last time, no need find new target.");
                             return;
                         }

@@ -1,411 +1,332 @@
-package moe.ouom.wekit.dexkit;
+package moe.ouom.wekit.dexkit
 
-import static moe.ouom.wekit.config.ConfigManager.cGetBoolean;
-import static moe.ouom.wekit.config.ConfigManager.cGetInt;
-import static moe.ouom.wekit.config.ConfigManager.cGetString;
-import static moe.ouom.wekit.config.ConfigManager.cPutBoolean;
-import static moe.ouom.wekit.config.ConfigManager.cPutInt;
-import static moe.ouom.wekit.config.ConfigManager.cPutString;
-import static moe.ouom.wekit.util.Initiator.loadClass;
-import static moe.ouom.wekit.util.common.Utils.findMethodByName;
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.pm.ApplicationInfo
+import android.text.TextUtils
+import moe.ouom.wekit.config.ConfigManager
+import moe.ouom.wekit.util.Initiator.loadClass
+import moe.ouom.wekit.util.common.Utils.findMethodByName
+import moe.ouom.wekit.util.log.Logger
+import org.luckypray.dexkit.DexKitBridge
+import org.luckypray.dexkit.result.MethodData
+import java.lang.reflect.Constructor
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
+import kotlin.concurrent.thread
 
-import android.app.Activity;
-import android.content.pm.ApplicationInfo;
-import android.text.TextUtils;
-
-import androidx.annotation.NonNull;
-
-import org.luckypray.dexkit.DexKitBridge;
-import org.luckypray.dexkit.query.FindClass;
-import org.luckypray.dexkit.query.FindMethod;
-import org.luckypray.dexkit.query.matchers.ClassMatcher;
-import org.luckypray.dexkit.query.matchers.MethodMatcher;
-import org.luckypray.dexkit.query.matchers.MethodsMatcher;
-import org.luckypray.dexkit.result.ClassData;
-import org.luckypray.dexkit.result.MethodData;
-
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.List;
-
-import moe.ouom.wekit.config.ConfigManager;
-import moe.ouom.wekit.util.log.Logger;
-
-public class TargetManager {
+object TargetManager {
     // 更新此版本可在宿主无版本更新的时候强制要求用户重新搜索被混淆的方法
-    // 如果你尝试搜索了新的方法，请更新这里的版本
-    public static final int TargetManager_VERSION = 3;
+    const val VERSION = 3
 
-    // 缓存 Key 定义 //
+    ////////// Cache Keys //////////
+    const val KEY_METHOD_SET_TITLE = "method_pref_setTitle"
+    const val KEY_METHOD_SET_KEY = "method_pref_setKey"
+    const val KEY_METHOD_GET_KEY = "method_pref_getKey"
+    const val KEY_METHOD_ADD_PREF = "method_adapter_addPreference"
+    const val KEY_CLASS_LUCKY_MONEY_RECEIVE = "cls_lucky_money_receive"
+    const val KEY_CLASS_LUCKY_MONEY_OPEN = "cls_lucky_money_open"
+    const val KEY_METHOD_GET_SEND_MGR = "method_get_send_mgr"
 
-    // 旧版设置 UI HOOK
-    public static final String KEY_METHOD_SET_TITLE = "method_pref_setTitle";
-    public static final String KEY_METHOD_SET_KEY = "method_pref_setKey";
-    public static final String KEY_METHOD_GET_KEY = "method_pref_getKey";
-    public static final String KEY_METHOD_ADD_PREF = "method_adapter_addPreference";
+    ////////////////////////////////////////
 
+    ////////// PKG //////////
+    private const val PKG_PREFERENCE = "com.tencent.mm.ui.base.preference"
+    private const val CLS_PREFERENCE = "$PKG_PREFERENCE.Preference"
 
-    // 抢红包
-    public static final String KEY_CLASS_LUCKY_MONEY_RECEIVE = "cls_lucky_money_receive";
-    public static final String KEY_CLASS_LUCKY_MONEY_OPEN = "cls_lucky_money_open";
-    public static final String KEY_METHOD_GET_SEND_MGR = "method_get_send_mgr";
-
-
-    // ------------------------------------------------------------------ //
-
-    // 稳定的包名和类名
-    private static final String PKG_PREFERENCE = "com.tencent.mm.ui.base.preference";
-    private static final String CLS_PREFERENCE = PKG_PREFERENCE + ".Preference";
-
+    ////////////////////////////////////////
 
     /* =========================================================
-     * Config helpers
+     * Config Properties
      * ========================================================= */
-    public static boolean isNeedFindTarget() { return cGetBoolean("isNeedFindTarget", true); }
-    public static void setIsNeedFindTarget(boolean b) { cPutBoolean("isNeedFindTarget", b); }
-    public static void setTargetManagerVersion(int version) { cPutInt("TargetManager_VERSION", version); }
-    public static int getTargetManagerVersion() { return cGetInt("TargetManager_VERSION", 0); }
-    public static String getLastWeChatVersion() { return cGetString("LastWeChatVersion", ""); }
-    public static void setLastWeChatVersion(String version) { cPutString("LastWeChatVersion", version); }
+    var isNeedFindTarget: Boolean
+        get() = ConfigManager.cGetBoolean("isNeedFindTarget", true)
+        set(value) = ConfigManager.cPutBoolean("isNeedFindTarget", value)
+
+    var targetManagerVersion: Int
+        get() = ConfigManager.cGetInt("TargetManager_VERSION", 0)
+        set(value) = ConfigManager.cPutInt("TargetManager_VERSION", value)
+
+    var lastWeChatVersion: String
+        get() = ConfigManager.cGetString("LastWeChatVersion", "")
+        set(value) = ConfigManager.cPutString("LastWeChatVersion", value)
 
     /* =========================================================
      * Core Logic
      * ========================================================= */
-    public static void runMethodFinder(ApplicationInfo ai, ClassLoader cl, Activity activity, OnTaskCompleteListener cb) {
-        new Thread(() -> {
+    fun runMethodFinder(
+        ai: ApplicationInfo,
+        cl: ClassLoader,
+        activity: Activity,
+        callback: ((String) -> Unit)?
+    ) {
+        thread {
             try {
-                String result = getResult(ai, cl);
-                activity.runOnUiThread(() -> {
-                    if (cb != null) cb.onTaskComplete(result);
-                });
-            } catch (Exception e) {
-                Logger.e("TargetManager: DexKit Fatal Error", e);
-                activity.runOnUiThread(() -> {
-                    if (cb != null) cb.onTaskComplete("搜索失败: " + e.getMessage());
-                });
+                val result = getResult(ai, cl)
+                activity.runOnUiThread { callback?.invoke(result) }
+            } catch (e: Exception) {
+                Logger.e("TargetManager: DexKit Fatal Error", e)
+                activity.runOnUiThread { callback?.invoke("搜索失败: ${e.message}") }
             }
-        }).start();
+        }
     }
 
-    @NonNull
-    private static String getResult(ApplicationInfo ai, ClassLoader cl) {
-        DexKitExecutor executor = new DexKitExecutor(ai.sourceDir, cl);
-        StringBuilder out = new StringBuilder();
+    private fun getResult(ai: ApplicationInfo, cl: ClassLoader): String {
+        val out = StringBuilder()
+        // 使用 use 自动关闭 bridge，确保资源释放
+        DexKitBridge.create(ai.sourceDir)?.use { bridge ->
+            out.append(">>> 开始分析微信代码...\n")
+            searchPreferenceMethods(bridge, cl, out)
+            searchAdapterMethods(bridge, cl, out)
 
-        executor.execute((bridge, loader) -> {
-            out.append(">>> 开始分析微信代码...\n");
-            searchPreferenceMethods(bridge, loader, out);
-            searchAdapterMethods(bridge, loader, out);
+            out.append("\n\n>>> 分析红包模块...\n")
+            searchLuckyMoneyTargets(bridge, cl, out)
+        } ?: run {
+            return "DexKitBridge 初始化失败 (APK路径错误?)"
+        }
 
-            out.append("\n\n>>> 分析红包模块...\n");
-            searchLuckyMoneyTargets(bridge, loader, out);
-        });
-
-        out.append("\n\n[SUCCESS] 搜索与配置更新完成");
-        return out.toString();
+        out.append("\n\n[SUCCESS] 搜索与配置更新完成")
+        return out.toString()
     }
 
-    private static void searchLuckyMoneyTargets(DexKitBridge bridge, ClassLoader cl, StringBuilder out) {
+    @SuppressLint("NonUniqueDexKitData")
+    private fun searchLuckyMoneyTargets(bridge: DexKitBridge, cl: ClassLoader, out: StringBuilder) {
         try {
             // 寻找 NetSceneQueue
-            ClassData senderOwnerClass = bridge.findClass(FindClass.create()
-                .matcher(ClassMatcher.create()
-                    .methods(MethodsMatcher.create()
-                        .add(MethodMatcher.create()
-                            .paramCount(4)
-                            .usingStrings("MicroMsg.Mvvm.NetSceneObserverOwner")
-                        )
-                    )
-                )
-            ).singleOrNull();
+            val senderOwnerClass = bridge.findClass {
+                matcher {
+                    methods {
+                        add {
+                            paramCount = 4
+                            usingStrings("MicroMsg.Mvvm.NetSceneObserverOwner")
+                        }
+                    }
+                }
+            }.firstOrNull()
 
             if (senderOwnerClass != null) {
-                String queueClassName = senderOwnerClass.getName();
-                out.append("\n[OK] 找到发送管理类: ").append(queueClassName);
+                val queueClassName = senderOwnerClass.name
+                out.append("\n[OK] 找到发送管理类: $queueClassName")
 
-                // 尝试寻找静态获取方法
-                MethodData getMgrMethod = bridge.findMethod(FindMethod.create()
-                    .matcher(MethodMatcher.create()
-                        .modifiers(Modifier.STATIC)
-                        .paramCount(0)
-                        .returnType(queueClassName)
-                    )
-                ).singleOrNull();
+                // 寻找静态单例方法
+                val getMgrMethod = bridge.findMethod {
+                    matcher {
+                        modifiers = Modifier.STATIC
+                        paramCount = 0
+                        returnType = queueClassName
+                    }
+                }.firstOrNull()
 
                 if (getMgrMethod != null) {
-                    cacheMethod(getMgrMethod, cl, KEY_METHOD_GET_SEND_MGR, out);
+                    cacheMethod(getMgrMethod, cl, KEY_METHOD_GET_SEND_MGR, out)
                 } else {
-                    out.append("\n[FAIL] 未找到静态单例方法");
+                    out.append("\n[FAIL] 未找到静态单例方法 (ReturnType: $queueClassName)")
                 }
 
             } else {
-                out.append("\n[FAIL] 未找到 NetSceneObserverOwner 特征类");
+                out.append("\n[FAIL] 未找到 NetSceneObserverOwner 特征类")
             }
 
             // 拆红包请求类
-            ClassData receiveClass = bridge.findClass(FindClass.create()
-                .searchPackages("com.tencent.mm")
-                .matcher(ClassMatcher.create()
-                    .methods(MethodsMatcher.create()
-                        .add(MethodMatcher.create()
-                            .usingStrings("MicroMsg.NetSceneReceiveLuckyMoney")
-                        )
-                    )
-                )
-            ).singleOrNull();
+            val receiveClass = bridge.findClass {
+                matcher {
+                    methods {
+                        add { usingStrings("MicroMsg.NetSceneReceiveLuckyMoney") }
+                    }
+                }
+            }.firstOrNull()
 
             if (receiveClass != null) {
-                cPutString(KEY_CLASS_LUCKY_MONEY_RECEIVE, receiveClass.getName());
-                out.append("\n[OK] ReceiveLuckyMoney Class -> ").append(receiveClass.getName());
+                ConfigManager.cPutString(KEY_CLASS_LUCKY_MONEY_RECEIVE, receiveClass.name)
+                out.append("\n[OK] ReceiveLuckyMoney Class -> ${receiveClass.name}")
             } else {
-                out.append("\n[FAIL] ReceiveLuckyMoney Class 未找到");
+                out.append("\n[FAIL] ReceiveLuckyMoney Class 未找到")
             }
 
             // 开红包请求类
-            ClassData openClass = bridge.findClass(FindClass.create()
-                    .searchPackages("com.tencent.mm")
-                    .matcher(ClassMatcher.create()
-                        .methods(MethodsMatcher.create()
-                            .add(MethodMatcher.create()
-                                    .usingStrings("MicroMsg.NetSceneOpenLuckyMoney")
-                            )
-                        )
-                    )
-            ).singleOrNull();
+            val openClass = bridge.findClass {
+                matcher {
+                    methods {
+                        add { usingStrings("MicroMsg.NetSceneOpenLuckyMoney") }
+                    }
+                }
+            }.firstOrNull()
 
             if (openClass != null) {
-                cPutString(KEY_CLASS_LUCKY_MONEY_OPEN, openClass.getName());
-                out.append("\n[OK] OpenLuckyMoney Class -> ").append(openClass.getName());
+                ConfigManager.cPutString(KEY_CLASS_LUCKY_MONEY_OPEN, openClass.name)
+                out.append("\n[OK] OpenLuckyMoney Class -> ${openClass.name}")
             } else {
-                out.append("\n[FAIL] OpenLuckyMoney Class 未找到");
+                out.append("\n[FAIL] OpenLuckyMoney Class 未找到")
             }
 
-        } catch (Throwable t) {
-            Logger.e("Search LuckyMoney Error", t);
-            out.append("\n[ERROR] 搜索红包相关类时发生异常: ").append(t.getMessage());
+        } catch (t: Throwable) {
+            Logger.e("Search LuckyMoney Error", t)
+            out.append("\n[ERROR] 搜索红包相关类时发生异常: ${t.message}")
         }
     }
 
-    private static void searchPreferenceMethods(DexKitBridge bridge, ClassLoader cl, StringBuilder out) {
+    @SuppressLint("NonUniqueDexKitData")
+    private fun searchPreferenceMethods(bridge: DexKitBridge, cl: ClassLoader, out: StringBuilder) {
         try {
             // 定位 Preference 类
-            ClassData prefClass = bridge.findClass(FindClass.create()
-                .matcher(ClassMatcher.create().className(CLS_PREFERENCE)))
-                .singleOrNull();
+            val prefClass = bridge.findClass {
+                matcher { className = CLS_PREFERENCE }
+            }.firstOrNull()
 
             if (prefClass == null) {
-                out.append("\n[FAIL] 未找到 Preference 类: ").append(CLS_PREFERENCE);
-                return;
+                out.append("\n[FAIL] 未找到 Preference 类: $CLS_PREFERENCE")
+                return
             }
 
-            // ----------------------------------------------------------------
-            // 查找 setKey
-            // paramTypes("java.lang.String").usingStrings("Preference").returnType("void")
-            // ----------------------------------------------------------------
-            try {
-                List<MethodData> keyCandidates = prefClass.findMethod(FindMethod.create()
-                        .matcher(MethodMatcher.create()
-                                .returnType("void")
-                                .paramTypes("java.lang.String") // String
-                                .usingStrings("Preference"))
-                );
-
-                if (!keyCandidates.isEmpty()) {
-                    cacheMethod(keyCandidates.get(0), cl, KEY_METHOD_SET_KEY, out);
-                } else {
-                    out.append("\n[FAIL] setKey 未找到");
+            // setKey
+            val setKeyCandidates = prefClass.findMethod {
+                matcher {
+                    returnType = "void"
+                    paramTypes("java.lang.String")
+                    usingStrings("Preference")
                 }
-            } catch (Throwable t) {
-                Logger.e("setKey search error", t);
+            }
+            if (setKeyCandidates.isNotEmpty()) {
+                cacheMethod(setKeyCandidates[0], cl, KEY_METHOD_SET_KEY, out)
+            } else {
+                out.append("\n[FAIL] setKey 未找到")
             }
 
-            // ----------------------------------------------------------------
-            // 查找 setTitle
-            // paramTypes("java.lang.CharSequence").returnType("void")
-            // methodData 取最后一个元素
-            // ----------------------------------------------------------------
-            try {
-                List<MethodData> charSeqMethods = prefClass.findMethod(FindMethod.create()
-                        .matcher(MethodMatcher.create()
-                                .returnType("void")
-                                .paramTypes("java.lang.CharSequence")) // CharSequence
-                );
-
-                if (charSeqMethods.isEmpty()) {
-                    out.append("\n[FAIL] setTitle (CharSequence) 未找到");
-                } else {
-                    MethodData target = charSeqMethods.get(charSeqMethods.size() - 1);
-                    cacheMethod(target, cl, KEY_METHOD_SET_TITLE, out);
-
-                    if (charSeqMethods.size() > 1) {
-                        out.append("\n[INFO] setTitle 取最后一个 (共").append(charSeqMethods.size()).append("个)");
-                    }
+            // setTitle
+            val charSeqMethods = prefClass.findMethod {
+                matcher {
+                    returnType = "void"
+                    paramTypes("java.lang.CharSequence")
                 }
-            } catch (Throwable t) {
-                Logger.e("setTitle search error", t);
             }
 
-            // ----------------------------------------------------------------
-            // 查找 getKey
-            // 无参返回 String，排除 "toString"，取第一个
-            // ----------------------------------------------------------------
-            try {
-                List<MethodData> getKeyCandidates = prefClass.findMethod(FindMethod.create()
-                        .matcher(MethodMatcher.create()
-                                .paramCount(0)
-                                .returnType("java.lang.String"))
-                );
-
-                String targetGetKey = null;
-                for (MethodData md : getKeyCandidates) {
-                    if (!"toString".equals(md.getMethodName())) {
-                        targetGetKey = md.getMethodName();
-                        break; // 找到第一个就退出
-                    }
+            if (charSeqMethods.isEmpty()) {
+                out.append("\n[FAIL] setTitle (CharSequence) 未找到")
+            } else {
+                val target = charSeqMethods.last()
+                cacheMethod(target, cl, KEY_METHOD_SET_TITLE, out)
+                if (charSeqMethods.size > 1) {
+                    out.append("\n[INFO] setTitle 取最后一个 (共${charSeqMethods.size}个)")
                 }
-
-                if (targetGetKey != null) {
-                    String sig = CLS_PREFERENCE + "#" + targetGetKey;
-                    cPutString(KEY_METHOD_GET_KEY, sig);
-                    out.append("\n[OK] ").append(KEY_METHOD_GET_KEY).append(" -> ").append(targetGetKey);
-                } else {
-                    out.append("\n[FAIL] getKey 未找到");
-                }
-            } catch (Throwable t) {
-                Logger.e("getKey search error", t);
             }
 
-        } catch (Throwable t) {
-            Logger.e("Preference class error", t);
-            out.append("\n[FAIL] Preference 类分析严重错误");
+            // getKey
+            val getKeyCandidates = prefClass.findMethod {
+                matcher {
+                    paramCount = 0
+                    returnType = "java.lang.String"
+                }
+            }
+
+            val targetGetKey = getKeyCandidates.firstOrNull { it.name != "toString" }
+
+            if (targetGetKey != null) {
+                // 手动拼装签名，避免不必要的反射
+                val sig = "$CLS_PREFERENCE#${targetGetKey.name}"
+                ConfigManager.cPutString(KEY_METHOD_GET_KEY, sig)
+                out.append("\n[OK] $KEY_METHOD_GET_KEY -> ${targetGetKey.name}")
+            } else {
+                out.append("\n[FAIL] getKey 未找到")
+            }
+
+        } catch (t: Throwable) {
+            Logger.e("Preference class error", t)
+            out.append("\n[FAIL] Preference 类分析严重错误")
         }
     }
 
-    private static void searchAdapterMethods(DexKitBridge bridge, ClassLoader cl, StringBuilder out) {
+    @SuppressLint("NonUniqueDexKitData")
+    private fun searchAdapterMethods(bridge: DexKitBridge, cl: ClassLoader, out: StringBuilder) {
         try {
-            // 定位 Adapter 类
-            // 包名 + 继承 BaseAdapter + 有getView + 有<init>
-            ClassData adapterClass = bridge.findClass(FindClass.create()
-                    .searchPackages(PKG_PREFERENCE)
-                    .matcher(ClassMatcher.create()
-                            .superClass("android.widget.BaseAdapter")
-                            .methods(MethodsMatcher.create()
-                                    .add(MethodMatcher.create().modifiers(Modifier.PUBLIC).name("getView").paramCount(3))
-                                    .add(MethodMatcher.create().name("<init>").paramCount(3))
-                            )
-                    )
-            ).singleOrNull();
+            val adapterClass = bridge.findClass {
+                searchPackages(PKG_PREFERENCE)
+                matcher {
+                    superClass = "android.widget.BaseAdapter"
+                    methods {
+                        add {
+                            modifiers = Modifier.PUBLIC
+                            name = "getView"
+                            paramCount = 3
+                        }
+                        add {
+                            name = "<init>"
+                            paramCount = 3
+                        }
+                    }
+                }
+            }.firstOrNull()
 
             if (adapterClass == null) {
-                out.append("\n[FAIL] Adapter 类未找到");
-                return;
+                out.append("\n[FAIL] Adapter 类未找到")
+                return
             }
 
-            // ----------------------------------------------------------------
-            // 查找 addPreference
-            // paramTypes(CLS_PREFERENCE, "int").returnType("void")
-            // 直接 get(0)
-            // ----------------------------------------------------------------
-            List<MethodData> candidates = adapterClass.findMethod(FindMethod.create()
-                    .matcher(MethodMatcher.create()
-                            .paramTypes(CLS_PREFERENCE, "int")
-                            .returnType("void"))
-            );
+            // addPreference
+            val candidates = adapterClass.findMethod {
+                matcher {
+                    paramTypes(CLS_PREFERENCE, "int")
+                    returnType = "void"
+                }
+            }
 
             if (candidates.isEmpty()) {
-                out.append("\n[FAIL] addPreference 方法未找到");
+                out.append("\n[FAIL] addPreference 方法未找到")
             } else {
-                // 直接取第 0 个
-                MethodData target = candidates.get(0);
-                cacheMethod(target, cl, KEY_METHOD_ADD_PREF, out);
-
-                if (candidates.size() > 1) {
-                    out.append("\n[INFO] addPreference 发现多个，取第1个: ").append(target.getMethodName());
+                val target = candidates.first()
+                cacheMethod(target, cl, KEY_METHOD_ADD_PREF, out)
+                if (candidates.size > 1) {
+                    out.append("\n[INFO] addPreference 发现多个，取第1个: ${target.name}")
                 }
             }
 
-        } catch (Throwable t) {
-            Logger.e("Adapter search error", t);
-            out.append("\n[FAIL] Adapter 类分析出错");
+        } catch (t: Throwable) {
+            Logger.e("Adapter search error", t)
+            out.append("\n[FAIL] Adapter 类分析出错")
         }
     }
 
-    // 统一的缓存工具方法
-    private static void cacheMethod(MethodData md, ClassLoader cl, String key, StringBuilder out) {
+    private fun cacheMethod(md: MethodData, cl: ClassLoader, key: String, out: StringBuilder) {
         try {
-            Method m = md.getMethodInstance(cl);
-            String sig = m.getDeclaringClass().getName() + "#" + m.getName();
-            cPutString(key, sig);
-            out.append("\n[OK] ").append(key).append(" -> ").append(m.getName());
-        } catch (Exception e) {
-            out.append("\n[ERROR] 缓存失败: ").append(key);
-            Logger.e("Cache error for " + key, e);
+            val m = md.getMethodInstance(cl)
+            val sig = "${m.declaringClass.name}#${m.name}"
+            ConfigManager.cPutString(key, sig)
+            out.append("\n[OK] $key -> ${m.name}")
+        } catch (e: Exception) {
+            out.append("\n[ERROR] 缓存失败 $key: ${e.message}")
+            Logger.e("Cache error for $key", e)
         }
     }
 
-    public static void removeAllMethodSignature() {
-        ConfigManager cfg = ConfigManager.getCache();
-        android.content.SharedPreferences.Editor e = cfg.edit();
-        for (String k : cfg.getAll().keySet()) if (k.startsWith("method_")) e.remove(k);
-        e.apply();
+    // Helper Functions
+    fun removeAllMethodSignature() {
+        val cfg = ConfigManager.getCache()
+        val e = cfg.edit()
+        cfg.all.keys.filter { it.startsWith("method_") }.forEach { e.remove(it) }
+        e.apply()
     }
 
-    public static Method requireMethod(String key) {
+    fun requireMethod(key: String): Method? {
+        return try {
+            val sig = ConfigManager.cGetString(key, null)
+            if (TextUtils.isEmpty(sig)) return null
+            val p = sig!!.split("#")
+            findMethodByName(loadClass(p[0]), p[1])
+        } catch (t: Throwable) { null }
+    }
+
+    fun requireClassName(key: String): String = ConfigManager.cGetString(key, "")
+
+    fun requireConstructor(key: String): Constructor<*>? {
         try {
-            String sig = cGetString(key, null);
-            if (TextUtils.isEmpty(sig)) return null;
-            String[] p = sig.split("#");
-            return findMethodByName(loadClass(p[0]), p[1]);
-        } catch (Throwable t) {
-            Logger.e("requireMethod failed for " + key, t);
-            return null;
+            val sig = ConfigManager.cGetString(key, null)
+            if (TextUtils.isEmpty(sig)) return null
+            val p = sig!!.split("#")
+            if (p.size < 2) return null
+            val clazz = loadClass(p[0])
+            val count = p[1].toInt()
+            return clazz.declaredConstructors.firstOrNull { it.parameterCount == count }?.apply { isAccessible = true }
+        } catch (t: Throwable) {
+            return null
         }
-    }
-
-    public static String requireClassName(String key) {
-        return cGetString(key, "");
-    }
-
-    // 缓存构造函数
-    private static void cacheConstructor(MethodData md, ClassLoader cl, String key, StringBuilder out) {
-        try {
-            Constructor<?> c = md.getConstructorInstance(cl);
-            // 存储格式：ClassName#ParamCount
-            String sig = c.getDeclaringClass().getName() + "#" + c.getParameterCount();
-            cPutString(key, sig);
-            out.append("\n[OK] 构造函数(" + key + ") -> ").append(sig);
-        } catch (Exception e) {
-            out.append("\n[ERROR] 缓存构造函数失败: ").append(key);
-        }
-    }
-
-
-    public static Constructor<?> requireConstructor(String key) {
-        try {
-            String sig = cGetString(key, null);
-            if (TextUtils.isEmpty(sig)) return null;
-
-            String[] p = sig.split("#");
-            if (p.length < 2) return null;
-
-            String className = p[0];
-            int paramCount = Integer.parseInt(p[1]);
-
-            Class<?> clazz = loadClass(className);
-            for (Constructor<?> c : clazz.getDeclaredConstructors()) {
-                if (c.getParameterCount() == paramCount) {
-                    c.setAccessible(true);
-                    return c;
-                }
-            }
-        } catch (Throwable t) {
-            Logger.e("requireConstructor failed for " + key, t);
-        }
-        return null;
-    }
-
-    public interface OnTaskCompleteListener {
-        void onTaskComplete(String result);
     }
 }
