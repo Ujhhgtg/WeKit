@@ -1,7 +1,7 @@
 package moe.ouom.wekit.hooks.sdk.api
 
 import android.annotation.SuppressLint
-import moe.ouom.wekit.core.dsl.lazyDexMethod
+import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
@@ -13,7 +13,7 @@ import java.lang.reflect.Modifier
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "API/网络请求服务", desc = "提供通用发包能力")
 class WeNetworkApi : ApiHookItem(), IDexFind {
-    private val MethodGetNetSceneQueue by lazyDexMethod("MethodGetNetSceneQueue")
+    private val dexMethodGetNetSceneQueue by dexMethod()
 
     companion object {
         private var methodGetMgr: Method? = null
@@ -136,40 +136,27 @@ class WeNetworkApi : ApiHookItem(), IDexFind {
             throw RuntimeException("NetSceneQueue class not found")
         }
 
-
-        MethodGetNetSceneQueue.findDexClassMethodOptional(dexKit, allowMultiple = true) {
-            matcher {
-                modifiers = Modifier.STATIC
-                paramCount = 0
-                returnType = netSceneQueueClass.name
+        if (dexMethodGetNetSceneQueue.find(dexKit, allowMultiple = true) {
+                matcher {
+                    modifiers = Modifier.STATIC
+                    paramCount = 0
+                    returnType = netSceneQueueClass.name
+                }
+            }) {
+            dexMethodGetNetSceneQueue.getDescriptorString()?.let {
+                descriptors[dexMethodGetNetSceneQueue.key] = it
             }
         }
-
-        MethodGetNetSceneQueue.getDescriptorString()?.let { descriptors["MethodGetNetSceneQueue"] = it }
 
         return descriptors
     }
 
-    override fun loadFromCache(cache: Map<String, Any>) {
-        (cache["MethodGetNetSceneQueue"] as? String)?.let { MethodGetNetSceneQueue.setDescriptorFromCache(it) }
-    }
-
     override fun entry(classLoader: ClassLoader) {
         try {
-            // 调试：检查描述符状态
-            val descriptor = MethodGetNetSceneQueue.getDescriptor()
-            WeLogger.d("WeNetworkApi: Descriptor = $descriptor")
-            WeLogger.d("WeNetworkApi: Descriptor string = ${MethodGetNetSceneQueue.getDescriptorString()}")
+            methodGetMgr = dexMethodGetNetSceneQueue.method
 
-            // 从 DSL 获取方法
-            methodGetMgr = MethodGetNetSceneQueue.getMethod(classLoader)
-
-            if (methodGetMgr != null) {
-                isInitialized = true
-                WeLogger.i("WeNetworkApi: Initialized")
-            } else {
-                WeLogger.e("WeNetworkApi: MethodGetNetSceneQueue is null")
-            }
+            isInitialized = true
+            WeLogger.i("WeNetworkApi: Initialized")
         } catch (e: Throwable) {
             WeLogger.e("WeNetworkApi: Init failed", e)
         }

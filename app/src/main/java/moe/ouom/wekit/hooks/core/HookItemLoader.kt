@@ -1,12 +1,10 @@
 package moe.ouom.wekit.hooks.core
 
-import android.app.Activity
 import android.content.pm.ApplicationInfo
 import moe.ouom.wekit.config.ConfigManager
 import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.constants.Constants.Companion.PrekClickableXXX
 import moe.ouom.wekit.constants.Constants.Companion.PrekXXX
-import moe.ouom.wekit.core.dsl.DexMethodDescriptorWrapper
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.core.model.BaseHookItem

@@ -11,7 +11,7 @@ import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.constants.Constants
-import moe.ouom.wekit.core.dsl.lazyDexMethod
+import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
@@ -24,12 +24,10 @@ import java.lang.reflect.Modifier
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "设置模块入口")
 class WeSettingInjector : ApiHookItem(), IDexFind {
-
-    // ========== DSL ==========
-    private val methodSetKey by lazyDexMethod("MethodSetKey")
-    private val methodSetTitle by lazyDexMethod("MethodSetTitle")
-    private val methodGetKey by lazyDexMethod("MethodGetKey")
-    private val methodAddPref by lazyDexMethod("MethodAddPref")
+    private val dexMethodSetKey by dexMethod()
+    private val dexMethodSetTitle by dexMethod()
+    private val dexMethodGetKey by dexMethod()
+    private val dexMethodAddPref by dexMethod()
 
     companion object {
         private const val KEY_WEKIT_ENTRY = "wekit_settings_entry"
@@ -50,16 +48,19 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
         }
 
         // 查找 setKey 方法
-        methodSetKey.findDexClassMethodOptional(dexKit, allowMultiple = true) {
-            searchPackages("com.tencent.mm.ui.base.preference")
-            matcher {
-                declaredClass = CLS_PREFERENCE
-                returnType = "void"
-                paramTypes("java.lang.String")
-                usingStrings("Preference")
+        if (dexMethodSetKey.find(dexKit, allowMultiple = true) {
+                searchPackages("com.tencent.mm.ui.base.preference")
+                matcher {
+                    declaredClass = CLS_PREFERENCE
+                    returnType = "void"
+                    paramTypes("java.lang.String")
+                    usingStrings("Preference")
+                }
+            }) {
+            dexMethodSetKey.getDescriptorString()?.let {
+                descriptors[dexMethodSetKey.key] = it
             }
         }
-        methodSetKey.getDescriptorString()?.let { descriptors["methodSetKey"] = it }
 
         // 查找 setTitle 方法
         val setTitleCandidates = prefClass.findMethod {
@@ -70,15 +71,17 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
         }
         if (setTitleCandidates.isNotEmpty()) {
             val target = setTitleCandidates.last()
-            methodSetTitle.setDescriptor(
+            dexMethodSetTitle.setDescriptor(
                 moe.ouom.wekit.dexkit.DexMethodDescriptor(
                     target.className,
                     target.methodName,
                     target.methodSign
                 )
             )
+            dexMethodSetTitle.getDescriptorString()?.let {
+                descriptors[dexMethodSetTitle.key] = it
+            }
         }
-        methodSetTitle.getDescriptorString()?.let { descriptors["methodSetTitle"] = it }
 
         // 查找 getKey 方法
         val getKeyCandidates = prefClass.findMethod {
@@ -89,15 +92,17 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
         }
         val targetGetKey = getKeyCandidates.singleOrNull { it.name != "toString" }
         if (targetGetKey != null) {
-            methodGetKey.setDescriptor(
+            dexMethodGetKey.setDescriptor(
                 moe.ouom.wekit.dexkit.DexMethodDescriptor(
                     targetGetKey.className,
                     targetGetKey.methodName,
                     targetGetKey.methodSign
                 )
             )
+            dexMethodGetKey.getDescriptorString()?.let {
+                descriptors[dexMethodGetKey.key] = it
+            }
         }
-        methodGetKey.getDescriptorString()?.let { descriptors["methodGetKey"] = it }
 
         // 查找 Adapter 类和 addPreference 方法
         val adapterClass = dexKit.findClass {
@@ -119,25 +124,21 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
         }.singleOrNull()
 
         if (adapterClass != null) {
-            methodAddPref.findDexClassMethodOptional(dexKit, allowMultiple = true) {
-                searchPackages("com.tencent.mm.ui.base.preference")
-                matcher {
-                    declaredClass = adapterClass.name
-                    paramTypes(CLS_PREFERENCE, "int")
-                    returnType = "void"
+            if (dexMethodAddPref.find(dexKit, allowMultiple = true) {
+                    searchPackages("com.tencent.mm.ui.base.preference")
+                    matcher {
+                        declaredClass = adapterClass.name
+                        paramTypes(CLS_PREFERENCE, "int")
+                        returnType = "void"
+                    }
+                }) {
+                dexMethodAddPref.getDescriptorString()?.let {
+                    descriptors[dexMethodAddPref.key] = it
                 }
             }
         }
-        methodAddPref.getDescriptorString()?.let { descriptors["methodAddPref"] = it }
 
         return descriptors
-    }
-
-    override fun loadFromCache(cache: Map<String, Any>) {
-        (cache["methodSetKey"] as? String)?.let { methodSetKey.setDescriptorFromCache(it) }
-        (cache["methodSetTitle"] as? String)?.let { methodSetTitle.setDescriptorFromCache(it) }
-        (cache["methodGetKey"] as? String)?.let { methodGetKey.setDescriptorFromCache(it) }
-        (cache["methodAddPref"] as? String)?.let { methodAddPref.setDescriptorFromCache(it) }
     }
 
     override fun entry(classLoader: ClassLoader) {
@@ -165,16 +166,11 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
                 return // 是新版，跳过
             }
 
-            // 从 DSL 获取方法
-            val setKeyMethod = methodSetKey.getMethod(classLoader)
-            val setTitleMethod = methodSetTitle.getMethod(classLoader)
-            val getKeyMethod = methodGetKey.getMethod(classLoader)
-            val addPrefMethod = methodAddPref.getMethod(classLoader)
-
-            if (setKeyMethod == null || setTitleMethod == null || getKeyMethod == null || addPrefMethod == null) {
-                WeLogger.e("WeSettingInjector: 关键方法未找到，跳过 Hook。请先运行 DexKit 分析")
-                return
-            }
+            // 直接使用 .method 访问器
+            val setKeyMethod = dexMethodSetKey.method
+            val setTitleMethod = dexMethodSetTitle.method
+            val getKeyMethod = dexMethodGetKey.method
+            val addPrefMethod = dexMethodAddPref.method
 
             val mInitView = XposedHelpers.findMethodExact(
                 clsSettingsUI,
