@@ -23,7 +23,7 @@ import moe.ouom.wekit.R;
 import moe.ouom.wekit.host.HostInfo;
 import moe.ouom.wekit.loader.LoaderExtensionHelper;
 import moe.ouom.wekit.util.common.SyncUtils;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 /**
  * This class is only intended to be used in module process, not in host process.
@@ -41,13 +41,13 @@ public class HookStatus {
 
         @Override
         public void onServiceBind(@NonNull XposedService service) {
-            Logger.d("on XPOSED ServiceBind");
+            WeLogger.d("on XPOSED ServiceBind");
             sXposedService.setValue(service);
         }
 
         @Override
         public void onServiceDied(@NonNull XposedService service) {
-            Logger.d("on XPOSED ServiceDied");
+            WeLogger.d("on XPOSED ServiceDied");
             sXposedService.setValue(null);
         }
 

@@ -6,7 +6,7 @@ import android.widget.Toast;
 import moe.ouom.wekit.config.ConfigManager;
 import moe.ouom.wekit.host.HostInfo;
 import moe.ouom.wekit.util.common.SyncUtils;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class ConfigData<T> {
 
@@ -26,7 +26,7 @@ public class ConfigData<T> {
         try {
             mgr.remove(mKeyName);
         } catch (Exception e) {
-            Logger.e(e);
+            WeLogger.e(e);
         }
     }
 
@@ -38,7 +38,7 @@ public class ConfigData<T> {
                 mgr.remove(mKeyName);
             } catch (Exception ignored) {
             }
-            Logger.e(e);
+            WeLogger.e(e);
             return null;
         }
     }
@@ -52,7 +52,7 @@ public class ConfigData<T> {
                 mgr.remove(mKeyName);
             } catch (Exception ignored) {
             }
-            Logger.e(e);
+            WeLogger.e(e);
             if (Looper.myLooper() == Looper.getMainLooper()) {
 //                Toasts.error(HostInfo.getApplication(), "设置存储失败, 请重新设置" + e);
                 Toast.makeText(HostInfo.getApplication(), "设置存储失败, 请重新设置", Toast.LENGTH_SHORT).show();
@@ -68,7 +68,7 @@ public class ConfigData<T> {
         try {
             return (T) mgr.getOrDefault(mKeyName, def);
         } catch (Exception e) {
-            Logger.e(e);
+            WeLogger.e(e);
             return def;
         }
     }

@@ -20,7 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Objects;
 
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 @SuppressWarnings("ResultOfMethodCallIgnored")
 public class FileUtils {
@@ -39,7 +39,7 @@ public class FileUtils {
             if (!Objects.requireNonNull(file.getParentFile()).exists()) file.getParentFile().mkdirs();
             if (!file.exists()) file.createNewFile();
         } catch (IOException e) {
-            Logger.e("FileUtils", e);
+            WeLogger.e("FileUtils", e);
         }
         try (BufferedOutputStream bufOut = new BufferedOutputStream(new FileOutputStream(path))) {
             bufOut.write(data);
@@ -75,7 +75,7 @@ public class FileUtils {
             }
             in.close();
         } catch (Exception e) {
-            Logger.e("FileUtils", e);
+            WeLogger.e("FileUtils", e);
             return null;
         }
         BigInteger bigInt = new BigInteger(1, digest.digest());
@@ -126,7 +126,7 @@ public class FileUtils {
                 try {
                     copyFile(f, new File(targetDir.getPath(), f.getName()));
                 } catch (IOException e) {
-                    Logger.e("FileUtils", e);
+                    WeLogger.e("FileUtils", e);
                 }
             }
         }

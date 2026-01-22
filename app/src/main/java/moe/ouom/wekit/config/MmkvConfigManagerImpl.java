@@ -21,7 +21,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 
 public class MmkvConfigManagerImpl extends ConfigManager {
@@ -415,7 +415,7 @@ public class MmkvConfigManagerImpl extends ConfigManager {
                     ObjectInputStream objectInputStream = new ObjectInputStream(inputStream);
                     return objectInputStream.readObject();
                 } catch (Exception e) {
-                    Logger.e(e);
+                    WeLogger.e(e);
                     return null;
                 }
             }

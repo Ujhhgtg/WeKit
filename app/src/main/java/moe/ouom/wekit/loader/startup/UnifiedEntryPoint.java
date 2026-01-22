@@ -19,7 +19,7 @@ import de.robv.android.xposed.XposedHelpers;
 import moe.ouom.wekit.BuildConfig;
 import moe.ouom.wekit.loader.hookapi.IHookBridge;
 import moe.ouom.wekit.loader.hookapi.ILoaderService;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 @Keep
 @SuppressWarnings("unused")
@@ -69,7 +69,7 @@ public class UnifiedEntryPoint {
                     protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
                         Context context = (Context) param.thisObject;
 
-                        Logger.i("UnifiedEntryPoint", "Application attached, invoking StartupAgent...");
+                        WeLogger.i("UnifiedEntryPoint", "Application attached, invoking StartupAgent...");
 
                         try {
                             Class<?> kStartupAgent = Class.forName("moe.ouom.wekit.loader.startup.StartupAgent", false, UnifiedEntryPoint.class.getClassLoader());
@@ -105,7 +105,7 @@ public class UnifiedEntryPoint {
                 new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
-                    Logger.i("UnifiedEntryPoint", "Application onCreate!");
+                    WeLogger.i("UnifiedEntryPoint", "Application onCreate!");
                     Application hostApp = (Application) param.thisObject;
                     StartupInfo.setHostApp(hostApp);
                     }
@@ -125,7 +125,7 @@ public class UnifiedEntryPoint {
             fParent.setAccessible(true);
             fParent.set(self, newParent);
         } catch (Exception e) {
-            Logger.e("injectClassLoader: failed", e);
+            WeLogger.e("injectClassLoader: failed", e);
         }
     }
 

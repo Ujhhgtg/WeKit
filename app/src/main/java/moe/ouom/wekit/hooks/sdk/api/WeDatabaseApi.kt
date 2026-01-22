@@ -6,7 +6,7 @@ import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.util.log.Logger
+import moe.ouom.wekit.util.log.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 @SuppressLint("DiscouragedApi")
@@ -58,12 +58,12 @@ class WeDatabaseApi : ApiHookItem() {
                     // 分发事件给所有监听者
                     listeners.forEach { it.onInsert(table, values) }
                 } catch (e: Throwable) {
-                    Logger.e("WeDatabaseApi: Dispatch failed", e)
+                    WeLogger.e("WeDatabaseApi: Dispatch failed", e)
                 }
             }
-            Logger.i("WeDatabaseApi: Hook success")
+            WeLogger.i("WeDatabaseApi: Hook success")
         } catch (e: Throwable) {
-            Logger.e("WeDatabaseApi: Hook database failed", e)
+            WeLogger.e("WeDatabaseApi: Hook database failed", e)
         }
     }
 

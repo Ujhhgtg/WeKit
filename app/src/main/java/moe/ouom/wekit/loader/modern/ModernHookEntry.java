@@ -9,7 +9,7 @@ import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.XposedModule;
 import moe.ouom.wekit.loader.ModuleLoader;
 import moe.ouom.wekit.loader.startup.StartupInfo;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 /**
  * Entry point for started Xposed API 100.
@@ -39,7 +39,7 @@ public class ModernHookEntry extends XposedModule {
                 try {
                     handleLoadPackage(param.getClassLoader(), param.getApplicationInfo(), modulePath, processName);
                 } catch (ClassNotFoundException e) {
-                    Logger.e(e);
+                    WeLogger.e(e);
                 }
             }
         }
@@ -49,7 +49,7 @@ public class ModernHookEntry extends XposedModule {
 
     public void handleLoadPackage(@NonNull ClassLoader cl, @NonNull ApplicationInfo ai, @NonNull String modulePath, String processName) throws ClassNotFoundException {
         String dataDir = ai.dataDir;
-        Logger.d("ModernHookEntry.handleLoadHostPackage: dataDir=" + dataDir + ", modulePath=" + modulePath + ", processName=" + processName);
+        WeLogger.d("ModernHookEntry.handleLoadHostPackage: dataDir=" + dataDir + ", modulePath=" + modulePath + ", processName=" + processName);
         try {
             ModuleLoader.initialize(dataDir, cl, Lsp100HookImpl.INSTANCE, Lsp100HookImpl.INSTANCE, modulePath, true);
         } catch (ReflectiveOperationException e) {

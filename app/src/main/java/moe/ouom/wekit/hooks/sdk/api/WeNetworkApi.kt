@@ -1,16 +1,19 @@
 package moe.ouom.wekit.hooks.sdk.api
 
 import android.annotation.SuppressLint
-import moe.ouom.wekit.dexkit.TargetManager
+import moe.ouom.wekit.core.dsl.lazyDexMethod
 import moe.ouom.wekit.core.model.ApiHookItem
+import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.util.log.Logger
+import moe.ouom.wekit.util.log.WeLogger
+import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "API/网络请求服务", desc = "提供通用发包能力")
-class WeNetworkApi : ApiHookItem() {
+class WeNetworkApi : ApiHookItem(), IDexFind {
+    private val MethodGetNetSceneQueue by lazyDexMethod("MethodGetNetSceneQueue")
 
     companion object {
         private var methodGetMgr: Method? = null
@@ -26,7 +29,7 @@ class WeNetworkApi : ApiHookItem() {
          */
         fun sendRequest(netScene: Any) {
             if (!isInitialized) {
-                Logger.e("WeNetworkApi: Not initialized yet!")
+                WeLogger.e("WeNetworkApi: Not initialized yet!")
                 return
             }
 
@@ -38,16 +41,16 @@ class WeNetworkApi : ApiHookItem() {
                 val method = getSendMethod(queueObj, netScene.javaClass)
 
                 if (method == null) {
-                    Logger.e("WeNetworkApi: Send method not found for ${netScene.javaClass.simpleName}")
+                    WeLogger.e("WeNetworkApi: Send method not found for ${netScene.javaClass.simpleName}")
                     return
                 }
 
                 // 执行发送
                 method.invoke(queueObj, netScene)
-                Logger.d("WeNetworkApi: Request sent -> ${netScene.javaClass.simpleName}")
+                WeLogger.d("WeNetworkApi: Request sent -> ${netScene.javaClass.simpleName}")
 
             } catch (e: Throwable) {
-                Logger.e("WeNetworkApi: Failed to send request", e)
+                WeLogger.e("WeNetworkApi: Failed to send request", e)
             }
         }
 
@@ -56,24 +59,24 @@ class WeNetworkApi : ApiHookItem() {
          * 采用双重检查锁定 (DCL) 避免每次调用都 synchronized
          */
         private fun getSendMethod(queueObj: Any, netSceneClass: Class<*>): Method? {
-            // 第一层检查：如果已经有值，直接返回，不进入同步块
+            // 如果已经有值，直接返回，不进入同步块
             if (methodSend != null) {
                 return methodSend
             }
 
             synchronized(this) {
-                // 第二层检查：进入同步块后再次检查，防止并发初始化
+                // 进入同步块后再次检查，防止并发初始化
                 if (methodSend != null) {
                     return methodSend
                 }
 
                 // 确实没有，开始查找
-                Logger.i("WeNetworkApi: Cache miss, searching for doScene...")
+                WeLogger.i("WeNetworkApi: Cache miss, searching for doScene...")
                 val foundMethod = findSendMethodRecursive(queueObj.javaClass, netSceneClass)
 
                 if (foundMethod != null) {
                     methodSend = foundMethod
-                    Logger.i("WeNetworkApi: Method found and cached -> ${foundMethod.name}")
+                    WeLogger.i("WeNetworkApi: Method found and cached -> ${foundMethod.name}")
                 }
 
                 return methodSend
@@ -113,18 +116,62 @@ class WeNetworkApi : ApiHookItem() {
         }
     }
 
+    // Dex 查找逻辑
+    override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
+        val descriptors = mutableMapOf<String, String>()
+
+        // 查找 NetSceneQueue 类
+        val netSceneQueueClass = dexKit.findClass {
+            matcher {
+                methods {
+                    add {
+                        paramCount = 4
+                        usingStrings("MicroMsg.Mvvm.NetSceneObserverOwner")
+                    }
+                }
+            }
+        }.singleOrNull()
+
+        if (netSceneQueueClass == null) {
+            throw RuntimeException("NetSceneQueue class not found")
+        }
+
+
+        MethodGetNetSceneQueue.findDexClassMethodOptional(dexKit, allowMultiple = true) {
+            matcher {
+                modifiers = Modifier.STATIC
+                paramCount = 0
+                returnType = netSceneQueueClass.name
+            }
+        }
+
+        MethodGetNetSceneQueue.getDescriptorString()?.let { descriptors["MethodGetNetSceneQueue"] = it }
+
+        return descriptors
+    }
+
+    override fun loadFromCache(cache: Map<String, Any>) {
+        (cache["MethodGetNetSceneQueue"] as? String)?.let { MethodGetNetSceneQueue.setDescriptorFromCache(it) }
+    }
+
     override fun entry(classLoader: ClassLoader) {
         try {
-            // 获取网络队列单例的方法 (NetSceneQueue.getInstance)
-            methodGetMgr = TargetManager.requireMethod(TargetManager.KEY_METHOD_GET_SEND_MGR)
+            // 调试：检查描述符状态
+            val descriptor = MethodGetNetSceneQueue.getDescriptor()
+            WeLogger.d("WeNetworkApi: Descriptor = $descriptor")
+            WeLogger.d("WeNetworkApi: Descriptor string = ${MethodGetNetSceneQueue.getDescriptorString()}")
+
+            // 从 DSL 获取方法
+            methodGetMgr = MethodGetNetSceneQueue.getMethod(classLoader)
+
             if (methodGetMgr != null) {
                 isInitialized = true
-                Logger.i("WeNetworkApi: Initialized")
+                WeLogger.i("WeNetworkApi: Initialized")
             } else {
-                Logger.e("WeNetworkApi: KEY_METHOD_GET_SEND_MGR is null")
+                WeLogger.e("WeNetworkApi: MethodGetNetSceneQueue is null")
             }
         } catch (e: Throwable) {
-            Logger.e("WeNetworkApi: Init failed", e)
+            WeLogger.e("WeNetworkApi: Init failed", e)
         }
     }
 

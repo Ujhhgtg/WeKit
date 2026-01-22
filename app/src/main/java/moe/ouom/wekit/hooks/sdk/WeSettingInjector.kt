@@ -11,21 +11,133 @@ import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.constants.Constants
-import moe.ouom.wekit.dexkit.TargetManager
+import moe.ouom.wekit.core.dsl.lazyDexMethod
 import moe.ouom.wekit.core.model.ApiHookItem
+import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.ui.CommonContextWrapper
 import moe.ouom.wekit.ui.creator.dialog.MainSettingsDialog
-import moe.ouom.wekit.util.log.Logger
+import moe.ouom.wekit.util.log.WeLogger
+import org.luckypray.dexkit.DexKitBridge
+import java.lang.reflect.Modifier
 
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "设置模块入口")
-class WeSettingInjector : ApiHookItem() {
+class WeSettingInjector : ApiHookItem(), IDexFind {
+
+    // ========== DSL ==========
+    private val methodSetKey by lazyDexMethod("MethodSetKey")
+    private val methodSetTitle by lazyDexMethod("MethodSetTitle")
+    private val methodGetKey by lazyDexMethod("MethodGetKey")
+    private val methodAddPref by lazyDexMethod("MethodAddPref")
 
     companion object {
         private const val KEY_WEKIT_ENTRY = "wekit_settings_entry"
         private const val TITLE_WEKIT_ENTRY = "WeKit 设置"
         private const val MENU_ID_WEKIT = 11451419
+        private const val CLS_PREFERENCE = "com.tencent.mm.ui.base.preference.Preference"
+    }
+
+    override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
+        val descriptors = mutableMapOf<String, String>()
+
+        // 查找 Preference 类
+        val prefClass = dexKit.findClass {
+            matcher { className = CLS_PREFERENCE }
+        }.singleOrNull() ?: run {
+            WeLogger.e("WeSettingInjector: Preference 类未找到")
+            return descriptors
+        }
+
+        // 查找 setKey 方法
+        methodSetKey.findDexClassMethodOptional(dexKit, allowMultiple = true) {
+            searchPackages("com.tencent.mm.ui.base.preference")
+            matcher {
+                declaredClass = CLS_PREFERENCE
+                returnType = "void"
+                paramTypes("java.lang.String")
+                usingStrings("Preference")
+            }
+        }
+        methodSetKey.getDescriptorString()?.let { descriptors["methodSetKey"] = it }
+
+        // 查找 setTitle 方法
+        val setTitleCandidates = prefClass.findMethod {
+            matcher {
+                returnType = "void"
+                paramTypes("java.lang.CharSequence")
+            }
+        }
+        if (setTitleCandidates.isNotEmpty()) {
+            val target = setTitleCandidates.last()
+            methodSetTitle.setDescriptor(
+                moe.ouom.wekit.dexkit.DexMethodDescriptor(
+                    target.className,
+                    target.methodName,
+                    target.methodSign
+                )
+            )
+        }
+        methodSetTitle.getDescriptorString()?.let { descriptors["methodSetTitle"] = it }
+
+        // 查找 getKey 方法
+        val getKeyCandidates = prefClass.findMethod {
+            matcher {
+                paramCount = 0
+                returnType = "java.lang.String"
+            }
+        }
+        val targetGetKey = getKeyCandidates.singleOrNull { it.name != "toString" }
+        if (targetGetKey != null) {
+            methodGetKey.setDescriptor(
+                moe.ouom.wekit.dexkit.DexMethodDescriptor(
+                    targetGetKey.className,
+                    targetGetKey.methodName,
+                    targetGetKey.methodSign
+                )
+            )
+        }
+        methodGetKey.getDescriptorString()?.let { descriptors["methodGetKey"] = it }
+
+        // 查找 Adapter 类和 addPreference 方法
+        val adapterClass = dexKit.findClass {
+            searchPackages("com.tencent.mm.ui.base.preference")
+            matcher {
+                superClass = "android.widget.BaseAdapter"
+                methods {
+                    add {
+                        modifiers = Modifier.PUBLIC
+                        name = "getView"
+                        paramCount = 3
+                    }
+                    add {
+                        name = "<init>"
+                        paramCount = 3
+                    }
+                }
+            }
+        }.singleOrNull()
+
+        if (adapterClass != null) {
+            methodAddPref.findDexClassMethodOptional(dexKit, allowMultiple = true) {
+                searchPackages("com.tencent.mm.ui.base.preference")
+                matcher {
+                    declaredClass = adapterClass.name
+                    paramTypes(CLS_PREFERENCE, "int")
+                    returnType = "void"
+                }
+            }
+        }
+        methodAddPref.getDescriptorString()?.let { descriptors["methodAddPref"] = it }
+
+        return descriptors
+    }
+
+    override fun loadFromCache(cache: Map<String, Any>) {
+        (cache["methodSetKey"] as? String)?.let { methodSetKey.setDescriptorFromCache(it) }
+        (cache["methodSetTitle"] as? String)?.let { methodSetTitle.setDescriptorFromCache(it) }
+        (cache["methodGetKey"] as? String)?.let { methodGetKey.setDescriptorFromCache(it) }
+        (cache["methodAddPref"] as? String)?.let { methodAddPref.setDescriptorFromCache(it) }
     }
 
     override fun entry(classLoader: ClassLoader) {
@@ -53,13 +165,14 @@ class WeSettingInjector : ApiHookItem() {
                 return // 是新版，跳过
             }
 
-            val methodSetKey = TargetManager.requireMethod(TargetManager.KEY_METHOD_SET_KEY)
-            val methodSetTitle = TargetManager.requireMethod(TargetManager.KEY_METHOD_SET_TITLE)
-            val methodGetKey = TargetManager.requireMethod(TargetManager.KEY_METHOD_GET_KEY)
-            val methodAddPref = TargetManager.requireMethod(TargetManager.KEY_METHOD_ADD_PREF)
+            // 从 DSL 获取方法
+            val setKeyMethod = methodSetKey.getMethod(classLoader)
+            val setTitleMethod = methodSetTitle.getMethod(classLoader)
+            val getKeyMethod = methodGetKey.getMethod(classLoader)
+            val addPrefMethod = methodAddPref.getMethod(classLoader)
 
-            if (methodSetKey == null || methodSetTitle == null || methodGetKey == null || methodAddPref == null) {
-                Logger.e("WeSettingInjector: 关键方法未找到，跳过 Hook。请先运行 DexKit 分析 （TargetManager）")
+            if (setKeyMethod == null || setTitleMethod == null || getKeyMethod == null || addPrefMethod == null) {
+                WeLogger.e("WeSettingInjector: 关键方法未找到，跳过 Hook。请先运行 DexKit 分析")
                 return
             }
 
@@ -77,19 +190,19 @@ class WeSettingInjector : ApiHookItem() {
                     val clsIconPref = XposedHelpers.findClass(Constants.Companion.CLAZZ_ICON_PREFERENCE, classLoader)
                     val prefInstance = XposedHelpers.newInstance(clsIconPref, context)
 
-                    methodSetKey.invoke(prefInstance, KEY_WEKIT_ENTRY)
-                    methodSetTitle.invoke(prefInstance, TITLE_WEKIT_ENTRY)
+                    setKeyMethod.invoke(prefInstance, KEY_WEKIT_ENTRY)
+                    setTitleMethod.invoke(prefInstance, TITLE_WEKIT_ENTRY)
 
                     val prefScreen = XposedHelpers.callMethod(activity, "getPreferenceScreen")
 
-                    methodAddPref.invoke(prefScreen, prefInstance, 0)
+                    addPrefMethod.invoke(prefScreen, prefInstance, 0)
 
                 } catch (e: Throwable) {
-                    Logger.e("WeSettingInjector: 插入选项失败", e)
+                    WeLogger.e("WeSettingInjector: 插入选项失败", e)
                 }
             }
 
-            Logger.i("WeSettingInjector: Created WeKit setting")
+            WeLogger.i("WeSettingInjector: Created WeKit setting")
 
             XposedBridge.hookAllMethods(
                 clsSettingsUI,
@@ -100,8 +213,8 @@ class WeSettingInjector : ApiHookItem() {
                             if (param.args.size < 2) return
                             val preference = param.args[1] ?: return
 
-                            val key = methodGetKey.invoke(preference) as? String
-                            Logger.d("WeKit Debug: Click key = $key")
+                            val key = getKeyMethod.invoke(preference) as? String
+                            WeLogger.d("WeKit Debug: Click key = $key")
 
                             if (KEY_WEKIT_ENTRY == key) {
                                 val activity = param.thisObject as Activity
@@ -112,17 +225,17 @@ class WeSettingInjector : ApiHookItem() {
                                 param.result = true
                             }
                         } catch (t: Throwable) {
-                            Logger.e(t)
-                            Logger.e("WeSettingInjector: Click handle error", t)
+                            WeLogger.e(t)
+                            WeLogger.e("WeSettingInjector: Click handle error", t)
                         }
                     }
                 }
             )
 
-            Logger.i("WeSettingInjector: Hooked onPreferenceTreeClick")
+            WeLogger.i("WeSettingInjector: Hooked onPreferenceTreeClick")
 
         } catch (t: Throwable) {
-            Logger.e("Legacy Settings: Hook 流程异常", t)
+            WeLogger.e("Legacy Settings: Hook 流程异常", t)
         }
     }
 
@@ -160,7 +273,7 @@ class WeSettingInjector : ApiHookItem() {
                     if (menu.findItem(MENU_ID_WEKIT) == null) {
                         menu.add(0, MENU_ID_WEKIT, 0, TITLE_WEKIT_ENTRY)
                             .setIcon(R.drawable.ic_menu_preferences)
-                        Logger.i("New Settings: Injected Menu entry into ${activity.javaClass.simpleName}")
+                        WeLogger.i("New Settings: Injected Menu entry into ${activity.javaClass.simpleName}")
                     }
                 }
             }
@@ -186,10 +299,10 @@ class WeSettingInjector : ApiHookItem() {
                 }
             }
 
-            Logger.i("New Settings: Hook setup complete (Targeting MMActivity)")
+            WeLogger.i("New Settings: Hook setup complete (Targeting MMActivity)")
 
         } catch (t: Throwable) {
-            Logger.e("New Settings: Hook 流程异常", t)
+            WeLogger.e("New Settings: Hook 流程异常", t)
         }
     }
 
@@ -199,7 +312,7 @@ class WeSettingInjector : ApiHookItem() {
             val dialog = MainSettingsDialog(fixContext)
             dialog.show()
         } catch (e: Throwable) {
-            Logger.e("Failed to open settings dialog", e)
+            WeLogger.e("Failed to open settings dialog", e)
         }
     }
 

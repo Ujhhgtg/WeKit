@@ -8,8 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import de.robv.android.xposed.XposedBridge;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 /**
  * 模块资源加载器助手
@@ -44,12 +43,12 @@ public class ModuleRes {
             if (themeId != 0) {
                 sModuleContext.setTheme(themeId);
             } else {
-                Logger.e("ModuleRes: 未找到 Theme.WeKit，Material 组件可能会崩溃！");
+                WeLogger.e("ModuleRes: 未找到 Theme.WeKit，Material 组件可能会崩溃！");
             }
 
-            Logger.i("ModuleRes: 初始化成功 [" + modulePkgName + "]");
+            WeLogger.i("ModuleRes: 初始化成功 [" + modulePkgName + "]");
         } catch (PackageManager.NameNotFoundException e) {
-            Logger.e("ModuleRes: 初始化失败，未找到模块包名: " + modulePkgName);
+            WeLogger.e("ModuleRes: 初始化失败，未找到模块包名: " + modulePkgName);
         }
     }
 
@@ -67,7 +66,7 @@ public class ModuleRes {
         if (sResources == null) return 0;
         int id = sResources.getIdentifier(resName, resType, sPackageName);
         if (id == 0) {
-            Logger.e("ModuleRes: 未找到资源 " + resType + "/" + resName);
+            WeLogger.e("ModuleRes: 未找到资源 " + resType + "/" + resName);
         }
         return id;
     }

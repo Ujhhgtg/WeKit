@@ -7,7 +7,7 @@ import moe.ouom.wekit.config.ConfigManager;
 import moe.ouom.wekit.constants.Constants;
 import moe.ouom.wekit.loader.startup.HybridClassLoader;
 import moe.ouom.wekit.util.common.SyncUtils;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public abstract class BaseSwitchFunctionHookItem extends BaseHookItem {
 
@@ -39,14 +39,14 @@ public abstract class BaseSwitchFunctionHookItem extends BaseHookItem {
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
         if (!enabled) {
-            Logger.i("[CategorySettings] Unloading HookItem: " + getPath());
+            WeLogger.i("[CategorySettings] Unloading HookItem: " + getPath());
             try {
                 this.unload(HybridClassLoader.getHostClassLoader());
             } catch (Throwable e) {
-                Logger.e("[CategorySettings] Unload HookItem Failed", e);
+                WeLogger.e("[CategorySettings] Unload HookItem Failed", e);
             }
         } else {
-            Logger.i("[CategorySettings] Loading HookItem: " + getPath());
+            WeLogger.i("[CategorySettings] Loading HookItem: " + getPath());
             this.startLoad();
         }
     }
@@ -54,7 +54,7 @@ public abstract class BaseSwitchFunctionHookItem extends BaseHookItem {
     protected final void tryExecute(XC_MethodHook.MethodHookParam param, HookAction hookAction) {
         if (isEnabled()) {
             super.tryExecute(param, hookAction);
-            Logger.i("[CategorySettings] Loading HookItem: " + getPath());
+            WeLogger.i("[CategorySettings] Loading HookItem: " + getPath());
         }
     }
 

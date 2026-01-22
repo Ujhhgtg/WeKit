@@ -24,7 +24,7 @@ import moe.ouom.wekit.config.ConfigManager
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.ui.CommonContextWrapper
 import moe.ouom.wekit.util.common.ModuleRes
-import moe.ouom.wekit.util.log.Logger
+import moe.ouom.wekit.util.log.WeLogger
 
 abstract class BaseRikkaDialog(
     context: Context,
@@ -207,7 +207,7 @@ abstract class BaseRikkaDialog(
 
         val listener = CompoundButton.OnCheckedChangeListener { _, checked ->
             ConfigManager.getDefaultConfig().edit().putBoolean(configKey, checked).apply()
-            Logger.d("BaseRikkaDialog: Config changed [$configKey] -> $checked")
+            WeLogger.d("BaseRikkaDialog: Config changed [$configKey] -> $checked")
             updateDependencies(configKey, checked)
         }
 
@@ -475,7 +475,7 @@ abstract class BaseRikkaDialog(
                 }
                 summaryView?.text = displayText
 
-                Logger.d("BaseRikkaDialog: Config changed [$key] -> $newValue")
+                WeLogger.d("BaseRikkaDialog: Config changed [$key] -> $newValue")
             }
             .setNegativeButton("取消", null)
             .show() // 创建并显示对话框
@@ -506,7 +506,7 @@ abstract class BaseRikkaDialog(
             popup.menu.add(displayText).setOnMenuItemClickListener {
                 ConfigManager.getDefaultConfig().edit().putInt(key, value).apply()
                 summaryView?.text = displayText
-                Logger.d("BaseRikkaDialog: Config changed [$key] -> $value")
+                WeLogger.d("BaseRikkaDialog: Config changed [$key] -> $value")
                 true
             }
         }
@@ -596,7 +596,7 @@ abstract class BaseRikkaDialog(
                 val anim = AnimationUtils.loadAnimation(ModuleRes.getContext(), animId)
                 rootView.startAnimation(anim)
             } catch (e: Exception) {
-                Logger.e("Enter anim error", e)
+                WeLogger.e("Enter anim error", e)
             }
         }
     }

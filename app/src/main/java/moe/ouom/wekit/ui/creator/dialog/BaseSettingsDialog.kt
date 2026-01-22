@@ -5,14 +5,13 @@ import android.content.Context
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowManager
 import android.view.animation.AnimationUtils
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.appcompat.widget.Toolbar // 这次可以放心引用 AndroidX 了
 import moe.ouom.wekit.util.common.ModuleRes
-import moe.ouom.wekit.util.log.Logger
+import moe.ouom.wekit.util.log.WeLogger
 
 abstract class BaseSettingsDialog(
     context: Context,
@@ -115,7 +114,7 @@ abstract class BaseSettingsDialog(
                 val anim = AnimationUtils.loadAnimation(ModuleRes.getContext(), animId)
                 rootView.startAnimation(anim)
             } catch (e: Exception) {
-                Logger.e("Enter anim error", e)
+                WeLogger.e("Enter anim error", e)
             }
         }
     }

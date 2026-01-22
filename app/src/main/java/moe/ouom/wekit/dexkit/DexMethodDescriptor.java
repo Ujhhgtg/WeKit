@@ -51,7 +51,13 @@ public class DexMethodDescriptor implements Serializable {
         if (a < 0 || b < 0) {
             throw new IllegalArgumentException(desc);
         }
-        declaringClass = desc.substring(0, a);
+        String clz = desc.substring(0, a);
+        // 如果是点分格式，转换为JVM格式
+        if (!clz.startsWith("L") && !clz.startsWith("[")) {
+            declaringClass = "L" + clz.replace('.', '/') + ";";
+        } else {
+            declaringClass = clz;
+        }
         name = desc.substring(a + 2, b);
         signature = desc.substring(b);
     }
@@ -60,7 +66,12 @@ public class DexMethodDescriptor implements Serializable {
         if (clz == null || n == null || s == null) {
             throw new NullPointerException();
         }
-        declaringClass = clz;
+        // 如果是点分格式，转换为JVM格式
+        if (!clz.startsWith("L") && !clz.startsWith("[")) {
+            declaringClass = "L" + clz.replace('.', '/') + ";";
+        } else {
+            declaringClass = clz;
+        }
         name = n;
         signature = s;
     }

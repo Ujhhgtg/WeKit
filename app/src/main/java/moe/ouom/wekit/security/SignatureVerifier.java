@@ -11,7 +11,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 import moe.ouom.wekit.BuildConfig;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 /**
  * 签名校验器 - 防止模块被篡改
@@ -62,15 +62,15 @@ public class SignatureVerifier {
                 sVerified = true;
 
                 if (!sSignatureValid) {
-                    Logger.e(TAG, "签名校验失败！模块已被篡改，所有功能将被禁用");
+                    WeLogger.e(TAG, "签名校验失败！模块已被篡改，所有功能将被禁用");
                 } else {
-                    Logger.i(TAG, "签名校验通过");
+                    WeLogger.i(TAG, "签名校验通过");
                 }
 
                 return sSignatureValid;
 
             } catch (Exception e) {
-                Logger.e("签名校验异常", e);
+                WeLogger.e("签名校验异常", e);
                 sVerified = true;
                 sSignatureValid = false;
                 return false;
@@ -121,7 +121,7 @@ public class SignatureVerifier {
             return hexString.toString().toUpperCase();
 
         } catch (NoSuchAlgorithmException e) {
-            Logger.e("SHA-256 算法不可用", e);
+            WeLogger.e("SHA-256 算法不可用", e);
             return null;
         }
     }

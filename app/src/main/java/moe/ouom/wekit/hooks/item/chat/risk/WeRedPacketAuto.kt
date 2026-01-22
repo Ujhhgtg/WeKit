@@ -8,23 +8,33 @@ import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.config.ConfigManager
 import moe.ouom.wekit.constants.Constants.Companion.TYPE_LUCKY_MONEY
 import moe.ouom.wekit.constants.Constants.Companion.TYPE_LUCKY_MONEY_EXCLUSIVE
-import moe.ouom.wekit.dexkit.TargetManager
+import moe.ouom.wekit.core.dsl.lazyDexMethod
+import moe.ouom.wekit.core.dsl.toDexMethod
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
+import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.api.WeDatabaseApi
 import moe.ouom.wekit.hooks.sdk.api.WeNetworkApi
 import moe.ouom.wekit.ui.creator.dialog.item.WeRedPacketConfigDialog
-import moe.ouom.wekit.util.log.Logger
+import moe.ouom.wekit.util.log.WeLogger
 import org.json.JSONObject
+import org.luckypray.dexkit.DexKitBridge
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "聊天与消息/自动抢红包", desc = "监听消息并自动拆开红包")
-class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseInsertListener {
+class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseInsertListener, IDexFind {
+
+
+    // ========== DSL ==========
+    private val clzReceiveLuckyMoney by lazyDexMethod("ClsReceiveLuckyMoney")
+    private val clzOpenLuckyMoney by lazyDexMethod("ClsOpenLuckyMoney")
+    private val methodOnGYNetEnd by lazyDexMethod("MethodOnGYNetEnd")
+
+    // ========== CLASS ==========
     private var clsReceiveLuckyMoney: Class<*>? = null
     private var clsOpenLuckyMoney: Class<*>? = null
-
     private val currentRedPacketMap = ConcurrentHashMap<String, RedPacketInfo>()
 
     data class RedPacketInfo(
@@ -40,28 +50,38 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
     override fun entry(classLoader: ClassLoader) {
         // 初始化业务特定的类
         if (!initClasses(classLoader)) {
-            Logger.e("WeRedPacketAuto: 缺少关键类，功能不可用")
+            WeLogger.e("WeRedPacketAuto: 缺少关键类，功能不可用")
             return
         }
 
         // 注册数据库监听
         WeDatabaseApi.addListener(this)
 
-        // Hook 具体的网络回调 (接收拆包结果)
+        // Hook 具体的网络回调
         hookReceiveCallback()
     }
 
     private fun initClasses(classLoader: ClassLoader): Boolean {
         try {
-            val clsReceiveName = TargetManager.requireClassName(TargetManager.KEY_CLASS_LUCKY_MONEY_RECEIVE)
-            val clsOpenName = TargetManager.requireClassName(TargetManager.KEY_CLASS_LUCKY_MONEY_OPEN)
+            // 调试：检查描述符状态
+            WeLogger.d("WeRedPacketAuto: clzReceiveLuckyMoney descriptor = ${clzReceiveLuckyMoney.getDescriptor()}")
+            WeLogger.d("WeRedPacketAuto: clzOpenLuckyMoney descriptor = ${clzOpenLuckyMoney.getDescriptor()}")
 
-            if (clsReceiveName.isNotEmpty()) clsReceiveLuckyMoney = XposedHelpers.findClass(clsReceiveName, classLoader)
-            if (clsOpenName.isNotEmpty()) clsOpenLuckyMoney = XposedHelpers.findClass(clsOpenName, classLoader)
+            // 从 DSL 获取类名
+            val clsReceiveDesc = clzReceiveLuckyMoney.getDescriptor()
+            val clsOpenDesc = clzOpenLuckyMoney.getDescriptor()
+
+            if (clsReceiveDesc != null) {
+                clsReceiveLuckyMoney = XposedHelpers.findClass(clsReceiveDesc.declaringClassName, classLoader)
+            }
+
+            if (clsOpenDesc != null) {
+                clsOpenLuckyMoney = XposedHelpers.findClass(clsOpenDesc.declaringClassName, classLoader)
+            }
 
             return clsReceiveLuckyMoney != null && clsOpenLuckyMoney != null
         } catch (e: Throwable) {
-            Logger.e("WeRedPacketAuto: initClasses error", e)
+            WeLogger.e("WeRedPacketAuto: initClasses error", e)
             return false
         }
     }
@@ -104,7 +124,7 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
 
             if (sendId.isEmpty()) return
 
-            Logger.i("WeRedPacketAuto: 发现红包 sendId=$sendId")
+            WeLogger.i("WeRedPacketAuto: 发现红包 sendId=$sendId")
 
             currentRedPacketMap[sendId] = RedPacketInfo(
                 sendId = sendId,
@@ -135,12 +155,12 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
                         WeNetworkApi.sendRequest(req)
                     }
                 } catch (e: Throwable) {
-                    Logger.e("WeRedPacketAuto: 发送拆包请求失败", e)
+                    WeLogger.e("WeRedPacketAuto: 发送拆包请求失败", e)
                 }
             }.start()
 
         } catch (e: Throwable) {
-            Logger.e("WeRedPacketAuto: 解析红包数据失败", e)
+            WeLogger.e("WeRedPacketAuto: 解析红包数据失败", e)
         }
     }
 
@@ -148,45 +168,39 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
         if (clsReceiveLuckyMoney == null) return
 
         try {
-            // Hook onGYNetEnd 监听拆包结果
-            val mOnGYNetEnd = XposedHelpers.findMethodExact(
-                clsReceiveLuckyMoney,
-                "onGYNetEnd",
-                Int::class.javaPrimitiveType,
-                String::class.java,
-                JSONObject::class.java
-            )
+            // 使用 DSL Hook onGYNetEnd
+            methodOnGYNetEnd.toDexMethod {
+                afterIfEnabled { param ->
+                    val json = param.args[2] as? JSONObject ?: return@afterIfEnabled
+                    val sendId = json.optString("sendId")
+                    val timingIdentifier = json.optString("timingIdentifier")
 
-            hookAfter(mOnGYNetEnd) { param ->
-                val json = param.args[2] as? JSONObject ?: return@hookAfter
-                val sendId = json.optString("sendId")
-                val timingIdentifier = json.optString("timingIdentifier")
+                    if (timingIdentifier.isNullOrEmpty() || sendId.isNullOrEmpty()) return@afterIfEnabled
 
-                if (timingIdentifier.isNullOrEmpty() || sendId.isNullOrEmpty()) return@hookAfter
+                    val info = currentRedPacketMap[sendId] ?: return@afterIfEnabled
+                    WeLogger.i("WeRedPacketAuto: 拆包成功，准备开包 ($sendId)")
 
-                val info = currentRedPacketMap[sendId] ?: return@hookAfter
-                Logger.i("WeRedPacketAuto: 拆包成功，准备开包 ($sendId)")
+                    Thread {
+                        try {
+                            // 构造请求对象
+                            val openReq = XposedHelpers.newInstance(
+                                clsOpenLuckyMoney,
+                                info.msgType, info.channelId, info.sendId, info.nativeUrl,
+                                info.headImg, info.nickName, info.talker,
+                                "v1.0", timingIdentifier, ""
+                            )
+                            // 使用 NetworkApi 发送
+                            WeNetworkApi.sendRequest(openReq)
 
-                Thread {
-                    try {
-                        // 构造请求对象 (开包)
-                        val openReq = XposedHelpers.newInstance(
-                            clsOpenLuckyMoney,
-                            info.msgType, info.channelId, info.sendId, info.nativeUrl,
-                            info.headImg, info.nickName, info.talker,
-                            "v1.0", timingIdentifier, ""
-                        )
-                        // 使用 NetworkApi 发送
-                        WeNetworkApi.sendRequest(openReq)
-
-                        currentRedPacketMap.remove(sendId)
-                    } catch (e: Throwable) {
-                        Logger.e("WeRedPacketAuto: 开包失败", e)
-                    }
-                }.start()
+                            currentRedPacketMap.remove(sendId)
+                        } catch (e: Throwable) {
+                            WeLogger.e("WeRedPacketAuto: 开包失败", e)
+                        }
+                    }.start()
+                }
             }
         } catch (e: Throwable) {
-            Logger.e("WeRedPacketAuto: Hook onGYNetEnd failed", e)
+            WeLogger.e("WeRedPacketAuto: Hook onGYNetEnd failed", e)
         }
     }
 
@@ -208,4 +222,52 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
         super.onClick(context)
         context?.let { WeRedPacketConfigDialog(it).show() }
     }
+
+    override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
+        val descriptors = mutableMapOf<String, String>()
+
+        // 查找接收红包类
+        clzReceiveLuckyMoney.findDexClassMethodOptional(dexKit, allowMultiple = true) {
+            matcher {
+                declaredClass {
+                    usingStrings("MicroMsg.NetSceneReceiveLuckyMoney")
+                }
+                name = "<init>"
+            }
+        }
+        clzReceiveLuckyMoney.getDescriptorString()?.let { descriptors["clzReceiveLuckyMoney"] = it }
+
+        // 查找开红包类
+        clzOpenLuckyMoney.findDexClassMethodOptional(dexKit, allowMultiple = true) {
+            matcher {
+                declaredClass {
+                    usingStrings("MicroMsg.NetSceneOpenLuckyMoney")
+                }
+                name = "<init>"
+            }
+        }
+        clzOpenLuckyMoney.getDescriptorString()?.let { descriptors["clzOpenLuckyMoney"] = it }
+
+        // 查找 onGYNetEnd 回调方法
+        val receiveLuckyMoneyClassName = clzReceiveLuckyMoney.getDescriptor()?.declaringClassName
+        if (receiveLuckyMoneyClassName != null) {
+            methodOnGYNetEnd.findDexClassMethodOptional(dexKit, allowMultiple = true) {
+                matcher {
+                    declaredClass = receiveLuckyMoneyClassName
+                    name = "onGYNetEnd"
+                    paramCount = 3
+                }
+            }
+            methodOnGYNetEnd.getDescriptorString()?.let { descriptors["methodOnGYNetEnd"] = it }
+        }
+
+        return descriptors
+    }
+
+    override fun loadFromCache(cache: Map<String, Any>) {
+        (cache["clzReceiveLuckyMoney"] as? String)?.let { clzReceiveLuckyMoney.setDescriptorFromCache(it) }
+        (cache["clzOpenLuckyMoney"] as? String)?.let { clzOpenLuckyMoney.setDescriptorFromCache(it) }
+        (cache["methodOnGYNetEnd"] as? String)?.let { methodOnGYNetEnd.setDescriptorFromCache(it) }
+    }
+
 }

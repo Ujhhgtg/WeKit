@@ -22,7 +22,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class Utils {
     private static Handler sHandler;
@@ -72,7 +72,7 @@ public class Utils {
 
             }
         } catch (Exception e) {
-            Logger.e(e);
+            WeLogger.e(e);
         }
 
 
@@ -81,32 +81,32 @@ public class Utils {
 
     public static void printStackTrace() {
         StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-        Logger.e("---------------------- [Stack Trace] ----------------------");
+        WeLogger.e("---------------------- [Stack Trace] ----------------------");
         for (StackTraceElement element : stackTrace) {
-            Logger.d("    at " + element.toString());
+            WeLogger.d("    at " + element.toString());
         }
-        Logger.e("^---------------------- over ----------------------^");
+        WeLogger.e("^---------------------- over ----------------------^");
     }
 
 
     public static void printIntentExtras(String TAG, Intent intent) {
         if (intent == null) {
-            Logger.e("Intent is null or has no extras.");
+            WeLogger.e("Intent is null or has no extras.");
             return;
         }
 
-        Logger.i("*-------------------- " + TAG + " --------------------*");
+        WeLogger.i("*-------------------- " + TAG + " --------------------*");
         Bundle extras = intent.getExtras();
         if (extras != null) {
             for (String key : extras.keySet()) {
                 Object value = extras.get(key);
-                Logger.d(key + " = " + Objects.requireNonNull(value) + "(" + value.getClass() + ")");
+                WeLogger.d(key + " = " + Objects.requireNonNull(value) + "(" + value.getClass() + ")");
             }
         } else {
-            Logger.w("No extras found in the Intent.");
+            WeLogger.w("No extras found in the Intent.");
         }
 
-        Logger.i("^-------------------- " + "OVER~" + " --------------------^");
+        WeLogger.i("^-------------------- " + "OVER~" + " --------------------^");
     }
 
     public static Activity getActivityFromView(View view) {

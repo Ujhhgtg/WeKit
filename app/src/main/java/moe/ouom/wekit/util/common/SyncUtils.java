@@ -14,7 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import moe.ouom.wekit.host.impl.HostInfo;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 @SuppressLint("PrivateApi")
 public class SyncUtils {
@@ -102,7 +102,7 @@ public class SyncUtils {
                     }
                 }
             } catch (Throwable e) {
-                Logger.e("getProcessName error " + e);
+                WeLogger.e("getProcessName error " + e);
             }
             retry++;
             if (retry >= 3) {

@@ -15,7 +15,7 @@ import java.lang.reflect.Constructor;
 import java.util.HashMap;
 
 import moe.ouom.wekit.util.common.ModuleRes;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 /**
  * 为解决 Xposed 模块 UI 注入时的环境冲突设计
@@ -61,7 +61,7 @@ public class CommonContextWrapper extends ContextWrapper {
             if (defaultTheme != 0) {
                 this.mTheme.applyStyle(defaultTheme, true);
             } else {
-                Logger.w("CommonContextWrapper: Theme.WeKit not found!");
+                WeLogger.w("CommonContextWrapper: Theme.WeKit not found!");
             }
         }
     }

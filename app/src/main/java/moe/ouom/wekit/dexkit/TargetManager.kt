@@ -7,7 +7,7 @@ import android.text.TextUtils
 import moe.ouom.wekit.config.ConfigManager
 import moe.ouom.wekit.util.Initiator.loadClass
 import moe.ouom.wekit.util.common.Utils.findMethodByName
-import moe.ouom.wekit.util.log.Logger
+import moe.ouom.wekit.util.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.MethodData
 import java.lang.reflect.Constructor
@@ -65,7 +65,7 @@ object TargetManager {
                 val result = getResult(ai, cl)
                 activity.runOnUiThread { callback?.invoke(result) }
             } catch (e: Exception) {
-                Logger.e("TargetManager: DexKit Fatal Error", e)
+                WeLogger.e("TargetManager: DexKit Fatal Error", e)
                 activity.runOnUiThread { callback?.invoke("搜索失败: ${e.message}") }
             }
         }
@@ -160,7 +160,7 @@ object TargetManager {
             }
 
         } catch (t: Throwable) {
-            Logger.e("Search LuckyMoney Error", t)
+            WeLogger.e("Search LuckyMoney Error", t)
             out.append("\n[ERROR] 搜索红包相关类时发生异常: ${t.message}")
         }
     }
@@ -230,7 +230,7 @@ object TargetManager {
             }
 
         } catch (t: Throwable) {
-            Logger.e("Preference class error", t)
+            WeLogger.e("Preference class error", t)
             out.append("\n[FAIL] Preference 类分析严重错误")
         }
     }
@@ -280,7 +280,7 @@ object TargetManager {
             }
 
         } catch (t: Throwable) {
-            Logger.e("Adapter search error", t)
+            WeLogger.e("Adapter search error", t)
             out.append("\n[FAIL] Adapter 类分析出错")
         }
     }
@@ -293,7 +293,7 @@ object TargetManager {
             out.append("\n[OK] $key -> ${m.name}")
         } catch (e: Exception) {
             out.append("\n[ERROR] 缓存失败 $key: ${e.message}")
-            Logger.e("Cache error for $key", e)
+            WeLogger.e("Cache error for $key", e)
         }
     }
 

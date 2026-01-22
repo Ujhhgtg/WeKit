@@ -21,15 +21,16 @@ import moe.ouom.wekit.config.RuntimeConfig;
 import moe.ouom.wekit.constants.PackageConstants;
 import moe.ouom.wekit.dexkit.TargetManager;
 import moe.ouom.wekit.security.SignatureVerifier;
-import moe.ouom.wekit.ui.CommonContextWrapper;
-import moe.ouom.wekit.ui.creator.center.MethodFinderDialog;
 import moe.ouom.wekit.util.Initiator;
 import moe.ouom.wekit.util.common.ModuleRes;
 import moe.ouom.wekit.util.common.SyncUtils;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class WeLauncher {
     public void init(@NonNull ClassLoader cl, @NonNull ApplicationInfo ai, @NonNull String modulePath, Context context) {
+        // 保存到 RuntimeConfig
+        RuntimeConfig.setHostClassLoader(cl);
+        RuntimeConfig.setHostApplicationInfo(ai);
         Initiator.init(context.getClassLoader());
 
         try {
@@ -41,6 +42,10 @@ public class WeLauncher {
                 // 存入 CacheConfig
                 RuntimeConfig.setWechatVersionName(pInfo.versionName);
                 RuntimeConfig.setWechatVersionCode(pInfo.getLongVersionCode());
+
+                // 初始化 DexCacheManager
+                assert pInfo.versionName != null;
+                moe.ouom.wekit.dexkit.cache.DexCacheManager.INSTANCE.init(context, pInfo.versionName);
 
                 if (!Objects.equals(pInfo.versionName, TargetManager.INSTANCE.getLastWeChatVersion())){
                     TargetManager.INSTANCE.setNeedFindTarget(true);
@@ -55,10 +60,10 @@ public class WeLauncher {
                 TargetManager.INSTANCE.setLastWeChatVersion(pInfo.versionName);
                 TargetManager.INSTANCE.setTargetManagerVersion(TargetManager.VERSION);
 
-                Logger.i("WeChat Version cached: " + RuntimeConfig.getWechatVersionName() + " (" + RuntimeConfig.getWechatVersionCode() + ")");
+                WeLogger.i("WeChat Version cached: " + RuntimeConfig.getWechatVersionName() + " (" + RuntimeConfig.getWechatVersionCode() + ")");
             }
         } catch (Throwable e) {
-            Logger.e("WeLauncher: Failed to load version info: " + e);
+            WeLogger.e("WeLauncher: Failed to load version info: " + e);
         }
 
 
@@ -71,15 +76,13 @@ public class WeLauncher {
             XposedHelpers.findAndHookMethod(launcherUIClass, "onResume", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
-                    Activity activity = (Activity) param.thisObject;
-                    RuntimeConfig.setLauncherUIActivity(activity);
-
-                    ModuleRes.init(activity, PackageConstants.PACKAGE_NAME_SELF);
+                Activity activity = (Activity) param.thisObject;
+                ModuleRes.init(activity, PackageConstants.PACKAGE_NAME_SELF);
                 }
             });
 
         } catch (Throwable e) {
-            Logger.e("WeLauncher: Failed to hook LauncherUI: " + e);
+            WeLogger.e("WeLauncher: Failed to hook LauncherUI: " + e);
         }
 
         // onCreate
@@ -101,39 +104,24 @@ public class WeLauncher {
                     RuntimeConfig.setLast_login_nick_name(last_login_nick_name);
                     RuntimeConfig.setLogin_user_name(login_user_name);
                     RuntimeConfig.setLast_login_uin(last_login_uin);
+                    RuntimeConfig.setLauncherUIActivity(activity);
 //                    Logger.d("login_weixin_username: " + login_weixin_username + "\nlast_login_nick_name: " + last_login_nick_name + "\nlogin_user_name: " + login_user_name + "\nlast_login_uin: " + last_login_uin);
-
-                    postDelayed(0, () -> {
-                        if (!TargetManager.INSTANCE.isNeedFindTarget()){
-                            Logger.i("[TargetManager] same version since last time, no need find new target.");
-                            return;
-                        }
-
-                        Context fixContext = CommonContextWrapper.createAppCompatContext(activity);
-                        Logger.w("wechat/wekit updated, need find new target first!");
-                        try {
-                            MethodFinderDialog dialog = new MethodFinderDialog(fixContext, activity, cl, ai);
-                            dialog.show();
-                        } catch (Exception e) {
-                            Logger.e("WeLauncher: Failed to show dialog: " + e);
-                        }
-                    });
-
                 }
             });
 
         } catch (Throwable e) {
-            Logger.e("WeLauncher: Failed to hook LauncherUI: " + e);
+            WeLogger.e("WeLauncher: Failed to hook LauncherUI: " + e);
         }
 
         /////  -----------------------   /////
         if (!SignatureVerifier.isSignatureValid()) {
-            Logger.e("WeLauncher", "签名校验失败，跳过 Hook 加载");
+            WeLogger.e("WeLauncher", "签名校验失败，跳过 Hook 加载");
             return;
         }
 
 //        HookItemLoader hookItemLoader = new HookItemLoader();
 //        hookItemLoader.loadHookItem(SyncUtils.getProcessType());
+
         SecretLoader.load(SyncUtils.getProcessType());
     }
 }

@@ -2,7 +2,7 @@ package moe.ouom.wekit.loader.startup;
 
 import android.content.Context;
 import java.lang.reflect.Field;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class HybridClassLoader extends ClassLoader {
 
@@ -43,7 +43,7 @@ public class HybridClassLoader extends ClassLoader {
             if (sHostClassLoader != null) return sHostClassLoader;
 
             try {
-                Logger.i("HybridClassLoader: Local sHostClassLoader is null, trying reflection lookup...");
+                WeLogger.i("HybridClassLoader: Local sHostClassLoader is null, trying reflection lookup...");
 
                 ClassLoader myLoader = HybridClassLoader.class.getClassLoader();
                 assert myLoader != null;
@@ -59,14 +59,14 @@ public class HybridClassLoader extends ClassLoader {
 
                         if (remoteValue instanceof ClassLoader) {
                             sHostClassLoader = (ClassLoader) remoteValue;
-                            Logger.i("HybridClassLoader: Successfully stole HostClassLoader from outer world!");
+                            WeLogger.i("HybridClassLoader: Successfully stole HostClassLoader from outer world!");
                         } else {
-                            Logger.e("HybridClassLoader: Reflection found null or invalid object.");
+                            WeLogger.e("HybridClassLoader: Reflection found null or invalid object.");
                         }
                     }
                 }
             } catch (Throwable e) {
-                Logger.e("HybridClassLoader: Failed to bridge ClassLoader", e);
+                WeLogger.e("HybridClassLoader: Failed to bridge ClassLoader", e);
             }
         }
 

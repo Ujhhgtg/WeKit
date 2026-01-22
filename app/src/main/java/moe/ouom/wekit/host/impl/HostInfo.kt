@@ -9,7 +9,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import androidx.core.content.pm.PackageInfoCompat
 import moe.ouom.wekit.BuildConfig
-import moe.ouom.wekit.util.log.Logger
+import moe.ouom.wekit.util.log.WeLogger
 
 const val PACKAGE_NAME_WECHAT = "com.tencent.mm"
 const val PACKAGE_NAME_SELF = BuildConfig.APPLICATION_ID
@@ -40,7 +40,7 @@ private fun getHostInfo(context: Context): PackageInfo {
     try {
         return context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_META_DATA)
     } catch (e: PackageManager.NameNotFoundException) {
-        Logger.e("Can not get PackageInfo!", e)
+        WeLogger.e("Can not get PackageInfo!", e)
         throw e
     }
 }
@@ -91,7 +91,7 @@ enum class HostSpecies {
 }
 
 fun overrideVersionCodeForLSPatchModified1(newVersionCode: Int) {
-    Logger.w("Overriding version code from ${hostInfo.versionCode32} to $newVersionCode")
+    WeLogger.w("Overriding version code from ${hostInfo.versionCode32} to $newVersionCode")
     hostInfo = HostInfoImpl(
         hostInfo.application,
         hostInfo.packageName,

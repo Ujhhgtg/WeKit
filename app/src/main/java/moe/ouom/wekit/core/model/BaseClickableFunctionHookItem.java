@@ -47,6 +47,10 @@ public abstract class BaseClickableFunctionHookItem extends BaseHookItem {
         }
     }
 
+    public boolean noSwitchWidget() {
+        return false;
+    }
+
     public void onClick(Context context) {}
 
 }

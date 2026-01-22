@@ -2,7 +2,7 @@ package moe.ouom.wekit.dexkit;
 
 import org.luckypray.dexkit.DexKitBridge;
 
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class DexKitExecutor {
     private final String apkPath;
@@ -17,7 +17,7 @@ public class DexKitExecutor {
         try (DexKitBridge bridge = DexKitBridge.create(apkPath)) {
             task.execute(bridge, classLoader);
         } catch (Exception e) {
-            Logger.e("DexKitExecutor", e);
+            WeLogger.e("DexKitExecutor", e);
         }
     }
 

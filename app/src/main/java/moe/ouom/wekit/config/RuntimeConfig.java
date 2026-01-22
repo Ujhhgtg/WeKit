@@ -1,7 +1,8 @@
 package moe.ouom.wekit.config;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
-import java.lang.ref.WeakReference;
+import android.content.pm.ApplicationInfo;
 
 public class RuntimeConfig {
 
@@ -9,7 +10,10 @@ public class RuntimeConfig {
         throw new AssertionError("No instance for you!");
     }
 
-    private static WeakReference<Activity> launcherUIActivityRef;
+    @SuppressLint("StaticFieldLeak")
+    private static Activity launcherUIActivity;
+    private static ClassLoader hostClassLoader;
+    private static ApplicationInfo hostApplicationInfo;
 
     // account info //
 
@@ -33,15 +37,33 @@ public class RuntimeConfig {
     // ------- //
 
     public static void setLauncherUIActivity(Activity activity) {
-        // 存入时包装成弱引用
-        launcherUIActivityRef = new WeakReference<>(activity);
+        assert activity != null;
+        launcherUIActivity = activity;
     }
 
     public static Activity getLauncherUIActivity() {
-        if (launcherUIActivityRef == null) {
+        if (launcherUIActivity == null) {
             return null;
         }
-        return launcherUIActivityRef.get();
+        return launcherUIActivity;
+    }
+
+    public static void setHostClassLoader(ClassLoader classLoader) {
+        assert classLoader != null;
+        hostClassLoader = classLoader;
+    }
+
+    public static ClassLoader getHostClassLoader() {
+        return hostClassLoader;
+    }
+
+    public static void setHostApplicationInfo(ApplicationInfo appInfo) {
+        assert appInfo != null;
+        hostApplicationInfo = appInfo;
+    }
+
+    public static ApplicationInfo getHostApplicationInfo() {
+        return hostApplicationInfo;
     }
 
     public static String getLogin_weixin_username() {

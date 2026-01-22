@@ -15,12 +15,10 @@ import java.io.File;
 import java.lang.reflect.Field;
 
 import moe.ouom.wekit.BuildConfig;
-import moe.ouom.wekit.constants.Constants;
 import moe.ouom.wekit.loader.hookapi.IHookBridge;
 import moe.ouom.wekit.loader.hookapi.ILoaderService;
 import moe.ouom.wekit.security.SignatureVerifier;
-import moe.ouom.wekit.util.io.IoUtils;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 
 @Keep
@@ -46,7 +44,7 @@ public class StartupAgent {
         }
         sInitialized = true;
         if ("true".equals(System.getProperty(StartupAgent.class.getName()))) {
-            Logger.e("Error: wekit reloaded??");
+            WeLogger.e("Error: wekit reloaded??");
             return;
         }
 
@@ -63,7 +61,7 @@ public class StartupAgent {
 
         boolean signatureValid = SignatureVerifier.verifySignature(ctx);
         if (!signatureValid) {
-            Logger.e(TAG, "签名校验失败！模块已被篡改，功能将被禁用");
+            WeLogger.e(TAG, "签名校验失败！模块已被篡改，功能将被禁用");
         }
 
         StartupHook.getInstance().initializeAfterAppCreate(ctx);
@@ -73,7 +71,7 @@ public class StartupAgent {
         if (StartupInfo.getHookBridge() != null) {
             return;
         }
-        Logger.w(BuildConfig.TAG, "initializeHookBridgeForEarlyStartup w/o context");
+        WeLogger.w(BuildConfig.TAG, "initializeHookBridgeForEarlyStartup w/o context");
         File hostDataDirFile = new File(hostDataDir);
         if (!hostDataDirFile.exists()) {
             throw new IllegalStateException("Host data dir not found: " + hostDataDir);
@@ -112,7 +110,7 @@ public class StartupAgent {
                 return app;
             }
         } catch (Exception e) {
-            Logger.e("getBaseApplication: ActivityThread fallback failed", e);
+            WeLogger.e("getBaseApplication: ActivityThread fallback failed", e);
         }
 
         throw new UnsupportedOperationException("Failed to retrieve Application instance.");

@@ -5,7 +5,7 @@ import java.lang.reflect.Method;
 import moe.ouom.wekit.BuildConfig;
 import moe.ouom.wekit.loader.TransitClassLoader;
 import moe.ouom.wekit.loader.dyn.MemoryDexLoader;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class SecretLoader {
 
@@ -20,7 +20,7 @@ public class SecretLoader {
      */
     public static void load(int processType) {
         try {
-            Logger.i(TAG, "Attempting to load hidden hooks...");
+            WeLogger.i(TAG, "Attempting to load hidden hooks...");
 
             byte[] dexBytes = WeKitNative.getHiddenDex();
 
@@ -31,7 +31,7 @@ public class SecretLoader {
             }
 
             if (dexBytes == null || dexBytes.length == 0) {
-                Logger.e(TAG, "Hidden DEX is empty! (Is this a Debug build?)");
+                WeLogger.e(TAG, "Hidden DEX is empty! (Is this a Debug build?)");
                 tryFallbackLoad(processType);
                 return;
             }
@@ -64,16 +64,16 @@ public class SecretLoader {
                         (moe.ouom.wekit.core.bridge.api.IHookFactoryDelegate) factoryInstance
                 );
 
-                moe.ouom.wekit.util.log.Logger.i("HookFactoryBridge registered successfully!");
+                WeLogger.i("HookFactoryBridge registered successfully!");
 
             } catch (Throwable e) {
-                moe.ouom.wekit.util.log.Logger.e("Failed to register HookFactoryBridge", e);
+                WeLogger.e("Failed to register HookFactoryBridge", e);
             }
 
-            Logger.i("Hidden hooks loaded successfully!");
+            WeLogger.i("Hidden hooks loaded successfully!");
 
         } catch (Throwable e) {
-            Logger.e("Failed to load hidden hooks", e);
+            WeLogger.e("Failed to load hidden hooks", e);
         }
     }
 
@@ -95,14 +95,14 @@ public class SecretLoader {
                         (moe.ouom.wekit.core.bridge.api.IHookFactoryDelegate) factoryInstance
                 );
 
-                Logger.i("[Fallback] HookFactoryBridge registered successfully!");
+                WeLogger.i("[Fallback] HookFactoryBridge registered successfully!");
             } catch (Throwable e) {
-                Logger.e("[Fallback] Failed to register HookFactoryBridge", e);
+                WeLogger.e("[Fallback] Failed to register HookFactoryBridge", e);
             }
 
-            Logger.i("Fallback load success");
+            WeLogger.i("Fallback load success");
         } catch (Exception e) {
-            Logger.e("Fallback load failed", e);
+            WeLogger.e("Fallback load failed", e);
         }
     }
 }

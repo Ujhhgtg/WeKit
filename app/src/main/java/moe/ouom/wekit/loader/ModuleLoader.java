@@ -14,7 +14,7 @@ import java.util.List;
 import dalvik.system.BaseDexClassLoader;
 import moe.ouom.wekit.loader.hookapi.IHookBridge;
 import moe.ouom.wekit.loader.hookapi.ILoaderService;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class ModuleLoader {
 
@@ -75,7 +75,7 @@ public class ModuleLoader {
                 }
             } catch (Exception | Error e) {
                 sInitErrors.add(e);
-                Logger.e("initialize: findTargetModulePath failed", e);
+                WeLogger.e("initialize: findTargetModulePath failed", e);
             }
         }
         if (targetModule != null && targetModule.isFile() && !targetModule.canWrite()) {
@@ -89,7 +89,7 @@ public class ModuleLoader {
             }
         } catch (Exception | Error e) {
             sInitErrors.add(e);
-            Logger.e("initialize: createTargetClassLoader failed", e);
+            WeLogger.e("initialize: createTargetClassLoader failed", e);
         }
         // if we failed to create targetClassLoader, fallback to normal startup
         String modulePath;

@@ -10,7 +10,7 @@ import moe.ouom.wekit.host.impl.HostInfo;
 import moe.ouom.wekit.loader.hookapi.IClassLoaderHelper;
 import moe.ouom.wekit.loader.hookapi.ILoaderService;
 import moe.ouom.wekit.loader.startup.StartupInfo;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class ModuleAppImpl extends Application {
 
@@ -22,7 +22,7 @@ public class ModuleAppImpl extends Application {
         HostInfo.init(this);
         initStartupInfo();
 
-        Logger.d("ModuleAppImpl onCreate");
+        WeLogger.d("ModuleAppImpl onCreate");
     }
 
     private void initStartupInfo() {

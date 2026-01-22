@@ -6,7 +6,7 @@ import androidx.annotation.Nullable;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class Initiator {
     private static ClassLoader sHostClassLoader;
@@ -91,7 +91,7 @@ public class Initiator {
             sClassCache.put(cacheKey, clazz);
             return clazz;
         }
-        Logger.e("Initiator/E class " + className1 + " not found");
+        WeLogger.e("Initiator/E class " + className1 + " not found");
         return null;
     }
 
@@ -206,13 +206,13 @@ public class Initiator {
             sClassCache.put(className, clazz);
             return clazz;
         }
-        Logger.e("Initiator/E class " + className + " not found");
+        WeLogger.e("Initiator/E class " + className + " not found");
         return null;
     }
 
     private static void logErrorIfNotFound(@Nullable Class<?> c, @NonNull String name) {
         if (c == null) {
-            Logger.e("Initiator/E class " + name + " not found");
+            WeLogger.e("Initiator/E class " + name + " not found");
         }
     }
 

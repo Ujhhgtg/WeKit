@@ -14,7 +14,7 @@ import moe.ouom.wekit.loader.hookimpl.InMemoryClassLoaderHelper;
 import moe.ouom.wekit.loader.hookimpl.LibXposedNewApiByteCodeGenerator;
 import moe.ouom.wekit.util.Initiator;
 import moe.ouom.wekit.util.common.SyncUtils;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class StartupRoutine {
 
@@ -83,11 +83,11 @@ public class StartupRoutine {
                 }
             }
         } catch (Exception e) {
-            Logger.e(e);
+            WeLogger.e(e);
         }
         // ------------------------------------------
 
-        Logger.d("execPostStartupInit -> processName: " + SyncUtils.getProcessName());
+        WeLogger.d("execPostStartupInit -> processName: " + SyncUtils.getProcessName());
         WeLauncher launcher = new WeLauncher();
         launcher.init(ctx.getClassLoader(), ctx.getApplicationInfo(), ctx.getApplicationInfo().sourceDir, ctx);
     }

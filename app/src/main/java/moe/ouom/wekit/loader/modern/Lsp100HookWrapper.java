@@ -16,7 +16,7 @@ import moe.ouom.wekit.util.common.CheckUtils;
 import moe.ouom.wekit.loader.hookapi.IHookBridge;
 import moe.ouom.wekit.loader.modern.codegen.Lsp100ProxyClassMaker;
 import moe.ouom.wekit.loader.modern.dyn.Lsp100CallbackProxy;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 public class Lsp100HookWrapper {
 
@@ -73,7 +73,7 @@ public class Lsp100HookWrapper {
                 c = generateProxyClassForCallback(priority);
                 t = priority;
             } catch (RuntimeException e) {
-                Logger.w("failed to generate proxy class, fallback to default", e);
+                WeLogger.w("failed to generate proxy class, fallback to default", e);
                 c = DEFAULT_PROXY;
                 t = DEFAULT_PRIORITY;
             }

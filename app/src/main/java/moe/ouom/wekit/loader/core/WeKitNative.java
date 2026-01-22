@@ -3,9 +3,8 @@ package moe.ouom.wekit.loader.core;
 import androidx.annotation.NonNull;
 import androidx.annotation.Keep;
 
-import moe.ouom.wekit.BuildConfig; // 确保能引用到 BuildConfig
 import moe.ouom.wekit.security.SignatureVerifier;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 @Keep
 public class WeKitNative {
@@ -20,7 +19,7 @@ public class WeKitNative {
 
     public static void setLibraryLoaded() {
         sLibraryLoaded = true;
-        Logger.i(TAG, "native library marked as loaded");
+        WeLogger.i(TAG, "native library marked as loaded");
     }
 
     /**
@@ -28,11 +27,11 @@ public class WeKitNative {
      */
     public static void init(@NonNull String flag) {
         if (!sLibraryLoaded) {
-            Logger.e(TAG, "Native library not loaded, verification failed");
+            WeLogger.e(TAG, "Native library not loaded, verification failed");
             return;
         }
         if (!SignatureVerifier.isSignatureValid()) {
-            Logger.e(TAG, "Java layer signature check failed");
+            WeLogger.e(TAG, "Java layer signature check failed");
             return;
         }
 
@@ -40,12 +39,12 @@ public class WeKitNative {
             // 检查 doInit 的布尔返回值
             boolean success = doInit(flag);
             if (!success) {
-                Logger.e(TAG, "Native init failed (Check Logs for details)");
+                WeLogger.e(TAG, "Native init failed (Check Logs for details)");
             } else {
-                Logger.i(TAG, "Native init successful");
+                WeLogger.i(TAG, "Native init successful");
             }
         } catch (UnsatisfiedLinkError | Exception e) {
-            Logger.e("Native init exception", e);
+            WeLogger.e("Native init exception", e);
         }
     }
 

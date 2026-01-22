@@ -10,7 +10,7 @@ import java.io.IOException;
 
 import moe.ouom.wekit.host.HostInfo;
 import moe.ouom.wekit.util.io.FileUtils;
-import moe.ouom.wekit.util.log.Logger;
+import moe.ouom.wekit.util.log.WeLogger;
 
 
 public class NativeCoreBridge {
@@ -70,9 +70,9 @@ public class NativeCoreBridge {
                 if (!dest.exists()) {
                     try {
                         copyFile(src, dest);
-                        Logger.i("Copy config file: " + src.getName());
+                        WeLogger.i("Copy config file: " + src.getName());
                     } catch (IOException e) {
-                        Logger.e(e);
+                        WeLogger.e(e);
                     }
                 }
             }

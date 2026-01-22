@@ -11,7 +11,7 @@ import moe.ouom.wekit.core.bridge.HookFactoryBridge
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.util.common.ModuleRes
-import moe.ouom.wekit.util.log.Logger
+import moe.ouom.wekit.util.log.WeLogger
 
 class CategorySettingsDialog(
     context: Context,
@@ -87,16 +87,20 @@ class CategorySettingsDialog(
             ConfigManager.getDefaultConfig().edit().putBoolean(configKey, checked).apply()
             item.isEnabled = checked
             if (checked) {
-                Logger.i("[CategorySettings] Loading HookItem: ${item.path}")
+                WeLogger.i("[CategorySettings] Loading HookItem: ${item.path}")
                 item.startLoad()
             } else {
-                Logger.i("[CategorySettings] Unloading HookItem: ${item.path}")
+                WeLogger.i("[CategorySettings] Unloading HookItem: ${item.path}")
                 try {
                     item.unload(context.classLoader)
                 } catch (e: Throwable) {
-                    Logger.e("[CategorySettings] Unload HookItem Failed", e)
+                    WeLogger.e("[CategorySettings] Unload HookItem Failed", e)
                 }
             }
+        }
+
+        if (item.noSwitchWidget()) {
+            switchWidget.visibility = View.GONE
         }
 
         root.setOnClickListener {
