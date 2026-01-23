@@ -4,6 +4,8 @@
 [![Telegram](https://img.shields.io/static/v1?label=Telegram&message=Channel&color=0088cc)](https://t.me/ouom_pub)
 
 **WeChat, Now with Superpowers**
+
+🚧 <strong>Work in progress / 开发中</strong>
 </div>
 
 > [!WARNING]  
