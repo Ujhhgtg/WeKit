@@ -51,7 +51,7 @@ jobs:
           cache: gradle
 
       - name: Decode keystore
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
         run: |
           mkdir -p app
           echo "$KEYSTORE_B64" | base64 -d > app/wekit.jks
@@ -66,7 +66,7 @@ jobs:
         run: ./gradlew assembleRelease --warning-mode all --stacktrace
 
       - name: Build signed Release for master
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
         run: |
           ./gradlew assembleRelease \
             -PKEYSTORE_FILE=wekit.jks \
@@ -76,7 +76,7 @@ jobs:
             --warning-mode all --stacktrace
 
       - name: Upload Release APK
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
         uses: actions/upload-artifact@v4
         with:
           name: wekit-apk
