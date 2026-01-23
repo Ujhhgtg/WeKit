@@ -18,6 +18,12 @@ object DexCacheManager {
     private const val HOST_VERSION_FILE = "host_version.txt"
     private const val CACHE_FILE_SUFFIX = ".json"
 
+    /**
+     * 开发模式：设置为 true 时完全禁用缓存，每次都重新扫描
+     * 生产环境请设置为 false 以提升性能
+     */
+    private const val DEV_MODE = false
+
     private lateinit var cacheDir: File
     private var currentHostVersion: String = ""
 
@@ -54,6 +60,14 @@ object DexCacheManager {
      * @return true 表示缓存有效，false 表示需要重新查找
      */
     fun isCacheValid(item: IDexFind): Boolean {
+        // 开发模式：强制禁用缓存
+        if (DEV_MODE) {
+            if (item is BaseHookItem) {
+                WeLogger.w("DexCacheManager", "[DEV_MODE] Cache disabled for: ${item.path}")
+            }
+            return false
+        }
+
         if (item !is BaseHookItem) {
             WeLogger.w("DexCacheManager", "Item is not BaseHookItem, cannot get path")
             return false
@@ -67,8 +81,14 @@ object DexCacheManager {
 
         try {
             val json = JSONObject(cacheFile.readText())
+
             val cachedMethodHash = json.optString("methodHash", "")
             val currentMethodHash = calculateMethodHash(item)
+
+            WeLogger.d(
+                "DexCacheManager",
+                "Hash comparison for: ${item.path}, cached: $cachedMethodHash, current: $currentMethodHash"
+            )
 
             if (cachedMethodHash != currentMethodHash) {
                 WeLogger.d(
@@ -115,28 +135,21 @@ object DexCacheManager {
     /**
      * 计算 dexFind 方法的哈希值
      * 用于检测方法逻辑是否发生变化
-     * 通过计算类字节码的哈希值来检测方法体的任何变化
+     * 使用编译时生成的hash值，避免运行时通过classLoader获取资源失败的问题
      */
     private fun calculateMethodHash(item: IDexFind): String {
         try {
             val clazz = item::class.java
+            val className = clazz.name
 
-            // 尝试获取类的字节码并计算哈希
-            val classLoader = clazz.classLoader
-            val className = clazz.name.replace('.', '/') + ".class"
-
-            val inputStream = classLoader?.getResourceAsStream(className)
-            inputStream?.use { stream ->
-                val md = MessageDigest.getInstance("MD5")
-                val buffer = ByteArray(8192)
-                var bytesRead: Int
-                while (stream.read(buffer).also { bytesRead = it } != -1) {
-                    md.update(buffer, 0, bytesRead)
-                }
-                return md.digest().joinToString("") { "%02x".format(it) }
+            // 优先使用编译时生成的hash值
+            val generatedHash = GeneratedMethodHashes.getHash(className)
+            if (generatedHash.isNotEmpty()) {
+                return generatedHash
             }
 
-            // 降级方案：使用方法签名
+            // 降级方案：使用方法签名（当编译时hash不可用时）
+            WeLogger.w("DexCacheManager", "No generated hash for $className, using method signature fallback")
             val method = clazz.getDeclaredMethod("dexFind", org.luckypray.dexkit.DexKitBridge::class.java)
             val signature = buildString {
                 append(method.declaringClass.name)

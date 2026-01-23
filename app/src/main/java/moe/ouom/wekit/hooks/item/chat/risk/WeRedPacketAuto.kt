@@ -201,7 +201,7 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
         }
 
         // 查找开红包类
-        dexClsOpenLuckyMoney.find(dexKit, allowMultiple = true, descriptors) {
+        val foundOpen = dexClsOpenLuckyMoney.find(dexKit, allowMultiple = true, descriptors) {
             matcher {
                 methods {
                     add {
@@ -211,16 +211,24 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
                 }
             }
         }
+        if (!foundOpen) {
+            WeLogger.e("WeRedPacketAuto: Failed to find OpenLuckyMoney class")
+            throw RuntimeException("DexKit: Failed to find OpenLuckyMoney class with string 'MicroMsg.NetSceneOpenLuckyMoney'")
+        }
 
         // 查找 onGYNetEnd 回调方法
         val receiveLuckyMoneyClassName = dexClsReceiveLuckyMoney.getDescriptorString()
         if (receiveLuckyMoneyClassName != null) {
-            dexMethodOnGYNetEnd.find(dexKit, allowMultiple = true, descriptors) {
+            val foundMethod = dexMethodOnGYNetEnd.find(dexKit, allowMultiple = true, descriptors) {
                 matcher {
                     declaredClass = receiveLuckyMoneyClassName
                     name = "onGYNetEnd"
                     paramCount = 3
                 }
+            }
+            if (!foundMethod) {
+                WeLogger.e("WeRedPacketAuto: Failed to find onGYNetEnd method")
+                throw RuntimeException("DexKit: Failed to find onGYNetEnd method in $receiveLuckyMoneyClassName")
             }
         }
 

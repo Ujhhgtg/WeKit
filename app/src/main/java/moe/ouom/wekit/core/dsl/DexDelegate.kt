@@ -51,16 +51,26 @@ class DexClassDelegate internal constructor(
 
     /**
      * 查找 Dex 类
+     * @param dexKit DexKit 实例
+     * @param allowMultiple 是否允许多个结果
+     * @param descriptors 用于存储描述符的 Map
+     * @param throwOnFailure 查找失败时是否抛出异常，默认为 true
+     * @param block 查找条件
+     * @return 是否找到结果
      */
     fun find(
         dexKit: DexKitBridge,
         allowMultiple: Boolean = false,
         descriptors: MutableMap<String, String>? = null,
+        throwOnFailure: Boolean = true,
         block: FindClass.() -> Unit
     ): Boolean {
         val results = dexKit.findClass(block).toList()
 
         if (results.isEmpty()) {
+            if (throwOnFailure) {
+                throw RuntimeException("DexKit: No class found for key: $key")
+            }
             return false
         }
 
@@ -121,16 +131,26 @@ class DexMethodDelegate internal constructor(
 
     /**
      * 查找 Dex 方法
+     * @param dexKit DexKit 实例
+     * @param allowMultiple 是否允许多个结果
+     * @param descriptors 用于存储描述符的 Map
+     * @param throwOnFailure 查找失败时是否抛出异常，默认为 true
+     * @param block 查找条件
+     * @return 是否找到结果
      */
     fun find(
         dexKit: DexKitBridge,
         allowMultiple: Boolean = false,
         descriptors: MutableMap<String, String>? = null,
+        throwOnFailure: Boolean = true,
         block: FindMethod.() -> Unit
     ): Boolean {
         val results = dexKit.findMethod(block).toList()
 
         if (results.isEmpty()) {
+            if (throwOnFailure) {
+                throw RuntimeException("DexKit: No method found for key: $key")
+            }
             return false
         }
 
