@@ -225,18 +225,18 @@ public class DexMethodDescriptor implements Serializable {
                 i = j + 1;
             } else if (c == '[') {
                 int j = i;
-                while (s.charAt(j) == '[') {
+                while (j < s.length() && s.charAt(j) == '[') {
                     j++;
                 }
-                if (s.charAt(j) == 'L') {
+                if (j < s.length() && s.charAt(j) == 'L') {
                     j = s.indexOf(';', j);
                 }
                 list.add(s.substring(i, j + 1));
                 i = j + 1;
             } else {
                 list.add(String.valueOf(c));
+                i++;
             }
-            i++;
         }
         return list;
     }
