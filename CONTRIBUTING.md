@@ -2270,29 +2270,34 @@ feat(hook): add anti-revoke message feature
 ```
 
 #### 2. PR 描述模板
-```markdown
-## 描述 / Description
-<!--- 简要说明本次变更的目的以及解决的问题 / Briefly describe the purpose of this change and the problem it solves -->
+##### 描述 / Description
 
-## 类型 / Type
+简要说明本次变更的目的以及解决的问题 / Briefly describe the purpose of this change and the problem it solves
 
-- [ ] Bug 修复 / Bug Fix
-- [ ] 新功能 / New Feature
-- [ ] 文档更新 / Documentation Update
-- [ ] 其他（请描述）/ Other (please describe):
+##### 类型 / Type
 
-## 修复或解决的问题 / Issues Fixed or Closed by This PR
+- [ ] Bug 修复 / Bug Fix  
+- [ ] 新功能 / New Feature  
+- [ ] 文档更新 / Documentation Update  
+- [ ] 其他（请描述）/ Other (please describe):  
 
-## 清单 / Checklist
+##### 修复或解决的问题 / Issues Fixed or Closed by This PR
+
+close #1
+
+##### 清单 / Checklist
 
 - [ ] 我已阅读并遵循贡献指南 / I have read and followed the contribution guidelines
 - [ ] 我已在本地测试这些更改 / I have tested these changes locally
 - [ ] 我已更新相关文档或注释（如适用） / I have updated relevant documentation or comments (if applicable)
+- [ ] **我确认此更改不会破坏任何原有功能** / I confirm this change does not break any existing features
+- [ ] **我已使用 MMVersion 和 requireMinWeChatVersion 进行版本适配（如适用）** / I have used MMVersion and requireMinWeChatVersion for version compatibility (if applicable)
+- [ ] **我已在多个微信版本上测试此更改（如适用）** / I have tested this change on multiple WeChat versions (if applicable)  
 
-## 其他信息 / Additional Information
+##### 其他信息 / Additional Information
 
-<!--- 请在此补充任何与审查相关的额外信息或截图 / Please add any extra details or screenshots related to the review here.  -->
-```
+请在此补充任何与审查相关的额外信息或截图 / Please add any extra details or screenshots related to the review here.
+
 
 ---
 
