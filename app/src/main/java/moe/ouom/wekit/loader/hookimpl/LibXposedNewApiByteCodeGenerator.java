@@ -127,8 +127,8 @@ public class LibXposedNewApiByteCodeGenerator {
                     "V", Modifier.PUBLIC | ACC_CONSTRUCTOR, null, null, ctorMethodImpl);
             methods.add(ctorMethod);
         }
-        String typeInvocationParamWrapper = "Lmoe/ono/loader/modern/Lsp100HookWrapper$InvocationParamWrapper;";
-        String typeLsp100HookAgent = "Lmoe/ono/loader/modern/Lsp100HookWrapper$Lsp100HookAgent;";
+        String typeInvocationParamWrapper = "Lmoe/ouom/wekit/loader/modern/Lsp100HookWrapper$InvocationParamWrapper;";
+        String typeLsp100HookAgent = "Lmoe/ouom/wekit/loader/modern/Lsp100HookWrapper$Lsp100HookAgent;";
         {
             Set<ImmutableAnnotation> annotations = null;
             if (classNameBeforeInvocation != null) {

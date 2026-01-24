@@ -87,7 +87,7 @@ abstract class BaseHookItem {
             if (verboseLog) {
                 WeLogger.d("BaseHookItem.startLoad() calling initOnce() for ${this::class.java.simpleName}")
             }
-            initOnce()
+
             if (initOnce()) {
                 if (verboseLog) {
                     WeLogger.d("BaseHookItem.startLoad() calling entry() for ${this::class.java.simpleName}")

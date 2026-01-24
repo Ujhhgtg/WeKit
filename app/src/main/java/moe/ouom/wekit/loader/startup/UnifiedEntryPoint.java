@@ -1,6 +1,7 @@
 package moe.ouom.wekit.loader.startup;
 
 import static moe.ouom.wekit.constants.Constants.CLAZZ_BASE_APPLICATION;
+import static moe.ouom.wekit.constants.Constants.CLAZZ_MM_APPLICATION_LIKE;
 
 import android.annotation.SuppressLint;
 import android.app.Application;
@@ -55,67 +56,61 @@ public class UnifiedEntryPoint {
             @NonNull String modulePath,
             @NonNull String hostDataDir,
             @NonNull ILoaderService loaderService,
-            @NonNull ClassLoader hostClassLoader,
+            @NonNull ClassLoader initialClassLoader,
             @Nullable IHookBridge hookBridge
     ) {
         try {
+            // Hook 壳 Application
             XposedHelpers.findAndHookMethod(
-                CLAZZ_BASE_APPLICATION,
-                hostClassLoader,
-                "attachBaseContext",
-                Context.class,
-                new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
-                        Context context = (Context) param.thisObject;
+                    CLAZZ_BASE_APPLICATION,
+                    initialClassLoader,
+                    "attachBaseContext",
+                    Context.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            WeLogger.i("UnifiedEntryPoint", "Shell attached (Application.attachBaseContext done).");
 
-                        WeLogger.i("UnifiedEntryPoint", "Application attached, invoking StartupAgent...");
+                            Context context = (Context) param.thisObject;
+                            ClassLoader currentClassLoader = context.getClassLoader();
 
-                        try {
-                            Class<?> kStartupAgent = Class.forName("moe.ouom.wekit.loader.startup.StartupAgent", false, UnifiedEntryPoint.class.getClassLoader());
-                            kStartupAgent.getMethod("startup", String.class, String.class, ILoaderService.class, ClassLoader.class, IHookBridge.class)
-                                    .invoke(null, modulePath, hostDataDir, loaderService, hostClassLoader, hookBridge);
+                            WeLogger.i("UnifiedEntryPoint", "Invoking StartupAgent immediately...");
+                            try {
+                                Class<?> kStartupAgent = Class.forName("moe.ouom.wekit.loader.startup.StartupAgent", false, UnifiedEntryPoint.class.getClassLoader());
+                                kStartupAgent.getMethod("startup", String.class, String.class, ILoaderService.class, ClassLoader.class, IHookBridge.class)
+                                        .invoke(null, modulePath, hostDataDir, loaderService, currentClassLoader, hookBridge);
+                                WeLogger.i("UnifiedEntryPoint", "StartupAgent invoked successfully.");
+                            } catch (Throwable e) {
+                                Log.e(BuildConfig.TAG, "StartupAgent.startup failed", e);
+                            }
 
-                        } catch (ReflectiveOperationException e) {
-                            Throwable cause = getInvocationTargetExceptionCause(e);
-                            Log.e(BuildConfig.TAG,"StartupAgent.startup: failed inside hook", cause);
-                            throw unsafeThrow(cause);
-                        }
-
-                        try {
-                            Class<?> kStartupAgent = Class.forName("moe.ouom.wekit.loader.startup.StartupAgent", false, UnifiedEntryPoint.class.getClassLoader());
-                            kStartupAgent.getMethod("startup", String.class, String.class, ILoaderService.class, ClassLoader.class, IHookBridge.class)
-                                    .invoke(null, modulePath, hostDataDir, loaderService, hostClassLoader, hookBridge);
-
-                        } catch (ReflectiveOperationException e) {
-                            Throwable cause = getInvocationTargetExceptionCause(e);
-                            Log.e(BuildConfig.TAG,"StartupAgent.startup: failed inside hook", cause);
-                            throw unsafeThrow(cause);
+                            try {
+                                XposedHelpers.findAndHookMethod(
+                                        CLAZZ_MM_APPLICATION_LIKE,
+                                        currentClassLoader,
+                                        "onCreate",
+                                        new XC_MethodHook() {
+                                            @Override
+                                            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                                                WeLogger.i("UnifiedEntryPoint", "MMApplicationLike onCreate captured!");
+                                                Object appLike = param.thisObject;
+                                                Application hostApp = (Application) XposedHelpers.callMethod(appLike, "getApplication");
+                                                StartupInfo.setHostApp(hostApp);
+                                            }
+                                        }
+                                );
+                            } catch (Throwable t) {
+                                Log.e(BuildConfig.TAG, "Failed to hook onCreate", t);
+                            }
                         }
                     }
-                }
             );
-
-
-            XposedHelpers.findAndHookMethod(
-                CLAZZ_BASE_APPLICATION,
-                hostClassLoader,
-                "onCreate",
-                Context.class,
-                new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
-                    WeLogger.i("UnifiedEntryPoint", "Application onCreate!");
-                    Application hostApp = (Application) param.thisObject;
-                    StartupInfo.setHostApp(hostApp);
-                    }
-                }
-            );
-
-            Log.i(BuildConfig.TAG,"Hook applied: waiting for Application.attachBaseContext");
-
-        } catch (Throwable ignored) {}
+            Log.i(BuildConfig.TAG, "Hook applied: waiting for Application.attachBaseContext");
+        } catch (Throwable t) {
+            Log.e(BuildConfig.TAG, "Failed to hook Shell Application", t);
+        }
     }
+
 
     @SuppressWarnings("JavaReflectionMemberAccess")
     @SuppressLint("DiscouragedPrivateApi")

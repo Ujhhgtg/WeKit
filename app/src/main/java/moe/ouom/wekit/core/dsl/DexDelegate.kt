@@ -91,7 +91,8 @@ class DexClassDelegate internal constructor(
  * 自动生成 Key，自动反射获取 Method
  */
 class DexMethodDelegate internal constructor(
-    val key: String
+    val key: String,
+    private val hookItem: Any? = null  // 可选的 HookItem 实例
 ) : ReadOnlyProperty<Any?, DexMethodDelegate> {
 
     private var descriptor: DexMethodDescriptor? = null
@@ -177,7 +178,7 @@ class DexMethodDelegate internal constructor(
     }
 
     fun toDexMethod(priority: Int?, block: DexMethodHookBuilder.() -> Unit) {
-        val builder = DexMethodHookBuilder(method, priority)
+        val builder = DexMethodHookBuilder(method, priority, hookItem)
         builder.block()
         builder.execute()
     }
@@ -205,6 +206,6 @@ fun dexMethod(): PropertyDelegateProvider<Any?, ReadOnlyProperty<Any?, DexMethod
     return PropertyDelegateProvider { thisRef, property ->
         val className = thisRef!!::class.java.simpleName
         val key = "$className:${property.name}"
-        DexMethodDelegate(key)
+        DexMethodDelegate(key, thisRef)  // 传递 thisRef 作为 hookItem
     }
 }

@@ -12,7 +12,8 @@ import kotlin.reflect.KProperty
  * 支持懒加载和 DSL 语法
  */
 class DexMethodDescriptorWrapper(
-    private val key: String
+    private val key: String,
+    private val hookItem: Any? = null  // 可选的 HookItem 实例
 ) {
     private var descriptor: DexMethodDescriptor? = null
     private var method: Method? = null
@@ -137,7 +138,7 @@ class DexMethodDescriptorWrapper(
         val method = getMethod(classLoader)
             ?: throw RuntimeException("Method not found for key: $key, descriptor: ${descriptor?.getDescriptor()}")
 
-        val builder = DexMethodHookBuilder(method, priority)
+        val builder = DexMethodHookBuilder(method, priority, hookItem)
         builder.block()
         builder.execute()
     }
@@ -154,7 +155,8 @@ class LazyDexMethodDelegate(
 
     override fun getValue(thisRef: Any?, property: KProperty<*>): DexMethodDescriptorWrapper {
         if (wrapper == null) {
-            wrapper = DexMethodDescriptorWrapper(key)
+            // 传递 thisRef 作为 hookItem，这样可以在 hook 时检查启用状态
+            wrapper = DexMethodDescriptorWrapper(key, thisRef)
         }
         return wrapper!!
     }

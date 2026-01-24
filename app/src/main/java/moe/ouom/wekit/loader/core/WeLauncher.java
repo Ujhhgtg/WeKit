@@ -1,7 +1,6 @@
 package moe.ouom.wekit.loader.core;
 
 import static moe.ouom.wekit.constants.Constants.CLAZZ_WECHAT_LAUNCHER_UI;
-import static moe.ouom.wekit.util.common.SyncUtils.postDelayed;
 
 import android.app.Activity;
 import android.content.Context;
@@ -13,13 +12,10 @@ import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 
-import java.util.Objects;
-
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
 import moe.ouom.wekit.config.RuntimeConfig;
 import moe.ouom.wekit.constants.PackageConstants;
-import moe.ouom.wekit.dexkit.TargetManager;
 import moe.ouom.wekit.security.SignatureVerifier;
 import moe.ouom.wekit.util.Initiator;
 import moe.ouom.wekit.util.common.ModuleRes;
@@ -47,18 +43,6 @@ public class WeLauncher {
                 assert pInfo.versionName != null;
                 moe.ouom.wekit.dexkit.cache.DexCacheManager.INSTANCE.init(context, pInfo.versionName);
 
-                if (!Objects.equals(pInfo.versionName, TargetManager.INSTANCE.getLastWeChatVersion())){
-                    TargetManager.INSTANCE.setNeedFindTarget(true);
-                }
-
-                if (TargetManager.INSTANCE.getTargetManagerVersion() != TargetManager.VERSION) {
-                    TargetManager.INSTANCE.setNeedFindTarget(true);
-                }
-
-
-                assert pInfo.versionName != null;
-                TargetManager.INSTANCE.setLastWeChatVersion(pInfo.versionName);
-                TargetManager.INSTANCE.setTargetManagerVersion(TargetManager.VERSION);
 
                 WeLogger.i("WeChat Version cached: " + RuntimeConfig.getWechatVersionName() + " (" + RuntimeConfig.getWechatVersionCode() + ")");
             }
