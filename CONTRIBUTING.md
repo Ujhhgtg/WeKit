@@ -1696,6 +1696,265 @@ hooks/item/
 
 > **注意**: `@HookItem` 注解的 `path` 参数决定功能在设置界面中的分类和位置，与文件夹结构无关。
 
+### 进程选择指南
+
+WeKit 支持在多个微信进程中运行 Hook 功能。默认情况下，Hook 功能会在主进程中运行，但你可以通过重写 `targetProcess()` 方法来指定 Hook 应该在哪个进程中生效。
+
+#### 可用的进程常量
+
+WeKit 在 `SyncUtils` 类中定义了以下进程常量：
+
+```java
+public class SyncUtils {
+    public static final int PROC_MAIN = 1;              // com.tencent.mm
+    public static final int PROC_PUSH = 1 << 1;         // :push
+    public static final int PROC_APPBRAND = 1 << 2;     // :appbrand0~4
+    public static final int PROC_TOOLS = 1 << 3;        // :tools, :toolsmp
+    public static final int PROC_SANDBOX = 1 << 4;      // :sandbox
+    public static final int PROC_HOTPOT = 1 << 5;       // :hotpot..
+    public static final int PROC_EXDEVICE = 1 << 6;     // :exdevice
+    public static final int PROC_SUPPORT = 1 << 7;      // :support
+    public static final int PROC_CUPLOADER = 1 << 8;    // :cuploader
+    public static final int PROC_PATCH = 1 << 9;        // :patch
+    public static final int PROC_FALLBACK = 1 << 10;    // :fallback
+    public static final int PROC_DEXOPT = 1 << 11;      // :dexopt
+    public static final int PROC_RECOVERY = 1 << 12;    // :recovery
+    public static final int PROC_NOSPACE = 1 << 13;     // :nospace
+    public static final int PROC_JECTL = 1 << 14;       // :jectl
+    public static final int PROC_OPENGL_DETECTOR = 1 << 15;  // :opengl_detector
+    public static final int PROC_RUBBISHBIN = 1 << 16;  // :rubbishbin
+    public static final int PROC_ISOLATED = 1 << 17;    // :isolated_process0, :isolated_process1
+    public static final int PROC_RES_CAN_WORKER = 1 << 18;  // :res_can_worker
+    public static final int PROC_EXTMIG = 1 << 19;      // :extmig
+    public static final int PROC_BACKTRACE = 1 << 20;   // :backtrace__
+    public static final int PROC_TMASSISTANT = 1 << 21; // :TMAssistantDownloadSDKService
+    public static final int PROC_SWITCH = 1 << 22;      // :switch
+    public static final int PROC_HLD = 1 << 23;         // :hld
+    public static final int PROC_PLAYCORE = 1 << 24;    // :playcore_missing_splits_activity
+    public static final int PROC_HLDFL = 1 << 25;       // :hldfl
+    public static final int PROC_MAGIC_EMOJI = 1 << 26; // :magic_emoji
+
+    public static final int PROC_OTHERS = 1 << 30;      // 其他未知进程（放在最后）
+}
+```
+
+#### 基本用法
+
+重写 `targetProcess()` 方法来指定目标进程：
+
+```kotlin
+@HookItem(
+    path = "开发者选项/工具进程功能",
+    desc = "仅在工具进程中运行的功能"
+)
+class ToolsProcessFeature : BaseSwitchFunctionHookItem(), IDexFind {
+
+    /**
+     * 指定此 Hook 仅在工具进程中生效
+     */
+    override fun targetProcess(): Int {
+        return SyncUtils.PROC_TOOLS
+    }
+
+    override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
+        // DEX 查找逻辑
+        return emptyMap()
+    }
+
+    override fun entry(classLoader: ClassLoader) {
+        // Hook 逻辑
+        WeLogger.d("ToolsProcessFeature", "Hook 已在工具进程中安装")
+    }
+}
+```
+
+#### 多进程支持
+
+如果你的功能需要在多个进程中运行，可以使用位运算组合多个进程常量：
+
+```kotlin
+/**
+ * 在主进程和工具进程中都运行
+ */
+override fun targetProcess(): Int {
+    return SyncUtils.PROC_MAIN or SyncUtils.PROC_TOOLS
+}
+
+/**
+ * 在主进程、推送进程和小程序进程中运行
+ */
+override fun targetProcess(): Int {
+    return SyncUtils.PROC_MAIN or SyncUtils.PROC_PUSH or SyncUtils.PROC_APPBRAND
+}
+
+/**
+ * 在除了沙箱进程之外的所有常见进程中运行
+ */
+override fun targetProcess(): Int {
+    return SyncUtils.PROC_MAIN or
+           SyncUtils.PROC_PUSH or
+           SyncUtils.PROC_APPBRAND or
+           SyncUtils.PROC_TOOLS or
+           SyncUtils.PROC_HOTPOT
+}
+```
+
+#### 进程说明
+
+| 进程常量 | 进程标识 |
+|---------|---------|
+| `PROC_MAIN` | `com.tencent.mm` |
+| `PROC_PUSH` | `:push` |
+| `PROC_APPBRAND` | `:appbrand0` ~ `:appbrand4` |
+| `PROC_TOOLS` | `:tools`, `:toolsmp` |
+| `PROC_SANDBOX` | `:sandbox` |
+| `PROC_HOTPOT` | `:hotpot..` |
+| `PROC_EXDEVICE` | `:exdevice` |
+| `PROC_SUPPORT` | `:support` |
+| `PROC_CUPLOADER` | `:cuploader` |
+| `PROC_PATCH` | `:patch` |
+| `PROC_FALLBACK` | `:fallback` |
+| `PROC_DEXOPT` | `:dexopt` |
+| `PROC_RECOVERY` | `:recovery` |
+| `PROC_NOSPACE` | `:nospace` |
+| `PROC_JECTL` | `:jectl` |
+| `PROC_OPENGL_DETECTOR` | `:opengl_detector` |
+| `PROC_RUBBISHBIN` | `:rubbishbin` |
+| `PROC_ISOLATED` | `:isolated_process0`, `:isolated_process1` |
+| `PROC_RES_CAN_WORKER` | `:res_can_worker` |
+| `PROC_EXTMIG` | `:extmig` |
+| `PROC_BACKTRACE` | `:backtrace__` |
+| `PROC_TMASSISTANT` | `:TMAssistantDownloadSDKService` |
+| `PROC_SWITCH` | `:switch` |
+| `PROC_HLD` | `:hld` |
+| `PROC_PLAYCORE` | `:playcore_missing_splits_activity` |
+| `PROC_HLDFL` | `:hldfl` |
+| `PROC_MAGIC_EMOJI` | `:magic_emoji` |
+| `PROC_OTHERS` | 其他未知进程 |
+
+#### 最佳实践
+
+1. **默认使用主进程**
+   - 大多数功能应该在主进程中运行
+   - 如果不重写 `targetProcess()`，默认返回 `PROC_MAIN`
+
+2. **根据需要选择进程**
+   - 根据功能特性选择合适的进程
+   - 可以使用位运算组合多个进程
+
+3. **避免不必要的多进程 Hook**
+   - 只在必要的进程中运行 Hook，避免资源浪费
+   - 明确指定需要的进程
+
+4. **进程判断**
+   ```kotlin
+   override fun entry(classLoader: ClassLoader) {
+       // 获取当前进程名称
+       val processName = SyncUtils.getProcessName()
+       WeLogger.d("MyHook", "当前进程: $processName")
+
+       // 根据进程执行不同逻辑
+       when {
+           processName.contains(":tools") -> {
+               // 工具进程特定逻辑
+           }
+           processName.contains(":push") -> {
+               // 推送进程特定逻辑
+           }
+           processName.contains(":appbrand") -> {
+               // 小程序进程特定逻辑
+           }
+           else -> {
+               // 主进程逻辑
+           }
+       }
+   }
+   ```
+
+5. **使用 isTargetProcess 方法**
+   ```kotlin
+   override fun entry(classLoader: ClassLoader) {
+       // 检查当前是否为目标进程
+       if (SyncUtils.isTargetProcess(SyncUtils.PROC_MAIN or SyncUtils.PROC_TOOLS)) {
+           // 在主进程或工具进程中执行
+           WeLogger.d("MyHook", "在目标进程中运行")
+       }
+   }
+   ```
+
+#### 完整示例
+
+```kotlin
+package moe.ouom.wekit.hooks.item.dev
+
+import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
+import moe.ouom.wekit.dexkit.intf.IDexFind
+import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.util.SyncUtils
+import org.luckypray.dexkit.DexKitBridge
+
+/**
+ * 多进程功能示例
+ *
+ * 此功能在主进程和工具进程中都会运行
+ *
+ * @author Your Name
+ * @since 1.0.0
+ */
+@HookItem(
+    path = "开发者选项/多进程功能",
+    desc = "演示如何在多个进程中运行 Hook"
+)
+class MultiProcessFeature : BaseSwitchFunctionHookItem(), IDexFind {
+
+    /**
+     * 指定在主进程和工具进程中运行
+     */
+    override fun targetProcess(): Int {
+        return SyncUtils.PROC_MAIN or SyncUtils.PROC_TOOLS
+    }
+
+    override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
+        // DEX 查找逻辑
+        return emptyMap()
+    }
+
+    override fun entry(classLoader: ClassLoader) {
+        val processName = SyncUtils.getProcessName()
+
+        WeLogger.i("MultiProcessFeature", "Hook 已在进程中安装: $processName")
+
+        // 根据不同进程执行不同逻辑
+        when {
+            processName.contains(":tools") -> {
+                hookToolsProcess(classLoader)
+            }
+            else -> {
+                hookMainProcess(classLoader)
+            }
+        }
+    }
+
+    private fun hookMainProcess(classLoader: ClassLoader) {
+        WeLogger.d("MultiProcessFeature", "执行主进程 Hook 逻辑")
+        // 主进程特定的 Hook 逻辑
+    }
+
+    private fun hookToolsProcess(classLoader: ClassLoader) {
+        WeLogger.d("MultiProcessFeature", "执行工具进程 Hook 逻辑")
+        // 工具进程特定的 Hook 逻辑
+    }
+}
+```
+
+#### 注意事项
+
+- ⚠️ **进程隔离**: 不同进程之间的内存是隔离的，无法直接共享数据
+- ⚠️ **配置同步**: 如果需要在多个进程间共享配置，使用 `ConfigManager`（基于 MMKV，支持跨进程）
+- ⚠️ **性能考虑**: 在多个进程中运行 Hook 会增加资源消耗，只在必要时使用
+- ⚠️ **日志标识**: 在日志中标注当前进程，便于调试和问题定位
+
 ### DEX 查找技巧
 
 > **📚 参考文档**: [DexKit 官方文档](https://luckypray.org/DexKit/zh-cn/) | [GitHub](https://github.com/LuckyPray/DexKit)
