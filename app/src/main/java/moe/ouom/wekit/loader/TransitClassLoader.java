@@ -21,7 +21,8 @@ public class TransitClassLoader extends ClassLoader {
                 name.startsWith("de.robv.android.xposed.") ||
                 name.startsWith("io.github.libxposed.") ||
                 name.startsWith("org.luckypray.dexkit.") ||
-                name.startsWith("com.afollestad.materialdialogs.")) {
+                name.startsWith("com.afollestad.materialdialogs.") ||
+                name.startsWith("com.tencent.mmkv.")) {
             try {
                 assert sModule != null;
                 return sModule.loadClass(name);

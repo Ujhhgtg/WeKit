@@ -37,7 +37,7 @@ public class SecretLoader {
             return;
         }
 
-        ClassLoader secretLoader = null;
+        ClassLoader secretLoader;
         try {
             // 创建中转 ClassLoader
             // 它会让隐藏 DEX 优先看到模块里的类，而不是微信里的

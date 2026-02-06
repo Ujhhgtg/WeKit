@@ -2,9 +2,9 @@ package moe.ouom.wekit.hooks.sdk.protocol
 
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
-import com.tencent.mmkv.MMKV
 import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.util.log.WeLogger
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -85,13 +85,23 @@ object MsgIdProvider {
      * @param tableName 表名，主表为 "message"，小程序为 "appbrandmessage" 等
      */
     fun previewNextId(tableName: String): Long {
-        val mmkv = MMKV.mmkvWithID(MMKV_FILE_ID, 2)
-        val currentId = mmkv.decodeLong("$KEY_PREFIX$tableName", 0L)
-        if (currentId == 0L) {
-            return getInitialId(tableName)
-        }
+        return try {
+            val mmkvClass = Class.forName("com.tencent.mmkv.MMKV")
+            val mmkvWithIDMethod = mmkvClass.getDeclaredMethod("mmkvWithID", String::class.java, Int::class.javaPrimitiveType)
+            val mmkvInstance = mmkvWithIDMethod.invoke(null, MMKV_FILE_ID, 2)
+            val decodeLongMethod = mmkvClass.getDeclaredMethod("decodeLong", String::class.java, Long::class.javaPrimitiveType)
 
-        return calculateNext(tableName, currentId)
+            val currentId = decodeLongMethod.invoke(mmkvInstance, "$KEY_PREFIX$tableName", 0L) as Long
+
+            if (currentId == 0L) {
+                getInitialId(tableName)
+            } else {
+                calculateNext(tableName, currentId)
+            }
+        } catch (e: Exception) {
+            WeLogger.e("MsgIdProvider", "MMKV 反射失败: ${e.message}")
+            System.currentTimeMillis()
+        }
     }
 
     private fun calculateNext(tableName: String, current: Long): Long {
