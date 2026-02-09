@@ -37,6 +37,7 @@ class WePacketDebugger : BaseClickableFunctionHookItem() {
             val edtUri = createEditText("CGI 路径", "/cgi-bin/micromsg-bin/oplog")
             val edtCmdId = createEditText("CmdId (Int)", "681")
             val edtFuncId = createEditText("FuncId (Int)", "0")
+            val edtRouteId = createEditText("routeId (Int)", "0")
             val edtPayload = createEditText("JSON Payload", "{}").apply {
                 isSingleLine = false
             }
@@ -44,6 +45,7 @@ class WePacketDebugger : BaseClickableFunctionHookItem() {
             layout.addView(edtUri)
             layout.addView(edtCmdId)
             layout.addView(edtFuncId)
+            layout.addView(edtRouteId)
             layout.addView(edtPayload)
 
             MaterialDialog(context).show {
@@ -54,6 +56,7 @@ class WePacketDebugger : BaseClickableFunctionHookItem() {
                     val uri = edtUri.text.toString().trim()
                     val cmdId = edtCmdId.text.toString().toIntOrNull() ?: 0
                     val funcId = edtFuncId.text.toString().toIntOrNull() ?: 0
+                    val routeId = edtRouteId.text.toString().toIntOrNull() ?: 0
                     val payload = edtPayload.text.toString()
 
                     if (uri.isEmpty()) {
@@ -66,7 +69,7 @@ class WePacketDebugger : BaseClickableFunctionHookItem() {
                         uri,
                         cmdId,
                         funcId,
-                        0,
+                        routeId,
                         jsonPayload = payload
                     ) {
                         onSuccess { json, _ ->
