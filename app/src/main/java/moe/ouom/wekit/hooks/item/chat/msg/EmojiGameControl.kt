@@ -5,14 +5,10 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
-import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
-import android.widget.ScrollView
-import android.widget.TextView
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.widget.*
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
@@ -25,6 +21,7 @@ import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.MatchType
 import java.lang.reflect.Modifier
 import kotlin.random.Random
+import androidx.core.graphics.toColorInt
 
 @HookItem(path = "聊天与消息/猜拳骰子控制", desc = "自定义猜拳和骰子的结果")
 class EmojiGameControl : BaseClickableFunctionHookItem(), IDexFind {
@@ -157,51 +154,175 @@ class EmojiGameControl : BaseClickableFunctionHookItem(), IDexFind {
             val builder = AlertDialog.Builder(activity)
             builder.setTitle(if (isDice) "选择骰子点数" else "选择猜拳结果")
 
-            // Programmatic UI: RadioGroup
-            val radioGroup = RadioGroup(activity).apply {
-                gravity = Gravity.CENTER
+            val mainLayout = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(40, 40, 40, 20)
+            }
+
+            // Mode Selection Radio Group
+            val modeLabel = TextView(activity).apply {
+                text = "发送模式"
+                setTextColor(Color.DKGRAY)
+                textSize = 14f
+                setPadding(0, 0, 0, 10)
+            }
+            mainLayout.addView(modeLabel)
+
+            val modeRadioGroup = RadioGroup(activity).apply {
                 orientation = RadioGroup.HORIZONTAL
-                setPadding(20, 40, 20, 20)
+                setPadding(0, 0, 0, 20)
             }
 
-            if (isDice) {
-                DiceFace.entries.forEach { face ->
-                    radioGroup.addView(RadioButton(activity).apply {
-                        id = face.index
-                        text = face.chineseName
-                        setOnClickListener { valDice = face.index }
-                    })
+            val rbSingle = RadioButton(activity).apply {
+                id = View.generateViewId()
+                text = "单次发送"
+                isChecked = true
+            }
+            val rbMultiple = RadioButton(activity).apply {
+                id = View.generateViewId()
+                text = "多次发送"
+            }
+            modeRadioGroup.addView(rbSingle)
+            modeRadioGroup.addView(rbMultiple)
+            mainLayout.addView(modeRadioGroup)
+
+            // Divider
+            mainLayout.addView(View(activity).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    2
+                ).apply { setMargins(0, 10, 0, 20) }
+                setBackgroundColor(Color.LTGRAY)
+            })
+
+            // Container for switchable content
+            val contentContainer = FrameLayout(activity)
+            mainLayout.addView(contentContainer)
+
+            // Single Mode UI: RadioGroup
+            val singleModeView = ScrollView(activity).apply {
+                val radioGroup = RadioGroup(activity).apply {
+                    gravity = Gravity.CENTER
+                    orientation = RadioGroup.HORIZONTAL
+                    setPadding(20, 20, 20, 20)
                 }
-            } else {
-                MorraType.entries.forEach { type ->
-                    radioGroup.addView(RadioButton(activity).apply {
-                        id = type.index
-                        text = type.chineseName
-                        setOnClickListener { valMorra = type.index }
-                    })
+
+                if (isDice) {
+                    DiceFace.entries.forEach { face ->
+                        radioGroup.addView(RadioButton(activity).apply {
+                            id = face.index
+                            text = face.chineseName
+                            setOnClickListener { valDice = face.index }
+                        })
+                    }
+                } else {
+                    MorraType.entries.forEach { type ->
+                        radioGroup.addView(RadioButton(activity).apply {
+                            id = type.index
+                            text = type.chineseName
+                            setOnClickListener { valMorra = type.index }
+                        })
+                    }
+                }
+
+                addView(radioGroup)
+            }
+
+            // Multiple Mode UI: EditText
+            val multipleModeView = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(20, 20, 20, 20)
+
+                val instructionText = TextView(activity).apply {
+                    text = if (isDice) {
+                        "输入多个点数（1-6）\n例如: 123456"
+                    } else {
+                        "输入多个选项（1-3）\n1=剪刀, 2=石头, 3=布\n例如: 123"
+                    }
+                    setTextColor(Color.GRAY)
+                    textSize = 13f
+                    setPadding(0, 0, 0, 15)
+                }
+                addView(instructionText)
+            }
+
+            val multipleInput = EditText(activity).apply {
+                inputType = InputType.TYPE_CLASS_TEXT
+                hint = if (isDice) "例如: 123456" else "例如: 123"
+                setPadding(20, 20, 20, 20)
+                setBackgroundColor("#F5F5F5".toColorInt())
+            }
+            multipleModeView.addView(multipleInput)
+
+            // Set initial visibility
+            contentContainer.addView(singleModeView)
+            contentContainer.addView(multipleModeView)
+            multipleModeView.visibility = View.GONE
+
+            // Mode switch logic
+            modeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+                when (checkedId) {
+                    rbSingle.id -> {
+                        singleModeView.visibility = View.VISIBLE
+                        multipleModeView.visibility = View.GONE
+                    }
+                    rbMultiple.id -> {
+                        singleModeView.visibility = View.GONE
+                        multipleModeView.visibility = View.VISIBLE
+                    }
                 }
             }
 
-            // ScrollView container in case screen is small
-            val container = ScrollView(activity).apply { addView(radioGroup) }
-            builder.setView(container)
+            val scrollContainer = ScrollView(activity).apply { addView(mainLayout) }
+            builder.setView(scrollContainer)
 
+            // Send Button
             builder.setPositiveButton("发送") { _, _ ->
                 try {
-                    XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
+                    val isSingleMode = modeRadioGroup.checkedRadioButtonId == rbSingle.id
+
+                    if (isSingleMode) {
+                        // Single send - existing logic
+                        XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
+                    } else {
+                        // Multiple send - parse input and send sequentially
+                        val inputText = multipleInput.text.toString().trim()
+                        val values = parseMultipleInput(inputText, isDice)
+
+                        if (values.isEmpty()) {
+                            Toast.makeText(activity, "输入格式错误，请重试", Toast.LENGTH_SHORT).show()
+                            return@setPositiveButton
+                        }
+
+                        // Send multiple times with delay
+                        sendMultiple(param, values, isDice, activity)
+                    }
                 } catch (e: Throwable) {
-                    WeLogger.e("EmojiGameControl", "Failed to call original", e)
+                    WeLogger.e("EmojiGameControl", "Failed to send", e)
+                    Toast.makeText(activity, "发送失败", Toast.LENGTH_SHORT).show()
                 }
             }
 
+            // Random Button
             builder.setNeutralButton("随机") { _, _ ->
-                if (isDice) valDice = Random.nextInt(0, 6)
-                else valMorra = Random.nextInt(0, 3)
-
                 try {
-                    XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
+                    val isSingleMode = modeRadioGroup.checkedRadioButtonId == rbSingle.id
+
+                    if (isSingleMode) {
+                        if (isDice) valDice = Random.nextInt(0, 6)
+                        else valMorra = Random.nextInt(0, 3)
+                        XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
+                    } else {
+                        // Generate random sequence
+                        val count = if (isDice) Random.nextInt(3, 10) else Random.nextInt(3, 8)
+                        val values = List(count) {
+                            if (isDice) Random.nextInt(0, 6) else Random.nextInt(0, 3)
+                        }
+                        sendMultiple(param, values, isDice, activity)
+                    }
                 } catch (e: Throwable) {
-                    WeLogger.e("EmojiGameControl", "Failed to call original", e)
+                    WeLogger.e("EmojiGameControl", "Failed to send random", e)
+                    Toast.makeText(activity, "发送失败", Toast.LENGTH_SHORT).show()
                 }
             }
 
@@ -210,11 +331,58 @@ class EmojiGameControl : BaseClickableFunctionHookItem(), IDexFind {
         }
     }
 
-    // Helper to get current activity (Simple implementation, framework might provide better one)
+    private fun parseMultipleInput(input: String, isDice: Boolean): List<Int> {
+        if (input.isEmpty()) return emptyList()
+
+        val maxValue = if (isDice) 6 else 3
+
+        return input.asSequence()
+            .mapNotNull { it.digitToIntOrNull() }
+            .filter { it in 1..maxValue }
+            .map { it - 1 }  // Convert to 0-based index
+            .toList()
+    }
+
+    private fun sendMultiple(
+        param: XC_MethodHook.MethodHookParam,
+        values: List<Int>,
+        isDice: Boolean,
+        activity: Activity
+    ) {
+        Thread {
+            values.forEachIndexed { index, value ->
+                try {
+                    // Set the value for this iteration
+                    if (isDice) {
+                        valDice = value
+                    } else {
+                        valMorra = value
+                    }
+
+                    // Invoke the original method
+                    XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
+
+                    // Add delay between sends (except for the last one)
+                    if (index < values.size - 1) {
+                        Thread.sleep(300)
+                    }
+                } catch (e: Throwable) {
+                    WeLogger.e("EmojiGameControl", "Failed to send at index $index", e)
+                    activity.runOnUiThread {
+                        Toast.makeText(activity, "第 ${index + 1} 次发送失败", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+            activity.runOnUiThread {
+                Toast.makeText(activity, "已发送 ${values.size} 次", Toast.LENGTH_SHORT).show()
+            }
+        }.start()
+    }
+
+    // Helper to get current activity
     @SuppressLint("PrivateApi")
     private fun getActivity(): Activity? {
-        // Try to get via reflect or framework specific way.
-        // This is a common standard way if the framework doesn't provide a helper.
         try {
             val activityThreadClass = Class.forName("android.app.ActivityThread")
             val activityThread = XposedHelpers.callStaticMethod(activityThreadClass, "currentActivityThread")
@@ -235,7 +403,6 @@ class EmojiGameControl : BaseClickableFunctionHookItem(), IDexFind {
     // ================== Module Config UI (Manager Side) ==================
 
     override fun onClick(context: Context) {
-        // This runs when clicking the module in the manager app
         val builder = AlertDialog.Builder(context)
         builder.setTitle("预设随机结果")
 

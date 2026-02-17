@@ -12,7 +12,7 @@ private fun findBuildToolsVersion(): String {
 }
 
 android {
-    compileSdk = 35
+    compileSdk = 36
     namespace = "io.github.libxposed.service"
     sourceSets {
         val main by getting
@@ -26,7 +26,7 @@ android {
     defaultConfig {
         minSdk = 35
         //noinspection OldTargetApi
-        targetSdk = 35
+        targetSdk = 36
         buildToolsVersion = findBuildToolsVersion()
     }
     // Java 17 is required by libxposed-service

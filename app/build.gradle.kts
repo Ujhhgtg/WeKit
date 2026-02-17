@@ -253,12 +253,10 @@ val killWeChat = tasks.register("kill-wechat") {
     onlyIf { hasConnectedDevice() }
     doLast {
         val adbFile = adbProvider.orNull?.asFile ?: return@doLast
-        for (i in 1..1) {  // 貌似国内定制系统中的的微信一次杀不死？
-            project.exec {
-                commandLine(adbFile, "shell", "am", "force-stop", packageName)
-                isIgnoreExitValue = true
-                standardOutput = ByteArrayOutputStream(); errorOutput = ByteArrayOutputStream()
-            }
+        project.exec {
+            commandLine(adbFile, "shell", "am", "force-stop", packageName)
+            isIgnoreExitValue = true
+            standardOutput = ByteArrayOutputStream(); errorOutput = ByteArrayOutputStream()
         }
 
         logger.lifecycle("✅ kill-wechat executed.")
