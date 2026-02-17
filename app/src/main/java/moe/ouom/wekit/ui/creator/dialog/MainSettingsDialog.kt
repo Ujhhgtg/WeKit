@@ -111,9 +111,9 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
 
         addPreference(
             title = "GitHub",
-            summary = "cwuom/wekit",
+            summary = "修改于 Ujhhgtg/WeKit (原始: cwuom/WeKit)",
             iconName = "ic_github",
-            onClick = { anchor, summaryView -> jumpUrl(context, "https://github.com/cwuom/wekit") }
+            onClick = { anchor, summaryView -> jumpUrl(context, "https://github.com/Ujhhgtg/WeKit") }
         )
         addPreference(
             title = "Telegram",

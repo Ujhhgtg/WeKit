@@ -170,17 +170,18 @@ class EmojiGameControl : BaseClickableFunctionHookItem(), IDexFind {
 
             val modeRadioGroup = RadioGroup(activity).apply {
                 orientation = RadioGroup.HORIZONTAL
+                gravity = Gravity.CENTER
                 setPadding(0, 0, 0, 20)
             }
 
             val rbSingle = RadioButton(activity).apply {
                 id = View.generateViewId()
-                text = "单次发送"
+                text = "单次"
                 isChecked = true
             }
             val rbMultiple = RadioButton(activity).apply {
                 id = View.generateViewId()
-                text = "多次发送"
+                text = "多次"
             }
             modeRadioGroup.addView(rbSingle)
             modeRadioGroup.addView(rbMultiple)
@@ -208,21 +209,25 @@ class EmojiGameControl : BaseClickableFunctionHookItem(), IDexFind {
                 }
 
                 if (isDice) {
-                    DiceFace.entries.forEach { face ->
+                    DiceFace.entries.forEachIndexed { index, face ->
                         radioGroup.addView(RadioButton(activity).apply {
                             id = face.index
                             text = face.chineseName
+                            isChecked = (index == 0)  // Select first radio button by default
                             setOnClickListener { valDice = face.index }
                         })
                     }
+                    valDice = 0  // Set default value
                 } else {
-                    MorraType.entries.forEach { type ->
+                    MorraType.entries.forEachIndexed { index, type ->
                         radioGroup.addView(RadioButton(activity).apply {
                             id = type.index
                             text = type.chineseName
+                            isChecked = (index == 0)  // Select first radio button by default
                             setOnClickListener { valMorra = type.index }
                         })
                     }
+                    valMorra = 0  // Set default value
                 }
 
                 addView(radioGroup)
@@ -235,9 +240,9 @@ class EmojiGameControl : BaseClickableFunctionHookItem(), IDexFind {
 
                 val instructionText = TextView(activity).apply {
                     text = if (isDice) {
-                        "输入多个点数（1-6）\n例如: 123456"
+                        "输入多个点数（1-6）"
                     } else {
-                        "输入多个选项（1-3）\n1=剪刀, 2=石头, 3=布\n例如: 123"
+                        "输入多个选项（1-3）\n1=剪刀, 2=石头, 3=布"
                     }
                     setTextColor(Color.GRAY)
                     textSize = 13f
