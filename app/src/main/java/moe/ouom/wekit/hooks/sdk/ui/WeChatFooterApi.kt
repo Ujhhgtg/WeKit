@@ -16,11 +16,9 @@ import moe.ouom.wekit.util.log.WeLogger
 
 @HookItem(path = "API/聊天界面扩展")
 class WeChatFooterApi : ApiHookItem() {
-
     companion object {
         private const val TAG = "WeChatFooterApi"
         private const val CLASS_CHAT_FOOTER = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
-
         private const val FIELD_TO_USER = "wekit_cache_toUser"
     }
 

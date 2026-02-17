@@ -143,7 +143,6 @@ class WeAppMsgApi : ApiHookItem(), IDexFind {
             return false
         }
 
-
         return try {
             WeLogger.i(TAG, "准备发送 AppMsg -> $toUser")
             val contentObj = parseXmlMethod!!.invoke(null, xmlContent)

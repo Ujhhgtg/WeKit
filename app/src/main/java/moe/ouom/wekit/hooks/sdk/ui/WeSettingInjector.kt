@@ -1,6 +1,5 @@
 package moe.ouom.wekit.hooks.sdk.ui
 
-import android.R
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
@@ -264,7 +263,7 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
                     // 防止重复添加
                     if (menu.findItem(MENU_ID_WEKIT) == null) {
                         menu.add(0, MENU_ID_WEKIT, 0, TITLE_WEKIT_ENTRY)
-                            .setIcon(R.drawable.ic_menu_preferences)
+                            .setIcon(android.R.drawable.ic_menu_preferences)
                         WeLogger.i("New Settings: Injected Menu entry into ${activity.javaClass.simpleName}")
                     }
                 }
@@ -307,7 +306,6 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
             WeLogger.e("Failed to open settings dialog", e)
         }
     }
-
 
     override fun unload(classLoader: ClassLoader) {}
 }

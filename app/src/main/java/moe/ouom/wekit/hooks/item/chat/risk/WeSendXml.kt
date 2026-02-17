@@ -7,7 +7,7 @@ import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 
 @SuppressLint("DiscouragedApi")
-@HookItem(path = "聊天与消息/发送 AppMsg(XML)", desc = "长按'发送'按钮，自动发送卡片消息")
+@HookItem(path = "聊天与消息/发送 AppMsg (XML)", desc = "长按'发送'按钮，自动发送卡片消息")
 class WeSendXml : BaseSwitchFunctionHookItem() {
     override fun entry(classLoader: ClassLoader) {
         // 实现逻辑在 WeChatFooterApi
@@ -33,5 +33,4 @@ class WeSendXml : BaseSwitchFunctionHookItem() {
         // 禁用功能时直接允许
         return true
     }
-
 }

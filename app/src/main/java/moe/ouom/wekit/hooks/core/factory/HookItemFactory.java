@@ -27,7 +27,7 @@ public class HookItemFactory implements IHookFactoryDelegate {
     }
 
     @Override
-    public BaseSwitchFunctionHookItem findHookItemByPath(String path) {
+    public BaseSwitchFunctionHookItem findHookItemByPath(@NonNull String path) {
         return findHookItemByPathStatic(path);
     }
 

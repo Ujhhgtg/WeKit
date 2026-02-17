@@ -41,6 +41,7 @@ import java.io.StringWriter
  * Dex 方法查找对话框
  * 支持并行扫描、双层进度条、异常处理和结果展示
  */
+// TODO: port to Compose
 class DexFinderDialog(
     context: Context,
     private val appInfo: ApplicationInfo,

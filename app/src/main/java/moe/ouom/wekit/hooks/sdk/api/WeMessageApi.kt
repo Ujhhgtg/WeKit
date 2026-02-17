@@ -661,7 +661,6 @@ class WeMessageApi : ApiHookItem(), IDexFind {
         }
     }
 
-
     /** 发送文本消息 */
     fun sendText(toUser: String, text: String): Boolean {
         return try {

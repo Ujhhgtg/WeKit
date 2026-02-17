@@ -262,7 +262,7 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseListener.Data
             MaterialDialog(context)
                 .title(text = "警告")
                 .message(text = "此功能可能导致账号异常，确定要启用吗?")
-                .positiveButton(text = "确定") { dialog ->
+                .positiveButton(text = "确定") { _ ->
                     applyToggle(true)
                 }
                 .negativeButton(text = "取消") { dialog ->

@@ -10,7 +10,7 @@ android {
     buildToolsVersion = "35.0.0"
 
     defaultConfig {
-        minSdk = 24
+        minSdk = 35
         consumerProguardFiles("proguard-rules.pro")
     }
 

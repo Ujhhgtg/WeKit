@@ -8,7 +8,7 @@ object Version {
 
     const val compileSdkVersion = 36
     val buildToolsVersion = findBuildToolsVersion()
-    const val minSdk = 29
+    const val minSdk = 35
     const val targetSdk = 35
 
     private const val defaultNdkVersion = "27.0.12077973"

@@ -12,7 +12,7 @@ private fun findBuildToolsVersion(): String {
 }
 
 android {
-    compileSdk = 34
+    compileSdk = 35
     namespace = "io.github.libxposed.api"
     sourceSets {
         val main by getting
@@ -23,9 +23,9 @@ android {
     }
 
     defaultConfig {
-        minSdk = 24
+        minSdk = 35
         //noinspection OldTargetApi
-        lint.targetSdk = 34
+        lint.targetSdk = 35
         buildToolsVersion = findBuildToolsVersion()
     }
 
