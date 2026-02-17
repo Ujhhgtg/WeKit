@@ -1,6 +1,7 @@
 package moe.ouom.wekit.core.model
 
 import androidx.annotation.Keep
+import com.highcapable.kavaref.extension.toClass
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
@@ -232,6 +233,14 @@ abstract class BaseHookItem {
         )
     }
 
+    @JvmName("hookBeforeExt")
+    protected fun Class<*>.hookBefore(
+        methodName: String,
+        action: HookAction
+    ): Set<XC_MethodHook.Unhook> {
+        return hookBefore(this, methodName, action)
+    }
+
     /**
      * 适配 hookAfter(Class, MethodName, Action)
      * 自动 Hook 该类下所有同名的方法
@@ -251,6 +260,14 @@ abstract class BaseHookItem {
                 }
             }
         )
+    }
+
+    @JvmName("hookAfterExt")
+    protected fun Class<*>.hookAfter(
+        methodName: String,
+        action: HookAction
+    ): Set<XC_MethodHook.Unhook> {
+        return hookAfter(this, methodName, action)
     }
 
     /**
@@ -310,7 +327,6 @@ abstract class BaseHookItem {
             }
         )
     }
-
 
     /**
      * 带执行优先级的 hook (after)
@@ -378,7 +394,6 @@ abstract class BaseHookItem {
         )
     }
 
-
     /**
      * 真正执行接口方法的地方，这么写可以很便捷的捕获异常和子类重写
      */
@@ -419,7 +434,7 @@ abstract class BaseHookItem {
 
                 parameterClasses[i] = when (type) {
                     is Class<*> -> type
-                    is String -> XposedHelpers.findClass(type, classLoader)
+                    is String -> type.toClass(classLoader)
                     else -> throw IllegalArgumentException("parameter type must either be specified as Class or String")
                 }
             }

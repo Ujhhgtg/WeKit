@@ -31,7 +31,6 @@ import java.util.Locale
     desc = "查看历史崩溃日志"
 )
 class CrashLogViewer : BaseClickableFunctionHookItem() {
-
     private var crashLogManager: CrashLogManager? = null
 
     override fun onClick(context: Context?) {

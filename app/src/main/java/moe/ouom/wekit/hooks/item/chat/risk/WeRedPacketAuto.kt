@@ -3,6 +3,7 @@ package moe.ouom.wekit.hooks.item.chat.risk
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
+import android.text.InputType
 import androidx.core.net.toUri
 import com.afollestad.materialdialogs.MaterialDialog
 import de.robv.android.xposed.XposedHelpers
@@ -16,7 +17,7 @@ import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.api.WeDatabaseListener
 import moe.ouom.wekit.hooks.sdk.api.WeNetworkApi
-import moe.ouom.wekit.ui.creator.dialog.item.chat.risk.WeRedPacketConfigDialog
+import moe.ouom.wekit.ui.creator.dialog.BaseRikkaDialogCompose
 import moe.ouom.wekit.util.log.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
@@ -203,8 +204,48 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseListener.Data
         super.unload(classLoader)  // 必须调用父类方法来重置 isLoad 标志
     }
 
+    private class ConfigDialog(context: Context) : BaseRikkaDialogCompose(context, "自动抢红包") {
+
+        override fun initPreferences() {
+            addCategory("通用设置")
+
+            addSwitchPreference(
+                key = "red_packet_notification",
+                title = "抢到后通知（没写）",
+                summary = "在通知栏显示抢到的金额"
+            )
+
+            addCategory("高级选项")
+
+            addSwitchPreference(
+                key = "red_packet_self",
+                title = "抢自己的红包",
+                summary = "默认情况下不抢自己发出的"
+            )
+
+            addEditTextPreference(
+                key = "red_packet_delay_custom",
+                title = "基础延迟",
+                summary = "延迟时间",
+                defaultValue = "1000",
+                hint = "请输入延迟时间（毫秒）",
+                inputType = InputType.TYPE_CLASS_NUMBER,
+                maxLength = 5,
+                summaryFormatter = { value ->
+                    if (value.isEmpty()) "0 ms" else "$value ms"
+                }
+            )
+
+            addSwitchPreference(
+                key = "red_packet_delay_random",
+                title = "随机延时",
+                summary = "在基础延迟上增加 ±500ms 随机偏移，防止风控"
+            )
+        }
+    }
+
     override fun onClick(context: Context?) {
-        context?.let { WeRedPacketConfigDialog(it).show() }
+        context?.let { ConfigDialog(it).show() }
     }
 
     override fun dexFind(dexKit: DexKitBridge): Map<String, String> {

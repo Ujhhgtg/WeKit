@@ -7,7 +7,7 @@ import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.WePkgHelper
 import moe.ouom.wekit.util.log.WeLogger
 
-@HookItem(path = "娱乐功能/清空资料信息", desc = "点击清空你之前所选择的微信地区和性别等资料信息")
+@HookItem(path = "娱乐功能/清空资料信息", desc = "清空当前用户的地区与性别等资料信息")
 class WeProfileCleaner : BaseClickableFunctionHookItem() {
     override fun onClick(context: Context?) {
         context?.let {

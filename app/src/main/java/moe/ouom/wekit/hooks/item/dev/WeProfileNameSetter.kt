@@ -19,7 +19,7 @@ class WeProfileNameSetter : BaseClickableFunctionHookItem() {
                     hint = "请输入新的微信昵称",
                     allowEmpty = true,
                     waitForPositiveButton = true
-                ) { dialog, text ->
+                ) { _, text ->
                     val payload = """{"1":{"1":1,"2":{"1":64,"2":{"1":16,"2":{"1":1,"2":"${
                         escapeJsonString(text.toString())
                     }"}}}}}"""

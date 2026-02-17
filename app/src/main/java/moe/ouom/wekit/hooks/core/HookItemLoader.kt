@@ -1,6 +1,9 @@
 package moe.ouom.wekit.hooks.core
 
 import android.content.pm.ApplicationInfo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants.Companion.PrekClickableXXX
@@ -13,7 +16,8 @@ import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.dexkit.cache.DexCacheManager
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.factory.HookItemFactory
-import moe.ouom.wekit.ui.creator.center.DexFinderDialog
+import moe.ouom.wekit.ui.compose.DexFinderContent
+import moe.ouom.wekit.ui.compose.showComposeDialog
 import moe.ouom.wekit.util.common.SyncUtils
 import moe.ouom.wekit.util.log.WeLogger
 
@@ -167,8 +171,15 @@ class HookItemLoader {
 
                     SyncUtils.post {
                         WeLogger.i("HookItemLoader", "Showing DexFinderDialog for repair")
-                        val dialog = DexFinderDialog(activity, appInfo, brokenItems)
-                        dialog.show()
+                        showComposeDialog(activity) { onDismiss ->
+                            DexFinderContent(
+                                activity,
+                                brokenItems,
+                                appInfo,
+                                CoroutineScope(Dispatchers.Main + SupervisorJob()),
+                                onDismiss = onDismiss
+                            )
+                        }
                     }
                     return@Thread
                 }

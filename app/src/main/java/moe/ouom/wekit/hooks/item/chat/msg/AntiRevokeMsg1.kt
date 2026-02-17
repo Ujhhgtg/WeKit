@@ -1,31 +1,31 @@
-package moe.ouom.wekit.hooks.item.fix
+package moe.ouom.wekit.hooks.item.chat.msg
 
 import moe.ouom.wekit.core.dsl.dexMethod
-import moe.ouom.wekit.core.dsl.resultValue
+import moe.ouom.wekit.core.dsl.resultNull
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import org.luckypray.dexkit.DexKitBridge
 
-@HookItem(path = "优化与修复/移除分享签名校验", desc = "移除第三方应用分享到微信的签名校验")
-class NoShareSignatureVerify : BaseSwitchFunctionHookItem(), IDexFind {
-    private val methodSignCheck by dexMethod()
+@HookItem(path = "聊天与消息/阻止消息撤回 1", desc = "无撤回提示")
+class AntiRevokeMsg1 : BaseSwitchFunctionHookItem(), IDexFind {
+    private val methodRevokeMsg by dexMethod()
 
     override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
         val descriptors = mutableMapOf<String, String>()
-        methodSignCheck.find(dexKit, descriptors = descriptors) {
+        methodRevokeMsg.find(dexKit, descriptors = descriptors) {
             matcher {
-                usingEqStrings("checkAppSignature get local signature failed")
+                usingEqStrings("doRevokeMsg xmlSrvMsgId=%d talker=%s isGet=%s")
             }
         }
         return descriptors
     }
 
     override fun entry(classLoader: ClassLoader) {
-        methodSignCheck.toDexMethod {
+        methodRevokeMsg.toDexMethod {
             hook {
                 beforeIfEnabled { param ->
-                    param.resultValue(true)
+                    param.resultNull()
                 }
             }
         }

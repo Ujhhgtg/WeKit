@@ -29,7 +29,6 @@ dependencyResolutionManagement {
                 includeGroup("de.robv.android.xposed")
             }
         }
-
         maven (url = "https://maven.pkg.jetbrains.space/public/p/ktor/eap")
         mavenLocal {
             content {
@@ -40,6 +39,7 @@ dependencyResolutionManagement {
             create("libs")
         }
         mavenCentral()
+        maven("https://raw.githubusercontent.com/HighCapable/maven-repository/main/repository/releases")
     }
 }
 

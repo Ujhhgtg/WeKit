@@ -13,7 +13,6 @@ import moe.ouom.wekit.util.log.WeLogger
 
 @HookItem(path = "开发者选项/发包调试", desc = "发送自定义数据包到微信服务器")
 class WePacketDebugger : BaseClickableFunctionHookItem() {
-
     override fun onClick(context: Context?) {
         context?.let {
             val layout = LinearLayout(context).apply {

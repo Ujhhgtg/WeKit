@@ -18,7 +18,7 @@ import java.util.Locale
  */
 @HookItem(
     path = "脚本管理/脚本日志",
-    desc = "查看JavaScript脚本执行日志"
+    desc = "查看 JavaScript 脚本执行日志"
 )
 class ScriptLogHookItem : BaseClickableFunctionHookItem() {
 

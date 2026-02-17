@@ -14,7 +14,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "API/数据库监听服务", desc = "为其他功能提供数据库写入监听能力")
 class WeDatabaseListener : ApiHookItem() {
-
     // 定义监听器接口
     interface DatabaseInsertListener {
         fun onInsert(table: String, values: ContentValues)

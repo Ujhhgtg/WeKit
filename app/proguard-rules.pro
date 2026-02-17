@@ -191,3 +191,5 @@
 -dontoptimize
 -renamesourcefileattribute SourceFile
 -dontobfuscate
+
+-dontwarn java.lang.reflect.AnnotatedType

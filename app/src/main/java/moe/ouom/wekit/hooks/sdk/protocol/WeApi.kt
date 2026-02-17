@@ -52,7 +52,7 @@ object WeApi {
             str2 = str3 + "fffffff"
         } else {
             val md5Hex = md5V2(str.toByteArray())
-            str2 = str3 + md5Hex.substring(0, 7)
+            str2 = str3 + md5Hex.take(7)
         }
         val suffixHex = String.format("%04x", j16 % 65535)
         val suffixNum = (j16 % 7) + 100

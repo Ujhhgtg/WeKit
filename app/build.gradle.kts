@@ -1,11 +1,12 @@
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.ByteArrayOutputStream
-import java.util.Locale
-import java.util.UUID
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
+import java.util.UUID
 
 plugins {
     alias(libs.plugins.protobuf)
@@ -312,6 +313,7 @@ tasks.matching { it.name.startsWith("ksp") && it.name.contains("Kotlin") }.confi
 // =========================================================================
 
 kotlin {
+    jvmToolchain(libs.versions.jdk.get().toInt())
     sourceSets.configureEach {
         kotlin.srcDir(layout.buildDirectory.dir("generated/ksp/$name/kotlin/"))
         // 添加生成的方法hash文件目录
@@ -341,6 +343,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.accompanist.drawablepainter)
 
     implementation(libs.kotlinx.io.jvm)
     implementation(libs.gson)
@@ -349,6 +352,7 @@ dependencies {
     implementation(libs.google.protobuf.java)
     implementation(libs.kotlinx.serialization.protobuf)
     implementation(libs.mmkv)
+    implementation(libs.androidx.compose.runtime)
 
     compileOnly(libs.xposed.api)
     compileOnly(projects.libs.common.libxposed.api)
@@ -356,6 +360,8 @@ dependencies {
     implementation(libs.dexlib2)
     implementation(libs.dexkit)
     implementation(libs.hiddenApiBypass)
+    implementation(libs.kavaref.core)
+    implementation(libs.kavaref.extension)
 
     implementation(projects.libs.common.annotationScanner)
     ksp(projects.libs.common.annotationScanner)

@@ -134,10 +134,10 @@ public class CommonContextWrapper extends ContextWrapper {
     // =================================================================================
 
     private static class ModuleLayoutInflater extends LayoutInflater {
-        private static final String[] sAndroidPrefix = {
-                "android.widget.",
-                "android.webkit.",
-                "android.app."
+        private static final String[] androidPrefix = {
+            "android.widget.",
+            "android.webkit.",
+            "android.app."
         };
 
         protected ModuleLayoutInflater(LayoutInflater original, Context newContext) {
@@ -153,7 +153,7 @@ public class CommonContextWrapper extends ContextWrapper {
 
         @Override
         protected View onCreateView(String name, AttributeSet attrs) throws ClassNotFoundException {
-            for (var prefix : sAndroidPrefix) {
+            for (var prefix : androidPrefix) {
                 try {
                     var view = createView(name, prefix, attrs);
                     if (view != null) return view;

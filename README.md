@@ -1,121 +1,16 @@
-<div align="center">
-    <h1> WeKit </h1>
+# WeKit
 
-[![Telegram](https://img.shields.io/static/v1?label=Telegram&message=Channel&color=0088cc)](https://t.me/ouom_pub)  [![CI Builds](https://img.shields.io/static/v1?label=CI&message=BUILDS&color=9400D3)](https://t.me/wekit_ci)
+WeKit 修改版
 
-<p>
-  <img src="icon/wekit.png" width="260" alt="wekit logo" />
-</p>
+## 修改内容
 
+- 添加 WAuxiliary 与 NewMiko 目前公开源代码中的部分功能
+- 移除全部校验，减少模块体积，避免不必要性能开销
+- 一些功能
+- 无须关闭 `Xposed API 调用保护`
+- 移植部分 UI 至 Jetpack Compose
 
-**WeChat, Now with Superpowers**
+## Q&A
 
-🚧 <strong>Work in progress / 开发中</strong>
-</div>
-
-> [!WARNING]  
-> 一切开发旨在学习，请勿用于非法用途
-
-> [!WARNING]  
-> 使用本项目的源代码必须遵守 GPL-3.0 许可证，详见 [LICENSE](./LICENSE)
-
----
-
-# 说明 / How To Use
-
-在`Xposed 框架` 中激活本模块后并将 `com.tencent.mm` 加入作用域，在`微信`自带设置中点击 `WeKit 设置` 即可进入设置页面
-
-> [!NOTE]
-> 在新版微信中，`WeKit 设置` 被移动到了设置界面的标题栏中，你需要标题栏中的"更多(...)"，才能进入设置
-
-- Android >= `10.0`
-- WeChat >= `8.0.67`
-- 本模块使用了 `MemoryDexLoader`，你需要关闭 `Xposed API 调用保护` 才能加载模块功能
-
----
-
-## 开发初衷
-**填补缝隙，重塑体验**
-
-官方为了兼顾海量用户的通用需求，往往会牺牲深度用户的操作效率
-
-WeKit 在未来会尝试解决微信交互中的痛点，让社交回归工具本质，使其更易用、更实用
-
----
-
-# 参考项目 / Reference
-
-| 项目                                                             | 描述                                           |
-|:---------------------------------------------------------------|:---------------------------------------------|
-| [**QAuxiliary**](https://github.com/cinit/QAuxiliary)          | QNotified phoenix - To make OICQ great again |
-| [**TimTool**](https://github.com/suzhelan/TimTool)             | Tim功能性增强XPosed模块，为Tim增加更多趣味功能                |
-| [**WAuxiliary**](https://github.com/HdShare/WAuxiliary_Public) | WeChat Auxiliary Public                      |
-
----
-
-# 项目状态 / Status
-
-- **维护模式：** 本项目处于不定时更新状态，维护行为可能随时停止
-- **贡献指南：**
-  - 本项目采用**社区驱动**模式。我负责核心框架的维护，功能性更新依赖社区贡献
-  - 框架目前正处于活跃开发/重构期，**现阶段请勿提交代码 (PR)**，以免造成合并冲突
-
----
-
-# 常见问题 / Q&A
-
-**Q：为什么要选择开源？**
-> **A：** “取之社区，馈之社区”
-
-正是因为有了前人的开源项目，我才掌握了模块开发的技术。开源不仅能共享技术成果，也能让相关厂商关注到逻辑漏洞，从客观上推动应用安全性的提升。
-
-如果你对 PR 逻辑有所保留，可以选择不提交
-
-----
-
-**Q：为什么模块体积比其他微信模块要大？**
-> **A：** **核心在于稳定性权衡。** 
-
-本模块使用了 `MemoryDexLoader` 技术来增强安全性，这导致 ProGuard (混淆规则) 的优化难度大幅增加
-
-为了避免过度裁剪引发的运行时异常，我们保留了必要的代码冗余，以换取更稳健的插件表现
-
-----
-
-
-**Q：使用本模块会导致微信账号被封禁或限制吗？**
-> **A：存在风险。且如果使用内置技术（修改微信安装包达到加载此模块）的情况下风险会更大**
-
-在使用前请务必知晓：任何 Xposed 注入行为在技术层面上都无法保证绝对的“不可检测”。像腾讯这样的大厂拥有极强的安全对抗能力，能够通过多种底层手段感知运行时的环境异常。
-
-现阶段的“安全运行”并不代表模块是完全隐形的，而可能仅仅是由于检测策略的动态调整或权重差异。一旦触发官方的风控阈值，账号受限的风险将由使用者自行承担。**请始终坚持“非必要不主号”的原则**
-
-----
-
-
-**Q：模块是否存在后门？是否会进行远程热更新？**
-
-> **A：坚持透明原则，无任何网络侧代码。**
-
-本模块不包含任何后门、数据回传服务器或统计逻辑，完全处于离线运行状态。
-模块不支持热更新机制，所有逻辑均在 APK 编译阶段固化，不存在远程下发并执行恶意代码的可能。
-
-**警告：**
-Xposed 模块在注入宿主（微信）后，将获得与宿主同等的系统权限及内存访问能力。这意味着非官方渠道（如第三方修改版、未知社群转发）的 APK 极易被植入恶意代码以窃取隐私。
-
-**为了你的账号与隐私安全，请务必仅从本项目 GitHub Release 页面或[官方 Telegram 频道](https://t.me/wekit_ci)下载**
-
----
-
-# Contributing to WeKit / 贡献指南
-感谢你对 WeKit 的兴趣！在提交 PR 前，请先阅读完整的 [CONTRIBUTING.md](./CONTRIBUTING.md)，谢谢！
-
----
-
-# 许可证 / License
-WeKit 使用 **GPL-3.0** 开源许可证发布。
-
-这意味着：
-- ✅ 你可以自由地使用、修改和分发本软件；
-- ⚠️ 分发修改版时须继续以 GPL-3.0 协议开源；
-- 📚 详细条款请参阅 [LICENSE](./LICENSE)。
+1. - Q: 我的微信突然卡得要死，狂吃内存
+   - A：禁用“隐藏应用列表”

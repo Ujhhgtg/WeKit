@@ -214,8 +214,8 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
                 if (KEY_WEKIT_ENTRY == key) {
                     val activity = param.thisObject as Activity
 
-                    val fixContext = CommonContextWrapper.createAppCompatContext(activity)
-                    val dialog = MainSettingsDialog(fixContext)
+                    val ctx = CommonContextWrapper.createAppCompatContext(activity)
+                    val dialog = MainSettingsDialog(ctx)
                     dialog.show()
 
                     param.result = true
@@ -299,8 +299,8 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
 
     private fun openSettingsDialog(activity: Activity) {
         try {
-            val fixContext = CommonContextWrapper.createAppCompatContext(activity)
-            val dialog = MainSettingsDialog(fixContext)
+            val ctx = CommonContextWrapper.createAppCompatContext(activity)
+            val dialog = MainSettingsDialog(ctx)
             dialog.show()
         } catch (e: Throwable) {
             WeLogger.e("Failed to open settings dialog", e)

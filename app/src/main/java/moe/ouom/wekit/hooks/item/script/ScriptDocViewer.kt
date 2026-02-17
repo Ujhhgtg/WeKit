@@ -2,7 +2,7 @@ package moe.ouom.wekit.hooks.item.script
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.util.common.Toasts.showToast
@@ -27,7 +27,7 @@ class ScriptDocViewer : BaseClickableFunctionHookItem() {
         try {
             // 跳转到脚本文档网页
             val url = "https://github.com/cwuom/WeKit/blob/master/SCRIPT_API_DOCUMENT.md"
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            val intent = Intent(Intent.ACTION_VIEW, url.toUri())
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
             showToast(context, "正在打开脚本文档...")

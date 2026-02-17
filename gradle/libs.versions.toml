@@ -1,5 +1,6 @@
 [versions]
 # noinspection UnusedVersionCatalogEntry
+accompanist = "0.37.3"
 namespace = "moe.ouom.wekit"
 # noinspection UnusedVersionCatalogEntry
 minSdk = "35"
@@ -35,54 +36,66 @@ materialPreference = "2.0.0"
 preference = "1.2.1"
 appcompatVersion = "1.6.1"
 materialDialog = "3.3.0"
-okhttpVersion = "5.3.2"
+okhttp = "5.3.2"
+kavaref = "1.0.2"
+hiddenApiBypass = "6.1"
+runtime = "1.10.3"
+composeMaterial3 = "1.5.0-alpha13"
 
 [libraries]
+accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanist" }
 android-tools = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
-androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "composeMaterial3" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
-grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpcProtobuf" }
-hutool-core = { module = "cn.hutool:hutool-core", version.ref = "hutoolCore" }
-markwon-core = { module = "io.noties.markwon:core", version.ref = "core" }
-dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
-gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
-hiddenApiBypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version = "6.1" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-kotlinx-io-jvm = { module = "org.jetbrains.kotlinx:kotlinx-io-jvm", version.ref = "kotlinxIoJvm" }
-kotlinx-serialization-protobuf = { module = "org.jetbrains.kotlinx:kotlinx-serialization-protobuf", version.ref = "serialization" }
 android-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-constraintLayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
-mmkv = { module = "com.tencent:mmkv", version.ref = "mmkv" }
-rhino-android = { module = "io.apisense:rhino-android", version.ref = "rhino" }
-xposed-api = { module = "de.robv.android.xposed:api", version = "82" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
-eclipse-jgit = { module = "org.eclipse.jgit:org.eclipse.jgit", version = "6.9.0.202403050737-r" }
-lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
+androidx-preference = { module = "androidx.preference:preference", version.ref = "preference" }
+androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
 androidx-annotation = { module = "androidx.annotation:annotation", version = "1.9.1" }
-dexlib2 = { module = "org.smali:dexlib2", version = "2.5.2" }
-google-guava = { module = "com.google.guava:guava", version = "33.5.0-android" }
+
+rikka-rikkax-material-preference = { module = "dev.rikka.rikkax.material:material-preference", version.ref = "materialPreference" }
+rikka-rikkax-appcompat = { module = "dev.rikka.rikkax.appcompat:appcompat", version.ref = "appcompatVersion" }
+material-dialogs-core = { module = "com.afollestad.material-dialogs:core", version.ref = "materialDialog" }
+material-dialogs-input = { module = "com.afollestad.material-dialogs:input", version.ref = "materialDialog" }
+
+grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpcProtobuf" }
+hutool-core = { module = "cn.hutool:hutool-core", version.ref = "hutoolCore" }
+markwon-core = { module = "io.noties.markwon:core", version.ref = "core" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+kotlinx-io-jvm = { module = "org.jetbrains.kotlinx:kotlinx-io-jvm", version.ref = "kotlinxIoJvm" }
+kotlinx-serialization-protobuf = { module = "org.jetbrains.kotlinx:kotlinx-serialization-protobuf", version.ref = "serialization" }
+mmkv = { module = "com.tencent:mmkv", version.ref = "mmkv" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 # noinspection UnusedVersionCatalogEntry
 google-protobuf-protoc = { module = "com.google.protobuf:protoc", version.ref = "protobuf" }
 google-protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
-dalvik-dx = { module = "com.jakewharton.android.repackaged:dalvik-dx", version = "16.0.1" }
-okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpVersion" }
-rikka-rikkax-material-preference = { module = "dev.rikka.rikkax.material:material-preference", version.ref = "materialPreference" }
-androidx-preference = { module = "androidx.preference:preference", version.ref = "preference" }
-rikka-rikkax-appcompat = { module = "dev.rikka.rikkax.appcompat:appcompat", version.ref = "appcompatVersion" }
-androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
+google-guava = { module = "com.google.guava:guava", version = "33.5.0-android" }
 fastjson2 = { module = "com.alibaba.fastjson2:fastjson2", version.ref = "fastJson2" }
-material-dialogs-core = { module = "com.afollestad.material-dialogs:core", version.ref = "materialDialog" }
-material-dialogs-input = { module = "com.afollestad.material-dialogs:input", version.ref = "materialDialog" }
+okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+
+xposed-api = { module = "de.robv.android.xposed:api", version = "82" }
+dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
+dexlib2 = { module = "org.smali:dexlib2", version = "2.5.2" }
+dalvik-dx = { module = "com.jakewharton.android.repackaged:dalvik-dx", version = "16.0.1" }
+hiddenApiBypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenApiBypass" }
+kavaref-core = { module = "com.highcapable.kavaref:kavaref-core", version.ref = "kavaref" }
+kavaref-extension = { module = "com.highcapable.kavaref:kavaref-extension", version.ref = "kavaref" }
+
+rhino-android = { module = "io.apisense:rhino-android", version.ref = "rhino" }
+
 ksp = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
+kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlinpoet-ksp = { module = "com.squareup:kotlinpoet-ksp", version = "2.2.0" }
-androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
+androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -8,7 +8,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
+class MainSettingsDialog(context: Context) : BaseRikkaDialogCompose(context, "WeKit") {
     // 定义优先级 映射关系 (值 -> 显示文本)
     private val priorityMap = mapOf(
         10000 to "高优先级",
@@ -31,7 +31,7 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
             addPreference(
                 title = name, iconName = iconName,
                 onClick = { _, _ ->
-                    CategorySettingsDialog(context, name).show()
+                    CategorySettingsDialogCompose(context, name).show()
                 })
         }
 
@@ -106,8 +106,8 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
         } catch (_: Exception) {
             "N/A"
         }
-        addPreference(title = "编译时间", summary = buildTimeStr)
-        addPreference("Build UUID", BuildConfig.BUILD_UUID)
+        addPreference(title = "构建时间", summary = buildTimeStr)
+        addPreference("构建 UUID", BuildConfig.BUILD_UUID)
 
         addPreference(
             title = "GitHub",

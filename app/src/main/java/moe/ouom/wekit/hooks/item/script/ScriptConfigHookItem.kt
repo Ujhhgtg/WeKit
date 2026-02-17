@@ -33,7 +33,7 @@ import java.util.UUID
  */
 @HookItem(
     path = "脚本管理/脚本开关",
-    desc = "管理JavaScript脚本配置"
+    desc = "管理 JavaScript 脚本配置"
 )
 class ScriptConfigHookItem : BaseClickableFunctionHookItem(), IWePkgInterceptor {
 

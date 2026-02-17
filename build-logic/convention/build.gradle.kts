@@ -16,7 +16,6 @@ repositories {
 dependencies {
     implementation(libs.android.tools)
     implementation(libs.kotlin.gradle)
-    implementation(libs.eclipse.jgit)
 }
 
 java {

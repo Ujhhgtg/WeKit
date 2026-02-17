@@ -2,7 +2,7 @@ package moe.ouom.wekit.hooks.item.fix
 
 import android.app.Activity
 import android.widget.Button
-import de.robv.android.xposed.XposedHelpers
+import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.util.log.WeLogger
@@ -16,13 +16,10 @@ class AutoApproveDeviceLogin : BaseSwitchFunctionHookItem() {
     }
 
     override fun entry(classLoader: ClassLoader) {
-        val targetClass = XposedHelpers.findClass(
-            "com.tencent.mm.plugin.webwx.ui.ExtDeviceWXLoginUI",
-            classLoader
-        )
+        val targetClass = "com.tencent.mm.plugin.webwx.ui.ExtDeviceWXLoginUI".toClass(classLoader)
 
         // Hook onCreate — inject function control flags into intent
-        hookBefore(targetClass, "onCreate") { param ->
+        targetClass.hookBefore("onCreate") { param ->
             val activity = param.thisObject as Activity
             var functionControl = 0
             functionControl = functionControl or AUTO_SYNC_MESSAGES
@@ -33,7 +30,7 @@ class AutoApproveDeviceLogin : BaseSwitchFunctionHookItem() {
         }
 
         // Hook initView — auto-click the login button after view is set up
-        hookAfter(targetClass, "initView") { param ->
+        targetClass.hookAfter("initView") { param ->
             val fields = param.thisObject.javaClass.declaredFields
             val buttonField = fields.firstOrNull { it.type == Button::class.java }
                 ?: run {

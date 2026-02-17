@@ -26,7 +26,7 @@ import java.io.File
  */
 @HookItem(
     path = "优化与修复/崩溃拦截",
-    desc = "拦截 Java 崩溃并记录详细信息，支持查看和导出日志"
+    desc = "拦截 Java 层崩溃并记录详细信息，支持查看和导出日志"
 )
 class CrashInterceptor : BaseSwitchFunctionHookItem() {
 
@@ -239,7 +239,7 @@ class CrashInterceptor : BaseSwitchFunctionHookItem() {
                     // 限制显示长度，防止卡死
                     val maxDisplayLength = 15 * 1024
                     val displayInfo = if (crashInfo.length > maxDisplayLength) {
-                        crashInfo.substring(0, maxDisplayLength) +
+                        crashInfo.take(maxDisplayLength) +
                                 "\n\n========================================\n" +
                                 "【提示】日志内容过长，此处仅展示部分内容。\n" +
                                 "请点击「导出文件」以保存完整日志。\n" +

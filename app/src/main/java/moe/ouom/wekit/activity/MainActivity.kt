@@ -31,6 +31,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,7 +42,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,14 +54,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.delay
 import moe.ouom.wekit.BuildConfig
 import moe.ouom.wekit.R
 import moe.ouom.wekit.constants.PackageConstants
 import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.ui.theme.WekitTheme
+import moe.ouom.wekit.ui.theme.AppTheme
 import moe.ouom.wekit.util.common.CheckAbiVariantModel
 import moe.ouom.wekit.util.common.Utils
 import moe.ouom.wekit.util.getEnable
@@ -71,6 +70,7 @@ import moe.ouom.wekit.util.setEnable
 
 class MainActivity : ComponentActivity() {
 
+    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -82,11 +82,8 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            WekitTheme {
-                RememberSystemUiController(window)
-
-                MainScreen(
-                    activity = this,
+            AppTheme {
+                AppContent(
                     onUrlClick = { url -> Utils.jumpUrl(this, url) }
                 )
             }
@@ -94,26 +91,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// SystemUiController 实现
-@Composable
-fun RememberSystemUiController(window: android.view.Window) {
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-    DisposableEffect(isDark) {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            // 如果是深色模式，状态栏图标应为浅色（所以 isAppearanceLight... 设为 false）
-            isAppearanceLightStatusBars = !isDark
-            isAppearanceLightNavigationBars = !isDark
-        }
-        onDispose {}
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(activity: MainActivity, onUrlClick: (String) -> Unit) {
+fun AppContent(onUrlClick: (String) -> Unit) {
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -156,7 +136,9 @@ fun MainScreen(activity: MainActivity, onUrlClick: (String) -> Unit) {
         }
 
         if ((isHookEnabled && HostInfo.isInModuleProcess() && !HookStatus.isZygoteHookMode()
-                    && HookStatus.isTaiChiInstalled(context)) && HookStatus.getHookType() == HookStatus.HookType.APP_PATCH && "armAll" != AbiUtils.getModuleFlavorName()
+            && HookStatus.isTaiChiInstalled(context))
+            && HookStatus.getHookType() == HookStatus.HookType.APP_PATCH
+            && "armAll" != AbiUtils.getModuleFlavorName()
         ) {
             isAbiMatch = false
         }
@@ -304,10 +286,10 @@ fun MainScreen(activity: MainActivity, onUrlClick: (String) -> Unit) {
                         }
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        InfoItem("Build UUID", BuildConfig.BUILD_UUID)
+                        InfoItem("构建 UUID", BuildConfig.BUILD_UUID)
                         Spacer(modifier = Modifier.height(8.dp))
                         InfoItem(
-                            "编译日期",
+                            "构建日期",
                             Utils.convertTimestampToDate(BuildConfig.BUILD_TIMESTAMP)
                         )
                     }
@@ -331,8 +313,8 @@ fun MainScreen(activity: MainActivity, onUrlClick: (String) -> Unit) {
                 LinkCard(
                     iconRes = R.drawable.ic_github,
                     title = "GitHub",
-                    subtitle = "cwuom/wekit",
-                    onClick = { onUrlClick("https://github.com/cwuom/wekit") }
+                    subtitle = "修改于 Ujhhgtg/WeKit (原始: cwuom/WeKit)",
+                    onClick = { onUrlClick("https://github.com/Ujhhgtg/WeKit") }
                 )
 
                 Spacer(modifier = Modifier.height(30.dp))

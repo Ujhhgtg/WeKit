@@ -45,7 +45,7 @@ class TestCrash : BaseClickableFunctionHookItem() {
                 // 初始化 Native 崩溃处理器（用于测试）
                 WeLogger.i("TestCrash", "Creating NativeCrashHandler...")
                 nativeCrashHandler = NativeCrashHandler(appContext!!)
-                WeLogger.i("TestCrash", "NativeCrashHandler created: ${nativeCrashHandler != null}")
+                WeLogger.i("TestCrash", "NativeCrashHandler created")
 
                 // 安装 Native 崩溃拦截器（确保测试时能够拦截崩溃）
                 WeLogger.i("TestCrash", "Installing native crash handler...")
@@ -299,7 +299,7 @@ class TestCrash : BaseClickableFunctionHookItem() {
     private fun triggerArrayIndexOutOfBoundsException() {
         val array = arrayOf(1, 2, 3)
 
-        @Suppress("UNUSED_VARIABLE")
+        @Suppress("UNUSED_VARIABLE", "unused")
         val value = array[10] // 触发 ArrayIndexOutOfBoundsException
     }
 
@@ -309,7 +309,7 @@ class TestCrash : BaseClickableFunctionHookItem() {
     private fun triggerClassCastException() {
         val obj: Any = "String"
 
-        @Suppress("UNUSED_VARIABLE", "UNCHECKED_CAST")
+        @Suppress("UNUSED_VARIABLE", "UNCHECKED_CAST", "unused")
         val number = obj as Int // 触发 ClassCastException
     }
 
@@ -317,7 +317,7 @@ class TestCrash : BaseClickableFunctionHookItem() {
      * 触发算术异常
      */
     private fun triggerArithmeticException() {
-        @Suppress("UNUSED_VARIABLE", "DIVISION_BY_ZERO")
+        @Suppress("UNUSED_VARIABLE", "DIVISION_BY_ZERO", "unused")
         val result = 10 / 0 // 触发 ArithmeticException
     }
 
