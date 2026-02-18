@@ -52,6 +52,7 @@ object JsApiExposer {
         exposeHttpApis(scope)
         exposeLogApis(scope)
         exposeStorageApis(scope)
+        exposeTimeApis(scope)
     }
 
     private const val MAX_CACHE_SIZE_IN_MIB = 500
@@ -125,19 +126,14 @@ object JsApiExposer {
 
                     WeLogger.i(TAG_HTTP_API, "http.download invoked: url=$url filename=$filename")
 
-                    // Logic to infer filename if not provided
                     if (filename.isNullOrBlank()) {
-                        filename = url.substringAfterLast("/", "").substringBefore("?")
-                    }
-
-                    if (filename.isBlank()) {
-                        WeLogger.e(TAG_HTTP_API, "http.download failed: could not infer filename from $url")
-                        return createDownloadResponse(false, "")
+                        filename = "download_${System.currentTimeMillis()}"
+                        WeLogger.i(TAG_HTTP_API, "no filename provided, using default: $filename")
                     }
 
                     return try {
                         var cacheDir = PathUtils.moduleCachePath
-                        cacheDir = cacheDir!!.resolve("javascript")
+                        cacheDir = cacheDir!!.resolve("javascript_http_api")
 
                         if (cacheDir.isDirectory()) {
                             // drop cache if size too large
@@ -402,6 +398,72 @@ object JsApiExposer {
         ScriptableObject.putProperty(scope, "log", logObj)
     }
 
+    private fun exposeTimeApis(scope: ScriptableObject) {
+        val timeObj = NativeObject()
+
+        // time.sleepS(seconds)
+        ScriptableObject.putProperty(timeObj, "sleepS",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any {
+                    val seconds = (args.getOrNull(0) as? Number)?.toLong() ?: 0L
+                    if (seconds > 0) {
+                        try {
+                            Thread.sleep(seconds * 1000)
+                        } catch (e: InterruptedException) {
+                            WeLogger.w(TAG_LOG_API, "Sleep interrupted", e)
+                            Thread.currentThread().interrupt()
+                        }
+                    }
+                    return Context.getUndefinedValue()
+                }
+            }
+        )
+
+        // time.sleepMs(milliseconds)
+        ScriptableObject.putProperty(timeObj, "sleepMs",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any {
+                    val ms = (args.getOrNull(0) as? Number)?.toLong() ?: 0L
+                    if (ms > 0) {
+                        try {
+                            Thread.sleep(ms)
+                        } catch (e: InterruptedException) {
+                            WeLogger.w(TAG_LOG_API, "Sleep interrupted", e)
+                            Thread.currentThread().interrupt()
+                        }
+                    }
+                    return Context.getUndefinedValue()
+                }
+            }
+        )
+
+        // time.getCurrentUnixEpoch()
+        ScriptableObject.putProperty(timeObj, "getCurrentUnixEpoch",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any {
+                    return System.currentTimeMillis() / 1000
+                }
+            }
+        )
+
+        ScriptableObject.putProperty(scope, "time", timeObj)
+    }
+
     @Suppress("JavaCollectionWithNullableTypeArgument")
     private val storage = ConcurrentHashMap<String, Any?>()
 
@@ -409,16 +471,17 @@ object JsApiExposer {
         PathUtils.moduleDataPath!!.resolve("data").apply { createDirectories() }
     }
 
-    private val storageFile get() = DATA_DIR_PATH.resolve("js_data.json")
+    private val storageFile get() = DATA_DIR_PATH.resolve("javascript_storage_api.json")
 
     init {
         loadStorageFromDisk()
     }
 
+    private val gson = Gson()
     private val saveHandler = Handler(Looper.getMainLooper())
     private val saveRunnable = Runnable {
         try {
-            storageFile.writeText(Gson().toJson(storage))
+            storageFile.writeText(gson.toJson(storage))
         } catch (e: Exception) {
             WeLogger.e(TAG, "Failed to save js storage to disk", e)
         }
@@ -428,7 +491,7 @@ object JsApiExposer {
         try {
             if (!storageFile.exists()) return
             val json = storageFile.readText()
-            val map = Gson().fromJson<Map<String, Any?>>(json, object : TypeToken<Map<String, Any?>>() {}.type)
+            val map = gson.fromJson<Map<String, Any?>>(json, object : TypeToken<Map<String, Any?>>() {}.type)
             map?.forEach { (k, v) -> storage[k] = v }
         } catch (e: Exception) {
             WeLogger.e(TAG, "Failed to load js storage from disk", e)

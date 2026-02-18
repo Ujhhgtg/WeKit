@@ -190,13 +190,13 @@ function commandRandomPic(content) {
     var wallhavenPageIndex = storage.getOrDefault(wallhavenPageIndexKey, 1);
     var wallhavenImageIndex = storage.getOrDefault(wallhavenImageIndexKey, 1);
 
+    const zerochanImageIndexKey = "zerochan_api_search_image_index";
+    var zerochanImageIndex = storage.getOrDefault(zerochanImageIndexKey, 1);
+
     var sources = {
-        // TODO: sometimes-deterministic results, add rotation like wallhaven
         alcy: {
-            url: "https://t.alcy.cc/ysz?json=&quantity=1",
-            parser: function (resp) {
-                return resp.body.trim();
-            }
+            // no-parser api: use url as imageUrl directly
+            url: "https://t.alcy.cc/ycy/?time=1999999999999"
         },
         "waifu.im": {
             url: "https://api.waifu.im/images?PageSize=1&Page=1&IncludedTags=waifu",
@@ -216,6 +216,28 @@ function commandRandomPic(content) {
             url: "https://konachan.com/post.json?limit=1",
             parser: function (resp) {
                 return resp.json[0].file_url;
+            }
+        },
+        zerochan: {
+            url:
+                "https://www.zerochan.net/Genshin+Impact?json&s=fav&t=0&l=1&p=" +
+                zerochanImageIndex,
+            parser: function (resp) {
+                zerochanImageIndex += 1;
+                storage.set(zerochanImageIndexKey, zerochanImageIndex);
+
+                var id = resp.json.items[0].id;
+                var req_url = "https://www.zerochan.net/" + id + "?json";
+                var resp = http.get(req_url);
+                if (!resp.ok) {
+                    log.e("failed to send stage 2 request for zerochan");
+                    return "";
+                }
+                if (!resp.json) {
+                    log.e("failed to parse stage 2 json for zerochan");
+                    return "";
+                }
+                return resp.json.full;
             }
         },
         danbooru: {
@@ -247,21 +269,24 @@ function commandRandomPic(content) {
 
     if (!config) {
         replyText(
-            "暂不支持来源: " +
-                sourceName +
-                "\n可选项: alcy, waifu.im, yande.re, konachan, danbooru, wallhaven"
+            "暂不支持来源: " + sourceName + "\n输入 /help random-pic 查看可选项"
         );
     }
 
-    var response = http.get(config.url);
+    if (config.parser) {
+        var response = http.get(config.url);
 
-    if (!response.ok) {
-        log.e(sourceName, "api request failed: ", response.status);
-        replyText("图片获取失败");
+        if (!response.ok) {
+            log.e(sourceName, "api request failed: ", response.status);
+            replyText("图片获取失败");
+        }
+
+        var imageUrl = config.parser(response);
+    } else {
+        var imageUrl = config.url;
     }
 
-    var imageUrl = config.parser(response);
-    log.d("Extracted Image URL: ", imageUrl);
+    log.d("extracted image url: ", imageUrl);
 
     var result = http.download(imageUrl);
     if (!result.ok) {
@@ -320,14 +345,14 @@ function commandDebugMsg(talker) {
     var key = talker + "_debug_msg_enabled";
     if (!storage.hasKey(key)) {
         storage.set(key, true);
-        return "已启用消息调试模式, 将会输出下一条消息的原始对象.";
+        return "已启用消息调试模式, 将会输出下一条消息的原始对象";
     } else {
         var val = storage.get(key);
         storage.set(key, !val);
         if (val) {
             return "已禁用消息调试模式";
         } else {
-            return "已启用消息调试模式, 将会输出下一条消息的原始对象.";
+            return "已启用消息调试模式, 将会输出下一条消息的原始对象";
         }
     }
 }
@@ -338,17 +363,17 @@ function commandHelp(content) {
     if (cmdName === "help") {
         return (
             "命令: /help\n" +
-            "功能: 输出命令帮助.\n" +
+            "功能: 输出命令帮助\n" +
             "用法: /help <命令>\n" +
             "参数:\n" +
-            "1. 命令: 可选, 若不指定此参数则输出全部可用命令列表."
+            "1. 命令: 可选, 若不指定此参数则输出全部可用命令列表"
         );
     }
 
     if (cmdName === "changelog") {
         return (
             "命令: /changelog\n" +
-            "功能: 输出更新内容.\n" +
+            "功能: 输出更新内容\n" +
             "用法: /changelog\n" +
             "参数:\n" +
             "无"
@@ -358,20 +383,20 @@ function commandHelp(content) {
     if (cmdName === "weather") {
         return (
             "命令: /weather\n" +
-            "功能: 输出城市当前天气.\n" +
+            "功能: 输出城市当前天气\n" +
             "用法: /weather <城市>\n" +
             "参数:\n" +
-            "1. 城市: 可选, 默认为'上海'."
+            "1. 城市: 可选, 默认为'上海'"
         );
     }
 
     if (cmdName === "random-pic") {
         return (
             "命令: /random-pic\n" +
-            "功能: 获取随机二次元图片.\n" +
+            "功能: 获取随机二次元图片\n" +
             "用法: /random-pic <来源> <标签>\n" +
             "参数:\n" +
-            "1. 来源: 可选, 默认为 'alcy', 可选项: alcy, yande.re, konachan, zerochan, danbooru, waifu.im, wallhaven\n" +
+            "1. 来源: 可选, 默认为 'wallhaven', 可选项: alcy, yande.re, konachan, zerochan, danbooru, waifu.im, wallhaven\n" +
             "2. 标签: 可选 (功能还没写)"
         );
     }
@@ -379,7 +404,7 @@ function commandHelp(content) {
     if (cmdName === "hitokoto") {
         return (
             "命令: /hitokoto\n" +
-            "功能: 输出「一言」.\n" +
+            "功能: 输出「一言」\n" +
             "用法: /hitokoto\n" +
             "参数:\n" +
             "无"
@@ -389,7 +414,7 @@ function commandHelp(content) {
     if (cmdName === "debug-msg") {
         return (
             "命令: /debug-msg\n" +
-            "功能: 为当前聊天启用或禁用消息调试模式. 启用该模式将输出下一条消息的原始对象.\n" +
+            "功能: 为当前聊天启用或禁用消息调试模式, 启用该模式将输出下一条消息的原始对象\n" +
             "用法: /debug-msg\n" +
             "参数:\n" +
             "无"
@@ -426,11 +451,14 @@ function onMessage(talker, content, type, isSend) {
     }
 
     var debugMsgKey = talker + "_debug_msg_enabled";
-    if (storage.getOrDefault(debugMsgKey, false)) {
+    if (
+        !content.startsWith("已启用消息调试:") && // do not debug itself
+        storage.getOrDefault(debugMsgKey, false)
+    ) {
         storage.set(debugMsgKey, false);
 
         var message =
-            "消息调试：\n" +
+            "消息调试:\n" +
             "talker=" +
             talker +
             "\n" +

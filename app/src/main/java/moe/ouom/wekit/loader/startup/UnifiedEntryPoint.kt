@@ -12,6 +12,7 @@ import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.loader.hookapi.IHookBridge
 import moe.ouom.wekit.loader.hookapi.ILoaderService
 import moe.ouom.wekit.utils.Initiator.init
+import moe.ouom.wekit.utils.common.Toasts
 import moe.ouom.wekit.utils.log.WeLogger.e
 import moe.ouom.wekit.utils.log.WeLogger.i
 import java.lang.reflect.InvocationTargetException
@@ -129,10 +130,6 @@ object UnifiedEntryPoint {
 
                         i(TAG, "Invoking StartupAgent immediately...")
                         try {
-//                                var startupAgent = Class.forName("moe.ouom.wekit.loader.startup.StartupAgent", false, UnifiedEntryPoint.class.getClassLoader());
-//                                startupAgent.getMethod("startup", String.class, String.class, ILoaderService.class, ClassLoader.class, IHookBridge.class)
-//                                        .invoke(null, modulePath, hostDataDir, loaderService, realClassLoader, hookBridge);
-
                             StartupAgent.startup(
                                 modulePath,
                                 hostDataDir,
@@ -141,6 +138,7 @@ object UnifiedEntryPoint {
                                 hookBridge
                             )
                             i(TAG, "StartupAgent invoked successfully.")
+                            Toasts.showToast(hostApp, "WeKit 加载成功!")
                         } catch (e: Throwable) {
                             Log.e(TAG, "StartupAgent.startup failed", e)
                         }
