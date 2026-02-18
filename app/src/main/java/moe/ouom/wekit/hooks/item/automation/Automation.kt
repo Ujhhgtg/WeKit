@@ -57,7 +57,7 @@ class AutomationRuleManager : BaseClickableFunctionHookItem(),
             listOf(
                 AutomationRule(
                     id = 0,
-                    name = "bot_commands",
+                    name = "builtin_js",
                     script = EmbeddedBuiltinJs.SCRIPT,
                     enabled = true
                 )

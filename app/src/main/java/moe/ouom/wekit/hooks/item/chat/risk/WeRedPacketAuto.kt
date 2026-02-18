@@ -46,14 +46,14 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseListener.Data
     )
 
     override fun entry(classLoader: ClassLoader) {
-        WeLogger.i("WeRedPacketAuto: entry() 被调用，开始注册数据库监听")
+        WeLogger.i("WeRedPacketAuto: entry() called, registering db listener")
         // 注册数据库监听
         WeDatabaseListener.addListener(this)
-        WeLogger.i("WeRedPacketAuto: 数据库监听器已注册")
+        WeLogger.i("WeRedPacketAuto: registered db listener")
 
         // Hook 具体的网络回调
         hookReceiveCallback()
-        WeLogger.i("WeRedPacketAuto: 网络回调 Hook 完成")
+        WeLogger.i("WeRedPacketAuto: hooked network receive callback")
     }
 
     /**
