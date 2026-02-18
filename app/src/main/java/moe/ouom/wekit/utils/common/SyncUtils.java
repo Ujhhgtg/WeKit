@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.common;
+package moe.ouom.wekit.utils.common;
 
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
@@ -13,7 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import moe.ouom.wekit.host.impl.HostInfo;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 @SuppressLint("PrivateApi")
 public class SyncUtils {

@@ -1,8 +1,8 @@
-package moe.ouom.wekit.util.crash
+package moe.ouom.wekit.utils.crash
 
 import android.content.Context
 import lombok.Getter
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 
 /**
  * Native 层崩溃拦截处理器

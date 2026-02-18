@@ -8,8 +8,8 @@ import com.afollestad.materialdialogs.customview.customView
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.WePkgHelper
-import moe.ouom.wekit.util.common.Toasts
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.common.Toasts
+import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(path = "开发者选项/发包调试", desc = "发送自定义数据包到微信服务器")
 class WePacketDebugger : BaseClickableFunctionHookItem() {

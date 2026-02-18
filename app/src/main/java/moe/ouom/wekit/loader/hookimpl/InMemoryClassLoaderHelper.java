@@ -17,7 +17,7 @@ import dalvik.system.BaseDexClassLoader;
 import dalvik.system.DexFile;
 import moe.ouom.wekit.loader.dyn.MemoryDexLoader;
 import moe.ouom.wekit.loader.hookapi.IClassLoaderHelper;
-import moe.ouom.wekit.util.io.IoUtils;
+import moe.ouom.wekit.utils.io.IoUtils;
 
 public class InMemoryClassLoaderHelper implements IClassLoaderHelper {
 

@@ -9,7 +9,7 @@ import java.util.Objects;
 import io.github.libxposed.api.XposedInterface;
 import moe.ouom.wekit.loader.ModuleLoader;
 import moe.ouom.wekit.loader.modern.codegen.Lsp100ProxyClassMaker;
-import moe.ouom.wekit.util.common.CheckUtils;
+import moe.ouom.wekit.utils.common.CheckUtils;
 
 public class Lsp100ExtCmd {
 

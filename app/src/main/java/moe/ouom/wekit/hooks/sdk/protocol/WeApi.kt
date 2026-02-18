@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.hooks.sdk.api.WeMessageApi
 import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date

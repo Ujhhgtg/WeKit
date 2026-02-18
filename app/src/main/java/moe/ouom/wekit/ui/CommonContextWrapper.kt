@@ -9,8 +9,8 @@ import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.LayoutInflater.Factory2
 import android.view.View
-import moe.ouom.wekit.util.common.ModuleRes
-import moe.ouom.wekit.util.log.WeLogger.w
+import moe.ouom.wekit.utils.common.ModuleRes
+import moe.ouom.wekit.utils.log.WeLogger.w
 import java.lang.reflect.Constructor
 
 /**

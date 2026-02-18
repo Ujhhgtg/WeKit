@@ -9,7 +9,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import androidx.core.content.pm.PackageInfoCompat
 import moe.ouom.wekit.BuildConfig
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 
 const val PACKAGE_NAME_WECHAT = "com.tencent.mm"
 const val PACKAGE_NAME_SELF = BuildConfig.APPLICATION_ID

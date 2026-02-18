@@ -9,11 +9,11 @@ import com.afollestad.materialdialogs.list.listItems
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.ui.CommonContextWrapper
-import moe.ouom.wekit.util.common.Toasts.showToast
-import moe.ouom.wekit.util.common.Utils.formatFileSize
-import moe.ouom.wekit.util.crash.CrashLogManager
-import moe.ouom.wekit.util.io.SafUtils
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.common.Toasts.showToast
+import moe.ouom.wekit.utils.common.Utils.formatFileSize
+import moe.ouom.wekit.utils.crash.CrashLogManager
+import moe.ouom.wekit.utils.io.SafUtils
+import moe.ouom.wekit.utils.log.WeLogger
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date

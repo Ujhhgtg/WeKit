@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.log
+package moe.ouom.wekit.utils.log
 
 import android.annotation.SuppressLint
 import android.util.Log

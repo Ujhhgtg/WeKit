@@ -5,7 +5,7 @@ import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.core.model.BaseHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest

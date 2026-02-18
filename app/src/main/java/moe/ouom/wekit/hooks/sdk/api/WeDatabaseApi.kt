@@ -11,8 +11,8 @@ import moe.ouom.wekit.hooks.sdk.api.model.WeContact
 import moe.ouom.wekit.hooks.sdk.api.model.WeGroup
 import moe.ouom.wekit.hooks.sdk.api.model.WeMessage
 import moe.ouom.wekit.hooks.sdk.api.model.WeOfficial
-import moe.ouom.wekit.util.common.SyncUtils
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.common.SyncUtils
+import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier

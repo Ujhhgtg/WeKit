@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util
+package moe.ouom.wekit.utils
 
 import org.json.JSONArray
 import org.json.JSONObject

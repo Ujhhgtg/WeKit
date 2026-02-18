@@ -15,8 +15,8 @@ import io.github.libxposed.api.XposedModule;
 import moe.ouom.wekit.loader.hookapi.IHookBridge;
 import moe.ouom.wekit.loader.modern.codegen.Lsp100ProxyClassMaker;
 import moe.ouom.wekit.loader.modern.dyn.Lsp100CallbackProxy;
-import moe.ouom.wekit.util.common.CheckUtils;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.common.CheckUtils;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 public class Lsp100HookWrapper {
 

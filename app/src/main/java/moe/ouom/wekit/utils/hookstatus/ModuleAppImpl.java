@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.hookstatus;
+package moe.ouom.wekit.utils.hookstatus;
 
 import android.app.Application;
 
@@ -10,7 +10,7 @@ import moe.ouom.wekit.host.impl.HostInfo;
 import moe.ouom.wekit.loader.hookapi.IClassLoaderHelper;
 import moe.ouom.wekit.loader.hookapi.ILoaderService;
 import moe.ouom.wekit.loader.startup.StartupInfo;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 public class ModuleAppImpl extends Application {
 

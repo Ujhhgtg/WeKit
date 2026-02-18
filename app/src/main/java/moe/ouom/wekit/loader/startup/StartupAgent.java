@@ -17,7 +17,7 @@ import java.lang.reflect.Field;
 import moe.ouom.wekit.BuildConfig;
 import moe.ouom.wekit.loader.hookapi.IHookBridge;
 import moe.ouom.wekit.loader.hookapi.ILoaderService;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 
 @Keep
@@ -25,10 +25,6 @@ public class StartupAgent {
 
     private static final String TAG = "StartupAgent";
     private static boolean sInitialized = false;
-
-    private StartupAgent() {
-        throw new AssertionError("No instance for you!");
-    }
 
     @Keep
     public static void startup(
@@ -39,11 +35,12 @@ public class StartupAgent {
             @Nullable IHookBridge hookBridge
     ) {
         if (sInitialized) {
+            WeLogger.w(TAG, "already initialized");
             return;
         }
         sInitialized = true;
         if ("true".equals(System.getProperty(StartupAgent.class.getName()))) {
-            WeLogger.e("Error: wekit reloaded??");
+            WeLogger.e(TAG, "WeKit reloaded??");
             return;
         }
 

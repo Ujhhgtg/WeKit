@@ -2,7 +2,7 @@ package moe.ouom.wekit.loader.startup;
 
 import android.content.Context;
 
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 public class HybridClassLoader extends ClassLoader {
 

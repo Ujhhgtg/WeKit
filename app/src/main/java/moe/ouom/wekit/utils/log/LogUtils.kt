@@ -1,32 +1,35 @@
-package moe.ouom.wekit.util.log
+package moe.ouom.wekit.utils.log
 
 import android.annotation.SuppressLint
 import de.robv.android.xposed.XposedBridge
 import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.loader.core.NativeCoreBridge
-import moe.ouom.wekit.util.io.FileUtils
-import moe.ouom.wekit.util.io.PathUtils
+import moe.ouom.wekit.utils.io.FileUtils
+import moe.ouom.wekit.utils.io.PathUtils
 import java.nio.file.Path
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import kotlin.io.path.createDirectories
 
 object LogUtils {
-    private val logRootDirectory: Path by lazy {
-        PathUtils.moduleDataPath.resolve("logs").apply {
+    private val logRootDirectory: Path?
+        get() {
+            return PathUtils.moduleDataPath?.resolve("logs")?.apply {
+                    createDirectories()
+                }
+        }
+
+    private val runLogDirectory: Path?
+        get() {
+        return logRootDirectory?.resolve("run")?.apply {
             createDirectories()
         }
     }
 
-    private val runLogDirectory: Path by lazy {
-        logRootDirectory.resolve("run").apply {
-            createDirectories()
-        }
-    }
-
-    private val errorLogDirectory: Path by lazy {
-        logRootDirectory.resolve("error").apply {
+    private val errorLogDirectory: Path?
+        get() {
+        return logRootDirectory?.resolve("error")?.apply {
             createDirectories()
         }
     }
@@ -94,7 +97,7 @@ object LogUtils {
     private fun addLog(fileName: String, desc: String?, content: Any?, isError: Boolean) {
         try {
             if (NativeCoreBridge.isNativeCoreInitialized() && !WeConfig.getDefaultConfig()
-                    .getBooleanOrFalse(Constants.PrekEnableLog)
+                .getBooleanOrFalse(Constants.PrekEnableLog)
             ) {
                 return
             }
@@ -103,15 +106,16 @@ object LogUtils {
         }
 
         val directory = if (isError) errorLogDirectory else runLogDirectory
+        if (directory == null) return
 
-        val path = "$directory$fileName.log"
+        val path = directory.resolve("$fileName.log")
         val stringBuffer = StringBuilder(time)
         stringBuffer.append("\n").append(desc)
         if (content is Exception) {
             stringBuffer.append("\n").append(getStackTrace(content))
         }
         stringBuffer.append("\n\n")
-        FileUtils.writeTextToFile(path, stringBuffer.toString(), true)
+        FileUtils.writeTextToFile(path.toString(), stringBuffer.toString(), true)
     }
 
     val time: String

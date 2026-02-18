@@ -1,7 +1,7 @@
-package moe.ouom.wekit.util.crash
+package moe.ouom.wekit.utils.crash
 
 import android.content.Context
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileWriter

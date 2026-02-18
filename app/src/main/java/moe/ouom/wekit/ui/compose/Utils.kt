@@ -29,7 +29,6 @@ fun showComposeDialog(context: Context? = null, content: @Composable (onDismiss:
     else
         CommonContextWrapper.createAppCompatContext(ctx)
 
-
     val dialog = Dialog(ctx, android.R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar_MinWidth)
     val lifecycleOwner = XposedLifecycleOwner().apply { onCreate(); onResume() }
 

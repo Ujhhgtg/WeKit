@@ -21,7 +21,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 
 public class MmkvConfigManagerImpl extends WeConfig {

@@ -1,6 +1,6 @@
-package moe.ouom.wekit.util
+package moe.ouom.wekit.utils
 
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 
 object Initiator {
     private var sHostClassLoader: ClassLoader? = null

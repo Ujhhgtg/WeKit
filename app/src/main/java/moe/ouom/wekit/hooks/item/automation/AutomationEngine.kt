@@ -1,7 +1,7 @@
 package moe.ouom.wekit.hooks.item.automation
 
 import moe.ouom.wekit.hooks.sdk.api.WeMessageApi
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONObject
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.Function

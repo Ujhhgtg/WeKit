@@ -1,8 +1,8 @@
 package moe.ouom.wekit.hooks.item.automation
 
 import moe.ouom.wekit.hooks.sdk.api.WeMessageApi
-import moe.ouom.wekit.util.io.PathUtils
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.io.PathUtils
+import moe.ouom.wekit.utils.log.WeLogger
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -129,7 +129,7 @@ object JsApiExposer {
 
                     return try {
                         var cacheDir = PathUtils.moduleCachePath
-                        cacheDir = cacheDir.resolve("javascript")
+                        cacheDir = cacheDir!!.resolve("javascript")
 
                         if (cacheDir.isDirectory()) {
                             // drop cache if size too large

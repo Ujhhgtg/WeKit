@@ -42,9 +42,9 @@ import moe.ouom.wekit.hooks.sdk.api.WeDatabaseApi
 import moe.ouom.wekit.hooks.sdk.api.model.WeGroup
 import moe.ouom.wekit.ui.compose.showComposeDialog
 import moe.ouom.wekit.ui.creator.dialog.hooks.BaseHooksSettingsDialog
-import moe.ouom.wekit.util.Initiator.loadClass
-import moe.ouom.wekit.util.common.Toasts
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.Initiator.loadClass
+import moe.ouom.wekit.utils.common.Toasts
+import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(path = "开发者选项/分裂群组", desc = "让群聊一分为二")
 class WeSplitChatroomMaker : BaseClickableFunctionHookItem() {

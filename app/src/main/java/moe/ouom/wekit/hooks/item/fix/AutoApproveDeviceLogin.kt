@@ -5,7 +5,7 @@ import android.widget.Button
 import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(path = "优化与修复/自动批准设备登录", desc = "其他设备请求登录时自动勾选选项并点击按钮")
 class AutoApproveDeviceLogin : BaseSwitchFunctionHookItem() {

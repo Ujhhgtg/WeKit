@@ -3,7 +3,7 @@ package moe.ouom.wekit.loader.core;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 @Keep
 public class WeKitNative {

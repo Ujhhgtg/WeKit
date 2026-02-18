@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.common;
+package moe.ouom.wekit.utils.common;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -8,7 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 /**
  * 模块资源加载器助手

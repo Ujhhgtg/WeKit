@@ -3,7 +3,7 @@ package moe.ouom.wekit.ui.creator.dialog
 import android.content.Context
 import moe.ouom.wekit.BuildConfig
 import moe.ouom.wekit.constants.Constants
-import moe.ouom.wekit.util.common.Utils.jumpUrl
+import moe.ouom.wekit.utils.common.Utils.jumpUrl
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

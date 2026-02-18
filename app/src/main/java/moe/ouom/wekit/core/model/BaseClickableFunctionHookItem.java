@@ -8,8 +8,8 @@ import de.robv.android.xposed.XC_MethodHook;
 import moe.ouom.wekit.config.WeConfig;
 import moe.ouom.wekit.constants.Constants;
 import moe.ouom.wekit.loader.startup.HybridClassLoader;
-import moe.ouom.wekit.util.common.SyncUtils;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.common.SyncUtils;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 public abstract class BaseClickableFunctionHookItem extends BaseHookItem {
     private boolean enabled;

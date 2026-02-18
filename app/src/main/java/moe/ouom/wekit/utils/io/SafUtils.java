@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.io;
+package moe.ouom.wekit.utils.io;
 
 import android.app.AlertDialog;
 import android.content.ClipData;
@@ -14,8 +14,8 @@ import java.util.Objects;
 
 import moe.ouom.wekit.activity.ShadowSafTransientActivity;
 import moe.ouom.wekit.host.HostInfo;
-import moe.ouom.wekit.util.common.SyncUtils;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.common.SyncUtils;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 
 public class SafUtils {

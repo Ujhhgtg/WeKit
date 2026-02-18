@@ -1,12 +1,11 @@
 package moe.ouom.wekit.loader.core.hooks;
 
 import android.content.Intent;
-import android.os.Build;
 import android.os.Bundle;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 /**
  * Parcelable 反序列化修复
@@ -78,11 +77,9 @@ public class ParcelableFixer {
             XposedHelpers.findAndHookMethod(Intent.class, "getSerializableExtra", String.class, fixClassLoaderHook);
 
             // Android 13 及以上的新版强类型方法
-            if (Build.VERSION.SDK_INT >= 33) {
-                XposedHelpers.findAndHookMethod(Intent.class, "getParcelableExtra", String.class, Class.class, fixClassLoaderHook);
-                XposedHelpers.findAndHookMethod(Intent.class, "getParcelableArrayListExtra", String.class, Class.class, fixClassLoaderHook);
-                XposedHelpers.findAndHookMethod(Intent.class, "getSerializableExtra", String.class, Class.class, fixClassLoaderHook);
-            }
+            XposedHelpers.findAndHookMethod(Intent.class, "getParcelableExtra", String.class, Class.class, fixClassLoaderHook);
+            XposedHelpers.findAndHookMethod(Intent.class, "getParcelableArrayListExtra", String.class, Class.class, fixClassLoaderHook);
+            XposedHelpers.findAndHookMethod(Intent.class, "getSerializableExtra", String.class, Class.class, fixClassLoaderHook);
         } catch (Throwable e) {
             WeLogger.w("ParcelableFixer", "Failed to hook some Intent methods: " + e.getMessage());
         }

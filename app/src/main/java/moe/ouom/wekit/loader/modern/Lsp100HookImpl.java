@@ -14,7 +14,7 @@ import moe.ouom.wekit.BuildConfig;
 import moe.ouom.wekit.loader.hookapi.IClassLoaderHelper;
 import moe.ouom.wekit.loader.hookapi.IHookBridge;
 import moe.ouom.wekit.loader.hookapi.ILoaderService;
-import moe.ouom.wekit.util.common.CheckUtils;
+import moe.ouom.wekit.utils.common.CheckUtils;
 
 public class Lsp100HookImpl implements IHookBridge, ILoaderService {
 

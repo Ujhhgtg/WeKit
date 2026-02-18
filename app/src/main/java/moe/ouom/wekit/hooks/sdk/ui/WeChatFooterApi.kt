@@ -10,9 +10,9 @@ import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.core.factory.HookItemFactory.getItem
 import moe.ouom.wekit.hooks.item.chat.risk.WeSendXml
 import moe.ouom.wekit.hooks.sdk.api.WeMessageApi
-import moe.ouom.wekit.util.Initiator.loadClass
-import moe.ouom.wekit.util.common.Toasts
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.Initiator.loadClass
+import moe.ouom.wekit.utils.common.Toasts
+import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(path = "API/聊天界面扩展")
 class WeChatFooterApi : ApiHookItem() {

@@ -67,7 +67,7 @@
  * Java 签名: (Ljava/lang/String;)Z
  */
 extern "C" JNIEXPORT jboolean JNICALL
-Java_moe_ouom_wekit_util_crash_NativeCrashHandler_installNative(JNIEnv* env, jobject thiz, jstring crashLogDir) {
+Java_moe_ouom_wekit_utils_crash_NativeCrashHandler_installNative(JNIEnv* env, jobject thiz, jstring crashLogDir) {
     if (crashLogDir == nullptr) {
         return JNI_FALSE;
     }
@@ -88,7 +88,7 @@ Java_moe_ouom_wekit_util_crash_NativeCrashHandler_installNative(JNIEnv* env, job
  * Java 签名: ()V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_moe_ouom_wekit_util_crash_NativeCrashHandler_uninstallNative(JNIEnv* env, jobject thiz) {
+Java_moe_ouom_wekit_utils_crash_NativeCrashHandler_uninstallNative(JNIEnv* env, jobject thiz) {
     uninstall_native_crash_handler();
 }
 
@@ -97,7 +97,7 @@ Java_moe_ouom_wekit_util_crash_NativeCrashHandler_uninstallNative(JNIEnv* env, j
  * Java 签名: (I)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_moe_ouom_wekit_util_crash_NativeCrashHandler_triggerTestCrashNative(JNIEnv* env, jobject thiz, jint crashType) {
+Java_moe_ouom_wekit_utils_crash_NativeCrashHandler_triggerTestCrashNative(JNIEnv* env, jobject thiz, jint crashType) {
     trigger_test_crash(crashType);
 }
 

@@ -31,8 +31,8 @@ import moe.ouom.wekit.hooks.sdk.api.WeDatabaseListener
 import moe.ouom.wekit.hooks.sdk.protocol.intf.IWePkgInterceptor
 import moe.ouom.wekit.ui.compose.showComposeDialog
 import moe.ouom.wekit.ui.creator.dialog.hooks.BaseHooksSettingsDialog
-import moe.ouom.wekit.util.WeProtoData
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.WeProtoData
+import moe.ouom.wekit.utils.log.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 @HookItem(path = "自动化/自动化引擎", desc = "点击管理自动化规则")

@@ -38,8 +38,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.SneakyThrows;
 import moe.ouom.wekit.config.RuntimeConfig;
 import moe.ouom.wekit.constants.PackageConstants;
-import moe.ouom.wekit.util.common.ModuleRes;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.common.ModuleRes;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 /**
  * Activity 占位 Hook 实现

@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.common
+package moe.ouom.wekit.utils.common
 
 // Version is a helper class for comparing version strings.
 class Version(private val versionName: String) {

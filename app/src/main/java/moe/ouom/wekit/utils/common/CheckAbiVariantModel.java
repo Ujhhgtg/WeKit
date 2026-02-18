@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.common;
+package moe.ouom.wekit.utils.common;
 
 import android.content.Context;
 import android.system.Os;
@@ -12,7 +12,7 @@ import java.util.HashSet;
 import java.util.Map;
 
 import moe.ouom.wekit.config.WeConfig;
-import moe.ouom.wekit.util.hookstatus.AbiUtils;
+import moe.ouom.wekit.utils.hookstatus.AbiUtils;
 
 
 public class CheckAbiVariantModel {

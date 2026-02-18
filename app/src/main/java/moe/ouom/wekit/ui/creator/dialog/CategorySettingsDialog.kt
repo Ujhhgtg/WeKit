@@ -10,7 +10,7 @@ import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.core.bridge.HookFactoryBridge
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
-import moe.ouom.wekit.util.common.ModuleRes
+import moe.ouom.wekit.utils.common.ModuleRes
 
 class CategorySettingsDialog(
     context: Context,

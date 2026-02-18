@@ -1,11 +1,11 @@
-package moe.ouom.wekit.util.crash
+package moe.ouom.wekit.utils.crash
 
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import android.os.Debug
 import android.os.Process
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.PrintWriter

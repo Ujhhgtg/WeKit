@@ -2,7 +2,7 @@ package moe.ouom.wekit.core.dsl
 
 import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.dexkit.DexMethodDescriptor
-import moe.ouom.wekit.util.Initiator.loadClass
+import moe.ouom.wekit.utils.Initiator.loadClass
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.FindClass
 import org.luckypray.dexkit.query.FindMethod

@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util;
+package moe.ouom.wekit.utils;
 
 import static cn.hutool.core.convert.Convert.hexToBytes;
 
@@ -17,7 +17,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 public class WeProtoData {
 

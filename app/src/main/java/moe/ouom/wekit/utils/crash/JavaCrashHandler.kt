@@ -1,9 +1,9 @@
-package moe.ouom.wekit.util.crash
+package moe.ouom.wekit.utils.crash
 
 import android.content.Context
 import android.os.Process
-import moe.ouom.wekit.util.crash.CrashInfoCollector.collectCrashInfo
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.crash.CrashInfoCollector.collectCrashInfo
+import moe.ouom.wekit.utils.log.WeLogger
 import kotlin.system.exitProcess
 
 /**

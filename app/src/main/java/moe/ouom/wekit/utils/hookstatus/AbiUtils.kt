@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.hookstatus
+package moe.ouom.wekit.utils.hookstatus
 
 import android.content.Context
 import android.content.pm.PackageManager

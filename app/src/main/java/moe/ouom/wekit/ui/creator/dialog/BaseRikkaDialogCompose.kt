@@ -57,8 +57,8 @@ import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.ui.compose.showComposeDialog
-import moe.ouom.wekit.util.common.ModuleRes
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.common.ModuleRes
+import moe.ouom.wekit.utils.log.WeLogger
 
 // ---------------------------------------------------------------------------
 //  Lightweight "View" shim so the public API surface (returning View, taking

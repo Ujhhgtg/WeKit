@@ -10,7 +10,7 @@ import java.util.Objects;
 
 import de.robv.android.xposed.XposedBridge;
 import moe.ouom.wekit.core.model.BaseHookItem;
-import moe.ouom.wekit.util.log.LogUtils;
+import moe.ouom.wekit.utils.log.LogUtils;
 
 
 /**

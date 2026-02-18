@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.io;
+package moe.ouom.wekit.utils.io;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -21,7 +21,7 @@ import java.security.MessageDigest;
 import java.util.Objects;
 
 import de.robv.android.xposed.XposedBridge;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 @SuppressWarnings("ResultOfMethodCallIgnored")
 public class FileUtils {

@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.io;
+package moe.ouom.wekit.utils.io;
 
 import androidx.annotation.NonNull;
 

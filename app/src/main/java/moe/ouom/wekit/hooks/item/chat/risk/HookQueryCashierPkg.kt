@@ -8,8 +8,8 @@ import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.WePkgManager
 import moe.ouom.wekit.hooks.sdk.protocol.intf.IWePkgInterceptor
 import moe.ouom.wekit.ui.creator.dialog.BaseRikkaDialogCompose
-import moe.ouom.wekit.util.WeProtoData
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.WeProtoData
+import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONArray
 import org.json.JSONObject
 

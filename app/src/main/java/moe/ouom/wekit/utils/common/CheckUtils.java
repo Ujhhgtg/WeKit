@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.common;
+package moe.ouom.wekit.utils.common;
 
 import org.json.JSONArray;
 import org.json.JSONException;

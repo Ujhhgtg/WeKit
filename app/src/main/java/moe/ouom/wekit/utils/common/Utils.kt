@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.common
+package moe.ouom.wekit.utils.common
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -11,7 +11,7 @@ import android.view.ViewGroup
 import androidx.core.net.toUri
 import androidx.core.view.size
 import de.robv.android.xposed.XposedBridge
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONArray
 import org.json.JSONObject
 import java.lang.reflect.Method

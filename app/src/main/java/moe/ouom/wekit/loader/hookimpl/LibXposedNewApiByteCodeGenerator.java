@@ -40,7 +40,7 @@ import java.util.Set;
 
 import moe.ouom.wekit.dexkit.DexMethodDescriptor;
 import moe.ouom.wekit.loader.startup.StartupInfo;
-import moe.ouom.wekit.util.io.IoUtils;
+import moe.ouom.wekit.utils.io.IoUtils;
 
 
 public class LibXposedNewApiByteCodeGenerator {

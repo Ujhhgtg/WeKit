@@ -6,7 +6,7 @@ import com.afollestad.materialdialogs.input.input
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.WePkgHelper
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(path = "娱乐功能/设置微信昵称", desc = "通过发包来更灵活的设置微信昵称")
 class WeProfileNameSetter : BaseClickableFunctionHookItem() {

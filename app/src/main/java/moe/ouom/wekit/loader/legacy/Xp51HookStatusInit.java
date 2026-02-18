@@ -11,7 +11,7 @@ public class Xp51HookStatusInit {
 
     @Keep
     public static void init(ClassLoader classLoader) throws ReflectiveOperationException {
-        var kHookStatusImpl = classLoader.loadClass("moe.ouom.wekit.util.hookstatus.HookStatusImpl");
+        var kHookStatusImpl = classLoader.loadClass("moe.ouom.wekit.utils.hookstatus.HookStatusImpl");
         var f = kHookStatusImpl.getDeclaredField("sZygoteHookMode");
         f.setAccessible(true);
         f.set(null, true);

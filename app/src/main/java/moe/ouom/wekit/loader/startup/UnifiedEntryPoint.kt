@@ -1,91 +1,94 @@
-package moe.ouom.wekit.loader.startup;
+package moe.ouom.wekit.loader.startup
 
-import static moe.ouom.wekit.constants.Constants.CLAZZ_BASE_APPLICATION;
-
-import android.annotation.SuppressLint;
-import android.app.Application;
-import android.content.Context;
-import android.util.Log;
-
-import androidx.annotation.Keep;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
-import java.lang.reflect.InvocationTargetException;
-
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
-import moe.ouom.wekit.BuildConfig;
-import moe.ouom.wekit.loader.hookapi.IHookBridge;
-import moe.ouom.wekit.loader.hookapi.ILoaderService;
-import moe.ouom.wekit.util.Initiator;
-import moe.ouom.wekit.util.log.WeLogger;
+import android.annotation.SuppressLint
+import android.app.Application
+import android.content.Context
+import android.util.Log
+import androidx.annotation.Keep
+import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XposedHelpers
+import moe.ouom.wekit.BuildConfig
+import moe.ouom.wekit.constants.Constants
+import moe.ouom.wekit.loader.hookapi.IHookBridge
+import moe.ouom.wekit.loader.hookapi.ILoaderService
+import moe.ouom.wekit.utils.Initiator.init
+import moe.ouom.wekit.utils.log.WeLogger.e
+import moe.ouom.wekit.utils.log.WeLogger.i
+import java.lang.reflect.InvocationTargetException
 
 @Keep
-@SuppressWarnings("unused")
-public class UnifiedEntryPoint {
+@Suppress("unused")
+object UnifiedEntryPoint {
+    private const val TAG = "UnifiedEntryPoint"
 
-    private static boolean sInitialized = false;
-
-    private UnifiedEntryPoint() {
-    }
+    private var sInitialized = false
 
     @Keep
-    public static void entry(
-            @NonNull String modulePath,
-            @NonNull String hostDataDir,
-            @NonNull ILoaderService loaderService,
-            @NonNull ClassLoader hostClassLoader,
-            @Nullable IHookBridge hookBridge
+    fun entry(
+        modulePath: String,
+        hostDataDir: String,
+        loaderService: ILoaderService,
+        hostClassLoader: ClassLoader,
+        hookBridge: IHookBridge?
     ) {
-        if (sInitialized) {
-            throw new IllegalStateException("UnifiedEntryPoint already initialized");
-        }
-        sInitialized = true;
+        check(!sInitialized) { "UnifiedEntryPoint already initialized" }
+        sInitialized = true
         // fix up the class loader
-        var loader = HybridClassLoader.INSTANCE;
-        var self = UnifiedEntryPoint.class.getClassLoader();
-        assert self != null;
-        var parent = self.getParent();
-        HybridClassLoader.setLoaderParentClassLoader(parent);
-        injectClassLoader(self, loader);
-        callNextStep(modulePath, hostDataDir, loaderService, hostClassLoader, hookBridge);
+        val loader = HybridClassLoader.INSTANCE
+        val self = checkNotNull(UnifiedEntryPoint::class.java.classLoader)
+        val parent = self.parent
+        HybridClassLoader.setLoaderParentClassLoader(parent)
+        injectClassLoader(self, loader)
+        callNextStep(modulePath, hostDataDir, loaderService, hostClassLoader, hookBridge)
     }
 
-    private static void callNextStep(
-            @NonNull String modulePath,
-            @NonNull String hostDataDir,
-            @NonNull ILoaderService loaderService,
-            @NonNull ClassLoader initialClassLoader,
-            @Nullable IHookBridge hookBridge
+    private fun callNextStep(
+        modulePath: String,
+        hostDataDir: String,
+        loaderService: ILoaderService,
+        initialClassLoader: ClassLoader,
+        hookBridge: IHookBridge?
     ) {
         try {
             // Hook 壳 Application
             XposedHelpers.findAndHookMethod(
-                    CLAZZ_BASE_APPLICATION,
-                    initialClassLoader,
-                    "attachBaseContext",
-                    Context.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            WeLogger.i("UnifiedEntryPoint", "Shell attached (Application.attachBaseContext done).");
+                Constants.Companion.CLAZZ_BASE_APPLICATION,
+                initialClassLoader,
+                "attachBaseContext",
+                Context::class.java,
+                object : XC_MethodHook() {
+                    override fun afterHookedMethod(param: MethodHookParam) {
+                        i(
+                            "UnifiedEntryPoint",
+                            "Shell attached (Application.attachBaseContext done)."
+                        )
 
-                            var context = (Context) param.thisObject;
-                            var currentClassLoader = context.getClassLoader();
+                        val context = param.thisObject as Context
+                        val currentClassLoader = context.classLoader
 
-                            // Hook Instrumentation.callApplicationOnCreate 以处理 Tinker 热更新场景
-                            try {
-                                hookInstrumentationForTinker(currentClassLoader, modulePath, hostDataDir, loaderService, initialClassLoader, hookBridge);
-                            } catch (Throwable t) {
-                                Log.e(BuildConfig.TAG, "Failed to hook Instrumentation.callApplicationOnCreate", t);
-                            }
+                        // Hook Instrumentation.callApplicationOnCreate 以处理 Tinker 热更新场景
+                        try {
+                            hookInstrumentationForTinker(
+                                currentClassLoader,
+                                modulePath,
+                                hostDataDir,
+                                loaderService,
+                                initialClassLoader,
+                                hookBridge
+                            )
+                        } catch (t: Throwable) {
+                            Log.e(
+                                BuildConfig.TAG,
+                                "Failed to hook Instrumentation.callApplicationOnCreate",
+                                t
+                            )
                         }
                     }
-            );
-            Log.i(BuildConfig.TAG, "Hook applied: waiting for Application.attachBaseContext");
-        } catch (Throwable t) {
-            Log.e(BuildConfig.TAG, "Failed to hook Shell Application", t);
+                }
+            )
+            Log.i(BuildConfig.TAG, "Hook applied: waiting for Application.attachBaseContext")
+        } catch (t: Throwable) {
+            Log.e(BuildConfig.TAG, "Failed to hook Shell Application", t)
         }
     }
 
@@ -93,81 +96,85 @@ public class UnifiedEntryPoint {
      * Hook Instrumentation.callApplicationOnCreate 以确保在 Tinker 热更新完成后再进行延迟初始化
      * 这可以解决某些模块在热更新环境下找不到入口的问题
      */
-    private static void hookInstrumentationForTinker(@NonNull ClassLoader hostClassLoader,
-                                                     @NonNull String modulePath,
-                                                     @NonNull String hostDataDir,
-                                                     @NonNull ILoaderService loaderService,
-                                                     @NonNull ClassLoader initialClassLoader,
-                                                     @Nullable IHookBridge hookBridge) {
+    private fun hookInstrumentationForTinker(
+        hostClassLoader: ClassLoader,
+        modulePath: String,
+        hostDataDir: String,
+        loaderService: ILoaderService,
+        initialClassLoader: ClassLoader,
+        hookBridge: IHookBridge?
+    ) {
         try {
-            var instrumentationClass = Class.forName("android.app.Instrumentation", false, hostClassLoader);
+            val instrumentationClass =
+                Class.forName("android.app.Instrumentation", false, hostClassLoader)
             XposedHelpers.findAndHookMethod(
-                    instrumentationClass,
-                    "callApplicationOnCreate",
-                    Application.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            var application = (Application) param.args[0];
-                            var hostApp = (Application) param.args[0];
-                            StartupInfo.setHostApp(hostApp);
+                instrumentationClass,
+                "callApplicationOnCreate",
+                Application::class.java,
+                object : XC_MethodHook() {
+                    override fun afterHookedMethod(param: MethodHookParam) {
+                        val application = param.args[0] as Application
+                        val hostApp = param.args[0] as Application?
+                        StartupInfo.setHostApp(hostApp)
 
-                            WeLogger.i("UnifiedEntryPoint", "Instrumentation.callApplicationOnCreate captured!");
-                            WeLogger.i("UnifiedEntryPoint", "Application: " + application.getClass().getName());
+                        i(TAG, "Instrumentation.callApplicationOnCreate captured!")
+                        i(TAG, "Application: " + application.javaClass.name)
 
-                            var realClassLoader = application.getBaseContext().getClassLoader();
-                            WeLogger.i("UnifiedEntryPoint", "Real ClassLoader: " + realClassLoader.getClass().getName());
-                            Initiator.init(realClassLoader);
+                        val realClassLoader = application.baseContext.classLoader
+                        i(
+                            TAG,
+                            "Real ClassLoader: " + realClassLoader.javaClass.name
+                        )
+                        init(realClassLoader)
 
-                            WeLogger.i("UnifiedEntryPoint", "Invoking StartupAgent immediately...");
-                            try {
-                                var kStartupAgent = Class.forName("moe.ouom.wekit.loader.startup.StartupAgent", false, UnifiedEntryPoint.class.getClassLoader());
-                                kStartupAgent.getMethod("startup", String.class, String.class, ILoaderService.class, ClassLoader.class, IHookBridge.class)
-                                        .invoke(null, modulePath, hostDataDir, loaderService, realClassLoader, hookBridge);
-                                WeLogger.i("UnifiedEntryPoint", "StartupAgent invoked successfully.");
-                            } catch (Throwable e) {
-                                Log.e(BuildConfig.TAG, "StartupAgent.startup failed", e);
-                            }
+                        i(TAG, "Invoking StartupAgent immediately...")
+                        try {
+//                                var startupAgent = Class.forName("moe.ouom.wekit.loader.startup.StartupAgent", false, UnifiedEntryPoint.class.getClassLoader());
+//                                startupAgent.getMethod("startup", String.class, String.class, ILoaderService.class, ClassLoader.class, IHookBridge.class)
+//                                        .invoke(null, modulePath, hostDataDir, loaderService, realClassLoader, hookBridge);
+
+                            StartupAgent.startup(
+                                modulePath,
+                                hostDataDir,
+                                loaderService,
+                                realClassLoader,
+                                hookBridge
+                            )
+                            i(TAG, "StartupAgent invoked successfully.")
+                        } catch (e: Throwable) {
+                            Log.e(TAG, "StartupAgent.startup failed", e)
                         }
                     }
-            );
-            WeLogger.i("UnifiedEntryPoint", "Instrumentation.callApplicationOnCreate hook installed successfully.");
-        } catch (Throwable e) {
-            Log.e(BuildConfig.TAG, "Failed to hook Instrumentation.callApplicationOnCreate", e);
+                }
+            )
+            i(TAG, "Instrumentation.callApplicationOnCreate hook installed successfully.")
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to hook Instrumentation.callApplicationOnCreate", e)
         }
     }
 
 
-    @SuppressWarnings("JavaReflectionMemberAccess")
     @SuppressLint("DiscouragedPrivateApi")
-    private static void injectClassLoader(ClassLoader self, ClassLoader newParent) {
+    private fun injectClassLoader(self: ClassLoader?, newParent: ClassLoader?) {
         try {
-            var fParent = ClassLoader.class.getDeclaredField("parent");
-            fParent.setAccessible(true);
-            fParent.set(self, newParent);
-        } catch (Exception e) {
-            WeLogger.e("injectClassLoader: failed", e);
+            val fParent = ClassLoader::class.java.getDeclaredField("parent")
+            fParent.isAccessible = true
+            fParent.set(self, newParent)
+        } catch (e: Exception) {
+            e("injectClassLoader: failed", e)
         }
     }
 
-    @NonNull
-    private static Throwable getInvocationTargetExceptionCause(@NonNull Throwable e) {
-        while (e instanceof InvocationTargetException) {
-            var cause = ((InvocationTargetException) e).getTargetException();
+    private fun getInvocationTargetExceptionCause(e: Throwable): Throwable {
+        var e = e
+        while (e is InvocationTargetException) {
+            val cause = e.targetException
             if (cause != null) {
-                e = cause;
+                e = cause
             } else {
-                break;
+                break
             }
         }
-        return e;
+        return e
     }
-
-
-    @SuppressWarnings("unchecked")
-    @NonNull
-    private static <T extends Throwable> AssertionError unsafeThrow(@NonNull Throwable e) throws T {
-        throw (T) e;
-    }
-
 }

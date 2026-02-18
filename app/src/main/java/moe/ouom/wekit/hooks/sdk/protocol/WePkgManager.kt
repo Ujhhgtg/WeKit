@@ -3,8 +3,8 @@ package moe.ouom.wekit.hooks.sdk.protocol
 import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.hooks.sdk.protocol.intf.IWePkgInterceptor
-import moe.ouom.wekit.util.WeProtoData
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.WeProtoData
+import moe.ouom.wekit.utils.log.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 object WePkgManager {

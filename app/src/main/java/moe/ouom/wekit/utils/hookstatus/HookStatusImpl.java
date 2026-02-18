@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.hookstatus;
+package moe.ouom.wekit.utils.hookstatus;
 
 /**
  * Hook status detection, NO KOTLIN, NO ANDROIDX!

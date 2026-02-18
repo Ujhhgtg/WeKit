@@ -45,7 +45,7 @@ public class LegacyHookEntry implements IXposedHookLoadPackage, IXposedHookZygot
                 }
                 sCurrentPackageName = lpparam.packageName;
                 ModuleLoader.initialize(lpparam.appInfo.dataDir, lpparam.classLoader,
-                        Xp51HookImpl.INSTANCE, Xp51HookImpl.INSTANCE, getModulePath(), true);
+                    Xp51HookImpl.INSTANCE, Xp51HookImpl.INSTANCE, getModulePath());
                 break;
             default:
                 break;

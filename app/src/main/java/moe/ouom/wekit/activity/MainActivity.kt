@@ -61,12 +61,12 @@ import moe.ouom.wekit.R
 import moe.ouom.wekit.constants.PackageConstants
 import moe.ouom.wekit.host.HostInfo
 import moe.ouom.wekit.ui.theme.AppTheme
-import moe.ouom.wekit.util.common.CheckAbiVariantModel
-import moe.ouom.wekit.util.common.Utils
-import moe.ouom.wekit.util.getEnable
-import moe.ouom.wekit.util.hookstatus.AbiUtils
-import moe.ouom.wekit.util.hookstatus.HookStatus
-import moe.ouom.wekit.util.setEnable
+import moe.ouom.wekit.utils.common.CheckAbiVariantModel
+import moe.ouom.wekit.utils.common.Utils
+import moe.ouom.wekit.utils.getEnable
+import moe.ouom.wekit.utils.hookstatus.AbiUtils
+import moe.ouom.wekit.utils.hookstatus.HookStatus
+import moe.ouom.wekit.utils.setEnable
 
 class MainActivity : ComponentActivity() {
 

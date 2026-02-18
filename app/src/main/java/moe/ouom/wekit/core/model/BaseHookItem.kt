@@ -9,7 +9,7 @@ import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.hooks.core.factory._ExceptionFactory
 import moe.ouom.wekit.loader.startup.HybridClassLoader
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 import java.lang.reflect.Member
 
 /**

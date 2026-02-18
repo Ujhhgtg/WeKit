@@ -6,7 +6,7 @@ import moe.ouom.wekit.hooks.sdk.protocol.WeApi.generateClientMsgId
 import moe.ouom.wekit.hooks.sdk.protocol.WeApi.getSelfWxId
 import moe.ouom.wekit.hooks.sdk.protocol.intf.ISigner
 import moe.ouom.wekit.hooks.sdk.protocol.model.SignResult
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONObject
 
 /**

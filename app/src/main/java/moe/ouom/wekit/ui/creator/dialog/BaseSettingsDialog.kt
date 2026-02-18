@@ -10,8 +10,8 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.appcompat.widget.Toolbar // 这次可以放心引用 AndroidX 了
-import moe.ouom.wekit.util.common.ModuleRes
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.common.ModuleRes
+import moe.ouom.wekit.utils.log.WeLogger
 
 abstract class BaseSettingsDialog(
     context: Context,

@@ -12,8 +12,8 @@ import moe.ouom.wekit.loader.core.NativeCoreBridge;
 import moe.ouom.wekit.loader.core.WeLauncher;
 import moe.ouom.wekit.loader.hookimpl.InMemoryClassLoaderHelper;
 import moe.ouom.wekit.loader.hookimpl.LibXposedNewApiByteCodeGenerator;
-import moe.ouom.wekit.util.common.SyncUtils;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.common.SyncUtils;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 public class StartupRoutine {
 

@@ -14,7 +14,7 @@ import androidx.annotation.UiThread;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 
 public class ShadowSafTransientActivity extends Activity {

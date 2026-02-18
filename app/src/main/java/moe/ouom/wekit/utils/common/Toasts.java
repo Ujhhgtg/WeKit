@@ -1,10 +1,10 @@
-package moe.ouom.wekit.util.common;
+package moe.ouom.wekit.utils.common;
 
 import android.content.Context;
 import android.widget.Toast;
 
 import moe.ouom.wekit.host.HostInfo;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 public class Toasts {
     static public void showToast(Context ctx, String msg) {

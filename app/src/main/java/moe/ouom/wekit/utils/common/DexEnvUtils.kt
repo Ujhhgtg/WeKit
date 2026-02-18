@@ -1,6 +1,6 @@
-package moe.ouom.wekit.util.common
+package moe.ouom.wekit.utils.common
 
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 import java.io.File
 import java.security.MessageDigest
 

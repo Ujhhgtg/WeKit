@@ -1,4 +1,4 @@
-package moe.ouom.wekit.util.hookstatus
+package moe.ouom.wekit.utils.hookstatus
 
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -14,9 +14,9 @@ import moe.ouom.wekit.BuildConfig
 import moe.ouom.wekit.R
 import moe.ouom.wekit.host.HostInfo
 import moe.ouom.wekit.loader.LoaderExtensionHelper
-import moe.ouom.wekit.util.common.SyncUtils
-import moe.ouom.wekit.util.hookstatus.AbiUtils.getApplicationActiveAbi
-import moe.ouom.wekit.util.log.WeLogger.d
+import moe.ouom.wekit.utils.common.SyncUtils
+import moe.ouom.wekit.utils.hookstatus.AbiUtils.getApplicationActiveAbi
+import moe.ouom.wekit.utils.log.WeLogger.d
 import java.io.File
 
 /**

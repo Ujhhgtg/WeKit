@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
 import java.util.Objects;
 
 import dalvik.system.DexFile;
-import moe.ouom.wekit.util.io.IoUtils;
+import moe.ouom.wekit.utils.io.IoUtils;
 
 public class MemoryDexLoader {
     private MemoryDexLoader() {

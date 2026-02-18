@@ -18,26 +18,28 @@ import moe.ouom.wekit.constants.PackageConstants;
 import moe.ouom.wekit.dexkit.cache.DexCacheManager;
 import moe.ouom.wekit.loader.core.hooks.ActivityProxyHooks;
 import moe.ouom.wekit.loader.core.hooks.ParcelableFixer;
-import moe.ouom.wekit.util.common.ModuleRes;
-import moe.ouom.wekit.util.common.SyncUtils;
-import moe.ouom.wekit.util.log.WeLogger;
+import moe.ouom.wekit.utils.common.ModuleRes;
+import moe.ouom.wekit.utils.common.SyncUtils;
+import moe.ouom.wekit.utils.log.WeLogger;
 
 public class WeLauncher {
+    private static final String TAG = "WeLauncher";
+
     public void init(@NonNull ClassLoader cl, @NonNull ApplicationInfo ai, @NonNull String modulePath, Context context) {
         RuntimeConfig.setHostClassLoader(cl);
         RuntimeConfig.setHostApplicationInfo(ai);
 
         var currentProcessType = SyncUtils.getProcessType();
         var currentProcessName = SyncUtils.getProcessName();
-        WeLogger.i("WeLauncher", "Init start. Process: " + currentProcessName + " (Type: " + currentProcessType + ")");
+        WeLogger.i(TAG, "Init start. Process: " + currentProcessName + " (Type: " + currentProcessType + ")");
 
         try {
             ParcelableFixer.init(
                 cl, WeLauncher.class.getClassLoader()
             );
-            WeLogger.i("WeLauncher", "ParcelableFixer installed.");
+            WeLogger.i(TAG, "ParcelableFixer installed.");
         } catch (Throwable e) {
-            WeLogger.e("WeLauncher", "Failed to install ParcelableFixer", e);
+            WeLogger.e(TAG, "Failed to install ParcelableFixer", e);
         }
 
         // 加载宿主版本信息
@@ -51,7 +53,7 @@ public class WeLauncher {
                 DexCacheManager.INSTANCE.init(context, Objects.requireNonNull(pInfo.versionName));
             }
         } catch (Throwable e) {
-            WeLogger.e("WeLauncher: Failed to load version info", e);
+            WeLogger.e(TAG, "Failed to load version info", e);
         }
 
         // 仅在主进程安装 Activity 代理 Hook
@@ -61,21 +63,21 @@ public class WeLauncher {
                 if (appContext == null) appContext = context;
 
                 ActivityProxyHooks.initForStubActivity(appContext);
-                WeLogger.i("WeLauncher", "Activity Proxy Hooks installed successfully (Main Process).");
+                WeLogger.i(TAG, "Activity Proxy Hooks installed successfully (Main Process).");
             } catch (Throwable e) {
-                WeLogger.e("WeLauncher: Failed to install Activity Proxy Hooks", e);
+                WeLogger.e(TAG, "Failed to install Activity Proxy Hooks", e);
             }
 
             initMainProcessHooks(cl);
         } else {
-            WeLogger.i("WeLauncher", "Skipping UI hooks for non-main process: " + currentProcessName);
+            WeLogger.i(TAG, "Skipping UI hooks for non-main process: " + currentProcessName);
         }
 
         // 加载功能模块
         try {
-            SecretLoader.load(currentProcessType);
+            HooksLoader.load(currentProcessType);
         } catch (Throwable e) {
-            WeLogger.e("WeLauncher: Failed to load modules via SecretLoader", e);
+            WeLogger.e(TAG, "Failed to load modules via HooksLoader", e);
         }
     }
 
@@ -83,7 +85,7 @@ public class WeLauncher {
      * 仅在主进程执行的 Hook 逻辑
      */
     private void initMainProcessHooks(ClassLoader cl) {
-        WeLogger.i("WeLauncher", "Initializing Main Process Hooks...");
+        WeLogger.i(TAG, "Initializing Main Process Hooks...");
 
         // Hook LauncherUI.onResume
         try {
@@ -98,7 +100,7 @@ public class WeLauncher {
             });
 
         } catch (Throwable e) {
-            WeLogger.e("WeLauncher: Failed to hook LauncherUI.onResume", e);
+            WeLogger.e(TAG, "Failed to hook LauncherUI.onResume", e);
         }
 
         // Hook LauncherUI.onCreate
@@ -117,7 +119,7 @@ public class WeLauncher {
                 }
             });
         } catch (Throwable e) {
-            WeLogger.e("WeLauncher: Failed to hook LauncherUI.onCreate", e);
+            WeLogger.e(TAG, "Failed to hook LauncherUI.onCreate", e);
         }
     }
 }

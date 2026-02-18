@@ -5,7 +5,7 @@ import com.afollestad.materialdialogs.MaterialDialog
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.WePkgHelper
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(path = "娱乐功能/清空资料信息", desc = "清空当前用户的地区与性别等资料信息")
 class WeProfileCleaner : BaseClickableFunctionHookItem() {

@@ -10,10 +10,10 @@ import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.intf.WeReqCallback
-import moe.ouom.wekit.util.Initiator.loadClass
-import moe.ouom.wekit.util.ProtoJsonBuilder
-import moe.ouom.wekit.util.WeProtoData
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.Initiator.loadClass
+import moe.ouom.wekit.utils.ProtoJsonBuilder
+import moe.ouom.wekit.utils.WeProtoData
+import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.OpCodeMatchType

@@ -22,8 +22,8 @@ import com.google.android.material.materialswitch.MaterialSwitch
 import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.ui.CommonContextWrapper
-import moe.ouom.wekit.util.common.ModuleRes
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.common.ModuleRes
+import moe.ouom.wekit.utils.log.WeLogger
 
 abstract class BaseRikkaDialog(
     context: Context,

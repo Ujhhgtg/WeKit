@@ -9,10 +9,10 @@ import com.afollestad.materialdialogs.list.listItems
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.ui.CommonContextWrapper
-import moe.ouom.wekit.util.Initiator.loadClass
-import moe.ouom.wekit.util.common.Toasts.showToast
-import moe.ouom.wekit.util.crash.NativeCrashHandler
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.Initiator.loadClass
+import moe.ouom.wekit.utils.common.Toasts.showToast
+import moe.ouom.wekit.utils.crash.NativeCrashHandler
+import moe.ouom.wekit.utils.log.WeLogger
 
 /**
  * 测试崩溃功能

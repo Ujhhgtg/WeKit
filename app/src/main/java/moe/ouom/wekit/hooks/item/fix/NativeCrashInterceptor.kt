@@ -9,11 +9,11 @@ import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.ui.CommonContextWrapper
-import moe.ouom.wekit.util.Initiator.loadClass
-import moe.ouom.wekit.util.crash.CrashLogManager
-import moe.ouom.wekit.util.crash.NativeCrashHandler
-import moe.ouom.wekit.util.io.SafUtils
-import moe.ouom.wekit.util.log.WeLogger
+import moe.ouom.wekit.utils.Initiator.loadClass
+import moe.ouom.wekit.utils.crash.CrashLogManager
+import moe.ouom.wekit.utils.crash.NativeCrashHandler
+import moe.ouom.wekit.utils.io.SafUtils
+import moe.ouom.wekit.utils.log.WeLogger
 import java.io.File
 
 /**

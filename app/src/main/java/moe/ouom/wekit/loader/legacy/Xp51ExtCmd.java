@@ -5,7 +5,7 @@ import androidx.annotation.Nullable;
 
 import de.robv.android.xposed.XposedBridge;
 import moe.ouom.wekit.loader.ModuleLoader;
-import moe.ouom.wekit.util.common.CheckUtils;
+import moe.ouom.wekit.utils.common.CheckUtils;
 
 public class Xp51ExtCmd {
 
