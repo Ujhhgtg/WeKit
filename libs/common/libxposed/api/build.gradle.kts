@@ -12,7 +12,7 @@ private fun findBuildToolsVersion(): String {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = libs.versions.targetSdk.get().toInt()
     namespace = "io.github.libxposed.api"
     sourceSets {
         val main by getting
@@ -23,15 +23,14 @@ android {
     }
 
     defaultConfig {
-        minSdk = 35
-        //noinspection OldTargetApi
-        lint.targetSdk = 35
+        minSdk = libs.versions.minSdk.get().toInt()
+        lint.targetSdk = libs.versions.targetSdk.get().toInt()
         buildToolsVersion = findBuildToolsVersion()
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
+        targetCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
     }
 
     dependencies {

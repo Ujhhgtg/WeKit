@@ -19,12 +19,12 @@ dependencies {
 }
 
 java {
-    targetCompatibility = JavaVersion.VERSION_17
-    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
+    sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
 }
 
 tasks.withType<KotlinCompile> {
     compilerOptions {
-        jvmTarget = JvmTarget.JVM_17
+        jvmTarget = JvmTarget.fromTarget(libs.versions.jdk.get())
     }
 }

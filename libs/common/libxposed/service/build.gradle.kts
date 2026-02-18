@@ -12,7 +12,7 @@ private fun findBuildToolsVersion(): String {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = libs.versions.targetSdk.get().toInt()
     namespace = "io.github.libxposed.service"
     sourceSets {
         val main by getting
@@ -24,15 +24,14 @@ android {
     }
 
     defaultConfig {
-        minSdk = 35
-        //noinspection OldTargetApi
-        targetSdk = 36
+        minSdk = libs.versions.minSdk.get().toInt()
+        lint.targetSdk = libs.versions.targetSdk.get().toInt()
         buildToolsVersion = findBuildToolsVersion()
     }
     // Java 17 is required by libxposed-service
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
+        targetCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
     }
 
     buildFeatures {
@@ -47,11 +46,8 @@ android {
 
 }
 
-// I don't know why but this is required to make the AGP use JDK 17 to compile the source code.
-// On my machine, even if I set the sourceCompatibility and targetCompatibility to JavaVersion.VERSION_17,
-// and run Gradle with JDK 17, the AGP still uses JDK 11 to compile the source code.
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of((libs.versions.jdk.get().toInt()))
     }
 }

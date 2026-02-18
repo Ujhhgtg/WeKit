@@ -1,7 +1,7 @@
 package moe.ouom.wekit.hooks.item.automation
 
-import android.app.AndroidAppHelper
 import moe.ouom.wekit.hooks.sdk.api.WeMessageApi
+import moe.ouom.wekit.util.io.PathUtils
 import moe.ouom.wekit.util.log.WeLogger
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -17,14 +17,22 @@ import org.mozilla.javascript.NativeObject
 import org.mozilla.javascript.Scriptable
 import org.mozilla.javascript.ScriptableObject
 import org.mozilla.javascript.Undefined
-import java.io.File
+import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.createDirectories
+import kotlin.io.path.deleteRecursively
+import kotlin.io.path.fileSize
+import kotlin.io.path.isDirectory
+import kotlin.io.path.outputStream
 
 object JsApiExposer {
     private const val TAG = "JsApiExposer"
     private const val TAG_LOG_API = "JsApiExposer.LogApi"
     private const val TAG_HTTP_API = "JsApiExposer.HttpApi"
+    private const val MAX_CACHE_SIZE_IN_MIB = 500
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
@@ -40,6 +48,7 @@ object JsApiExposer {
         exposeCacheApis(scope)
     }
 
+    @OptIn(ExperimentalPathApi::class)
     private fun exposeHttpApis(scope: ScriptableObject) {
         val httpObj = NativeObject()
 
@@ -119,12 +128,23 @@ object JsApiExposer {
                     }
 
                     return try {
-                        val cacheDir = AndroidAppHelper.currentApplication().externalCacheDir
-                        val destFile = File(cacheDir, filename)
+                        var cacheDir = PathUtils.moduleCachePath
+                        cacheDir = cacheDir.resolve("javascript")
+
+                        if (cacheDir.isDirectory()) {
+                            // drop cache if size too large
+                            if (cacheDir.fileSize() / 1024 / 1024 >= MAX_CACHE_SIZE_IN_MIB) {
+                                WeLogger.w(TAG, "http.download cache size too large, dropping cache...")
+                                cacheDir.deleteRecursively()
+                            }
+                        }
+                        cacheDir.createDirectories()
+
+                        val destFile = cacheDir.resolve(filename)
 
                         val success = performDownload(url, destFile)
 
-                        createDownloadResponse(success, destFile.absolutePath)
+                        createDownloadResponse(success, destFile.absolutePathString())
                     } catch (e: Exception) {
                         WeLogger.e(TAG_HTTP_API, "http.download failed: $url", e)
                         createDownloadResponse(false, "")
@@ -143,7 +163,7 @@ object JsApiExposer {
         return res
     }
 
-    private fun performDownload(url: String, destFile: File): Boolean {
+    private fun performDownload(url: String, destFile: Path): Boolean {
         val request = Request.Builder().url(url).build()
 
         httpClient.newCall(request).execute().use { response ->
@@ -501,11 +521,13 @@ object JsApiExposer {
             function sendImage(to, path)                         { _sendImage(to, path); }
             function sendFile(to, path, title)                   { _sendFile(to, path, title); }
             function sendVoice(to, path, durationMs)             { _sendVoice(to, path, durationMs); }
+            function sendXml(to, content)                        { _sendXml(to, content); }
             // Convenience: reply to the current talker without specifying 'to'
             function replyText(text)                             { _sendText('$talker', text); }
             function replyImage(path)                            { _sendImage('$talker', path); }
             function replyFile(path, title)                      { _sendFile('$talker', path, title); }
             function replyVoice(path, durationMs)                { _sendVoice('$talker', path, durationMs); }
+            function replyXml(content)                           { _sendXml('$talker', content); }
         """.trimIndent()
 
         // Bind the native _send* functions using ScriptableObject
@@ -546,6 +568,13 @@ object JsApiExposer {
                 val path       = args.getOrNull(1)?.toString() ?: return@nativeFn
                 val durationMs = (args.getOrNull(2) as? Number)?.toInt() ?: 0
                 api.sendVoice(to, path, durationMs)
+            }
+        )
+        ScriptableObject.putProperty(scope, "_sendXml",
+            nativeFn(3) { args ->
+                val to         = args.getOrNull(0)?.toString() ?: return@nativeFn
+                val content    = args.getOrNull(1)?.toString() ?: return@nativeFn
+                api.sendXmlAppMsg(to, content)
             }
         )
 

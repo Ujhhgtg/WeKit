@@ -1,19 +1,19 @@
 [versions]
 # noinspection UnusedVersionCatalogEntry
-accompanist = "0.37.3"
 namespace = "moe.ouom.wekit"
 # noinspection UnusedVersionCatalogEntry
 minSdk = "35"
 # noinspection UnusedVersionCatalogEntry
 targetSdk = "36"
 # noinspection UnusedVersionCatalogEntry
-jdk = "17"
+jdk = "21"
 
 agp = "8.13.2"
 composeBom = "2026.02.00"
 core = "4.6.2"
 dexkit = "2.0.7"
 grpcProtobuf = "1.79.0"
+accompanist = "0.37.3"
 gson = "2.13.2"
 hutoolCore = "5.8.43"
 appcompat = "1.7.1"

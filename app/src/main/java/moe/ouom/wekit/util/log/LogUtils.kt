@@ -6,43 +6,35 @@ import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.loader.core.NativeCoreBridge
 import moe.ouom.wekit.util.io.FileUtils
-import moe.ouom.wekit.util.io.PathTool
-import java.io.File
+import moe.ouom.wekit.util.io.PathUtils
+import java.nio.file.Path
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import kotlin.io.path.createDirectories
 
 object LogUtils {
-    private val logRootDirectory: String?
-        get() {
-            return try {
-                PathTool.moduleDataPath + "/log/"
-            } catch (_: Exception) {
-                // HostInfo not initialized yet, return null to skip logging
-                null
-            }
+    private val logRootDirectory: Path by lazy {
+        PathUtils.moduleDataPath.resolve("logs").apply {
+            createDirectories()
         }
+    }
 
-    private val runLogDirectory: String?
-        get() {
-            val root: String? = logRootDirectory
-            return if (root != null) root + "RunLog" + File.separator else null
+    private val runLogDirectory: Path by lazy {
+        logRootDirectory.resolve("run").apply {
+            createDirectories()
         }
+    }
 
-    private val errorLogDirectory: String?
-        get() {
-            val root: String? = logRootDirectory
-            return if (root != null) root + "ErrorLog" + File.separator else null
+    private val errorLogDirectory: Path by lazy {
+        logRootDirectory.resolve("error").apply {
+            createDirectories()
         }
+    }
 
-
-    val callStack: String
-        /**
-         * @return 获取调用此方法的调用栈
-         */
-        get() {
-            val throwable = Throwable()
-            return getStackTrace(throwable)
-        }
+    fun getCallStack(): String {
+        val throwable = Throwable()
+        return getStackTrace(throwable)
+    }
 
     /**
      * 获取堆栈跟踪
@@ -110,11 +102,7 @@ object LogUtils {
             XposedBridge.log(e)
         }
 
-        val directory: String? = if (isError) errorLogDirectory else runLogDirectory
-        if (directory == null) {
-            // HostInfo not initialized yet, skip file logging
-            return
-        }
+        val directory = if (isError) errorLogDirectory else runLogDirectory
 
         val path = "$directory$fileName.log"
         val stringBuffer = StringBuilder(time)

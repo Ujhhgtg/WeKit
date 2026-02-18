@@ -25,7 +25,7 @@ object AutomationEngine {
             return
         }
 
-        if (isSend != 0) return // ignore outgoing
+        // if (isSend != 0) return // ignore outgoing
         if (content.isBlank()) {
             WeLogger.i(TAG, "message is blank")
             return
@@ -107,7 +107,7 @@ object AutomationEngine {
     ): JSONObject {
         var modifiedJson = json
 
-        for (rule in AutomationRuleManager.rules) {
+        for (rule in AutomationHook.rules) {
             if (!rule.enabled) continue
             try {
                 val result = executeOnRequest(rule.script, uri, cgiId, modifiedJson)
@@ -172,7 +172,7 @@ object AutomationEngine {
     ): JSONObject {
         var modifiedJson = json
 
-        for (rule in AutomationRuleManager.rules) {
+        for (rule in AutomationHook.rules) {
             if (!rule.enabled) continue
             try {
                 val result = executeOnResponse(rule.script, uri, cgiId, modifiedJson)

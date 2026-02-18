@@ -1,4 +1,5 @@
 
+import org.gradle.internal.extensions.core.serviceOf
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.ByteArrayOutputStream
@@ -284,9 +285,10 @@ val killWeChat = tasks.register("kill-wechat") {
     group = "wekit"
     description = "Force-stop WeChat on a connected device; skips gracefully if none."
     onlyIf { hasConnectedDevice() }
+    val execOperations = project.serviceOf<ExecOperations>()
     doLast {
         val adbFile = adbProvider.orNull?.asFile ?: return@doLast
-        project.exec {
+        execOperations.exec {
             commandLine(adbFile, "shell", "am", "force-stop", packageName)
             isIgnoreExitValue = true
             standardOutput = ByteArrayOutputStream(); errorOutput = ByteArrayOutputStream()
@@ -314,7 +316,7 @@ androidComponents.onVariants { variant ->
 
 afterEvaluate {
     tasks.matching { it.name.startsWith("install") }.configureEach { onlyIf { hasConnectedDevice() } }
-    if (!hasConnectedDevice()) logger.lifecycle("⚠️  No device detected — all install tasks skipped")
+    if (!hasConnectedDevice()) logger.lifecycle("⚠️ No device detected — all install tasks skipped")
 }
 
 android.applicationVariants.all {

@@ -36,7 +36,7 @@ import moe.ouom.wekit.util.log.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 @HookItem(path = "自动化/自动化引擎", desc = "点击管理自动化规则")
-class AutomationRuleManager : BaseClickableFunctionHookItem(),
+class AutomationHook : BaseClickableFunctionHookItem(),
     WeDatabaseListener.DatabaseInsertListener,
     IWePkgInterceptor
 {
@@ -91,14 +91,13 @@ class AutomationRuleManager : BaseClickableFunctionHookItem(),
         if (table != "message") return
 
         val isSend  = values.getAsInteger("isSend")  ?: return
-        if (isSend != 0) return // ignore outgoing
+        // if (isSend != 0) return // ignore outgoing
 
         val talker  = values.getAsString("talker")   ?: return
         val content = values.getAsString("content")  ?: return
         val type    = values.getAsInteger("type")    ?: 0
 
         WeLogger.i(TAG, "message received: talker=$talker type=$type content.length=${content.length}")
-
 
         AutomationEngine.executeAllOnMessage(rules, talker, content, type, isSend)
     }

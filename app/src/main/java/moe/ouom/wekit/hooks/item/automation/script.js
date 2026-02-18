@@ -50,8 +50,8 @@ function commandWeather(content) {
     if (!cityCode) {
         log.w("city not found in map:", cityName);
         return (
-            "抱歉，暂不支持查询该城市天气。\n支持的城市：" +
-            Object.keys(cityCodeMap).join("、")
+            "暂不支持查询该城市天气.\n支持的城市:" +
+            Object.keys(cityCodeMap).join(", ")
         );
     }
 
@@ -145,7 +145,6 @@ function commandWeather(content) {
 
     log.i("weather parsed successfully for", cityName);
 
-    // Format response message
     var message =
         "📍 " +
         cityName +
@@ -183,43 +182,94 @@ function commandWeather(content) {
 }
 
 function commandRandomPic(content) {
-    log.i("fetching random picture...");
-    var sourceName = content.substring(11).trim();
-    if (sourceName === "") {
-        sourceName = "alcy";
+    var sourceName = content.substring(11).trim().toLowerCase() || "wallhaven";
+    log.i("fetching random picture from source: ", sourceName);
+
+    const wallhavenPageIndexKey = "wallhaven_api_search_page_index";
+    const wallhavenImageIndexKey = "wallhaven_api_search_image_index";
+    var wallhavenPageIndex = cache.getOrDefault(wallhavenPageIndexKey, 1);
+    var wallhavenImageIndex = cache.getOrDefault(wallhavenImageIndexKey, 1);
+
+    var sources = {
+        // TODO: sometimes-deterministic results, add rotation like wallhaven
+        alcy: {
+            url: "https://t.alcy.cc/ysz?json=&quantity=1",
+            parser: function (resp) {
+                return resp.body.trim();
+            }
+        },
+        "waifu.im": {
+            url: "https://api.waifu.im/images?PageSize=1&Page=1&IncludedTags=waifu",
+            parser: function (resp) {
+                return resp.json.items[0].url;
+            }
+        },
+        // TODO: deterministic results, add rotation like wallhaven
+        "yande.re": {
+            url: "https://yande.re/post.json?api_version=2&limit=1",
+            parser: function (resp) {
+                return resp.json.posts[0].file_url;
+            }
+        },
+        // TODO: cloudflare
+        konachan: {
+            url: "https://konachan.com/post.json?limit=1",
+            parser: function (resp) {
+                return resp.json[0].file_url;
+            }
+        },
+        danbooru: {
+            url: "https://danbooru.donmai.us/posts.json?limit=1&tags=random%3A1",
+            parser: function (resp) {
+                return resp.json[0].file_url;
+            }
+        },
+        wallhaven: {
+            url:
+                "https://wallhaven.cc/api/v1/search?q=%23genshin%20impact&categories=010&purity=100&sorting=favorites&order=desc&page=" +
+                wallhavenPageIndex,
+            parser: function (resp) {
+                var images = resp.json.data;
+                var url = images[wallhavenImageIndex].path;
+                wallhavenImageIndex += 1;
+                if (wallhavenImageIndex > resp.json.meta.per_page) {
+                    wallhavenPageIndex += 1;
+                    wallhavenImageIndex = 1;
+                }
+                cache.set(wallhavenPageIndexKey, wallhavenPageIndex);
+                cache.set(wallhavenImageIndexKey, wallhavenImageIndex);
+                return url;
+            }
+        }
+    };
+
+    var config = sources[sourceName];
+
+    if (!config) {
+        replyText(
+            "暂不支持来源: " +
+                sourceName +
+                "\n可选项: alcy, waifu.im, yande.re, konachan, danbooru, wallhaven"
+        );
     }
 
-    log.d("sourceName=" + sourceName);
+    var response = http.get(config.url);
 
-    if (sourceName === "alcy") {
-        log.i("fetching random picture from Alcy...");
-
-        var response = http.get("https://t.alcy.cc/ysz", {
-            json: "",
-            quantity: "1"
-        });
-
-        log.i("api response status:", response.status);
-
-        if (!response.ok) {
-            log.e("pic api request failed");
-            log.e("status:", response.status);
-            log.e("error:", response.error);
-            replyText("图片获取失败，请稍后重试");
-        }
-
-        var url = response.body.trim();
-        var result = http.download(url);
-
-        if (!result.ok) {
-            log.e("failed to download picture");
-            replyText("图片下载失败，请稍后重试");
-        }
-
-        replyImage(result.path);
-    } else {
-        replyText("暂不支持当前来源，请等待开发者实现喵");
+    if (!response.ok) {
+        log.e(sourceName, "api request failed: ", response.status);
+        replyText("图片获取失败");
     }
+
+    var imageUrl = config.parser(response);
+    log.d("Extracted Image URL: ", imageUrl);
+
+    var result = http.download(imageUrl);
+    if (!result.ok) {
+        log.e("failed to download: ", imageUrl);
+        replyText("图片下载失败");
+    }
+
+    replyImage(result.path);
 }
 
 function commandHitokoto() {
@@ -230,7 +280,7 @@ function commandHitokoto() {
         log.e("hitokoto api request failed");
         log.e("status:", response.status);
         log.e("error:", response.error);
-        replyText("一言获取失败，请稍后重试");
+        replyText("一言获取失败");
     }
 
     if (!response.json) {
@@ -242,13 +292,12 @@ function commandHitokoto() {
     var data = response.json;
     log.d("full response:", JSON.stringify(data));
 
-    // Format response message
     if (data.from_who) {
         var message =
             "『" +
             data.hitokoto +
             "』\n" +
-            "        —— " +
+            "             —— " +
             data.from_who +
             "「" +
             data.from +
@@ -258,7 +307,7 @@ function commandHitokoto() {
             "『" +
             data.hitokoto +
             "』\n" +
-            "        —— " +
+            "             —— " +
             "「" +
             data.from +
             "」";
@@ -267,7 +316,7 @@ function commandHitokoto() {
     return message;
 }
 
-function commandDebugMsg(talker, content) {
+function commandDebugMsg(talker) {
     var key = talker + "_debug_msg_enabled";
     if (!cache.hasKey(key)) {
         cache.set(key, true);
@@ -288,7 +337,7 @@ function commandHelp(content) {
 
     if (cmdName === "help") {
         return (
-            "/help\n" +
+            "命令: /help\n" +
             "功能: 输出命令帮助.\n" +
             "用法: /help <命令>\n" +
             "参数:\n" +
@@ -298,7 +347,7 @@ function commandHelp(content) {
 
     if (cmdName === "changelog") {
         return (
-            "/changelog\n" +
+            "命令: /changelog\n" +
             "功能: 输出更新内容.\n" +
             "用法: /changelog\n" +
             "参数:\n" +
@@ -308,7 +357,7 @@ function commandHelp(content) {
 
     if (cmdName === "weather") {
         return (
-            "/weather\n" +
+            "命令: /weather\n" +
             "功能: 输出城市当前天气.\n" +
             "用法: /weather <城市>\n" +
             "参数:\n" +
@@ -318,18 +367,18 @@ function commandHelp(content) {
 
     if (cmdName === "random-pic") {
         return (
-            "/random-pic\n" +
+            "命令: /random-pic\n" +
             "功能: 获取随机二次元图片.\n" +
-            "用法: /random-pic <来源>\n" +
+            "用法: /random-pic <来源> <标签>\n" +
             "参数:\n" +
-            "1. 来源: 可选, 默认为 'alcy', 可选项: alcy,yande.re,konachan,zerochan,danbooru,gelbooru,waifu.im,wallhaven\n" +
-            "(P.S. 除了 alcy 以外我还全都没实现, 输了没用)"
+            "1. 来源: 可选, 默认为 'alcy', 可选项: alcy, yande.re, konachan, zerochan, danbooru, waifu.im, wallhaven\n" +
+            "2. 标签: 可选 (功能还没写)"
         );
     }
 
     if (cmdName === "hitokoto") {
         return (
-            "/hitokoto\n" +
+            "命令: /hitokoto\n" +
             "功能: 输出「一言」.\n" +
             "用法: /hitokoto\n" +
             "参数:\n" +
@@ -339,7 +388,7 @@ function commandHelp(content) {
 
     if (cmdName === "debug-msg") {
         return (
-            "/debug-msg\n" +
+            "命令: /debug-msg\n" +
             "功能: 为当前聊天启用或禁用消息调试模式. 启用该模式将输出下一条消息的原始对象.\n" +
             "用法: /debug-msg\n" +
             "参数:\n" +
@@ -373,7 +422,7 @@ function onMessage(talker, content, type, isSend) {
     content = getCleanContent(content);
 
     if (content.startsWith("/debug-msg")) {
-        return commandDebugMsg(talker, content);
+        return commandDebugMsg(talker);
     }
 
     var debugMsgKey = talker + "_debug_msg_enabled";
