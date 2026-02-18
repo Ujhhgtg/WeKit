@@ -107,7 +107,7 @@ android {
            \ V  V /   | |___  | . \   | |    | |  
             \_/\_/    |_____| |_|\_\ |___|   |_|  
                                               
-                        [WECHAT KIT] WeChat, Now with Superpowers
+                        [WECHAT KIT] WeChat, now with superpowers
         """
     )
 

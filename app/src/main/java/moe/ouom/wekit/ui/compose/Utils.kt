@@ -1,6 +1,7 @@
 package moe.ouom.wekit.ui.compose
 
 import android.R
+import android.app.AndroidAppHelper
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
@@ -17,7 +18,6 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.ui.theme.AppTheme
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -25,7 +25,7 @@ fun showComposeDialog(context: Context? = null, content: @Composable (onDismiss:
     var ctx = context
 
     if (ctx == null)
-        ctx = RuntimeConfig.getLauncherUIActivity()
+        ctx = AndroidAppHelper.currentApplication()
 
     val dialog = Dialog(ctx, R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar_MinWidth)
     val lifecycleOwner = XposedLifecycleOwner().apply { onCreate(); onResume() }

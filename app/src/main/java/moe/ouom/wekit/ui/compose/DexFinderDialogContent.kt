@@ -16,7 +16,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,8 +53,6 @@ import org.luckypray.dexkit.DexKitBridge
 import java.io.PrintWriter
 import java.io.StringWriter
 
-// ─── Sealed classes (unchanged) ───────────────────────────────────────────────
-
 private sealed class ScanProgress {
     data class Start(val path: String)                        : ScanProgress()
     data class Complete(val path: String)                     : ScanProgress()
@@ -62,8 +64,6 @@ private sealed class ScanResult {
     data class Failed(val path: String, val error: Exception) : ScanResult()
 }
 
-// ─── UI state ─────────────────────────────────────────────────────────────────
-
 private sealed class DialogPhase {
     object Idle     : DialogPhase()
     object Scanning : DialogPhase()
@@ -71,8 +71,7 @@ private sealed class DialogPhase {
     data class Error(val message: String)                : DialogPhase()
 }
 
-// ─── Composable UI ────────────────────────────────────────────────────────────
-
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DexFinderContent(
     context: Context,
@@ -81,14 +80,11 @@ fun DexFinderContent(
     scope: CoroutineScope,
     onDismiss: () -> Unit
 ) {
-    // ── State ────────────────────────────────────────────────────────────────
     var phase       by remember { mutableStateOf<DialogPhase>(DialogPhase.Idle) }
     var currentTask by remember { mutableStateOf("") }
     var taskCounter by remember { mutableIntStateOf(0) }
     var completed   by remember { mutableIntStateOf(0) }
     val scanResults = remember { mutableStateMapOf<String, ScanResult>() }
-
-    // ── Helpers (mirrors original private funs) ───────────────────────────────
 
     fun updateProgress(progress: ScanProgress) {
         val total = outdatedItems.size
@@ -164,7 +160,6 @@ fun DexFinderContent(
         }
     }
 
-    // ── Layout ────────────────────────────────────────────────────────────────
     Surface(
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 6.dp,
@@ -178,6 +173,42 @@ fun DexFinderContent(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Title with icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "DEX 缓存更新",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Badge showing count
+                if (phase is DialogPhase.Idle || phase is DialogPhase.Scanning) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "${outdatedItems.size}",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
             // Tip text
             val tipText = when (val p = phase) {
                 is DialogPhase.Idle    ->
@@ -193,11 +224,11 @@ fun DexFinderContent(
                 Text(text = tipText, style = MaterialTheme.typography.bodyMedium)
             }
 
-            // Progress (Scanning phase only)
+            // Progress
             AnimatedVisibility(visible = phase is DialogPhase.Scanning) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(text = currentTask, style = MaterialTheme.typography.bodyMedium)
-                    LinearProgressIndicator(
+                    LinearWavyProgressIndicator(
                         progress = { if (outdatedItems.isEmpty()) 0f else completed.toFloat() / outdatedItems.size },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -237,7 +268,7 @@ fun DexFinderContent(
                     val label = if ((phase as? DialogPhase.Done)?.failed?.isEmpty() == true)
                         "手动重启微信" else "关闭"
                     Button(onClick = {
-                        // restartApp() TODO — same as original
+                        // TODO
                         onDismiss()
                     }) { Text(label) }
                 }
@@ -276,8 +307,6 @@ private fun ErrorDetailsSection(
         }
     }
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 private fun buildErrorReport(failedResults: List<ScanResult.Failed>) = buildString {
     append("=== WeKit Dex 扫描错误报告 ===\n\n")

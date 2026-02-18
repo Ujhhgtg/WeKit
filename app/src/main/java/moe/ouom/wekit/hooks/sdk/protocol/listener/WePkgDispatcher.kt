@@ -103,24 +103,29 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
                                         }
 
                                         if (respPbObj != null) {
-                                            val originalRespBytes = XposedHelpers.callMethod(
-                                                respPbObj,
-                                                "toByteArray"
-                                            ) as ByteArray
-                                            WePkgManager.handleResponseTamper(
-                                                uri,
-                                                cgiId,
-                                                originalRespBytes
-                                            )?.let { tampered ->
-                                                XposedHelpers.callMethod(
+                                            if (respPbObj !is String) {
+                                                val originalRespBytes = XposedHelpers.callMethod(
                                                     respPbObj,
-                                                    "parseFrom",
-                                                    tampered
-                                                )
-                                                WeLogger.i(
-                                                    "PkgDispatcher",
-                                                    "Response Tampered (PB): $uri"
-                                                )
+                                                    "toByteArray"
+                                                ) as ByteArray
+                                                WePkgManager.handleResponseTamper(
+                                                    uri,
+                                                    cgiId,
+                                                    originalRespBytes
+                                                )?.let { tampered ->
+                                                    XposedHelpers.callMethod(
+                                                        respPbObj,
+                                                        "parseFrom",
+                                                        tampered
+                                                    )
+                                                    WeLogger.i(
+                                                        "PkgDispatcher",
+                                                        "Response Tampered (PB): $uri"
+                                                    )
+                                                }
+                                            }
+                                            else {
+                                                WeLogger.i("PkgDispatcher", "response is String, no need to tamper: $uri")
                                             }
                                         }
                                     }

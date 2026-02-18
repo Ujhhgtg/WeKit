@@ -23,5 +23,4 @@ public abstract class ApiHookItem extends BaseHookItem {
     protected final void tryExecute(XC_MethodHook.MethodHookParam param, HookAction hookAction) {
         super.tryExecute(param, hookAction);
     }
-
 }

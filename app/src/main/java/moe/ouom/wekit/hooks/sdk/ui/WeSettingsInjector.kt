@@ -2,9 +2,14 @@ package moe.ouom.wekit.hooks.sdk.ui
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AndroidAppHelper
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.view.Menu
 import android.view.MenuItem
+import android.widget.Toast
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.constants.Constants
@@ -21,7 +26,7 @@ import java.lang.reflect.Modifier
 
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "设置模块入口")
-class WeSettingInjector : ApiHookItem(), IDexFind {
+class WeSettingsInjector : ApiHookItem(), IDexFind {
     private val dexMethodSetKey by dexMethod()
     private val dexMethodSetTitle by dexMethod()
     private val dexMethodGetKey by dexMethod()
@@ -144,11 +149,54 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
     }
 
     override fun entry(classLoader: ClassLoader) {
+        tryRegisterBroadcastReceiver()
+
         // 尝试 Hook 旧版 UI
         tryHookLegacySettings(classLoader)
 
         // 尝试 Hook 新版 UI (8.0.67+)
         tryHookNewSettings(classLoader)
+    }
+
+    private fun tryRegisterBroadcastReceiver() {
+        try {
+            val context = AndroidAppHelper.currentApplication()
+            if (context != null) {
+                val filter = IntentFilter("moe.ouom.wekit.OPEN_SETTINGS")
+
+                val receiver = object : BroadcastReceiver() {
+                    override fun onReceive(context: Context, intent: Intent) {
+                        WeLogger.i("SettingsEntry", "Received broadcast to open settings")
+
+                        // Find the current WeChat activity
+                        val activityThread = XposedHelpers.callStaticMethod(
+                            XposedHelpers.findClass("android.app.ActivityThread", context.classLoader),
+                            "currentActivityThread"
+                        )
+
+                        val activities = XposedHelpers.callMethod(activityThread, "mActivities") as? Map<*, *>
+                        val currentActivity = activities?.values
+                            ?.mapNotNull {
+                                XposedHelpers.getObjectField(it, "activity") as? Activity
+                            }
+                            ?.firstOrNull { !it.isFinishing }
+
+                        if (currentActivity != null) {
+                            openSettingsDialog(currentActivity)
+                        } else {
+                            WeLogger.w("SettingsEntry", "No active WeChat activity found")
+                            Toast.makeText(context, "请先打开微信", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+
+                context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+
+                WeLogger.i("SettingsEntry", "Broadcast receiver registered")
+            }
+        } catch (e: Exception) {
+            WeLogger.e("Failed to register settings broadcast receiver", e)
+        }
     }
 
     /**

@@ -25,7 +25,7 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialogCompose(context, "We
             "优化与修复" to "ic_baseline_auto_fix_high_24",
             "开发者选项" to "ic_baseline_developer_mode_24",
             "娱乐功能" to "ic_baseline_free_breakfast_24",
-            "脚本管理" to "ic_script_management",
+            "自动化" to "ic_script_management",
         )
         categories.forEach { (name, iconName) ->
             addPreference(

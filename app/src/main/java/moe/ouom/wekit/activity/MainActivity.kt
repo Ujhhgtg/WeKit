@@ -1,7 +1,12 @@
 package moe.ouom.wekit.activity
 
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,9 +24,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -162,6 +169,34 @@ fun AppContent(onUrlClick: (String) -> Unit) {
         }
     }
 
+    fun openWeChatSettings() {
+        try {
+            // Send broadcast to WeChat process
+            val intent = Intent("moe.ouom.wekit.OPEN_SETTINGS")
+            intent.setPackage("com.tencent.mm")
+            context.sendBroadcast(intent)
+
+            Toast.makeText(context, "正在打开设置...", Toast.LENGTH_SHORT).show()
+
+            // Launch WeChat if needed after a short delay
+            Handler(Looper.getMainLooper()).postDelayed({
+                try {
+                    val launchIntent = context.packageManager.getLaunchIntentForPackage("com.tencent.mm")
+                    if (launchIntent != null) {
+                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(launchIntent)
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to launch WeChat", e)
+                }
+            }, 500)
+
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to send broadcast", e)
+            Toast.makeText(context, "打开失败：${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     var activationState by remember { mutableStateOf(getActivationState()) }
 
     // 模拟 onResume 和定时刷新
@@ -218,7 +253,7 @@ fun AppContent(onUrlClick: (String) -> Unit) {
                             text = { Text("关于") },
                             onClick = {
                                 showMenu = false
-                                showAboutDialog = true // 触发弹窗
+                                showAboutDialog = true
                             }
                         )
                     }
@@ -258,12 +293,56 @@ fun AppContent(onUrlClick: (String) -> Unit) {
                             Text(
                                 text = activationState.title,
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color.White // 保持白色
+                                color = Color.White
                             )
                             Text(
                                 text = activationState.desc,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.8f) // 保持白色半透明
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+
+                // Open WeChat Settings Button (only show if activated)
+                if (activationState.isActivated && activationState.isAbiMatch) {
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { openWeChatSettings() }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "打开微信内设置",
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    Text(
+                                        text = "在微信中管理模块功能",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -272,7 +351,6 @@ fun AppContent(onUrlClick: (String) -> Unit) {
                 // Build Info Card
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
-                    // ElevatedCard 默认会自动适配深色模式的 Surface 颜色
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -299,7 +377,7 @@ fun AppContent(onUrlClick: (String) -> Unit) {
                     modifier = Modifier
                         .padding(vertical = 8.dp)
                         .alpha(0.1f),
-                    color = MaterialTheme.colorScheme.onSurface // 分割线颜色适配
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 // Link Cards
@@ -331,7 +409,7 @@ fun AppContent(onUrlClick: (String) -> Unit) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("版本: ${BuildConfig.VERSION_NAME}")
                             Text("构建版本: ${BuildConfig.VERSION_CODE}")
-                            Text("作者：cwuom@github")
+                            Text("作者：Ujhhgtg@github, cwuom@github")
                         }
                     },
                     confirmButton = {
