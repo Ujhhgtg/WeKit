@@ -16,7 +16,10 @@
    - [概述](#概述)
    - [WEKit Log 函数](#wekit-log-函数)
    - [WEKit isMMAtLeast 函数](#wekit-ismmatleast-函数)
+   - [WEKit isGooglePlayVersion 函数](#wekit-isgoogleplayversion-函数)
    - [WEKit sendCgi 函数](#wekit-sendcgi-函数)
+   - [WEKit getSelfWxId 函数](#wekit-getselfwxid-函数)
+   - [WEKit getSelfAlias 函数](#wekit-getselfalias-函数)
    - [WEKit proto 对象](#wekit-proto-对象)
    - [WEKit database 对象](#wekit-database-对象)
    - [WEKit message 对象](#wekit-message-对象)
@@ -135,6 +138,54 @@ function onRequest(data) {
 }
 ```
 
+### WEKit isGooglePlayVersion 函数
+
+`wekit.isGooglePlayVersion` 是 `wekit` 对象提供的 Google Play 版本判断函数。
+
+#### 使用方法
+
+```javascript
+wekit.isGooglePlayVersion();
+```
+
+#### 返回值
+
+| 类型    | 描述                                      |
+| ------- | ----------------------------------------- |
+| boolean | 如果是 Google Play 版本则返回 true，否则返回 false |
+
+#### 示例
+
+```javascript
+function onRequest(data) {
+    if (wekit.isGooglePlayVersion()) {
+        wekit.log("当前是 Google Play 版本");
+        // Google Play 版本的特定逻辑
+    } else {
+        wekit.log("当前是非 Google Play 版本");
+        // 普通版本的特定逻辑
+    }
+}
+```
+
+#### 结合版本判断使用
+
+```javascript
+function onRequest(data) {
+    if (wekit.isGooglePlayVersion()) {
+        // Google Play 版本逻辑
+        if (wekit.isMMAtLeast("MM_8_0_48_Play")) {
+            wekit.log("Google Play 8.0.48 及以上版本");
+        }
+    } else {
+        // 普通版本逻辑
+        if (wekit.isMMAtLeast("MM_8_0_90")) {
+            wekit.log("普通版 8.0.90 及以上版本");
+        }
+    }
+}
+```
+
 ### WEKit sendCgi 函数
 
 `wekit.sendCgi` 是 `wekit` 对象提供的发送异步无返回值的 CGI 请求函数。
@@ -161,6 +212,52 @@ wekit.sendCgi(uri, cgiId, funcId, routeId, jsonPayload);
 function onRequest(data) {
     wekit.log('准备发送 CGI 请求');
     wekit.sendCgi('/cgi-bin/micromsg-bin/newgetcontact', 12345, 1, 1, JSON.stringify(data.jsonData));
+}
+```
+
+#### wekit.getSelfWxId
+
+获取当前用户的微信id。
+
+```javascript
+wekit.getSelfWxId();
+```
+
+##### 返回值
+
+| 类型   | 描述             |
+| ------ | ---------------- |
+| string | 当前用户的微信id |
+
+##### 示例
+
+```javascript
+function onRequest(data) {
+    const wxid = wekit.getSelfWxId();
+    wekit.log('当前用户微信id:', wxid);
+}
+```
+
+#### wekit.getSelfAlias
+
+获取当前用户的微信号。
+
+```javascript
+wekit.getSelfAlias();
+```
+
+##### 返回值
+
+| 类型   | 描述             |
+| ------ | ---------------- |
+| string | 当前用户的微信号 |
+
+##### 示例
+
+```javascript
+function onRequest(data) {
+    const alias = wekit.message.getSelfAlias();
+    wekit.log('当前用户微信号:', alias);
 }
 ```
 
@@ -627,29 +724,6 @@ function onRequest(data) {
     } else {
         wekit.log('XML应用消息发送失败');
     }
-}
-```
-
-#### wekit.message.getSelfAlias
-
-获取当前用户的微信号。
-
-```javascript
-wekit.message.getSelfAlias();
-```
-
-##### 返回值
-
-| 类型   | 描述             |
-| ------ | ---------------- |
-| string | 当前用户的微信号 |
-
-##### 示例
-
-```javascript
-function onRequest(data) {
-    const alias = wekit.message.getSelfAlias();
-    wekit.log('当前用户微信号:', alias);
 }
 ```
 
