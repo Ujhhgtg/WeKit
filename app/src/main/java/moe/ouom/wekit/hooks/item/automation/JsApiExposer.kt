@@ -498,7 +498,7 @@ object JsApiExposer {
         }
     }
 
-    // prevent blocking js execution (if the file grows too large, but that would be a misuse of this API anyway)
+    // prevent blocking js execution if the file grows too large, but that would be a misuse of this API anyway
     private fun saveStorageToDisk() {
         saveHandler.removeCallbacks(saveRunnable)
         saveHandler.postDelayed(saveRunnable, 500)

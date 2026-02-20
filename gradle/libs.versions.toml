@@ -1,5 +1,6 @@
 [versions]
 # noinspection UnusedVersionCatalogEntry
+kotlinxSerializationJson = "1.10.0"
 namespace = "moe.ouom.wekit"
 # noinspection UnusedVersionCatalogEntry
 minSdk = "35"
@@ -62,6 +63,7 @@ androidx-preference = { module = "androidx.preference:preference", version.ref =
 androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
 androidx-annotation = { module = "androidx.annotation:annotation", version = "1.9.1" }
 
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 rikka-rikkax-material-preference = { module = "dev.rikka.rikkax.material:material-preference", version.ref = "materialPreference" }
 rikka-rikkax-appcompat = { module = "dev.rikka.rikkax.appcompat:appcompat", version.ref = "appcompatVersion" }
 material-dialogs-core = { module = "com.afollestad.material-dialogs:core", version.ref = "materialDialog" }

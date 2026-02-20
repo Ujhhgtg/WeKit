@@ -21,6 +21,8 @@ import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.condition.type.Modifiers
 import com.highcapable.kavaref.extension.createInstance
 import com.highcapable.kavaref.extension.toClass
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
@@ -39,7 +41,9 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.nameWithoutExtension
+import kotlin.io.path.readText
 import kotlin.io.path.walk
+import kotlin.io.path.writeText
 
 @HookItem(path = "聊天与消息/贴纸包同步", desc = "从指定路径将所有图片注册为贴纸包\n(搭配 Telegram Xposed 模块 StickersSync 使用, 或使用自带此功能的 (例如 Nagram) 的第三方客户端)")
 class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
@@ -55,6 +59,34 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
         val packName: String,
         val stickers: MutableList<Any>
     )
+
+    @Serializable
+    private data class HashCache(
+        val hashes: Map<String, String> = emptyMap()
+    )
+
+    private fun loadHashCache(packPath: Path): HashCache {
+        val cacheFile = packPath.resolve(".hashes.json")
+        return try {
+            if (cacheFile.isRegularFile()) {
+                Json.decodeFromString<HashCache>(cacheFile.readText())
+            } else {
+                HashCache()
+            }
+        } catch (ex: Exception) {
+            WeLogger.e(TAG, "failed to load hash cache from ${cacheFile.absolutePathString()}", ex)
+            HashCache()
+        }
+    }
+
+    private fun saveHashCache(packPath: Path, cache: HashCache) {
+        val cacheFile = packPath.resolve(".hashes.json")
+        try {
+            cacheFile.writeText(Json.encodeToString(cache))
+        } catch (ex: Exception) {
+            WeLogger.e(TAG, "failed to save hash cache to ${cacheFile.absolutePathString()}", ex)
+        }
+    }
 
     private val stickerPacks: List<StickerPack> by lazy {
         // so that showToast() works
@@ -96,7 +128,11 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
             val stickerList = mutableListOf<Any>()
 
             WeLogger.d(TAG, "processing pack: $packId")
-            ToastUtils.showToast("正在加载 '$packId'...")
+            // ToastUtils.showToast("正在加载 '$packId'...")
+
+            // Load existing hash cache
+            val hashCache = loadHashCache(packPath)
+            val newHashes = mutableMapOf<String, String>()
 
             val images = packPath.walk()
                 .filter { path ->
@@ -112,7 +148,16 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                 }
 
                 val absPath = actualPath.absolutePathString()
-                val md5 = getEmojiMd5FromPath(HostInfo.getApplication(), absPath)
+                val fileName = actualPath.fileName.toString()
+
+                // Use cached hash if available, otherwise compute
+                val md5 = hashCache.hashes[fileName] ?: run {
+                    val computed = getEmojiMd5FromPath(HostInfo.getApplication(), absPath)
+                    // WeLogger.d(TAG, "computed new hash for $fileName: $computed")
+                    computed
+                }
+                newHashes[fileName] = md5
+
                 val emojiThumb = getEmojiThumbByMd5(md5)
                 methodSaveEmojiThumb.method.invoke(emojiThumb, null, true)
                 val groupItemInfo = classGroupItemInfo.clazz
@@ -120,6 +165,11 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                         Int::class.java, String::class.java, Int::class.java)
                     .newInstance(emojiThumb, 2, "", 0)
                 stickerList.add(groupItemInfo)
+            }
+
+            // Save updated hash cache
+            if (newHashes.isNotEmpty()) {
+                saveHashCache(packPath, HashCache(newHashes))
             }
 
             if (stickerList.isNotEmpty()) {
@@ -131,7 +181,7 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                 ))
                 totalProcessed += images.size
                 WeLogger.i(TAG, "loaded pack '$packId' with ${images.size} stickers")
-                ToastUtils.showToast("成功加载 '${packId.take(10)}...', 含 ${images.size} 个表情, 共 $totalProcessed 个表情")
+                // ToastUtils.showToast("成功加载 '${packId.take(10)}...', 含 ${images.size} 个表情, 共 $totalProcessed 个表情")
             }
         }
 
@@ -191,9 +241,9 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
         return methodServiceManagerGetService.method.invoke(null, clazz)!!
     }
 
-    private fun getEmojiFeatureService(): Any {
+    private val emojiFeatureService: Any by lazy {
         val service = getServiceByClass(classEmojiFeatureService.clazz)
-        return service.asResolver()
+        service.asResolver()
             .firstMethod {
                 returnType = classEmojiMgrImpl.clazz
             }
@@ -201,7 +251,7 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
     }
 
     private fun getEmojiMd5FromPath(context: Context, path: String): String {
-        return getEmojiFeatureService()
+        return emojiFeatureService
             .asResolver()
             .firstMethod {
                 parameters(Context::class.java, String::class.java)
@@ -210,18 +260,21 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
             .invoke(context, path) as String
     }
 
-    private fun getEmojiThumbByMd5(md5: String): Any {
+    private val emojiInfoStorage: Any by lazy {
         val emojiStorageMgr = classEmojiStorageMgr.clazz.asResolver()
             .firstMethod {
                 modifiers(Modifiers.STATIC)
                 returnType = classEmojiStorageMgr.clazz
             }
             .invoke()!!
-        val emojiInfoStorage = emojiStorageMgr.asResolver()
+        emojiStorageMgr.asResolver()
             .firstMethod {
                 returnType = classEmojiInfoStorage.clazz
             }
             .invoke()!!
+    }
+
+    private fun getEmojiThumbByMd5(md5: String): Any {
         val emojiThumb = emojiInfoStorage.asResolver()
             .firstMethod {
                 parameters(String::class)

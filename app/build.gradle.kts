@@ -383,6 +383,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.compose.runtime)
     implementation(libs.accompanist.drawablepainter)
 
     implementation(libs.kotlinx.io.jvm)
@@ -391,8 +392,8 @@ dependencies {
     implementation(libs.google.guava)
     implementation(libs.google.protobuf.java)
     implementation(libs.kotlinx.serialization.protobuf)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.mmkv)
-    implementation(libs.androidx.compose.runtime)
 
     compileOnly(libs.xposed.api)
     compileOnly(projects.libs.common.libxposed.api)
