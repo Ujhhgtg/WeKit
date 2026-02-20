@@ -1,6 +1,9 @@
 package moe.ouom.wekit.hooks.sdk.api
 
 import android.annotation.SuppressLint
+import android.database.Cursor
+import com.highcapable.kavaref.KavaRef.Companion.asResolver
+import com.highcapable.kavaref.extension.createInstance
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
@@ -37,6 +40,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
     private val dexMethodGetSendMsgObject by dexMethod()
     private val dexMethodPostToQueue by dexMethod()
     private val dexMethodShareFile by dexMethod()
+    val dexClassMsgInfo by dexClass()
 
     // -------------------------------------------------------------------------------------
     // 图片发送组件
@@ -143,6 +147,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
                     }
                 }
             }
+
             dexClassNetSceneSendMsg.find(dexKit, descriptors = descriptors) {
                 matcher {
                     methods {
@@ -153,6 +158,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
                     }
                 }
             }
+
             dexClassNetSceneQueue.find(dexKit, descriptors = descriptors) {
                 searchPackages("com.tencent.mm.modelbase")
                 matcher {
@@ -164,6 +170,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
                     }
                 }
             }
+
             dexClassNetSceneBase.find(dexKit, descriptors = descriptors) {
                 matcher {
                     methods {
@@ -174,12 +181,14 @@ class WeMessageApi : ApiHookItem(), IDexFind {
                     }
                 }
             }
+
             dexMethodGetSendMsgObject.find(dexKit, descriptors, true) {
                 matcher {
                     paramCount = 0
                     returnType = dexClassNetSceneObserverOwner.getDescriptorString() ?: ""
                 }
             }
+
             dexMethodPostToQueue.find(dexKit, descriptors, true) {
                 searchPackages("com.tencent.mm.modelbase")
                 matcher {
@@ -189,6 +198,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
                     usingNumbers(0)
                 }
             }
+
             dexMethodShareFile.find(dexKit, descriptors = descriptors) {
                 matcher {
                     paramTypes(
@@ -199,6 +209,13 @@ class WeMessageApi : ApiHookItem(), IDexFind {
                         "int",
                         "java.lang.String"
                     )
+                }
+            }
+
+            dexClassMsgInfo.find(dexKit, descriptors) {
+                searchPackages("com.tencent.mm.storage")
+                matcher {
+                    usingEqStrings("MicroMsg.MsgInfo", "[parseNewXmlSysMsg]")
                 }
             }
 
@@ -426,6 +443,15 @@ class WeMessageApi : ApiHookItem(), IDexFind {
             throw e
         }
         return descriptors
+    }
+
+    fun createMsgInfoFromCursor(cursor: Cursor): Any {
+        val msgInfo = dexClassMsgInfo.clazz.createInstance()
+        msgInfo.asResolver().firstMethod {
+            superclass()
+            name = "convertFrom"
+        }.invoke(cursor)
+        return msgInfo
     }
 
     override fun entry(classLoader: ClassLoader) {

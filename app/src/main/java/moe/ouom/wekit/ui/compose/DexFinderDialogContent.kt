@@ -161,7 +161,7 @@ fun DexFinderContent(
     }
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         tonalElevation = 6.dp,
         modifier = Modifier
             .fillMaxWidth()

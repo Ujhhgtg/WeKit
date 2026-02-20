@@ -31,7 +31,6 @@ import kotlin.random.Random
 @HookItem(path = "聊天与消息/自动抢红包", desc = "监听消息并自动拆开红包")
 class WeRedPacketAuto : BaseClickableFunctionHookItem(),
     WeDatabaseListener.DatabaseInsertListener, IDexFind {
-
     companion object {
         private const val TAG: String = "WeRedPacketAuto"
     }
@@ -208,7 +207,7 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(),
         WeDatabaseListener.removeListener(this)
         currentRedPacketMap.clear()
         WeLogger.i(TAG, "removed db listener and cleared red packet map")
-        super.unload(classLoader)  // 必须调用父类方法来重置 isLoad 标志
+        super.unload(classLoader)
     }
 
     private class ConfigDialog(context: Context) : BaseRikkaDialogCompose(context, "自动抢红包") {
@@ -218,7 +217,7 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(),
 
             addSwitchPreference(
                 key = "red_packet_notification",
-                title = "抢到后通知（没写）",
+                title = "抢到后通知 (没写)",
                 summary = "在通知栏显示抢到的金额"
             )
 
@@ -311,7 +310,7 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(),
                 AlertDialog(
                     onDismissRequest = { onDismiss() },
                     title = { Text(text = "警告") },
-                    text = { Text(text = "此功能可能导致账号异常，确定要启用吗?") },
+                    text = { Text(text = "此功能可能导致账号异常, 确定要启用吗?") },
                     confirmButton = {
                         TextButton(onClick = {
                             applyToggle(true)

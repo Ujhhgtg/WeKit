@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -48,9 +47,9 @@ import kotlin.random.Random
 @HookItem(path = "聊天与消息/猜拳骰子控制", desc = "自定义猜拳和骰子的结果")
 class EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
     companion object {
-        // Constants
         private const val MD5_MORRA = "9bd1281af3a31710a45b84d736363691"
         private const val MD5_DICE = "08f223fa83f1ca34e143d1e580252c7c"
+        private const val TAG = "EmojiGameControl"
     }
 
     // DSL: Define methods to be found via DexKit
@@ -91,14 +90,13 @@ class EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
         // Find Panel Click Method
         methodPanelClick.find(dexKit, descriptors) {
             matcher {
-                usingStrings("penn send capture emoji click emoji: %s status: %d.")
+//                usingStrings("penn send capture emoji click emoji: %s status: %d.")
+                usingEqStrings("MicroMsg.EmojiPanelClickListener")
             }
         }
 
         return descriptors
     }
-
-    // ================== Hook Entry ==================
 
     override fun entry(classLoader: ClassLoader) {
         // Hook 1: Control the Random Result
@@ -155,65 +153,61 @@ class EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
                             }
                         }
                     } catch (e: Throwable) {
-                        WeLogger.e("EmojiGameControl", "Error in Click Hook", e)
+                        WeLogger.e(TAG, "Error in Click Hook", e)
                     }
                 }
             }
         }
     }
 
-    // ================== In-App Dialog Logic ==================
-
     private fun showSelectDialog(param: XC_MethodHook.MethodHookParam, isDice: Boolean) {
         param.result = null
 
         val activity = getActivity() ?: run {
-            WeLogger.e("EmojiGameControl", "Cannot find Top Activity")
+            WeLogger.e(TAG, "Cannot find Top Activity")
             return
         }
 
-        activity.runOnUiThread {
-            showComposeDialog(activity) { onDismiss ->
-                EmojiGameDialog(
-                    isDice = isDice,
-                    onSend = { isSingle, inputText ->
-                        try {
-                            if (isSingle) {
-                                XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
-                            } else {
-                                val values = parseMultipleInput(inputText, isDice)
-                                if (values.isEmpty()) {
-                                    Toast.makeText(activity, "输入格式错误，请重试", Toast.LENGTH_SHORT).show()
-                                    return@EmojiGameDialog
-                                }
-                                sendMultiple(param, values, isDice, activity)
+        showComposeDialog(activity) { onDismiss ->
+            EmojiGameDialog(
+                isDice = isDice,
+                onSend = { isSingle, inputText ->
+                    try {
+                        if (isSingle) {
+                            XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
+                        } else {
+                            val values = parseMultipleInput(inputText, isDice)
+                            if (values.isEmpty()) {
+                                Toast.makeText(activity, "输入格式错误，请重试", Toast.LENGTH_SHORT).show()
+                                return@EmojiGameDialog
                             }
-                        } catch (e: Throwable) {
-                            WeLogger.e("EmojiGameControl", "Failed to send", e)
-                            Toast.makeText(activity, "发送失败", Toast.LENGTH_SHORT).show()
+                            sendMultiple(param, values, isDice, activity)
                         }
-                    },
-                    onRandom = { isSingle ->
-                        try {
-                            if (isSingle) {
-                                if (isDice) valDice = Random.nextInt(0, 6)
-                                else valMorra = Random.nextInt(0, 3)
-                                XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
-                            } else {
-                                val count = if (isDice) Random.nextInt(3, 10) else Random.nextInt(3, 8)
-                                val values = List(count) {
-                                    if (isDice) Random.nextInt(0, 6) else Random.nextInt(0, 3)
-                                }
-                                sendMultiple(param, values, isDice, activity)
+                    } catch (e: Throwable) {
+                        WeLogger.e(TAG, "failed to send", e)
+                        Toast.makeText(activity, "发送失败", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onRandom = { isSingle ->
+                    try {
+                        if (isSingle) {
+                            if (isDice) valDice = Random.nextInt(0, 6)
+                            else valMorra = Random.nextInt(0, 3)
+                            XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
+                        } else {
+                            val count = if (isDice) Random.nextInt(3, 10) else Random.nextInt(3, 8)
+                            val values = List(count) {
+                                if (isDice) Random.nextInt(0, 6) else Random.nextInt(0, 3)
                             }
-                        } catch (e: Throwable) {
-                            WeLogger.e("EmojiGameControl", "Failed to send random", e)
-                            Toast.makeText(activity, "发送失败", Toast.LENGTH_SHORT).show()
+                            sendMultiple(param, values, isDice, activity)
                         }
-                    },
-                    onDismiss = onDismiss
-                )
-            }
+                    } catch (e: Throwable) {
+                        WeLogger.e(TAG, "failed to send random", e)
+                        Toast.makeText(activity, "发送失败", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onDismiss = onDismiss
+            )
         }
     }
 
@@ -227,13 +221,13 @@ class EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
         var isSingleMode by remember { mutableStateOf(true) }
         var inputText    by remember { mutableStateOf("") }
 
-        // mirrors the original: first item selected by default
+        // first item selected by default
         var selectedIndex by remember { mutableIntStateOf(0) }
 
         val options = if (isDice) DiceFace.entries.map { it.chineseName }
-        else        MorraType.entries.map { it.chineseName }
+        else MorraType.entries.map { it.chineseName }
 
-        // keep valMorra / valDice in sync, same as original onClick
+        // keep valMorra / valDice in sync
         LaunchedEffect(selectedIndex, isSingleMode) {
             if (isSingleMode) {
                 if (isDice) valDice = selectedIndex else valMorra = selectedIndex
@@ -241,12 +235,11 @@ class EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
         }
 
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.extraLarge,
             tonalElevation = 6.dp,
             modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-
                 Text(
                     text = if (isDice) "选择骰子点数" else "选择猜拳结果",
                     style = MaterialTheme.typography.titleMedium
@@ -293,7 +286,7 @@ class EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
                 AnimatedVisibility(visible = !isSingleMode) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = if (isDice) "输入多个点数（1-6）" else "输入多个选项（1-3）\n1=剪刀, 2=石头, 3=布",
+                            text = if (isDice) "输入多个点数 (1-6)" else "输入多个选项 (1-3)\n1=剪刀, 2=石头, 3=布",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -314,7 +307,7 @@ class EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
                 ) {
                     TextButton(onClick = { onDismiss() }) { Text("取消") }
                     TextButton(onClick = { onRandom(isSingleMode); onDismiss() }) { Text("随机") }
-                    Button(onClick    = { onSend(isSingleMode, inputText); onDismiss() })  { Text("发送") }
+                    Button(onClick = { onSend(isSingleMode, inputText); onDismiss() })  { Text("发送") }
                 }
             }
         }
@@ -356,7 +349,7 @@ class EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
                         Thread.sleep(300)
                     }
                 } catch (e: Throwable) {
-                    WeLogger.e("EmojiGameControl", "Failed to send at index $index", e)
+                    WeLogger.e(TAG, "failed to send at index $index", e)
                     activity.runOnUiThread {
                         Toast.makeText(activity, "第 ${index + 1} 次发送失败", Toast.LENGTH_SHORT).show()
                     }
@@ -384,7 +377,7 @@ class EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
                 }
             }
         } catch (e: Throwable) {
-            WeLogger.e("EmojiGameControl", "Failed to get Activity", e)
+            WeLogger.e(TAG, "Failed to get Activity", e)
         }
         return null
     }
