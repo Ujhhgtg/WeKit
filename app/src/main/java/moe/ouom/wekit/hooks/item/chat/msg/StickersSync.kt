@@ -221,8 +221,7 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
     private val methodGetEmojiGroupInfo by dexMethod()
     private val methodAddAllGroupItems by dexMethod()
     private val methodServiceManagerGetService by dexMethod()
-    // FIXME: this module doesn't provide a builtin dexConstructor, so i have to use dexClass,
-    //        and then use .createInstance()
+    // this module doesn't provide a builtin dexConstructor, so i have to use dexClass, and then use .createInstance()
     private val classGroupItemInfo by dexClass()
     private val classEmojiFeatureService by dexClass()
     private val classEmojiMgrImpl by dexClass()
@@ -231,7 +230,6 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
     private val methodSaveEmojiThumb by dexMethod()
     private val classSqliteDb by dexClass()
     private val classMmKernel by dexClass()
-    // private val methodMmKernelGetServiceImpl by dexMethod()
     private val classCoreStorage by dexClass()
 
     private val stickersDir: Path?
@@ -501,14 +499,6 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                 }
             }
         }
-
-        // FIXME: this has errors, although doesn't affect the functionality of this hook
-//        methodMmKernelGetServiceImpl.find(dexKit, descriptors) {
-//            matcher {
-//                declaredClass(classMmKernel.clazz)
-//                returnType(Class::class.java)
-//            }
-//        }
 
         classCoreStorage.find(dexKit, descriptors) {
             matcher {

@@ -1,6 +1,5 @@
 package moe.ouom.wekit.ui.compose
 
-import android.app.AndroidAppHelper
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
@@ -21,6 +20,8 @@ import moe.ouom.wekit.host.HostInfo
 import moe.ouom.wekit.ui.CommonContextWrapper
 import moe.ouom.wekit.ui.theme.AppTheme
 
+// useful for showing a compose dialog in non-compose context,
+// or when you don't want to manage the state for a dialog inside a composable
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 fun showComposeDialog(context: Context? = null, content: @Composable (onDismiss: () -> Unit) -> Unit) {
     var ctx = context

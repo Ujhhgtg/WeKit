@@ -17,7 +17,7 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialogCompose(context, "We
     )
 
     override fun initPreferences() {
-        addCategory("设定")
+        addCategory("功能")
         val categories = listOf(
             "聊天与消息" to "ic_twotone_message_24",
             "联系人" to "ic_outline_article_person_24",

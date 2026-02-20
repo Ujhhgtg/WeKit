@@ -247,7 +247,7 @@ class WeDatabaseApi : ApiHookItem(), IDexFind {
                 } while (cursor.moveToNext())
             }
         } catch (e: Exception) {
-            WeLogger.e(TAG, "SQL执行异常: ${e.message}")
+            WeLogger.e(TAG, "SQL 执行异常: ${e.message}")
         } finally {
             cursor?.close()
         }
@@ -455,5 +455,4 @@ class WeDatabaseApi : ApiHookItem(), IDexFind {
             else -> 0
         }
     }
-
 }
