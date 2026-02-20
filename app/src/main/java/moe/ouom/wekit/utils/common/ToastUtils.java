@@ -16,6 +16,12 @@ public class ToastUtils {
 
     static public void showToast(String msg) {
         WeLogger.i(TAG, "showToast: " + msg);
-        Toast.makeText(HostInfo.getApplication(), msg, Toast.LENGTH_SHORT).show();
+        try {
+            Toast.makeText(HostInfo.getApplication(), msg, Toast.LENGTH_SHORT).show();
+        }
+        // Can't toast on a thread that has not called Looper.prepare()
+        catch (NullPointerException e) {
+            WeLogger.e(TAG, "failed to show toast: " + e.getMessage());
+        }
     }
 }

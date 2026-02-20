@@ -2,6 +2,9 @@ package moe.ouom.wekit.hooks.item.chat.msg
 
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.os.Looper
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,24 +41,32 @@ import kotlin.io.path.isRegularFile
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.walk
 
-@HookItem(path = "聊天与消息/贴纸表情同步", desc = "从指定路径将所有图片注册为贴纸表情")
+@HookItem(path = "聊天与消息/贴纸包同步", desc = "从指定路径将所有图片注册为贴纸包\n(搭配 Telegram Xposed 模块 StickersSync 使用, 或使用自带此功能的 (例如 Nagram) 的第三方客户端)")
 class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
     companion object {
         private const val TAG = "StickersSync"
-        private const val STICKER_PACK_ID = "wekit.stickers.sync"
+        private const val STICKER_PACK_ID_PREFIX = "wekit.stickers.sync"
         private val ALLOWED_STICKER_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp")
     }
 
-    private val stickers: MutableList<Any> by lazy {
-        val list = mutableListOf<Any>()
+    private data class StickerPack(
+        val appPackId: String,
+        val packId: String,
+        val packName: String,
+        val stickers: MutableList<Any>
+    )
+
+    private val stickerPacks: List<StickerPack> by lazy {
+        // so that showToast() works
+        Looper.prepare()
+
+        val packs = mutableListOf<StickerPack>()
         val dir = stickersDir
         if (dir == null) {
             WeLogger.e(TAG, "could not get stickers directory, skipped")
-            return@lazy list
+            return@lazy packs
         }
-        // although docs say createDirectories doesn't throw,
-        // that's not true for symbolic link
-        // note: symbolic link probably won't work, because of permission
+
         try {
             dir.createDirectories()
         }
@@ -64,17 +75,36 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
         }
         catch (ex: Exception) {
             WeLogger.e(TAG, "failed to create stickers directory, skipped", ex)
-            return@lazy list
+            return@lazy packs
         }
-        ToastUtils.showToast("正在加载贴纸表情, 请稍候...")
-        val images = dir.walk()
-            .filter { path ->
-                path.isRegularFile() && path.extension.lowercase() in ALLOWED_STICKER_EXTENSIONS
-            }
-            .toList()
-        ToastUtils.showToast("找到 ${images.size} 个贴纸表情文件, 正在处理...")
-        WeLogger.d(TAG, "found ${images.size} sticker files in ${dir.absolutePathString()}")
-        images.forEach { path ->
+
+        ToastUtils.showToast("正在加载贴纸包, 请稍候...")
+
+        // Get all subdirectories as pack IDs
+        val packDirs = dir.toFile().listFiles()?.filter { it.isDirectory } ?: emptyList()
+
+        if (packDirs.isEmpty()) {
+            WeLogger.w(TAG, "no pack directories found in ${dir.absolutePathString()}")
+            ToastUtils.showToast("未找到任何贴纸包")
+            return@lazy packs
+        }
+
+        var totalProcessed = 0
+        packDirs.forEach { packDir ->
+            val packId = packDir.name
+            val packPath = packDir.toPath()
+            val stickerList = mutableListOf<Any>()
+
+            WeLogger.d(TAG, "processing pack: $packId")
+            ToastUtils.showToast("正在加载 '$packId'...")
+
+            val images = packPath.walk()
+                .filter { path ->
+                    path.isRegularFile() && path.extension.lowercase() in ALLOWED_STICKER_EXTENSIONS
+                }
+                .toList()
+
+            images.forEach { path ->
                 val actualPath = if (path.extension.lowercase() == "webp") {
                     convertWebpToPng(path) ?: return@forEach
                 } else {
@@ -82,18 +112,32 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                 }
 
                 val absPath = actualPath.absolutePathString()
-                val something = getEmojiMd5FromPath(HostInfo.getApplication(), absPath)
-                val emojiThumb = getEmojiThumbByMd5(something)
+                val md5 = getEmojiMd5FromPath(HostInfo.getApplication(), absPath)
+                val emojiThumb = getEmojiThumbByMd5(md5)
                 methodSaveEmojiThumb.method.invoke(emojiThumb, null, true)
                 val groupItemInfo = classGroupItemInfo.clazz
                     .getDeclaredConstructor("com.tencent.mm.api.IEmojiInfo".toClass(),
                         Int::class.java, String::class.java, Int::class.java)
                     .newInstance(emojiThumb, 2, "", 0)
-                list.add(groupItemInfo)
+                stickerList.add(groupItemInfo)
             }
-        ToastUtils.showToast("成功加载 ${images.size} 个贴纸表情")
-        WeLogger.i(TAG, "processed ${images.size} stickers")
-        return@lazy list
+
+            if (stickerList.isNotEmpty()) {
+                packs.add(StickerPack(
+                    appPackId = "$STICKER_PACK_ID_PREFIX.$packId",
+                    packId = packId,
+                    packName = packId,
+                    stickers = stickerList
+                ))
+                totalProcessed += images.size
+                WeLogger.i(TAG, "loaded pack '$packId' with ${images.size} stickers")
+                ToastUtils.showToast("成功加载 '${packId.take(10)}...', 含 ${images.size} 个表情, 共 $totalProcessed 个表情")
+            }
+        }
+
+        ToastUtils.showToast("成功加载 ${packs.size} 个贴纸包, 共 $totalProcessed 个贴纸")
+        WeLogger.i(TAG, "processed ${packs.size} packs with total $totalProcessed stickers")
+        return@lazy packs
     }
 
     private fun convertWebpToPng(webpPath: Path): Path? {
@@ -106,13 +150,13 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                 return pngPath
             }
 
-            val webpBitmap = android.graphics.BitmapFactory.decodeFile(webpPath.absolutePathString())
+            val webpBitmap = BitmapFactory.decodeFile(webpPath.absolutePathString())
             if (webpBitmap == null) {
                 WeLogger.e(TAG, "failed to decode WebP: ${webpPath.absolutePathString()}")
                 return null
             }
             pngPath.toFile().outputStream().use { output ->
-                webpBitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)
+                webpBitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
             }
             webpBitmap.recycle()
             // prevent logcat io bottleneck
@@ -137,7 +181,7 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
     private val methodSaveEmojiThumb by dexMethod()
     private val classSqliteDb by dexClass()
     private val classMmKernel by dexClass()
-//    private val methodMmKernelGetServiceImpl by dexMethod()
+    // private val methodMmKernelGetServiceImpl by dexMethod()
     private val classCoreStorage by dexClass()
 
     private val stickersDir: Path?
@@ -225,28 +269,31 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                         return@afterIfEnabled
                     }
 
-                    val stickersPackData = ContentValues()
-                    stickersPackData.put(
-                        "packGrayIconUrl",
-                        "https://avatars.githubusercontent.com/u/49312623"
-                    )
-                    stickersPackData.put(
-                        "packIconUrl",
-                        "https://avatars.githubusercontent.com/u/49312623"
-                    )
-                    stickersPackData.put("packName", "贴纸表情同步")
-                    stickersPackData.put("packStatus", 1)
-                    stickersPackData.put("productID", STICKER_PACK_ID)
-                    stickersPackData.put("status", 7)
-                    stickersPackData.put("sync", 2)
+                    // Inject each sticker pack
+                    stickerPacks.forEachIndexed { index, pack ->
+                        val stickersPackData = ContentValues()
+                        stickersPackData.put(
+                            "packGrayIconUrl",
+                            "https://avatars.githubusercontent.com/u/49312623"
+                        )
+                        stickersPackData.put(
+                            "packIconUrl",
+                            "https://avatars.githubusercontent.com/u/49312623"
+                        )
+                        stickersPackData.put("packName", pack.packName)
+                        stickersPackData.put("packStatus", 1)
+                        stickersPackData.put("productID", pack.appPackId)
+                        stickersPackData.put("status", 7)
+                        stickersPackData.put("sync", 2)
 
-                    val emojiGroupInfo = emojiGroupInfoCls.createInstance()
-                    emojiGroupInfoCls.getMethod("convertFrom",
-                        ContentValues::class.java, Boolean::class.java)
-                        .invoke(emojiGroupInfo, stickersPackData, true)
+                        val emojiGroupInfo = emojiGroupInfoCls.createInstance()
+                        emojiGroupInfoCls.getMethod("convertFrom",
+                            ContentValues::class.java, Boolean::class.java)
+                            .invoke(emojiGroupInfo, stickersPackData, true)
 
-                    (param.result as java.util.List<Any?>).add(0, emojiGroupInfo)
-                    WeLogger.i(TAG, "injected sticker pack info")
+                        (param.result as java.util.List<Any?>).add(index, emojiGroupInfo)
+                    }
+                    WeLogger.i(TAG, "injected ${stickerPacks.size} sticker packs")
                 }
             }
         }
@@ -257,7 +304,7 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                 beforeIfEnabled { param ->
                     val manager = param.args[0]
                     if (manager == null) {
-                        WeLogger.w("args[0] is null, skipped")
+                        WeLogger.w(TAG, "args[0] is null, skipped")
                         return@beforeIfEnabled
                     }
 
@@ -274,20 +321,22 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                         .firstField {
                             type("com.tencent.mm.storage.emotion.EmojiGroupInfo".toClass(classLoader))
                         }.get()!!
-                    val packName = emojiGroupInfo.asResolver()
+                    val packId = emojiGroupInfo.asResolver()
                         .firstField {
                             superclass()
                             name = "field_packName"
                         }
                         .get()!! as String
-                    WeLogger.d(TAG, "current pack name: $packName")
-                    WeLogger.d(TAG, "stickers count: ${stickers.size}")
-                    if (packName == "贴纸表情同步") {
+
+                    // Find matching sticker pack
+                    val matchingPack = stickerPacks.find { it.packId == packId }
+                    if (matchingPack != null) {
+                        WeLogger.d(TAG, "current pack name: $packId, stickers count: ${matchingPack.stickers.size}")
                         val stickerList = manager.asResolver().firstMethod {
                             superclass()
                             returnType = List::class.java
                         }.invoke() as java.util.List<Any>
-                        stickerList.addAll(stickers)
+                        stickerList.addAll(matchingPack.stickers)
                     }
                 }
             }
@@ -433,18 +482,23 @@ class StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                             modifier = androidx.compose.ui.Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    getSqliteDatabase().asResolver()
-                                        .firstMethod {
-                                            name = "delete"
-                                            parameters(String::class, String::class, Array<String>::class)
-                                        }
-                                        .invoke("EmojiGroupInfo", "productID = ?", arrayOf(STICKER_PACK_ID))
-                                    ToastUtils.showToast("清除成功!")
+                                    val db = getSqliteDatabase()
+                                    var deletedCount = 0
+                                    stickerPacks.forEach { pack ->
+                                        db.asResolver()
+                                            .firstMethod {
+                                                name = "delete"
+                                                parameters(String::class, String::class, Array<String>::class)
+                                            }
+                                            .invoke("EmojiGroupInfo", "productID = ?", arrayOf(pack.appPackId))
+                                        deletedCount++
+                                    }
+                                    ToastUtils.showToast("已清除 $deletedCount 个贴纸包缓存!")
                                 }
                                 .padding(vertical = 12.dp, horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("清除应用数据库缓存", style = MaterialTheme.typography.bodyLarge)
+                            Text("清除应用数据库贴纸包缓存", style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 },

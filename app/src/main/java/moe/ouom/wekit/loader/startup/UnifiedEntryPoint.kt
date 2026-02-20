@@ -12,7 +12,6 @@ import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.loader.hookapi.IHookBridge
 import moe.ouom.wekit.loader.hookapi.ILoaderService
 import moe.ouom.wekit.utils.Initiator.init
-import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.log.WeLogger.e
 import moe.ouom.wekit.utils.log.WeLogger.i
 import java.lang.reflect.InvocationTargetException
@@ -138,7 +137,6 @@ object UnifiedEntryPoint {
                                 hookBridge
                             )
                             i(TAG, "StartupAgent invoked successfully.")
-                            ToastUtils.showToast(hostApp, "WeKit 加载成功!")
                         } catch (e: Throwable) {
                             Log.e(TAG, "StartupAgent.startup failed", e)
                         }
