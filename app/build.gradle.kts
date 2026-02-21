@@ -64,9 +64,9 @@ val generateMethodHashes = tasks.register("generateMethodHashes") {
 }
 
 val embedBuiltinJavaScript = tasks.register("embedBuiltinJavaScript") {
-    val sourceFile = file("src/main/java/moe/ouom/wekit/hooks/item/automation/script.js")
+    val sourceFile = file("src/main/java/moe/ouom/wekit/hooks/items/automation/script.js")
     val outputDir = layout.buildDirectory.dir("generated/sources/embeddedJs/kotlin")
-    val outputFile = outputDir.map { it.file("moe/ouom/wekit/hooks/item/automation/BuiltinJs.kt") }
+    val outputFile = outputDir.map { it.file("moe/ouom/wekit/hooks/items/automation/BuiltinJs.kt") }
 
     inputs.file(sourceFile)
     outputs.file(outputFile)

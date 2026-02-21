@@ -4,22 +4,15 @@ import android.content.Context
 import lombok.Getter
 import moe.ouom.wekit.utils.log.WeLogger
 
-/**
- * Native 层崩溃拦截处理器
- * 通过 JNI 调用 Native 代码安装信号处理器
- * 
- * @author cwuom
- * @since 1.0.0
- */
 class NativeCrashHandler(context: Context) {
-    private val context: Context = context.getApplicationContext()
+    private val context: Context = context.applicationContext
 
     /**
      * 获取崩溃日志管理器
      * 
      * @return 崩溃日志管理器
      */
-    val crashLogManager: CrashLogManager
+    val crashLogManager: CrashLogManager = CrashLogManager(this.context)
 
     /**
      * -- GETTER --
@@ -34,10 +27,6 @@ class NativeCrashHandler(context: Context) {
     private external fun uninstallNative()
 
     private external fun triggerTestCrashNative(crashType: Int)
-
-    init {
-        this.crashLogManager = CrashLogManager(this.context)
-    }
 
     /**
      * 安装 Native 崩溃拦截器

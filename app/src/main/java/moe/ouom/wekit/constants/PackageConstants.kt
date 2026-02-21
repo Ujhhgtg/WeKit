@@ -1,15 +1,9 @@
-package moe.ouom.wekit.constants;
+package moe.ouom.wekit.constants
+
+import moe.ouom.wekit.BuildConfig
 
 
-import moe.ouom.wekit.BuildConfig;
-
-public class PackageConstants {
-
-    private PackageConstants() {
-        throw new AssertionError("No instance for you!");
-    }
-
-    public static final String PACKAGE_NAME_WECHAT = "com.tencent.mm";
-    public static final String PACKAGE_NAME_SELF = BuildConfig.APPLICATION_ID;
-
+object PackageConstants {
+    const val PACKAGE_NAME_WECHAT = "com.tencent.mm"
+    const val PACKAGE_NAME_SELF = BuildConfig.APPLICATION_ID
 }

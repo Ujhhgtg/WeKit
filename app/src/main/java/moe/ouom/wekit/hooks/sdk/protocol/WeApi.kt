@@ -3,7 +3,7 @@ package moe.ouom.wekit.hooks.sdk.protocol
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import moe.ouom.wekit.config.RuntimeConfig
-import moe.ouom.wekit.hooks.sdk.api.WeMessageApi
+import moe.ouom.wekit.hooks.sdk.base.WeMessageApi
 import moe.ouom.wekit.host.HostInfo
 import moe.ouom.wekit.utils.log.WeLogger
 import java.security.MessageDigest
@@ -63,9 +63,10 @@ object WeApi {
     /**
      * 获取自己的微信号
      */
-    fun getSelfAlias(): String {
-        return WeMessageApi.INSTANCE?.getSelfAlias() ?: ""
-    }
+    val selfAlias: String
+        get() {
+            return WeMessageApi.getSelfAlias()
+        }
 
     /**
      * MD5 实现

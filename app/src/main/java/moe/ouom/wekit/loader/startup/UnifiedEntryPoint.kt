@@ -6,8 +6,6 @@ import android.content.Context
 import androidx.annotation.Keep
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
-import moe.ouom.wekit.BuildConfig
-import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.loader.hookapi.IHookBridge
 import moe.ouom.wekit.loader.hookapi.ILoaderService
 import moe.ouom.wekit.utils.Initiator.init
@@ -50,7 +48,7 @@ object UnifiedEntryPoint {
         try {
             // Hook 壳 Application
             XposedHelpers.findAndHookMethod(
-                Constants.CLAZZ_BASE_APPLICATION,
+                "com.tencent.mm.app.Application",
                 initialClassLoader,
                 "attachBaseContext",
                 Context::class.java,
@@ -76,7 +74,6 @@ object UnifiedEntryPoint {
                             )
                         } catch (t: Throwable) {
                             WeLogger.e(
-                                BuildConfig.TAG,
                                 "Failed to hook Instrumentation.callApplicationOnCreate",
                                 t
                             )
@@ -84,9 +81,9 @@ object UnifiedEntryPoint {
                     }
                 }
             )
-            WeLogger.i(BuildConfig.TAG, "Hook applied: waiting for Application.attachBaseContext")
+            WeLogger.i("Hook applied: waiting for Application.attachBaseContext")
         } catch (t: Throwable) {
-            WeLogger.e(BuildConfig.TAG, "Failed to hook Shell Application", t)
+            WeLogger.e("Failed to hook Shell Application", t)
         }
     }
 
@@ -149,13 +146,13 @@ object UnifiedEntryPoint {
 
 
     @SuppressLint("DiscouragedPrivateApi")
-    private fun injectClassLoader(self: ClassLoader?, newParent: ClassLoader?) {
+    private fun injectClassLoader(self: ClassLoader, newParent: ClassLoader?) {
         try {
             val fParent = ClassLoader::class.java.getDeclaredField("parent")
             fParent.isAccessible = true
             fParent.set(self, newParent)
         } catch (e: Exception) {
-            WeLogger.e("injectClassLoader: failed", e)
+            WeLogger.e("injectClassLoader failed", e)
         }
     }
 

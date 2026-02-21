@@ -12,6 +12,7 @@ import moe.ouom.wekit.hooks.core.factory._ExceptionFactory
 import moe.ouom.wekit.loader.startup.HybridClassLoader
 import moe.ouom.wekit.utils.log.WeLogger
 import java.lang.reflect.Member
+import kotlin.reflect.KClass
 
 /**
  * 所有 hook 功能的基础类, 都应该要继承这个类
@@ -149,13 +150,40 @@ abstract class BaseHookItem {
         )
     }
 
+    @JvmName("hookBeforeExt2")
+    fun Member.hookBefore(
+        action: HookAction
+    ): XC_MethodHook.Unhook {
+        return hookBefore(this, action)
+    }
+
     @JvmName("hookBeforeKavaRef")
-    fun hookBefore(method: MethodResolver<Class<Any>>, action: HookAction): XC_MethodHook.Unhook {
-        return hookBefore(method.self, action)
+    fun <T : Any> hookBefore(methodResolver: MethodResolver<Class<T>>, action: HookAction): XC_MethodHook.Unhook {
+        return hookBefore(methodResolver.self, action)
     }
 
     @JvmName("hookBeforeKavaRefExt")
-    fun MethodResolver<Class<Any>>.hookBefore(action: HookAction): XC_MethodHook.Unhook {
+    fun <T : Any> MethodResolver<Class<T>>.hookBefore(action: HookAction): XC_MethodHook.Unhook {
+        return hookBefore(this, action)
+    }
+
+    @JvmName("hookBeforeKavaRef2")
+    fun <T : Any> hookBefore(methodResolver: MethodResolver<KClass<T>>, action: HookAction): XC_MethodHook.Unhook {
+        return hookBefore(methodResolver.self, action)
+    }
+
+    @JvmName("hookBeforeKavaRefExt2")
+    fun <T : Any> MethodResolver<KClass<T>>.hookBefore(action: HookAction): XC_MethodHook.Unhook {
+        return hookBefore(this, action)
+    }
+
+    @JvmName("hookBeforeKavaRef3")
+    fun hookBefore(methodResolver: MethodResolver<Class<*>>, action: HookAction): XC_MethodHook.Unhook {
+        return hookBefore(methodResolver.self, action)
+    }
+
+    @JvmName("hookBeforeKavaRefExt3")
+    fun MethodResolver<Class<*>>.hookBefore(action: HookAction): XC_MethodHook.Unhook {
         return hookBefore(this, action)
     }
 
@@ -174,13 +202,40 @@ abstract class BaseHookItem {
         )
     }
 
+    @JvmName("hookAfterExt2")
+    fun Member.hookAfter(
+        action: HookAction
+    ): XC_MethodHook.Unhook {
+        return hookAfter(this, action)
+    }
+
     @JvmName("hookAfterKavaRef")
-    fun hookAfter(method: MethodResolver<Class<Any>>, action: HookAction): XC_MethodHook.Unhook {
-        return hookAfter(method.self, action)
+    fun <T : Any> hookAfter(methodResolver: MethodResolver<Class<T>>, action: HookAction): XC_MethodHook.Unhook {
+        return hookAfter(methodResolver.self, action)
     }
 
     @JvmName("hookAfterKavaRefExt")
-    fun MethodResolver<Class<Any>>.hookAfter(action: HookAction): XC_MethodHook.Unhook {
+    fun <T : Any> MethodResolver<Class<T>>.hookAfter(action: HookAction): XC_MethodHook.Unhook {
+        return hookAfter(this, action)
+    }
+
+    @JvmName("hookAfterKavaRef2")
+    fun <T : Any> hookAfter(methodResolver: MethodResolver<KClass<T>>, action: HookAction): XC_MethodHook.Unhook {
+        return hookAfter(methodResolver.self, action)
+    }
+
+    @JvmName("hookAfterKavaRefExt2")
+    fun <T : Any> MethodResolver<KClass<T>>.hookAfter(action: HookAction): XC_MethodHook.Unhook {
+        return hookAfter(this, action)
+    }
+
+    @JvmName("hookAfterKavaRef3")
+    fun hookAfter(methodResolver: MethodResolver<Class<*>>, action: HookAction): XC_MethodHook.Unhook {
+        return hookAfter(methodResolver.self, action)
+    }
+
+    @JvmName("hookAfterKavaRefExt3")
+    fun MethodResolver<Class<*>>.hookAfter(action: HookAction): XC_MethodHook.Unhook {
         return hookAfter(this, action)
     }
 

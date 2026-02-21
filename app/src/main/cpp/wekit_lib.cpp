@@ -1,21 +1,6 @@
 #include <jni.h>
 #include <string>
 #include <android/log.h>
-#include <vector>
-#include <thread>
-#include <chrono>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <dlfcn.h>
-#include <cstring>
-#include <fstream>
-#include <sstream>
-#include <zlib.h>
-#include <iomanip>
-#include "sha256.h"
-#include <sys/system_properties.h>
-#include "skCrypter.h"
 #include "native_crash_handler.h"
 
 #define LOG_TAG "[WeKit-TAG] wekit-native"

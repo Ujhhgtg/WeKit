@@ -84,7 +84,7 @@ fun DexFinderContent(
     var currentTask by remember { mutableStateOf("") }
     var taskCounter by remember { mutableIntStateOf(0) }
     var completed   by remember { mutableIntStateOf(0) }
-    val scanResults = remember { mutableStateMapOf<String, ScanResult>() }
+    val scanResults =  remember { mutableStateMapOf<String, ScanResult>() }
 
     fun updateProgress(progress: ScanProgress) {
         val total = outdatedItems.size

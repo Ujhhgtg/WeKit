@@ -16,7 +16,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import moe.ouom.wekit.utils.log.WeLogger;
 
-
 public class ShadowSafTransientActivity extends Activity {
 
     public static final String PARAM_TARGET_ACTION = "ShadowSafTransientActivity.PARAM_TARGET_ACTION";

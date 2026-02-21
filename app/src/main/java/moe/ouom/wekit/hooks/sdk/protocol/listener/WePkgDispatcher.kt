@@ -1,5 +1,6 @@
 package moe.ouom.wekit.hooks.sdk.protocol.listener
 
+import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.model.ApiHookItem
@@ -56,7 +57,7 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
                     when (method.name) {
                         "hashCode" -> return@newProxyInstance originalCallback.hashCode()
                         "toString" -> return@newProxyInstance originalCallback.toString()
-                        "equals" -> return@newProxyInstance originalCallback.equals(args?.get(0))
+                        "equals" -> return@newProxyInstance originalCallback == args?.get(0)
                         "onGYNetEnd" -> {
                             try {
                                 val respV0 = args!![4] ?: v0Var
@@ -88,26 +89,23 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
                                 }
                                 // 处理标准混淆的 ICommReqResp 实现
                                 else {
-                                    var respWrapper: Any?
-                                    try {
-                                        respWrapper = XposedHelpers.getObjectField(respV0, "b")
+                                    val respWrapper = try {
+                                        XposedHelpers.getObjectField(respV0, "b")
                                     } catch (_: NoSuchFieldError) {
-                                        respWrapper = XposedHelpers.callMethod(respV0, "getRespObj")
+                                        XposedHelpers.callMethod(respV0, "getRespObj")
                                     }
 
                                     if (respWrapper != null) {
                                         val respPbObj = try {
-                                            XposedHelpers.getObjectField(respWrapper, "a")
-                                        } catch (_: NoSuchFieldError) {
+                                            respWrapper.asResolver().firstField { name = "a" }.get()
+                                        } catch (_: NoSuchFieldException) {
                                             null
                                         }
 
                                         if (respPbObj != null) {
-                                            if (respPbObj !is String) {
-                                                val originalRespBytes = XposedHelpers.callMethod(
-                                                    respPbObj,
-                                                    "toByteArray"
-                                                ) as ByteArray
+                                            try {
+                                                val originalRespBytes = respPbObj.asResolver()
+                                                    .firstMethod { name = "toByteArray" }.invoke() as ByteArray
                                                 WePkgManager.handleResponseTamper(
                                                     uri,
                                                     cgiId,
@@ -124,9 +122,8 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
                                                     )
                                                 }
                                             }
-                                            else {
-                                                WeLogger.i("PkgDispatcher", "response is String, no need to tamper: $uri")
-                                            }
+                                            catch (_: NoSuchElementException) {}
+                                            catch (_: NoSuchMethodException) {}
                                         }
                                     }
                                 }

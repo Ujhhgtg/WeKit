@@ -20,10 +20,6 @@ import moe.ouom.wekit.utils.log.WeLogger;
 
 public class SafUtils {
 
-    private SafUtils() {
-        throw new AssertionError("No instance for you!");
-    }
-
     public interface SafSelectFileResultCallback {
         void onResult(@NonNull Uri uri);
     }

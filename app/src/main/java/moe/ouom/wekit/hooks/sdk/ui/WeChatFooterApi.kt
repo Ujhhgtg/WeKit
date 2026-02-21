@@ -7,20 +7,18 @@ import android.widget.Button
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.core.factory.HookItemFactory.getItem
-import moe.ouom.wekit.hooks.item.chat.risk.WeSendXml
-import moe.ouom.wekit.hooks.sdk.api.WeMessageApi
+import moe.ouom.wekit.hooks.items.chat.SendCustomAppMessage
+import moe.ouom.wekit.hooks.sdk.base.WeMessageApi
 import moe.ouom.wekit.utils.Initiator.loadClass
 import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.log.WeLogger
 
-@HookItem(path = "API/聊天界面扩展")
-class WeChatFooterApi : ApiHookItem() {
-    companion object {
-        private const val TAG = "WeChatFooterApi"
-        private const val CLASS_CHAT_FOOTER = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
-        private const val FIELD_TO_USER = "wekit_cache_toUser"
-    }
+@HookItem(path = "API/聊天界面底栏扩展", desc = "为聊天界面底栏的发送按钮提供长按事件监听功能")
+object WeChatFooterApi : ApiHookItem() {
+
+    private const val TAG = "WeChatFooterApi"
+    private const val CLASS_CHAT_FOOTER = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
+    private const val FIELD_TO_USER = "wekit_cache_toUser"
 
     override fun entry(classLoader: ClassLoader) {
         try {
@@ -102,9 +100,9 @@ class WeChatFooterApi : ApiHookItem() {
 
         if (toUser != null) {
             if (!content.isNullOrEmpty() && toUser.isNotEmpty()) {
-                if (getItem(WeSendXml::class.java).isEnabled) {
-                    val isSuccess = WeMessageApi.INSTANCE?.sendXmlAppMsg(toUser, content)
-                    if (isSuccess == false) {
+                if (SendCustomAppMessage.isEnabled) {
+                    val isSuccess = WeMessageApi.sendXmlAppMsg(toUser, content)
+                    if (!isSuccess) {
                         WeLogger.e(TAG, "发送 XML 消息失败")
                         ToastUtils.showToast("发送 XML 消息失败，请检查格式")
                     } else {

@@ -82,9 +82,4 @@ public class HookItemFactory implements IHookFactoryDelegate {
     public static List<BaseHookItem> getAllItemListStatic() {
         return new ArrayList<>(ITEM_MAP.values());
     }
-
-    public static <T extends BaseHookItem> T getItem(Class<T> clazz) {
-        var item = ITEM_MAP.get(clazz);
-        return clazz.cast(item);
-    }
 }

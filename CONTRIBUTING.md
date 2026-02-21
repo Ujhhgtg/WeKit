@@ -1663,7 +1663,7 @@ class AutoGrabRedPacketConfigDialog(context: Context) : BaseRikkaDialog(context,
 根据功能类型放置到对应的包中：
 
 ```
-hooks/item/
+hooks/items/
 ├── chat/                 # 聊天与消息
 │   ├── msg/              # 消息处理（如防撤回）
 │   └── risk/             # 风险功能（如自动抢红包）

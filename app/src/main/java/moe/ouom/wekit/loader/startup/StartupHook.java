@@ -4,7 +4,6 @@ import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import java.io.File;
 
@@ -31,16 +30,13 @@ public class StartupHook {
      * Entry point for static or dynamic initialization. NOTICE: Do NOT change the method name or signature.
      *
      * @param ctx         Application context for host
-     * @param step        Step instance
-     * @param lpwReserved null, not used
-     * @param bReserved   false, not used
      */
-    public static void execStartupInit(@NonNull Context ctx, @Nullable Object step, String lpwReserved, boolean bReserved) {
+    public static void execStartupInit(@NonNull Context ctx) {
         if (sSecondStageInit) {
             throw new IllegalStateException("Second stage init already executed");
         }
         HybridClassLoader.setHostClassLoader(ctx.getClassLoader());
-        StartupRoutine.execPostStartupInit(ctx, step, lpwReserved, bReserved);
+        StartupRoutine.execPostStartupInit(ctx);
         sSecondStageInit = true;
         deleteDirIfNecessaryNoThrow(ctx);
 
@@ -95,8 +91,7 @@ public class StartupHook {
     }
 
     public void initializeAfterAppCreate(@NonNull Context ctx) {
-        execStartupInit(ctx, null, null, false);
+        execStartupInit(ctx);
         deleteDirIfNecessaryNoThrow(ctx);
     }
-
 }

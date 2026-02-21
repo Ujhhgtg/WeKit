@@ -3,7 +3,6 @@ package moe.ouom.wekit.ui.compose
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
-import android.view.ViewGroup
 import android.view.Window
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,8 +33,8 @@ fun showComposeDialog(context: Context? = null, content: @Composable (onDismiss:
     val dialog = Dialog(ctx, android.R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar_MinWidth)
     val lifecycleOwner = XposedLifecycleOwner().apply { onCreate(); onResume() }
 
-    val displayMetrics = ctx.resources.displayMetrics
-    val screenHeight = displayMetrics.heightPixels
+//    val displayMetrics = ctx.resources.displayMetrics
+//    val screenHeight = displayMetrics.heightPixels
 
     dialog.apply {
         window?.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
@@ -48,7 +47,7 @@ fun showComposeDialog(context: Context? = null, content: @Composable (onDismiss:
                 setViewTreeLifecycleOwner(lifecycleOwner)
                 setViewTreeViewModelStoreOwner(lifecycleOwner)
                 setViewTreeSavedStateRegistryOwner(lifecycleOwner)
-                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, screenHeight)
+//                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, screenHeight)
 
                 setContent {
                     AppTheme {
@@ -66,6 +65,6 @@ fun showComposeDialog(context: Context? = null, content: @Composable (onDismiss:
         window?.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
         setOnDismissListener { lifecycleOwner.onDestroy() }
         show()
-        window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, screenHeight)
+//        window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, screenHeight)
     }
 }

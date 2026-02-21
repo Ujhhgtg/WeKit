@@ -42,6 +42,7 @@ kavaref = "1.0.2"
 hiddenApiBypass = "6.1"
 runtime = "1.10.3"
 composeMaterial3 = "1.5.0-alpha14"
+material3 = "1.4.0"
 
 [libraries]
 accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanist" }
