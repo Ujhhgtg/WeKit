@@ -39,7 +39,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
     @Volatile
     private var wcdbInstance: Any? = null
     private var rawQueryMethod: Method? = null
-    private var execSQLMethod: Method? = null
+    private var execSqlMethod: Method? = null
 
     private const val TAG = "WeDatabaseApi"
     private const val WCDB_CLASS_NAME = "com.tencent.wcdb.database.SQLiteDatabase"
@@ -47,7 +47,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
     // =============================================================================
     // SQL 语句集中管理
     // =============================================================================
-    private object SQL {
+    private object SqlStatements {
         // 基础字段 - 联系人查询常用字段
         const val CONTACT_FIELDS = """
             r.username, r.alias, r.conRemark, r.nickname, 
@@ -68,7 +68,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
         // =========================================
 
         /** 所有人类账号（排除群聊和公众号和系统账号） */
-        val ALL_CONNECTS = """
+        val CONTACTS = """
             SELECT $CONTACT_FIELDS, r.type
             FROM rcontact r 
             $LEFT_JOIN_IMG_FLAG 
@@ -81,7 +81,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
         """.trimIndent()
 
         /** 好友列表（排除群聊和公众号和系统账号和自己和假好友） */
-        val CONTACT_LIST = """
+        val FRIENDS = """
             SELECT $CONTACT_FIELDS, r.type
             FROM rcontact r 
             $LEFT_JOIN_IMG_FLAG 
@@ -102,7 +102,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
         // =========================================
 
         /** 所有群聊 */
-        val CHATROOM_LIST = """
+        val GROUPS = """
             SELECT $CHATROOM_FIELDS
             FROM rcontact r 
             $LEFT_JOIN_IMG_FLAG 
@@ -154,7 +154,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
         """.trimIndent()
 
         /** 获取群聊成员列表字符串 */
-        val CHATROOM_MEMBERS = "SELECT memberlist FROM chatroom WHERE chatroomname = '%s'"
+        val GROUP_MEMBERS = "SELECT memberlist FROM chatroom WHERE chatroomname = '%s'"
     }
 
     @SuppressLint("NonUniqueDexKitData")
@@ -238,7 +238,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
                     parameterCount = 2
                 }.self
 
-            execSQLMethod = dbInstance.asResolver()
+            execSqlMethod = dbInstance.asResolver()
                 .firstMethod {
                     name = "execSQL"
                     parameters(String::class)
@@ -335,7 +335,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
 
     fun executeUpdate(sql: String): Boolean {
         try {
-            execSQLMethod?.invoke(wcdbInstance, sql)
+            execSqlMethod?.invoke(wcdbInstance, sql)
             return true
         }
         catch (e: Exception) {
@@ -349,21 +349,21 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
      * 返回所有人类账号（包含好友、陌生人、自己），但排除群和公众号
      */
     fun getContacts(): List<WeContact> {
-        return mapToContact(executeQuery(SQL.ALL_CONNECTS))
+        return mapToContact(executeQuery(SqlStatements.CONTACTS))
     }
 
     /**
      * 获取【好友】
      */
     fun getFriends(): List<WeContact> {
-        return mapToContact(executeQuery(SQL.CONTACT_LIST))
+        return mapToContact(executeQuery(SqlStatements.FRIENDS))
     }
 
     /**
      * 获取【群聊】
      */
     fun getGroups(): List<WeGroup> {
-        return executeQuery(SQL.CHATROOM_LIST).map { row ->
+        return executeQuery(SqlStatements.GROUPS).map { row ->
             WeGroup(
                 username = row.str("username"),
                 nickname = row.str("nickname"),
@@ -381,7 +381,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
     fun getGroupMembers(chatroomId: String): List<WeContact> {
         if (!chatroomId.endsWith("@chatroom")) return emptyList()
 
-        val roomSql = SQL.CHATROOM_MEMBERS.format(chatroomId)
+        val roomSql = SqlStatements.GROUP_MEMBERS.format(chatroomId)
         val roomResult = executeQuery(roomSql)
 
         if (roomResult.isEmpty()) {
@@ -397,14 +397,14 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
 
         val idsStr = members.joinToString(",") { "'$it'" }
 
-        return mapToContact(executeQuery(SQL.groupMembers(idsStr)))
+        return mapToContact(executeQuery(SqlStatements.groupMembers(idsStr)))
     }
 
     /**
      * 获取【公众号】
      */
     fun getOfficialAccounts(): List<WeOfficial> {
-        return executeQuery(SQL.OFFICIAL_LIST).map { row ->
+        return executeQuery(SqlStatements.OFFICIAL_LIST).map { row ->
             WeOfficial(
                 username = row.str("username"),
                 nickname = row.str("nickname"),
@@ -421,7 +421,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
     fun getMessages(wxid: String, page: Int = 1, pageSize: Int = 20): List<WeMessage> {
         if (wxid.isEmpty()) return emptyList()
         val offset = (page - 1) * pageSize
-        return executeQuery(SQL.messages(wxid, pageSize, offset)).map { row ->
+        return executeQuery(SqlStatements.messages(wxid, pageSize, offset)).map { row ->
             WeMessage(
                 msgId = row.long("msgId"),
                 talker = row.str("talker"),
@@ -438,7 +438,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
      */
     fun getAvatarUrl(wxid: String): String {
         if (wxid.isEmpty()) return ""
-        val result = executeQuery(SQL.avatar(wxid))
+        val result = executeQuery(SqlStatements.avatar(wxid))
         return if (result.isNotEmpty()) {
             result[0]["avatarUrl"] as? String ?: ""
         } else {
@@ -449,14 +449,14 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
     private fun mapToContact(data: List<Map<String, Any?>>): List<WeContact> {
         return data.map { row ->
             WeContact(
-                username = row.str("username"),
+                wxid = row.str("username"),
                 nickname = row.str("nickname"),
-                alias = row.str("alias"),
-                conRemark = row.str("conRemark"),
-                pyInitial = row.str("pyInitial"),
-                quanPin = row.str("quanPin"),
+                customWxid = row.str("alias"),
+                remarkName = row.str("conRemark"),
+                initialNickname = row.str("pyInitial"),
+                nicknamePinyin = row.str("quanPin"),
                 avatarUrl = row.str("avatarUrl"),
-                encryptUserName = row.str("encryptUsername")
+                encryptedUsername = row.str("encryptUsername")
             )
         }
     }

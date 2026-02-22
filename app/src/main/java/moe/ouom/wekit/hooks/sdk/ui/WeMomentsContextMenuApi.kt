@@ -14,7 +14,7 @@ import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
 import java.util.concurrent.CopyOnWriteArrayList
 
-@HookItem(path = "API/朋友圈右键菜单增强")
+@HookItem(path = "API/朋友圈右键菜单增强扩展", desc = "为朋友圈消息长按菜单提供自定义菜单项功能")
 object WeMomentsContextMenuApi : ApiHookItem(), IDexFind {
 
     private val dexMethodOnCreateMenu by dexMethod()
@@ -24,39 +24,38 @@ object WeMomentsContextMenuApi : ApiHookItem(), IDexFind {
 
     private const val TAG = "WeMomentsContextMenuApi"
 
-    val onCreateCallbacks = CopyOnWriteArrayList<OnCreateListener>()
-    val onSelectCallbacks = CopyOnWriteArrayList<OnSelectListener>()
+    val onCreateCallbacks = CopyOnWriteArrayList<IOnCreateListener>()
+    val onSelectCallbacks = CopyOnWriteArrayList<IOnSelectListener>()
 
-    fun addOnCreateListener(listener: OnCreateListener) {
+    fun addOnCreateListener(listener: IOnCreateListener) {
         onCreateCallbacks.add(listener)
     }
-    fun removeOnCreateListener(listener: OnCreateListener) {
+    fun removeOnCreateListener(listener: IOnCreateListener) {
         onCreateCallbacks.remove(listener)
     }
 
-    fun addOnSelectListener(listener: OnSelectListener) {
+    fun addOnSelectListener(listener: IOnSelectListener) {
         onSelectCallbacks.add(listener)
     }
-    fun removeOnSelectListener(listener: OnSelectListener) {
+    fun removeOnSelectListener(listener: IOnSelectListener) {
         onSelectCallbacks.remove(listener)
     }
 
     /**
      * 接口：创建菜单时触发
      */
-    fun interface OnCreateListener {
+    fun interface IOnCreateListener {
         fun onCreate(contextMenu: ContextMenu)
     }
 
     /**
      * 接口：选中菜单时触发
      */
-    fun interface OnSelectListener {
-        fun onSelected(context: SnsContext, itemId: Int): Boolean
+    fun interface IOnSelectListener {
+        fun onSelect(context: MomentsContext, itemId: Int): Boolean
     }
 
-
-    data class SnsContext(
+    data class MomentsContext(
         val activity: Activity,
         val snsInfo: Any?,
         val timeLineObject: Any?
@@ -116,17 +115,14 @@ object WeMomentsContextMenuApi : ApiHookItem(), IDexFind {
     }
 
     override fun entry(classLoader: ClassLoader) {
-        // Hook OnCreate
         hookAfter(dexMethodOnCreateMenu.method) { param ->
             handleCreateMenu(param)
         }
 
-        // Hook OnSelected
         hookAfter(dexMethodOnItemSelected.method) { param ->
             handleSelectMenu(param)
         }
     }
-
 
     private fun handleCreateMenu(param: XC_MethodHook.MethodHookParam) {
         try {
@@ -169,12 +165,12 @@ object WeMomentsContextMenuApi : ApiHookItem(), IDexFind {
             val instance = dexMethodGetSnsInfoStorage.method.invoke(null)
             val snsInfo = targetMethod.invoke(instance, snsID)
 
-            val context = SnsContext(activity, snsInfo, timeLineObject)
+            val context = MomentsContext(activity, snsInfo, timeLineObject)
             val clickedId = menuItem.itemId
 
             for (listener in onSelectCallbacks) {
                 try {
-                    val handled = listener.onSelected(context, clickedId)
+                    val handled = listener.onSelect(context, clickedId)
                     if (handled) {
                         WeLogger.d(TAG, "菜单项 $clickedId 已被动态回调处理")
                     }

@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.view.ContextMenu
 import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.list.listItemsMultiChoice
+import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
@@ -38,12 +39,12 @@ object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
     private var likeFlagField: Field? = null
     private var snsUserProtobufClass: Class<*>? = null
 
-    private val onCreateListener = WeMomentsContextMenuApi.OnCreateListener { menu ->
+    private val onCreateListener = WeMomentsContextMenuApi.IOnCreateListener { menu ->
         menu.add(ContextMenu.NONE, MENU_ID_FAKE_LIKES, 0, "设置伪点赞")
             ?.setIcon(android.R.drawable.star_on)
     }
 
-    private val onSelectListener = WeMomentsContextMenuApi.OnSelectListener { context, itemId ->
+    private val onSelectListener = WeMomentsContextMenuApi.IOnSelectListener { context, itemId ->
         if (itemId == MENU_ID_FAKE_LIKES) {
             showFakeLikesDialog(context)
             true
@@ -57,17 +58,13 @@ object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
 
         WeMomentsContextMenuApi.addOnCreateListener(onCreateListener)
         WeMomentsContextMenuApi.addOnSelectListener(onSelectListener)
-
         WeDatabaseListener.addListener(this)
-        WeLogger.i(TAG, "伪点赞功能已启动")
     }
 
     override fun unload(classLoader: ClassLoader) {
         WeDatabaseListener.removeListener(this)
-
         WeMomentsContextMenuApi.removeOnCreateListener(onCreateListener)
         WeMomentsContextMenuApi.removeOnSelectListener(onSelectListener)
-        WeLogger.i(TAG, "伪点赞功能已停止")
     }
 
     override fun onUpdate(table: String, values: ContentValues): Boolean {
@@ -82,7 +79,7 @@ object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
 
     private fun initReflection(classLoader: ClassLoader) {
         try {
-            snsObjectClass = loadClass("com.tencent.mm.protocal.protobuf.SnsObject")
+            snsObjectClass = "com.tencent.mm.protocal.protobuf.SnsObject".toClass(classLoader)
 
             snsObjectClass?.let { clazz ->
                 parseFromMethod = clazz.getMethod("parseFrom", ByteArray::class.java)
@@ -141,7 +138,7 @@ object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
     /**
      * 显示伪点赞用户选择对话框
      */
-    private fun showFakeLikesDialog(context: WeMomentsContextMenuApi.SnsContext) {
+    private fun showFakeLikesDialog(context: WeMomentsContextMenuApi.MomentsContext) {
         try {
             // 获取所有好友列表
             val allFriends = WeDatabaseApi.getContacts()
@@ -149,8 +146,8 @@ object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
             val displayItems = allFriends.map { contact ->
                 buildString {
                     // 如果有备注，显示"备注(昵称)"
-                    if (contact.conRemark.isNotBlank()) {
-                        append(contact.conRemark)
+                    if (contact.remarkName.isNotBlank()) {
+                        append(contact.remarkName)
                         if (contact.nickname.isNotBlank()) {
                             append(" (${contact.nickname})")
                         }
@@ -161,7 +158,7 @@ object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
                     }
                     // 最后备选用wxid
                     else {
-                        append(contact.username)
+                        append(contact.wxid)
                     }
                 }
             }
@@ -171,7 +168,7 @@ object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
             val currentSelected = fakeLikeWxids[snsId] ?: emptySet()
 
             val currentIndices = allFriends.mapIndexedNotNull { index, contact ->
-                if (currentSelected.contains(contact.username)) index else null
+                if (currentSelected.contains(contact.wxid)) index else null
             }.toIntArray()
 
             val wrappedContext = CommonContextWrapper.createAppCompatContext(context.activity)
@@ -182,8 +179,8 @@ object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
                 listItemsMultiChoice(
                     items = displayItems,
                     initialSelection = currentIndices
-                ) { dialog, indices, items ->
-                    val selectedWxids = indices.map { allFriends[it].username }.toSet()
+                ) { _, indices, _ ->
+                    val selectedWxids = indices.map { allFriends[it].wxid }.toSet()
 
                     if (selectedWxids.isEmpty()) {
                         fakeLikeWxids.remove(snsId)

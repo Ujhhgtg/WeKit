@@ -7,7 +7,7 @@ import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONArray
 import org.json.JSONObject
 
-object WeDataBaseUtils {
+object WeDatabaseUtils {
     private const val TAG = "WeDataBaseUtils"
 
     fun query(sql: String): Any {
@@ -18,47 +18,47 @@ object WeDataBaseUtils {
                     jsonObject.put(key, value)
                 }
                 jsonObject
-            }?.let { JSONArray(it) } ?: JSONArray()
+            }.let { JSONArray(it) }
         } catch (e: Exception) {
-            WeLogger.e("WeDatabaseApi", "SQL执行异常: ${e.message}")
+            WeLogger.e("WeDatabaseApi", "SQL 执行异常: ${e.message}")
             JSONArray()
         }
     }
 
-    fun getAllContacts(): Any {
+    fun getContacts(): Any {
         return try {
             WeDatabaseApi.getContacts().map { contact ->
                 val jsonObject = JSONObject()
-                jsonObject.put("username", contact.username)
+                jsonObject.put("username", contact.wxid)
                 jsonObject.put("nickname", contact.nickname)
-                jsonObject.put("alias", contact.alias)
-                jsonObject.put("conRemark", contact.conRemark)
-                jsonObject.put("pyInitial", contact.pyInitial)
-                jsonObject.put("quanPin", contact.quanPin)
+                jsonObject.put("alias", contact.customWxid)
+                jsonObject.put("conRemark", contact.remarkName)
+                jsonObject.put("pyInitial", contact.initialNickname)
+                jsonObject.put("quanPin", contact.nicknamePinyin)
                 jsonObject.put("avatarUrl", contact.avatarUrl)
-                jsonObject.put("encryptUserName", contact.encryptUserName)
+                jsonObject.put("encryptUserName", contact.encryptedUsername)
                 jsonObject
-            }?.let { JSONArray(it) } ?: JSONArray()
+            }.let { JSONArray(it) }
         } catch (e: Exception) {
             WeLogger.e("WeDatabaseApi", "获取联系人异常: ${e.message}")
             JSONArray()
         }
     }
 
-    fun getContactList(): Any {
+    fun getFriends(): Any {
         return try {
             WeDatabaseApi.getFriends().map { contact ->
                 val jsonObject = JSONObject()
-                jsonObject.put("username", contact.username)
+                jsonObject.put("username", contact.wxid)
                 jsonObject.put("nickname", contact.nickname)
-                jsonObject.put("alias", contact.alias)
-                jsonObject.put("conRemark", contact.conRemark)
-                jsonObject.put("pyInitial", contact.pyInitial)
-                jsonObject.put("quanPin", contact.quanPin)
+                jsonObject.put("alias", contact.customWxid)
+                jsonObject.put("conRemark", contact.remarkName)
+                jsonObject.put("pyInitial", contact.initialNickname)
+                jsonObject.put("quanPin", contact.nicknamePinyin)
                 jsonObject.put("avatarUrl", contact.avatarUrl)
-                jsonObject.put("encryptUserName", contact.encryptUserName)
+                jsonObject.put("encryptUserName", contact.encryptedUsername)
                 jsonObject
-            }?.let { JSONArray(it) } ?: JSONArray()
+            }.let { JSONArray(it) }
         } catch (e: Exception) {
             WeLogger.e("WeDatabaseApi", "获取好友异常: ${e.message}")
             JSONArray()
@@ -132,14 +132,14 @@ object WeDataBaseUtils {
             if (!chatroomId.endsWith("@chatroom")) return JSONArray()
             WeDatabaseApi.getGroupMembers(chatroomId).map { member ->
                 val jsonObject = JSONObject()
-                jsonObject.put("username", member.username)
+                jsonObject.put("username", member.wxid)
                 jsonObject.put("nickname", member.nickname)
-                jsonObject.put("alias", member.alias)
-                jsonObject.put("conRemark", member.conRemark)
-                jsonObject.put("pyInitial", member.pyInitial)
-                jsonObject.put("quanPin", member.quanPin)
+                jsonObject.put("alias", member.customWxid)
+                jsonObject.put("conRemark", member.remarkName)
+                jsonObject.put("pyInitial", member.initialNickname)
+                jsonObject.put("quanPin", member.nicknamePinyin)
                 jsonObject.put("avatarUrl", member.avatarUrl)
-                jsonObject.put("encryptUserName", member.encryptUserName)
+                jsonObject.put("encryptUserName", member.encryptedUsername)
                 jsonObject
             }?.let { JSONArray(it) } ?: JSONArray()
         } catch (e: Exception) {

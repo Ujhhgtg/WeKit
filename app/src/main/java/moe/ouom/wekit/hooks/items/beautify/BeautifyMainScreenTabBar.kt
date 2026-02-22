@@ -16,8 +16,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -68,11 +68,7 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
                         }
 
                     val viewParent = viewPager.parent as ViewGroup
-                    val bottomTabView = viewParent.getChildAt(1) as ViewGroup
-                    if (bottomTabView.getChildAt(0) is ComposeView) {
-                        WeLogger.d(TAG, "ComposeView already exists, skipping...")
-                        return@afterIfEnabled
-                    }
+                    val bottomTabViewGroup = viewParent.getChildAt(1) as ViewGroup
 
                     val lifecycleOwner = XposedLifecycleOwner().apply { onCreate(); onResume() }
                     val decorView = activity.window.decorView
@@ -81,34 +77,36 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
                     decorView.setViewTreeLifecycleOwner(lifecycleOwner)
                     decorView.setViewTreeViewModelStoreOwner(lifecycleOwner)
                     decorView.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
-                    bottomTabView.setViewTreeLifecycleOwner(lifecycleOwner)
-                    bottomTabView.setViewTreeViewModelStoreOwner(lifecycleOwner)
-                    bottomTabView.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+                    bottomTabViewGroup.setViewTreeLifecycleOwner(lifecycleOwner)
+                    bottomTabViewGroup.setViewTreeViewModelStoreOwner(lifecycleOwner)
+                    bottomTabViewGroup.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
 
                     val selectedPageIndexState = mutableIntStateOf(0)
+                    val scrollOffsetState = mutableFloatStateOf(0f)
 
                     tabsAdapter.asResolver()
                         .firstMethod { name = "onPageScrolled" }
                         .self.hookBefore { param ->
-                            val pageIndex = param.args[0] as Int
-                            val offset = param.args[1] as Float
+                            val position = param.args[0] as Int
+                            val positionOffset = param.args[1] as Float
 
-                            if (offset == 0.0f) {
-                                selectedPageIndexState.intValue = pageIndex
-                            }
+                            selectedPageIndexState.intValue = position
+                            scrollOffsetState.floatValue = positionOffset
                         }
 
-                    bottomTabView.removeAllViews()
-                    WeLogger.i(TAG, "injected ComposeView")
-                    bottomTabView.addView(
+                    bottomTabViewGroup.removeAllViews()
+                    WeLogger.i(TAG, "injected ComposeView into tab bar")
+                    bottomTabViewGroup.addView(
                         ComposeView(activity).apply {
-                            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+                            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+
                             setViewTreeLifecycleOwner(lifecycleOwner)
                             setViewTreeViewModelStoreOwner(lifecycleOwner)
                             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
 
                             setContent {
-                                var selectedPageIndex by selectedPageIndexState
+                                val currentIndex by selectedPageIndexState
+                                val offset by scrollOffsetState
 
                                 // WeChat doesn't follow MaterialTheme so we don't use that too
                                 // or else different color palettes clash and it's hideous
@@ -132,18 +130,22 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
                                     )
 
                                     icons.forEachIndexed { index, (icon, label) ->
+                                        val tint = when (index) {
+                                            currentIndex -> {
+                                                lerpColor(activeColor, inactiveColor, offset)
+                                            }
+                                            currentIndex + 1 -> {
+                                                lerpColor(inactiveColor, activeColor, offset)
+                                            }
+                                            else -> inactiveColor
+                                        }
+
                                         IconButton(
                                             onClick = {
-                                                selectedPageIndex = index
                                                 methodOnTabClick.invoke(index)
-                                                WeLogger.d(TAG, "selectedPageIndex: $selectedPageIndex")
                                             },
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight()
+                                            modifier = Modifier.weight(1f).fillMaxHeight()
                                         ) {
-                                            val tint = if (index == selectedPageIndex)
-                                                activeColor else inactiveColor
                                             Icon(
                                                 imageVector = icon,
                                                 contentDescription = label,
@@ -157,6 +159,17 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
                 }
             }
         }
+    }
+
+    // 页面滑动颜色渐变
+    private fun lerpColor(start: Color, stop: Color, fraction: Float): Color {
+        val f = fraction.coerceIn(0f, 1f)
+        return Color(
+            red = start.red + (stop.red - start.red) * f,
+            green = start.green + (stop.green - start.green) * f,
+            blue = start.blue + (stop.blue - start.blue) * f,
+            alpha = start.alpha + (stop.alpha - start.alpha) * f
+        )
     }
 
     override fun dexFind(dexKit: DexKitBridge): Map<String, String> {

@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Process
+import android.widget.Button
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
@@ -265,6 +266,7 @@ fun DexFinderContent(
                     Button(onClick = ::startScanning) { Text("开始适配") }
                 }
                 if (phase is DialogPhase.Done || phase is DialogPhase.Error) {
+                    TextButton(onClick = onDismiss) { Text("关闭") }
                     Button(onClick = {
                         onDismiss()
                         Process.killProcess(Process.myPid())

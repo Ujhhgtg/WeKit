@@ -13,9 +13,6 @@ import dalvik.system.DexFile;
 import moe.ouom.wekit.utils.io.IoUtils;
 
 public class MemoryDexLoader {
-    private MemoryDexLoader() {
-        throw new AssertionError("No instance for you!");
-    }
 
     /**
      * Create a DexFile instance from a byte array. Applications generally should not create a DexFile directly.
@@ -77,8 +74,4 @@ public class MemoryDexLoader {
             throw new IllegalStateException("DexFile constructor not found, SDK_INT=" + Build.VERSION.SDK_INT);
         }
     }
-
-    @NonNull
-    private static native DexFile nativeCreateDexFileFormBytesBelowOreo(@NonNull byte[] dexBytes, @NonNull ClassLoader definingContext, @Nullable String name);
-
 }

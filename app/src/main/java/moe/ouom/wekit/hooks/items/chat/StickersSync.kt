@@ -4,7 +4,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Looper
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,13 +27,13 @@ import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.sdk.base.WeServiceApi
 import moe.ouom.wekit.host.HostInfo
 import moe.ouom.wekit.ui.utils.showComposeDialog
 import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.io.PathUtils
 import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
-import java.lang.reflect.Modifier
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
@@ -48,6 +47,7 @@ import kotlin.io.path.writeText
 
 @HookItem(path = "聊天与消息/贴纸包同步", desc = "从指定路径将所有图片注册为贴纸包\n(搭配 Telegram Xposed 模块 StickersSync 使用, 或使用自带此功能的 (例如 Nagram) 的第三方客户端)")
 object StickersSync : BaseClickableFunctionHookItem(), IDexFind {
+
     private const val TAG = "StickersSync"
     private const val STICKER_PACK_ID_PREFIX = "wekit.stickers.sync"
     private val ALLOWED_STICKER_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp")
@@ -89,8 +89,6 @@ object StickersSync : BaseClickableFunctionHookItem(), IDexFind {
 
     private val stickerPacks: List<StickerPack> by lazy {
         // so that showToast() works
-        Looper.prepare()
-
         val packs = mutableListOf<StickerPack>()
         val dir = stickersDir
         if (dir == null) {
@@ -219,10 +217,8 @@ object StickersSync : BaseClickableFunctionHookItem(), IDexFind {
 
     private val methodGetEmojiGroupInfo by dexMethod()
     private val methodAddAllGroupItems by dexMethod()
-    private val methodServiceManagerGetService by dexMethod()
     // this module doesn't provide a builtin dexConstructor, so i have to use dexClass, and then use .createInstance()
     private val classGroupItemInfo by dexClass()
-    private val classEmojiFeatureService by dexClass()
     private val classEmojiMgrImpl by dexClass()
     private val classEmojiStorageMgr by dexClass()
     private val classEmojiInfoStorage by dexClass()
@@ -234,13 +230,8 @@ object StickersSync : BaseClickableFunctionHookItem(), IDexFind {
     private val stickersDir: Path?
         get() = PathUtils.moduleDataPath?.resolve("stickers")
 
-    private fun getServiceByClass(clazz: Class<*>): Any {
-        return methodServiceManagerGetService.method.invoke(null, clazz)!!
-    }
-
-    private val emojiFeatureService: Any by lazy {
-        val service = getServiceByClass(classEmojiFeatureService.clazz)
-        service.asResolver()
+    private val emojiMgrImpl: Any by lazy {
+        WeServiceApi.emojiFeatureService.asResolver()
             .firstMethod {
                 returnType = classEmojiMgrImpl.clazz
             }
@@ -248,7 +239,7 @@ object StickersSync : BaseClickableFunctionHookItem(), IDexFind {
     }
 
     fun getEmojiMd5FromPath(context: Context, path: String): String {
-        return emojiFeatureService
+        return emojiMgrImpl
             .asResolver()
             .firstMethod {
                 parameters(Context::class.java, String::class.java)
@@ -417,25 +408,6 @@ object StickersSync : BaseClickableFunctionHookItem(), IDexFind {
                 methods {
                     add {
                         usingEqStrings("emojiInfo", "sosDocId")
-                    }
-                }
-            }
-        }
-
-        methodServiceManagerGetService.find(dexKit, descriptors) {
-            matcher {
-                modifiers(Modifier.STATIC)
-                paramTypes(Class::class.java)
-                usingEqStrings("calling getService(...)")
-            }
-        }
-
-        classEmojiFeatureService.find(dexKit, descriptors) {
-            searchPackages("com.tencent.mm.feature.emoji")
-            matcher {
-                methods {
-                    add {
-                        usingEqStrings("MicroMsg.EmojiFeatureService", "[onAccountInitialized]")
                     }
                 }
             }

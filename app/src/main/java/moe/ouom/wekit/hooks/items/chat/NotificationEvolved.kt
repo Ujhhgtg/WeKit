@@ -1,7 +1,9 @@
 package moe.ouom.wekit.hooks.items.chat
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Person
 import android.app.RemoteInput
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -13,86 +15,140 @@ import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import moe.ouom.wekit.constants.PackageConstants
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
+import moe.ouom.wekit.hooks.sdk.base.WeMessageApi
 import moe.ouom.wekit.host.HostInfo
 import moe.ouom.wekit.utils.log.WeLogger
 
-@HookItem(path = "聊天与消息/通知进化", desc = "让应用的新消息通知更易用")
+@HookItem(path = "聊天与消息/通知进化", desc = "让应用的新消息通知更易用\n1. 快速回复\n2. 原生对话样式 (MessagingStyle)\n3. 标记为已读")
 object NotificationEvolved : BaseSwitchFunctionHookItem() {
+
     private const val TAG = "NotificationEvolved"
+    private const val ACTION_QUICK_REPLY = "${PackageConstants.PACKAGE_NAME_WECHAT}.ACTION_QUICK_REPLY"
+    private const val ACTION_MARK_READ = "${PackageConstants.PACKAGE_NAME_WECHAT}.ACTION_MARK_READ"
 
-    private const val INTENT_FILTER_ACTION = "${PackageConstants.PACKAGE_NAME_WECHAT}.ACTION_NOTIFICATION_QUICK_REPLY"
+    // cache friends to avoid repeating sql queries
+    // TODO: build a sql statement to directly query target contact
+    private val friends by lazy { WeDatabaseApi.getFriends() }
 
-    val replyReceiver = object : BroadcastReceiver() {
+    val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val results = RemoteInput.getResultsFromIntent(intent) ?: return
-            val replyTargetName = intent.getStringExtra("extra_talker_name") ?: return
-            val replyContent = results.getCharSequence("key_reply_content")?.toString()
+            val targetWxid = intent.getStringExtra("extra_target_wxid") ?: return
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            if (!replyContent.isNullOrEmpty()) {
-                WeLogger.d(TAG, "received broadcast, replyTargetName=$replyTargetName, replyContent=$replyContent")
-                // WeMessageApi.sendText(replyTargetName, replyContent)
+            when (intent.action) {
+                ACTION_QUICK_REPLY -> {
+                    val results = RemoteInput.getResultsFromIntent(intent) ?: return
+                    val replyContent = results.getCharSequence("key_reply_content")?.toString()
 
-                // val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                // nm.cancel(ID)
-            }
-            else {
-                WeLogger.w(TAG, "received empty reply for $replyContent, ignoring")
+                    if (!replyContent.isNullOrEmpty()) {
+                        WeLogger.i(TAG, "Quick replying '$replyContent' to $targetWxid")
+                        WeMessageApi.sendText(targetWxid, replyContent)
+                        notificationManager.cancel(targetWxid.hashCode())
+                    }
+                }
+                ACTION_MARK_READ -> {
+                    WeLogger.i(TAG, "Marking chat as read for $targetWxid")
+                    // TODO: Implement your WeDatabaseApi.markAsRead(targetWxid) logic here
+                    notificationManager.cancel(targetWxid.hashCode())
+                }
             }
         }
     }
 
     override fun entry(classLoader: ClassLoader) {
         val context = HostInfo.getApplication()
+
+        // Register receiver for both actions
+        val filter = IntentFilter().apply {
+            addAction(ACTION_QUICK_REPLY)
+            addAction(ACTION_MARK_READ)
+        }
         ContextCompat.registerReceiver(
-            context,
-            replyReceiver,
-            IntentFilter(INTENT_FILTER_ACTION),
-            ContextCompat.RECEIVER_NOT_EXPORTED
+            context, notificationReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
         Notification.Builder::class.asResolver()
-            .firstMethod {
-                name = "build"
-            }
-            .hookAfter { param ->
-                val notification = param.result as Notification
-                val context = notification.asResolver().firstField { name = "mContext" }.get()!! as Context
-                WeLogger.d(TAG, "building notification: notification=$notification")
+            .firstMethod { name = "build" }
+            .hookBefore { param ->
+                val builder = param.thisObject as Notification.Builder
+                val notification = builder.asResolver().firstField { type = Notification::class }.get() as Notification
+                val channelId = notification.channelId
 
-                if (notification.channelId == "message_channel_new_id") {
-                    WeLogger.i(TAG, "found a new message notification, modifying it")
+                if (channelId == "message_channel_new_id") {
 
-                    val remoteInput = RemoteInput.Builder("key_reply_content")
-                        .setLabel("快速回复...")
-                        .build()
+                    val title = notification.extras.getString(Notification.EXTRA_TITLE) ?: "Unknown"
+                    val text = notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
 
-                    val intent = Intent(INTENT_FILTER_ACTION).apply {
-                        `package` = PackageConstants.PACKAGE_NAME_WECHAT
-                        putExtra("extra_talker_name", notification.extras.getString("android.title"))
+                    // 1. Resolve exact WXID immediately during notification creation
+                    val friend = friends.firstOrNull { it.nickname == title || it.remarkName == title }
+                    val targetWxid = friend?.wxid
+
+                    if (targetWxid == null) {
+                        WeLogger.w(TAG, "could not resolve wxid for $title, skipping enhancements")
+                        return@hookBefore
                     }
 
-                    val pendingIntent = PendingIntent.getBroadcast(
-                        context,
-                        notification.hashCode(),
-                        intent,
+                    WeLogger.i(TAG, "Enhancing notification for $title ($targetWxid)")
+
+                    // 2. Build the MessagingStyle
+                    val mePerson = Person.Builder().setName("朕").build()
+                    val senderPerson = Person.Builder()
+                        .setName(title)
+                        // TODO: fetch the avatar bitmap here and set it via .setIcon()
+                        .build()
+
+                    val messagingStyle = Notification.MessagingStyle(mePerson)
+
+                    if (text.contains(":") && isGroupChat(targetWxid)) {
+                        messagingStyle.isGroupConversation = true
+                        messagingStyle.conversationTitle = title
+                    }
+
+                    messagingStyle.addMessage(text, System.currentTimeMillis(), senderPerson)
+                    builder.style = messagingStyle
+
+                    // 3. Quick Reply Action
+                    val remoteInput = RemoteInput.Builder("key_reply_content")
+                        .setLabel("准卿所请, 即刻拟旨...")
+                        .build()
+
+                    val replyIntent = Intent(ACTION_QUICK_REPLY).apply {
+                        setPackage(PackageConstants.PACKAGE_NAME_WECHAT)
+                        putExtra("extra_target_wxid", targetWxid)
+                    }
+                    val replyPendingIntent = PendingIntent.getBroadcast(
+                        context, targetWxid.hashCode(), replyIntent,
                         PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                     )
 
                     val replyAction = Notification.Action.Builder(
                         Icon.createWithResource(context, android.R.drawable.ic_menu_send),
-                        "快速回复",
-                        pendingIntent
+                        "宣旨", replyPendingIntent
                     ).addRemoteInput(remoteInput).build()
 
-                    val oldActions = notification.actions
-                    val newActions = if (oldActions == null) {
-                        arrayOf(replyAction)
-                    } else {
-                        oldActions + replyAction
+                    // 4. Mark as Read Action
+                    val readIntent = Intent(ACTION_MARK_READ).apply {
+                        setPackage(PackageConstants.PACKAGE_NAME_WECHAT)
+                        putExtra("extra_target_wxid", targetWxid)
                     }
+                    val readPendingIntent = PendingIntent.getBroadcast(
+                        context, targetWxid.hashCode(), readIntent,
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                    val readAction = Notification.Action.Builder(
+                        Icon.createWithResource(context, android.R.drawable.ic_menu_view),
+                        "朕已阅", readPendingIntent
+                    ).build()
 
-                    notification.actions = newActions
+                    // Apply actions directly to the builder
+                    builder.addAction(replyAction)
+                    builder.addAction(readAction)
                 }
             }
+    }
+
+    private fun isGroupChat(wxid: String): Boolean {
+        return wxid.endsWith("@chatroom")
     }
 }

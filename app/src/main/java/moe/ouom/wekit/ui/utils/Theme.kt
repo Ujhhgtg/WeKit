@@ -1,5 +1,6 @@
 package moe.ouom.wekit.ui.utils
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
@@ -18,12 +19,13 @@ fun AppTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (dynamicColor) {
-        val context = LocalContext.current
-        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val context = LocalContext.current
+    val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (dynamicColor) {
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        } else if (darkTheme) darkColorScheme() else lightColorScheme()
     }
-    else if (darkTheme) darkColorScheme()
-    else lightColorScheme()
+    else if (darkTheme) darkColorScheme() else lightColorScheme()
 
     MaterialExpressiveTheme(
         colorScheme = colorScheme,

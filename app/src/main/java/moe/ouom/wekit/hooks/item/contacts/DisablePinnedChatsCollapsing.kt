@@ -19,7 +19,6 @@ object DisablePinnedChatsCollapsing : BaseSwitchFunctionHookItem(), IDexFind {
         methodAddCollapseChatItem.toDexMethod {
             hook {
                 beforeIfEnabled { param ->
-                    WeLogger.d(TAG, "invoked methodAddCollapseChatItem")
                     WeDatabaseApi.executeUpdate("DELETE FROM rconversation WHERE username = 'message_fold'")
                     param.result = null
                 }
@@ -28,7 +27,6 @@ object DisablePinnedChatsCollapsing : BaseSwitchFunctionHookItem(), IDexFind {
         methodIfShouldAddCollapseChatItem.toDexMethod {
             hook {
                 beforeIfEnabled { param ->
-                    WeLogger.d(TAG, "invoked methodIfShouldAddCollapseChatItem")
                     WeDatabaseApi.executeUpdate("DELETE FROM rconversation WHERE username = 'message_fold'")
                     param.result = false
                 }

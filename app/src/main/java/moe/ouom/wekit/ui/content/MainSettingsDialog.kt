@@ -19,15 +19,16 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
     override fun initPreferences() {
         addCategory("功能")
         val categories = listOf(
-            "聊天与消息" to "ic_twotone_message_24",
-            "联系人" to "ic_outline_article_person_24",
-            "朋友圈" to "ic_moments",
-            "小程序" to "",
-            "优化与修复" to "ic_baseline_auto_fix_high_24",
-            "美化" to "",
-            "调试" to "ic_baseline_developer_mode_24",
-            "娱乐" to "ic_baseline_free_breakfast_24",
-            "自动化" to "ic_script_management",
+            "聊天与消息" to "chat_24px",
+            "联系人" to "contacts_24px",
+            "朋友圈" to "camera_24px",
+            "小程序" to "package_2_24px",
+            "优化与修复" to "wand_stars_24px",
+            "美化" to "imagesearch_roller_24px",
+            "视频号" to "movie_24px",
+            "调试" to "bug_report_24px",
+            "娱乐" to "comedy_mask_24px",
+            "自动化" to "terminal_24px",
         )
         categories.forEach { (name, iconName) ->
             addPreference(
@@ -42,7 +43,7 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
             key = Constants.PrekEnableLog,
             title = "日志记录",
             summary = "反馈问题前必须开启日志记录",
-            iconName = "ic_baseline_border_color_24",
+            iconName = "list_alt_24px",
             useFullKey = true
         )
 
@@ -50,7 +51,7 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
             key = Constants.PrekVerboseLog,
             title = "详细日志",
             summary = "输出高频日志 (这可能会暴露你的隐私信息）",
-            iconName = "ic_debug",
+            iconName = "frame_bug_24px",
             useFullKey = true
         )
 
@@ -58,7 +59,7 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
             key = Constants.PrekDatabaseVerboseLog,
             title = "数据库详细日志",
             summary = "输出完整的数据库插入事件详情（ContentValues）",
-            iconName = "ic_database",
+            iconName = "database_upload_24px",
             useFullKey = true
         )
 
@@ -84,7 +85,7 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
             summary = "当前设定", // 当配置的值不在 map 中时，会显示 "当前设定: [值]"
             options = priorityMap,
             defaultValue = 50,
-            iconName = "ic_outline_alt_route_24",
+            iconName = "low_priority_24px",
             useFullKey = true // 因为 key 已经包含了前缀 PrekCfgXXX，所以必须设为 true
         )
 
@@ -92,7 +93,7 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
             key = Constants.PrekDisableVersionAdaptation,
             title = "禁用版本适配",
             summary = "开启后不会弹出 DEX 查找对话框，未适配功能将不会被加载",
-            iconName = "ic_outline_block_24",
+            iconName = "block_24px",
             useFullKey = true
         )
 
@@ -115,13 +116,13 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
             title = "GitHub",
             summary = "修改于 Ujhhgtg/WeKit (原始: cwuom/WeKit)",
             iconName = "ic_github",
-            onClick = { anchor, summaryView -> jumpUrl(context, "https://github.com/Ujhhgtg/WeKit") }
+            onClick = { _, _ -> jumpUrl(context, "https://github.com/Ujhhgtg/WeKit") }
         )
         addPreference(
             title = "Telegram",
             summary = "@ouom_pub",
             iconName = "ic_telegram",
-            onClick = { anchor, summaryView -> jumpUrl(context, "https://t.me/ouom_pub") }
+            onClick = { _, _ -> jumpUrl(context, "https://t.me/ouom_pub") }
         )
     }
 }

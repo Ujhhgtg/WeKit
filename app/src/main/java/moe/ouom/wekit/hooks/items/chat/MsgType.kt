@@ -38,7 +38,8 @@ enum class MsgType(val code: Int) {
     PRODUCT(0x3A100031),
     UNKNOWN(0x3A200031),
     MUSIC(0x3E000031),
-    FILE(0x41000031);
+    FILE(0x41000031),
+    TEXT_WITH_QUOTE(822083633);
 
     companion object {
         fun fromCode(code: Int): MsgType? = entries.find { it.code == code }
@@ -46,7 +47,7 @@ enum class MsgType(val code: Int) {
         fun isType(code: Int, vararg types: MsgType): Boolean =
             types.any { it.code == code }
 
-        fun isText(code: Int) = code == TEXT.code
+        fun isText(code: Int) = code == TEXT.code || code == TEXT_WITH_QUOTE.code
         fun isImage(code: Int) = code == IMAGE.code
         fun isVoice(code: Int) = code == VOICE.code
         fun isVideo(code: Int) = code == VIDEO.code

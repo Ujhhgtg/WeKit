@@ -1,5 +1,6 @@
 package moe.ouom.wekit.utils.common;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -16,6 +17,7 @@ import moe.ouom.wekit.utils.log.WeLogger;
  */
 public class ModuleRes {
 
+    @SuppressLint("StaticFieldLeak")
     private static Context sModuleContext;
     private static Resources sResources;
     private static String sPackageName;

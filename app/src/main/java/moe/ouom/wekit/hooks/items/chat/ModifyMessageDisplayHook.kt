@@ -47,14 +47,18 @@ object ModifyMessageDisplayHook : BaseSwitchFunctionHookItem(), WeChatMessageCon
         }
 
         return listOf(
-            WeChatMessageContextMenuApi.MenuItem(777002, "修改内容", ModuleRes.getDrawable("edit_24px"), { view, _, _ ->
+            WeChatMessageContextMenuApi.MenuItem(777002, "修改内容", ModuleRes.getDrawable("edit_24px")) { view, _, _ ->
                 showComposeDialog(view.context) { onDismiss ->
                     var input by remember { mutableStateOf("") } // TODO: figure out how to find initial value
 
-                    AlertDialog(onDismissRequest = onDismiss,
+                    AlertDialog(
+                        onDismissRequest = onDismiss,
                         title = { Text("修改消息显示") },
                         text = {
-                            TextField(value = input, onValueChange = { input = it }, label = { Text("显示内容") })
+                            TextField(
+                                value = input,
+                                onValueChange = { input = it },
+                                label = { Text("显示内容") })
                         },
                         confirmButton = {
                             TextButton(onClick = {
@@ -74,7 +78,7 @@ object ModifyMessageDisplayHook : BaseSwitchFunctionHookItem(), WeChatMessageCon
                             }
                         })
                 }
-            })
+            }
         )
     }
 }

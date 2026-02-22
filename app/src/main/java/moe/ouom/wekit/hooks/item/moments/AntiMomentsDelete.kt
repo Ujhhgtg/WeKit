@@ -13,7 +13,7 @@ import moe.ouom.wekit.utils.log.WeLogger
 )
 object AntiMomentsDelete : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpdateListener {
 
-    private const val LOG_TAG = "MomentAntiDel"
+    private const val LOG_TAG = "AntiMomentsDelete"
     private const val TBL_SNS_INFO = "SnsInfo"
     private const val DEFAULT_WATERMARK = "[拦截删除]"
 

@@ -11,7 +11,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 
 class XposedLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
-    private val savedStateRegistryController = SavedStateRegistryController.Companion.create(this)
+    private val savedStateRegistryController = SavedStateRegistryController.create(this)
     override val lifecycle: Lifecycle get() = lifecycleRegistry
     override val viewModelStore = ViewModelStore()
     override val savedStateRegistry: SavedStateRegistry
