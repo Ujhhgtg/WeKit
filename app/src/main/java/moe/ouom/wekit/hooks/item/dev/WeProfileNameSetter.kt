@@ -1,8 +1,9 @@
-package moe.ouom.wekit.hooks.item.func
+package moe.ouom.wekit.hooks.item.dev
 
 import android.content.Context
 import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.input.input
+import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.WePkgHelper

@@ -266,7 +266,7 @@ moe.ouom.wekit/
 │   │   ├── moment/            # 朋友圈
 │   │   ├── fix/               # 优化与修复
 │   │   ├── dev/               # 开发者选项
-│   │   ├── func/               # 娱乐功能
+│   │   ├── fun/               # 娱乐功能
 │   │   ├── script/            # 脚本管理
 │   │   └── example/           # 示例代码
 │   └── sdk/                   # SDK 封装
@@ -420,14 +420,10 @@ import moe.ouom.wekit.constants.MMVersion
 import moe.ouom.wekit.host.HostInfo
 
 override fun entry(classLoader: ClassLoader) {
-    val isGooglePlayVersion = HostInfo.isGooglePlayVersion
     val currentVersion = HostInfo.getVersionCode()
 
     // 根据版本选择不同的实现
     when {
-        isGooglePlayVersion && currentVersion >= MMVersion.MM_8_0_48_Play ->
-            // Google Play 8.0.48+
-            hookForNewVersion(classLoader)
         currentVersion >= MMVersion.MM_8_0_90 -> {
             // 8.0.90 及以上版本的实现
             hookForNewVersion(classLoader)
@@ -2242,70 +2238,6 @@ override fun unload(classLoader: ClassLoader) {
     super.unload(classLoader)
 }
 ```
-
-### 数据库监听器 (WeDatabaseListener)
-
-`WeDatabaseListener` 提供监听和篡改微信数据库操作的能力。
-
-#### 适配器定义
-
-```kotlin
-// 重写需要的方法
-open class DatabaseListenerAdapter {
-    // 插入后执行
-    open fun onInsert(table: String, values: ContentValues) {}
-    
-    // 更新前执行，返回true阻止更新
-    open fun onUpdate(table: String, values: ContentValues): Boolean = false
-    
-    // 查询前执行，返回修改后的SQL，null表示不修改
-    open fun onQuery(sql: String): String? = sql
-}
-```
-
-#### 快速开始
-
-```kotlin
-// 1. 继承适配器
-class MyListener : DatabaseListenerAdapter() {
-    override fun onInsert(table: String, values: ContentValues) {
-        if (table == "message") {
-            values.put("time", System.currentTimeMillis())
-        }
-    }
-    
-    override fun onUpdate(table: String, values: ContentValues): Boolean {
-        return table == "user_info" && values.containsKey("balance")
-    }
-    
-    override fun onQuery(sql: String): String? {
-        return if (sql.contains("password")) null else sql
-    }
-}
-
-// 2. 注册/注销
-override fun entry(classLoader: ClassLoader) {
-    WeDatabaseListener.addListener(this)
-}
-
-override fun unload(classLoader: ClassLoader) {
-    WeDatabaseListener.removeListener(this)
-    super.unload(classLoader)
-}
-```
-
-#### 方法说明
-
-| 方法 | 时机 | 返回值 | 作用 |
-|------|------|--------|------|
-| `onInsert` | 插入后 | - | 监听/修改插入数据 |
-| `onUpdate` | 更新前 | `true`=阻止 | 监听/阻止更新 |
-| `onQuery` | 查询前 | 新SQL/null | 篡改查询语句 |
-
-#### 特性
-
-- ✅ **链式处理**：多个监听器按注册顺序执行
-- ✅ **直接修改**：`values` 对象可直接修改生效
 
 #### 核心工具类：WeProtoData
 

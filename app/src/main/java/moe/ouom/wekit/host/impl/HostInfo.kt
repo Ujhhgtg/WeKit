@@ -75,12 +75,6 @@ val isAndroidxFileProviderAvailable: Boolean by lazy {
     }
 }
 
-val isGooglePlayVersion = runCatching {
-    Class.forName("com.tencent.mm.boot.BuildConfig")
-        .getField("BUILD_TAG")
-        .get(null) as? String
-}.getOrNull()?.contains("GP", true) ?: false
-
 data class HostInfoImpl(
     val application: Application,
     val packageName: String,

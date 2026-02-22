@@ -18,7 +18,6 @@ class Constants private constructor() {
 
         // 数据库类
         const val CLAZZ_SQLITE_DATABASE = "com.tencent.wcdb.database.SQLiteDatabase"
-        const val CLAZZ_COMPAT_SQLITE_DATABASE = "com.tencent.wcdb.compat.SQLiteDatabase"
 
         // 红包消息类型
         const val TYPE_LUCKY_MONEY = 436207665  // 红包

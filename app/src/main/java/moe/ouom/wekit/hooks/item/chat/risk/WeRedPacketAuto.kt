@@ -25,7 +25,7 @@ import kotlin.random.Random
 
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "聊天与消息/自动抢红包", desc = "监听消息并自动拆开红包")
-class WeRedPacketAuto : BaseClickableFunctionHookItem(), IDexFind, WeDatabaseListener.InsertListener {
+class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseListener.DatabaseInsertListener, IDexFind {
 
     private val dexClsReceiveLuckyMoney by dexClass()
     private val dexClsOpenLuckyMoney by dexClass()

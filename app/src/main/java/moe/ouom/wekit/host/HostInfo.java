@@ -62,11 +62,11 @@ public class HostInfo {
         return moe.ouom.wekit.host.impl.HostInfo.isAndroidxFileProviderAvailable();
     }
 
-    public static boolean isWeChat = moe.ouom.wekit.host.impl.HostInfo.isWeChat();
-
-    public static boolean isGooglePlayVersion = moe.ouom.wekit.host.impl.HostInfo.isGooglePlayVersion();
+    public static boolean isWeChat() {
+        return moe.ouom.wekit.host.impl.HostInfo.isWeChat();
+    }
 
     public static boolean requireMinWeChatVersion(int versionCode) {
-        return isWeChat && getLongVersionCode() >= versionCode;
+        return isWeChat() && getLongVersionCode() >= versionCode;
     }
 }

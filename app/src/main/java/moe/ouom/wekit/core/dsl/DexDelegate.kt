@@ -87,7 +87,7 @@ class DexClassDelegate internal constructor(
     }
 
     fun getSuperClass(dexKit: DexKitBridge): ClassData? {
-        return getClassData(dexKit).superClass
+        return getClassData(dexKit)?.superClass
     }
 
     override fun getValue(thisRef: Any?, property: KProperty<*>): DexClassDelegate = this

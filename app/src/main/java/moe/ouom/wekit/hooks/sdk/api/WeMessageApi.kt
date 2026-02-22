@@ -661,8 +661,8 @@ class WeMessageApi : ApiHookItem(), IDexFind {
     /** 发送私有路径下的语音文件 */
     fun sendVoice(toUser: String, path: String, durationMs: Int): Boolean {
         return try {
-            val selfWxAlias = getSelfAlias()
-            if (selfWxAlias.isEmpty()) throw IllegalStateException("无法获取 WxAlias")
+            val selfWxid = getSelfAlias()
+            if (selfWxid.isEmpty()) throw IllegalStateException("无法获取 Wxid")
 
             // 获取 Service 实例
             val serviceInterface = voiceServiceInterfaceClass ?: throw IllegalStateException("VoiceService interface not found")
@@ -692,7 +692,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
             if (finalServiceObj == null) throw IllegalStateException("无法获取 VoiceService 实例")
 
             // 准备文件
-            val fileName = voiceNameGenMethod?.invoke(null, selfWxAlias, "amr_") as? String ?: throw IllegalStateException("VoiceName Gen Failed")
+            val fileName = voiceNameGenMethod?.invoke(null, selfWxid, "amr_") as? String ?: throw IllegalStateException("VoiceName Gen Failed")
             val accPath = getAccPath()
             val voice2Root = if (accPath.endsWith("/")) "${accPath}voice2/" else "$accPath/voice2/"
             val destFullPath = pathGenMethod?.invoke(null, voice2Root, "msg_", fileName, ".amr", 2) as? String ?: throw IllegalStateException("Path Gen Failed")
@@ -762,6 +762,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
     fun getSelfAlias(): String {
         return getSelfAliasMethod?.invoke(null) as? String ?: ""
     }
+
     private fun bindServiceFramework() {
         val smClazz = dexClassServiceManager.clazz
         getServiceMethod = smClazz.declaredMethods.firstOrNull {

@@ -17,7 +17,7 @@ import kotlin.math.min
 @HookItem(path = "protocol/wepkg_dispatcher", desc = "WePkg 请求/响应数据包拦截与篡改")
 class WePkgDispatcher : ApiHookItem(), IDexFind {
     private val dexClsOnGYNetEnd by dexClass()
-    // 缓存最近10条记录，避免因脚本引起的无限递归
+    // 缓存最近10条记录，避免无限递归
     private val recentRequests = ConcurrentHashMap<String, Long>()
 
     override fun entry(classLoader: ClassLoader) {
@@ -46,10 +46,10 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
 
                     // 构造唯一标识符
                     val key = "$cgiId|$uri|${reqWrapper?.javaClass?.name}|${reqPbObj?.javaClass?.name}|${reqBytes.contentToString()}"
-                    // 检查是否在缓存中且时间间隔小于500毫秒
+                    // 检查是否在缓存中且时间间隔小于2秒
                     val currentTime = System.currentTimeMillis()
                     val lastTime = recentRequests[key]
-                    if (lastTime != null && currentTime - lastTime < 500) {
+                    if (lastTime != null && currentTime - lastTime < 2000) {
                         // 直接返回，不执行任何请求处理
                         WeLogger.i("PkgDispatcher", "Request skipped (duplicate): $uri")
                         return@hookBefore

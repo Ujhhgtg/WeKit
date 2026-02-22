@@ -158,7 +158,7 @@ class DexFinderDialog(
     private suspend fun performParallelScanning() = withContext(Dispatchers.IO) {
         val dexKit = DexKitBridge.create(appInfo.sourceDir)
 
-        dexKit.use { dexKit ->
+        try {
             // 创建进度更新 Channel
             val progressChannel = Channel<ScanProgress>(Channel.UNLIMITED)
 
@@ -187,6 +187,8 @@ class DexFinderDialog(
             withContext(Dispatchers.Main) {
                 handleScanResults(results)
             }
+        } finally {
+            dexKit.close()
         }
     }
 
