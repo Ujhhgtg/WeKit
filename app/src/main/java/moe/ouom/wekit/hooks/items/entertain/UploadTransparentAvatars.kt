@@ -8,7 +8,7 @@ import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 
-@HookItem(path = "娱乐/头像上传透明", desc = "头像上传时使用PNG格式保持透明")
+@HookItem(path = "娱乐/上传透明头像", desc = "头像上传时使用 PNG 格式保持透明")
 object UploadTransparentAvatars : BaseSwitchFunctionHookItem(), IDexFind {
 
     private val methodSaveBitmap by dexMethod()
@@ -17,6 +17,7 @@ object UploadTransparentAvatars : BaseSwitchFunctionHookItem(), IDexFind {
         val descriptors = mutableMapOf<String, String>()
 
         methodSaveBitmap.find(dexKit, descriptors = descriptors) {
+            searchPackages("com.tencent.mm.sdk.platformtools")
             matcher {
                 usingStrings("saveBitmapToImage pathName null or nil", "MicroMsg.BitmapUtil")
             }
