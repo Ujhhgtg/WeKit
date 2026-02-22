@@ -11,26 +11,27 @@ import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeChatMessageLongPressMenuApi
+import moe.ouom.wekit.hooks.sdk.ui.WeChatMessageContextMenuApi
 import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.utils.common.ModuleRes
 import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "聊天与消息/贴纸保存到本地", desc = "在贴纸消息长按菜单添加保存按钮, 允许将表情包保存到本地")
-object SaveStickerToLocalStorage : BaseSwitchFunctionHookItem(), IDexFind, WeChatMessageLongPressMenuApi.IMenuItemsProvider {
+object SaveStickerToLocalStorage : BaseSwitchFunctionHookItem(), IDexFind, WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     private const val TAG = "SaveStickerToLocalStorage"
 
     private val classEmojiFileEncryptMgr by dexClass()
 
     override fun entry(classLoader: ClassLoader) {
-        WeChatMessageLongPressMenuApi.addProvider(this)
+        WeChatMessageContextMenuApi.addProvider(this)
     }
 
     override fun unload(classLoader: ClassLoader) {
+        WeChatMessageContextMenuApi.removeProvider(this)
         super.unload(classLoader)
-        WeChatMessageLongPressMenuApi.removeProvider(this)
     }
 
     override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
@@ -52,16 +53,20 @@ object SaveStickerToLocalStorage : BaseSwitchFunctionHookItem(), IDexFind, WeCha
     override fun getMenuItems(
         hookParam: XC_MethodHook.MethodHookParam,
         msgInfoBean: Any
-    ): List<WeChatMessageLongPressMenuApi.MenuItem> {
-        if (msgInfoBean.asResolver()
-                .firstField { name = "field_type"; superclass() }.get() as Int != 43) {
+    ): List<WeChatMessageContextMenuApi.MenuItem> {
+        val type = msgInfoBean.asResolver()
+            .firstField { name = "field_type"
+                superclass() }.get() as Int
+
+        WeLogger.d(TAG, "type=$type")
+        if (type != 47) {
             // not a sticker message
             return emptyList()
         }
 
         return listOf(
             @Suppress("UNCHECKED_CAST")
-            WeChatMessageLongPressMenuApi.MenuItem(0, "保存\n到本地", 0) { _, msgInfoBean ->
+            WeChatMessageContextMenuApi.MenuItem(777001, "存本地", ModuleRes.getDrawable("download_24px")) { _, _, msgInfoBean ->
 //                val msgId = msgInfoBean.asResolver()
 //                    .firstField {
 //                        name = "field_msgId"

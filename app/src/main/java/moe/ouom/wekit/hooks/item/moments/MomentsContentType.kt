@@ -1,6 +1,6 @@
-package moe.ouom.wekit.hooks.item.moment
+package moe.ouom.wekit.hooks.item.moments
 
-enum class SnsContentType(val typeId: Int, val displayName: String) {
+enum class MomentsContentType(val typeId: Int, val displayName: String) {
     IMG(1, "图片"),
     TEXT(2, "文本"),
     LINK(3, "链接"),
@@ -33,7 +33,7 @@ enum class SnsContentType(val typeId: Int, val displayName: String) {
          * @param id 数据库中的 type 值
          * @return 匹配成功返回枚举，否则返回 null
          */
-        fun fromId(id: Int): SnsContentType? =
+        fun fromId(id: Int): MomentsContentType? =
             entries.firstOrNull { it.typeId == id }
 
         /**

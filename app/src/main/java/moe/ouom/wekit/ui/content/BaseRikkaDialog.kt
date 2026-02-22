@@ -1,8 +1,10 @@
-package moe.ouom.wekit.ui.creator.dialog
+package moe.ouom.wekit.ui.content
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.text.InputType
 import android.view.View
+import android.widget.TextView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -56,7 +58,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants
-import moe.ouom.wekit.ui.compose.showComposeDialog
+import moe.ouom.wekit.ui.utils.showComposeDialog
 import moe.ouom.wekit.utils.common.ModuleRes
 import moe.ouom.wekit.utils.log.WeLogger
 
@@ -116,7 +118,7 @@ private sealed class PrefRow {
         val title: String,
         val summary: String?,
         val iconName: String?,
-        val onClick: ((View, android.widget.TextView?) -> Unit)?,
+        val onClick: ((View, TextView?) -> Unit)?,
     ) : PrefRow()
 }
 
@@ -130,7 +132,7 @@ private data class DepInfo(
 //  Abstract base class – public API is identical to the original
 // ---------------------------------------------------------------------------
 
-abstract class BaseRikkaDialogCompose(
+abstract class BaseRikkaDialog(
     protected val context: Context,
     private val title: String,
 ) {
@@ -247,8 +249,8 @@ abstract class BaseRikkaDialogCompose(
         title: String,
         summary: String? = null,
         iconName: String? = null,
-        onClick: ((View, android.widget.TextView?) -> Unit)? = null,
-    ): android.widget.TextView? {           // return type preserved for API compat
+        onClick: ((View, TextView?) -> Unit)? = null,
+    ): TextView? {           // return type preserved for API compat
         val rk = nextKey("pref_$title")
         rows += PrefRow.Plain(rk, title, summary, iconName, onClick)
         return null                         // Compose doesn't expose a live TextView
@@ -734,5 +736,5 @@ private fun SelectDialog(
 // ---------------------------------------------------------------------------
 //  Shim: keep getBooleanOrFalse extension consistent with rest of codebase
 // ---------------------------------------------------------------------------
-private fun android.content.SharedPreferences.getBooleanOrFalse(key: String) =
+private fun SharedPreferences.getBooleanOrFalse(key: String) =
     getBoolean(key, false)

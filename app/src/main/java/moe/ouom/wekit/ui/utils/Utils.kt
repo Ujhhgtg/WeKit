@@ -1,4 +1,4 @@
-package moe.ouom.wekit.ui.compose
+package moe.ouom.wekit.ui.utils
 
 import android.app.Dialog
 import android.content.Context
@@ -16,8 +16,6 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.ui.CommonContextWrapper
-import moe.ouom.wekit.ui.theme.AppTheme
 
 // useful for showing a compose dialog in non-compose context,
 // or when you don't want to manage the state for a dialog inside a composable

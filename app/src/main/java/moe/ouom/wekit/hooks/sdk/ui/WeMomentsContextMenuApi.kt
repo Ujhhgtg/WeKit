@@ -15,32 +15,30 @@ import java.lang.reflect.Modifier
 import java.util.concurrent.CopyOnWriteArrayList
 
 @HookItem(path = "API/朋友圈右键菜单增强")
-class WeChatSnsContextMenuApi : ApiHookItem(), IDexFind {
+object WeMomentsContextMenuApi : ApiHookItem(), IDexFind {
 
     private val dexMethodOnCreateMenu by dexMethod()
     private val dexMethodOnItemSelected by dexMethod()
     private val dexMethodSnsInfoStorage by dexMethod()
     private val dexMethodGetSnsInfoStorage by dexMethod()
 
-    companion object {
-        private const val TAG = "SnsMenuApi"
+    private const val TAG = "WeMomentsContextMenuApi"
 
-        val onCreateCallbacks = CopyOnWriteArrayList<OnCreateListener>()
-        val onSelectCallbacks = CopyOnWriteArrayList<OnSelectListener>()
+    val onCreateCallbacks = CopyOnWriteArrayList<OnCreateListener>()
+    val onSelectCallbacks = CopyOnWriteArrayList<OnSelectListener>()
 
-        fun addOnCreateListener(listener: OnCreateListener) {
-            onCreateCallbacks.add(listener)
-        }
-        fun removeOnCreateListener(listener: OnCreateListener) {
-            onCreateCallbacks.remove(listener)
-        }
+    fun addOnCreateListener(listener: OnCreateListener) {
+        onCreateCallbacks.add(listener)
+    }
+    fun removeOnCreateListener(listener: OnCreateListener) {
+        onCreateCallbacks.remove(listener)
+    }
 
-        fun addOnSelectListener(listener: OnSelectListener) {
-            onSelectCallbacks.add(listener)
-        }
-        fun removeOnSelectListener(listener: OnSelectListener) {
-            onSelectCallbacks.remove(listener)
-        }
+    fun addOnSelectListener(listener: OnSelectListener) {
+        onSelectCallbacks.add(listener)
+    }
+    fun removeOnSelectListener(listener: OnSelectListener) {
+        onSelectCallbacks.remove(listener)
     }
 
     /**
@@ -68,14 +66,14 @@ class WeChatSnsContextMenuApi : ApiHookItem(), IDexFind {
     override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
         val descriptors = mutableMapOf<String, String>()
 
-        dexMethodOnCreateMenu.find(dexKit, allowMultiple = false, descriptors = descriptors) {
+        dexMethodOnCreateMenu.find(dexKit, descriptors) {
             searchPackages("com.tencent.mm.plugin.sns.ui.listener")
             matcher {
                 usingStrings("MicroMsg.TimelineOnCreateContextMenuListener", "onMMCreateContextMenu error")
             }
         }
 
-        dexMethodOnItemSelected.find(dexKit, allowMultiple = false, descriptors = descriptors) {
+        dexMethodOnItemSelected.find(dexKit, descriptors) {
             searchPackages("com.tencent.mm.plugin.sns.ui.listener")
             matcher {
                 usingStrings(
@@ -86,7 +84,7 @@ class WeChatSnsContextMenuApi : ApiHookItem(), IDexFind {
             }
         }
 
-        dexMethodSnsInfoStorage.find(dexKit, allowMultiple = false, descriptors = descriptors) {
+        dexMethodSnsInfoStorage.find(dexKit, descriptors) {
             matcher {
                 paramCount(1)
                 paramTypes("java.lang.String")
@@ -98,7 +96,7 @@ class WeChatSnsContextMenuApi : ApiHookItem(), IDexFind {
             }
         }
 
-        dexMethodGetSnsInfoStorage.find(dexKit, allowMultiple = false, descriptors = descriptors) {
+        dexMethodGetSnsInfoStorage.find(dexKit, descriptors) {
             searchPackages("com.tencent.mm.plugin.sns.model")
             matcher {
                 // 必须是静态方法

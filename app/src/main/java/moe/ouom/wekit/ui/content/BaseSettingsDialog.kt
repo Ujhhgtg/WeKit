@@ -1,4 +1,4 @@
-package moe.ouom.wekit.ui.creator.dialog
+package moe.ouom.wekit.ui.content
 
 import android.content.Context
 import androidx.compose.foundation.clickable
@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import moe.ouom.wekit.ui.compose.showComposeDialog
+import moe.ouom.wekit.ui.utils.showComposeDialog
 
 // ---------------------------------------------------------------------------
 //  Sealed row type for CategorySettingsDialog items
@@ -71,7 +71,7 @@ internal sealed class SettingsRow {
 //  Abstract base – mirrors BaseSettingsDialog public API
 // ---------------------------------------------------------------------------
 
-abstract class BaseSettingsDialogCompose(
+abstract class BaseSettingsDialog(
     protected val context: Context,
     private val title: String,
 ) {

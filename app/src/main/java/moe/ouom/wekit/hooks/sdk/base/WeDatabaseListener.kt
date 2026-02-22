@@ -14,8 +14,9 @@ import moe.ouom.wekit.utils.log.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 @SuppressLint("DiscouragedApi")
-@HookItem(path = "API/数据库监听服务", desc = "为其他功能提供数据库写入监听能力")
-class WeDatabaseListener : ApiHookItem() {
+@HookItem(path = "API/数据库监听服务", desc = "为其他功能提供数据库插入、更新监听与查询能力")
+object WeDatabaseListener : ApiHookItem() {
+
     // 定义独立的接口
     interface IInsertListener {
         fun onInsert(table: String, values: ContentValues)
@@ -29,52 +30,49 @@ class WeDatabaseListener : ApiHookItem() {
         fun onQuery(sql: String): String?
     }
 
-    companion object {
-        private const val TAG = "WeDatabaseApi"
+    private const val TAG = "WeDatabaseApi"
 
-        private val insertListeners = CopyOnWriteArrayList<IInsertListener>()
-        private val updateListeners = CopyOnWriteArrayList<IUpdateListener>()
-        private val queryListeners = CopyOnWriteArrayList<IQueryListener>()
-        fun addListener(listener: Any) {
-            val addedTypes = mutableListOf<String>()
+    private val insertListeners = CopyOnWriteArrayList<IInsertListener>()
+    private val updateListeners = CopyOnWriteArrayList<IUpdateListener>()
+    private val queryListeners = CopyOnWriteArrayList<IQueryListener>()
+    fun addListener(listener: Any) {
+        val addedTypes = mutableListOf<String>()
 
-            if (listener is IInsertListener) {
-                insertListeners.add(listener)
-                addedTypes.add("INSERT")
-            }
-            if (listener is IUpdateListener) {
-                updateListeners.add(listener)
-                addedTypes.add("UPDATE")
-            }
-            if (listener is IQueryListener) {
-                queryListeners.add(listener)
-                addedTypes.add("QUERY")
-            }
-
-            // 只有实现了至少一个接口才打印日志
-            if (addedTypes.isNotEmpty()) {
-                WeLogger.i(TAG, "监听器已添加: ${listener.javaClass.simpleName} [${addedTypes.joinToString()}]")
-            }
+        if (listener is IInsertListener) {
+            insertListeners.add(listener)
+            addedTypes.add("INSERT")
+        }
+        if (listener is IUpdateListener) {
+            updateListeners.add(listener)
+            addedTypes.add("UPDATE")
+        }
+        if (listener is IQueryListener) {
+            queryListeners.add(listener)
+            addedTypes.add("QUERY")
         }
 
-        fun removeListener(listener: Any) {
-            var removed = false
+        // 只有实现了至少一个接口才打印日志
+        if (addedTypes.isNotEmpty()) {
+            WeLogger.i(TAG, "监听器已添加: ${listener.javaClass.simpleName} [${addedTypes.joinToString()}]")
+        }
+    }
 
-            if (listener is IInsertListener) {
-                removed = insertListeners.remove(listener) || removed
-            }
-            if (listener is IUpdateListener) {
-                removed = updateListeners.remove(listener) || removed
-            }
-            if (listener is IQueryListener) {
-                removed = queryListeners.remove(listener) || removed
-            }
+    fun removeListener(listener: Any) {
+        var removed = false
 
-            if (removed) {
-                WeLogger.i(TAG, "监听器已移除: ${listener.javaClass.simpleName}")
-            }
+        if (listener is IInsertListener) {
+            removed = insertListeners.remove(listener) || removed
+        }
+        if (listener is IUpdateListener) {
+            removed = updateListeners.remove(listener) || removed
+        }
+        if (listener is IQueryListener) {
+            removed = queryListeners.remove(listener) || removed
         }
 
+        if (removed) {
+            WeLogger.i(TAG, "监听器已移除: ${listener.javaClass.simpleName}")
+        }
     }
 
     override fun entry(classLoader: ClassLoader) {

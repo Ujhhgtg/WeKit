@@ -15,8 +15,8 @@ import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.dexkit.DexMethodDescriptor
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.ui.CommonContextWrapper
-import moe.ouom.wekit.ui.creator.dialog.MainSettingsDialog
+import moe.ouom.wekit.ui.utils.CommonContextWrapper
+import moe.ouom.wekit.ui.content.MainSettingsDialog
 import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier

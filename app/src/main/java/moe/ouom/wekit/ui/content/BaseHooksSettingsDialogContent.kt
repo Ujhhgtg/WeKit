@@ -1,4 +1,4 @@
-package moe.ouom.wekit.ui.creator.dialog.hooks
+package moe.ouom.wekit.ui.content
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun BaseHooksSettingsDialog(title: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun BaseHooksSettingsDialogContent(title: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
 //    Dialog(
 //        onDismissRequest = onDismiss,
 //        properties = DialogProperties(

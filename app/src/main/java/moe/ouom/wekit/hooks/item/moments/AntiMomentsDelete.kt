@@ -1,4 +1,4 @@
-package moe.ouom.wekit.hooks.item.moment
+package moe.ouom.wekit.hooks.item.moments
 
 import android.content.ContentValues
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
@@ -11,13 +11,11 @@ import moe.ouom.wekit.utils.log.WeLogger
     path = "朋友圈/拦截朋友圈删除",
     desc = "移除删除标志并注入 '[拦截删除]' 标记"
 )
-class AntiSnsDeleteHook : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpdateListener {
+object AntiMomentsDelete : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpdateListener {
 
-    companion object {
-        private const val LOG_TAG = "MomentAntiDel"
-        private const val TBL_SNS_INFO = "SnsInfo"
-        private const val DEFAULT_WATERMARK = "[拦截删除]"
-    }
+    private const val LOG_TAG = "MomentAntiDel"
+    private const val TBL_SNS_INFO = "SnsInfo"
+    private const val DEFAULT_WATERMARK = "[拦截删除]"
 
     override fun onUpdate(table: String, values: ContentValues): Boolean {
         if (!isEnabled) return false
@@ -46,10 +44,10 @@ class AntiSnsDeleteHook : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
         val typeVal = (values.get("type") as? Int) ?: return
         val sourceVal = (values.get("sourceType") as? Int) ?: return
 
-        if (!SnsContentType.allTypeIds.contains(typeVal)) return
+        if (!MomentsContentType.allTypeIds.contains(typeVal)) return
         if (sourceVal != 0) return
 
-        val kindName = SnsContentType.fromId(typeVal)?.displayName ?: "Unknown[$typeVal]"
+        val kindName = MomentsContentType.fromId(typeVal)?.displayName ?: "Unknown[$typeVal]"
         WeLogger.d(LOG_TAG, "捕获删除信号 -> $kindName ($typeVal)")
 
         // 移除来源

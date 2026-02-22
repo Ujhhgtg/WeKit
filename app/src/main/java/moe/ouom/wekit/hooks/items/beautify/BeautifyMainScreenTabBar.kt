@@ -3,10 +3,7 @@ package moe.ouom.wekit.hooks.items.beautify
 import android.app.Activity
 import android.view.ViewGroup
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +14,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ripple
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +33,7 @@ import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.ui.compose.XposedLifecycleOwner
+import moe.ouom.wekit.ui.utils.XposedLifecycleOwner
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "美化/美化首页底部导航栏", desc = "将首页底部导航栏替换为 Jetpack Compose 组件")
@@ -115,25 +112,14 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
                                     )
 
                                     icons.forEachIndexed { index, (icon, label) ->
-                                        val interactionSource = remember { MutableInteractionSource() }
-
-                                        Box(
+                                        IconButton(
+                                            onClick = {
+                                                selectedPageIndex = index
+                                                methodOnPageSelected.invoke(index)
+                                            },
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .fillMaxHeight()
-                                                .clickable(
-                                                    interactionSource = interactionSource,
-                                                    indication = ripple(
-                                                        bounded = false,
-                                                        radius = 28.dp,
-                                                        color = activeColor
-                                                    ),
-                                                    onClick = {
-                                                        selectedPageIndex = index
-                                                        methodOnPageSelected.invoke(index)
-                                                    }
-                                                ),
-                                            contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 imageVector = icon,

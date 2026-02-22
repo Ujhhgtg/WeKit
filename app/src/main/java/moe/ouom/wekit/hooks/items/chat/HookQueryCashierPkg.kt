@@ -7,22 +7,21 @@ import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.WePkgManager
 import moe.ouom.wekit.hooks.sdk.protocol.intf.IWePkgInterceptor
-import moe.ouom.wekit.ui.creator.dialog.BaseRikkaDialogCompose
+import moe.ouom.wekit.ui.content.BaseRikkaDialog
 import moe.ouom.wekit.utils.WeProtoData
 import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONArray
 import org.json.JSONObject
 
 @HookItem(path = "聊天与消息/修改转账时的余额", desc = "点击配置")
-class HookQueryCashierPkg : BaseClickableFunctionHookItem(), IWePkgInterceptor {
-    companion object {
-        private const val KEY_CFT_BALANCE = "cashier_cft_balance"
-        private const val KEY_LQT_BALANCE = "cashier_lqt_balance"
+object HookQueryCashierPkg : BaseClickableFunctionHookItem(), IWePkgInterceptor {
+    
+    private const val KEY_CFT_BALANCE = "cashier_cft_balance"
+    private const val KEY_LQT_BALANCE = "cashier_lqt_balance"
 
-        // 默认值
-        private const val DEFAULT_CFT = "¥999,999.00"
-        private const val DEFAULT_LQT = "¥8,888,888.88"
-    }
+    // 默认值
+    private const val DEFAULT_CFT = "¥999,999.00"
+    private const val DEFAULT_LQT = "¥8,888,888.88"
 
     override fun entry(classLoader: ClassLoader) {
         WePkgManager.addInterceptor(this)
@@ -121,7 +120,7 @@ class HookQueryCashierPkg : BaseClickableFunctionHookItem(), IWePkgInterceptor {
         }
     }
 
-    private class ConfigDialog(context: Context) : BaseRikkaDialogCompose(context, "收银台余额配置") {
+    private class ConfigDialog(context: Context) : BaseRikkaDialog(context, "收银台余额配置") {
         override fun initPreferences() {
             addCategory("金额设置")
 

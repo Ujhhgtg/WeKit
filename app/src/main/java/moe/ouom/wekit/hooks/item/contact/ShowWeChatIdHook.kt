@@ -11,16 +11,13 @@ import moe.ouom.wekit.hooks.sdk.ui.WeChatContactInfoAdapterItemHook.ContactInfoI
 import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(
-    path = "联系人/显示微信ID",
-    desc = "在联系人页面显示微信ID"
+    path = "联系人/显示微信 ID",
+    desc = "在联系人页面显示微信 ID"
 )
-class ShowWeChatIdHook : BaseSwitchFunctionHookItem() {
+object ShowWeChatIdHook : BaseSwitchFunctionHookItem() {
 
-    companion object {
-        private const val TAG = "ShowWeChatIdHook"
-        private const val PREF_KEY = "wechat_id_display"
-    }
-
+    private const val TAG = "ShowWeChatIdHook"
+    private const val PREF_KEY = "wechat_id_display"
 
     // 创建初始化回调
     private val initCallback = WeChatContactInfoAdapterItemHook.InitContactInfoViewCallback { activity ->

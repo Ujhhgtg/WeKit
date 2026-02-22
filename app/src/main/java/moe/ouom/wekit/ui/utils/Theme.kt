@@ -1,4 +1,4 @@
-package moe.ouom.wekit.ui.theme
+package moe.ouom.wekit.ui.utils
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi

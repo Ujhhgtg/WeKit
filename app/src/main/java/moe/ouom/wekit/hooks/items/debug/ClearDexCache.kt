@@ -7,7 +7,7 @@ import androidx.compose.material3.TextButton
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.dexkit.cache.DexCacheManager
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.ui.compose.showComposeDialog
+import moe.ouom.wekit.ui.utils.showComposeDialog
 
 @HookItem(path = "调试/清除适配信息", desc = "点击清除适配信息")
 object ClearDexCache : BaseClickableFunctionHookItem() {

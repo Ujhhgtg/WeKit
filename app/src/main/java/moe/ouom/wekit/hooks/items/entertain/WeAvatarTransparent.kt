@@ -9,7 +9,7 @@ import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "娱乐/头像上传透明", desc = "头像上传时使用PNG格式保持透明")
-class AvatarTransparent : BaseSwitchFunctionHookItem(), IDexFind {
+object UploadTransparentAvatars : BaseSwitchFunctionHookItem(), IDexFind {
 
     private val methodSaveBitmap by dexMethod()
 

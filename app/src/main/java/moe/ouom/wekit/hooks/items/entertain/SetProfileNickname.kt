@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.WePkgHelper
-import moe.ouom.wekit.ui.compose.showComposeDialog
+import moe.ouom.wekit.ui.utils.showComposeDialog
 import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(path = "娱乐/设置微信昵称", desc = "通过发包来更灵活的设置微信昵称")
@@ -38,7 +38,7 @@ object SetProfileNickname : BaseClickableFunctionHookItem() {
                             escapeJsonString(nickname)
                         }"}}}}}"""
 
-                        WePkgHelper.Companion.INSTANCE?.sendCgi(
+                        WePkgHelper.sendCgi(
                             "/cgi-bin/micromsg-bin/oplog",
                             681, 0, 0,
                             jsonPayload = payload

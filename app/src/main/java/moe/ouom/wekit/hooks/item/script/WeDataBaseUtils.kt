@@ -9,18 +9,10 @@ import org.json.JSONObject
 
 object WeDataBaseUtils {
     private const val TAG = "WeDataBaseUtils"
-    private val instance: WeDatabaseApi? by lazy {
-        try {
-            WeDatabaseApi.INSTANCE
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "初始化 WeDatabaseApi 失败: ${e.message}")
-            null
-        }
-    }
 
     fun query(sql: String): Any {
         return try {
-            instance?.executeQuery(sql)?.map { row ->
+            WeDatabaseApi.executeQuery(sql).map { row ->
                 val jsonObject = JSONObject()
                 for ((key, value) in row) {
                     jsonObject.put(key, value)
@@ -35,7 +27,7 @@ object WeDataBaseUtils {
 
     fun getAllContacts(): Any {
         return try {
-            instance?.getAllConnects()?.map { contact ->
+            WeDatabaseApi.getAllConnects().map { contact ->
                 val jsonObject = JSONObject()
                 jsonObject.put("username", contact.username)
                 jsonObject.put("nickname", contact.nickname)
@@ -55,7 +47,7 @@ object WeDataBaseUtils {
 
     fun getContactList(): Any {
         return try {
-            instance?.getContactList()?.map { contact ->
+            WeDatabaseApi.getContactList().map { contact ->
                 val jsonObject = JSONObject()
                 jsonObject.put("username", contact.username)
                 jsonObject.put("nickname", contact.nickname)
@@ -75,7 +67,7 @@ object WeDataBaseUtils {
 
     fun getChatrooms(): Any {
         return try {
-            instance?.getChatroomList()?.map { group ->
+            WeDatabaseApi.getChatroomList().map { group ->
                 val jsonObject = JSONObject()
                 jsonObject.put("username", group.username)
                 jsonObject.put("nickname", group.nickname)
@@ -92,7 +84,7 @@ object WeDataBaseUtils {
 
     fun getOfficialAccounts(): Any {
         return try {
-            instance?.getOfficialAccountList()?.map { account ->
+            WeDatabaseApi.getOfficialAccountList().map { account ->
                 val jsonObject = JSONObject()
                 jsonObject.put("username", account.username)
                 jsonObject.put("nickname", account.nickname)
@@ -110,7 +102,7 @@ object WeDataBaseUtils {
     fun getMessages(wxid: String, page: Int = 1, pageSize: Int = 20): Any {
         return try {
             if (wxid.isEmpty()) return JSONArray()
-            instance?.getMessages(wxid, page, pageSize)?.map { message ->
+            WeDatabaseApi.getMessages(wxid, page, pageSize).map { message ->
                 val jsonObject = JSONObject()
                 jsonObject.put("msgId", message.msgId)
                 jsonObject.put("talker", message.talker)
@@ -128,8 +120,7 @@ object WeDataBaseUtils {
 
     fun getAvatarUrl(wxid: String): String {
         return try {
-            if (wxid.isEmpty()) return ""
-            instance?.getAvatarUrl(wxid) ?: ""
+            WeDatabaseApi.getAvatarUrl(wxid)
         } catch (e: Exception) {
             WeLogger.e("WeDatabaseApi", "获取头像异常: ${e.message}")
             ""
@@ -139,7 +130,7 @@ object WeDataBaseUtils {
     fun getGroupMembers(chatroomId: String): Any {
         return try {
             if (!chatroomId.endsWith("@chatroom")) return JSONArray()
-            instance?.getGroupMembers(chatroomId)?.map { member ->
+            WeDatabaseApi.getGroupMembers(chatroomId).map { member ->
                 val jsonObject = JSONObject()
                 jsonObject.put("username", member.username)
                 jsonObject.put("nickname", member.nickname)

@@ -1,4 +1,4 @@
-package moe.ouom.wekit.ui.creator.dialog
+package moe.ouom.wekit.ui.content
 
 import android.content.Context
 import moe.ouom.wekit.BuildConfig
@@ -8,7 +8,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class MainSettingsDialog(context: Context) : BaseRikkaDialogCompose(context, "WeKit") {
+class MainSettingsDialog(context: Context) : BaseRikkaDialog(context, "WeKit") {
     // 定义优先级 映射关系 (值 -> 显示文本)
     private val priorityMap = mapOf(
         10000 to "高优先级",
@@ -33,7 +33,7 @@ class MainSettingsDialog(context: Context) : BaseRikkaDialogCompose(context, "We
             addPreference(
                 title = name, iconName = iconName,
                 onClick = { _, _ ->
-                    CategorySettingsDialogCompose(context, name).show()
+                    CategorySettingsDialog(context, name).show()
                 })
         }
 

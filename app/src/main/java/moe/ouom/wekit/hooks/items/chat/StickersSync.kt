@@ -29,7 +29,7 @@ import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.ui.compose.showComposeDialog
+import moe.ouom.wekit.ui.utils.showComposeDialog
 import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.io.PathUtils
 import moe.ouom.wekit.utils.log.WeLogger

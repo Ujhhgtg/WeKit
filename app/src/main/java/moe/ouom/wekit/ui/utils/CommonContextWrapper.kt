@@ -1,35 +1,33 @@
-package moe.ouom.wekit.ui
+package moe.ouom.wekit.ui.utils
 
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.AssetManager
 import android.content.res.Resources
-import android.content.res.Resources.Theme
 import android.util.AttributeSet
 import android.view.LayoutInflater
-import android.view.LayoutInflater.Factory2
 import android.view.View
 import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.log.WeLogger.w
+import moe.ouom.wekit.utils.log.WeLogger
 import java.lang.reflect.Constructor
 
 /**
  * 为解决 Xposed 模块 UI 注入时的环境冲突设计
- * 
- * 
+ *
+ *
  * 它可以：
  * 1. 资源代理：将 Resources/Theme 代理到 ModuleRes，确保能正确加载模块内的 Layout 和 Style
  * 2. ClassLoader 统一：重写 getClassLoader() 返回模块原本的加载器，而非 createPackageContext 生成的副本
  * 3. View 创建拦截：注入自定义 LayoutInflater Factory，强制 XML 中的控件由模块 ClassLoader 加载，
  * 解决宿主与模块之间的 "ClassCastException" 类隔离冲突问题。
- * 
- * 
+ *
+ *
  * UPDATE LOG:
  * 2025.1.19 - 移除了 Theme.setTo(baseTheme)，防止宿主资源 ID 污染模块 Theme
  * - 代理 getAssets() 以确保资源加载链路完整
  */
 class CommonContextWrapper(base: Context?, themeResId: Int) : ContextWrapper(base) {
-    private val mTheme: Theme
+    private val mTheme: Resources.Theme
     private var mInflater: LayoutInflater? = null
     private val mResources: Resources
     private val mModuleContext: Context = ModuleRes.getContext()
@@ -50,7 +48,7 @@ class CommonContextWrapper(base: Context?, themeResId: Int) : ContextWrapper(bas
             if (defaultTheme != 0) {
                 this.mTheme.applyStyle(defaultTheme, true)
             } else {
-                w("CommonContextWrapper: Theme.WeKit not found!")
+                WeLogger.w("CommonContextWrapper: Theme.WeKit not found!")
             }
         }
     }
@@ -75,7 +73,7 @@ class CommonContextWrapper(base: Context?, themeResId: Int) : ContextWrapper(bas
         return mResources.assets
     }
 
-    override fun getTheme(): Theme {
+    override fun getTheme(): Resources.Theme {
         return mTheme
     }
 
@@ -140,7 +138,7 @@ class CommonContextWrapper(base: Context?, themeResId: Int) : ContextWrapper(bas
     }
 
     @JvmRecord
-    private data class ModuleFactory(val mClassLoader: ClassLoader?) : Factory2 {
+    private data class ModuleFactory(val mClassLoader: ClassLoader?) : LayoutInflater.Factory2 {
         override fun onCreateView(
             parent: View?,
             name: String,

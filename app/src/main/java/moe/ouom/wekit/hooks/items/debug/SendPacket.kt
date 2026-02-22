@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.WePkgHelper
-import moe.ouom.wekit.ui.compose.showComposeDialog
+import moe.ouom.wekit.ui.utils.showComposeDialog
 import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.log.WeLogger
 
@@ -73,7 +73,7 @@ object SendPacket : BaseClickableFunctionHookItem() {
                             return@TextButton
                         }
 
-                        WePkgHelper.INSTANCE?.sendCgi(
+                        WePkgHelper.sendCgi(
                             uri,
                             cmdId,
                             funcId,

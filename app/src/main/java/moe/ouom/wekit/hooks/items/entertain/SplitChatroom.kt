@@ -40,8 +40,8 @@ import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
 import moe.ouom.wekit.hooks.sdk.base.model.WeGroup
-import moe.ouom.wekit.ui.compose.showComposeDialog
-import moe.ouom.wekit.ui.creator.dialog.hooks.BaseHooksSettingsDialog
+import moe.ouom.wekit.ui.utils.showComposeDialog
+import moe.ouom.wekit.ui.content.BaseHooksSettingsDialogContent
 import moe.ouom.wekit.utils.Initiator.loadClass
 import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.log.WeLogger
@@ -52,14 +52,8 @@ object SplitChatroom : BaseClickableFunctionHookItem() {
     override fun onClick(context: Context?) {
         context ?: return
 
-        val api = WeDatabaseApi.INSTANCE
-        if (api == null) {
-            ToastUtils.showToast(context, "数据库 API 未初始化，请先进入微信主界面")
-            return
-        }
-
         val groups = try {
-            api.getChatroomList()
+            WeDatabaseApi.getChatroomList()
         } catch (e: Exception) {
             WeLogger.e("WeSchemeInvocation", "获取群聊列表失败", e)
             ToastUtils.showToast(context, "获取数据失败: ${e.message}")
@@ -167,7 +161,7 @@ private fun SearchStep(
     var keyword by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
-    BaseHooksSettingsDialog("分裂群组 - 搜索", onDismiss) {
+    BaseHooksSettingsDialogContent("分裂群组 - 搜索", onDismiss) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             OutlinedTextField(
                 value = keyword,
@@ -209,7 +203,7 @@ private fun ResultsStep(
     onBack: () -> Unit,
     onSelect: (chatroomId: String) -> Unit,
 ) {
-    BaseHooksSettingsDialog("选择目标群聊（${filtered.size}）", onDismiss) {
+    BaseHooksSettingsDialogContent("选择目标群聊（${filtered.size}）", onDismiss) {
         if (filtered.isEmpty()) {
             Box(
                 modifier = Modifier

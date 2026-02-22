@@ -60,7 +60,7 @@ import moe.ouom.wekit.BuildConfig
 import moe.ouom.wekit.R
 import moe.ouom.wekit.constants.PackageConstants
 import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.ui.theme.AppTheme
+import moe.ouom.wekit.ui.utils.AppTheme
 import moe.ouom.wekit.utils.common.CheckAbiVariantModel
 import moe.ouom.wekit.utils.common.Utils
 import moe.ouom.wekit.utils.getEnable

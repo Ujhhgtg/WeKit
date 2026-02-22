@@ -1,4 +1,4 @@
-package moe.ouom.wekit.ui.compose
+package moe.ouom.wekit.ui.content
 
 import android.content.ClipData
 import android.content.ClipboardManager

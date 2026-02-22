@@ -1,80 +1,80 @@
-package moe.ouom.wekit.hooks.item.chat.msg
+package moe.ouom.wekit.hooks.items.chat
 
-import com.afollestad.materialdialogs.MaterialDialog
-import com.afollestad.materialdialogs.input.getInputField
-import com.afollestad.materialdialogs.input.input
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.highcapable.kavaref.KavaRef.Companion.asResolver
+import de.robv.android.xposed.XC_MethodHook
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeChatChatContextMenuApi
-import moe.ouom.wekit.ui.CommonContextWrapper
+import moe.ouom.wekit.hooks.sdk.ui.WeChatMessageContextMenuApi
+import moe.ouom.wekit.ui.utils.showComposeDialog
 import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(
     path = "聊天与消息/修改消息显示",
     desc = "修改本地消息显示内容"
 )
-class ModifyMessageDisplayHook : BaseSwitchFunctionHookItem() {
-
-    companion object {
-        private const val TAG = "ModifyMessageDisplayHook"
-        private const val PREF_ID = 322424
-    }
-
-    private val onCreateMenuCallback = WeChatChatContextMenuApi.OnCreateListener { messageInfo ->
-        val type = messageInfo["field_type"] as? Int ?: 0
-        if (!MsgType.isText(type)) {
-            return@OnCreateListener null
-        }
-
-        WeChatChatContextMenuApi.MenuInfoItem(
-            id = PREF_ID,
-            title = "修改信息",
-            iconDrawable =  ModuleRes.getDrawable("edit_24px")
-        )
-    }
-
-    private val onSelectMenuCallback = WeChatChatContextMenuApi.OnSelectListener { id, messageInfo, view ->
-        if (id != PREF_ID) return@OnSelectListener false
-        val context = view.context ?: return@OnSelectListener false
-        val wrappedContext = CommonContextWrapper.createAppCompatContext(context)
-        MaterialDialog(wrappedContext).show {
-            title(text = "修改消息")
-            input(
-                hint = "输入要修改的消息，仅限娱乐。",
-                waitForPositiveButton = false,
-            )
-            positiveButton(text = "确定") { dialog ->
-                val inputText = dialog.getInputField().text?.toString() ?: ""
-                val setTextMethod = view.javaClass.declaredMethods.first {
-                    it.parameterTypes.contentEquals(
-                        arrayOf(
-                            CharSequence::class.java,
-                        )
-                    )
-                }
-                setTextMethod.invoke(view, inputText)
-                dialog.dismiss()
-            }
-
-            negativeButton(text = "取消")
-        }
-        return@OnSelectListener true
-    }
+object ModifyMessageDisplayHook : BaseSwitchFunctionHookItem(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override fun entry(classLoader: ClassLoader) {
-        try {
-            WeChatChatContextMenuApi.addOnCreateListener(onCreateMenuCallback)
-            WeChatChatContextMenuApi.addOnSelectListener(onSelectMenuCallback)
-            WeLogger.i(TAG, "修改消息显示 Hook 注册成功")
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "注册失败: ${e.message}", e)
-        }
+        WeChatMessageContextMenuApi.addProvider(this)
     }
 
     override fun unload(classLoader: ClassLoader) {
-        WeChatChatContextMenuApi.removeOnCreateListener(onCreateMenuCallback)
-        WeChatChatContextMenuApi.removeOnSelectListener(onSelectMenuCallback)
+        WeChatMessageContextMenuApi.removeProvider(this)
         super.unload(classLoader)
+    }
+
+    override fun getMenuItems(
+        hookParam: XC_MethodHook.MethodHookParam,
+        msgInfoBean: Any
+    ): List<WeChatMessageContextMenuApi.MenuItem> {
+        val type = msgInfoBean.asResolver()
+            .firstField {
+                name = "field_type"
+                superclass()
+            }
+            .get() as Int
+
+        if (!MsgType.isText(type)) {
+            return emptyList()
+        }
+
+        return listOf(
+            WeChatMessageContextMenuApi.MenuItem(777002, "修改内容", ModuleRes.getDrawable("edit_24px"), { view, _, _ ->
+                showComposeDialog(view.context) { onDismiss ->
+                    var input by remember { mutableStateOf("") } // TODO: figure out how to find initial value
+
+                    AlertDialog(onDismissRequest = onDismiss,
+                        title = { Text("修改消息显示") },
+                        text = {
+                            TextField(value = input, onValueChange = { input = it }, label = { Text("显示内容") })
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                view.asResolver()
+                                    .firstMethod {
+                                        parameters(CharSequence::class)
+                                    }
+                                    .invoke(input)
+                                onDismiss()
+                            }) {
+                                Text("确定")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { onDismiss() }) {
+                                Text("取消")
+                            }
+                        })
+                }
+            })
+        )
     }
 }

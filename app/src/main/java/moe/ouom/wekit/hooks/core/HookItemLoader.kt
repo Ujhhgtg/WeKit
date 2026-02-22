@@ -16,8 +16,8 @@ import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.dexkit.cache.DexCacheManager
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.factory.HookItemFactory
-import moe.ouom.wekit.ui.compose.DexFinderContent
-import moe.ouom.wekit.ui.compose.showComposeDialog
+import moe.ouom.wekit.ui.content.DexFinderContent
+import moe.ouom.wekit.ui.utils.showComposeDialog
 import moe.ouom.wekit.utils.common.SyncUtils
 import moe.ouom.wekit.utils.log.WeLogger
 

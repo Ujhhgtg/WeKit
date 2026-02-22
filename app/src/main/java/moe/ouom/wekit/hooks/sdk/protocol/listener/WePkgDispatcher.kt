@@ -13,25 +13,20 @@ import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Proxy
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.min
 
 @HookItem(path = "protocol/wepkg_dispatcher", desc = "WePkg 请求/响应数据包拦截与篡改")
-class WePkgDispatcher : ApiHookItem(), IDexFind {
+object WePkgDispatcher : ApiHookItem(), IDexFind {
+
     private val dexClsOnGYNetEnd by dexClass()
     // 缓存最近10条记录，避免因脚本引起的无限递归
     private val recentRequests = ConcurrentHashMap<String, Long>()
 
     override fun entry(classLoader: ClassLoader) {
         SyncUtils.postDelayed(3000) {
-            val netSceneBaseClass = WePkgHelper.INSTANCE?.dexClsNetSceneBase?.clazz
+            val netSceneBaseClass = WePkgHelper.dexClsNetSceneBase.clazz
             val callbackInterface = dexClsOnGYNetEnd.clazz
 
 //            hookBuilder()
-
-            if (netSceneBaseClass == null) {
-                WeLogger.e("PkgDispatcher", "无法找到 NetSceneBase 类，跳过 WePkg 拦截器注入")
-                return@postDelayed
-            }
 
             hookBefore(netSceneBaseClass, "dispatch") { param ->
                 val v0Var = param.args[1] ?: return@hookBefore
@@ -165,13 +160,9 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
     }
 
     private fun hookBuilder() {
-        val builderClass = WePkgHelper.INSTANCE?.dexClsConfigBuilder?.clazz
+        val builderClass = WePkgHelper.dexClsConfigBuilder.clazz
 
         try {
-            if (builderClass == null) {
-                WeLogger.e("WePkgListener-gen", "找不到 Builder 类")
-                return
-            }
             WeLogger.i("WePkgListener-gen", "start Hook ${builderClass.name}.a() 方法")
             hookAfter(builderClass, "a") { param ->
                 val builder = param.thisObject

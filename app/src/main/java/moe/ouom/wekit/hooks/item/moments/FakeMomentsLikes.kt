@@ -1,4 +1,4 @@
-package moe.ouom.wekit.hooks.item.moment
+package moe.ouom.wekit.hooks.item.moments
 
 import android.content.ContentValues
 import android.view.ContextMenu
@@ -8,8 +8,8 @@ import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
 import moe.ouom.wekit.hooks.sdk.base.WeDatabaseListener
-import moe.ouom.wekit.hooks.sdk.ui.WeChatSnsContextMenuApi
-import moe.ouom.wekit.ui.CommonContextWrapper
+import moe.ouom.wekit.hooks.sdk.ui.WeMomentsContextMenuApi
+import moe.ouom.wekit.ui.utils.CommonContextWrapper
 import moe.ouom.wekit.utils.Initiator.loadClass
 import moe.ouom.wekit.utils.log.WeLogger
 import java.lang.reflect.Field
@@ -17,35 +17,33 @@ import java.lang.reflect.Method
 import java.util.LinkedList
 
 @HookItem(
-    path = "朋友圈/伪点赞",
-    desc = "自定义修改朋友圈点赞用户列表（伪点赞）"
+    path = "朋友圈/朋友圈伪集赞",
+    desc = "自定义朋友圈点赞用户列表"
 )
-class FakeLikesHook : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpdateListener  {
+object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpdateListener  {
 
-    companion object {
-        private const val TAG = "FakeLikesHook"
-        private const val MENU_ID_FAKE_LIKES = 20001
-        private const val TBL_SNS_INFO = "SnsInfo"
+    private const val TAG = "FakeMomentsLikes"
+    private const val MENU_ID_FAKE_LIKES = 20001
+    private const val TBL_SNS_INFO = "SnsInfo"
 
-        // 存储每个朋友圈动态的伪点赞用户配置 (snsId -> Set<微信id>)
-        private val fakeLikeWxids = mutableMapOf<Long, Set<String>>()
+    // 存储每个朋友圈动态的伪点赞用户配置 (snsId -> Set<微信id>)
+    private val fakeLikeWxids = mutableMapOf<Long, Set<String>>()
 
-        private var snsObjectClass: Class<*>? = null
-        private var parseFromMethod: Method? = null
-        private var toByteArrayMethod: Method? = null
-        private var likeUserListField: Field? = null
-        private var likeUserListCountField: Field? = null
-        private var likeCountField: Field? = null
-        private var likeFlagField: Field? = null
-        private var snsUserProtobufClass: Class<*>? = null
-    }
+    private var snsObjectClass: Class<*>? = null
+    private var parseFromMethod: Method? = null
+    private var toByteArrayMethod: Method? = null
+    private var likeUserListField: Field? = null
+    private var likeUserListCountField: Field? = null
+    private var likeCountField: Field? = null
+    private var likeFlagField: Field? = null
+    private var snsUserProtobufClass: Class<*>? = null
 
-    private val onCreateListener = WeChatSnsContextMenuApi.OnCreateListener { menu ->
+    private val onCreateListener = WeMomentsContextMenuApi.OnCreateListener { menu ->
         menu.add(ContextMenu.NONE, MENU_ID_FAKE_LIKES, 0, "设置伪点赞")
             ?.setIcon(android.R.drawable.star_on)
     }
 
-    private val onSelectListener = WeChatSnsContextMenuApi.OnSelectListener { context, itemId ->
+    private val onSelectListener = WeMomentsContextMenuApi.OnSelectListener { context, itemId ->
         if (itemId == MENU_ID_FAKE_LIKES) {
             showFakeLikesDialog(context)
             true
@@ -57,8 +55,8 @@ class FakeLikesHook : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpdateLi
     override fun entry(classLoader: ClassLoader) {
         initReflection(classLoader)
 
-        WeChatSnsContextMenuApi.addOnCreateListener(onCreateListener)
-        WeChatSnsContextMenuApi.addOnSelectListener(onSelectListener)
+        WeMomentsContextMenuApi.addOnCreateListener(onCreateListener)
+        WeMomentsContextMenuApi.addOnSelectListener(onSelectListener)
 
         WeDatabaseListener.addListener(this)
         WeLogger.i(TAG, "伪点赞功能已启动")
@@ -67,8 +65,8 @@ class FakeLikesHook : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpdateLi
     override fun unload(classLoader: ClassLoader) {
         WeDatabaseListener.removeListener(this)
 
-        WeChatSnsContextMenuApi.removeOnCreateListener(onCreateListener)
-        WeChatSnsContextMenuApi.removeOnSelectListener(onSelectListener)
+        WeMomentsContextMenuApi.removeOnCreateListener(onCreateListener)
+        WeMomentsContextMenuApi.removeOnSelectListener(onSelectListener)
         WeLogger.i(TAG, "伪点赞功能已停止")
     }
 
@@ -79,7 +77,7 @@ class FakeLikesHook : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpdateLi
             WeLogger.e(TAG, "处理数据库更新异常", e)
         }
 
-        return false // 返回false表示继续原有流程
+        return false // 返回 false 表示继续原有流程
     }
 
     private fun initReflection(classLoader: ClassLoader) {
@@ -143,10 +141,10 @@ class FakeLikesHook : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpdateLi
     /**
      * 显示伪点赞用户选择对话框
      */
-    private fun showFakeLikesDialog(context: WeChatSnsContextMenuApi.SnsContext) {
+    private fun showFakeLikesDialog(context: WeMomentsContextMenuApi.SnsContext) {
         try {
             // 获取所有好友列表
-            val allFriends = WeDatabaseApi.INSTANCE?.getAllConnects() ?: return
+            val allFriends = WeDatabaseApi.getAllConnects()
 
             val displayItems = allFriends.map { contact ->
                 buildString {

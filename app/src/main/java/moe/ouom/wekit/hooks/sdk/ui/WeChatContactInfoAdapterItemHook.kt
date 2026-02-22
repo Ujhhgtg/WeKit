@@ -17,41 +17,38 @@ import java.lang.reflect.Modifier
 import java.util.concurrent.CopyOnWriteArrayList
 
 @HookItem(path = "API/用户联系页面扩展")
-class WeChatContactInfoAdapterItemHook : ApiHookItem() {
+object WeChatContactInfoAdapterItemHook : ApiHookItem() {
 
-    companion object {
-        private const val TAG = "ContactInfoAdapterItemHook"
-        private val initCallbacks = CopyOnWriteArrayList<InitContactInfoViewCallback>()
-        private val clickListeners = CopyOnWriteArrayList<OnContactInfoItemClickListener>()
+    private const val TAG = "ContactInfoAdapterItemHook"
+    private val initCallbacks = CopyOnWriteArrayList<InitContactInfoViewCallback>()
+    private val clickListeners = CopyOnWriteArrayList<OnContactInfoItemClickListener>()
 
-        @Volatile
-        private var isRefInitialized = false
-        private lateinit var prefConstructor: Constructor<*>
-        private lateinit var prefKeyField: Field
-        private lateinit var adapterField: Field
-        private lateinit var onPreferenceTreeClickMethod: Method
-        private lateinit var addPreferenceMethod: Method
-        private lateinit var setKeyMethod: Method
-        private lateinit var setSummaryMethod: Method
-        private lateinit var setTitleMethod: Method
+    @Volatile
+    private var isRefInitialized = false
+    private lateinit var prefConstructor: Constructor<*>
+    private lateinit var prefKeyField: Field
+    private lateinit var adapterField: Field
+    private lateinit var onPreferenceTreeClickMethod: Method
+    private lateinit var addPreferenceMethod: Method
+    private lateinit var setKeyMethod: Method
+    private lateinit var setSummaryMethod: Method
+    private lateinit var setTitleMethod: Method
 
 
-        fun addInitCallback(callback: InitContactInfoViewCallback) {
-            initCallbacks.add(callback)
-        }
+    fun addInitCallback(callback: InitContactInfoViewCallback) {
+        initCallbacks.add(callback)
+    }
 
-        fun removeInitCallback(callback: InitContactInfoViewCallback) {
-            initCallbacks.remove(callback)
-        }
+    fun removeInitCallback(callback: InitContactInfoViewCallback) {
+        initCallbacks.remove(callback)
+    }
 
-        fun addClickListener(listener: OnContactInfoItemClickListener) {
-            clickListeners.add(listener)
-        }
+    fun addClickListener(listener: OnContactInfoItemClickListener) {
+        clickListeners.add(listener)
+    }
 
-        fun removeClickListener(listener: OnContactInfoItemClickListener) {
-            clickListeners.remove(listener)
-        }
-
+    fun removeClickListener(listener: OnContactInfoItemClickListener) {
+        clickListeners.remove(listener)
     }
 
     fun interface InitContactInfoViewCallback {
@@ -68,7 +65,7 @@ class WeChatContactInfoAdapterItemHook : ApiHookItem() {
     override fun entry(classLoader: ClassLoader) {
         initReflection()
         hook(classLoader)
-        hookItemClick(classLoader)
+        hookItemClick()
     }
 
     private fun initReflection() {
@@ -165,7 +162,7 @@ class WeChatContactInfoAdapterItemHook : ApiHookItem() {
         }
     }
 
-    private fun hookItemClick(classLoader: ClassLoader) {
+    private fun hookItemClick() {
         XposedBridge.hookMethod(onPreferenceTreeClickMethod, object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val preference = param.args[1] ?: return

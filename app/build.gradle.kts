@@ -281,7 +281,7 @@ fun hasConnectedDevice(): Boolean {
 }
 
 val packageName = "com.tencent.mm"
-val killWeChat = tasks.register("kill-wechat") {
+val killWeChat = tasks.register("killWeChat") {
     group = "wekit"
     description = "Force-stop WeChat on a connected device; skips gracefully if none."
     onlyIf { hasConnectedDevice() }
@@ -294,7 +294,7 @@ val killWeChat = tasks.register("kill-wechat") {
             standardOutput = ByteArrayOutputStream(); errorOutput = ByteArrayOutputStream()
         }
 
-        logger.lifecycle("✅ kill-wechat executed.")
+        logger.lifecycle("✅ killWeChat executed.")
     }
 }
 

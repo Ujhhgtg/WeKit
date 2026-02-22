@@ -24,7 +24,8 @@ import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
 
 @HookItem(path = "protocol/通用发包服务")
-class WePkgHelper : ApiHookItem(), IDexFind {
+object WePkgHelper : ApiHookItem(), IDexFind {
+
     // 核心 Protobuf 类
     val dexClsProtoBase by dexClass()
     private val dexClsRawReq by dexClass()
@@ -59,16 +60,10 @@ class WePkgHelper : ApiHookItem(), IDexFind {
         SendPatSigner { dexClsNetScenePat.clazz }
     )
 
-    companion object {
-        const val TAG = "PkgHelper"
-
-        @Volatile
-        var INSTANCE: WePkgHelper? = null
-    }
+    const val TAG = "PkgHelper"
 
     override fun entry(classLoader: ClassLoader) {
         this.classLoader = classLoader
-        INSTANCE = this
 
         // 映射业务请求类
         cgiReqClassMap[522] = dexClsNewSendMsgReq.clazz

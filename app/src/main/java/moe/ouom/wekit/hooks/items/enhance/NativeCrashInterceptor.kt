@@ -8,7 +8,7 @@ import com.afollestad.materialdialogs.MaterialDialog
 import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.ui.CommonContextWrapper
+import moe.ouom.wekit.ui.utils.CommonContextWrapper
 import moe.ouom.wekit.utils.Initiator.loadClass
 import moe.ouom.wekit.utils.crash.CrashLogManager
 import moe.ouom.wekit.utils.crash.NativeCrashHandler

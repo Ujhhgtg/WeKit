@@ -1,4 +1,4 @@
-package moe.ouom.wekit.ui.compose
+package moe.ouom.wekit.ui.utils
 
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner

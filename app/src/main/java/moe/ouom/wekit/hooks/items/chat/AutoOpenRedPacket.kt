@@ -17,8 +17,8 @@ import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.base.WeDatabaseListener
 import moe.ouom.wekit.hooks.sdk.base.WeNetworkApi
-import moe.ouom.wekit.ui.compose.showComposeDialog
-import moe.ouom.wekit.ui.creator.dialog.BaseRikkaDialogCompose
+import moe.ouom.wekit.ui.utils.showComposeDialog
+import moe.ouom.wekit.ui.content.BaseRikkaDialog
 import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
@@ -27,8 +27,10 @@ import kotlin.random.Random
 
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "聊天与消息/自动抢红包", desc = "监听消息并自动拆开红包")
-object WeRedPacketAuto : BaseClickableFunctionHookItem(),
+object AutoOpenRedPacket : BaseClickableFunctionHookItem(),
+    
     WeDatabaseListener.IInsertListener, IDexFind {
+
     private const val TAG: String = "WeRedPacketAuto"
 
     private val dexClsReceiveLuckyMoney by dexClass()
@@ -37,8 +39,8 @@ object WeRedPacketAuto : BaseClickableFunctionHookItem(),
 
     private val currentRedPacketMap = ConcurrentHashMap<String, RedPacketInfo>()
 
-    private const val TYPE_LUCKY_MONEY = 436207665 // 红包
-    private const val TYPE_LUCKY_MONEY_EXCLUSIVE = 469762097 // 专属红包
+    private const val TYPE_RED_PACKET = 436207665 // 红包
+    private const val TYPE_RED_PACKET_EXCLUSIVE = 469762097 // 专属红包
 
     data class RedPacketInfo(
         val sendId: String,
@@ -68,7 +70,7 @@ object WeRedPacketAuto : BaseClickableFunctionHookItem(),
         if (table != "message") return
 
         val type = values.getAsInteger("type") ?: 0
-        if (type == TYPE_LUCKY_MONEY || type == TYPE_LUCKY_MONEY_EXCLUSIVE) {
+        if (type == TYPE_RED_PACKET || type == TYPE_RED_PACKET_EXCLUSIVE) {
             WeLogger.i(TAG, "detected red packet message (type=$type)")
             handleRedPacket(values)
         }
@@ -209,7 +211,7 @@ object WeRedPacketAuto : BaseClickableFunctionHookItem(),
         super.unload(classLoader)
     }
 
-    private class ConfigDialog(context: Context) : BaseRikkaDialogCompose(context, "自动抢红包") {
+    private class ConfigDialog(context: Context) : BaseRikkaDialog(context, "自动抢红包") {
 
         override fun initPreferences() {
             addCategory("通用设置")

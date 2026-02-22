@@ -17,8 +17,8 @@ import java.lang.reflect.Modifier
  * 适配版本：WeChat 待补充 ~ 8.0.68
  */
 @SuppressLint("DiscouragedApi")
-@HookItem(path = "API/AppMsg发送服务", desc = "提供 XML 卡片消息发送能力")
-class WeAppMsgApi : ApiHookItem(), IDexFind {
+@HookItem(path = "API/AppMsg 发送服务", desc = "提供 XML 卡片消息发送能力")
+object WeAppMsgApi : ApiHookItem(), IDexFind {
 
     // -------------------------------------------------------------------------------------
     // DexKit 定义
@@ -36,12 +36,7 @@ class WeAppMsgApi : ApiHookItem(), IDexFind {
     private var sendAppMsgMethod: Method? = null
     private var appMsgContentClass: Class<*>? = null
 
-    companion object {
-        private const val TAG = "WeAppMsgApi"
-
-        @SuppressLint("StaticFieldLeak")
-        var INSTANCE: WeAppMsgApi? = null
-    }
+    private const val TAG = "WeAppMsgApi"
 
     @SuppressLint("NonUniqueDexKitData")
     override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
@@ -106,7 +101,6 @@ class WeAppMsgApi : ApiHookItem(), IDexFind {
     }
 
     override fun entry(classLoader: ClassLoader) {
-        INSTANCE = this
         try {
             // 初始化方法引用
             parseXmlMethod = dexMethodParseXml.method

@@ -22,7 +22,7 @@ import java.lang.reflect.Modifier
  */
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "API/数据库服务", desc = "提供数据库直接查询能力")
-class WeDatabaseApi : ApiHookItem(), IDexFind {
+object WeDatabaseApi : ApiHookItem(), IDexFind {
     // MMKernel 类
     private val dexClassKernel by dexClass()
 
@@ -39,125 +39,120 @@ class WeDatabaseApi : ApiHookItem(), IDexFind {
     private var wcdbInstance: Any? = null
     private var rawQueryMethod: Method? = null
 
-    companion object {
-        private const val TAG = "WeDatabaseApi"
-        private const val WCDB_CLASS_NAME = "com.tencent.wcdb.database.SQLiteDatabase"
+    private const val TAG = "WeDatabaseApi"
+    private const val WCDB_CLASS_NAME = "com.tencent.wcdb.database.SQLiteDatabase"
 
-        @SuppressLint("StaticFieldLeak")
-        var INSTANCE: WeDatabaseApi? = null
+    // =============================================================================
+    // SQL 语句集中管理
+    // =============================================================================
+    private object SQL {
+        // 基础字段 - 联系人查询常用字段
+        const val CONTACT_FIELDS = """
+            r.username, r.alias, r.conRemark, r.nickname, 
+            r.pyInitial, r.quanPin, r.encryptUsername, i.reserved2 AS avatarUrl
+        """
 
-        // =============================================================================
-        // SQL 语句集中管理
-        // =============================================================================
-        private object SQL {
-            // 基础字段 - 联系人查询常用字段
-            const val CONTACT_FIELDS = """
-                r.username, r.alias, r.conRemark, r.nickname, 
-                r.pyInitial, r.quanPin, r.encryptUsername, i.reserved2 AS avatarUrl
-            """
+        // 基础字段 - 群聊查询常用字段
+        const val CHATROOM_FIELDS = "r.username, r.nickname, r.pyInitial, r.quanPin, i.reserved2 AS avatarUrl"
 
-            // 基础字段 - 群聊查询常用字段
-            const val CHATROOM_FIELDS = "r.username, r.nickname, r.pyInitial, r.quanPin, i.reserved2 AS avatarUrl"
+        // 基础字段 - 公众号查询常用字段
+        const val OFFICIAL_FIELDS = "r.username, r.alias, r.nickname, i.reserved2 AS avatarUrl"
 
-            // 基础字段 - 公众号查询常用字段
-            const val OFFICIAL_FIELDS = "r.username, r.alias, r.nickname, i.reserved2 AS avatarUrl"
+        // 基础 JOIN 语句
+        const val LEFT_JOIN_IMG_FLAG = "LEFT JOIN img_flag i ON r.username = i.username"
 
-            // 基础 JOIN 语句
-            const val LEFT_JOIN_IMG_FLAG = "LEFT JOIN img_flag i ON r.username = i.username"
+        // =========================================
+        // 联系人查询
+        // =========================================
 
-            // =========================================
-            // 联系人查询
-            // =========================================
+        /** 所有人类账号（排除群聊和公众号和系统账号） */
+        val ALL_CONNECTS = """
+            SELECT $CONTACT_FIELDS, r.type
+            FROM rcontact r 
+            $LEFT_JOIN_IMG_FLAG 
+            WHERE 
+                r.username != 'filehelper'
+                AND r.verifyFlag = 0 
+                AND (r.type & 1) != 0
+                AND (r.type & 8) = 0
+                AND (r.type & 32) = 0
+        """.trimIndent()
 
-            /** 所有人类账号（排除群聊和公众号和系统账号） */
-            val ALL_CONNECTS = """
-                SELECT $CONTACT_FIELDS, r.type
-                FROM rcontact r 
-                $LEFT_JOIN_IMG_FLAG 
-                WHERE 
-                    r.username != 'filehelper'
-                    AND r.verifyFlag = 0 
-                    AND (r.type & 1) != 0
-                    AND (r.type & 8) = 0
-                    AND (r.type & 32) = 0
-            """.trimIndent()
+        /** 好友列表（排除群聊和公众号和系统账号和自己和假好友） */
+        val CONTACT_LIST = """
+            SELECT $CONTACT_FIELDS, r.type
+            FROM rcontact r 
+            $LEFT_JOIN_IMG_FLAG 
+            WHERE 
+                (
+                    r.encryptUsername != '' -- 是真好友                         
+                    OR 
+                    r.username = (SELECT value FROM userinfo WHERE id = 2) -- 是我自己
+                )
+                AND r.verifyFlag = 0 
+                AND (r.type & 1) != 0
+                AND (r.type & 8) = 0
+                AND (r.type & 32) = 0
+        """.trimIndent()
 
-            /** 好友列表（排除群聊和公众号和系统账号和自己和假好友） */
-            val CONTACT_LIST = """
-                SELECT $CONTACT_FIELDS, r.type
-                FROM rcontact r 
-                $LEFT_JOIN_IMG_FLAG 
-                WHERE 
-                    (
-                        r.encryptUsername != '' -- 是真好友                         
-                        OR 
-                        r.username = (SELECT value FROM userinfo WHERE id = 2) -- 是我自己
-                    )
-                    AND r.verifyFlag = 0 
-                    AND (r.type & 1) != 0
-                    AND (r.type & 8) = 0
-                    AND (r.type & 32) = 0
-            """.trimIndent()
+        // =========================================
+        // 群聊查询
+        // =========================================
 
-            // =========================================
-            // 群聊查询
-            // =========================================
+        /** 所有群聊 */
+        val CHATROOM_LIST = """
+            SELECT $CHATROOM_FIELDS
+            FROM rcontact r 
+            $LEFT_JOIN_IMG_FLAG 
+            WHERE r.username LIKE '%@chatroom'
+        """.trimIndent()
 
-            /** 所有群聊 */
-            val CHATROOM_LIST = """
-                SELECT $CHATROOM_FIELDS
-                FROM rcontact r 
-                $LEFT_JOIN_IMG_FLAG 
-                WHERE r.username LIKE '%@chatroom'
-            """.trimIndent()
+        /** 获取群成员列表 */
+        fun groupMembers(idsStr: String) = """
+            SELECT $CONTACT_FIELDS
+            FROM rcontact r 
+            $LEFT_JOIN_IMG_FLAG 
+            WHERE r.username IN ($idsStr)
+        """.trimIndent()
 
-            /** 获取群成员列表 */
-            fun groupMembers(idsStr: String) = """
-                SELECT $CONTACT_FIELDS
-                FROM rcontact r 
-                $LEFT_JOIN_IMG_FLAG 
-                WHERE r.username IN ($idsStr)
-            """.trimIndent()
+        // =========================================
+        // 公众号查询
+        // =========================================
 
-            // =========================================
-            // 公众号查询
-            // =========================================
+        /** 所有公众号 */
+        val OFFICIAL_LIST = """
+            SELECT $OFFICIAL_FIELDS
+            FROM rcontact r 
+            $LEFT_JOIN_IMG_FLAG 
+            WHERE r.username LIKE 'gh_%'
+        """.trimIndent()
 
-            /** 所有公众号 */
-            val OFFICIAL_LIST = """
-                SELECT $OFFICIAL_FIELDS
-                FROM rcontact r 
-                $LEFT_JOIN_IMG_FLAG 
-                WHERE r.username LIKE 'gh_%'
-            """.trimIndent()
+        // =========================================
+        // 消息查询
+        // =========================================
 
-            // =========================================
-            // 消息查询
-            // =========================================
+        /** 分页获取消息 */
+        fun messages(wxid: String, limit: Int, offset: Int) = """
+            SELECT msgId, talker, content, type, createTime, isSend 
+            FROM message 
+            WHERE talker='$wxid' 
+            ORDER BY createTime DESC 
+            LIMIT $limit OFFSET $offset
+        """.trimIndent()
 
-            /** 分页获取消息 */
-            fun messages(wxid: String, limit: Int, offset: Int) = """
-                SELECT msgId, talker, content, type, createTime, isSend 
-                FROM message 
-                WHERE talker='$wxid' 
-                ORDER BY createTime DESC 
-                LIMIT $limit OFFSET $offset
-            """.trimIndent()
+        // =========================================
+        // 头像查询
+        // =========================================
 
-            // =========================================
-            // 头像查询
-            // =========================================
+        /** 获取头像URL */
+        fun avatar(wxid: String) = """
+            SELECT i.reserved2 AS avatarUrl 
+            FROM img_flag i 
+            WHERE i.username = '$wxid'
+        """.trimIndent()
 
-            /** 获取头像URL */
-            fun avatar(wxid: String) = """
-                SELECT i.reserved2 AS avatarUrl 
-                FROM img_flag i 
-                WHERE i.username = '$wxid'
-            """.trimIndent()
-
-            /** 获取群聊成员列表字符串 */
-            val CHATROOM_MEMBERS = "SELECT memberlist FROM chatroom WHERE chatroomname = '%s'"
-        }
+        /** 获取群聊成员列表字符串 */
+        val CHATROOM_MEMBERS = "SELECT memberlist FROM chatroom WHERE chatroomname = '%s'"
     }
 
     @SuppressLint("NonUniqueDexKitData")
@@ -194,7 +189,6 @@ class WeDatabaseApi : ApiHookItem(), IDexFind {
 
     override fun entry(classLoader: ClassLoader) {
         try {
-            INSTANCE = this
             getStorageMethod = dexMethodGetStorage.method
 
             if (getStorageMethod != null) {

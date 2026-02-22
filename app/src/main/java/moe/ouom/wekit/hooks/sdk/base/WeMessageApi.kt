@@ -786,7 +786,7 @@ object WeMessageApi : ApiHookItem(), IDexFind {
         val title = extractXmlTag(xmlContent, "title")
 
         WeLogger.d(TAG, "解析信息: AppId=$appId, Title=$title")
-        return WeAppMsgApi.INSTANCE?.sendXmlAppMsg(toUser, title, appId, null, null, xmlContent)
+        return WeAppMsgApi.sendXmlAppMsg(toUser, title, appId, null, null, xmlContent)
             ?: false
     }
 

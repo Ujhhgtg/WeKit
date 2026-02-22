@@ -1,4 +1,4 @@
-package moe.ouom.wekit.ui.creator.dialog
+package moe.ouom.wekit.ui.content
 
 import android.content.Context
 import moe.ouom.wekit.config.WeConfig
@@ -7,10 +7,10 @@ import moe.ouom.wekit.core.bridge.HookFactoryBridge
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 
-class CategorySettingsDialogCompose(
+class CategorySettingsDialog(
     context: Context,
     private val categoryName: String,
-) : BaseSettingsDialogCompose(context, categoryName) {
+) : BaseSettingsDialog(context, categoryName) {
 
     override fun initList() {
         val allItems = HookFactoryBridge.getAllItemList()
