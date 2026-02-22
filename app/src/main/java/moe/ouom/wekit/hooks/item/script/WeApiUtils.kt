@@ -10,9 +10,9 @@ object WeApiUtils {
 
     fun getSelfWxId(): String {
         return try {
-            WeApi.getSelfWxId()
+            WeApi.selfWxId
         } catch (e: Exception) {
-            WeLogger.e(TAG, "获取当前微信id失败: ${e.message}")
+            WeLogger.e(TAG, "获取当前微信 id 失败: ${e.message}")
             ""
         }
     }

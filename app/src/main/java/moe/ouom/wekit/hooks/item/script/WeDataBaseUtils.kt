@@ -27,7 +27,7 @@ object WeDataBaseUtils {
 
     fun getAllContacts(): Any {
         return try {
-            WeDatabaseApi.getAllConnects().map { contact ->
+            WeDatabaseApi.getContacts().map { contact ->
                 val jsonObject = JSONObject()
                 jsonObject.put("username", contact.username)
                 jsonObject.put("nickname", contact.nickname)
@@ -47,7 +47,7 @@ object WeDataBaseUtils {
 
     fun getContactList(): Any {
         return try {
-            WeDatabaseApi.getContactList().map { contact ->
+            WeDatabaseApi.getFriends().map { contact ->
                 val jsonObject = JSONObject()
                 jsonObject.put("username", contact.username)
                 jsonObject.put("nickname", contact.nickname)
@@ -67,7 +67,7 @@ object WeDataBaseUtils {
 
     fun getChatrooms(): Any {
         return try {
-            WeDatabaseApi.getChatroomList().map { group ->
+            WeDatabaseApi.getGroups().map { group ->
                 val jsonObject = JSONObject()
                 jsonObject.put("username", group.username)
                 jsonObject.put("nickname", group.nickname)
@@ -84,7 +84,7 @@ object WeDataBaseUtils {
 
     fun getOfficialAccounts(): Any {
         return try {
-            WeDatabaseApi.getOfficialAccountList().map { account ->
+            WeDatabaseApi.getOfficialAccounts().map { account ->
                 val jsonObject = JSONObject()
                 jsonObject.put("username", account.username)
                 jsonObject.put("nickname", account.nickname)

@@ -94,7 +94,7 @@ public class ActivityProxyHooks {
             hookPackageManager(ctx, sCurrentActivityThread, clazz_ActivityThread);
 
             __stub_hooked = true;
-            WeLogger.i("ActivityProxyHooks", "Activity Proxy Hooks installed successfully.");
+            WeLogger.i("ActivityProxyHooks", "Activity Proxy Hooks installed successfully");
         } catch (Exception e) {
             WeLogger.e("ActivityProxyHooks", "Failed to init stub activity hooks", e);
         }

@@ -17,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,10 +33,13 @@ import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.ui.utils.XposedLifecycleOwner
+import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "美化/美化首页底部导航栏", desc = "将首页底部导航栏替换为 Jetpack Compose 组件")
 object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
+
+    private const val TAG = "BeautifyMainScreenTabBar"
 
     private val methodDoOnCreate by dexMethod()
 
@@ -60,13 +62,17 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
                             name = "mTabsAdapter"
                         }
                         .get()!!
-                    val methodOnPageSelected = tabsAdapter.asResolver()
+                    val methodOnTabClick = tabsAdapter.asResolver()
                         .firstMethod {
                             name = "onTabClick"
                         }
 
                     val viewParent = viewPager.parent as ViewGroup
                     val bottomTabView = viewParent.getChildAt(1) as ViewGroup
+                    if (bottomTabView.getChildAt(0) is ComposeView) {
+                        WeLogger.d(TAG, "ComposeView already exists, skipping...")
+                        return@afterIfEnabled
+                    }
 
                     val lifecycleOwner = XposedLifecycleOwner().apply { onCreate(); onResume() }
                     val decorView = activity.window.decorView
@@ -79,7 +85,21 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
                     bottomTabView.setViewTreeViewModelStoreOwner(lifecycleOwner)
                     bottomTabView.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
 
+                    val selectedPageIndexState = mutableIntStateOf(0)
+
+                    tabsAdapter.asResolver()
+                        .firstMethod { name = "onPageScrolled" }
+                        .self.hookBefore { param ->
+                            val pageIndex = param.args[0] as Int
+                            val offset = param.args[1] as Float
+
+                            if (offset == 0.0f) {
+                                selectedPageIndexState.intValue = pageIndex
+                            }
+                        }
+
                     bottomTabView.removeAllViews()
+                    WeLogger.i(TAG, "injected ComposeView")
                     bottomTabView.addView(
                         ComposeView(activity).apply {
                             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
@@ -88,14 +108,14 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
                             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
 
                             setContent {
+                                var selectedPageIndex by selectedPageIndexState
+
                                 // WeChat doesn't follow MaterialTheme so we don't use that too
                                 // or else different color palettes clash and it's hideous
                                 val isDark = isSystemInDarkTheme()
                                 val backgroundColor = if (isDark) Color(0xFF191919) else Color(0xFFF7F7F7)
                                 val activeColor = if (isDark) Color(0xFF07C160) else Color(0xFF07C160)
                                 val inactiveColor = if (isDark) Color(0xFF999999) else Color(0xFF181818)
-
-                                var selectedPageIndex by remember { mutableIntStateOf(0) }
 
                                 Row(
                                     modifier = Modifier
@@ -115,16 +135,19 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem(), IDexFind {
                                         IconButton(
                                             onClick = {
                                                 selectedPageIndex = index
-                                                methodOnPageSelected.invoke(index)
+                                                methodOnTabClick.invoke(index)
+                                                WeLogger.d(TAG, "selectedPageIndex: $selectedPageIndex")
                                             },
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .fillMaxHeight()
                                         ) {
+                                            val tint = if (index == selectedPageIndex)
+                                                activeColor else inactiveColor
                                             Icon(
                                                 imageVector = icon,
                                                 contentDescription = label,
-                                                tint = if (index == selectedPageIndex) activeColor else inactiveColor
+                                                tint = tint
                                             )
                                         }
                                     }

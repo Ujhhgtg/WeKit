@@ -215,82 +215,92 @@ declare namespace time {
     function getCurrentUnixEpoch(): number;
 }
 
-// --- 消息发送 API (指定接收人) ---
+declare namespace wechat {
+    // --- 消息发送 API (指定接收人) ---
 
-/**
- * 向指定用户发送文本消息
- * @param to 接收者的 wxid 或群 ID
- * @param text 消息文本内容
- * @example
- * sendText("wxid_abc123", "你好！");
- */
-declare function sendText(to: string, text: string): void;
+    /**
+     * 向指定用户发送文本消息
+     * @param to 接收者的 wxid 或群 ID
+     * @param text 消息文本内容
+     * @example
+     * sendText("wxid_abc123", "你好！");
+     */
+    declare function sendText(to: string, text: string): void;
 
-/**
- * 向指定用户发送图片消息
- * @param to 接收者的 wxid 或群 ID
- * @param path 图片文件的绝对路径
- * @example
- * const result = http.download("https://example.com/image.jpg");
- * if (result.ok) {
- *   sendImage("wxid_abc123", result.path);
- * }
- */
-declare function sendImage(to: string, path: string): void;
+    /**
+     * 向指定用户发送图片消息
+     * @param to 接收者的 wxid 或群 ID
+     * @param path 图片文件的绝对路径
+     * @example
+     * const result = http.download("https://example.com/image.jpg");
+     * if (result.ok) {
+     *   sendImage("wxid_abc123", result.path);
+     * }
+     */
+    declare function sendImage(to: string, path: string): void;
 
-/**
- * 向指定用户发送文件消息
- * @param to 接收者的 wxid 或群 ID
- * @param path 文件的绝对路径
- * @param title 文件显示名称（可选）
- * @example
- * sendFile("wxid_abc123", "/sdcard/document.pdf", "重要文档.pdf");
- */
-declare function sendFile(to: string, path: string, title?: string): void;
+    /**
+     * 向指定用户发送文件消息
+     * @param to 接收者的 wxid 或群 ID
+     * @param path 文件的绝对路径
+     * @param title 文件显示名称（可选）
+     * @example
+     * sendFile("wxid_abc123", "/sdcard/document.pdf", "重要文档.pdf");
+     */
+    declare function sendFile(to: string, path: string, title?: string): void;
 
-/**
- * 向指定用户发送语音消息
- * @param to 接收者的 wxid 或群 ID
- * @param path 语音文件的绝对路径（需为 AMR 格式）
- * @param durationMs 语音时长（毫秒）
- * @example
- * sendVoice("wxid_abc123", "/data/voice.amr", 3000);
- */
-declare function sendVoice(to: string, path: string, durationMs: number): void;
+    /**
+     * 向指定用户发送语音消息
+     * @param to 接收者的 wxid 或群 ID
+     * @param path 语音文件的绝对路径（需为 AMR 格式）
+     * @param durationMs 语音时长（毫秒）
+     * @example
+     * sendVoice("wxid_abc123", "/data/voice.amr", 3000);
+     */
+    declare function sendVoice(to: string, path: string, durationMs: number): void;
 
-// --- 消息回复 API (自动回复至发送者) ---
+    declare function sendAppMsg(content: string): void;
 
-/**
- * 回复文本消息给当前发送者
- * @param text 消息文本内容
- * @example
- * function onMessage(talker, content, type, isSend) {
- *   if (content === "ping") {
- *     replyText("pong");
- *   }
- * }
- */
-declare function replyText(text: string): void;
+    // --- 消息回复 API (自动回复至发送者) ---
 
-/**
- * 回复图片消息给当前发送者
- * @param path 图片文件的绝对路径
- */
-declare function replyImage(path: string): void;
+    /**
+     * 回复文本消息给当前发送者
+     * @param text 消息文本内容
+     * @example
+     * function onMessage(talker, content, type, isSend) {
+     *   if (content === "ping") {
+     *     replyText("pong");
+     *   }
+     * }
+     */
+    declare function replyText(text: string): void;
 
-/**
- * 回复文件消息给当前发送者
- * @param path 文件的绝对路径
- * @param title 文件显示名称（可选）
- */
-declare function replyFile(path: string, title?: string): void;
+    /**
+     * 回复图片消息给当前发送者
+     * @param path 图片文件的绝对路径
+     */
+    declare function replyImage(path: string): void;
 
-/**
- * 回复语音消息给当前发送者
- * @param path 语音文件的绝对路径（需为 AMR 格式）
- * @param durationMs 语音时长（毫秒）
- */
-declare function replyVoice(path: string, durationMs: number): void;
+    /**
+     * 回复文件消息给当前发送者
+     * @param path 文件的绝对路径
+     * @param title 文件显示名称（可选）
+     */
+    declare function replyFile(path: string, title?: string): void;
+
+    /**
+     * 回复语音消息给当前发送者
+     * @param path 语音文件的绝对路径（需为 AMR 格式）
+     * @param durationMs 语音时长（毫秒）
+     */
+    declare function replyVoice(path: string, durationMs: number): void;
+
+    declare function replyAppMsg(content: string): void;
+
+    declare function getSelfWxId(): string;
+
+    declare function getSelfAlias(): string;
+}
 
 // --- 钩子函数定义 ---
 

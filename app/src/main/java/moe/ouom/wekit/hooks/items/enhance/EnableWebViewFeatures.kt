@@ -41,7 +41,10 @@ object EnableWebViewFeatures : BaseSwitchFunctionHookItem(), IDexFind {
         methodInitWebViewFeatures.toDexMethod {
             hook {
                 beforeIfEnabled { param ->
-                    val intent = param.thisObject.asResolver().firstMethod { name = "getIntent" }.invoke() as Intent
+                    val intent = param.thisObject.asResolver().firstMethod {
+                        name = "getIntent"
+                        superclass()
+                    }.invoke() as Intent
                     intent.putExtra("show_feedback", false)
                 }
             }

@@ -5,6 +5,7 @@ import android.os.Looper
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import moe.ouom.wekit.hooks.sdk.base.WeMessageApi
+import moe.ouom.wekit.hooks.sdk.protocol.WeApi
 import moe.ouom.wekit.utils.io.PathUtils
 import moe.ouom.wekit.utils.log.WeLogger
 import okhttp3.FormBody
@@ -37,6 +38,7 @@ import kotlin.io.path.writeText
 
 object JsApiExposer {
     private const val TAG = "JsApiExposer"
+    private const val TAG_WECHAT_API = "JsApiExposer.WeApi"
     private const val TAG_LOG_API = "JsApiExposer.LogApi"
     private const val TAG_HTTP_API = "JsApiExposer.HttpApi"
 
@@ -48,11 +50,12 @@ object JsApiExposer {
             .build()
     }
 
-    fun exposeApis(scope: ScriptableObject) {
+    fun exposeApis(scope: ScriptableObject, talker: String? = null) {
         exposeHttpApis(scope)
         exposeLogApis(scope)
         exposeStorageApis(scope)
         exposeTimeApis(scope)
+        exposeWeChatApis(scope, talker)
     }
 
     private const val MAX_CACHE_SIZE_IN_MIB = 500
@@ -624,70 +627,131 @@ object JsApiExposer {
         ScriptableObject.putProperty(scope, "storage", storageObj)
     }
 
-    fun exposeOnMessageApis(scope: ScriptableObject, talker: String) {
-        val apiBootstrap = """
-            function sendText(to, text)                          { _sendText(to, text); }
-            function sendImage(to, path)                         { _sendImage(to, path); }
-            function sendFile(to, path, title)                   { _sendFile(to, path, title); }
-            function sendVoice(to, path, durationMs)             { _sendVoice(to, path, durationMs); }
-            function sendXml(to, content)                        { _sendXml(to, content); }
-            // Convenience: reply to the current talker without specifying 'to'
-            function replyText(text)                             { _sendText('$talker', text); }
-            function replyImage(path)                            { _sendImage('$talker', path); }
-            function replyFile(path, title)                      { _sendFile('$talker', path, title); }
-            function replyVoice(path, durationMs)                { _sendVoice('$talker', path, durationMs); }
-            function replyXml(content)                           { _sendXml('$talker', content); }
-        """.trimIndent()
+    fun exposeWeChatApis(scope: ScriptableObject, talker: String? = null) {
+        val weObj = NativeObject()
 
-        // Bind the native _send* functions using ScriptableObject
-        fun nativeFn(argCount: Int, block: (Array<Any?>) -> Unit) =
+        ScriptableObject.putProperty(weObj, "sendText",
             object : BaseFunction() {
-                override fun getArity() = argCount
-                override fun call(
-                    cx: Context, scope: Scriptable,
-                    thisObj: Scriptable, args: Array<Any?>,
-                ) = block(args).let { Context.getUndefinedValue() }
+                override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                    val to   = args.getOrNull(0)?.toString() ?: return null
+                    val text = args.getOrNull(1)?.toString() ?: return null
+                    WeMessageApi.sendText(to, text)
+                    return null
+                }
             }
+        )
+        ScriptableObject.putProperty(weObj, "sendImage",
+            object : BaseFunction() {
+                override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                    val to   = args.getOrNull(0)?.toString() ?: return null
+                    val path = args.getOrNull(1)?.toString() ?: return null
+                    WeMessageApi.sendImage(to, path)
+                    return null
+                }
+            }
+        )
+        ScriptableObject.putProperty(weObj, "sendFile",
+            object : BaseFunction() {
+                override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                    val to    = args.getOrNull(0)?.toString() ?: return null
+                    val path  = args.getOrNull(1)?.toString() ?: return null
+                    val title = args.getOrNull(2)?.toString() ?: path.substringAfterLast('/')
+                    WeMessageApi.sendFile(to, path, title)
+                    return null
+                }
+            }
+        )
+        ScriptableObject.putProperty(weObj, "sendVoice",
+            object : BaseFunction() {
+                override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                    val to         = args.getOrNull(0)?.toString() ?: return null
+                    val path       = args.getOrNull(1)?.toString() ?: return null
+                    val durationMs = (args.getOrNull(2) as? Number)?.toInt() ?: 0
+                    WeMessageApi.sendVoice(to, path, durationMs)
+                    return null
+                }
+            }
+        )
+        ScriptableObject.putProperty(weObj, "sendAppMsg",
+            object : BaseFunction() {
+                override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                    val to         = args.getOrNull(0)?.toString() ?: return null
+                    val content    = args.getOrNull(1)?.toString() ?: return null
+                    WeMessageApi.sendXmlAppMsg(to, content)
+                    return null
+                }
+            }
+        )
+        if (talker != null) {
+            ScriptableObject.putProperty(weObj, "replyText",
+                object : BaseFunction() {
+                    override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                        val text = args.getOrNull(0)?.toString() ?: return null
+                        WeMessageApi.sendText(talker, text)
+                        return null
+                    }
+                }
+            )
+            ScriptableObject.putProperty(weObj, "replyImage",
+                object : BaseFunction() {
+                    override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                        val path = args.getOrNull(0)?.toString() ?: return null
+                        WeMessageApi.sendImage(talker, path)
+                        return null
+                    }
+                }
+            )
+            ScriptableObject.putProperty(weObj, "replyFile",
+                object : BaseFunction() {
+                    override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                        val path  = args.getOrNull(0)?.toString() ?: return null
+                        val title = args.getOrNull(1)?.toString() ?: path.substringAfterLast('/')
+                        WeMessageApi.sendFile(talker, path, title)
+                        return null
+                    }
+                }
+            )
+            ScriptableObject.putProperty(weObj, "replyVoice",
+                object : BaseFunction() {
+                    override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                        val path       = args.getOrNull(0)?.toString() ?: return null
+                        val durationMs = (args.getOrNull(1) as? Number)?.toInt() ?: 0
+                        WeMessageApi.sendVoice(talker, path, durationMs)
+                        return null
+                    }
+                }
+            )
+            ScriptableObject.putProperty(weObj, "replyAppMsg",
+                object : BaseFunction() {
+                    override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any? {
+                        val content    = args.getOrNull(0)?.toString() ?: return null
+                        WeMessageApi.sendXmlAppMsg(talker, content)
+                        return null
+                    }
+                }
+            )
+        }
+        ScriptableObject.putProperty(weObj, "getSelfWxId", object : BaseFunction() {
+            override fun call(
+                cx: Context?,
+                scope: Scriptable?,
+                thisObj: Scriptable?,
+                args: Array<out Any?>?
+            ): Any {
+                return WeApi.selfWxId
+            }
+        })
+        ScriptableObject.putProperty(weObj, "getSelfAlias", object : BaseFunction() {
+            override fun call(
+                cx: Context?,
+                scope: Scriptable?,
+                thisObj: Scriptable?,
+                args: Array<out Any?>?
+            ): Any {
+                return WeApi.selfAlias
+            }
+        })
 
-        ScriptableObject.putProperty(scope, "_sendText",
-            nativeFn(2) { args ->
-                val to   = args.getOrNull(0)?.toString() ?: return@nativeFn
-                val text = args.getOrNull(1)?.toString() ?: return@nativeFn
-                WeMessageApi.sendText(to, text)
-            }
-        )
-        ScriptableObject.putProperty(scope, "_sendImage",
-            nativeFn(2) { args ->
-                val to   = args.getOrNull(0)?.toString() ?: return@nativeFn
-                val path = args.getOrNull(1)?.toString() ?: return@nativeFn
-                WeMessageApi.sendImage(to, path)
-            }
-        )
-        ScriptableObject.putProperty(scope, "_sendFile",
-            nativeFn(3) { args ->
-                val to    = args.getOrNull(0)?.toString() ?: return@nativeFn
-                val path  = args.getOrNull(1)?.toString() ?: return@nativeFn
-                val title = args.getOrNull(2)?.toString() ?: path.substringAfterLast('/')
-                WeMessageApi.sendFile(to, path, title)
-            }
-        )
-        ScriptableObject.putProperty(scope, "_sendVoice",
-            nativeFn(3) { args ->
-                val to         = args.getOrNull(0)?.toString() ?: return@nativeFn
-                val path       = args.getOrNull(1)?.toString() ?: return@nativeFn
-                val durationMs = (args.getOrNull(2) as? Number)?.toInt() ?: 0
-                WeMessageApi.sendVoice(to, path, durationMs)
-            }
-        )
-        ScriptableObject.putProperty(scope, "_sendXml",
-            nativeFn(3) { args ->
-                val to         = args.getOrNull(0)?.toString() ?: return@nativeFn
-                val content    = args.getOrNull(1)?.toString() ?: return@nativeFn
-                WeMessageApi.sendXmlAppMsg(to, content)
-            }
-        )
-
-        val cx = Context.getCurrentContext()!!
-        cx.evaluateString(scope, apiBootstrap, "ApiBootstrap", 1, null)
+        ScriptableObject.putProperty(scope, "wechat", weObj)
     }
 }

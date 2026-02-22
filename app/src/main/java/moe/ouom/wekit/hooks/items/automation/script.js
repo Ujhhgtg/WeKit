@@ -268,7 +268,7 @@ function commandRandomPic(content) {
     var config = sources[sourceName];
 
     if (!config) {
-        replyText(
+        wechat.replyText(
             "暂不支持来源: " + sourceName + "\n输入 /help random-pic 查看可选项"
         );
     }
@@ -278,7 +278,7 @@ function commandRandomPic(content) {
 
         if (!response.ok) {
             log.e(sourceName, "api request failed: ", response.status);
-            replyText("图片获取失败");
+            wechat.replyText("图片获取失败");
         }
 
         var imageUrl = config.parser(response);
@@ -291,10 +291,10 @@ function commandRandomPic(content) {
     var result = http.download(imageUrl);
     if (!result.ok) {
         log.e("failed to download: ", imageUrl);
-        replyText("图片下载失败");
+        wechat.replyText("图片下载失败");
     }
 
-    replyImage(result.path);
+    wechat.replyImage(result.path);
 }
 
 function commandHitokoto() {
@@ -305,7 +305,7 @@ function commandHitokoto() {
         log.e("hitokoto api request failed");
         log.e("status:", response.status);
         log.e("error:", response.error);
-        replyText("一言获取失败");
+        wechat.replyText("一言获取失败");
     }
 
     if (!response.json) {
@@ -437,7 +437,8 @@ function commmandChangelog() {
         "更新内容:\n" +
         "2026.02.17 - 模块添加 '自动回复' 功能\n" +
         "2026.02.18 - 功能重构为 '自动化', 与原 '脚本管理' 合并, 移除了除 JavaScript 以外的消息匹配方式\n" +
-        "             添加命令 help, changelog, weather, random-pic, hitokoto, debug-msg"
+        "             添加命令 help, changelog, weather, random-pic, hitokoto, debug-msg\n" +
+        "2026.02.22 - 将微信相关 API 移动至命名空间 wechat 下"
     );
 }
 

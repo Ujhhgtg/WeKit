@@ -144,7 +144,7 @@ object FakeMomentsLikes : BaseSwitchFunctionHookItem(), WeDatabaseListener.IUpda
     private fun showFakeLikesDialog(context: WeMomentsContextMenuApi.SnsContext) {
         try {
             // 获取所有好友列表
-            val allFriends = WeDatabaseApi.getAllConnects()
+            val allFriends = WeDatabaseApi.getContacts()
 
             val displayItems = allFriends.map { contact ->
                 buildString {

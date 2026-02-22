@@ -131,14 +131,14 @@ object UnifiedEntryPoint {
                                 realClassLoader,
                                 hookBridge
                             )
-                            WeLogger.i(TAG, "StartupAgent invoked successfully.")
+                            WeLogger.i(TAG, "StartupAgent invoked successfully")
                         } catch (e: Throwable) {
                             WeLogger.e(TAG, "StartupAgent.startup failed", e)
                         }
                     }
                 }
             )
-            WeLogger.i(TAG, "Instrumentation.callApplicationOnCreate hook installed successfully.")
+            WeLogger.i(TAG, "Instrumentation.callApplicationOnCreate hook installed successfully")
         } catch (e: Throwable) {
             WeLogger.e(TAG, "Failed to hook Instrumentation.callApplicationOnCreate", e)
         }

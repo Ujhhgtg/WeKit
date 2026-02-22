@@ -1,4 +1,4 @@
-name: WeKit Android CI
+name: CI
 
 on:
   push:
@@ -43,39 +43,21 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
           cache: gradle
-
-      - name: Decode keystore
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
-        run: |
-          mkdir -p app
-          echo "$KEYSTORE_B64" | base64 -d > app/wekit.jks
-        env:
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
 
       - name: Grant execute permission
         run: chmod +x gradlew
 
-      - name: Build unsigned Release for PR
-        if: github.event_name == 'pull_request'
+      - name: Build Release
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
         run: ./gradlew assembleRelease --warning-mode all --stacktrace
 
-      - name: Build signed Release for master
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
-        run: |
-          ./gradlew assembleRelease \
-            -PKEYSTORE_FILE=wekit.jks \
-            -PKEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} \
-            -PKEY_ALIAS=key0 \
-            -PKEY_PASSWORD=${{ secrets.KEY_PASSWORD }} \
-            --warning-mode all --stacktrace
-
-      - name: Upload Release APK
+      - name: Upload Release
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
         uses: actions/upload-artifact@v4
         with:

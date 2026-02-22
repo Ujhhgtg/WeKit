@@ -53,7 +53,7 @@ object SplitChatroom : BaseClickableFunctionHookItem() {
         context ?: return
 
         val groups = try {
-            WeDatabaseApi.getChatroomList()
+            WeDatabaseApi.getGroups()
         } catch (e: Exception) {
             WeLogger.e("WeSchemeInvocation", "获取群聊列表失败", e)
             ToastUtils.showToast(context, "获取数据失败: ${e.message}")

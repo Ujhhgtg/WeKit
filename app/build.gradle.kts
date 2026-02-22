@@ -156,7 +156,6 @@ android {
         buildConfigField("long", "BUILD_TIMESTAMP", "${System.currentTimeMillis()}L")
         // noinspection ChromeOsAbiSupport
         ndk {
-            abiFilters.clear()
             abiFilters += "arm64-v8a"
         }
 

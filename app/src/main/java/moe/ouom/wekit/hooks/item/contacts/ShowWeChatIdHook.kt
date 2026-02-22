@@ -1,4 +1,4 @@
-package moe.ouom.wekit.hooks.item.contact
+package moe.ouom.wekit.hooks.item.contacts
 
 import android.app.Activity
 import android.content.ClipData
@@ -22,10 +22,10 @@ object ShowWeChatIdHook : BaseSwitchFunctionHookItem() {
     // 创建初始化回调
     private val initCallback = WeChatContactInfoAdapterItemHook.InitContactInfoViewCallback { activity ->
         val wechatId = try {
-            "微信ID: ${activity.intent.getStringExtra("Contact_User") ?: "未知"}"
+            "微信 ID: ${activity.intent.getStringExtra("Contact_User") ?: "未知"}"
         } catch (e: Exception) {
             WeLogger.e(TAG, "获取微信ID失败", e)
-            "微信ID: 获取失败"
+            "微信 ID: 获取失败"
         }
         if (wechatId.contains("gh_")) {
             WeLogger.d(TAG, "检测到公众号，不处理")

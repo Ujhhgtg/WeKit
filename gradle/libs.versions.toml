@@ -3,7 +3,7 @@
 kotlinxSerializationJson = "1.10.0"
 namespace = "moe.ouom.wekit"
 # noinspection UnusedVersionCatalogEntry
-minSdk = "35"
+minSdk = "29"
 # noinspection UnusedVersionCatalogEntry
 targetSdk = "36"
 # noinspection UnusedVersionCatalogEntry
@@ -42,7 +42,7 @@ kavaref = "1.0.2"
 hiddenApiBypass = "6.1"
 runtime = "1.10.3"
 composeMaterial3 = "1.5.0-alpha14"
-material3 = "1.4.0"
+chaquopy = "17.0.0"
 
 [libraries]
 accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanist" }
@@ -107,3 +107,4 @@ protobuf = { id = "com.google.protobuf", version = "0.9.6" }
 serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+chaquo-python = { id = "com.chaquo.python", version.ref = "chaquopy" }

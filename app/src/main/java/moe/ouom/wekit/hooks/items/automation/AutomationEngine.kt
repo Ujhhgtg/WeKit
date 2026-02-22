@@ -49,8 +49,7 @@ object AutomationEngine {
             cx.optimizationLevel = -1
             val scope = cx.initStandardObjects()
 
-            JsApiExposer.exposeApis(scope)
-            JsApiExposer.exposeOnMessageApis(scope, talker)
+            JsApiExposer.exposeApis(scope, talker)
 
             cx.evaluateString(scope, script, "AutomationRule", 1, null)
 

@@ -2,6 +2,7 @@ package moe.ouom.wekit.hooks.sdk.base
 
 import android.annotation.SuppressLint
 import android.database.Cursor
+import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ApiHookItem
@@ -38,6 +39,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
     @Volatile
     private var wcdbInstance: Any? = null
     private var rawQueryMethod: Method? = null
+    private var execSQLMethod: Method? = null
 
     private const val TAG = "WeDatabaseApi"
     private const val WCDB_CLASS_NAME = "com.tencent.wcdb.database.SQLiteDatabase"
@@ -217,24 +219,31 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
             // 在 Storage 中寻找 Wrapper
             val wrapperObj = findDbWrapper(storageObj)
             if (wrapperObj == null) {
-                WeLogger.w(TAG, "初始化: 未找到 Wrapper")
+                WeLogger.e(TAG, "初始化: 未找到 Wrapper")
                 return false
             }
 
             // 获取 WCDB 实例
-            val dbInstance = getWcdbFromWrapper(wrapperObj)
-            if (dbInstance == null) {
-                WeLogger.w(TAG, "初始化: 未找到 WCDB 实例")
-                return false
-            }
+            val dbInstance = wrapperObj.asResolver()
+                .firstMethod {
+                    parameterCount = 0
+                    returnType = WCDB_CLASS_NAME
+                }.invoke()!!
 
             // 获取 rawQuery 方法并缓存
-            val rawQuery = findRawQueryMethod(dbInstance.javaClass)
-            if (rawQuery != null) {
-                wcdbInstance = dbInstance
-                rawQueryMethod = rawQuery
-                return true
-            }
+            wcdbInstance = dbInstance
+            rawQueryMethod = dbInstance.asResolver()
+                .firstMethod {
+                    name = "rawQuery"
+                    parameterCount = 2
+                }.self
+
+            execSQLMethod = dbInstance.asResolver()
+                .firstMethod {
+                    name = "execSQL"
+                    parameters(String::class)
+                }.self
+            return true
 
         } catch (e: Exception) {
             WeLogger.e(TAG, "数据库初始化失败", e)
@@ -286,31 +295,6 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
         } catch (_: Exception) { false }
     }
 
-    private fun getWcdbFromWrapper(wrapperObj: Any): Any? {
-        val methods = wrapperObj.javaClass.declaredMethods
-        for (method in methods) {
-            if (method.parameterCount == 0 &&
-                method.returnType.name == WCDB_CLASS_NAME) {
-                try {
-                    method.isAccessible = true
-                    val db = method.invoke(wrapperObj)
-                    if (db != null) return db
-                } catch (_: Exception) {}
-            }
-        }
-        return null
-    }
-
-    private fun findRawQueryMethod(clazz: Class<*>): Method? {
-        try {
-            return clazz.getMethod("rawQuery", String::class.java, Array<Any>::class.java)
-        } catch (_: Exception) {}
-        try {
-            return clazz.getMethod("rawQuery", String::class.java, Array<String>::class.java)
-        } catch (_: Exception) {}
-        return null
-    }
-
     // -------------------------------------------------------------------------------------
     // 业务接口
     // -------------------------------------------------------------------------------------
@@ -342,32 +326,43 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
                 } while (cursor.moveToNext())
             }
         } catch (e: Exception) {
-            WeLogger.e(TAG, "SQL执行异常: ${e.message}")
+            WeLogger.e(TAG, "SQL Query 执行异常", e)
         } finally {
             cursor?.close()
         }
         return result
     }
 
+    fun executeUpdate(sql: String): Boolean {
+        try {
+            execSQLMethod?.invoke(wcdbInstance, sql)
+            return true
+        }
+        catch (e: Exception) {
+            WeLogger.e(TAG, "SQL Update 执行异常", e)
+        }
+        return false
+    }
+
     /**
      * 获取【全部联系人】
      * 返回所有人类账号（包含好友、陌生人、自己），但排除群和公众号
      */
-    fun getAllConnects(): List<WeContact> {
+    fun getContacts(): List<WeContact> {
         return mapToContact(executeQuery(SQL.ALL_CONNECTS))
     }
 
     /**
      * 获取【好友】
      */
-    fun getContactList(): List<WeContact> {
+    fun getFriends(): List<WeContact> {
         return mapToContact(executeQuery(SQL.CONTACT_LIST))
     }
 
     /**
      * 获取【群聊】
      */
-    fun getChatroomList(): List<WeGroup> {
+    fun getGroups(): List<WeGroup> {
         return executeQuery(SQL.CHATROOM_LIST).map { row ->
             WeGroup(
                 username = row.str("username"),
@@ -408,7 +403,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
     /**
      * 获取【公众号】
      */
-    fun getOfficialAccountList(): List<WeOfficial> {
+    fun getOfficialAccounts(): List<WeOfficial> {
         return executeQuery(SQL.OFFICIAL_LIST).map { row ->
             WeOfficial(
                 username = row.str("username"),

@@ -3,7 +3,7 @@ package moe.ouom.wekit.hooks.sdk.protocol
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.hooks.sdk.protocol.MsgIdProvider.previewNextId
 import moe.ouom.wekit.hooks.sdk.protocol.WeApi.generateClientMsgId
-import moe.ouom.wekit.hooks.sdk.protocol.WeApi.getSelfWxId
+import moe.ouom.wekit.hooks.sdk.protocol.WeApi.selfWxId
 import moe.ouom.wekit.hooks.sdk.protocol.intf.ISigner
 import moe.ouom.wekit.hooks.sdk.protocol.model.SignResult
 import moe.ouom.wekit.utils.log.WeLogger
@@ -15,7 +15,7 @@ import org.json.JSONObject
 class NewSendMsgSigner : ISigner {
     override fun match(cgiId: Int) = (cgiId == 522)
     override fun sign(loader: ClassLoader, json: JSONObject): SignResult {
-        val selfWxid = getSelfWxId()
+        val selfWxid = selfWxId
 
         fun applySign(item: JSONObject) {
             val ts = System.currentTimeMillis()
