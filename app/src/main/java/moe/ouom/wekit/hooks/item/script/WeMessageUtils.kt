@@ -93,4 +93,17 @@ object WeMessageUtils {
             false
         }
     }
+
+    /**
+     * 获取当前用户ID
+     * @return 当前用户ID
+     */
+    fun getSelfAlias(): String {
+        return try {
+            instance?.getSelfAlias() ?: ""
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "获取当前用户ID失败: ${e.message}")
+            ""
+        }
+    }
 }

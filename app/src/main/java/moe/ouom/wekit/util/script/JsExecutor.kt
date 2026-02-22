@@ -5,7 +5,6 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import moe.ouom.wekit.constants.MMVersion
-import moe.ouom.wekit.hooks.item.script.WeApiUtils
 import moe.ouom.wekit.host.HostInfo
 import moe.ouom.wekit.util.log.WeLogger
 import org.mozilla.javascript.ScriptRuntime
@@ -173,7 +172,6 @@ class JsExecutor private constructor() {
     @Suppress("unused")
     fun injectScriptInterfaces(
         sendCgi: Any,
-        weApiUtils: Any,
         protoUtils: Any,
         dataBaseUtils: Any,
         messageUtils: Any
@@ -189,26 +187,14 @@ class JsExecutor private constructor() {
                     HostInfo.getVersionCode() >= MMVersion::class.java.getField(field).getInt(null)
                 }.getOrDefault(false)
 
-                fun isGooglePlayVersion() = HostInfo.isGooglePlayVersion
-
                 fun sendCgi(uri: String, cgiId: Int, funcId: Int, routeId: Int, jsonPayload: String) {
                     sendCgi(uri, cgiId, funcId, routeId, jsonPayload)
                 }
 
-                fun getSelfWxId(): String {
-                    return WeApiUtils.getSelfWxId()
-                }
-
-                fun getSelfAlias(): String {
-                    return WeApiUtils.getSelfAlias()
-                }
-
                 @JvmField
                 val proto: Any = protoUtils
-
                 @JvmField
                 val database: Any = dataBaseUtils
-
                 @JvmField
                 val message: Any = messageUtils
             })

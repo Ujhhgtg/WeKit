@@ -31,7 +31,7 @@ class ScriptConfigHookItem : BaseClickableFunctionHookItem(), IWePkgInterceptor 
 
     override fun entry(classLoader: ClassLoader) {
         // 注入脚本接口
-        JsExecutor.getInstance().injectScriptInterfaces(::sendCgi, WeApiUtils, WeProtoUtils, WeDataBaseUtils, WeMessageUtils)
+        JsExecutor.getInstance().injectScriptInterfaces(::sendCgi, WeProtoUtils, WeDataBaseUtils, WeMessageUtils)
         // 注册拦截器
         WePkgManager.addInterceptor(this)
     }
