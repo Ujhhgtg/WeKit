@@ -20,12 +20,12 @@ import moe.ouom.wekit.hooks.sdk.base.WeMessageApi
 import moe.ouom.wekit.host.HostInfo
 import moe.ouom.wekit.utils.log.WeLogger
 
-@HookItem(path = "聊天与消息/通知进化", desc = "让应用的新消息通知更易用\n1. 快速回复\n2. 原生对话样式 (MessagingStyle)\n3. 标记为已读")
+@HookItem(path = "聊天与消息/通知进化", desc = "让应用的新消息通知更易用\n1. '快速回复' 按钮\n2. '标记为已读' 按钮\n3. 使用原生对话样式 (MessagingStyle)")
 object NotificationEvolved : BaseSwitchFunctionHookItem() {
 
     private const val TAG = "NotificationEvolved"
-    private const val ACTION_QUICK_REPLY = "${PackageConstants.PACKAGE_NAME_WECHAT}.ACTION_QUICK_REPLY"
-    private const val ACTION_MARK_READ = "${PackageConstants.PACKAGE_NAME_WECHAT}.ACTION_MARK_READ"
+    private const val ACTION_REPLY = "${PackageConstants.PACKAGE_NAME_WECHAT}.ACTION_WEKIT_REPLY"
+    private const val ACTION_MARK_READ = "${PackageConstants.PACKAGE_NAME_WECHAT}.ACTION_WEKIT_MARK_READ"
 
     // cache friends to avoid repeating sql queries
     // TODO: build a sql statement to directly query target contact
@@ -37,7 +37,7 @@ object NotificationEvolved : BaseSwitchFunctionHookItem() {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
             when (intent.action) {
-                ACTION_QUICK_REPLY -> {
+                ACTION_REPLY -> {
                     val results = RemoteInput.getResultsFromIntent(intent) ?: return
                     val replyContent = results.getCharSequence("key_reply_content")?.toString()
 
@@ -56,12 +56,13 @@ object NotificationEvolved : BaseSwitchFunctionHookItem() {
         }
     }
 
+    val multiMessageRegex = Regex("""^\[\d+条].+?: (.*)$""")
+
     override fun entry(classLoader: ClassLoader) {
         val context = HostInfo.getApplication()
 
-        // Register receiver for both actions
         val filter = IntentFilter().apply {
-            addAction(ACTION_QUICK_REPLY)
+            addAction(ACTION_REPLY)
             addAction(ACTION_MARK_READ)
         }
         ContextCompat.registerReceiver(
@@ -78,7 +79,23 @@ object NotificationEvolved : BaseSwitchFunctionHookItem() {
                 if (channelId == "message_channel_new_id") {
 
                     val title = notification.extras.getString(Notification.EXTRA_TITLE) ?: "Unknown"
-                    val text = notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+                    val rawText = notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+
+                    val matchResult = multiMessageRegex.find(rawText)
+                    var cleanText = if (matchResult != null) {
+                        matchResult.groupValues[1]
+                    } else {
+                        rawText
+                    }
+
+                    cleanText = cleanText.replace("[图片]", "\uD83D\uDDBC\uFE0F")
+                        .replace("[视频]", "\uD83C\uDFA5")
+//                        .replace("[动画表情]", "\uD83D\uDE00")
+                        .replace("[文件]", "\uD83D\uDCC1")
+                        .replace("[语音]", "\uD83D\uDDE3\uFE0F")
+                        .replace("[位置]", "\uD83D\uDDFA\uFE0F")
+                        .replace("[红包]", "\uD83E\uDDE7")
+                        .replace("[转账]", "\uD83D\uDCB5")
 
                     // 1. Resolve exact WXID immediately during notification creation
                     val friend = friends.firstOrNull { it.nickname == title || it.remarkName == title }
@@ -99,13 +116,13 @@ object NotificationEvolved : BaseSwitchFunctionHookItem() {
                         .build()
 
                     val messagingStyle = Notification.MessagingStyle(mePerson)
+                    messagingStyle.addMessage(cleanText, System.currentTimeMillis(), senderPerson)
 
-                    if (text.contains(":") && isGroupChat(targetWxid)) {
+                    if (isGroupChat(targetWxid)) {
                         messagingStyle.isGroupConversation = true
                         messagingStyle.conversationTitle = title
                     }
 
-                    messagingStyle.addMessage(text, System.currentTimeMillis(), senderPerson)
                     builder.style = messagingStyle
 
                     // 3. Quick Reply Action
@@ -113,7 +130,7 @@ object NotificationEvolved : BaseSwitchFunctionHookItem() {
                         .setLabel("准卿所请, 即刻拟旨...")
                         .build()
 
-                    val replyIntent = Intent(ACTION_QUICK_REPLY).apply {
+                    val replyIntent = Intent(ACTION_REPLY).apply {
                         setPackage(PackageConstants.PACKAGE_NAME_WECHAT)
                         putExtra("extra_target_wxid", targetWxid)
                     }
