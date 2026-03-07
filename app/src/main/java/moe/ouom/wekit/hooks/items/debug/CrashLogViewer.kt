@@ -28,11 +28,6 @@ object CrashLogViewer : BaseClickableFunctionHookItem() {
     private var crashLogManager: CrashLogManager? = null
 
     override fun onClick(context: Context) {
-        if (context == null) {
-            WeLogger.e("CrashLogViewer", "Context is null")
-            return
-        }
-
         // 懒加载初始化 crashLogManager
         if (crashLogManager == null) {
             WeLogger.i("CrashLogViewer", "Lazy initializing CrashLogManager")

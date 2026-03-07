@@ -38,7 +38,6 @@ object RemoveMiniAppLimits : BaseSwitchFunctionHookItem(), IDexFind {
                         usingNumbers(30)
                     }
                 }
-
                 addParamType {
                     className("com.tencent.mm.plugin.appbrand.page", StringMatchType.Contains)
                 }

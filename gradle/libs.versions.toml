@@ -9,7 +9,7 @@ targetSdk = "36"
 jdk = "21"
 
 agp = "9.0.1"
-composeBom = "2026.02.00"
+composeBom = "2026.02.01"
 dexkit = "2.0.7"
 accompanist = "0.37.3"
 gson = "2.13.2"
@@ -25,7 +25,7 @@ mmkv = "2.3.0"
 rhino = "1.3.0"
 serialization = "1.10.0"
 lombok = "1.18.42"
-protobuf = "4.33.5"
+protobuf = "4.34.0"
 ksp = "2.3.6"
 recyclerview = "1.4.0"
 fastJson2 = "2.0.61"
@@ -74,7 +74,7 @@ google-guava = { module = "com.google.guava:guava", version = "33.5.0-android" }
 fastjson2 = { module = "com.alibaba.fastjson2:fastjson2", version.ref = "fastJson2" }
 okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 
-derobv-xposed-api = { module = "de.robv.android.xposed:api", version = "82" }
+xposed-api = { module = "de.robv.android.xposed:api", version = "82" }
 dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
 dexlib2 = { module = "org.smali:dexlib2", version.ref = "dexlib2" }
 dalvik-dx = { module = "com.jakewharton.android.repackaged:dalvik-dx", version = "16.0.1" }

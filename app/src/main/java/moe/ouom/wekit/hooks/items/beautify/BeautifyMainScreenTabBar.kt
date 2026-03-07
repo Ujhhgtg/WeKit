@@ -32,6 +32,7 @@ import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.ui.WeMainActivityBeautifyApi
 import moe.ouom.wekit.ui.utils.XposedLifecycleOwner
+import moe.ouom.wekit.ui.utils.setLifecycleOwner
 import moe.ouom.wekit.utils.log.WeLogger
 
 @HookItem(
@@ -72,13 +73,8 @@ object BeautifyMainScreenTabBar : BaseSwitchFunctionHookItem() {
                     val lifecycleOwner = XposedLifecycleOwner().apply { onCreate(); onResume() }
                     val decorView = activity.window.decorView
 
-                    // Compose traverse up the view hierarchy to find a LifecycleOwner from the root or parent views
-                    decorView.setViewTreeLifecycleOwner(lifecycleOwner)
-                    decorView.setViewTreeViewModelStoreOwner(lifecycleOwner)
-                    decorView.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
-                    bottomTabViewGroup.setViewTreeLifecycleOwner(lifecycleOwner)
-                    bottomTabViewGroup.setViewTreeViewModelStoreOwner(lifecycleOwner)
-                    bottomTabViewGroup.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+                    decorView.setLifecycleOwner(lifecycleOwner)
+                    bottomTabViewGroup.setLifecycleOwner(lifecycleOwner)
 
                     val selectedPageIndexState = mutableIntStateOf(0)
                     val scrollOffsetState = mutableFloatStateOf(0f)

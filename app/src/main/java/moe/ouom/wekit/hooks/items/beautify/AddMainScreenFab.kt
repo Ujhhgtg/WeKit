@@ -66,6 +66,7 @@ import moe.ouom.wekit.hooks.sdk.base.WeConversationApi
 import moe.ouom.wekit.hooks.sdk.ui.WeMainActivityBeautifyApi
 import moe.ouom.wekit.ui.content.MainSettingsDialog
 import moe.ouom.wekit.ui.utils.XposedLifecycleOwner
+import moe.ouom.wekit.ui.utils.setLifecycleOwner
 import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.log.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
@@ -176,27 +177,18 @@ object AddMainScreenFab : BaseSwitchFunctionHookItem() {
                         }
                     }
 
-                    val rootView = activity.findViewById<ViewGroup>(android.R.id.content)
 
                     val lifecycleOwner = XposedLifecycleOwner().apply { onCreate(); onResume() }
-                    val decorView = activity.window.decorView
 
-                    // Compose traverse up the view hierarchy to find a LifecycleOwner from the root or parent views
-                    decorView.setViewTreeLifecycleOwner(lifecycleOwner)
-                    decorView.setViewTreeViewModelStoreOwner(lifecycleOwner)
-                    decorView.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
-                    rootView.setViewTreeLifecycleOwner(lifecycleOwner)
-                    rootView.setViewTreeViewModelStoreOwner(lifecycleOwner)
-                    rootView.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+                    val decorView = activity.window.decorView
+                    decorView.setLifecycleOwner(lifecycleOwner)
+                    val rootView = activity.findViewById<ViewGroup>(android.R.id.content)
+                    rootView.setLifecycleOwner(lifecycleOwner)
 
                     WeLogger.i(TAG, "injected compose fab into root view")
                     rootView.addView(
                         ComposeView(activity).apply {
-                            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
-
-                            setViewTreeLifecycleOwner(lifecycleOwner)
-                            setViewTreeViewModelStoreOwner(lifecycleOwner)
-                            setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+                            setLifecycleOwner(lifecycleOwner)
 
                             setContent {
                                 // WeChat doesn't follow MaterialTheme so we don't use that too

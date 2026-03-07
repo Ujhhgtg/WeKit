@@ -390,7 +390,7 @@ dependencies {
 
     implementation(libs.silkdecoder)
 
-    compileOnly(libs.derobv.xposed.api)
+    compileOnly(libs.xposed.api)
     compileOnly(libs.libxposed.api)
     // 哪个智障发明的 Gradle
     // 不是他 libxposed AndroidManifest package 定义冲突就冲突关你屁事啊

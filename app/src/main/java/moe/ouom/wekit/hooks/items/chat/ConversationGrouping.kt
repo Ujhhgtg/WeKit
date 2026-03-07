@@ -34,9 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.lifecycle.setViewTreeViewModelStoreOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
@@ -45,6 +42,7 @@ import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.base.WeConversationApi
 import moe.ouom.wekit.ui.utils.AppTheme
 import moe.ouom.wekit.ui.utils.XposedLifecycleOwner
+import moe.ouom.wekit.ui.utils.setLifecycleOwner
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "聊天/对话分组", desc = "向主页顶部添加 Tab 栏, 将对话分组")
@@ -59,30 +57,10 @@ object ConversationGrouping : BaseSwitchFunctionHookItem(), IDexFind {
                             type = "com.tencent.mm.ui.conversation.ConversationListView"
                         }
                         .get()!! as ListView
-//                    listView.asResolver()
-//                        .field { type { clazz ->
-//                            clazz.name.startsWith("com.tencent.mm.plugin.taskbar.ui.")
-//                        } }.forEach { fieldResolver ->
-//                            fieldResolver.set(null)
-//                        }
-//                    listView.asResolver()
-//                        .method {
-//                            name = "addHeaderView"
-//                        }.forEach {
-//                            it.self.hookBefore { param ->
-//                                val view = param.args[0] as View
-//                                if (!view.javaClass.name.startsWith("androidx.compose")) {
-//                                    WeLogger.d("ConvGroup", "blocked header ${view.javaClass.name}")
-//                                    param.result = null
-//                                }
-//                            }
-//                        }
 
                     val composeView = ComposeView(listView.context).apply {
                         val lifecycleOwner = XposedLifecycleOwner().apply { onCreate(); onResume() }
-                        setViewTreeLifecycleOwner(lifecycleOwner)
-                        setViewTreeViewModelStoreOwner(lifecycleOwner)
-                        setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+                        setLifecycleOwner(lifecycleOwner)
 
                         // the value gets lost when ComposeView becomes invisible,
                         // so we have to lift it out of the Composable

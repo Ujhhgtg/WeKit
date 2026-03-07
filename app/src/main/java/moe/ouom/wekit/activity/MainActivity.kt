@@ -328,12 +328,12 @@ fun AppContent(onUrlClick: (String) -> Unit) {
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             Text(
-                                text = "打开微信",
+                                text = "打开宿主",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "一键强制停止并启动微信",
+                                text = "一键强制停止并启动宿主应用",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

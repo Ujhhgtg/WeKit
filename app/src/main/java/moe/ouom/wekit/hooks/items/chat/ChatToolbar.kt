@@ -1,6 +1,7 @@
 package moe.ouom.wekit.hooks.items.chat
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
 import android.util.AttributeSet
 import android.view.ViewGroup
@@ -28,9 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.lifecycle.setViewTreeViewModelStoreOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.dsl.dexMethod
@@ -39,6 +37,7 @@ import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.ui.utils.AppTheme
 import moe.ouom.wekit.ui.utils.XposedLifecycleOwner
+import moe.ouom.wekit.ui.utils.setLifecycleOwner
 import moe.ouom.wekit.utils.findHostViewByIdStr
 import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
@@ -60,19 +59,10 @@ object ChatToolbar : BaseSwitchFunctionHookItem(), IDexFind {
         methodAppPanelInitAppGrid.toDexMethod {
             hook {
                 beforeIfEnabled { param ->
-//                    WeLogger.d(TAG, "called initAppGrid")
                     appPanel = param.args[0] as LinearLayout
                 }
             }
         }
-
-//        "com.tencent.mm.pluginsdk.ui.chat.AppPanel".toClass(classLoader).asResolver()
-//            .method { name { _ -> true } }
-//                .forEach { resolver ->
-//                    resolver.hookBefore { param ->
-//                        WeLogger.d(TAG, "called AppPanel::${param.method.name}")
-//                    }
-//                }
 
         "com.tencent.mm.pluginsdk.ui.chat.ChatFooter".toClass(classLoader).asResolver()
             .firstConstructor {
@@ -82,21 +72,18 @@ object ChatToolbar : BaseSwitchFunctionHookItem(), IDexFind {
             .hookAfter { param ->
                 val frameLayout = param.thisObject as FrameLayout
                 // FIXME: change with wechat version
-                val linearLayout = frameLayout.findHostViewByIdStr<LinearLayout>("bl8")
+                val linearLayout = frameLayout.findHostViewByIdStr<LinearLayout>("bl8") // LinearLayout
                 if (linearLayout.findViewWithTag<ComposeView>(VIEW_TAG) != null) return@hookAfter
 
-                val context = linearLayout.context
+                val activity = frameLayout.asResolver()
+                    .firstField { type = Activity::class }
+                    .get()!! as Activity
                 val lifecycleOwner = XposedLifecycleOwner().apply { onCreate(); onResume() }
-                linearLayout.apply {
-                    setViewTreeLifecycleOwner(lifecycleOwner)
-                    setViewTreeViewModelStoreOwner(lifecycleOwner)
-                    setViewTreeSavedStateRegistryOwner(lifecycleOwner)
-                }
-                linearLayout.addView(ComposeView(context).apply {
+                activity.window.decorView.setLifecycleOwner(lifecycleOwner)
+                linearLayout.setLifecycleOwner(lifecycleOwner)
+                linearLayout.addView(ComposeView(activity).apply {
                     tag = VIEW_TAG
-                    setViewTreeLifecycleOwner(lifecycleOwner)
-                    setViewTreeViewModelStoreOwner(lifecycleOwner)
-                    setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+                    setLifecycleOwner(lifecycleOwner)
 
                     setContent {
                         AppTheme {

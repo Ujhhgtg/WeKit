@@ -3,6 +3,7 @@ package moe.ouom.wekit.ui.utils
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
+import android.view.View
 import android.view.Window
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +19,9 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import moe.ouom.wekit.host.HostInfo
 
 // useful for showing a compose dialog in non-compose context,
-// or when you don't want to manage the state for a dialog inside a composable
+// or when you don't want to manage the state for a dialog inside a composable;
+// although technically you shouldn't use AlertDialog inside this function since both Dialog and AlertDialog create a new Window,
+// there don't seem to be any problems if you insist on doing that
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 fun showComposeDialog(
     context: Context? = null,
@@ -42,9 +45,7 @@ fun showComposeDialog(
 
         setContentView(
             ComposeView(ctx).apply {
-                setViewTreeLifecycleOwner(lifecycleOwner)
-                setViewTreeViewModelStoreOwner(lifecycleOwner)
-                setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+                setLifecycleOwner(lifecycleOwner)
 
                 setContent {
                     AppTheme {
@@ -62,5 +63,13 @@ fun showComposeDialog(
         window?.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
         setOnDismissListener { lifecycleOwner.onDestroy() }
         show()
+    }
+}
+
+fun View.setLifecycleOwner(lifecycleOwner: XposedLifecycleOwner) {
+    this.apply {
+        setViewTreeLifecycleOwner(lifecycleOwner)
+        setViewTreeViewModelStoreOwner(lifecycleOwner)
+        setViewTreeSavedStateRegistryOwner(lifecycleOwner)
     }
 }
