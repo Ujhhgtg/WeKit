@@ -1,6 +1,7 @@
 
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import org.gradle.internal.extensions.core.serviceOf
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -30,26 +31,78 @@ fun getGitHash(): String {
     }.standardOutput.asText.get().trim()
 }
 
+fun findNdkClang(androidHome: String, minSdk: Int, minNdk: Int = 29): String? {
+    val ndkRoot = File("$androidHome/ndk")
+    if (!ndkRoot.exists()) return null
+    val isWindows = System.getProperty("os.name").orEmpty().contains("Windows", ignoreCase = true)
+    val ext = if (isWindows) ".cmd" else ""
+
+    return ndkRoot.listFiles()
+        ?.filter { it.isDirectory }
+        ?.mapNotNull { dir ->
+            val parts = dir.name.split(".").mapNotNull { it.toIntOrNull() }
+            if (parts.isNotEmpty() && parts[0] >= minNdk) dir else null
+        }
+        ?.sortedWith(compareBy(*Array(3) { i -> { d: File -> d.name.split(".").getOrNull(i)?.toIntOrNull() ?: 0 } }))
+        ?.lastOrNull()
+        ?.let { ndkDir ->
+            fileTree(ndkDir).matching { include("**/*-linux-android${minSdk}-clang$ext") }
+                .firstOrNull()
+                ?.absolutePath
+        }
+}
+
+fun setCargoClang() {
+    val minSdk = libs.versions.minSdk.get().toInt()
+    val isWindows = System.getProperty("os.name").orEmpty().contains("Windows", ignoreCase = true)
+    val ext = if (isWindows) ".cmd" else ""
+
+    val androidHome = gradleLocalProperties(rootDir, providers).getProperty("sdk.dir")
+    val clangPath = findNdkClang(androidHome, minSdk) ?: error("No NDK >= $minSdk found in $androidHome/ndk")
+    logger.lifecycle("Found NDK clang: $clangPath")
+
+    // TOML requires forward slashes on all platforms
+    val ndkBinDir = File(clangPath).parent.replace('\\', '/')
+    val configToml = rootProject.file("app/src/main/rust/wekit-native/.cargo/config.toml")
+
+    configToml.parentFile.mkdirs()
+    configToml.writeText("""
+        [target.aarch64-linux-android]
+        linker = "$ndkBinDir/aarch64-linux-android${minSdk}-clang$ext"
+
+        [target.x86_64-linux-android]
+        linker = "$ndkBinDir/x86_64-linux-android${minSdk}-clang$ext"
+    """.trimIndent())
+    logger.lifecycle("Written .cargo/config.toml to ${configToml.absolutePath}")
+}
+
 configure<ApplicationExtension> {
+    if (gradle.startParameter.taskNames.isEmpty()) {
+        logger.lifecycle("In Gradle Sync stage, configuring cargo...")
+        setCargoClang()
+    }
+
     namespace = libs.versions.namespace.get()
     compileSdk = libs.versions.targetSdk.get().toInt()
+
+    ndkVersion = "29"
 
     val commitCount = getCommitCount()
     val gitHash = getGitHash()
 
-    println(
+    logger.lifecycle(
         """
-        __        __  _____   _  __  ___   _____ 
-         \ \      / / | ____| | |/ / |_ _| |_   _|
-          \ \ /\ / /  |  _|   | ' /   | |    | |  
-           \ V  V /   | |___  | . \   | |    | |  
-            \_/\_/    |_____| |_|\_\ |___|   |_|  
-                                              
-            [WEKIT] WeChat, now with superpowers
+             _       __     __ __ _ __ 
+            | |     / /__  / //_/(_) /_
+            | | /| / / _ \/ ,<  / / __/
+            | |/ |/ /  __/ /| |/ / /_
+            |__/|__/\___/_/ |_/_/\__/
+
+       [WeKit] WeChat, now with superpowers
         """
     )
 
-    println("git hash: $gitHash")
+    logger.lifecycle("git hash: $gitHash")
 
     defaultConfig {
         applicationId = libs.versions.namespace.get()
@@ -62,31 +115,12 @@ configure<ApplicationExtension> {
         buildConfigField("String", "TAG", "\"WeKit\"")
         buildConfigField("long", "BUILD_TIMESTAMP", "${System.currentTimeMillis()}L")
 
-        // noinspection ChromeOsAbiSupport
         ndk {
-            abiFilters += "arm64-v8a"
-        }
-
-        @Suppress("UnstableApiUsage")
-        externalNativeBuild {
-            cmake {
-                cppFlags += "-std=c++17"
-                cppFlags("-I${project.file("src/main/cpp/include")}")
-
-                arguments += listOf(
-                    "-DANDROID_STL=c++_shared",
-                    "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384"
-                )
-            }
+            abiFilters += setOf("arm64-v8a", "x86_64")
         }
     }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1+"
-        }
-    }
+    sourceSets["main"].jniLibs.directories += "src/main/jniLibs"
 
     buildTypes {
         release {
@@ -139,7 +173,6 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 val adbProvider = androidComponents.sdkComponents.adb
-
 androidComponents {
     onVariants { variant ->
         val kotlinSources = variant.sources.kotlin ?: return@onVariants
@@ -339,6 +372,37 @@ val embedBuiltinJavaScript = tasks.register<EmbedJsTask>("embedBuiltinJavaScript
     sourceJsFile.set(file("src/main/java/moe/ouom/wekit/hooks/items/scripting_js/script.js"))
     outputDir.set(layout.buildDirectory.dir("generated/sources/embeddedJs/kotlin"))
 }
+
+val rustProjectDir = file("src/main/rust/wekit-native")
+val rustLibName    = "libwekit_native.so"
+
+val abiToTarget = mapOf(
+    "arm64-v8a"   to "aarch64-linux-android",
+    "x86_64"      to "x86_64-linux-android",
+)
+val cargoTasks = abiToTarget.map { (abi, target) ->
+    tasks.register<Exec>("cargoBuild_${abi.replace('-', '_')}") {
+        group       = "rust"
+        description = "Compile Rust for $abi"
+        workingDir  = rustProjectDir
+        commandLine = listOf(
+            "cargo", "build",
+            "--release",
+            "--target", target,
+        )
+        doLast {
+            val soSrc = rustProjectDir
+                .resolve("target/$target/release/$rustLibName")
+            val soDir = layout.projectDirectory
+                .dir("src/main/jniLibs/$abi").asFile
+            soDir.mkdirs()
+            soSrc.copyTo(soDir.resolve(rustLibName), overwrite = true)
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibFolders") }
+    .configureEach { cargoTasks.forEach { t -> dependsOn(t) } }
 
 // --- end tasks ---
 

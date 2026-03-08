@@ -1,0 +1,19 @@
+[package]
+name = "wekit-native"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "wekit_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = { version = "0.22.3", default-features = false }
+libc = "0.2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

@@ -1,6 +1,5 @@
 package moe.ouom.wekit.hooks.items.chat
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -18,7 +16,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,11 +32,14 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.nameof.nameof
+import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.utils.showComposeDialog
+import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.MatchType
@@ -160,10 +160,7 @@ object EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
     private fun showSelectDialog(param: XC_MethodHook.MethodHookParam, isDice: Boolean) {
         param.result = null
 
-        val activity = getActivity() ?: run {
-            WeLogger.e(TAG, "Cannot find Top Activity")
-            return
-        }
+        val activity = RuntimeConfig.getLauncherUIActivity()
 
         showComposeDialog(activity) { onDismiss ->
             EmojiGameDialogContent(
@@ -240,25 +237,8 @@ object EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
             }
         }
 
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            tonalElevation = 6.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = if (isDice) "选择骰子点数" else "选择猜拳结果",
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                HorizontalDivider()
-
-                // ── Mode selector ──────────────────────────────────────────────
+        AlertDialogContent(title = { Text(if (isDice) "选择骰子点数" else "选择猜拳结果") },
+            text = {
                 Text(
                     "发送模式",
                     style = MaterialTheme.typography.labelMedium,
@@ -314,23 +294,17 @@ object EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
                         )
                     }
                 }
-
-                // ── Buttons ───────────────────────────────────────────────────
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
-                ) {
-                    TextButton(onClick = { onDismiss() }) { Text("取消") }
-                    TextButton(onClick = { onRandom(isSingleMode); onDismiss() }) { Text("随机") }
-                    Button(onClick = {
-                        onSend(
-                            isSingleMode,
-                            inputText
-                        ); onDismiss()
-                    }) { Text("发送") }
-                }
-            }
-        }
+            },
+            dismissButton = {
+                TextButton(onClick = { onDismiss() }) { Text("取消") }
+                TextButton(onClick = { onRandom(isSingleMode); onDismiss() }) { Text("随机") }
+            },
+            confirmButton = { Button(onClick = {
+                onSend(
+                    isSingleMode,
+                    inputText
+                ); onDismiss()
+            }) { Text("发送") } })
     }
 
     private fun parseMultipleInput(input: String, isDice: Boolean): List<Int> {
@@ -354,14 +328,12 @@ object EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
         Thread {
             values.forEachIndexed { index, value ->
                 try {
-                    // Set the value for this iteration
                     if (isDice) {
                         valDice = value
                     } else {
                         valMorra = value
                     }
 
-                    // Invoke the original method
                     XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args)
 
                     // Add delay between sends (except for the last one)
@@ -371,37 +343,14 @@ object EmojiGameControl : BaseSwitchFunctionHookItem(), IDexFind {
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "failed to send at index $index", e)
                     activity.runOnUiThread {
-                        Toast.makeText(activity, "第 ${index + 1} 次发送失败", Toast.LENGTH_SHORT)
-                            .show()
+                        ToastUtils.showToast(activity, "第 ${index + 1} 次发送失败")
                     }
                 }
             }
 
             activity.runOnUiThread {
-                Toast.makeText(activity, "已发送 ${values.size} 次", Toast.LENGTH_SHORT).show()
+                ToastUtils.showToast(activity, "已发送 ${values.size} 次")
             }
         }.start()
-    }
-
-    // Helper to get current activity
-    @SuppressLint("PrivateApi")
-    private fun getActivity(): Activity? {
-        try {
-            val activityThreadClass = Class.forName("android.app.ActivityThread")
-            val activityThread =
-                XposedHelpers.callStaticMethod(activityThreadClass, "currentActivityThread")
-            val activities =
-                XposedHelpers.getObjectField(activityThread, "mActivities") as Map<*, *>
-            for (value in activities.values) {
-                val activityRecord = value as Any
-                val paused = XposedHelpers.getBooleanField(activityRecord, "paused")
-                if (!paused) {
-                    return XposedHelpers.getObjectField(activityRecord, "activity") as Activity
-                }
-            }
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to get Activity", e)
-        }
-        return null
     }
 }

@@ -18,7 +18,7 @@ public class NativeCoreBridge {
 
     static {
         System.loadLibrary("dexkit");
-        System.loadLibrary("wekit");
+        System.loadLibrary("wekit_native");
     }
 
     private NativeCoreBridge() {
