@@ -424,9 +424,12 @@ dependencies {
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.preference)
+    implementation(libs.androidx.biometric)
     implementation(libs.accompanist.drawablepainter)
     implementation(libs.aboutlibraries.core)
     implementation(libs.aboutlibraries.compose.m3)
+    implementation(libs.kyant0.backdrop)
+    implementation(libs.kyant0.shapes)
 
     implementation(libs.kotlinx.io.jvm)
     implementation(libs.gson)

@@ -25,8 +25,9 @@ enum class MessageType(val code: Int) {
     RECALL(0x10002710),
     SERVICE(0x13000031),
     TRANSFER(0x19000031),
-    RED_PACKET(0x1A000031),
+    RED_PACKET(436207665),
     YEAR_RED_PACKET(0x1C000031),
+    EXCLUSIVE_RED_PACKET(469762097),
     ACCOUNT_VIDEO(0x1D000031),
     RED_PACKET_COVER(0x20010031),
     VIDEO_ACCOUNT(0x2D000031),
@@ -54,7 +55,7 @@ enum class MessageType(val code: Int) {
         fun isFile(code: Int) = code == FILE.code
         fun isApp(code: Int) = code == APP.code
         fun isLink(code: Int) = code == LINK.code || code == MUSIC.code || code == PRODUCT.code
-        fun isRedPacket(code: Int) = code == RED_PACKET.code || code == YEAR_RED_PACKET.code
+        fun isRedPacket(code: Int) = code == RED_PACKET.code || code == YEAR_RED_PACKET.code || code == EXCLUSIVE_RED_PACKET.code
         fun isSystem(code: Int) = code == SYSTEM.code || code == SYSTEM_NOTICE.code
         fun isEmoji(code: Int) = code == STICKER.code || code == SO_GOU_EMOJI.code
         fun isLocation(code: Int) = code == LOCATION.code || code == SYSTEM_LOCATION.code

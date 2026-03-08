@@ -377,6 +377,34 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
         return mapToContact(executeQuery(SqlStatements.FRIENDS))
     }
 
+    fun getDisplayName(wxid: String): String {
+        if (wxid.isEmpty()) error("wxid is empty")
+        try {
+            val escapedWxid = wxid.replace("'", "''")
+            val isGroup = wxid.endsWith("@chatroom")
+            val sql = if (isGroup) {
+                "SELECT r.nickname FROM rcontact r WHERE r.username = '$escapedWxid'"
+            } else {
+                "SELECT r.conRemark, r.nickname FROM rcontact r WHERE r.username = '$escapedWxid'"
+            }
+            val result = executeQuery(sql)
+            if (result.isEmpty()) return wxid
+
+            val row = result[0]
+            return if (isGroup) {
+                val nickname = row.str("nickname")
+                nickname.ifEmpty { wxid }
+            } else {
+                val conRemark = row.str("conRemark")
+                val nickname = row.str("nickname")
+                conRemark.ifEmpty { nickname.ifEmpty { wxid } }
+            }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "failed to get display name; wxid=$wxid", e)
+            return wxid
+        }
+    }
+
     /**
      * 获取【群聊】
      */

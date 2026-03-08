@@ -15,11 +15,14 @@ import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
 import moe.ouom.wekit.hooks.sdk.base.WeDatabaseListenerApi
 import moe.ouom.wekit.hooks.sdk.base.WeNetworkApi
+import moe.ouom.wekit.hooks.sdk.base.model.MessageType
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.BasePrefDialog
 import moe.ouom.wekit.ui.utils.showComposeDialog
+import moe.ouom.wekit.utils.common.ToastUtils
 import moe.ouom.wekit.utils.log.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
@@ -36,10 +39,11 @@ object AutoOpenRedPacket : BaseClickableFunctionHookItem(), WeDatabaseListenerAp
     private val classReceiveLuckyMoney by dexClass()
     private val classOpenLuckyMoney by dexClass()
     private val methodOnGYNetEnd by dexMethod()
+    private val methodOnOpenGYNetEnd by dexMethod()
+
     private val currentRedPacketMap = ConcurrentHashMap<String, RedPacketInfo>()
 
-    private const val TYPE_RED_PACKET = 436207665 // 红包
-    private const val TYPE_RED_PACKET_EXCLUSIVE = 469762097 // 专属红包
+    private val config = WeConfig.defaultConfig
 
     data class RedPacketInfo(
         val sendId: String,
@@ -52,32 +56,23 @@ object AutoOpenRedPacket : BaseClickableFunctionHookItem(), WeDatabaseListenerAp
     )
 
     override fun entry(classLoader: ClassLoader) {
-        WeLogger.i(TAG, "entry() called, registering db listener")
-        // 注册数据库监听
         WeDatabaseListenerApi.addListener(this)
-        WeLogger.i(TAG, "registered db listener")
-
-        // Hook 具体的网络回调
         hookReceiveCallback()
-        WeLogger.i(TAG, "hooked network receive callback")
+        hookOpenReqEndCallback()
     }
 
-    /**
-     * 接口实现：处理数据库插入事件
-     */
     override fun onInsert(table: String, values: ContentValues) {
         if (table != "message") return
 
         val type = values.getAsInteger("type") ?: 0
-        if (type == TYPE_RED_PACKET || type == TYPE_RED_PACKET_EXCLUSIVE) {
-            WeLogger.i(TAG, "detected red packet message (type=$type)")
+        if (MessageType.isRedPacket(type)) {
+            WeLogger.i(TAG, "detected red packet message; type=$type")
             handleRedPacket(values)
         }
     }
 
     private fun handleRedPacket(values: ContentValues) {
         try {
-            val config = WeConfig.defaultConfig
             if (values.getAsInteger("isSend") == 1 && !config.getBoolPref("red_packet_self")) return
 
             val content = values.getAsString("content") ?: return
@@ -113,14 +108,12 @@ object AutoOpenRedPacket : BaseClickableFunctionHookItem(), WeDatabaseListenerAp
                 nickName = nickName
             )
 
-            // 处理延时
             val isRandomDelay = config.getBoolPref("red_packet_delay_random")
             val customDelay =
                 config.getStringPref("red_packet_delay_custom", "0")?.toLongOrNull() ?: 0L
 
             WeLogger.i(TAG, "config - isRandomDelay=$isRandomDelay, customDelay=$customDelay")
 
-            // 如果开启随机延迟，在自定义延迟基础上增加随机偏移
             val delayTime = if (isRandomDelay) {
                 val baseDelay = if (customDelay > 0) customDelay else 1000L
                 val randomOffset = Random.nextLong(-500, 500)
@@ -162,43 +155,72 @@ object AutoOpenRedPacket : BaseClickableFunctionHookItem(), WeDatabaseListenerAp
     }
 
     private fun hookReceiveCallback() {
-        try {
-            methodOnGYNetEnd.toDexMethod {
-                hook {
-                    afterIfEnabled { param ->
-                        val json = param.args[2] as? JSONObject ?: return@afterIfEnabled
-                        val sendId = json.optString("sendId")
-                        val timingIdentifier = json.optString("timingIdentifier")
+        methodOnGYNetEnd.toDexMethod {
+            hook {
+                afterIfEnabled { param ->
+                    val json = param.args[2] as? JSONObject ?: return@afterIfEnabled
+                    val sendId = json.optString("sendId")
+                    val timingIdentifier = json.optString("timingIdentifier")
 
-                        if (timingIdentifier.isNullOrEmpty() || sendId.isNullOrEmpty()) return@afterIfEnabled
+                    if (timingIdentifier.isNullOrEmpty() || sendId.isNullOrEmpty()) return@afterIfEnabled
 
-                        val info = currentRedPacketMap[sendId] ?: return@afterIfEnabled
-                        WeLogger.i(
-                            TAG,
-                            "unpack request finished, sending open packet request ($sendId)"
-                        )
+                    val info = currentRedPacketMap[sendId] ?: return@afterIfEnabled
+                    WeLogger.i(
+                        TAG,
+                        "unpack request finished, sending open packet request ($sendId)"
+                    )
 
-                        Thread {
-                            try {
-                                val openReq = XposedHelpers.newInstance(
-                                    classOpenLuckyMoney.clazz,
-                                    info.msgType, info.channelId, info.sendId, info.nativeUrl,
-                                    info.headImg, info.nickName, info.talker,
-                                    "v1.0", timingIdentifier, ""
-                                )
-                                // 使用 NetworkApi 发送
-                                WeNetworkApi.sendRequest(openReq)
-
-                                currentRedPacketMap.remove(sendId)
-                            } catch (e: Throwable) {
-                                WeLogger.e(TAG, "failed to open packet", e)
-                            }
-                        }.start()
-                    }
+                    Thread {
+                        try {
+                            val openReq = XposedHelpers.newInstance(
+                                classOpenLuckyMoney.clazz,
+                                info.msgType, info.channelId, info.sendId, info.nativeUrl,
+                                info.headImg, info.nickName, info.talker,
+                                "v1.0", timingIdentifier, ""
+                            )
+                            WeNetworkApi.sendRequest(openReq)
+                            // we don't remove packet from map here for use in hookOpenReqEndCallback
+                        } catch (e: Throwable) {
+                            WeLogger.e(TAG, "failed to open packet", e)
+                            currentRedPacketMap.remove(sendId)
+                        }
+                    }.start()
                 }
             }
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "failed to hook onGYNetEnd", e)
+        }
+    }
+
+    private fun hookOpenReqEndCallback() {
+        methodOnOpenGYNetEnd.toDexMethod {
+            hook {
+                afterIfEnabled { param ->
+                    val notifEnabled = config.getBoolPref("red_packet_notification")
+                    if (!notifEnabled) return@afterIfEnabled
+
+                    val json = param.args[2] as? JSONObject ?: return@afterIfEnabled
+                    val sendId = json.optString("sendId")
+                    if (sendId.isNullOrEmpty()) return@afterIfEnabled
+
+                    val info = currentRedPacketMap.remove(sendId) ?: return@afterIfEnabled
+
+                    val retcode = json.optInt("retcode", -1)
+                    if (retcode != 0) {
+                        WeLogger.w(TAG, "failed to grab packet; retcode=$retcode, sendId=$sendId")
+                        return@afterIfEnabled
+                    }
+
+                    val amount = json.optInt("recAmount", 0)
+                    if (amount <= 0) {
+                        return@afterIfEnabled
+                    }
+
+                    val displayAmount = amount / 100.0
+                    val displayName = WeDatabaseApi.getDisplayName(info.talker)
+                    val isGroup = info.talker.endsWith("@chatroom")
+                    val sourceLabel = if (isGroup) "群组" else "私聊"
+                    ToastUtils.showToast("抢到来自${sourceLabel}中来自 '${displayName}' 的红包 ¥${displayAmount}")
+                }
+            }
         }
     }
 
@@ -222,28 +244,24 @@ object AutoOpenRedPacket : BaseClickableFunctionHookItem(), WeDatabaseListenerAp
     private class ConfigDialog(context: Context) : BasePrefDialog(context, "自动抢红包") {
 
         override fun initPreferences() {
-            addCategory("通用设置")
-
             addSwitchPreference(
                 key = "red_packet_notification",
-                title = "抢到后通知 (没写)",
-                summary = "在通知栏显示抢到的金额"
+                title = "抢到后通知",
+                summary = "使用 Toast 显示抢到的金额"
             )
-
-            addCategory("高级选项")
 
             addSwitchPreference(
                 key = "red_packet_self",
                 title = "抢自己的红包",
-                summary = "默认情况下不抢自己发出的"
+                summary = "默认情况下不抢自己发出的红包"
             )
 
             addEditTextPreference(
                 key = "red_packet_delay_custom",
                 title = "基础延迟",
                 summary = "延迟时间",
-                defaultValue = "1000",
-                hint = "请输入延迟时间（毫秒）",
+                defaultValue = "500",
+                hint = "请输入延迟时间 (毫秒)",
                 inputType = InputType.TYPE_CLASS_NUMBER,
                 maxLength = 5,
                 summaryFormatter = { value ->
@@ -254,13 +272,13 @@ object AutoOpenRedPacket : BaseClickableFunctionHookItem(), WeDatabaseListenerAp
             addSwitchPreference(
                 key = "red_packet_delay_random",
                 title = "随机延时",
-                summary = "在基础延迟上增加 ±500ms 随机偏移，防止风控"
+                summary = "在基础延迟上增加 ±500ms 随机偏移, 防止风控"
             )
         }
     }
 
     override fun onClick(context: Context) {
-        context.let { ConfigDialog(it).show() }
+        ConfigDialog(context).show()
     }
 
     override fun dexFind(dexKit: DexKitBridge): Map<String, String> {
@@ -279,7 +297,7 @@ object AutoOpenRedPacket : BaseClickableFunctionHookItem(), WeDatabaseListenerAp
         }
 
         // 查找开红包类
-        val foundOpen = classOpenLuckyMoney.find(dexKit, descriptors, allowMultiple = true) {
+        classOpenLuckyMoney.find(dexKit, descriptors, allowMultiple = true) {
             matcher {
                 methods {
                     add {
@@ -289,24 +307,21 @@ object AutoOpenRedPacket : BaseClickableFunctionHookItem(), WeDatabaseListenerAp
                 }
             }
         }
-        if (!foundOpen) {
-            WeLogger.e(TAG, "failed to find OpenLuckyMoney class")
-            throw RuntimeException("DexKit: Failed to find OpenLuckyMoney class with string 'MicroMsg.NetSceneOpenLuckyMoney'")
-        }
 
         // 查找 onGYNetEnd 回调方法
-        val receiveLuckyMoneyClassName = classReceiveLuckyMoney.getDescriptorString()
-        if (receiveLuckyMoneyClassName != null) {
-            val foundMethod = methodOnGYNetEnd.find(dexKit, descriptors, true) {
-                matcher {
-                    declaredClass = receiveLuckyMoneyClassName
-                    name = "onGYNetEnd"
-                    paramCount = 3
-                }
+        methodOnGYNetEnd.find(dexKit, descriptors, true) {
+            matcher {
+                declaredClass = classReceiveLuckyMoney.getDescriptorString()!!
+                name = "onGYNetEnd"
+                paramCount = 3
             }
-            if (!foundMethod) {
-                WeLogger.e(TAG, "failed to find onGYNetEnd method")
-                throw RuntimeException("DexKit: Failed to find onGYNetEnd method in $receiveLuckyMoneyClassName")
+        }
+
+        methodOnOpenGYNetEnd.find(dexKit, descriptors, true) {
+            matcher {
+                declaredClass = classReceiveLuckyMoney.getDescriptorString()!!
+                name = "onGYNetEnd"
+                paramCount = 3
             }
         }
 

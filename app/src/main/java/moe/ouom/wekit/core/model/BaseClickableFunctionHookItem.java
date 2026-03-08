@@ -28,7 +28,7 @@ public abstract class BaseClickableFunctionHookItem extends BaseHookItem {
     }
 
     /**
-     * 应用切换状态(保存配置+更新状态+更新UI)
+     * 应用切换状态 (保存配置+更新状态+更新UI)
      * 用于异步确认对话框中,在用户确认后调用此方法完成切换
      *
      * @param newState 新的状态 (true: 启用, false: 禁用)

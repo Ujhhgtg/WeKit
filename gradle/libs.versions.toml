@@ -42,6 +42,9 @@ dexlib2 = "2.5.2"
 silkdecoder = "master-SNAPSHOT"
 aboutlibraries = "14.0.0-b02"
 kotlinpoet = "2.2.0"
+biometric = "1.2.0-alpha05"
+kyant0-backdrop = "2.0.0-alpha03"
+kyant0-shapes = "1.2.0"
 
 [libraries]
 android-tools = { module = "com.android.tools.build:gradle", version.ref = "agp" }
@@ -61,6 +64,9 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
 androidx-preference = { module = "androidx.preference:preference", version.ref = "preference" }
 androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
+androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
+kyant0-backdrop = { module = "io.github.kyant0:backdrop", version.ref = "kyant0-backdrop" }
+kyant0-shapes = { module = "io.github.kyant0:shapes", version.ref = "kyant0-shapes" }
 
 material-dialogs-core = { module = "com.afollestad.material-dialogs:core", version.ref = "materialDialog" }
 material-dialogs-input = { module = "com.afollestad.material-dialogs:input", version.ref = "materialDialog" }
