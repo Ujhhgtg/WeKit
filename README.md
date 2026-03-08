@@ -2,6 +2,10 @@
 
 适用于微信的 Xposed 模块
 
+## CI 状态
+
+[![CI](https://github.com/Ujhhgtg/WeKit/actions/workflows/ci.yml/badge.svg)](https://github.com/Ujhhgtg/WeKit/actions/workflows/ci.yml)
+
 ## 修改内容 (相比上游)
 
 - 添加 WAuxiliary 与 NewMiko 目前公开源代码中的部分功能
