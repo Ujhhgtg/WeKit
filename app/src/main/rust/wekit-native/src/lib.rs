@@ -5,47 +5,21 @@
 #![allow(non_snake_case)]
 
 mod crash_handler;
-use crash_handler::{install_crash_handler, trigger_test_crash, uninstall_crash_handler};
+mod crash_triggerer;
+mod logging;
+mod shared;
+mod utils;
+
+use crash_handler::{install_crash_handler, uninstall_crash_handler};
+use crash_triggerer::trigger_test_crash;
 
 use jni::sys::{
     JNI_FALSE, JNI_TRUE, JNI_VERSION_1_6, JNIEnv as RawJNIEnv, JavaVM, jboolean, jint, jobject,
     jstring,
 };
 use libc::c_void;
-use std::ffi::CStr;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper — extract a &str from a jstring without the high-level jni wrapper
-// so we can keep the function signatures identical to the C++ originals.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Calls `GetStringUTFChars` / `ReleaseStringUTFChars` via the raw JNI
-/// function table, invoking `f` with the resulting `&str`.
-///
-/// Returns `None` if `env` or `s` is null, or the JNI call fails.
-///
-/// # Safety
-/// `env` must be a valid `JNIEnv*` pointer for the current thread and `s`
-/// must be a valid `jstring` (or null).
-unsafe fn with_jstring<F, R>(env: *mut RawJNIEnv, s: jstring, f: F) -> Option<R>
-where
-    F: FnOnce(&str) -> R,
-{
-    unsafe {
-        if env.is_null() || s.is_null() {
-            return None;
-        }
-        // Dereference the JNIEnv pointer to reach the function table.
-        let fns = *env; // *const JNINativeInterface_
-        let chars = ((*fns).v1_6.GetStringUTFChars)(env, s, std::ptr::null_mut());
-        if chars.is_null() {
-            return None;
-        }
-        let result = f(CStr::from_ptr(chars).to_str().unwrap_or(""));
-        ((*fns).v1_6.ReleaseStringUTFChars)(env, s, chars);
-        Some(result)
-    }
-}
+use crate::utils::with_jstring;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JNI exports

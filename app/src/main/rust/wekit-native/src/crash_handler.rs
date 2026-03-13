@@ -9,12 +9,14 @@
 //! - `_Unwind_Backtrace` is technically not async-signal-safe, but this
 //!   matches the original C++ behaviour and is standard practice on Android.
 
-use core::{
-    ffi::CStr,
-    mem::MaybeUninit,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use crate::shared::G_CRASH_LOG_DIR;
+use core::{ffi::CStr, mem::MaybeUninit, sync::atomic::Ordering};
 use libc::*;
+
+use crate::{
+    crash_triggerer::{HANDLER_INSTALLED, IS_HANDLING_CRASH},
+    loge, logi,
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -24,57 +26,8 @@ const SIGNALS: &[c_int] = &[SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS, SIGTRAP];
 const MAX_SIGNALS: usize = 32;
 const MAX_FRAMES: usize = 128;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Global state
-//
-// SAFETY:
-//  • G_CRASH_LOG_DIR  — written once in `install_crash_handler` before
-//    the signal handler is registered; thereafter read-only.
-//  • G_OLD_HANDLERS   — written sequentially in `install_crash_handler`
-//    before signals are armed; thereafter read-only.
-// ─────────────────────────────────────────────────────────────────────────────
-
-static HANDLER_INSTALLED: AtomicBool = AtomicBool::new(false);
-static IS_HANDLING_CRASH: AtomicBool = AtomicBool::new(false);
-
-static mut G_CRASH_LOG_DIR: [u8; 512] = [0u8; 512];
 static mut G_OLD_HANDLERS: [MaybeUninit<sigaction>; MAX_SIGNALS] =
     [MaybeUninit::uninit(); MAX_SIGNALS];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Android logging
-// ─────────────────────────────────────────────────────────────────────────────
-
-unsafe extern "C" {
-    /// Non-variadic Android log function — safe to call from a signal handler.
-    fn __android_log_write(prio: c_int, tag: *const c_char, text: *const c_char) -> c_int;
-}
-
-const ANDROID_LOG_INFO: c_int = 4;
-const ANDROID_LOG_ERROR: c_int = 6;
-
-static LOG_TAG: &[u8] = b"NativeCrashHandler\0";
-
-fn android_log(prio: c_int, msg: &str) {
-    let mut buf = [0u8; 512];
-    let len = msg.len().min(buf.len() - 1);
-    buf[..len].copy_from_slice(&msg.as_bytes()[..len]);
-    // buf[len] is already 0 from initialisation → null-terminated
-    unsafe {
-        __android_log_write(
-            prio,
-            LOG_TAG.as_ptr() as *const c_char,
-            buf.as_ptr() as *const c_char,
-        );
-    }
-}
-
-macro_rules! logi {
-    ($($t:tt)*) => { android_log(ANDROID_LOG_INFO,  &format!($($t)*)) };
-}
-macro_rules! loge {
-    ($($t:tt)*) => { android_log(ANDROID_LOG_ERROR, &format!($($t)*)) };
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Signal name / description helpers
@@ -634,68 +587,4 @@ pub fn uninstall_crash_handler() {
     }
     HANDLER_INSTALLED.store(false, Ordering::SeqCst);
     logi!("Native crash handler uninstalled");
-}
-
-/// Trigger a deliberate crash for testing.
-/// `crash_type` mirrors the values used by the Java-side API.
-pub fn trigger_test_crash(crash_type: i32) {
-    logi!("========================================");
-    logi!("Triggering test crash: type={}", crash_type);
-    logi!(
-        "Handler installed: {}",
-        HANDLER_INSTALLED.load(Ordering::SeqCst)
-    );
-    unsafe {
-        logi!(
-            "Crash log dir: {}",
-            core::str::from_utf8_unchecked(
-                &G_CRASH_LOG_DIR[..(&raw const G_CRASH_LOG_DIR)
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .position(|&b| b == 0)
-                    .unwrap_or(0)]
-            )
-        );
-    }
-    logi!("========================================");
-
-    match crash_type {
-        0 => {
-            logi!("Triggering SIGSEGV (null pointer dereference)…");
-            let p: *mut i32 = core::ptr::null_mut();
-            unsafe { core::ptr::write_volatile(p, 42) };
-        }
-        1 => {
-            logi!("Triggering SIGABRT (abort)…");
-            unsafe { abort() };
-        }
-        2 => {
-            logi!("Triggering SIGFPE (division by zero)…");
-            unsafe {
-                let zero: i32 = core::ptr::read_volatile(&0i32);
-                let _r = core::ptr::read_volatile(&42i32) / zero;
-            }
-        }
-        3 => {
-            logi!("Triggering SIGILL (illegal instruction)…");
-            unsafe {
-                #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
-                core::arch::asm!(".word 0xf7f0a000");
-                #[cfg(target_arch = "x86_64")]
-                core::arch::asm!("ud2");
-            }
-        }
-        4 => {
-            logi!("Triggering SIGBUS (unaligned write)…");
-            let mut buf = [0u8; 16];
-            unsafe {
-                let unaligned = buf.as_mut_ptr().add(1) as *mut u64;
-                core::ptr::write_volatile(unaligned, 0x1234_5678_90AB_CDEF);
-            }
-        }
-        other => loge!("Unknown crash type: {}", other),
-    }
-
-    loge!("Test crash did not occur — this should not happen.");
 }

@@ -10,8 +10,6 @@ on:
       - 'renovate.json'
       - '.editorconfig'
       - '.gitignore'
-      - '.github/**'
-      - '.github/workflows/**'
       - '.idea/**'
   pull_request:
     branches:
@@ -22,8 +20,6 @@ on:
       - 'renovate.json'
       - '.editorconfig'
       - '.gitignore'
-      - '.github/**'
-      - '.github/workflows/**'
       - '.idea/**'
   workflow_dispatch:
 
@@ -73,11 +69,6 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ success() && github.ref == 'refs/heads/master' }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-
       - name: Download APK artifact
         uses: actions/download-artifact@v8
         with:
