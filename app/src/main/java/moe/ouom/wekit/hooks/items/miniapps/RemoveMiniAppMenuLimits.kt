@@ -14,7 +14,7 @@ object RemoveMiniAppMenuLimits : SwitchHookItem(), IDexFind {
 
     private lateinit var showAndClickableEnumValue: Any
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodGetMenuItemVisibility1.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

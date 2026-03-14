@@ -14,12 +14,11 @@ object RemoveMessageBatchForwardLimit : SwitchHookItem(),
 
     private val TAG = nameof(RemoveMessageBatchForwardLimit)
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeStartActivityApi.addListener(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
-        super.onUnload(classLoader)
+    override fun onUnload() {
         WeStartActivityApi.removeListener(this)
     }
 

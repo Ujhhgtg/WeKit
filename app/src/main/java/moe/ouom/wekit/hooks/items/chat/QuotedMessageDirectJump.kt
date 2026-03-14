@@ -18,7 +18,7 @@ object QuotedMessageDirectJump : SwitchHookItem(), IDexFind {
     private val classEnumQuoteJumpToPositionSource by dexClass()
     private val classChattingContext by dexClass()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodClickEvent.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

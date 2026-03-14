@@ -47,7 +47,7 @@ object ShowWxIdInContactDetails : SwitchHookItem() {
             }
         }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         try {
             WeChatContactDetailsApi.addInitCallback(initCallback)
             WeChatContactDetailsApi.addClickListener(clickListener)
@@ -71,7 +71,7 @@ object ShowWxIdInContactDetails : SwitchHookItem() {
     }
 
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeChatContactDetailsApi.removeInitCallback(initCallback)
         WeChatContactDetailsApi.removeClickListener(clickListener)
         WeLogger.i(TAG, "已移除显示微信ID Hook")

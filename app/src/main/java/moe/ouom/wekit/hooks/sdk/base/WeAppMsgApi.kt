@@ -95,7 +95,7 @@ object WeAppMsgApi : ApiHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         try {
             // 初始化方法引用
             parseXmlMethod = methodParseXml.method

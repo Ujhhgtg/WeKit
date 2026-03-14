@@ -72,7 +72,7 @@ object BeautifyMainScreenTabBar : ClickableHookItem() {
 
     private const val KEY_USE_BACKDROP = "tab_bar_use_backdrop"
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeMainActivityBeautifyApi.methodDoOnCreate.toDexMethod {
             hook {
                 afterIfEnabled { param ->

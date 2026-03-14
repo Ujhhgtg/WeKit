@@ -120,7 +120,7 @@ object FeatureFlagManager : ClickableHookItem(), IDexFind {
 
     // FIXME: currently, to prevent lag, overrides are loaded only once, so we have to restart host app for changes to take effect
     private val overrides by lazy { loadOverrides() }
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodRepairerConfigApiGet.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

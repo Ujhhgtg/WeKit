@@ -13,9 +13,8 @@ object WeApi {
     /**
      * 获取当前登录的微信 ID
      */
-    val selfWxId by lazy {
-        RuntimeConfig.getLoggedInWxId()
-    }
+    val selfWxId: String
+        get() = RuntimeConfig.getLoggedInWxId()
 
     /**
      * 生成 ClientMsgId

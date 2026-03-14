@@ -228,7 +228,7 @@ object HookItemsLoader {
         items.forEach { hookItem ->
             runCatching {
                 WeLogger.i(TAG, "initializing ${hookItem.path}")
-                hookItem.loadItem()
+                hookItem.load()
             }.onFailure { e ->
                 WeLogger.e(
                     TAG,

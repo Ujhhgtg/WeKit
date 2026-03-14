@@ -1,7 +1,6 @@
 package moe.ouom.wekit.core.model
 
 import android.content.Context
-import com.highcapable.kavaref.extension.ClassLoaderProvider
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.config.WePrefs
@@ -41,7 +40,7 @@ abstract class ClickableHookItem : BaseHookItem() {
             if (isLoaded) {
                 WeLogger.i("unloading $TAG: $path")
                 try {
-                    onUnload(ClassLoaderProvider.classLoader!!)
+                    unload()
                     isLoaded = false
                 } catch (e: Throwable) {
                     WeLogger.e("failed to unload $path", e)
@@ -49,7 +48,7 @@ abstract class ClickableHookItem : BaseHookItem() {
             }
         } else {
             WeLogger.i("loading $TAG: $path")
-            loadItem()
+            load()
             isLoaded = true
         }
     }

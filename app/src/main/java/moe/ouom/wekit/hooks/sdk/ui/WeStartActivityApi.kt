@@ -38,7 +38,7 @@ object WeStartActivityApi : ApiHookItem() {
         )
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         Activity::class.asResolver()
             .method {
                 name {

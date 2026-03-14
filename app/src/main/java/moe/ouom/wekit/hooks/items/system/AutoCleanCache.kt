@@ -57,7 +57,7 @@ object AutoCleanCache : ClickableHookItem() {
         return@run paths
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         startCleaningJob()
     }
 

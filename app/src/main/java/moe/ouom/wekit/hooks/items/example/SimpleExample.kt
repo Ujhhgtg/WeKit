@@ -67,7 +67,7 @@ class SimpleExample :
     }
 
     // Hook 入口
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         // 日志输出请务必使用 `WeLogger`，他会自动添加 TAG，并且适配多种输出需求，如：
         WeLogger.i(
             "SimplifiedExample",
@@ -107,7 +107,7 @@ class SimpleExample :
         classTargetClass.clazz.createInstance("param1", "param2")
 
         // 方式 4: 这里拿 Hook A 作为例子 （使用全局 HOOK 优先级）
-        val clsReceiveLuckyMoney = "com.example.LuckyMoneyReceive".toClass(classLoader)
+        val clsReceiveLuckyMoney = "com.example.LuckyMoneyReceive".toClass()
 //        val mOnGYNetEnd = XposedHelpers.findMethodExact(
 //            clsReceiveLuckyMoney,
 //            "A",
@@ -131,8 +131,7 @@ class SimpleExample :
 
 
         // 方式 5: 这里拿 Hook B 作为例子 （使用自定义 HOOK 优先级）
-        val clsReceiveLuckyMoney2: Class<*> =
-            XposedHelpers.findClass("com.example.LuckyMoneyReceive", classLoader)
+        val clsReceiveLuckyMoney2 = "com.example.LuckyMoneyReceive".toClass()
         val mOnGYNetEnd2 = XposedHelpers.findMethodExact(
             clsReceiveLuckyMoney2,
             "B",
@@ -146,7 +145,7 @@ class SimpleExample :
         }
 
         // 方式 6: 带执行优先级的 hook 构造方法执行后
-        val targetClass = XposedHelpers.findClass("com.example.TestClass", classLoader)
+        val targetClass = "com.example.TestClass".toClass()
         val h2 = hookAfter(
             clazz = targetClass,
             priority = 50,
@@ -167,7 +166,7 @@ class SimpleExample :
         // 此处不再举例....
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         // 在这里清理资源
     }
 

@@ -31,7 +31,7 @@ object DisableMessageCollapsing : SwitchHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodFoldMsg.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

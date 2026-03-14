@@ -22,13 +22,12 @@ import java.util.Locale
 object DisplayMediaDownloadLinks : SwitchHookItem(),
     WeShortVideosShareMenuApi.IMenuItemsProvider {
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeShortVideosShareMenuApi.addProvider(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeShortVideosShareMenuApi.removeProvider(this)
-        super.onUnload(classLoader)
     }
 
     override fun getMenuItems(

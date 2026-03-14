@@ -82,13 +82,13 @@ object WeDatabaseListenerApi : ApiHookItem() {
         }
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         hookDatabaseInsert()
         hookDatabaseUpdate()
         hookDatabaseQuery()
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         insertListeners.clear()
         updateListeners.clear()
         queryListeners.clear()

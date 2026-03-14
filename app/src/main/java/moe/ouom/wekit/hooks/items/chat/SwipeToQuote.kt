@@ -33,13 +33,12 @@ object SwipeToQuote : SwitchHookItem(), IDexFind,
 
     private val cache = LruCache<Pair<String, Long>, Boolean>()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeChatMessageViewApi.addListener(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeChatMessageViewApi.removeListener(this)
-        super.onUnload(classLoader)
     }
 
     override fun onCreateView(

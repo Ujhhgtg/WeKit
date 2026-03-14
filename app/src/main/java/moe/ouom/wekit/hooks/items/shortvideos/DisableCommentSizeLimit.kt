@@ -11,8 +11,8 @@ import moe.ouom.wekit.hooks.core.annotation.HookItem
 )
 class DisableCommentSizeLimit : SwitchHookItem() {
 
-    override fun onLoad(classLoader: ClassLoader) {
-        "com.tencent.mm.plugin.finder.view.FinderCommentFooter".toClass(classLoader)
+    override fun onLoad() {
+        "com.tencent.mm.plugin.finder.view.FinderCommentFooter".toClass()
             .asResolver().apply {
                 firstMethod { name = "getCommentTextLimit" }
                     .hookBefore { param ->

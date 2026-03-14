@@ -9,8 +9,6 @@ import moe.ouom.wekit.loader.core.NativeLoader
 import moe.ouom.wekit.loader.core.WeLauncher
 import moe.ouom.wekit.loader.hookimpl.InMemoryClassLoaderHelper
 import moe.ouom.wekit.loader.hookimpl.LibXposedApiByteCodeGenerator
-import moe.ouom.wekit.utils.common.SyncUtils
-import moe.ouom.wekit.utils.log.WeLogger
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.exists
@@ -19,12 +17,8 @@ import kotlin.io.path.listDirectoryEntries
 
 object StartupHook {
 
-    private var secondStageInit = false
-
     fun execStartupInit(ctx: Context) {
-        check(!secondStageInit) { "Second stage init already executed" }
         execPostStartupInit(ctx)
-        secondStageInit = true
         deleteDirIfNecessary(ctx)
     }
 
@@ -33,7 +27,6 @@ object StartupHook {
         StartupInfo.getLoaderService().setClassLoaderHelper(InMemoryClassLoaderHelper.INSTANCE)
         LibXposedApiByteCodeGenerator.init()
         NativeLoader.initNative()
-        WeLogger.d("execPostStartupInit -> processName: ${SyncUtils.getProcessName()}")
         WeLauncher.init(ctx.classLoader, ctx)
     }
 
@@ -42,7 +35,7 @@ object StartupHook {
         deleteDirIfNecessary(ctx)
     }
 
-    internal fun deleteDirIfNecessary(ctx: Context) {
+    private fun deleteDirIfNecessary(ctx: Context) {
         runCatching {
             ctx.dataDir.toPath().resolve("app_qqprotect").deleteRecursively()
         }.onFailure(::logError)
@@ -56,7 +49,7 @@ object StartupHook {
         Files.delete(this)
     }
 
-    internal fun logError(th: Throwable) {
+    private fun logError(th: Throwable) {
         val msg = Log.getStackTraceString(th)
         Log.e(BuildConfig.TAG, msg)
         runCatching {

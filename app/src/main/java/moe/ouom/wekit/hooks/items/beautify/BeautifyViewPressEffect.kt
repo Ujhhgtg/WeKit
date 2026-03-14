@@ -10,7 +10,7 @@ import moe.ouom.wekit.hooks.core.annotation.HookItem
 
 @HookItem(path = "界面美化/美化组件按下效果", desc = "将 View 的背景替换为 RippleDrawable")
 object BeautifyViewPressEffect : SwitchHookItem() {
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         View::class.asResolver()
             .firstMethod {
                 name = "setBackgroundDrawable"

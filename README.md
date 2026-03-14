@@ -10,10 +10,13 @@
 
 - 添加 WAuxiliary 与 NewMiko 目前公开源代码中的部分功能
 - 移除全部校验, 减少模块体积, 避免不必要性能开销 (注意: 签名无论 Release/Debug 均使用默认 Debug 签名, 请勿从不安全来源安装模块)
-- 移植绝大部分 UI 至 Jetpack Compose
+- 移植 UI 至 Jetpack Compose
 - 添加, 修复, 增强 WAuxiliary 部分闭源功能
 - 移植其他模块的一些功能
 - AGP 升级至 9.X
+- 反射移植至 KavaRef
+- 原生库移植至 Rust
+- 修复问题
 - 大量新功能
 
 ## 宿主版本

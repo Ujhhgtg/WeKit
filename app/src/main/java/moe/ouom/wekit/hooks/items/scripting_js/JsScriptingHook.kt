@@ -145,7 +145,7 @@ object JsScriptingHook : ClickableHookItem(),
         }
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeLogger.i(TAG, "registering automation DB listener")
         WeDatabaseListenerApi.addListener(this)
     }
@@ -175,10 +175,9 @@ object JsScriptingHook : ClickableHookItem(),
         JsEngine.executeAllOnMessage(rules, talker, content, type, isSend)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeLogger.i(TAG, "removing automation DB listener")
         WeDatabaseListenerApi.removeListener(this)
-        super.onUnload(classLoader)
     }
 
     // --- onRequest ---

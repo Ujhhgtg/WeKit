@@ -1584,9 +1584,8 @@ override fun entry(classLoader: ClassLoader) {
 在 Hook 卸载时（`unload()` 方法）移除拦截器：
 
 ```kotlin
-override fun unload(classLoader: ClassLoader) {
+override fun onUnload(classLoader: ClassLoader) {
     WePkgManager.removeInterceptor(this)
-    super.unload(classLoader)
 }
 ```
 
@@ -1631,13 +1630,12 @@ class MyListener : DatabaseListenerAdapter() {
 }
 
 // 2. 注册/注销
-override fun entry(classLoader: ClassLoader) {
+override fun onLoad(classLoader: ClassLoader) {
     WeDatabaseListener.addListener(this)
 }
 
-override fun unload(classLoader: ClassLoader) {
+override fun onUnload(classLoader: ClassLoader) {
     WeDatabaseListener.removeListener(this)
-    super.unload(classLoader)
 }
 ```
 
@@ -1823,10 +1821,9 @@ class HookQueryCashierPkg : BaseClickableFunctionHookItem(), IWePkgInterceptor {
         }
     }
 
-    override fun unload(classLoader: ClassLoader) {
+    override fun onUnload(classLoader: ClassLoader) {
         // 卸载时移除拦截器
         WePkgManager.removeInterceptor(this)
-        super.unload(classLoader)
     }
 
     override fun onClick(context: Context) {
@@ -1879,14 +1876,13 @@ WeLogger.i("MyInterceptor", "篡改完成，返回新数据包")
 
 ```kotlin
 class MyHook : BaseHookItem(), IWePkgInterceptor {
-    override fun entry(classLoader: ClassLoader) {
+    override fun onLoad(classLoader: ClassLoader) {
         WePkgManager.addInterceptor(this)
     }
 
-    override fun unload(classLoader: ClassLoader) {
+    override fun onUnload(classLoader: ClassLoader) {
         // ✅ 必须在卸载时移除拦截器
         WePkgManager.removeInterceptor(this)
-        super.unload(classLoader)
     }
 }
 ```

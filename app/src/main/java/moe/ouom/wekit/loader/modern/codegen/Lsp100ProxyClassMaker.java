@@ -151,10 +151,10 @@ public class Lsp100ProxyClassMaker {
             }
         }
         var dex = makeClassByteCodeForPriority(priority);
-        return loadProxyClassForPriority(className, dex, priority);
+        return loadProxyClass(className, dex);
     }
 
-    private Class<?> loadProxyClassForPriority(@NonNull String className, @NonNull byte[] dex, int priority) {
+    private Class<?> loadProxyClass(@NonNull String className, @NonNull byte[] dex) {
         var helper = Lsp100HookImpl.INSTANCE.getClassLoaderHelper();
         if (helper == null) {
             throw new UnsupportedOperationException("ClassLoaderHelper not set");

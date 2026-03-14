@@ -26,7 +26,7 @@ object UploadTransparentAvatars : SwitchHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodSaveBitmap.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

@@ -12,8 +12,8 @@ object RemoveMomentsAds : SwitchHookItem() {
 
     private val TAG = nameof(RemoveMomentsAds)
 
-    override fun onLoad(classLoader: ClassLoader) {
-        val adInfoClass = "com.tencent.mm.plugin.sns.storage.ADInfo".toClass(classLoader)
+    override fun onLoad() {
+        val adInfoClass = "com.tencent.mm.plugin.sns.storage.ADInfo".toClass()
         adInfoClass.asResolver()
             .firstConstructor {
                 parameters(String::class)

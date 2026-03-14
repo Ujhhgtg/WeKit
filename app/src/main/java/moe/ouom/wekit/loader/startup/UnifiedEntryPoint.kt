@@ -14,16 +14,11 @@ object UnifiedEntryPoint {
 
     private val TAG = nameof(UnifiedEntryPoint)
 
-    private var initialized = false
-
-    @JvmStatic
     fun entry(
         modulePath: String,
         loaderService: ILoaderService,
         hostClassLoader: ClassLoader
     ) {
-        check(!initialized) { "$TAG already initialized" }
-        initialized = true
         ClassLoaderProvider.classLoader = hostClassLoader
 
         try {
@@ -42,16 +37,16 @@ object UnifiedEntryPoint {
                             )
                         } catch (t: Throwable) {
                             WeLogger.e(
-                                "Failed to hook Instrumentation.callApplicationOnCreate",
+                                "failed to hook Instrumentation.callApplicationOnCreate",
                                 t
                             )
                         }
                     }
                 }
             )
-            WeLogger.i("Hook applied: waiting for Application.attachBaseContext")
+            WeLogger.i("waiting for Application.attachBaseContext")
         } catch (t: Throwable) {
-            WeLogger.e("Failed to hook Shell Application", t)
+            WeLogger.e("failed to hook shell Application", t)
         }
     }
 
@@ -86,7 +81,7 @@ object UnifiedEntryPoint {
                 }
             )
         } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to hook Instrumentation.callApplicationOnCreate", e)
+            WeLogger.e(TAG, "failed to hook Instrumentation.callApplicationOnCreate", e)
         }
     }
 }

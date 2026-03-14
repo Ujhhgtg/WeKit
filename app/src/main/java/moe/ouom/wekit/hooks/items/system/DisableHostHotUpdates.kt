@@ -17,7 +17,7 @@ object DisableHostHotUpdates : SwitchHookItem() {
 
     @SuppressLint("SdCardPath")
     @OptIn(ExperimentalPathApi::class)
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         try {
             val file = Path("/data/data/${HostInfo.packageName}/tinker")
             if (file.exists()) {
@@ -27,7 +27,7 @@ object DisableHostHotUpdates : SwitchHookItem() {
         }
 
         val tinkerCls =
-            "com.tencent.tinker.loader.shareutil.ShareTinkerInternals".toClass(classLoader)
+            "com.tencent.tinker.loader.shareutil.ShareTinkerInternals".toClass()
 
         tinkerCls.asResolver()
             .method {

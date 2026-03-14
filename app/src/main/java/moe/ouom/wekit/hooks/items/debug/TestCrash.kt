@@ -24,7 +24,7 @@ object TestCrash : ClickableHookItem() {
     @SuppressLint("StaticFieldLeak")
     private var nativeCrashHandler: NativeCrashHandler? = null
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeLogger.i("TestCrash", "=== TestCrash entry() called ===")
         try {
             // 获取 Application Context

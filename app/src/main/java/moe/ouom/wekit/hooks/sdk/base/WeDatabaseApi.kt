@@ -30,11 +30,11 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
     private val methodGetStorage by dexMethod()
     private val classCoreStorage by dexClass()
     private val classConfigStorage by dexClass()
+    private val classSqliteDbWrapper by dexClass()
 
-    var dbInstance: Any? = null
-    private var getStorageMethod: Method? = null
-    var execQueryMethod: Method? = null
-    var execStatementMethod: Method? = null
+    lateinit var dbInstance: Any
+    lateinit var rawQueryMethod: Method
+    lateinit var execStatementMethod: Method
 
     private val TAG = nameof(WeDatabaseApi)
 
@@ -210,20 +210,22 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
             }
         }
 
+        classSqliteDbWrapper.find(dexKit, descriptors) {
+            matcher {
+                usingEqStrings("MicroMsg.SqliteDB", "sql is null ")
+            }
+        }
+
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         try {
-            getStorageMethod = methodGetStorage.method
+            methodGetStorage.method.hookAfter { param ->
+                val storageObj = param.result ?: return@hookAfter
 
-            if (getStorageMethod != null) {
-                hookAfter(getStorageMethod!!) { param ->
-                    val storageObj = param.result ?: return@hookAfter
-
-                    if (dbInstance == null) {
-                        initializeDatabase(storageObj)
-                    }
+                if (!::dbInstance.isInitialized) {
+                    initializeDatabase(storageObj)
                 }
             }
 
@@ -234,26 +236,21 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
 
     @Synchronized
     private fun initializeDatabase(storageObj: Any): Boolean {
-        if (dbInstance != null && execQueryMethod != null) return true
-
         try {
             // 在 Storage 中寻找 Wrapper
-            val wrapperObj = findDbWrapper(storageObj)
-            if (wrapperObj == null) {
-                WeLogger.e(TAG, "初始化: 未找到 Wrapper")
-                return false
-            }
+            val wrapperObj = storageObj.asResolver()
+                .firstField {
+                    type = classSqliteDbWrapper.clazz
+                }.get()!!
 
             // 获取 DB 实例
-            val dbInstance = wrapperObj.asResolver()
+            this.dbInstance = wrapperObj.asResolver()
                 .firstMethod {
                     parameterCount = 0
                     returnType = "com.tencent.wcdb.database.SQLiteDatabase"
                 }.invoke()!!
 
-            // 获取 rawQuery 方法并缓存
-            this.dbInstance = dbInstance
-            execQueryMethod = dbInstance.asResolver()
+            rawQueryMethod = dbInstance.asResolver()
                 .firstMethod {
                     name = "rawQuery"
                     parameterCount = 2
@@ -272,61 +269,12 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
         return false
     }
 
-    /**
-     * 快速查找 Wrapper
-     */
-    private fun findDbWrapper(storageObj: Any): Any? {
-        val fields = storageObj.javaClass.declaredFields
-        for (field in fields) {
-            try {
-                field.isAccessible = true
-                val obj = field.get(storageObj) ?: continue
-
-                val typeName = obj.javaClass.name
-                if (typeName.startsWith("java.") || typeName.startsWith("android.")) continue
-
-                if (checkMethodFeature(obj) || checkStringFeature(obj)) {
-                    return obj
-                }
-            } catch (_: Throwable) {
-            }
-        }
-        return null
-    }
-
-    /**
-     * 检查是否有 "MicroMsg.SqliteDB" 字符串
-     */
-    private fun checkStringFeature(obj: Any): Boolean {
-        return try {
-            obj.javaClass.declaredFields.any {
-                it.isAccessible = true
-                it.type == String::class.java && it.get(obj) == "MicroMsg.SqliteDB"
-            }
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    /**
-     * 检查是否有无参方法返回 SQLiteDatabase
-     */
-    private fun checkMethodFeature(obj: Any): Boolean {
-        return try {
-            obj.javaClass.declaredMethods.any {
-                it.parameterCount == 0 && it.returnType.name == "com.tencent.wcdb.database.SQLiteDatabase"
-            }
-        } catch (_: Exception) {
-            false
-        }
-    }
-
     fun executeQuery(sql: String, args: Array<Any>? = null): List<Map<String, Any?>> {
         val result = mutableListOf<Map<String, Any?>>()
 
         var cursor: Cursor? = null
         try {
-            cursor = execQueryMethod?.invoke(dbInstance, sql, args) as? Cursor
+            cursor = rawQueryMethod.invoke(dbInstance, sql, args) as? Cursor
             if (cursor != null && cursor.moveToFirst()) {
                 val columnNames = cursor.columnNames
                 do {
@@ -354,7 +302,7 @@ object WeDatabaseApi : ApiHookItem(), IDexFind {
 
     fun execStatement(sql: String): Boolean {
         try {
-            execStatementMethod?.invoke(dbInstance, sql)
+            execStatementMethod.invoke(dbInstance, sql)
             return true
         } catch (e: Exception) {
             WeLogger.e(TAG, "SQL Update 执行异常", e)

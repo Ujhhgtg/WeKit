@@ -15,7 +15,7 @@ object QuickRemoveQuote : SwitchHookItem(), IDexFind {
     private val methodSupportAutoCompleteOnKey by dexMethod()
     private val methodShowMsgQuoteContainer by dexMethod()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodSupportAutoCompleteOnKey.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

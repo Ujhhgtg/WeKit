@@ -24,13 +24,12 @@ import moe.ouom.wekit.utils.common.ToastUtils
 object DisplayMessageDetails : SwitchHookItem(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeChatMessageContextMenuApi.addProvider(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeChatMessageContextMenuApi.removeProvider(this)
-        super.onUnload(classLoader)
     }
 
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {

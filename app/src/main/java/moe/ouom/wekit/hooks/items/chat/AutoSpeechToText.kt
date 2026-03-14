@@ -17,15 +17,14 @@ import java.lang.reflect.InvocationTargetException
 object AutoSpeechToText : SwitchHookItem(),
     WeChatMessageViewApi.ICreateViewListener {
 
-    private val cache = LruCache<Long, Boolean>(100)
+    private val processedMessages = LruCache<Long, Boolean>()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeChatMessageViewApi.addListener(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeChatMessageViewApi.removeListener(this)
-        super.onUnload(classLoader)
     }
 
     override fun onCreateView(
@@ -37,7 +36,7 @@ object AutoSpeechToText : SwitchHookItem(),
         if (!msgInfo.isType(MessageType.VOICE)) return
 
         val id = msgInfo.id
-        if (cache[id] == true) {
+        if (processedMessages[id] == true) {
             return
         }
 
@@ -60,7 +59,7 @@ object AutoSpeechToText : SwitchHookItem(),
             .invoke(id)
 
         if (chatViewItem.toString() == "NoTransform") {
-            cache[id] = true
+            processedMessages[id] = true
             try {
                 api.asResolver()
                     .firstMethod {

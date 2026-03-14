@@ -31,11 +31,11 @@ object AntiMomentsDelete : SwitchHookItem(), WeDatabaseListenerApi.IUpdateListen
         return false
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeDatabaseListenerApi.addListener(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeDatabaseListenerApi.removeListener(this)
     }
 

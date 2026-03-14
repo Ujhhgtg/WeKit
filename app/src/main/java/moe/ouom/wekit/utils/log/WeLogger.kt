@@ -233,7 +233,6 @@ object WeLogger {
     }
 
     // ========== Tag + String + Throwable ==========
-    @JvmStatic
     fun e(tag: String?, msg: String, e: Throwable) {
         Log.e(TAG, "$tag: $msg", e)
         try {

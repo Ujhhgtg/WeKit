@@ -68,13 +68,12 @@ object LinkExternalAppJump : SwitchHookItem(),
         "pay.wechatpay.cn"
     )
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeStartActivityApi.addListener(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeStartActivityApi.removeListener(this)
-        super.onUnload(classLoader)
     }
 
     override fun onStartActivity(

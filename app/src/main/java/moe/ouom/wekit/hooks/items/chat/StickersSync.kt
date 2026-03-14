@@ -287,8 +287,8 @@ object StickersSync : ClickableHookItem(), IDexFind {
         return emojiThumb
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
-        val emojiGroupInfoCls = "com.tencent.mm.storage.emotion.EmojiGroupInfo".toClass(classLoader)
+    override fun onLoad() {
+        val emojiGroupInfoCls = "com.tencent.mm.storage.emotion.EmojiGroupInfo".toClass()
 
         @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN", "UNCHECKED_CAST")
         methodGetEmojiGroupInfo.toDexMethod {
@@ -356,7 +356,7 @@ object StickersSync : ClickableHookItem(), IDexFind {
                         .invoke()
                     val emojiGroupInfo = packConfig!!.asResolver()
                         .firstField {
-                            type("com.tencent.mm.storage.emotion.EmojiGroupInfo".toClass(classLoader))
+                            type = "com.tencent.mm.storage.emotion.EmojiGroupInfo"
                         }.get()!!
                     val packId = emojiGroupInfo.asResolver()
                         .firstField {

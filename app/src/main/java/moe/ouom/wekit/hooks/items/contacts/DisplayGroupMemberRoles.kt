@@ -31,15 +31,14 @@ object DisplayGroupMemberRoles : SwitchHookItem(), IDexFind,
     private val methodGetChatroomData by dexMethod()
 
     // Pair<groupId: String, sender: String>, type: Int (1=owner, 2=admin, 3=member)
-    private val cache = LruCache<Pair<String, String>, Int>()
+    private val resolvedRoles = LruCache<Pair<String, String>, Int>()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeChatMessageViewApi.addListener(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeChatMessageViewApi.removeListener(this)
-        super.onUnload(classLoader)
     }
 
     private const val OWNER_COLOR = 0xFFFFC107
@@ -56,7 +55,7 @@ object DisplayGroupMemberRoles : SwitchHookItem(), IDexFind,
         val sender = runCatching { msgInfo.sender }.getOrNull() ?: return
         val groupId = msgInfo.talker
 
-        val role = cache.getOrPut(groupId to sender) {
+        val role = resolvedRoles.getOrPut(groupId to sender) {
             val group = WeConversationApi.getGroup(groupId)
             val senderIsGroupOwner = group.asResolver()
                 .firstField {

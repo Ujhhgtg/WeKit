@@ -34,7 +34,7 @@ object AutoViewOriginalMedia : SwitchHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         listOf(
             methodSetImageHdImgBtnVisibility,
             methodCheckNeedShowOriginVideoBtn
@@ -67,6 +67,4 @@ object AutoViewOriginalMedia : SwitchHookItem(), IDexFind {
             }
         }
     }
-
-    override fun onUnload(classLoader: ClassLoader) {}
 }

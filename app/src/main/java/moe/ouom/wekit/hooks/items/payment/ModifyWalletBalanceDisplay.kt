@@ -28,7 +28,7 @@ object ModifyWalletBalanceDisplay : ClickableHookItem(), IDexFind {
     private val methodUpdateBalanceDisplay by dexMethod()
     private val methodTickerViewSetText by dexMethod()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodUpdateBalanceDisplay.toDexMethod {
             hook {
                 afterIfEnabled { param ->

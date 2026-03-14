@@ -20,13 +20,12 @@ import moe.ouom.wekit.utils.formatEpoch
 object DisplayMessageSendTime : SwitchHookItem(),
     WeChatMessageViewApi.ICreateViewListener {
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeChatMessageViewApi.addListener(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeChatMessageViewApi.removeListener(this)
-        super.onUnload(classLoader)
     }
 
     private const val VIEW_TAG = "wekit_message_send_time"

@@ -3,14 +3,12 @@ package moe.ouom.wekit.hooks.sdk.ui
 import android.app.Activity
 import android.content.Context
 import android.widget.BaseAdapter
+import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.toClass
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
-import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.utils.log.WeLogger
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -20,7 +18,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 @HookItem(path = "API/用户联系页面扩展")
 object WeChatContactDetailsApi : ApiHookItem() {
 
-    private val TAG = nameof(WeChatContactDetailsApi)
     private val initCallbacks = CopyOnWriteArrayList<InitContactInfoViewCallback>()
     private val clickListeners = CopyOnWriteArrayList<OnContactInfoItemClickListener>()
 
@@ -68,9 +65,9 @@ object WeChatContactDetailsApi : ApiHookItem() {
         val position: Int = -1
     )
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         initReflection()
-        hook(classLoader)
+        hook()
         hookItemClick()
     }
 
@@ -122,47 +119,32 @@ object WeChatContactDetailsApi : ApiHookItem() {
         }
     }
 
-    fun hook(classLoader: ClassLoader) {
-        try {
-            XposedHelpers.findAndHookMethod(
-                "com.tencent.mm.plugin.profile.ui.ContactInfoUI",
-                classLoader,
-                "initView",
-                object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        val adapterInstance = adapterField.get(param.thisObject as Activity)
-                        for (listener in initCallbacks) {
-                            val item = listener.onInitContactInfoView(param.thisObject as Activity)
-                            try {
-                                val preference =
-                                    prefConstructor.newInstance(param.thisObject as Context)
-                                item?.let {
-                                    setKeyMethod.invoke(preference, it.key)
-                                    setTitleMethod.invoke(preference, it.title)
-                                    it.summary?.let { summary ->
-                                        setSummaryMethod.invoke(
-                                            preference,
-                                            summary
-                                        )
-                                    }
-                                    addPreferenceMethod.invoke(
-                                        adapterInstance,
-                                        preference,
-                                        it.position
-                                    )
-                                }
-                            } catch (e: Exception) {
-                                WeLogger.e(TAG, "添加条目失败: ${e.message}")
-                            }
+    fun hook() {
+        "com.tencent.mm.plugin.profile.ui.ContactInfoUI".toClass().asResolver()
+            .firstMethod { name = "initView" }
+            .hookAfter { param ->
+                val adapterInstance = adapterField.get(param.thisObject as Activity)
+                for (listener in initCallbacks) {
+                    val item = listener.onInitContactInfoView(param.thisObject as Activity)
+                    val pref =
+                        prefConstructor.newInstance(param.thisObject as Context)
+                    item?.let {
+                        setKeyMethod.invoke(pref, it.key)
+                        setTitleMethod.invoke(pref, it.title)
+                        it.summary?.let { summary ->
+                            setSummaryMethod.invoke(
+                                pref,
+                                summary
+                            )
                         }
+                        addPreferenceMethod.invoke(
+                            adapterInstance,
+                            pref,
+                            it.position
+                        )
                     }
                 }
-            )
-
-            WeLogger.i(TAG, "Hook 注册成功")
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "Hook 失败", e)
-        }
+            }
     }
 
     private fun hookItemClick() {

@@ -13,8 +13,8 @@ object AutoApproveDeviceLogin : SwitchHookItem() {
     private const val SHOW_LOGIN_DEVICE = 0x2
     private const val AUTO_LOGIN_DEVICE = 0x4
 
-    override fun onLoad(classLoader: ClassLoader) {
-        val targetClass = "com.tencent.mm.plugin.webwx.ui.ExtDeviceWXLoginUI".toClass(classLoader)
+    override fun onLoad() {
+        val targetClass = "com.tencent.mm.plugin.webwx.ui.ExtDeviceWXLoginUI".toClass()
 
         // Hook onCreate — inject function control flags into intent
         targetClass.hookBefore("onCreate") { param ->

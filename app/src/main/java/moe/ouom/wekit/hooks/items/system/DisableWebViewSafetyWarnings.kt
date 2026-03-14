@@ -11,7 +11,7 @@ object DisableWebViewSafetyWarnings : SwitchHookItem(), IDexFind {
     private val methodGetIsInterceptEnabled by dexMethod()
     private val methodGetIsUrlSafe by dexMethod()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodGetIsInterceptEnabled.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

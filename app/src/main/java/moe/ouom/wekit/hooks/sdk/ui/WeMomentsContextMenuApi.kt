@@ -107,7 +107,7 @@ object WeMomentsContextMenuApi : ApiHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodOnCreateMenu.method.hookAfter { param ->
             handleCreateMenu(param)
         }

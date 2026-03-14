@@ -12,7 +12,7 @@ import moe.ouom.wekit.host.HostInfo
 @HookItem(path = "聊天/分享进化", desc = "让应用的系统分享菜单更易用 (没写完)")
 object ExternalSharingEvolved : SwitchHookItem() {
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
 
         val ctx = HostInfo.application
 

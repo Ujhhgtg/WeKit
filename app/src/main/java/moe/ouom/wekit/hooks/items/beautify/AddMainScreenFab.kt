@@ -107,7 +107,7 @@ object AddMainScreenFab : SwitchHookItem() {
         context.startActivity(intent)
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeMainActivityBeautifyApi.methodDoOnCreate.toDexMethod {
             hook {
                 afterIfEnabled { param ->

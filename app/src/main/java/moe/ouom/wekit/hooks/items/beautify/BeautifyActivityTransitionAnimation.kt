@@ -26,7 +26,7 @@ object BeautifyActivityTransitionAnimation : SwitchHookItem() {
     private var y = 0f
     private var backgroundColor = Color.WHITE
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         // sender
         View::class.asResolver()
             .firstMethod {

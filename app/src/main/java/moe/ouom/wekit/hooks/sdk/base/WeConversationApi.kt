@@ -50,7 +50,7 @@ object WeConversationApi : ApiHookItem(), IDexFind {
     }
 
     fun markAllAsRead() {
-        val cursor = WeDatabaseApi.execQueryMethod!!.invoke(
+        val cursor = WeDatabaseApi.rawQueryMethod!!.invoke(
             WeDatabaseApi.dbInstance,
             "SELECT username FROM rconversation WHERE unReadCount>0 OR unReadMuteCount>0",
             arrayOf<String>()
@@ -96,7 +96,7 @@ object WeConversationApi : ApiHookItem(), IDexFind {
     }
 
     fun setAllConversationVisibility(visible: Boolean) {
-        val cursor = WeDatabaseApi.execQueryMethod!!.invoke(
+        val cursor = WeDatabaseApi.rawQueryMethod!!.invoke(
             WeDatabaseApi.dbInstance,
             "SELECT username FROM rconversation",
             arrayOf<String>()
@@ -144,7 +144,7 @@ object WeConversationApi : ApiHookItem(), IDexFind {
 
     fun onlyShowFilteredConversations(queryFilter: String, selectedColumns: String = "username") {
         setAllConversationVisibility(false)
-        val cursor = WeDatabaseApi.execQueryMethod!!.invoke(
+        val cursor = WeDatabaseApi.rawQueryMethod!!.invoke(
             WeDatabaseApi.dbInstance,
             "SELECT $selectedColumns FROM rconversation $queryFilter",
             arrayOf<String>()

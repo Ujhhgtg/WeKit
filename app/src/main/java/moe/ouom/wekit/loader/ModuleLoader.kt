@@ -1,31 +1,25 @@
-package moe.ouom.wekit.loader;
+package moe.ouom.wekit.loader
 
-import androidx.annotation.NonNull;
+import moe.ouom.wekit.loader.hookapi.ILoaderService
+import moe.ouom.wekit.loader.startup.UnifiedEntryPoint.entry
 
-import java.util.ArrayList;
-import java.util.List;
+object ModuleLoader {
 
-import moe.ouom.wekit.loader.hookapi.ILoaderService;
-import moe.ouom.wekit.loader.startup.UnifiedEntryPoint;
+    @JvmStatic
+    val initErrors = ArrayList<Throwable?>(1)
+    private var isInitialized = false
 
-public class ModuleLoader {
-
-    private static final ArrayList<Throwable> sInitErrors = new ArrayList<>(1);
-    private static boolean sLoaded = false;
-
-    public static void initialize(
-            @NonNull ClassLoader hostClassLoader,
-            @NonNull ILoaderService loaderService,
-            @NonNull String modulePath
-    ) throws ReflectiveOperationException {
-        if (sLoaded) {
-            return;
+    @JvmStatic
+    @Throws(ReflectiveOperationException::class)
+    fun initialize(
+        hostClassLoader: ClassLoader,
+        loaderService: ILoaderService,
+        modulePath: String
+    ) {
+        if (isInitialized) {
+            return
         }
-        sLoaded = true;
-        UnifiedEntryPoint.entry(modulePath, loaderService, hostClassLoader);
-    }
-
-    public static List<Throwable> getInitErrors() {
-        return sInitErrors;
+        isInitialized = true
+        entry(modulePath, loaderService, hostClassLoader)
     }
 }

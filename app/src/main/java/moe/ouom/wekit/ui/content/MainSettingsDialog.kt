@@ -37,6 +37,7 @@ import moe.ouom.wekit.utils.common.Utils.openUrl
 import moe.ouom.wekit.utils.formatEpoch
 
 class MainSettingsDialog(context: Context) : BasePrefDialog(context, "WeKit") {
+
     // 定义优先级 映射关系 (值 -> 显示文本)
     private val priorityMap = mapOf(
         10000 to "高优先级",

@@ -16,7 +16,7 @@ object DisablePinnedChatsCollapsing : SwitchHookItem(), IDexFind {
     private val methodAddCollapseChatItem by dexMethod()
     private val methodIfShouldAddCollapseChatItem by dexMethod()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodAddCollapseChatItem.toDexMethod {
             hook {
                 beforeIfEnabled { param ->
@@ -55,5 +55,4 @@ object DisablePinnedChatsCollapsing : SwitchHookItem(), IDexFind {
 
         return descriptors
     }
-
 }

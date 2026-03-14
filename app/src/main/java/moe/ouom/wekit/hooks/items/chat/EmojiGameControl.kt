@@ -92,7 +92,7 @@ object EmojiGameControl : SwitchHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodRandom.toDexMethod {
             hook {
                 afterIfEnabled { param ->

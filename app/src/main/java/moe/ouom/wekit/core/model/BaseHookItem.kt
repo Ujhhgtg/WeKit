@@ -1,6 +1,5 @@
 package moe.ouom.wekit.core.model
 
-import com.highcapable.kavaref.extension.ClassLoaderProvider
 import com.highcapable.kavaref.extension.toClass
 import com.highcapable.kavaref.resolver.MethodResolver
 import de.robv.android.xposed.XC_MethodHook
@@ -59,7 +58,7 @@ abstract class BaseHookItem {
     /**
      * 开始加载 Hook
      */
-    fun loadItem() {
+    fun load() {
         if (isLoad) {
             return
         }
@@ -67,12 +66,17 @@ abstract class BaseHookItem {
             isLoad = true
 
             if (initOnce()) {
-                onLoad(ClassLoaderProvider.classLoader!!)
+                onLoad()
             }
         } catch (e: Throwable) {
             WeLogger.e("failed to load item", e)
             ExceptionFactory.add(this, e)
         }
+    }
+
+    fun unload() {
+        isLoad = false
+        onUnload()
     }
 
     /**
@@ -85,14 +89,12 @@ abstract class BaseHookItem {
     /**
      * Hook 入口方法
      */
-    open fun onLoad(classLoader: ClassLoader) {}
+    open fun onLoad() {}
 
     /**
      * 卸载 Hook
      */
-    open fun onUnload(classLoader: ClassLoader) {
-        isLoad = false
-    }
+    open fun onUnload() {}
 
     /**
      * 标准 hook 方法执行前

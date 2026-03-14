@@ -40,7 +40,7 @@ object CrashInterceptor : SwitchHookItem() {
     private var hasPendingCrashToShow = false
     private var pendingDialog: MaterialDialog? = null
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         try {
             // 获取 Application Context
             val activityThreadClass = "android.app.ActivityThread".toClass()
@@ -402,8 +402,7 @@ object CrashInterceptor : SwitchHookItem() {
         }
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         javaCrashHandler?.uninstall()
-        super.onUnload(classLoader)
     }
 }

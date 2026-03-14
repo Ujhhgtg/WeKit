@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ContentValues
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.createInstance
+import com.highcapable.kavaref.extension.toClass
 import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.dsl.dexClass
@@ -466,8 +467,6 @@ object WeMessageApi : ApiHookItem(), IDexFind {
                     }
                 }
             }
-
-            WeLogger.i(TAG, "DexKit 查找结束，共找到 ${descriptors.size} 项")
         } catch (e: Exception) {
             WeLogger.e(TAG, "查找过程崩溃", e)
             throw e
@@ -485,7 +484,7 @@ object WeMessageApi : ApiHookItem(), IDexFind {
         return msgInfo
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         try {
             WeLogger.i(TAG, "WeMessageApi initializing...")
 
@@ -504,9 +503,9 @@ object WeMessageApi : ApiHookItem(), IDexFind {
 
                 try {
                     wxFileObjectClass =
-                        classLoader.loadClass("com.tencent.mm.opensdk.modelmsg.WXFileObject")
+                        "com.tencent.mm.opensdk.modelmsg.WXFileObject".toClass()
                     wxMediaMessageClass =
-                        classLoader.loadClass("com.tencent.mm.opensdk.modelmsg.WXMediaMessage")
+                        "com.tencent.mm.opensdk.modelmsg.WXMediaMessage".toClass()
                 } catch (e: Exception) {
                     WeLogger.e(TAG, "初始化文件发送组件时失败", e)
                 }
@@ -609,13 +608,9 @@ object WeMessageApi : ApiHookItem(), IDexFind {
                 // 从 dexFind 结果中恢复方法
                 voiceSendMethod = methodSendVoice.method
 
-                // -----------------------------------------------------------------------------
-                // 公共逻辑绑定
-                // -----------------------------------------------------------------------------
                 bindServiceFramework()
                 bindImageBusinessLogic()
 
-                WeLogger.i(TAG, "WeMessageApi 全动态链路初始化成功")
             } catch (e: Exception) {
                 WeLogger.e(TAG, "Entry 初始化失败", e)
             }
@@ -636,7 +631,8 @@ object WeMessageApi : ApiHookItem(), IDexFind {
             val theUnsafeField = unsafeClass.getDeclaredField("theUnsafe")
             theUnsafeField.isAccessible = true
             unsafeInstance = theUnsafeField.get(null)
-            allocateInstanceMethod = unsafeClass.getMethod("allocateInstance", Class::class.java)
+            allocateInstanceMethod = unsafeClass.getMethod("allocateInstance",
+                Class::class.java)
             WeLogger.i(TAG, "Unsafe 能力已就绪")
         } catch (e: Exception) {
             WeLogger.e(TAG, "Unsafe 获取失败", e)

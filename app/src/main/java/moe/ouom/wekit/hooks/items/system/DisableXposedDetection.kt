@@ -14,7 +14,7 @@ object DisableXposedDetection : SwitchHookItem(), IDexFind {
     private val TAG = nameof(DisableXposedDetection)
     private val methodCheckStackTraceElements by dexMethod()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodCheckStackTraceElements.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

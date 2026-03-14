@@ -29,5 +29,4 @@ public interface IClassLoaderHelper {
      */
     void injectDexToClassLoader(@NonNull ClassLoader classLoader, @NonNull byte[] dexBytes, @Nullable String dexName)
             throws IllegalArgumentException, UnsupportedOperationException;
-
 }

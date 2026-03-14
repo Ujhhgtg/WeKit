@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.core.os.postDelayed
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
+import com.highcapable.kavaref.extension.ClassLoaderProvider
 import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.dsl.dexClass
@@ -26,7 +27,7 @@ object WePkgDispatcher : ApiHookItem(), IDexFind {
     // 缓存最近 10 条记录，避免因脚本引起的无限递归
     private val recentRequests = ConcurrentHashMap<String, Long>()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         Handler(Looper.getMainLooper()).postDelayed(3000) {
             try {
                 val netSceneBaseClass = WePkgHelper.classNetSceneBase.clazz
@@ -79,7 +80,7 @@ object WePkgDispatcher : ApiHookItem(), IDexFind {
                     if (Proxy.isProxyClass(originalCallback.javaClass)) return@hookBefore
 
                     param.args[2] = Proxy.newProxyInstance(
-                        classLoader,
+                        ClassLoaderProvider.classLoader!!,
                         arrayOf(callbackInterface)
                     ) { _, method, args ->
                         when (method.name) {

@@ -34,7 +34,7 @@ object ModifyTransferWalletBalanceDisplay : ClickableHookItem(), IWePkgIntercept
     private const val KEY_CFT_BALANCE = "fake_cft_balance"
     private const val KEY_LQT_BALANCE = "fake_lqt_balance"
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WePkgManager.addInterceptor(this)
     }
 
@@ -130,9 +130,8 @@ object ModifyTransferWalletBalanceDisplay : ClickableHookItem(), IWePkgIntercept
         }
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WePkgManager.removeInterceptor(this)
-        super.onUnload(classLoader)
     }
 
     override fun onClick(context: Context) {

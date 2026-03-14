@@ -22,7 +22,7 @@ object WeChatFooterApi : ApiHookItem() {
     private const val CLASS_CHAT_FOOTER = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
     private const val KEY_FIELD_TO_USER = "${WePrefs.CACHE_PREFS_NAME}_toUser"
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         try {
             val chatFooterClass = CLASS_CHAT_FOOTER.toClass()
 

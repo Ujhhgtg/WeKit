@@ -14,7 +14,7 @@ object SkipMiniAppSplashAds : SwitchHookItem(), IDexFind {
 
     private val methodAdDataCallback by dexMethod()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodAdDataCallback.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

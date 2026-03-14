@@ -27,13 +27,12 @@ object SaveStickersToLocalStorage : SwitchHookItem(), IDexFind,
 
     private val classEmojiFileEncryptMgr by dexClass()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeChatMessageContextMenuApi.addProvider(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeChatMessageContextMenuApi.removeProvider(this)
-        super.onUnload(classLoader)
     }
 
     override fun dexFind(dexKit: DexKitBridge): Map<String, String> {

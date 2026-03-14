@@ -7,7 +7,7 @@ import java.lang.ref.WeakReference
 object RuntimeConfig {
 
     private var launcherUiActivityRef: WeakReference<Activity>? = null
-    private var mmPrefs: SharedPreferences? = null
+    private lateinit var mmPrefs: SharedPreferences
 
     fun getLauncherUiActivity(): Activity? {
         val activity = launcherUiActivityRef?.get()
@@ -27,5 +27,5 @@ object RuntimeConfig {
     }
 
     fun getLoggedInWxId(): String =
-        mmPrefs?.getString("login_weixin_username", "") ?: ""
+        mmPrefs.getString("login_weixin_username", "") ?: ""
 }

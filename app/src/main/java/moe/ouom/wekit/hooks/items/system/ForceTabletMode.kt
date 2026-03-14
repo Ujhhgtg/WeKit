@@ -10,7 +10,7 @@ import org.luckypray.dexkit.DexKitBridge
 object ForceTabletMode : SwitchHookItem(), IDexFind {
     private val methodIsTablet by dexMethod()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodIsTablet.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

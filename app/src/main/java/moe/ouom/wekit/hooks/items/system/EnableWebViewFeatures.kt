@@ -12,6 +12,7 @@ import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "系统与隐私/强制启用 WebView 菜单", desc = "强制显示 WebView 页面右上角菜单按钮")
 object EnableWebViewFeatures : SwitchHookItem(), IDexFind {
+
     private const val WEBVIEW_UI_CLASS_NAME = "com.tencent.mm.plugin.webview.ui.tools.WebViewUI"
 
     private val TRUE_INTENT_KEYS =
@@ -19,8 +20,8 @@ object EnableWebViewFeatures : SwitchHookItem(), IDexFind {
 
     private val methodInitWebViewFeatures by dexMethod()
 
-    override fun onLoad(classLoader: ClassLoader) {
-        val cls = WEBVIEW_UI_CLASS_NAME.toClass(classLoader)
+    override fun onLoad() {
+        val cls = WEBVIEW_UI_CLASS_NAME.toClass()
 
         cls.asResolver()
             .method {

@@ -15,7 +15,7 @@ object RemoveArticleAds : SwitchHookItem(), IWePkgInterceptor {
 
     private val TAG = nameof(RemoveArticleAds)
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WePkgManager.addInterceptor(this)
     }
 
@@ -86,8 +86,7 @@ object RemoveArticleAds : SwitchHookItem(), IWePkgInterceptor {
         return null
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WePkgManager.removeInterceptor(this)
-        super.onUnload(classLoader)
     }
 }

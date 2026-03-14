@@ -14,12 +14,11 @@ object AllowPrivateChatReceiveOutgoingRedPackets : SwitchHookItem(),
 
     private val TAG = nameof(AllowPrivateChatReceiveOutgoingRedPackets)
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeStartActivityApi.addListener(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
-        super.onUnload(classLoader)
+    override fun onUnload() {
         WeStartActivityApi.removeListener(this)
     }
 

@@ -56,7 +56,7 @@ object ChatToolbar : SwitchHookItem(), IDexFind {
     private lateinit var appPanel: LinearLayout
 
     // TODO: match menu item by text instead of undeterministic index
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodAppPanelInitAppGrid.toDexMethod {
             hook {
                 beforeIfEnabled { param ->
@@ -65,7 +65,7 @@ object ChatToolbar : SwitchHookItem(), IDexFind {
             }
         }
 
-        "com.tencent.mm.pluginsdk.ui.chat.ChatFooter".toClass(classLoader).asResolver()
+        "com.tencent.mm.pluginsdk.ui.chat.ChatFooter".toClass().asResolver()
             .firstConstructor {
                 parameters(Context::class, AttributeSet::class, Int::class)
             }

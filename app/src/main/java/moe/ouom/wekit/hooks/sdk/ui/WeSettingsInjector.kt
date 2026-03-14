@@ -145,25 +145,25 @@ object WeSettingsInjector : ApiHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         // 尝试 Hook 旧版 UI
-        tryHookLegacySettings(classLoader)
+        tryHookLegacySettings()
 
         // 尝试 Hook 新版 UI (8.0.67+)
         // tryHookNewSettingsMethod1(classLoader)
 
         // 尝试 Hook 新版 UI (8.0.67+), WAuxiliary 方法
-        tryHookNewSettings(classLoader)
+        tryHookNewSettings()
     }
 
     /**
      * 适配旧版 SettingsUI (基于 PreferenceScreen)
      */
-    private fun tryHookLegacySettings(classLoader: ClassLoader) {
+    private fun tryHookLegacySettings() {
         try {
             // 检查类是否存在
             val clsSettingsUi = "com.tencent.mm.plugin.setting.ui.setting.SettingsUI"
-                .toClassOrNull(classLoader) ?: return
+                .toClassOrNull() ?: return
 
             val setKeyMethod = methodSetKey.method
             val setTitleMethod = methodSetTitle.method
@@ -181,7 +181,7 @@ object WeSettingsInjector : ApiHookItem(), IDexFind {
 
                 try {
                     val clsIconPref =
-                        "com.tencent.mm.ui.base.preference.IconPreference".toClass(classLoader)
+                        "com.tencent.mm.ui.base.preference.IconPreference".toClass()
                     val prefInstance = clsIconPref.createInstance(context)
 
                     setKeyMethod.invoke(prefInstance, KEY_WEKIT_ENTRY)
@@ -220,17 +220,14 @@ object WeSettingsInjector : ApiHookItem(), IDexFind {
         }
     }
 
-    private fun tryHookNewSettings(classLoader: ClassLoader) {
+    private fun tryHookNewSettings() {
         val newSettingsCls =
-            "com.tencent.mm.plugin.setting.ui.setting_new.base.BaseSettingPrefUI".toClassOrNull(
-                classLoader
-            ) ?: return
+            "com.tencent.mm.plugin.setting.ui.setting_new.base.BaseSettingPrefUI"
+                .toClassOrNull() ?: return
 
         newSettingsCls.hookAfter("onCreate") { param ->
-            if (param.thisObject.javaClass
-                == "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI".toClassOrNull(
-                    classLoader
-                )
+            if (param.thisObject.javaClass.name
+                == "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI"
             ) {
                 val activity = param.thisObject as Activity
                 activity.asResolver()
@@ -255,8 +252,6 @@ object WeSettingsInjector : ApiHookItem(), IDexFind {
             WeLogger.e(TAG, "failed to open settings dialog", e)
         }
     }
-
-    override fun onUnload(classLoader: ClassLoader) {}
 
     private class SettingsMenuItemClickListener(val activity: Activity) :
         MenuItem.OnMenuItemClickListener {

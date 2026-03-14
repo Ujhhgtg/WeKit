@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import androidx.core.content.ContextCompat
@@ -16,6 +17,7 @@ import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import dev.ujhhgtg.nameof.nameof
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import moe.ouom.wekit.constants.PackageConstants
 import moe.ouom.wekit.core.model.SwitchHookItem
@@ -25,9 +27,15 @@ import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
 import moe.ouom.wekit.hooks.sdk.base.WeMessageApi
 import moe.ouom.wekit.hooks.sdk.protocol.WeApi
 import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.utils.LruCache
+import moe.ouom.wekit.utils.io.PathUtils
 import moe.ouom.wekit.utils.log.WeLogger
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.io.path.div
+import kotlin.io.path.exists
+import kotlin.io.path.pathString
+import kotlin.io.path.writeBytes
 
 @HookItem(
     path = "通知/通知进化",
@@ -36,6 +44,9 @@ import java.net.URL
 object NotificationEvolved : SwitchHookItem() {
 
     private val TAG = nameof(NotificationEvolved)
+
+    private val lastGroupChatSender = LruCache<String, String>()
+
     private const val ACTION_REPLY = "${PackageConstants.PACKAGE_NAME_WECHAT}.ACTION_WEKIT_REPLY"
     private const val ACTION_MARK_READ =
         "${PackageConstants.PACKAGE_NAME_WECHAT}.ACTION_WEKIT_MARK_READ"
@@ -45,9 +56,11 @@ object NotificationEvolved : SwitchHookItem() {
     private val friends by lazy { WeDatabaseApi.getFriends() }
 
     // TODO: see if we can retrieve avatar icon from local storage instead of remote
-    private var meAvatarIcon: Icon? = null
+    private lateinit var meAvatarIcon: Icon
 
-    val notificationReceiver = object : BroadcastReceiver() {
+    private val meAvatarPath = PathUtils.moduleDataPath!!/"me_avatar"
+
+    private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val targetWxId = intent.getStringExtra("extra_target_wxid") ?: return
             val notificationManager =
@@ -61,14 +74,14 @@ object NotificationEvolved : SwitchHookItem() {
                     if (replyContent.isNullOrEmpty())
                         return
 
-                    WeLogger.i(TAG, "Quick replying '$replyContent' to $targetWxId")
+                    WeLogger.i(TAG, "quick replying '$replyContent' to $targetWxId")
                     WeMessageApi.sendText(targetWxId, replyContent)
                     WeConversationApi.markAsRead(targetWxId)
                     notificationManager.cancel(targetWxId.hashCode())
                 }
 
                 ACTION_MARK_READ -> {
-                    WeLogger.i(TAG, "Marking chat as read for $targetWxId")
+                    WeLogger.i(TAG, "marking chat as read for $targetWxId")
                     WeConversationApi.markAsRead(targetWxId)
                     notificationManager.cancel(targetWxId.hashCode())
                 }
@@ -76,10 +89,39 @@ object NotificationEvolved : SwitchHookItem() {
         }
     }
 
-    val multiMessageRegex = Regex("""^\[\d+条].+?: (.*)$""")
+    private val MULTI_MESSAGE_REGEX = Regex("""^\[\d+条].+?: (.*)$""")
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         val context = HostInfo.application
+
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                val bitmap: Bitmap
+                if (meAvatarPath.exists()) {
+                    bitmap = BitmapFactory.decodeFile(meAvatarPath.pathString)
+                }
+                else {
+                    while (runCatching { WeApi.selfWxId.isEmpty() }
+                            .getOrDefault(true)) {
+                        delay(2000)
+                    }
+
+                    val urlString = WeDatabaseApi.getAvatarUrl(WeApi.selfWxId)
+                    val connection = URL(urlString).openConnection()
+                            as HttpURLConnection
+                    connection.doInput = true
+
+                    connection.inputStream.use { input ->
+                        val bytes = input.readBytes()
+                        meAvatarPath.writeBytes(bytes)
+                        bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    }
+                }
+                return@runCatching Icon.createWithBitmap(bitmap)
+            }.onFailure { e ->
+                WeLogger.e(TAG, "failed to fetch me avatar", e)
+            }.onSuccess { meAvatarIcon = it }
+        }
 
         val filter = IntentFilter().apply {
             addAction(ACTION_REPLY)
@@ -92,25 +134,6 @@ object NotificationEvolved : SwitchHookItem() {
         Notification.Builder::class.asResolver()
             .firstMethod { name = "build" }
             .hookBefore { param ->
-                // fetch the avatar at some point where we're sure that mmPrefs is initialized
-                if (meAvatarIcon == null) {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        meAvatarIcon = runCatching {
-                            val urlString = WeDatabaseApi.getAvatarUrl(WeApi.selfWxId)
-                            val connection = URL(urlString).openConnection() as HttpURLConnection
-                            connection.doInput = true
-
-                            connection.inputStream.use { input ->
-                                val bitmap = BitmapFactory.decodeStream(input)
-                                WeLogger.i(TAG, "fetched me avatar")
-                                Icon.createWithBitmap(bitmap)
-                            }
-                        }.onFailure { e ->
-                            WeLogger.e(TAG, "failed to fetch me avatar", e)
-                        }.getOrNull()
-                    }
-                }
-
                 val builder = param.thisObject as Notification.Builder
                 val notification = builder.asResolver().firstField { type = Notification::class }
                     .get() as Notification
@@ -120,12 +143,12 @@ object NotificationEvolved : SwitchHookItem() {
                     return@hookBefore
                 }
 
-                val title = notification.extras.getString(Notification.EXTRA_TITLE) ?: "Unknown"
+                val notifTitle = notification.extras.getString(Notification.EXTRA_TITLE) ?: "Unknown"
                 val rawText =
                     notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
                         ?: ""
 
-                val matchResult = multiMessageRegex.find(rawText)
+                val matchResult = MULTI_MESSAGE_REGEX.find(rawText)
                 var cleanText = if (matchResult != null) {
                     matchResult.groupValues[1]
                 } else {
@@ -138,29 +161,42 @@ object NotificationEvolved : SwitchHookItem() {
 
                 // 1. Resolve exact WXID immediately during notification creation
                 val friend =
-                    friends.firstOrNull { it.nickname == title || it.remarkName == title }
-                val targetWxid = friend?.wxid
+                    friends.firstOrNull { it.nickname == notifTitle || it.remarkName == notifTitle }
+                val convWxId = friend?.wxid
 
-                if (targetWxid == null) {
-                    WeLogger.w(TAG, "could not resolve wxid for $title, skipping enhancements")
+                if (convWxId == null) {
+                    WeLogger.w(TAG, "could not resolve wxid for $notifTitle, skipping enhancements")
                     return@hookBefore
                 }
 
-                WeLogger.i(TAG, "enhancing notification for $title ($targetWxid)")
+                WeLogger.i(TAG, "enhancing notification for $notifTitle ($convWxId)")
 
                 // 2. Build the MessagingStyle
                 // TODO: add cropping
-                val mePerson = Person.Builder().setName("我").setIcon(meAvatarIcon).build()
-                val senderPerson = Person.Builder().setName(title).build()
-
+                val mePerson = Person.Builder().setName("我")
+                    .apply {
+                        if (::meAvatarIcon.isInitialized)
+                            setIcon(meAvatarIcon)
+                    }
+                    .build()
                 val messagingStyle = Notification.MessagingStyle(mePerson)
-                messagingStyle.addMessage(cleanText, System.currentTimeMillis(), senderPerson)
 
-                // FIXME: the >=2nd unread message from a group chat omits the sender's name
-                if (isGroupChat(targetWxid)) {
+                val senderName: String
+                if (isGroupChat(convWxId)) {
+                    senderName = parseGroupChatMessageSender(rawText, convWxId) ?: run {
+                        WeLogger.w(TAG, "failed to parse message sender, rawText=${rawText.take(20)}, convWxId=$convWxId")
+                        notifTitle
+                    }
+
                     messagingStyle.isGroupConversation = true
-                    messagingStyle.conversationTitle = title
+                    messagingStyle.conversationTitle = notifTitle
                 }
+                else {
+                    senderName = notifTitle
+                }
+
+                val senderPerson = Person.Builder().setName(senderName).build()
+                messagingStyle.addMessage(cleanText, System.currentTimeMillis(), senderPerson)
 
                 builder.style = messagingStyle
 
@@ -171,10 +207,10 @@ object NotificationEvolved : SwitchHookItem() {
 
                 val replyIntent = Intent(ACTION_REPLY).apply {
                     setPackage(PackageConstants.PACKAGE_NAME_WECHAT)
-                    putExtra("extra_target_wxid", targetWxid)
+                    putExtra("extra_target_wxid", convWxId)
                 }
                 val replyPendingIntent = PendingIntent.getBroadcast(
-                    context, targetWxid.hashCode(), replyIntent,
+                    context, convWxId.hashCode(), replyIntent,
                     PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
 
@@ -186,10 +222,10 @@ object NotificationEvolved : SwitchHookItem() {
                 // 4. Mark as Read Action
                 val readIntent = Intent(ACTION_MARK_READ).apply {
                     setPackage(PackageConstants.PACKAGE_NAME_WECHAT)
-                    putExtra("extra_target_wxid", targetWxid)
+                    putExtra("extra_target_wxid", convWxId)
                 }
                 val readPendingIntent = PendingIntent.getBroadcast(
-                    context, targetWxid.hashCode(), readIntent,
+                    context, convWxId.hashCode(), readIntent,
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
                 val readAction = Notification.Action.Builder(
@@ -201,6 +237,18 @@ object NotificationEvolved : SwitchHookItem() {
                 builder.addAction(replyAction)
                 builder.addAction(readAction)
             }
+    }
+
+    private val GROUP_CHAT_MSG_REGEX = Regex("""^(.+?): .+""")
+
+    private fun parseGroupChatMessageSender(rawText: String, convWxId: String): String? {
+        val match = GROUP_CHAT_MSG_REGEX.find(rawText)
+        if (match != null) {
+            val sender = match.groupValues[1]
+            lastGroupChatSender[convWxId] = sender
+            return sender
+        }
+        return lastGroupChatSender[convWxId]
     }
 
     private val MAP_REGEX = Regex("\\[[^]]+]")

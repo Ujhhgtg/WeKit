@@ -40,16 +40,15 @@ object FakeMomentsLikes : SwitchHookItem(), WeMomentsContextMenuApi.IMenuItemsPr
     private var likeFlagField: Field? = null
     private var snsUserProtobufClass: Class<*>? = null
 
-    override fun onLoad(classLoader: ClassLoader) {
-        initReflection(classLoader)
+    override fun onLoad() {
+        initReflection()
         WeMomentsContextMenuApi.addProvider(this)
         WeDatabaseListenerApi.addListener(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeMomentsContextMenuApi.removeProvider(this)
         WeDatabaseListenerApi.removeListener(this)
-        super.onUnload(classLoader)
     }
 
     override fun getMenuItems(): List<WeMomentsContextMenuApi.MenuItem> {
@@ -74,9 +73,9 @@ object FakeMomentsLikes : SwitchHookItem(), WeMomentsContextMenuApi.IMenuItemsPr
         return false // 返回 false 表示继续原有流程
     }
 
-    private fun initReflection(classLoader: ClassLoader) {
+    private fun initReflection() {
         try {
-            snsObjectClass = "com.tencent.mm.protocal.protobuf.SnsObject".toClass(classLoader)
+            snsObjectClass = "com.tencent.mm.protocal.protobuf.SnsObject".toClass()
 
             snsObjectClass?.let { clazz ->
                 parseFromMethod = clazz.getMethod("parseFrom", ByteArray::class.java)

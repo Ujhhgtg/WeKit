@@ -20,7 +20,7 @@ object AntiRevokeMsg1 : SwitchHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodRevokeMsg.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

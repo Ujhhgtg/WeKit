@@ -22,7 +22,7 @@ object RemoveExternalAppSharingSignatureVerify : SwitchHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodSignCheck.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

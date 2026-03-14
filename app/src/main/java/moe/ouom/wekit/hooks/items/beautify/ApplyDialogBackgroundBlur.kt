@@ -41,7 +41,7 @@ object ApplyDialogBackgroundBlur : ClickableHookItem(), IDexFind {
     private val classMmProgressDialog by dexClass()
     private val classMmQuickDialog by dexClass()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         listOf(classMmAlertDialog, classMmProgressDialog, classMmQuickDialog).forEach {
             it.clazz.asResolver()
                 .firstMethod {

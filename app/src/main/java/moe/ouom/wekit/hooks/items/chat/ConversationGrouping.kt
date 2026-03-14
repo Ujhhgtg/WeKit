@@ -48,7 +48,7 @@ import org.luckypray.dexkit.DexKitBridge
 @HookItem(path = "聊天/对话分组", desc = "向主页顶部添加 Tab 栏, 将对话分组")
 object ConversationGrouping : SwitchHookItem(), IDexFind {
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodOnTabCreate.toDexMethod {
             hook {
                 afterIfEnabled { param ->

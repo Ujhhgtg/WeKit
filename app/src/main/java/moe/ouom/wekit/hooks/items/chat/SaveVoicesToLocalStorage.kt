@@ -43,8 +43,8 @@ object SaveVoicesToLocalStorage : SwitchHookItem(), IDexFind,
     private lateinit var methodStreamSilkDecUnInit: Method
     private lateinit var methodStreamSilkDoDec: Method
 
-    override fun onLoad(classLoader: ClassLoader) {
-        val clazz = "com.tencent.mm.modelvoice.MediaRecorder".toClass(classLoader)
+    override fun onLoad() {
+        val clazz = "com.tencent.mm.modelvoice.MediaRecorder".toClass()
         methodStreamSilkDecInit = clazz.asResolver()
             .firstMethod { name = "StreamSilkDecInit" }
             .self
@@ -58,9 +58,8 @@ object SaveVoicesToLocalStorage : SwitchHookItem(), IDexFind,
         WeChatMessageContextMenuApi.addProvider(this)
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeChatMessageContextMenuApi.removeProvider(this)
-        super.onUnload(classLoader)
     }
 
     override fun dexFind(dexKit: DexKitBridge): Map<String, String> {

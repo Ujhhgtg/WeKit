@@ -29,7 +29,7 @@ object RemoveChatMessageContextMenuItems : ClickableHookItem(), IDexFind {
     private const val DEFAULT_REMOVED_ITEM_NAMES =
         "收藏,提醒,翻译,搜一搜,编辑,打开,相关表情,合拍,查看专辑,静音播放,听筒播放,背景播放"
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodAddMenuItem1.toDexMethod {
             hook {
                 afterIfEnabled { param ->

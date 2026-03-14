@@ -47,7 +47,7 @@ object WeChatMessageContextMenuApi : ApiHookItem(), IDexFind {
     private var currentView: View? =
         null // selectMenu is guaranteed to be called after createMenu, so this will not cause NPE
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodCreateMenu.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

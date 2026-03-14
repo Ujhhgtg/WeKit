@@ -15,7 +15,7 @@ object DisableTypingStatusUploading : SwitchHookItem(), IDexFind {
     private val TAG = nameof(DisableTypingStatusUploading)
     private val classMmTypingSendReq by dexClass()
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         classMmTypingSendReq.clazz.asResolver().firstMethod { name = "doScene" }
             .hookBefore { param ->
                 WeLogger.i(TAG, "preventing upload of typing status")

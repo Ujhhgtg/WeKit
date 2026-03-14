@@ -27,7 +27,7 @@ object RemoveQrCodeScanLimit : SwitchHookItem(), IDexFind {
         return descriptors
     }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodQBarString.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

@@ -53,7 +53,7 @@ object AutoOpenRedPacket : ClickableHookItem(), WeDatabaseListenerApi.IInsertLis
         val nickName: String = ""
     )
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         WeDatabaseListenerApi.addListener(this)
         hookReceiveCallback()
         hookOpenReqEndCallback()
@@ -231,12 +231,11 @@ object AutoOpenRedPacket : ClickableHookItem(), WeDatabaseListenerApi.IInsertLis
         return matchSimple?.groupValues?.get(1) ?: ""
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         WeLogger.i(TAG, "unload() called, removing db listener")
         WeDatabaseListenerApi.removeListener(this)
         currentRedPacketMap.clear()
         WeLogger.i(TAG, "removed db listener and cleared red packet map")
-        super.onUnload(classLoader)
     }
 
     private class ConfigDialog(context: Context) : BasePrefDialog(context, "自动抢红包") {

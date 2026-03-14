@@ -38,7 +38,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
     @SuppressLint("StaticFieldLeak")
     private var pendingDialog: MaterialDialog? = null
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         try {
             // 获取Application Context
             val activityThreadClass = "android.app.ActivityThread".toClass()
@@ -542,8 +542,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
         }
     }
 
-    override fun onUnload(classLoader: ClassLoader) {
+    override fun onUnload() {
         nativeCrashHandler?.uninstall()
-        super.onUnload(classLoader)
     }
 }

@@ -38,7 +38,7 @@ object AntiRevokeMsg3 : SwitchHookItem(), IDexFind {
 
     private val nameRegex by lazy { Pattern.compile("([\"「])(.*?)([」\"])") }
 
-    override fun onLoad(classLoader: ClassLoader) {
+    override fun onLoad() {
         methodXmlParser.toDexMethod {
             hook {
                 afterIfEnabled { param ->
@@ -70,7 +70,7 @@ object AntiRevokeMsg3 : SwitchHookItem(), IDexFind {
                         resultMap[typeKey] = null
 
                         val db = WeDatabaseApi.dbInstance!!
-                        val cursor = WeDatabaseApi.execQueryMethod!!.invoke(
+                        val cursor = WeDatabaseApi.rawQueryMethod!!.invoke(
                             db,
                             "SELECT createTime FROM message WHERE msgSvrId = ?",
                             arrayOf(msgSvrId)
