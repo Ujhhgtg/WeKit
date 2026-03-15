@@ -1,7 +1,7 @@
 package moe.ouom.wekit.utils.crash
 
 import lombok.Getter
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 
 class NativeCrashHandler {
 

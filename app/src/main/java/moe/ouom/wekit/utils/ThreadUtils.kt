@@ -2,7 +2,7 @@ package moe.ouom.wekit.utils
 
 import android.os.Build
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 
 // this is what we call 'technical debt'
 fun Thread.getThreadId(): Long {

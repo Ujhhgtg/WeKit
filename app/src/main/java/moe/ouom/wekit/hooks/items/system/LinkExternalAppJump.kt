@@ -45,15 +45,15 @@ import androidx.core.net.toUri
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeStartActivityApi
-import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.ui.WeStartActivityApi
+import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.common.ToastUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.ToastUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(
     path = "系统与隐私/链接跳转系统打开方式",
@@ -75,11 +75,11 @@ object LinkExternalAppJump : SwitchHookItem(),
         "pay.wechatpay.cn"
     )
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeStartActivityApi.addListener(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeStartActivityApi.removeListener(this)
     }
 

@@ -32,16 +32,16 @@ import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ClickableHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
-import moe.ouom.wekit.hooks.sdk.base.WeServiceApi
-import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeDatabaseApi
+import moe.ouom.wekit.hooks.api.core.WeServiceApi
+import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.common.ToastUtils
-import moe.ouom.wekit.utils.io.PathUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.ToastUtils
+import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
@@ -287,7 +287,7 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
         return emojiThumb
     }
 
-    override fun onLoad() {
+    override fun onEnable() {
         val emojiGroupInfoCls = "com.tencent.mm.storage.emotion.EmojiGroupInfo".toClass()
 
         @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN", "UNCHECKED_CAST")

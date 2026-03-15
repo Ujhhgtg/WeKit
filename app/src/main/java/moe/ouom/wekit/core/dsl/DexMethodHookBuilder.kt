@@ -2,13 +2,13 @@ package moe.ouom.wekit.core.dsl
 
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.constants.PreferenceKeys
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.core.model.ClickableHookItem
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.ExceptionFactory
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.ExceptionFactory
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.lang.reflect.Method
 
 class DexMethodHookBuilder(

@@ -2,21 +2,21 @@ package moe.ouom.wekit.hooks.items.system
 
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.protocol.WePkgManager
-import moe.ouom.wekit.hooks.sdk.protocol.intf.IWePkgInterceptor
-import moe.ouom.wekit.utils.WeProtoData
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.net.WePacketManager
+import moe.ouom.wekit.hooks.api.net.intf.IWePacketInterceptor
+import moe.ouom.wekit.hooks.api.net.WeProtoData
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.json.JSONArray
 import org.json.JSONObject
 
 @HookItem(path = "系统与隐私/去除文章广告", desc = "清除文章中的广告数据")
-object RemoveArticleAds : SwitchHookItem(), IWePkgInterceptor {
+object RemoveArticleAds : SwitchHookItem(), IWePacketInterceptor {
 
     private val TAG = nameof(RemoveArticleAds)
 
-    override fun onLoad() {
-        WePkgManager.addInterceptor(this)
+    override fun onEnable() {
+        WePacketManager.addInterceptor(this)
     }
 
     override fun onResponse(uri: String, cgiId: Int, respBytes: ByteArray): ByteArray? {
@@ -86,7 +86,7 @@ object RemoveArticleAds : SwitchHookItem(), IWePkgInterceptor {
         return null
     }
 
-    override fun onUnload() {
-        WePkgManager.removeInterceptor(this)
+    override fun onDisable() {
+        WePacketManager.removeInterceptor(this)
     }
 }

@@ -8,23 +8,23 @@ import androidx.compose.material3.Text
 import androidx.core.net.toUri
 import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ClickableHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseListenerApi
-import moe.ouom.wekit.hooks.sdk.base.WeNetworkApi
-import moe.ouom.wekit.hooks.sdk.base.model.MessageType
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeDatabaseApi
+import moe.ouom.wekit.hooks.api.core.WeDatabaseListenerApi
+import moe.ouom.wekit.hooks.api.core.WeNetworkApi
+import moe.ouom.wekit.hooks.api.core.model.MessageType
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.BasePrefDialog
 import moe.ouom.wekit.ui.content.Button
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.common.ToastUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.ToastUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import java.util.concurrent.ConcurrentHashMap
@@ -54,7 +54,7 @@ object AutoOpenRedPacket : ClickableHookItem(), WeDatabaseListenerApi.IInsertLis
         val nickName: String = ""
     )
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
         hookReceiveCallback()
         hookOpenReqEndCallback()
@@ -232,7 +232,7 @@ object AutoOpenRedPacket : ClickableHookItem(), WeDatabaseListenerApi.IInsertLis
         return matchSimple?.groupValues?.get(1) ?: ""
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeLogger.i(TAG, "unload() called, removing db listener")
         WeDatabaseListenerApi.removeListener(this)
         currentRedPacketMap.clear()

@@ -3,12 +3,12 @@ package moe.ouom.wekit.hooks.items.scripting_js
 import android.content.ContentValues
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseListenerApi
-import moe.ouom.wekit.hooks.sdk.protocol.intf.IWePkgInterceptor
-import moe.ouom.wekit.utils.WeProtoData
-import moe.ouom.wekit.utils.io.PathUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeDatabaseListenerApi
+import moe.ouom.wekit.hooks.api.net.intf.IWePacketInterceptor
+import moe.ouom.wekit.hooks.api.net.WeProtoData
+import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.div
 import kotlin.io.path.listDirectoryEntries
@@ -17,7 +17,7 @@ import kotlin.io.path.readText
 
 @HookItem(path = "脚本/脚本引擎", desc = "点击管理脚本")
 object JsScriptingHook : SwitchHookItem(),
-    WeDatabaseListenerApi.IInsertListener, IWePkgInterceptor {
+    WeDatabaseListenerApi.IInsertListener, IWePacketInterceptor {
 
     private val TAG = nameof(JsScriptingHook)
 
@@ -42,7 +42,7 @@ object JsScriptingHook : SwitchHookItem(),
 
     val rules = ConcurrentHashMap<String, String>()
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
 
         WeLogger.i(TAG, "loading scripts...")
@@ -79,7 +79,7 @@ object JsScriptingHook : SwitchHookItem(),
         JsEngine.executeAllOnMessage(rules, talker, content, type, isSend)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeLogger.i(TAG, "removing automation DB listener")
         WeDatabaseListenerApi.removeListener(this)
     }

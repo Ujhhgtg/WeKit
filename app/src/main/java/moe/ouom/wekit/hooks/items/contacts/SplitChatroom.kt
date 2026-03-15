@@ -30,17 +30,17 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.config.RuntimeConfig
+import moe.ouom.wekit.utils.RuntimeConfig
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
-import moe.ouom.wekit.hooks.sdk.base.model.WeGroup
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeDatabaseApi
+import moe.ouom.wekit.hooks.api.core.model.WeGroup
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.Button
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.common.ToastUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.ToastUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(path = "联系人与群组/分裂群组", desc = "让群聊一分为二")
 object SplitChatroom : ClickableHookItem() {

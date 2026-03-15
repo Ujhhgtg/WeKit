@@ -1,6 +1,8 @@
 package moe.ouom.wekit.activity
 
 import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.os.UserManager
 import androidx.activity.ComponentActivity
@@ -54,18 +56,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.topjohnwu.superuser.Shell
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.delay
 import moe.ouom.wekit.BuildConfig
 import moe.ouom.wekit.R
 import moe.ouom.wekit.constants.PackageNames
-import moe.ouom.wekit.host.HostInfo
 import moe.ouom.wekit.ui.content.Button
 import moe.ouom.wekit.ui.content.IconButton
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.AppTheme
-import moe.ouom.wekit.utils.common.Utils
+import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.utils.formatEpoch
 import moe.ouom.wekit.utils.getEnabled
 import moe.ouom.wekit.utils.hookstatus.HookStatus
@@ -73,6 +75,12 @@ import moe.ouom.wekit.utils.setEnabled
 
 
 class MainActivity : ComponentActivity() {
+
+    private fun openUrl(context: Context, url: String) {
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.data = url.toUri()
+        context.startActivity(intent)
+    }
 
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,7 +96,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             AppTheme {
                 AppContent(
-                    onUrlClick = { url -> Utils.openUrl(this, url) }
+                    onUrlClick = { url -> openUrl(this, url) }
                 )
             }
         }

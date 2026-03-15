@@ -6,7 +6,7 @@ import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "聊天/自动查看原图", desc = "在打开图片和视频时自动点击查看原图")
@@ -34,7 +34,7 @@ object AutoViewOriginalMedia : SwitchHookItem(), IResolvesDex {
         return descriptors
     }
 
-    override fun onLoad() {
+    override fun onEnable() {
         listOf(
             methodSetImageHdImgBtnVisibility,
             methodCheckNeedShowOriginVideoBtn

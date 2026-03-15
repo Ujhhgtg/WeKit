@@ -3,7 +3,7 @@ package moe.ouom.wekit.hooks.items.chat
 import android.app.Activity
 import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 
 @HookItem(path = "聊天/自动启用发送原图", desc = "发送媒体时自动勾选发送原图选项")
 object AutoEnableNoCompressOnSendMedia : SwitchHookItem() {
@@ -13,7 +13,7 @@ object AutoEnableNoCompressOnSendMedia : SwitchHookItem() {
         "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"
     )
 
-    override fun onLoad() {
+    override fun onEnable() {
         for (clsName in HOOKED_CLASS_NAMES) {
             clsName.toClass().hookBefore("onCreate") { param ->
                 val activity = param.thisObject as Activity

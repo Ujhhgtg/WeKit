@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.util.Log
 import moe.ouom.wekit.BuildConfig
-import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.loader.core.NativeLoader
 import moe.ouom.wekit.loader.core.WeLauncher
 import moe.ouom.wekit.loader.hookimpl.InMemoryClassLoaderHelper

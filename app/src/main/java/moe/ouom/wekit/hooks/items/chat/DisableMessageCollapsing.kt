@@ -3,7 +3,7 @@ package moe.ouom.wekit.hooks.items.chat
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "聊天/禁用消息折叠", desc = "阻止聊天消息被折叠")
@@ -31,7 +31,7 @@ object DisableMessageCollapsing : SwitchHookItem(), IResolvesDex {
         return descriptors
     }
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodFoldMsg.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

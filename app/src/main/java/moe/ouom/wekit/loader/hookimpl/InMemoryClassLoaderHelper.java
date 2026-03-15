@@ -10,14 +10,13 @@ import java.io.File;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
 
 import dalvik.system.BaseDexClassLoader;
 import dalvik.system.DexFile;
+import lombok.SneakyThrows;
 import moe.ouom.wekit.loader.dyn.MemoryDexLoader;
 import moe.ouom.wekit.loader.hookapi.IClassLoaderHelper;
-import moe.ouom.wekit.utils.io.IoUtils;
 
 public class InMemoryClassLoaderHelper implements IClassLoaderHelper {
 
@@ -43,6 +42,7 @@ public class InMemoryClassLoaderHelper implements IClassLoaderHelper {
     // Warning: You need to bypass the following hidden API restrictions before using this method:
     // Ldalvik/system/DexPathList$Element;-><init>(Ldalvik/system/DexFile;)V,lo-prio,max-target-o
 
+    @SneakyThrows
     @SuppressLint("ObsoleteSdkInt")
     private Object createElement(@NonNull DexFile dexFiles) {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -55,9 +55,6 @@ public class InMemoryClassLoaderHelper implements IClassLoaderHelper {
                 return elementConstructor1.newInstance(dexFiles);
             } catch (NoSuchMethodException e) {
                 throw new UnsupportedOperationException(e);
-            } catch (IllegalAccessException | InvocationTargetException |
-                     InstantiationException e) {
-                throw IoUtils.unsafeThrowForIteCause(e);
             }
         } else {
             // public Element(File dir, boolean isDirectory, File zip, DexFile dexFile) SDK < 26
@@ -69,13 +66,11 @@ public class InMemoryClassLoaderHelper implements IClassLoaderHelper {
                 return elementConstructor4.newInstance(new File(""), false, null, dexFiles);
             } catch (NoSuchMethodException e) {
                 throw new UnsupportedOperationException(e);
-            } catch (IllegalAccessException | InvocationTargetException |
-                     InstantiationException e) {
-                throw IoUtils.unsafeThrowForIteCause(e);
             }
         }
     }
 
+    @SneakyThrows
     @SuppressLint("DiscouragedPrivateApi")
     @Override
     public void injectDexToClassLoader(@NonNull ClassLoader classLoader, @NonNull byte[] dexBytes, @Nullable String dexName)
@@ -121,16 +116,12 @@ public class InMemoryClassLoaderHelper implements IClassLoaderHelper {
         // create DexFile
         var dexFile = MemoryDexLoader.createDexFileFormBytes(dexBytes, classLoader, dexName);
         var element = createElement(dexFile);
-        try {
-            var pathList = pathListField.get(classLoader);
-            var oldElements = (Object[]) dexElementsField.get(pathList);
-            assert oldElements != null;
-            var newElements = (Object[]) Array.newInstance(kDexPathListElement, oldElements.length + 1);
-            System.arraycopy(oldElements, 0, newElements, 0, oldElements.length);
-            newElements[oldElements.length] = element;
-            dexElementsField.set(pathList, newElements);
-        } catch (ReflectiveOperationException e) {
-            throw IoUtils.unsafeThrowForIteCause(e);
-        }
+        var pathList = pathListField.get(classLoader);
+        var oldElements = (Object[]) dexElementsField.get(pathList);
+        assert oldElements != null;
+        var newElements = (Object[]) Array.newInstance(kDexPathListElement, oldElements.length + 1);
+        System.arraycopy(oldElements, 0, newElements, 0, oldElements.length);
+        newElements[oldElements.length] = element;
+        dexElementsField.set(pathList, newElements);
     }
 }

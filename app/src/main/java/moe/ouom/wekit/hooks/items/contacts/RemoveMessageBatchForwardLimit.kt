@@ -4,9 +4,9 @@ import android.content.Intent
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeStartActivityApi
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.ui.WeStartActivityApi
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(path = "联系人与群组/移除消息批量转发限制", desc = "移除消息多选目标的 9 个数量限制")
 object RemoveMessageBatchForwardLimit : SwitchHookItem(),
@@ -14,11 +14,11 @@ object RemoveMessageBatchForwardLimit : SwitchHookItem(),
 
     private val TAG = nameof(RemoveMessageBatchForwardLimit)
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeStartActivityApi.addListener(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeStartActivityApi.removeListener(this)
     }
 

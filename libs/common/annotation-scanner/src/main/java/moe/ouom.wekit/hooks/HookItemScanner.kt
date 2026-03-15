@@ -4,11 +4,11 @@ import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.getAnnotationsByType
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.squareup.kotlinpoet.ClassName
@@ -19,7 +19,7 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 
 /**
  * KSP 处理器根据 @HookItem 注解扫描并生成代码
@@ -27,20 +27,18 @@ import moe.ouom.wekit.hooks.core.annotation.HookItem
 
 class HookItemProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
-        return HookItemScanner(environment.codeGenerator, environment.logger)
+        return HookItemScanner(environment.codeGenerator)
     }
 }
 
 class HookItemScanner(
-    private val codeGenerator: CodeGenerator,
-    val logger: KSPLogger
+    private val codeGenerator: CodeGenerator
 ) : SymbolProcessor {
 
     @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        // 获取所有带有 @HookItem 注解的类
         val symbols =
-            resolver.getSymbolsWithAnnotation("moe.ouom.wekit.hooks.core.annotation.HookItem")
+            resolver.getSymbolsWithAnnotation("moe.ouom.wekit.hooks.utils.annotation.HookItem")
                 .filterIsInstance<KSClassDeclaration>()
                 .toList()
 
@@ -54,8 +52,8 @@ class HookItemScanner(
             { symbol ->
                 val superTypes = symbol.superTypes.map { it.resolve().declaration.qualifiedName?.asString() }
                 when {
-                    superTypes.contains("moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem") -> 0
-                    superTypes.contains("moe.ouom.wekit.core.model.BaseClickableFunctionHookItem") -> 1
+                    superTypes.contains("moe.ouom.wekit.core.model.SwitchHookItem") -> 0
+                    superTypes.contains("moe.ouom.wekit.core.model.ClickableHookItem") -> 1
                     else -> 2
                 }
             },
@@ -90,15 +88,15 @@ class HookItemScanner(
                     val valName = symbol.toClassName().simpleName
 
                     val isKtObject =
-                        symbol.classKind == com.google.devtools.ksp.symbol.ClassKind.OBJECT
+                        symbol.classKind == ClassKind.OBJECT
                     if (!isKtObject) {
                         addStatement("val %N = %T()", valName, typeName)
                     }
                     else {
                         addStatement("val %N = %T", valName, typeName)
                     }
-                    addStatement("%N.setPath(%S)", valName, itemName)
-                    addStatement("%N.setDesc(%S)", valName, desc)
+                    addStatement("%N.path = %S", valName, itemName)
+                    addStatement("%N.description = %S", valName, desc)
                     addStatement("list.add(%N)", valName)
                 }
                 addStatement("return list")

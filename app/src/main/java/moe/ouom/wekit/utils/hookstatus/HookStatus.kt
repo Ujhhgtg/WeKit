@@ -1,17 +1,12 @@
 package moe.ouom.wekit.utils.hookstatus
 
-import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.Intent
-import android.os.Bundle
-import androidx.core.net.toUri
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
 import io.github.libxposed.service.XposedServiceHelper.OnServiceListener
 import kotlinx.coroutines.flow.MutableStateFlow
 import moe.ouom.wekit.BuildConfig
 import moe.ouom.wekit.loader.LoaderExtensionHelper
-import moe.ouom.wekit.utils.common.SyncUtils
 import java.io.File
 
 /**
@@ -19,8 +14,6 @@ import java.io.File
  */
 object HookStatus {
 
-    private var expCpCalled = false
-    private var expCpResult = false
     val xposedService: MutableStateFlow<XposedService?> = MutableStateFlow(null)
     private var xposedServiceListenerRegistered = false
     private val xposedServiceListener = object : OnServiceListener {
@@ -35,9 +28,6 @@ object HookStatus {
 
     val zygoteHookProvider: String?
         get() = HookStatusImpl.sZygoteHookProvider
-
-    val isLsposedDexObfsEnabled: Boolean
-        get() = HookStatusImpl.sIsLsposedDexObfsEnabled
 
     val isZygoteHookMode: Boolean
         get() = HookStatusImpl.sZygoteHookMode
@@ -56,44 +46,11 @@ object HookStatus {
     val isElderDriverXposed: Boolean
         get() = File("/system/framework/edxp.jar").exists()
 
-    fun callTaiChiContentProvider(context: Context): Boolean {
-        try {
-            val contentResolver = context.contentResolver
-            val uri = "content://me.weishu.exposed.CP/".toUri()
-            var result: Bundle? = Bundle()
-            try {
-                result = contentResolver.call(uri, "active", null, null)
-            } catch (_: RuntimeException) {
-                // TaiChi is killed, try invoke
-                try {
-                    val intent = Intent("me.weishu.exp.ACTION_ACTIVE")
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    context.startActivity(intent)
-                } catch (_: ActivityNotFoundException) {
-                    return false
-                }
-            }
-            if (result == null) {
-                result = contentResolver.call(uri, "active", null, null)
-            }
-            if (result == null) {
-                return false
-            }
-            return result.getBoolean("active", false)
-        } catch (_: Exception) {
-            return false
-        }
-    }
-
     fun init(context: Context) {
         if (context.packageName == BuildConfig.APPLICATION_ID) {
             if (!xposedServiceListenerRegistered) {
                 XposedServiceHelper.registerListener(xposedServiceListener)
                 xposedServiceListenerRegistered = true
-            }
-            SyncUtils.async {
-                expCpCalled = callTaiChiContentProvider(context)
-                expCpResult = expCpCalled
             }
         } else {
             // in host process???
@@ -109,7 +66,7 @@ object HookStatus {
             if (isZygoteHookMode) {
                 return HookType.ZYGOTE
             }
-            return if (expCpResult) HookType.APP_PATCH else HookType.NONE
+            return HookType.NONE
         }
 
     private fun initHookStatusImplInHostProcess() {
@@ -160,9 +117,6 @@ object HookStatus {
                 }
                 return "Unknown (Zygote)"
             }
-            if (expCpResult) {
-                return "TaiChi"
-            }
             return "None"
         }
 
@@ -170,19 +124,7 @@ object HookStatus {
         get() = hookType != HookType.NONE
 
     enum class HookType {
-        /**
-         * No hook.
-         */
         NONE,
-
-        /**
-         * Taichi, BugHook(not implemented), etc.
-         */
-        APP_PATCH,
-
-        /**
-         * Legacy Xposed, EdXposed, LSPosed, Dreamland, etc.
-         */
         ZYGOTE,
     }
 }

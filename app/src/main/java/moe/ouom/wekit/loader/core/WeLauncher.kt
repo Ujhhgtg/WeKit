@@ -7,19 +7,19 @@ import com.highcapable.kavaref.extension.toClass
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.config.RuntimeConfig
+import moe.ouom.wekit.utils.RuntimeConfig
 import moe.ouom.wekit.constants.PackageNames
 import moe.ouom.wekit.dexkit.cache.DexCacheManager
-import moe.ouom.wekit.hooks.core.HookItemsLoader
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.common.SyncUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.HookItemsLoader
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.TargetProcessUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 
 object WeLauncher {
 
     fun init(cl: ClassLoader, context: Context) {
-        val processType = SyncUtils.getProcessType()
-        val currentProcessName = SyncUtils.getProcessName()
+        val processType = TargetProcessUtils.getCurrentProcessType()
+        val currentProcessName = TargetProcessUtils.getCurrentProcessName()
         WeLogger.i(TAG, "launching in processName=$currentProcessName, type=$processType")
 
         ParcelableFixer.init(cl, WeLauncher::class.java.classLoader!!)
@@ -28,7 +28,7 @@ object WeLauncher {
         val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         DexCacheManager.init(requireNotNull(pInfo.versionName))
 
-        if (processType == SyncUtils.PROC_MAIN) {
+        if (processType == TargetProcessUtils.PROC_MAIN) {
             val appContext = context.applicationContext ?: context
             ActivityProxy.initForStubActivity(appContext)
             WeLogger.i(TAG, "ActivityProxy installed")

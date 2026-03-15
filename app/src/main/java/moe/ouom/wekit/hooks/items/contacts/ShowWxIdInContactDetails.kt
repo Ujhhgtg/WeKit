@@ -7,10 +7,10 @@ import android.content.Context
 import android.widget.Toast
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeChatContactDetailsApi
-import moe.ouom.wekit.hooks.sdk.ui.WeChatContactDetailsApi.ContactInfoItem
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.ui.WeChatContactDetailsApi
+import moe.ouom.wekit.hooks.api.ui.WeChatContactDetailsApi.ContactInfoItem
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(
     path = "联系人与群组/显示微信 ID",
@@ -47,7 +47,7 @@ object ShowWxIdInContactDetails : SwitchHookItem() {
             }
         }
 
-    override fun onLoad() {
+    override fun onEnable() {
         try {
             WeChatContactDetailsApi.addInitCallback(initCallback)
             WeChatContactDetailsApi.addClickListener(clickListener)
@@ -71,7 +71,7 @@ object ShowWxIdInContactDetails : SwitchHookItem() {
     }
 
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeChatContactDetailsApi.removeInitCallback(initCallback)
         WeChatContactDetailsApi.removeClickListener(clickListener)
         WeLogger.i(TAG, "已移除显示微信ID Hook")

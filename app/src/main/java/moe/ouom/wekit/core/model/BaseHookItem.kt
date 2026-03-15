@@ -5,100 +5,51 @@ import com.highcapable.kavaref.resolver.MethodResolver
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.constants.PreferenceKeys
-import moe.ouom.wekit.hooks.core.ExceptionFactory
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.ExceptionFactory
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.lang.reflect.Member
 import kotlin.reflect.KClass
 
 abstract class BaseHookItem {
 
-    /**
-     * 功能名称/路径
-     */
     var path: String = ""
+
+    var description: String = ""
+
+    var hasEnabled: Boolean = false
         private set
 
-    /**
-     * 功能描述
-     */
-    var desc: String = ""
-        private set
-
-    /**
-     * 是否已加载
-     */
-    var isLoad: Boolean = false
-        private set
-
-    /**
-     * 获取功能项名称（路径的最后一部分）
-     */
     val itemName: String
         get() {
             val index = path.lastIndexOf("/")
             return if (index == -1) path else path.substring(index + 1)
         }
 
-    /**
-     * 设置路径
-     */
-    fun setPath(path: String) {
-        this.path = path
-    }
-
-    /**
-     * 设置描述
-     */
-    fun setDesc(desc: String) {
-        this.desc = desc
-    }
-
-    /**
-     * 开始加载 Hook
-     */
-    fun load() {
-        if (isLoad) {
-            return
-        }
-        try {
-            isLoad = true
-
-            if (initOnce()) {
-                onLoad()
-            }
-        } catch (e: Throwable) {
+    fun enable() {
+        if (hasEnabled) return
+        runCatching {
+            hasEnabled = true
+            onEnable()
+        }.onFailure { e ->
             WeLogger.e("failed to load item", e)
             ExceptionFactory.add(this, e)
         }
     }
 
-    fun unload() {
-        isLoad = false
-        onUnload()
+    fun disable() {
+        if (!hasEnabled) return
+        runCatching {
+            hasEnabled = false
+            onDisable()
+        }.onFailure { e -> WeLogger.e("failed to unload item", e) }
     }
 
-    /**
-     * 在 loadHook 前执行一次
-     * 返回 true 表示继续执行 loadHook
-     * 返回 false 表示不执行 entry 的事件 不可重写
-     */
-    fun initOnce(): Boolean = true
+    open fun onEnable() {}
 
-    /**
-     * Hook 入口方法
-     */
-    open fun onLoad() {}
+    open fun onDisable() {}
 
-    /**
-     * 卸载 Hook
-     */
-    open fun onUnload() {}
-
-    /**
-     * 标准 hook 方法执行前
-     */
     fun hookBefore(method: Member, action: HookAction): XC_MethodHook.Unhook {
         return XposedBridge.hookMethod(
             method,
@@ -452,7 +403,7 @@ abstract class BaseHookItem {
      * 真正执行接口方法的地方，这么写可以很便捷的捕获异常和子类重写
      */
     open fun tryExecute(param: XC_MethodHook.MethodHookParam, hookAction: HookAction) {
-        if (isLoad) {
+        if (hasEnabled) {
             try {
                 hookAction(param)
             } catch (throwable: Throwable) {

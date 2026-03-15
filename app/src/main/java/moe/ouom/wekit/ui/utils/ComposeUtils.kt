@@ -18,10 +18,10 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.hooks.items.beautify.ApplyDialogBackgroundBlur
-import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.HostInfo
+import moe.ouom.wekit.utils.logging.WeLogger
 
 private val TAG = nameof(::showComposeDialog)
 

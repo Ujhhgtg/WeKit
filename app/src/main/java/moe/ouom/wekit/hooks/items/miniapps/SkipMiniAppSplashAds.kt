@@ -6,7 +6,7 @@ import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "小程序/跳过开屏广告", desc = "跳过小程序开屏广告")
@@ -14,7 +14,7 @@ object SkipMiniAppSplashAds : SwitchHookItem(), IResolvesDex {
 
     private val methodAdDataCallback by dexMethod()
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodAdDataCallback.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

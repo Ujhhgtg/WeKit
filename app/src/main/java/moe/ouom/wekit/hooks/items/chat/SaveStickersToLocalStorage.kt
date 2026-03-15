@@ -10,13 +10,13 @@ import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.model.MessageType
-import moe.ouom.wekit.hooks.sdk.ui.WeChatMessageContextMenuApi
-import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.common.ToastUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.model.MessageType
+import moe.ouom.wekit.hooks.api.ui.WeChatMessageContextMenuApi
+import moe.ouom.wekit.utils.HostInfo
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.ToastUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "聊天/贴纸保存到本地", desc = "在贴纸消息菜单添加保存按钮, 允许将图片保存到本地")
@@ -27,11 +27,11 @@ object SaveStickersToLocalStorage : SwitchHookItem(), IResolvesDex,
 
     private val classEmojiFileEncryptMgr by dexClass()
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 

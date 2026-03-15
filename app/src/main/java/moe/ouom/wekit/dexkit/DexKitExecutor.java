@@ -2,7 +2,7 @@ package moe.ouom.wekit.dexkit;
 
 import org.luckypray.dexkit.DexKitBridge;
 
-import moe.ouom.wekit.utils.log.WeLogger;
+import moe.ouom.wekit.utils.logging.WeLogger;
 
 public class DexKitExecutor {
     private final String apkPath;

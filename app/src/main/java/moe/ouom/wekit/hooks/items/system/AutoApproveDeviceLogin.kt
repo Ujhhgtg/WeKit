@@ -4,8 +4,8 @@ import android.app.Activity
 import android.widget.Button
 import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(path = "系统与隐私/自动批准设备登录", desc = "其他设备请求登录时自动勾选选项并点击按钮")
 object AutoApproveDeviceLogin : SwitchHookItem() {
@@ -13,7 +13,7 @@ object AutoApproveDeviceLogin : SwitchHookItem() {
     private const val SHOW_LOGIN_DEVICE = 0x2
     private const val AUTO_LOGIN_DEVICE = 0x4
 
-    override fun onLoad() {
+    override fun onEnable() {
         val targetClass = "com.tencent.mm.plugin.webwx.ui.ExtDeviceWXLoginUI".toClass()
 
         // Hook onCreate — inject function control flags into intent

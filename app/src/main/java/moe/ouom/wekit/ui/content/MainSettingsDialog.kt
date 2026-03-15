@@ -1,6 +1,7 @@
 package moe.ouom.wekit.ui.content
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -27,16 +28,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.mikepenz.aboutlibraries.entity.Library
 import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
 import moe.ouom.wekit.BuildConfig
 import moe.ouom.wekit.R
 import moe.ouom.wekit.constants.PreferenceKeys
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.common.Utils.openUrl
 import moe.ouom.wekit.utils.formatEpoch
 
 class MainSettingsDialog(context: Context) : BasePrefDialog(context, "WeKit") {
+
+    private fun openUrl(context: Context, url: String) {
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.data = url.toUri()
+        context.startActivity(intent)
+    }
 
     // 定义优先级 映射关系 (值 -> 显示文本)
     private val priorityMap = mapOf(

@@ -12,30 +12,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.protocol.WePkgManager
-import moe.ouom.wekit.hooks.sdk.protocol.intf.IWePkgInterceptor
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.net.WePacketManager
+import moe.ouom.wekit.hooks.api.net.intf.IWePacketInterceptor
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.Button
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.WeProtoData
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.api.net.WeProtoData
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.json.JSONArray
 import org.json.JSONObject
 
 @HookItem(path = "红包与支付/修改转账显示余额", desc = "伪装转账时显示的余额文字")
-object ModifyTransferWalletBalanceDisplay : ClickableHookItem(), IWePkgInterceptor {
+object ModifyTransferWalletBalanceDisplay : ClickableHookItem(), IWePacketInterceptor {
 
     private val TAG = nameof(ModifyTransferWalletBalanceDisplay)
 
     private const val KEY_CFT_BALANCE = "fake_cft_balance"
     private const val KEY_LQT_BALANCE = "fake_lqt_balance"
 
-    override fun onLoad() {
-        WePkgManager.addInterceptor(this)
+    override fun onEnable() {
+        WePacketManager.addInterceptor(this)
     }
 
     override fun onResponse(uri: String, cgiId: Int, respBytes: ByteArray): ByteArray? {
@@ -130,8 +130,8 @@ object ModifyTransferWalletBalanceDisplay : ClickableHookItem(), IWePkgIntercept
         }
     }
 
-    override fun onUnload() {
-        WePkgManager.removeInterceptor(this)
+    override fun onDisable() {
+        WePacketManager.removeInterceptor(this)
     }
 
     override fun onClick(context: Context) {

@@ -46,7 +46,7 @@ import kotlinx.coroutines.withContext
 import moe.ouom.wekit.core.model.BaseHookItem
 import moe.ouom.wekit.dexkit.cache.DexCacheManager
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.io.PrintWriter
 import java.io.StringWriter

@@ -1,12 +1,12 @@
 package moe.ouom.wekit.dexkit.cache
 
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.constants.PreferenceKeys
 import moe.ouom.wekit.core.model.BaseHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.utils.io.PathUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import java.nio.file.Path

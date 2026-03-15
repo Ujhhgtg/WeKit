@@ -7,13 +7,13 @@ import com.afollestad.materialdialogs.list.listItemsMultiChoice
 import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseListenerApi
-import moe.ouom.wekit.hooks.sdk.ui.WeMomentsContextMenuApi
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeDatabaseApi
+import moe.ouom.wekit.hooks.api.core.WeDatabaseListenerApi
+import moe.ouom.wekit.hooks.api.ui.WeMomentsContextMenuApi
 import moe.ouom.wekit.ui.utils.CommonContextWrapper
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.LinkedList
@@ -40,13 +40,13 @@ object FakeMomentsLikes : SwitchHookItem(), WeMomentsContextMenuApi.IMenuItemsPr
     private var likeFlagField: Field? = null
     private var snsUserProtobufClass: Class<*>? = null
 
-    override fun onLoad() {
+    override fun onEnable() {
         initReflection()
         WeMomentsContextMenuApi.addProvider(this)
         WeDatabaseListenerApi.addListener(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeMomentsContextMenuApi.removeProvider(this)
         WeDatabaseListenerApi.removeListener(this)
     }

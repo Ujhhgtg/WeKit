@@ -48,10 +48,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.logging.WeLogger
 
 // ---------------------------------------------------------------------------
 //  Internal state model

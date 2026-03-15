@@ -8,7 +8,7 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.loader.hookapi.ILoaderService
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 
 object UnifiedEntryPoint {
 

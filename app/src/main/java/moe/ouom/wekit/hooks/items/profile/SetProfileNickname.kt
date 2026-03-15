@@ -8,12 +8,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.protocol.WePkgHelper
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.net.WePacketHelper
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(path = "个人资料/设置微信昵称", desc = "通过发包来更灵活的设置微信昵称")
 object SetProfileNickname : ClickableHookItem() {
@@ -37,7 +37,7 @@ object SetProfileNickname : ClickableHookItem() {
                             escapeJsonString(nickname)
                         }"}}}}}"""
 
-                        WePkgHelper.sendCgi(
+                        WePacketHelper.sendCgi(
                             "/cgi-bin/micromsg-bin/oplog",
                             681, 0, 0,
                             jsonPayload = payload

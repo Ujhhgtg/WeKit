@@ -9,8 +9,8 @@ import android.widget.FrameLayout
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.utils.logging.WeLogger
 
 
 @HookItem(
@@ -26,7 +26,7 @@ object BeautifyActivityTransitionAnimation : SwitchHookItem() {
     private var y = 0f
     private var backgroundColor = Color.WHITE
 
-    override fun onLoad() {
+    override fun onEnable() {
         // sender
         View::class.asResolver()
             .firstMethod {

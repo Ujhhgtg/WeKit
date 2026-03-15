@@ -1,11 +1,9 @@
 package moe.ouom.wekit.hooks.items.debug
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
@@ -13,17 +11,15 @@ import android.widget.Toast
 import com.afollestad.materialdialogs.MaterialDialog
 import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.config.RuntimeConfig
+import moe.ouom.wekit.utils.RuntimeConfig
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.ui.utils.CommonContextWrapper
 import moe.ouom.wekit.utils.crash.CrashLogsManager
 import moe.ouom.wekit.utils.crash.JavaCrashHandler
-import moe.ouom.wekit.utils.io.SafUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.io.File
 import java.nio.file.Path
-import kotlin.io.path.name
 
 @HookItem(
     path = "调试/崩溃拦截",
@@ -40,7 +36,7 @@ object CrashInterceptor : SwitchHookItem() {
     private var hasPendingCrashToShow = false
     private var pendingDialog: MaterialDialog? = null
 
-    override fun onLoad() {
+    override fun onEnable() {
         try {
             // 获取 Application Context
             val activityThreadClass = "android.app.ActivityThread".toClass()
@@ -255,7 +251,6 @@ object CrashInterceptor : SwitchHookItem() {
                         crashInfo
                     }
 
-                    @Suppress("DEPRECATION")
                     pendingDialog = MaterialDialog(wrappedContext)
                         .title(text = "Java 崩溃详情")
                         .message(text = displayInfo) {
@@ -272,11 +267,6 @@ object CrashInterceptor : SwitchHookItem() {
                             dialog.dismiss()
                             manager.clearPendingJavaCrashFlag()
                         }
-                        .neutralButton(text = "导出文件") { dialog ->
-                            exportLog(activity, crashLogFile)
-                            dialog.dismiss()
-                            manager.clearPendingJavaCrashFlag()
-                        }
                         .cancelable(true)
 
                     pendingDialog?.show()
@@ -289,63 +279,6 @@ object CrashInterceptor : SwitchHookItem() {
             WeLogger.e("[CrashInterceptor] Failed to show crash detail dialog", e)
         }
     }
-
-    /**
-     * 使用 SAF 导出日志
-     */
-    private fun exportLog(activity: Activity, logFile: Path) {
-        try {
-            val wrappedContext = CommonContextWrapper.createAppCompatContext(activity)
-            val fileName = "crash_${logFile.name}"
-
-            SafUtils.requestSaveFile(wrappedContext)
-                .setDefaultFileName(fileName)
-                .setMimeType("text/plain")
-                .onResult { uri ->
-                    writeLogToUri(activity, logFile, uri)
-                }
-                .onCancel {
-                    showToast("取消导出")
-                }
-                .commit()
-
-        } catch (e: Throwable) {
-            WeLogger.e("[CrashInterceptor] Failed to start SAF export", e)
-            showToast("启动导出失败: ${e.message}")
-        }
-    }
-
-    /**
-     * 将日志写入 Uri
-     */
-    private fun writeLogToUri(context: Context, sourceFile: Path, targetUri: Uri) {
-        Thread {
-            try {
-                val manager = crashLogsManager ?: return@Thread
-                // 使用 readFullCrashLog 读取完整日志，不截断
-                val crashInfo = manager.readFullCrashLog(sourceFile) ?: run {
-                    Handler(Looper.getMainLooper()).post { showToast("读取源文件失败") }
-                    return@Thread
-                }
-
-                context.contentResolver.openOutputStream(targetUri)?.use { outputStream ->
-                    outputStream.write(crashInfo.toByteArray())
-                    outputStream.flush()
-                }
-
-                Handler(Looper.getMainLooper()).post {
-                    showToast("导出成功")
-                }
-                WeLogger.i("CrashInterceptor", "Exported log to: $targetUri")
-            } catch (e: Throwable) {
-                WeLogger.e("[CrashInterceptor] Failed to write to URI", e)
-                Handler(Looper.getMainLooper()).post {
-                    showToast("写入失败: ${e.message}")
-                }
-            }
-        }.start()
-    }
-
     /**
      * 提取崩溃摘要信息
      */
@@ -402,7 +335,7 @@ object CrashInterceptor : SwitchHookItem() {
         }
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         javaCrashHandler?.uninstall()
     }
 }

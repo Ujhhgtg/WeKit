@@ -4,15 +4,15 @@ import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(path = "朋友圈/拦截朋友圈广告", desc = "拦截朋友圈广告")
 object RemoveMomentsAds : SwitchHookItem() {
 
     private val TAG = nameof(RemoveMomentsAds)
 
-    override fun onLoad() {
+    override fun onEnable() {
         val adInfoClass = "com.tencent.mm.plugin.sns.storage.ADInfo".toClass()
         adInfoClass.asResolver()
             .firstConstructor {

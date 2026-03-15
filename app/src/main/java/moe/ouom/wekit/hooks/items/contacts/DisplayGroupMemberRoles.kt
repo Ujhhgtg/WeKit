@@ -13,10 +13,10 @@ import de.robv.android.xposed.XC_MethodHook
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeConversationApi
-import moe.ouom.wekit.hooks.sdk.base.model.MessageInfo
-import moe.ouom.wekit.hooks.sdk.ui.WeChatMessageViewApi
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeConversationApi
+import moe.ouom.wekit.hooks.api.core.model.MessageInfo
+import moe.ouom.wekit.hooks.api.ui.WeChatMessageViewApi
 import moe.ouom.wekit.utils.LruCache
 import org.luckypray.dexkit.DexKitBridge
 import kotlin.math.roundToInt
@@ -33,11 +33,11 @@ object DisplayGroupMemberRoles : SwitchHookItem(), IResolvesDex,
     // Pair<groupId: String, sender: String>, type: Int (1=owner, 2=admin, 3=member)
     private val resolvedRoles = LruCache<Pair<String, String>, Int>()
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeChatMessageViewApi.addListener(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeChatMessageViewApi.removeListener(this)
     }
 

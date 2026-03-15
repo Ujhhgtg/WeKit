@@ -3,8 +3,8 @@ package moe.ouom.wekit.hooks.items.contacts
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeDatabaseApi
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(
@@ -16,7 +16,7 @@ object DisablePinnedChatsCollapsing : SwitchHookItem(), IResolvesDex {
     private val methodAddCollapseChatItem by dexMethod()
     private val methodIfShouldAddCollapseChatItem by dexMethod()
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodAddCollapseChatItem.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

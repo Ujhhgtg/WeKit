@@ -9,7 +9,7 @@ import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 
@@ -67,7 +67,7 @@ class SimpleExample :
     }
 
     // Hook 入口
-    override fun onLoad() {
+    override fun onEnable() {
         // 日志输出请务必使用 `WeLogger`，他会自动添加 TAG，并且适配多种输出需求，如：
         WeLogger.i(
             "SimplifiedExample",
@@ -166,7 +166,7 @@ class SimpleExample :
         // 此处不再举例....
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         // 在这里清理资源
     }
 

@@ -6,7 +6,7 @@ import android.os.Build
 import android.os.Debug
 import android.os.Process
 import moe.ouom.wekit.utils.getThreadId
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.PrintWriter

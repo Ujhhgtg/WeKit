@@ -9,11 +9,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ClickableHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.Button
 import moe.ouom.wekit.ui.content.TextButton
@@ -28,7 +28,7 @@ object ModifyWalletBalanceDisplay : ClickableHookItem(), IResolvesDex {
     private val methodUpdateBalanceDisplay by dexMethod()
     private val methodTickerViewSetText by dexMethod()
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodUpdateBalanceDisplay.toDexMethod {
             hook {
                 afterIfEnabled { param ->

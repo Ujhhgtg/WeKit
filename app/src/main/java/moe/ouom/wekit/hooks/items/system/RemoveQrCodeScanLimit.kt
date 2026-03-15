@@ -3,7 +3,7 @@ package moe.ouom.wekit.hooks.items.system
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "系统与隐私/移除二维码扫描限制", desc = "移除长按图片与相册选择的二维码扫描限制")
@@ -27,7 +27,7 @@ object RemoveQrCodeScanLimit : SwitchHookItem(), IResolvesDex {
         return descriptors
     }
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodQBarString.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

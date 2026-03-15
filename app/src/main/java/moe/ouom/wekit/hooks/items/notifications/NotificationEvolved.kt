@@ -21,15 +21,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import moe.ouom.wekit.constants.PackageNames
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeConversationApi
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
-import moe.ouom.wekit.hooks.sdk.base.WeMessageApi
-import moe.ouom.wekit.hooks.sdk.protocol.WeApi
-import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeConversationApi
+import moe.ouom.wekit.hooks.api.core.WeDatabaseApi
+import moe.ouom.wekit.hooks.api.core.WeMessageApi
+import moe.ouom.wekit.hooks.api.net.WeApi
+import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.utils.LruCache
-import moe.ouom.wekit.utils.io.PathUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 import moe.ouom.wekit.utils.replaceEmojis
 import moe.ouom.wekit.utils.replaceRichContent
 import java.net.HttpURLConnection
@@ -92,7 +92,7 @@ object NotificationEvolved : SwitchHookItem() {
 
     private val MESSAGE_REGEX = Regex("""^(\[\d+条])?(.+?)?: (.*)$""")
 
-    override fun onLoad() {
+    override fun onEnable() {
         CoroutineScope(Dispatchers.IO).launch {
             runCatching {
                 val bitmap: Bitmap

@@ -2,8 +2,8 @@ package moe.ouom.wekit.loader.core
 
 import android.content.Context
 import com.tencent.mmkv.MMKV
-import moe.ouom.wekit.config.WePrefs
-import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.preferences.WePrefs
+import moe.ouom.wekit.utils.HostInfo
 import kotlin.io.path.createDirectories
 import kotlin.io.path.div
 import kotlin.io.path.exists

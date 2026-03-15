@@ -22,9 +22,9 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.constants.PackageNames
-import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.HostInfo
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method

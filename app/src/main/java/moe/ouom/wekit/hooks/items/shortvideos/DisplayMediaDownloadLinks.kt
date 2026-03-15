@@ -6,11 +6,11 @@ import android.content.ClipboardManager
 import android.content.Context
 import de.robv.android.xposed.XC_MethodHook
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeShortVideosShareMenuApi
-import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.common.ToastUtils
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.ui.WeShortVideosShareMenuApi
+import moe.ouom.wekit.utils.HostInfo
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.ToastUtils
 import moe.ouom.wekit.utils.formatBytesSize
 import java.util.Locale
 
@@ -22,11 +22,11 @@ import java.util.Locale
 object DisplayMediaDownloadLinks : SwitchHookItem(),
     WeShortVideosShareMenuApi.IMenuItemsProvider {
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeShortVideosShareMenuApi.addProvider(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeShortVideosShareMenuApi.removeProvider(this)
     }
 

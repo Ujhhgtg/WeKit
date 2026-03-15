@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
 import java.util.Objects;
 
 import dalvik.system.DexFile;
-import moe.ouom.wekit.utils.io.IoUtils;
+import lombok.SneakyThrows;
 
 public class MemoryDexLoader {
 
@@ -34,6 +34,7 @@ public class MemoryDexLoader {
         return createDexFileFormBytesAboveOreo(dexBytes, definingContext, name);
     }
 
+    @SneakyThrows
     @NonNull
     private static DexFile createDexFileFormBytesAboveOreo(@NonNull byte[] dexBytes, @NonNull ClassLoader definingContext, @Nullable String name) {
         // Android 8.0 - 10:  DexFile(ByteBuffer buf) throws IOException;
@@ -59,17 +60,9 @@ public class MemoryDexLoader {
         var byteBuffer = ByteBuffer.wrap(dexBytes);
         if (constructor3 != null) {
             var byteBuffers = new ByteBuffer[]{byteBuffer};
-            try {
-                return constructor3.newInstance(byteBuffers, definingContext, null);
-            } catch (ReflectiveOperationException e) {
-                throw IoUtils.unsafeThrowForIteCause(e);
-            }
+            return constructor3.newInstance(byteBuffers, definingContext, null);
         } else if (constructor1 != null) {
-            try {
-                return constructor1.newInstance(byteBuffer);
-            } catch (ReflectiveOperationException e) {
-                throw IoUtils.unsafeThrowForIteCause(e);
-            }
+            return constructor1.newInstance(byteBuffer);
         } else {
             throw new IllegalStateException("DexFile constructor not found, SDK_INT=" + Build.VERSION.SDK_INT);
         }

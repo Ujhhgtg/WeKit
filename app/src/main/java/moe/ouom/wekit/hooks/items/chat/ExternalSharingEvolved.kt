@@ -6,13 +6,13 @@ import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.utils.HostInfo
 
 @HookItem(path = "聊天/分享进化", desc = "让应用的系统分享菜单更易用 (没写完)")
 object ExternalSharingEvolved : SwitchHookItem() {
 
-    override fun onLoad() {
+    override fun onEnable() {
 
         val ctx = HostInfo.application
 

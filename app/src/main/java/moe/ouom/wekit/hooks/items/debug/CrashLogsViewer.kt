@@ -4,21 +4,19 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.list.listItems
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.ui.utils.CommonContextWrapper
-import moe.ouom.wekit.utils.common.ToastUtils
+import moe.ouom.wekit.utils.ToastUtils
 import moe.ouom.wekit.utils.crash.CrashLogsManager
 import moe.ouom.wekit.utils.formatBytesSize
 import moe.ouom.wekit.utils.formatEpoch
-import moe.ouom.wekit.utils.io.SafUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.nio.file.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.getLastModifiedTime
@@ -114,7 +112,6 @@ object CrashLogsViewer : ClickableHookItem() {
                 "复制简易信息",
                 "复制完整日志",
                 "分享日志",
-                "导出日志",
                 "删除日志"
             )
 
@@ -131,16 +128,13 @@ object CrashLogsViewer : ClickableHookItem() {
                                 when (index) {
                                     0 -> showCrashLogDetail(context, logFile)
                                     1 -> {
-                                        // 复制简易信息
                                         val summary = buildCrashSummary(logFile)
                                         copyTextToClipboard(context, summary)
                                         ToastUtils.showToast(context, "简易信息已复制")
                                     }
-
                                     2 -> copyLogToClipboard(context, logFile)
                                     3 -> shareLog(context, logFile)
-                                    4 -> exportLog(context, logFile)
-                                    5 -> confirmDeleteLog(context, logFile)
+                                    4 -> confirmDeleteLog(context, logFile)
                                 }
                             }, 100)
                         }
@@ -193,13 +187,10 @@ object CrashLogsViewer : ClickableHookItem() {
                             // 设置消息文本可选择
                             messageTextView.setTextIsSelectable(true)
                         }
-                        .positiveButton(text = "复制全部") {
+                        .positiveButton(text = "复制") {
                             copyLogToClipboard(context, logFile)
                         }
                         .negativeButton(text = "关闭")
-                        .neutralButton(text = "分享") {
-                            shareLog(context, logFile)
-                        }
 
                     dialog.show()
                     WeLogger.i(TAG, "Crash detail dialog shown successfully")
@@ -264,73 +255,6 @@ object CrashLogsViewer : ClickableHookItem() {
             WeLogger.e(TAG, "Failed to share log", e)
             ToastUtils.showToast(context, "分享失败: ${e.message}")
         }
-    }
-
-    /**
-     * 导出日志
-     */
-    private fun exportLog(context: Context, logFile: Path) {
-        try {
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    val wrappedContext =
-                        CommonContextWrapper.createAppCompatContext(context)
-
-                    SafUtils.requestSaveFile(wrappedContext)
-                        .setDefaultFileName("wekit_${logFile.name}")
-                        .setMimeType("text/plain")
-                        .onResult { uri ->
-                            writeLogToUri(context, logFile, uri)
-                        }
-                        .onCancel {
-                            ToastUtils.showToast(context, "取消导出")
-                        }
-                        .commit()
-
-                } catch (e: Throwable) {
-                    WeLogger.e(TAG, "Failed to start SAF export", e)
-                    ToastUtils.showToast(context, "启动导出失败: ${e.message}")
-                }
-            }
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to export log", e)
-            ToastUtils.showToast(context, "导出错误: ${e.message}")
-        }
-    }
-
-    /**
-     * 将日志文件内容写入到用户选择的 Uri 中
-     */
-    private fun writeLogToUri(context: Context, sourceFile: Path, targetUri: Uri) {
-        // 建议在子线程执行 IO 操作，防止阻塞主线程
-        Thread {
-            try {
-                val manager = crashLogsManager ?: return@Thread
-                val crashInfo = manager.readCrashLog(sourceFile) ?: run {
-                    Handler(Looper.getMainLooper()).post {
-                        ToastUtils.showToast(context, "读取源日志失败")
-                    }
-                    return@Thread
-                }
-
-                // 使用 ContentResolver 打开输出流写入数据
-                context.contentResolver.openOutputStream(targetUri)?.use { outputStream ->
-                    outputStream.write(crashInfo.toByteArray())
-                    outputStream.flush()
-                }
-
-                WeLogger.i(TAG, "Exported log to URI: $targetUri")
-
-                Handler(Looper.getMainLooper()).post {
-                    ToastUtils.showToast(context, "导出成功")
-                }
-            } catch (e: Throwable) {
-                WeLogger.e(TAG, "Failed to write to URI", e)
-                Handler(Looper.getMainLooper()).post {
-                    ToastUtils.showToast(context, "写入文件失败: ${e.message}")
-                }
-            }
-        }.start()
     }
 
     /**

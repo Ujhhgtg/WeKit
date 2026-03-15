@@ -10,14 +10,14 @@ import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeServiceApi
-import moe.ouom.wekit.hooks.sdk.base.model.MessageType
-import moe.ouom.wekit.hooks.sdk.ui.WeChatMessageContextMenuApi
-import moe.ouom.wekit.host.HostInfo
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.common.ToastUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeServiceApi
+import moe.ouom.wekit.hooks.api.core.model.MessageType
+import moe.ouom.wekit.hooks.api.ui.WeChatMessageContextMenuApi
+import moe.ouom.wekit.utils.HostInfo
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.ToastUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import xyz.xxin.silkdecoder.SilkDecoder
 import java.lang.reflect.Method
@@ -43,7 +43,7 @@ object SaveVoicesToLocalStorage : SwitchHookItem(), IResolvesDex,
     private lateinit var methodStreamSilkDecUnInit: Method
     private lateinit var methodStreamSilkDoDec: Method
 
-    override fun onLoad() {
+    override fun onEnable() {
         val clazz = "com.tencent.mm.modelvoice.MediaRecorder".toClass()
         methodStreamSilkDecInit = clazz.asResolver()
             .firstMethod { name = "StreamSilkDecInit" }
@@ -58,7 +58,7 @@ object SaveVoicesToLocalStorage : SwitchHookItem(), IResolvesDex,
         WeChatMessageContextMenuApi.addProvider(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 

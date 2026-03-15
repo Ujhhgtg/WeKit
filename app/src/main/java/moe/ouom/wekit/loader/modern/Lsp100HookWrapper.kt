@@ -5,8 +5,7 @@ import io.github.libxposed.api.XposedModule
 import moe.ouom.wekit.loader.hookapi.IHookBridge
 import moe.ouom.wekit.loader.modern.codegen.Lsp100ProxyClassMaker
 import moe.ouom.wekit.loader.modern.dyn.Lsp100CallbackProxy
-import moe.ouom.wekit.utils.common.CheckUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.lang.reflect.Constructor
 import java.lang.reflect.Member
 import java.lang.reflect.Method
@@ -20,9 +19,6 @@ object Lsp100HookWrapper {
     private val sRegistryWriteLock = Any()
     private val DEFAULT_PROXY: Class<*> = Lsp100CallbackProxy.P0000000050::class.java
     private const val DEFAULT_PRIORITY = 50
-
-    // WARNING: This will only work for Android 7.0 and above.
-    // Since SDK 24, Method.equals() and Method.hashCode() can correctly compare hooked methods.
     private val sCallbackRegistry = ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Member, CallbackListHolder>>>()
 
     @JvmField
@@ -34,9 +30,6 @@ object Lsp100HookWrapper {
         callback: IHookBridge.IMemberHookCallback,
         priority: Int
     ): UnhookHandle {
-        CheckUtils.checkNonNull(method, "method")
-        CheckUtils.checkNonNull(callback, "callback")
-
         val (proxyClass, tag) = try {
             val c = generateProxyClassForCallback(priority)
             c to priority
@@ -58,7 +51,7 @@ object Lsp100HookWrapper {
                 when (method) {
                     is Method -> self!!.hook(method, tag, proxyClass as Class<out XposedInterface.Hooker>)
                     is Constructor<*> -> self!!.hook(method, tag, proxyClass as Class<out XposedInterface.Hooker>)
-                    else -> throw IllegalArgumentException("only method and constructor can be hooked, but got $method")
+                    else -> error("only method and constructor can be hooked, but got $method")
                 }
                 h = CallbackListHolder()
                 callbackList[method] = h
@@ -92,8 +85,6 @@ object Lsp100HookWrapper {
     }
 
     fun removeMethodCallback(method: Member, callback: CallbackWrapper) {
-        CheckUtils.checkNonNull(method, "method")
-        CheckUtils.checkNonNull(callback, "callback")
         val taggedCallbackRegistry = sCallbackRegistry[callback.tag] ?: return
         val callbackList = taggedCallbackRegistry[method.declaringClass] ?: return
         val holder = callbackList[method] ?: return
@@ -103,8 +94,6 @@ object Lsp100HookWrapper {
     }
 
     fun isMethodCallbackRegistered(method: Member, callback: CallbackWrapper): Boolean {
-        CheckUtils.checkNonNull(method, "method")
-        CheckUtils.checkNonNull(callback, "callback")
         val taggedCallbackRegistry = sCallbackRegistry[callback.tag] ?: return false
         val callbackList = taggedCallbackRegistry[method.declaringClass] ?: return false
         val holder = callbackList[method] ?: return false
@@ -119,7 +108,7 @@ object Lsp100HookWrapper {
     }
 
     private fun generateProxyClassForCallback(priority: Int): Class<*> =
-        Lsp100ProxyClassMaker.getInstance().createProxyClass(priority)
+        Lsp100ProxyClassMaker.createProxyClass(priority)
 
     fun getHookCounter(): Int = (sNextHookId.get() - 1).toInt()
 
@@ -127,9 +116,7 @@ object Lsp100HookWrapper {
         val callback: IHookBridge.IMemberHookCallback,
         val priority: Int,
         val tag: Int
-    ) {
-        val hookId: Long = sNextHookId.getAndIncrement()
-    }
+    )
 
     class CallbackListHolder {
         val lock = Any()
@@ -167,7 +154,7 @@ object Lsp100HookWrapper {
 
         override fun setResult(result: Any?) {
             checkLifecycle()
-            if (isAfter) after!!.setResult(result) else before!!.returnAndSkip(result)
+            if (isAfter) after!!.result = result else before!!.returnAndSkip(result)
         }
 
         override fun getThrowable(): Throwable? {
@@ -177,7 +164,7 @@ object Lsp100HookWrapper {
 
         override fun setThrowable(throwable: Throwable) {
             checkLifecycle()
-            if (isAfter) after!!.setThrowable(throwable) else before!!.throwAndSkip(throwable)
+            if (isAfter) after!!.throwable = throwable else before!!.throwAndSkip(throwable)
         }
 
         override fun getExtra(): Any? {
@@ -193,7 +180,7 @@ object Lsp100HookWrapper {
 
         private fun checkLifecycle() {
             if ((isAfter && after == null) || (!isAfter && before == null)) {
-                throw IllegalStateException("attempt to access hook param after destroyed")
+                error("attempt to access hook param after destroyed")
             }
         }
     }
@@ -230,8 +217,7 @@ object Lsp100HookWrapper {
 
         fun handleAfterHookedMethod(
             callback: XposedInterface.AfterHookCallback,
-            param: InvocationParamWrapper?,
-            tag: Int
+            param: InvocationParamWrapper?
         ) {
             checkNotNull(param) { "param is null" }
             param.isAfter = true
@@ -255,7 +241,6 @@ object Lsp100HookWrapper {
         private val callback: CallbackWrapper,
         private val method: Member
     ) : IHookBridge.MemberUnhookHandle {
-
         override fun getMember(): Member = method
         override fun getCallback(): IHookBridge.IMemberHookCallback = callback.callback
         override fun isHookActive(): Boolean = isMethodCallbackRegistered(method, callback)

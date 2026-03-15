@@ -42,17 +42,17 @@ import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.ext.tasklist.TaskListPlugin
 import io.noties.markwon.image.ImagesPlugin
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.model.ClickableHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeMessageApi
-import moe.ouom.wekit.hooks.sdk.base.model.MessageInfo
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeMessageApi
+import moe.ouom.wekit.hooks.api.core.model.MessageInfo
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import moe.ouom.wekit.utils.replaceEmojis
 import org.commonmark.node.BlockQuote
 import org.commonmark.node.BulletList
@@ -77,7 +77,7 @@ object MarkdownRendering : ClickableHookItem(), IResolvesDex {
     // Apply a small compensation to the max width to prevent unnecessary text wrapping
     private const val MAX_WIDTH_BUFFER = 40
 
-    override fun onLoad() {
+    override fun onEnable() {
         "com.tencent.mm.ui.widget.MMNeat7extView".toClass().asResolver()
             .firstMethod { name = "onDraw" }
             .hookBefore { param ->

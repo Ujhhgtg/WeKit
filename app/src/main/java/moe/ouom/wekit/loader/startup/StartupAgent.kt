@@ -8,7 +8,7 @@ import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.BuildConfig
 import moe.ouom.wekit.loader.hookapi.ILoaderService
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import java.io.File
 import java.lang.reflect.Field

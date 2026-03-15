@@ -5,15 +5,15 @@ import com.highcapable.kavaref.condition.type.Modifiers
 import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(path = "调试/重定向宿主日志", desc = "将宿主日志打印至模块日志")
 object RedirectHostLogs : SwitchHookItem() {
 
     private val TAG = nameof(RedirectHostLogs)
 
-    override fun onLoad() {
+    override fun onEnable() {
         "com.tencent.mars.xlog.Log".toClass().asResolver().apply {
 //            firstMethod {
 //                name = "v"

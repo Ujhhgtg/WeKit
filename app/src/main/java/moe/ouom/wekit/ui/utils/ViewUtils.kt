@@ -6,7 +6,7 @@ import android.view.ViewGroup
 import android.widget.ListAdapter
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.constants.PackageNames
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 
 private val idCache = HashMap<String, Int>()
 

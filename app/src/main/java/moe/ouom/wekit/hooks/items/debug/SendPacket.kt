@@ -14,13 +14,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.protocol.WePkgHelper
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.net.WePacketHelper
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.common.ToastUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.ToastUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(path = "调试/发包调试", desc = "发送自定义数据包到微信服务器")
 object SendPacket : ClickableHookItem() {
@@ -81,7 +81,7 @@ object SendPacket : ClickableHookItem() {
                             return@TextButton
                         }
 
-                        WePkgHelper.sendCgi(
+                        WePacketHelper.sendCgi(
                             uri,
                             cmdId,
                             funcId,

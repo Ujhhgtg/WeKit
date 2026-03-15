@@ -51,13 +51,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.ui.utils.AppTheme
 import moe.ouom.wekit.ui.utils.MainActivityLifecycleOwnerProvider
 import moe.ouom.wekit.ui.utils.findViewByChildIndexes
 import moe.ouom.wekit.ui.utils.iterable
 import moe.ouom.wekit.ui.utils.setLifecycleOwner
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import moe.ouom.wekit.utils.now
 import org.luckypray.dexkit.DexKitBridge
 import kotlin.time.Duration.Companion.seconds
@@ -87,7 +87,7 @@ object ChatToolbar : SwitchHookItem(), IResolvesDex {
 
     private val toolsState = MutableStateFlow<List<Pair<String, MenuItem>>>(emptyList())
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodAppPanelInitAppGrid.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

@@ -20,7 +20,7 @@ class Lsp100CallbackProxy private constructor() {
             @Keep
             @JvmStatic
             fun after(callback: XposedInterface.AfterHookCallback, param: Lsp100HookWrapper.InvocationParamWrapper?) =
-                Lsp100HookWrapper.Lsp100HookAgent.handleAfterHookedMethod(callback, param, TAG)
+                Lsp100HookWrapper.Lsp100HookAgent.handleAfterHookedMethod(callback, param)
         }
     }
 
@@ -37,7 +37,7 @@ class Lsp100CallbackProxy private constructor() {
             @Keep
             @JvmStatic
             fun after(callback: XposedInterface.AfterHookCallback, param: Lsp100HookWrapper.InvocationParamWrapper?) =
-                Lsp100HookWrapper.Lsp100HookAgent.handleAfterHookedMethod(callback, param, TAG)
+                Lsp100HookWrapper.Lsp100HookAgent.handleAfterHookedMethod(callback, param)
         }
     }
 }

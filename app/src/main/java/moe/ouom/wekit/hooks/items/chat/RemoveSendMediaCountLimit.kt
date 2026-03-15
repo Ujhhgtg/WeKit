@@ -3,7 +3,7 @@ package moe.ouom.wekit.hooks.items.chat
 import android.app.Activity
 import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 
 @HookItem(path = "聊天/移除媒体发送数量限制", desc = "移除发送媒体的数量限制")
 object RemoveSendMediaCountLimit : SwitchHookItem() {
@@ -13,7 +13,7 @@ object RemoveSendMediaCountLimit : SwitchHookItem() {
         "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"
     )
 
-    override fun onLoad() {
+    override fun onEnable() {
         for (clsName in HOOKED_CLASS_NAMES) {
             clsName.toClass().hookBefore("onCreate") { param ->
                 val activity = param.thisObject as Activity

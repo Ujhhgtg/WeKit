@@ -4,8 +4,8 @@ import android.annotation.SuppressLint
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.utils.HostInfo
 import java.nio.file.FileSystemException
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
@@ -17,7 +17,7 @@ object DisableHostHotUpdates : SwitchHookItem() {
 
     @SuppressLint("SdCardPath")
     @OptIn(ExperimentalPathApi::class)
-    override fun onLoad() {
+    override fun onEnable() {
         try {
             val file = Path("/data/data/${HostInfo.packageName}/tinker")
             if (file.exists()) {

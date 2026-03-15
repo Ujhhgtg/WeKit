@@ -58,14 +58,14 @@ import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.constants.PackageNames
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeConversationApi
-import moe.ouom.wekit.hooks.sdk.ui.WeMainActivityBeautifyApi
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeConversationApi
+import moe.ouom.wekit.hooks.api.ui.WeMainActivityBeautifyApi
 import moe.ouom.wekit.ui.content.MainSettingsDialog
 import moe.ouom.wekit.ui.utils.MainActivityLifecycleOwnerProvider
 import moe.ouom.wekit.ui.utils.setLifecycleOwner
-import moe.ouom.wekit.utils.common.ToastUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.ToastUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 @HookItem(path = "界面美化/主屏幕添加 FAB", desc = "向应用主屏幕添加浮动操作按钮")
@@ -107,7 +107,7 @@ object AddMainScreenFab : SwitchHookItem() {
         context.startActivity(intent)
     }
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeMainActivityBeautifyApi.methodDoOnCreate.toDexMethod {
             hook {
                 afterIfEnabled { param ->

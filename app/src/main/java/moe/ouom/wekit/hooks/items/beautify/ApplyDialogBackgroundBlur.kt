@@ -16,15 +16,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.model.ClickableHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.Button
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import kotlin.math.roundToInt
 
@@ -40,7 +40,7 @@ object ApplyDialogBackgroundBlur : ClickableHookItem(), IResolvesDex {
     private val classMmProgressDialog by dexClass()
     private val classMmQuickDialog by dexClass()
 
-    override fun onLoad() {
+    override fun onEnable() {
         listOf(classMmAlertDialog, classMmProgressDialog, classMmQuickDialog).forEach {
             it.clazz.asResolver()
                 .firstMethod {

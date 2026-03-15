@@ -1,28 +1,24 @@
 package moe.ouom.wekit.hooks.items.debug
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.widget.Toast
 import com.afollestad.materialdialogs.MaterialDialog
 import com.highcapable.kavaref.extension.toClass
-import moe.ouom.wekit.config.RuntimeConfig
+import dev.ujhhgtg.nameof.nameof
+import moe.ouom.wekit.utils.RuntimeConfig
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.ui.utils.CommonContextWrapper
 import moe.ouom.wekit.utils.crash.CrashLogsManager
 import moe.ouom.wekit.utils.crash.NativeCrashHandler
-import moe.ouom.wekit.utils.io.SafUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.io.File
-import java.nio.file.Path
 import kotlin.io.path.name
 
 @HookItem(
@@ -30,6 +26,8 @@ import kotlin.io.path.name
     desc = "拦截 Native 层崩溃并记录详细信息，支持查看和导出日志"
 )
 object NativeCrashInterceptor : SwitchHookItem() {
+
+    private val TAG = nameof(NativeCrashInterceptor)
 
     private var nativeCrashHandler: NativeCrashHandler? = null
     private var crashLogsManager: CrashLogsManager? = null
@@ -39,7 +37,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
     @SuppressLint("StaticFieldLeak")
     private var pendingDialog: MaterialDialog? = null
 
-    override fun onLoad() {
+    override fun onEnable() {
         try {
             // 获取Application Context
             val activityThreadClass = "android.app.ActivityThread".toClass()
@@ -47,7 +45,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
             appContext = currentApplicationMethod.invoke(null) as? Context
 
             if (appContext == null) {
-                WeLogger.e("NativeCrashInterceptor", "Failed to get application context")
+                WeLogger.e(TAG, "Failed to get application context")
                 return
             }
 
@@ -60,18 +58,18 @@ object NativeCrashInterceptor : SwitchHookItem() {
 
             if (installed) {
                 WeLogger.i(
-                    "NativeCrashInterceptor",
+                    TAG,
                     "Native crash interceptor installed successfully"
                 )
             } else {
-                WeLogger.e("NativeCrashInterceptor", "Failed to install native crash interceptor")
+                WeLogger.e(TAG, "Failed to install native crash interceptor")
             }
 
             // 检查是否有待处理的崩溃
             checkPendingCrash()
 
         } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to install native crash interceptor", e)
+            WeLogger.e(TAG, "Failed to install native crash interceptor", e)
         }
     }
 
@@ -85,7 +83,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
             // 只在主进程中检查待处理的崩溃
             if (!isMainProcess()) {
                 WeLogger.d(
-                    "NativeCrashInterceptor",
+                    TAG,
                     "Skipping pending crash check in non-main process"
                 )
                 return
@@ -93,7 +91,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
 
             if (manager.hasPendingNativeCrash()) {
                 WeLogger.i(
-                    "NativeCrashInterceptor",
+                    TAG,
                     "Pending native crash detected, will show dialog when Activity is ready"
                 )
 
@@ -106,7 +104,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
                 startActivityPolling()
             }
         } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to check pending crash", e)
+            WeLogger.e(TAG, "Failed to check pending crash", e)
         }
     }
 
@@ -118,10 +116,10 @@ object NativeCrashInterceptor : SwitchHookItem() {
             val crashLogFile = manager.pendingNativeCrashLogFile ?: return
             val crashInfo = manager.readCrashLog(crashLogFile) ?: return
 
-            WeLogger.e("NativeCrashInterceptor", "========================================")
-            WeLogger.e("NativeCrashInterceptor", "Native crash detected!")
-            WeLogger.e("NativeCrashInterceptor", "Crash log file: ${crashLogFile.name}")
-            WeLogger.e("NativeCrashInterceptor", "========================================")
+            WeLogger.e(TAG, "========================================")
+            WeLogger.e(TAG, "Native crash detected!")
+            WeLogger.e(TAG, "Crash log file: ${crashLogFile.name}")
+            WeLogger.e(TAG, "========================================")
 
             // 输出崩溃详情（分行输出，避免单行过长）
             val lines = crashInfo.lines()
@@ -131,22 +129,22 @@ object NativeCrashInterceptor : SwitchHookItem() {
             for (line in lines) {
                 if (lineCount >= maxLines) {
                     WeLogger.e(
-                        "NativeCrashInterceptor",
+                        TAG,
                         "... (日志过长，已截断，完整日志请查看崩溃报告)"
                     )
                     break
                 }
                 if (line.isNotEmpty()) {
-                    WeLogger.e("NativeCrashInterceptor", line)
+                    WeLogger.e(TAG, line)
                     lineCount++
                 }
             }
 
-            WeLogger.e("NativeCrashInterceptor", "========================================")
-            WeLogger.e("NativeCrashInterceptor", "Native crash log output completed")
-            WeLogger.e("NativeCrashInterceptor", "========================================")
+            WeLogger.e(TAG, "========================================")
+            WeLogger.e(TAG, "Native crash log output completed")
+            WeLogger.e(TAG, "========================================")
         } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to log native crash to WeLogger", e)
+            WeLogger.e(TAG, "Failed to log native crash to WeLogger", e)
         }
     }
 
@@ -164,7 +162,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
                 try {
                     if (!hasPendingCrashToShow) {
                         WeLogger.d(
-                            "NativeCrashInterceptor",
+                            TAG,
                             "No pending crash to show, stopping polling"
                         )
                         return
@@ -173,7 +171,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
                     val activity = RuntimeConfig.getLauncherUiActivity()
                     if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
                         WeLogger.i(
-                            "NativeCrashInterceptor",
+                            TAG,
                             "Activity is ready, showing pending crash dialog"
                         )
                         showPendingCrashDialog()
@@ -183,25 +181,25 @@ object NativeCrashInterceptor : SwitchHookItem() {
                     retryCount++
                     if (retryCount < maxRetries) {
                         WeLogger.d(
-                            "NativeCrashInterceptor",
+                            TAG,
                             "Activity not ready, retry $retryCount/$maxRetries"
                         )
                         handler.postDelayed(this, 500) // 每500ms重试一次
                     } else {
                         WeLogger.w(
-                            "NativeCrashInterceptor",
+                            TAG,
                             "Max retries reached, giving up on showing dialog"
                         )
                         hasPendingCrashToShow = false
                     }
                 } catch (e: Throwable) {
-                    WeLogger.e("[NativeCrashInterceptor] Error in activity polling", e)
+                    WeLogger.e(TAG, "Error in activity polling", e)
                 }
             }
         }
 
         handler.postDelayed(pollingRunnable, 1000)
-        WeLogger.i("NativeCrashInterceptor", "Started activity polling mechanism")
+        WeLogger.i(TAG, "Started activity polling mechanism")
     }
 
     /**
@@ -213,7 +211,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
             val processName = getProcessName()
             processName == context.packageName
         } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to check main process", e)
+            WeLogger.e(TAG, "Failed to check main process", e)
             false
         }
     }
@@ -238,7 +236,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
             pendingDialog?.dismiss()
             pendingDialog = null
         } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to dismiss pending dialog", e)
+            WeLogger.e(TAG, "Failed to dismiss pending dialog", e)
         }
     }
 
@@ -252,19 +250,19 @@ object NativeCrashInterceptor : SwitchHookItem() {
 
             // 如果 Activity 不可用, 重新设置标记等待下次
             if (activity == null || activity.isFinishing || activity.isDestroyed) {
-                WeLogger.w("NativeCrashInterceptor", "Activity not available, will retry later")
+                WeLogger.w(TAG, "Activity not available, will retry later")
                 hasPendingCrashToShow = true
                 return
             }
 
             val crashLogFile = manager.pendingNativeCrashLogFile ?: run {
-                WeLogger.w("NativeCrashInterceptor", "No pending native crash log file found")
+                WeLogger.w(TAG, "No pending native crash log file found")
                 hasPendingCrashToShow = false
                 return
             }
 
             val crashInfo = manager.readCrashLog(crashLogFile) ?: run {
-                WeLogger.w("NativeCrashInterceptor", "Failed to read crash log file")
+                WeLogger.w(TAG, "Failed to read crash log file")
                 hasPendingCrashToShow = false
                 return
             }
@@ -272,7 +270,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
             // 提取崩溃摘要信息
             val summary = extractCrashSummary(crashInfo)
 
-            WeLogger.i("NativeCrashInterceptor", "Preparing to show crash dialog on main thread")
+            WeLogger.i(TAG, "Preparing to show crash dialog on main thread")
 
             Handler(Looper.getMainLooper()).post {
                 try {
@@ -284,7 +282,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
                         CommonContextWrapper.createAppCompatContext(activity)
 
                     WeLogger.i(
-                        "NativeCrashInterceptor",
+                        TAG,
                         "Creating MaterialDialog for native crash report"
                     )
 
@@ -294,7 +292,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
                         .positiveButton(text = "查看详情") { dialog ->
                             dialog.dismiss()
                             hasPendingCrashToShow = false
-                            showCrashDetailDialog(crashInfo, crashLogFile)
+                            showCrashDetailDialog(crashInfo)
                         }
                         .negativeButton(text = "忽略") { dialog ->
                             dialog.dismiss()
@@ -307,15 +305,15 @@ object NativeCrashInterceptor : SwitchHookItem() {
 
                     // 成功显示对话框后重置标记
                     hasPendingCrashToShow = false
-                    WeLogger.i("NativeCrashInterceptor", "Native crash dialog shown successfully")
+                    WeLogger.i(TAG, "Native crash dialog shown successfully")
                 } catch (e: Throwable) {
-                    WeLogger.e("[NativeCrashInterceptor] Failed to show pending crash dialog", e)
+                    WeLogger.e(TAG, "failed to show pending crash dialog", e)
                     hasPendingCrashToShow = false
                     manager.clearPendingNativeCrashFlag()
                 }
             }
         } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to show pending crash dialog", e)
+            WeLogger.e(TAG, "Failed to show pending crash dialog", e)
             hasPendingCrashToShow = false
         }
     }
@@ -323,14 +321,14 @@ object NativeCrashInterceptor : SwitchHookItem() {
     /**
      * 显示崩溃详情对话框
      */
-    private fun showCrashDetailDialog(crashInfo: String, crashLogFile: Path) {
+    private fun showCrashDetailDialog(crashInfo: String) {
         try {
             val activity = RuntimeConfig.getLauncherUiActivity()
             val manager = crashLogsManager ?: return
 
             // 如果 Activity 不可用,使用 Toast 提示
             if (activity == null || activity.isFinishing || activity.isDestroyed) {
-                WeLogger.w("NativeCrashInterceptor", "Activity not available for detail dialog")
+                WeLogger.w(TAG, "Activity not available for detail dialog")
                 showToast("无法显示详情,请稍后重试")
                 return
             }
@@ -344,11 +342,10 @@ object NativeCrashInterceptor : SwitchHookItem() {
                     val wrappedContext =
                         CommonContextWrapper.createAppCompatContext(activity)
 
-                    @Suppress("DEPRECATION")
                     pendingDialog = MaterialDialog(wrappedContext)
                         .title(text = "Native 崩溃详情")
                         .message(text = crashInfo)
-                        .positiveButton(text = "复制日志") { dialog ->
+                        .positiveButton(text = "复制") { dialog ->
                             copyToClipboard(activity, crashInfo)
                             dialog.dismiss()
                             manager.clearPendingNativeCrashFlag()
@@ -357,21 +354,16 @@ object NativeCrashInterceptor : SwitchHookItem() {
                             dialog.dismiss()
                             manager.clearPendingNativeCrashFlag()
                         }
-                        .neutralButton(text = "导出文件") { dialog ->
-                            exportLog(activity, crashLogFile)
-                            dialog.dismiss()
-                            manager.clearPendingNativeCrashFlag()
-                        }
                         .cancelable(true)
 
                     pendingDialog?.show()
                 } catch (e: Throwable) {
-                    WeLogger.e("[NativeCrashInterceptor] Failed to show crash detail dialog", e)
+                    WeLogger.e(TAG, "Failed to show crash detail dialog", e)
                     manager.clearPendingNativeCrashFlag()
                 }
             }
         } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to show crash detail dialog", e)
+            WeLogger.e(TAG, "Failed to show crash detail dialog", e)
         }
     }
 
@@ -440,92 +432,12 @@ object NativeCrashInterceptor : SwitchHookItem() {
                 context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
             val clip = ClipData.newPlainText("Native Crash Log", text)
             clipboard?.setPrimaryClip(clip)
-            WeLogger.i("NativeCrashInterceptor", "Native crash log copied to clipboard")
+            WeLogger.i(TAG, "Native crash log copied to clipboard")
             showToast("Native 崩溃日志已复制到剪贴板")
         } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to copy to clipboard", e)
+            WeLogger.e(TAG, "Failed to copy to clipboard", e)
             showToast("复制失败: ${e.message}")
         }
-    }
-
-    /**
-     * 分享日志
-     */
-    private fun shareLog(context: Context, logFile: Path) {
-        try {
-            val intent = Intent(Intent.ACTION_SEND)
-            intent.type = "text/plain"
-            intent.putExtra(Intent.EXTRA_SUBJECT, "WeKit Native Crash Log")
-            intent.putExtra(
-                Intent.EXTRA_TEXT,
-                crashLogsManager?.readCrashLog(logFile) ?: ""
-            )
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-            val chooser = Intent.createChooser(intent, "分享 Native 崩溃日志")
-            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(chooser)
-
-            WeLogger.i("NativeCrashInterceptor", "Sharing native crash log")
-        } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to share log", e)
-            showToast("分享失败: ${e.message}")
-        }
-    }
-
-    /**
-     * 使用 SAF 导出日志
-     */
-    private fun exportLog(activity: Activity, logFile: Path) {
-        try {
-            val wrappedContext = CommonContextWrapper.createAppCompatContext(activity)
-            val fileName = "native_crash_${logFile.name}"
-
-            SafUtils.requestSaveFile(wrappedContext)
-                .setDefaultFileName(fileName)
-                .setMimeType("text/plain")
-                .onResult { uri ->
-                    writeLogToUri(activity, logFile, uri)
-                }
-                .onCancel {
-                    showToast("取消导出")
-                }
-                .commit()
-
-        } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to start SAF export", e)
-            showToast("启动导出失败: ${e.message}")
-        }
-    }
-
-    /**
-     * 将日志写入 Uri
-     */
-    private fun writeLogToUri(context: Context, sourceFile: Path, targetUri: Uri) {
-        Thread {
-            try {
-                val manager = crashLogsManager ?: return@Thread
-                val crashInfo = manager.readCrashLog(sourceFile) ?: run {
-                    Handler(Looper.getMainLooper()).post { showToast("读取源文件失败") }
-                    return@Thread
-                }
-
-                context.contentResolver.openOutputStream(targetUri)?.use { outputStream ->
-                    outputStream.write(crashInfo.toByteArray())
-                    outputStream.flush()
-                }
-
-                Handler(Looper.getMainLooper()).post {
-                    showToast("导出成功")
-                }
-                WeLogger.i("NativeCrashInterceptor", "Exported log to: $targetUri")
-            } catch (e: Throwable) {
-                WeLogger.e("[NativeCrashInterceptor] Failed to write to URI", e)
-                Handler(Looper.getMainLooper()).post {
-                    showToast("写入失败: ${e.message}")
-                }
-            }
-        }.start()
     }
 
     /**
@@ -539,11 +451,11 @@ object NativeCrashInterceptor : SwitchHookItem() {
                     .show()
             }
         } catch (e: Throwable) {
-            WeLogger.e("[NativeCrashInterceptor] Failed to show toast", e)
+            WeLogger.e(TAG, "Failed to show toast", e)
         }
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         nativeCrashHandler?.uninstall()
     }
 }

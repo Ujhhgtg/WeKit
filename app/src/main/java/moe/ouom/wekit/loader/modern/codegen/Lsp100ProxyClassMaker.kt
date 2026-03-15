@@ -9,7 +9,7 @@ import java.lang.reflect.Method
 import java.util.Locale
 import java.util.Objects
 
-class Lsp100ProxyClassMaker private constructor() {
+object Lsp100ProxyClassMaker {
 
     private val mXposedHookerClassName: String?
     private val mBeforeInvocationClassName: String?
@@ -102,52 +102,45 @@ class Lsp100ProxyClassMaker private constructor() {
         )
     }
 
-    companion object {
-        private var sInstance: Lsp100ProxyClassMaker? = null
-        private var sProxyClassLoader: ClassLoader? = null
-        private var sWrapperMethod: Method? = null
-        private var sLoadClassException: Throwable? = null
+    private var sProxyClassLoader: ClassLoader? = null
+    private var sWrapperMethod: Method? = null
+    private var sLoadClassException: Throwable? = null
 
-        fun setWrapperMethod(method: Method) { sWrapperMethod = method }
+    fun setWrapperMethod(method: Method) { sWrapperMethod = method }
 
-        fun getInstance(): Lsp100ProxyClassMaker {
-            if (sInstance == null) sInstance = Lsp100ProxyClassMaker()
-            return sInstance!!
-        }
 
-        fun impl1(
-            targetClassName: String,
-            tagValue: Int,
-            classNameXposedInterfaceHooker: String,
-            classBeforeHookCallback: String,
-            classAfterHookCallback: String,
-            classNameXposedHooker: String?,
-            classNameBeforeInvocation: String?,
-            classNameAfterInvocation: String?
-        ): ByteArray {
-            val wrapperMethod = sWrapperMethod
-                ?: error("Wrapper method not set")
-            val args = arrayOf<Any?>(
-                targetClassName, tagValue, classNameXposedInterfaceHooker,
-                classBeforeHookCallback, classAfterHookCallback,
-                classNameXposedHooker, classNameBeforeInvocation, classNameAfterInvocation
-            )
-            return try {
-                checkNotNull(wrapperMethod.invoke(null, 1, args)) as ByteArray
-            } catch (e: ReflectiveOperationException) {
-                if (e is InvocationTargetException) {
-                    val target = e.targetException
-                    if (target is RuntimeException) throw target
-                }
-                throw UnsupportedOperationException("Failed to invoke wrapper method", e)
+    fun impl1(
+        targetClassName: String,
+        tagValue: Int,
+        classNameXposedInterfaceHooker: String,
+        classBeforeHookCallback: String,
+        classAfterHookCallback: String,
+        classNameXposedHooker: String?,
+        classNameBeforeInvocation: String?,
+        classNameAfterInvocation: String?
+    ): ByteArray {
+        val wrapperMethod = sWrapperMethod
+            ?: error("Wrapper method not set")
+        val args = arrayOf<Any?>(
+            targetClassName, tagValue, classNameXposedInterfaceHooker,
+            classBeforeHookCallback, classAfterHookCallback,
+            classNameXposedHooker, classNameBeforeInvocation, classNameAfterInvocation
+        )
+        return try {
+            checkNotNull(wrapperMethod.invoke(null, 1, args)) as ByteArray
+        } catch (e: ReflectiveOperationException) {
+            if (e is InvocationTargetException) {
+                val target = e.targetException
+                if (target is RuntimeException) throw target
             }
+            throw UnsupportedOperationException("Failed to invoke wrapper method", e)
         }
-
-        private fun priorityToShortName(priority: Int): String =
-            if (priority >= 0) "P${String.format(Locale.ROOT, "%010d", priority)}"
-            else "N${String.format(Locale.ROOT, "%010d", -priority.toLong())}"
-
-        private fun getClassNameForPriority(priority: Int): String =
-            $$"moe.ouom.wekit.loader.modern.dyn.Lsp100CallbackProxy$$${priorityToShortName(priority)}"
     }
+
+    private fun priorityToShortName(priority: Int): String =
+        if (priority >= 0) "P${String.format(Locale.ROOT, "%010d", priority)}"
+        else "N${String.format(Locale.ROOT, "%010d", -priority.toLong())}"
+
+    private fun getClassNameForPriority(priority: Int): String =
+        $$"moe.ouom.wekit.loader.modern.dyn.Lsp100CallbackProxy$$${priorityToShortName(priority)}"
 }

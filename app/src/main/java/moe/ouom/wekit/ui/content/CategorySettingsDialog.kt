@@ -1,10 +1,10 @@
 package moe.ouom.wekit.ui.content
 
 import android.content.Context
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.core.model.ClickableHookItem
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.HookItemFactory
+import moe.ouom.wekit.hooks.utils.HookItemFactory
 
 class CategorySettingsDialog(
     context: Context,
@@ -22,7 +22,7 @@ class CategorySettingsDialog(
 
         targetItems.forEach { item ->
             val displayName = item.path.substringAfterLast("/")
-            val desc = item.desc
+            val desc = item.description
 
             when (item) {
                 is SwitchHookItem -> addSwitchItem(item, displayName, desc)
@@ -49,7 +49,7 @@ class CategorySettingsDialog(
                 val allowed = item.onBeforeToggle(checked, context)
                 if (allowed) {
                     WePrefs.putBool(configKey, checked)
-                    item.setIsEnabled(checked)
+                    item.isEnabled = checked
                 }
                 allowed
             },
@@ -82,7 +82,7 @@ class CategorySettingsDialog(
                 val allowed = item.onBeforeToggle(checked, context)
                 if (allowed) {
                     WePrefs.putBool(configKey, checked)
-                    item.setIsEnabled(checked)
+                    item.isEnabled = checked
                 }
                 allowed
             },

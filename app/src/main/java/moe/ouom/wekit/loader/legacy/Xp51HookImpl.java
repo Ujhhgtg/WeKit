@@ -9,12 +9,12 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
+import java.util.Objects;
 
 import de.robv.android.xposed.XposedBridge;
 import moe.ouom.wekit.loader.hookapi.IClassLoaderHelper;
 import moe.ouom.wekit.loader.hookapi.IHookBridge;
 import moe.ouom.wekit.loader.hookapi.ILoaderService;
-import moe.ouom.wekit.utils.common.CheckUtils;
 
 public class Xp51HookImpl implements IHookBridge, ILoaderService {
 
@@ -47,8 +47,8 @@ public class Xp51HookImpl implements IHookBridge, ILoaderService {
     @NonNull
     @Override
     public MemberUnhookHandle hookMethod(@NonNull Member member, @NonNull IMemberHookCallback callback, int priority) {
-        CheckUtils.checkNonNull(member, "member");
-        CheckUtils.checkNonNull(callback, "callback");
+        Objects.requireNonNull(member, "member");
+        Objects.requireNonNull(callback, "callback");
         // check member is method or constructor
         if (!(member instanceof Method) && !(member instanceof Constructor)) {
             throw new IllegalArgumentException("member must be method or constructor");
@@ -64,17 +64,17 @@ public class Xp51HookImpl implements IHookBridge, ILoaderService {
     @Nullable
     public Object invokeOriginalMethod(@NonNull Method method, @Nullable Object thisObject, @NonNull Object[] args)
             throws NullPointerException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-        CheckUtils.checkNonNull(method, "method");
-        CheckUtils.checkNonNull(args, "args");
+        Objects.requireNonNull(method, "method");
+        Objects.requireNonNull(args, "args");
         return XposedBridge.invokeOriginalMethod(method, thisObject, args);
     }
 
     @Override
     public <T> void invokeOriginalConstructor(@NonNull Constructor<T> ctor, @NonNull T thisObject, @NonNull Object[] args)
             throws NullPointerException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-        CheckUtils.checkNonNull(ctor, "ctor");
-        CheckUtils.checkNonNull(thisObject, "thisObject");
-        CheckUtils.checkNonNull(args, "args");
+        Objects.requireNonNull(ctor, "ctor");
+        Objects.requireNonNull(thisObject, "thisObject");
+        Objects.requireNonNull(args, "args");
         XposedBridge.invokeOriginalMethod(ctor, thisObject, args);
     }
 
@@ -99,7 +99,7 @@ public class Xp51HookImpl implements IHookBridge, ILoaderService {
     @Nullable
     @Override
     public Object queryExtension(@NonNull String key, @Nullable Object... args) {
-        return Xp51ExtCmd.handleQueryExtension(key, args);
+        return Xp51ExtCmd.handleQueryExtension(key);
     }
 
     @Override

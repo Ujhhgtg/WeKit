@@ -12,11 +12,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.host.HostInfo
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.utils.formatBytesSize
 import moe.ouom.wekit.utils.formatEpoch
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.deleteRecursively
@@ -57,7 +57,7 @@ object AutoCleanCache : ClickableHookItem() {
         return@run paths
     }
 
-    override fun onLoad() {
+    override fun onEnable() {
         startCleaningJob()
     }
 

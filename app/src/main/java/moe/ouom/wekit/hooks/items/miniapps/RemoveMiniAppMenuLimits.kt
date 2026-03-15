@@ -4,7 +4,7 @@ import android.content.Context
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.utils.enumValueOfClass
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.StringMatchType
@@ -14,7 +14,7 @@ object RemoveMiniAppMenuLimits : SwitchHookItem(), IResolvesDex {
 
     private lateinit var showAndClickableEnumValue: Any
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodGetMenuItemVisibility1.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

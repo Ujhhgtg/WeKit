@@ -3,10 +3,10 @@ package moe.ouom.wekit.hooks.items.moments
 import android.content.ContentValues
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseListenerApi
-import moe.ouom.wekit.utils.WeProtoData
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeDatabaseListenerApi
+import moe.ouom.wekit.hooks.api.net.WeProtoData
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(
     path = "朋友圈/拦截朋友圈删除",
@@ -31,11 +31,11 @@ object AntiMomentsDelete : SwitchHookItem(), WeDatabaseListenerApi.IUpdateListen
         return false
     }
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeDatabaseListenerApi.removeListener(this)
     }
 

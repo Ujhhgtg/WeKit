@@ -3,7 +3,7 @@ package moe.ouom.wekit.hooks.items.shortvideos
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 
 @HookItem(
     path = "视频号/禁用评论长度限制",
@@ -11,7 +11,7 @@ import moe.ouom.wekit.hooks.core.annotation.HookItem
 )
 class DisableCommentSizeLimit : SwitchHookItem() {
 
-    override fun onLoad() {
+    override fun onEnable() {
         "com.tencent.mm.plugin.finder.view.FinderCommentFooter".toClass()
             .asResolver().apply {
                 firstMethod { name = "getCommentTextLimit" }

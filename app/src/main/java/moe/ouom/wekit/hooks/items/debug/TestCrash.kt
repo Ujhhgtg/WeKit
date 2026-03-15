@@ -8,11 +8,11 @@ import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.list.listItems
 import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.ui.utils.CommonContextWrapper
-import moe.ouom.wekit.utils.common.ToastUtils.showToast
+import moe.ouom.wekit.utils.ToastUtils.showToast
 import moe.ouom.wekit.utils.crash.NativeCrashHandler
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(
     path = "调试/测试崩溃",
@@ -25,7 +25,7 @@ object TestCrash : ClickableHookItem() {
     @SuppressLint("StaticFieldLeak")
     private var nativeCrashHandler: NativeCrashHandler? = null
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeLogger.i("TestCrash", "=== TestCrash entry() called ===")
         try {
             // 获取 Application Context
@@ -280,6 +280,7 @@ object TestCrash : ClickableHookItem() {
      */
     private fun triggerNullPointerException() {
         val obj: String? = null
+        @Suppress("KotlinConstantConditions")
         obj!!.length // 触发 NullPointerException
     }
 
@@ -299,7 +300,7 @@ object TestCrash : ClickableHookItem() {
     private fun triggerClassCastException() {
         val obj: Any = "String"
 
-        @Suppress("UNUSED_VARIABLE", "UNCHECKED_CAST", "unused")
+        @Suppress("UNUSED_VARIABLE", "UNCHECKED_CAST", "unused", "KotlinConstantConditions")
         val number = obj as Int // 触发 ClassCastException
     }
 

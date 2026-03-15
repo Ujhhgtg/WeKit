@@ -8,12 +8,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeChatMessageContextMenuApi
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.ui.WeChatMessageContextMenuApi
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.common.ModuleRes
+import moe.ouom.wekit.utils.ModuleRes
 
 @HookItem(
     path = "聊天/修改文本消息显示",
@@ -22,11 +22,11 @@ import moe.ouom.wekit.utils.common.ModuleRes
 object ModifyTextMessageDisplay : SwitchHookItem(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 

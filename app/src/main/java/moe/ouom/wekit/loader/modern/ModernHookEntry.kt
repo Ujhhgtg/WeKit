@@ -9,7 +9,7 @@ import io.github.libxposed.api.XposedModuleInterface
 import moe.ouom.wekit.constants.PackageNames
 import moe.ouom.wekit.loader.ModuleLoader
 import moe.ouom.wekit.loader.startup.StartupInfo
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @Keep
 class ModernHookEntry(base: XposedInterface, param: XposedModuleInterface.ModuleLoadedParam)

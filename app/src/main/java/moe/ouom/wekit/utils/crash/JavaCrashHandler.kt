@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.Process
 import moe.ouom.wekit.utils.crash.CrashInfoCollector.collectCrashInfo
 import moe.ouom.wekit.utils.getThreadId
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.logging.WeLogger
 import kotlin.system.exitProcess
 
 /**

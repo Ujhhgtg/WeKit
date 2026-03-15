@@ -7,8 +7,8 @@ import android.content.res.Resources
 import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.View
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.lang.reflect.Constructor
 
 /**

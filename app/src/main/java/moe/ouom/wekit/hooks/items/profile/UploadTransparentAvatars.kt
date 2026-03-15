@@ -4,8 +4,8 @@ import android.graphics.Bitmap
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "个人资料/上传透明头像", desc = "头像上传时使用 PNG 格式保持透明")
@@ -26,7 +26,7 @@ object UploadTransparentAvatars : SwitchHookItem(), IResolvesDex {
         return descriptors
     }
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodSaveBitmap.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

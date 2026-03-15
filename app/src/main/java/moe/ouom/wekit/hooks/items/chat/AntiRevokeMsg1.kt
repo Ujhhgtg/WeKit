@@ -3,7 +3,7 @@ package moe.ouom.wekit.hooks.items.chat
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "聊天/阻止消息撤回 1", desc = "无撤回提示")
@@ -20,7 +20,7 @@ object AntiRevokeMsg1 : SwitchHookItem(), IResolvesDex {
         return descriptors
     }
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodRevokeMsg.toDexMethod {
             hook {
                 beforeIfEnabled { param ->

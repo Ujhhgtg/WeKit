@@ -7,7 +7,7 @@ import com.highcapable.kavaref.extension.toClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "系统与隐私/强制启用 WebView 菜单", desc = "强制显示 WebView 页面右上角菜单按钮")
@@ -20,7 +20,7 @@ object EnableWebViewFeatures : SwitchHookItem(), IResolvesDex {
 
     private val methodInitWebViewFeatures by dexMethod()
 
-    override fun onLoad() {
+    override fun onEnable() {
         val cls = WEBVIEW_UI_CLASS_NAME.toClass()
 
         cls.asResolver()

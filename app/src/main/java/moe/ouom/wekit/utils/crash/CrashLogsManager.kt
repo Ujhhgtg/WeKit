@@ -1,8 +1,8 @@
 package moe.ouom.wekit.utils.crash
 
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.utils.io.PathUtils
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.logging.WeLogger
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path

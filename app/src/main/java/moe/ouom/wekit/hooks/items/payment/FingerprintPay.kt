@@ -11,12 +11,12 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentTransaction
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.config.RuntimeConfig
+import moe.ouom.wekit.utils.RuntimeConfig
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.utils.CryptoManager
 import moe.ouom.wekit.utils.EncryptedData
-import moe.ouom.wekit.utils.common.ToastUtils
+import moe.ouom.wekit.utils.ToastUtils
 
 @HookItem(path = "红包与支付/指纹支付", desc = "使用指纹快捷确认支付 (没写完)")
 object FingerprintPay : ClickableHookItem() {

@@ -13,22 +13,22 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeChatMessageContextMenuApi
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.ui.WeChatMessageContextMenuApi
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.common.ModuleRes
-import moe.ouom.wekit.utils.common.ToastUtils
+import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.ToastUtils
 
 @HookItem(path = "聊天/显示消息详情", desc = "向消息长按菜单添加菜单项, 可查看消息详情")
 object DisplayMessageDetails : SwitchHookItem(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 

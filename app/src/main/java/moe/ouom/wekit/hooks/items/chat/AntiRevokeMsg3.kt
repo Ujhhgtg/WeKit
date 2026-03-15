@@ -7,11 +7,11 @@ import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.base.WeDatabaseApi
-import moe.ouom.wekit.hooks.sdk.base.WeMessageApi
-import moe.ouom.wekit.hooks.sdk.base.WeServiceApi
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.core.WeDatabaseApi
+import moe.ouom.wekit.hooks.api.core.WeMessageApi
+import moe.ouom.wekit.hooks.api.core.WeServiceApi
+import moe.ouom.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.util.regex.Pattern
 import kotlin.random.Random
@@ -38,7 +38,7 @@ object AntiRevokeMsg3 : SwitchHookItem(), IResolvesDex {
 
     private val nameRegex by lazy { Pattern.compile("([\"「])(.*?)([」\"])") }
 
-    override fun onLoad() {
+    override fun onEnable() {
         methodXmlParser.toDexMethod {
             hook {
                 afterIfEnabled { param ->

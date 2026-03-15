@@ -4,9 +4,9 @@ import android.content.Intent
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeStartActivityApi
-import moe.ouom.wekit.utils.log.WeLogger
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.ui.WeStartActivityApi
+import moe.ouom.wekit.utils.logging.WeLogger
 
 @HookItem(path = "红包与支付/允许领取私聊红包", desc = "允许打开私聊中自己发出的红包")
 object AllowPrivateChatReceiveOutgoingRedPackets : SwitchHookItem(),
@@ -14,11 +14,11 @@ object AllowPrivateChatReceiveOutgoingRedPackets : SwitchHookItem(),
 
     private val TAG = nameof(AllowPrivateChatReceiveOutgoingRedPackets)
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeStartActivityApi.addListener(this)
     }
 
-    override fun onUnload() {
+    override fun onDisable() {
         WeStartActivityApi.removeListener(this)
     }
 

@@ -38,10 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import moe.ouom.wekit.config.WePrefs
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.hooks.sdk.ui.WeMainActivityBeautifyApi
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.hooks.api.ui.WeMainActivityBeautifyApi
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.Button
 import moe.ouom.wekit.ui.content.LiquidBottomTab
@@ -66,7 +66,7 @@ object ReplaceNavigationBar : ClickableHookItem() {
 
     private const val KEY_USE_BACKDROP = "tab_bar_use_backdrop"
 
-    override fun onLoad() {
+    override fun onEnable() {
         WeMainActivityBeautifyApi.methodDoOnCreate.toDexMethod {
             hook {
                 afterIfEnabled { param ->
