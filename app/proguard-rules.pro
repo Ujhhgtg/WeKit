@@ -9,8 +9,9 @@
 -keep class moe.ouom.wekit.core.model.ApiHookItem { *; }
 -keep class moe.ouom.wekit.core.model.BaseHookItem { *; }
 -keep class moe.ouom.wekit.hooks.items.scripting_kts.** { *; }
--adaptresourcefilecontents src/main/assets/xposed_init
--adaptresourcefilecontents src/main/resources/META-INF/xposed/java_init.list
+-keep class moe.ouom.wekit.loader.entry.lsp10x.Lsp10xUnifiedHookEntry { *; }
+-keep class moe.ouom.wekit.loader.entry.xp51.Xp51HookEntry { *; }
+-keep class moe.ouom.wekit.loader.entry.frida.FridaInjectEntry { *; }
 
 # Attributes
 -keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault,LineNumberTable,SourceFile,*Annotation*
