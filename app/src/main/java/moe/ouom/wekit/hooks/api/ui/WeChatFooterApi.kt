@@ -7,11 +7,10 @@ import android.widget.Button
 import com.highcapable.kavaref.extension.toClass
 import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.core.model.ApiHookItem
-import moe.ouom.wekit.hooks.utils.annotation.HookItem
-import moe.ouom.wekit.hooks.items.chat.SendCustomAppMessage
 import moe.ouom.wekit.hooks.api.core.WeMessageApi
+import moe.ouom.wekit.hooks.items.chat.SendCustomAppMessage
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.utils.ToastUtils
 import moe.ouom.wekit.utils.logging.WeLogger
 
@@ -20,7 +19,7 @@ object WeChatFooterApi : ApiHookItem() {
 
     private val TAG = nameof(WeChatFooterApi)
     private const val CLASS_CHAT_FOOTER = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
-    private const val KEY_FIELD_TO_USER = "${WePrefs.CACHE_PREFS_NAME}_toUser"
+    private const val KEY_FIELD_TO_USER = "cache_toUser"
 
     override fun onEnable() {
         try {

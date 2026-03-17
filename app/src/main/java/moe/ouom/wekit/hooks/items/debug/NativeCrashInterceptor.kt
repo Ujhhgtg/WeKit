@@ -279,7 +279,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
 
                     // 使用 CommonContextWrapper 包装 Activity Context
                     val wrappedContext =
-                        CommonContextWrapper.createAppCompatContext(activity)
+                        CommonContextWrapper.create(activity)
 
                     WeLogger.i(
                         TAG,
@@ -340,7 +340,7 @@ object NativeCrashInterceptor : SwitchHookItem() {
 
                     // 使用 CommonContextWrapper 包装 Activity Context
                     val wrappedContext =
-                        CommonContextWrapper.createAppCompatContext(activity)
+                        CommonContextWrapper.create(activity)
 
                     pendingDialog = MaterialDialog(wrappedContext)
                         .title(text = "Native 崩溃详情")

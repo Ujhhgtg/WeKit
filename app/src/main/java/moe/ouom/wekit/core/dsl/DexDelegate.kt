@@ -181,12 +181,12 @@ class DexMethodDelegate internal constructor(
     /**
      * DSL: 转换为可 Hook 的方法
      */
-    fun toDexMethod(block: DexMethodHookBuilder.() -> Unit) {
+    fun toDexMethod(block: HookBuilder.() -> Unit) {
         toDexMethod(null, block)
     }
 
-    fun toDexMethod(priority: Int?, block: DexMethodHookBuilder.() -> Unit) {
-        val builder = DexMethodHookBuilder(method, priority, hookItem)
+    fun toDexMethod(priority: Int?, block: HookBuilder.() -> Unit) {
+        val builder = HookBuilder(method, priority, hookItem)
         builder.block()
         builder.execute()
     }

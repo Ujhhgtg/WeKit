@@ -1,8 +1,6 @@
 package moe.ouom.wekit.activity
 
 import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.os.UserManager
 import androidx.activity.ComponentActivity
@@ -71,23 +69,17 @@ import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.utils.formatEpoch
 import moe.ouom.wekit.utils.getEnabled
 import moe.ouom.wekit.utils.hookstatus.HookStatus
+import moe.ouom.wekit.utils.openInSystem
 import moe.ouom.wekit.utils.setEnabled
 
 
 class MainActivity : ComponentActivity() {
-
-    private fun openUrl(context: Context, url: String) {
-        val intent = Intent(Intent.ACTION_VIEW)
-        intent.data = url.toUri()
-        context.startActivity(intent)
-    }
 
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // 初始化 HookStatus
         try {
             HookStatus.init(this)
         } catch (_: Exception) {
@@ -96,7 +88,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             AppTheme {
                 AppContent(
-                    onUrlClick = { url -> openUrl(this, url) }
+                    onUrlClick = { url -> url.toUri().openInSystem(this) }
                 )
             }
         }

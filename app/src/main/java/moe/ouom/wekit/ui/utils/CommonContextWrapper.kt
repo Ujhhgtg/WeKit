@@ -7,6 +7,7 @@ import android.content.res.Resources
 import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.View
+import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.utils.ModuleRes
 import moe.ouom.wekit.utils.logging.WeLogger
 import java.lang.reflect.Constructor
@@ -51,7 +52,7 @@ class CommonContextWrapper(base: Context?, themeResId: Int) : ContextWrapper(bas
             if (defaultTheme != 0) {
                 this.mTheme.applyStyle(defaultTheme, true)
             } else {
-                WeLogger.w("CommonContextWrapper: Theme.WeKit not found!")
+                WeLogger.w(TAG, "Theme.WeKit not found!")
             }
         }
     }
@@ -173,7 +174,9 @@ class CommonContextWrapper(base: Context?, themeResId: Int) : ContextWrapper(bas
     }
 
     companion object {
-        fun createAppCompatContext(base: Context): Context {
+        private val TAG = nameof(CommonContextWrapper::class)
+
+        fun create(base: Context): Context {
             if (ModuleRes.moduleContext == null) {
                 return base
             }

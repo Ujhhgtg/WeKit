@@ -8,12 +8,12 @@ import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.hooks.api.core.model.SelfProfileField
 import moe.ouom.wekit.hooks.api.core.model.WeContact
 import moe.ouom.wekit.hooks.api.core.model.WeGroup
 import moe.ouom.wekit.hooks.api.core.model.WeMessage
 import moe.ouom.wekit.hooks.api.core.model.WeOfficial
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Method
@@ -309,41 +309,41 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
      * 返回所有人类账号（包含好友、陌生人、自己），但排除群和公众号
      */
     fun getContacts(): List<WeContact> {
-        return mapToContact(executeQuery(SqlStatements.CONTACTS))
+        return mapToContacts(executeQuery(SqlStatements.CONTACTS))
     }
 
     /**
      * 获取【好友】
      */
     fun getFriends(): List<WeContact> {
-        return mapToContact(executeQuery(SqlStatements.FRIENDS))
+        return mapToContacts(executeQuery(SqlStatements.FRIENDS))
     }
 
-    fun getDisplayName(wxid: String): String {
-        if (wxid.isEmpty()) error("wxid is empty")
+    fun getDisplayName(convId: String): String {
+        if (convId.isEmpty()) error("convId is empty")
         try {
-            val escapedWxid = wxid.replace("'", "''")
-            val isGroup = wxid.endsWith("@chatroom")
+            val escapedWxid = convId.replace("'", "''")
+            val isGroup = convId.endsWith("@chatroom")
             val sql = if (isGroup) {
                 "SELECT r.nickname FROM rcontact r WHERE r.username = '$escapedWxid'"
             } else {
                 "SELECT r.conRemark, r.nickname FROM rcontact r WHERE r.username = '$escapedWxid'"
             }
             val result = executeQuery(sql)
-            if (result.isEmpty()) return wxid
+            if (result.isEmpty()) return convId
 
             val row = result[0]
             return if (isGroup) {
                 val nickname = row.str("nickname")
-                nickname.ifEmpty { wxid }
+                nickname.ifEmpty { convId }
             } else {
                 val conRemark = row.str("conRemark")
                 val nickname = row.str("nickname")
-                conRemark.ifEmpty { nickname.ifEmpty { wxid } }
+                conRemark.ifEmpty { nickname.ifEmpty { convId } }
             }
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to get display name; wxid=$wxid", e)
-            return wxid
+            WeLogger.e(TAG, "failed to get display name; wxid=$convId", e)
+            return convId
         }
     }
 
@@ -364,16 +364,16 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
 
     /**
      * 获取指定群聊的成员列表
-     * @param chatroomId 群聊ID
+     * @param groupId 群聊ID
      */
-    fun getGroupMembers(chatroomId: String): List<WeContact> {
-        if (!chatroomId.endsWith("@chatroom")) return emptyList()
+    fun getGroupMembers(groupId: String): List<WeContact> {
+        if (!groupId.endsWith("@chatroom")) return emptyList()
 
-        val roomSql = SqlStatements.GROUP_MEMBERS.format(chatroomId)
+        val roomSql = SqlStatements.GROUP_MEMBERS.format(groupId)
         val roomResult = executeQuery(roomSql)
 
         if (roomResult.isEmpty()) {
-            WeLogger.w(TAG, "未找到群聊信息: $chatroomId")
+            WeLogger.w(TAG, "未找到群聊信息: $groupId")
             return emptyList()
         }
 
@@ -385,7 +385,7 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
 
         val idsStr = members.joinToString(",") { "'$it'" }
 
-        return mapToContact(executeQuery(SqlStatements.groupMembers(idsStr)))
+        return mapToContacts(executeQuery(SqlStatements.groupMembers(idsStr)))
     }
 
     /**
@@ -406,10 +406,10 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
     /**
      * 获取【消息】
      */
-    fun getMessages(wxid: String, page: Int = 1, pageSize: Int = 20): List<WeMessage> {
-        if (wxid.isEmpty()) return emptyList()
-        val offset = (page - 1) * pageSize
-        return executeQuery(SqlStatements.messages(wxid, pageSize, offset)).map { row ->
+    fun getMessages(convId: String, pageIndex: Int = 1, pageSize: Int = 20): List<WeMessage> {
+        if (convId.isEmpty()) return emptyList()
+        val offset = (pageIndex - 1) * pageSize
+        return executeQuery(SqlStatements.messages(convId, pageSize, offset)).map { row ->
             WeMessage(
                 msgId = row.long("msgId"),
                 talker = row.str("talker"),
@@ -434,10 +434,10 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
         }
     }
 
-    private fun mapToContact(data: List<Map<String, Any?>>): List<WeContact> {
+    private fun mapToContacts(data: List<Map<String, Any?>>): List<WeContact> {
         return data.map { row ->
             WeContact(
-                wxid = row.str("username"),
+                wxId = row.str("username"),
                 nickname = row.str("nickname"),
                 customWxid = row.str("alias"),
                 remarkName = row.str("conRemark"),

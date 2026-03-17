@@ -2,7 +2,7 @@ package moe.ouom.wekit.hooks.api.core.model
 
 // 基础用户信息模型
 data class WeContact(
-    val wxid: String,
+    val wxId: String,
     val nickname: String,
     val customWxid: String,
     val remarkName: String,

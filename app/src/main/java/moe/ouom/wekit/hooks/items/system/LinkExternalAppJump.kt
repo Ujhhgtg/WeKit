@@ -2,18 +2,14 @@ package moe.ouom.wekit.hooks.items.system
 
 import android.annotation.SuppressLint
 import android.app.ActivityOptions
-import android.app.PendingIntent
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
-import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -45,15 +41,15 @@ import androidx.core.net.toUri
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.hooks.api.ui.WeStartActivityApi
-import moe.ouom.wekit.utils.HostInfo
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
-import moe.ouom.wekit.utils.ModuleRes
+import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.utils.ToastUtils
 import moe.ouom.wekit.utils.logging.WeLogger
+import moe.ouom.wekit.utils.openInSystem
 
 @HookItem(
     path = "系统与隐私/链接跳转系统打开方式",
@@ -141,44 +137,7 @@ object LinkExternalAppJump : SwitchHookItem(),
 
                         item {
                             CustomTabsRow {
-                                val forwardBitmap =
-                                    BitmapFactory.decodeResource(
-                                        ModuleRes.resources,
-                                        ModuleRes.getId("forward_24px", "drawable")
-                                    )
-                                val pendingIntent = PendingIntent.getActivity(
-                                    context,
-                                    0,
-                                    Intent(Intent.ACTION_SEND)
-                                        .setComponent(
-                                            ComponentName(
-                                                context.packageName,
-                                                // although this activity is called 'ShareImg',
-                                                // it is actually used to handle all types
-                                                "com.tencent.mm.ui.tools.ShareImgUI"
-                                            )
-                                        )
-                                        .setType("text/plain")
-                                        .putExtra(Intent.EXTRA_TEXT, url.toString()),
-                                    PendingIntent.FLAG_IMMUTABLE
-                                )
-
-                                val intent = CustomTabsIntent.Builder()
-                                    .setShowTitle(true)
-                                    .setShareState(CustomTabsIntent.SHARE_STATE_ON)
-                                    .setBookmarksButtonEnabled(true)
-                                    .setDownloadButtonEnabled(true)
-                                    .setColorScheme(CustomTabsIntent.COLOR_SCHEME_SYSTEM)
-                                    .setActionButton(
-                                        forwardBitmap,
-                                        "转发",
-                                        pendingIntent,
-                                        true
-                                    )
-                                    .build()
-
-                                intent.launchUrl(context, url)
-
+                                url.openInSystem(context)
                                 onDismiss()
                             }
                         }

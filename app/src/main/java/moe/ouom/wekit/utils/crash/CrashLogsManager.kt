@@ -1,7 +1,7 @@
 package moe.ouom.wekit.utils.crash
 
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.ModulePaths
 import moe.ouom.wekit.utils.logging.WeLogger
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -25,7 +25,7 @@ import kotlin.io.path.writeText
 
 class CrashLogsManager {
 
-    private val crashLogsDir: Path by lazy { PathUtils.moduleDataPath!! / CRASH_LOGS_DIR }
+    private val crashLogsDir: Path by lazy { ModulePaths.data!! / CRASH_LOGS_DIR }
 
     init {
         ensureCrashLogDirExists()

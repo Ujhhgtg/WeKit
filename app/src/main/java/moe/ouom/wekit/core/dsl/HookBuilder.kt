@@ -2,17 +2,17 @@ package moe.ouom.wekit.core.dsl
 
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
-import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.constants.PreferenceKeys
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.core.model.ClickableHookItem
 import moe.ouom.wekit.core.model.SwitchHookItem
 import moe.ouom.wekit.hooks.utils.ExceptionFactory
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.utils.logging.WeLogger
-import java.lang.reflect.Method
+import java.lang.reflect.Executable
 
-class DexMethodHookBuilder(
-    private val method: Method,
+class HookBuilder(
+    private val executable: Executable,
     private val priority: Int?,
     private val hookItem: Any? = null  // 可选的 HookItem 实例，用于检查启用状态
 ) {
@@ -54,13 +54,12 @@ class DexMethodHookBuilder(
      * 执行 Hook
      */
     fun execute() {
-        val p = priority ?: WePrefs.getIntOrDef(
+        val prio = priority ?: WePrefs.getIntOrDef(
             PreferenceKeys.HOOK_PRIORITY,
             50
         )
 
-
-        XposedBridge.hookMethod(method, object : XC_MethodHook(p) {
+        XposedBridge.hookMethod(executable, object : XC_MethodHook(prio) {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 try {
                     // 检查功能是否启用

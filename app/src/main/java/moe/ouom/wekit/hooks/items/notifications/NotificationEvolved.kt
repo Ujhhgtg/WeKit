@@ -21,14 +21,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import moe.ouom.wekit.constants.PackageNames
 import moe.ouom.wekit.core.model.SwitchHookItem
-import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.hooks.api.core.WeConversationApi
 import moe.ouom.wekit.hooks.api.core.WeDatabaseApi
 import moe.ouom.wekit.hooks.api.core.WeMessageApi
 import moe.ouom.wekit.hooks.api.net.WeApi
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.utils.LruCache
-import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.ModulePaths
 import moe.ouom.wekit.utils.logging.WeLogger
 import moe.ouom.wekit.utils.replaceEmojis
 import moe.ouom.wekit.utils.replaceRichContent
@@ -59,7 +59,7 @@ object NotificationEvolved : SwitchHookItem() {
 
     private lateinit var meAvatarIcon: Icon
 
-    private val meAvatarPath = PathUtils.moduleDataPath!! / "me_avatar"
+    private val meAvatarPath = ModulePaths.data!! / "me_avatar"
 
     private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -153,7 +153,7 @@ object NotificationEvolved : SwitchHookItem() {
                 // 1. Resolve exact WXID immediately during notification creation
                 val friend =
                     friends.firstOrNull { it.nickname == notifTitle || it.remarkName == notifTitle }
-                val convWxId = friend?.wxid
+                val convWxId = friend?.wxId
                 if (convWxId == null) {
                     WeLogger.w(TAG, "could not resolve wxid for $notifTitle, skipping enhancements")
                     return@hookBefore

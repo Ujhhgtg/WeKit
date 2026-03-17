@@ -39,7 +39,7 @@ hiddenApiBypass = "6.1"
 runtime = "1.10.5"
 composeMaterial3 = "1.5.0-alpha15"
 libsu = "5.2.2"
-libxposed = "rfc-SNAPSHOT"
+libxposed = "master-SNAPSHOT"
 dexlib2 = "2.5.2"
 silkdecoder = "master-SNAPSHOT"
 aboutlibraries = "14.0.0-b02"
@@ -52,6 +52,8 @@ markwon = "4.6.2"
 annotation = "1.9.1"
 gif = "1.2.31"
 svg = "1.4"
+mcpServer = "0.9.0"
+ktor = "3.4.1"
 
 [libraries]
 android-tools = { module = "com.android.tools.build:gradle", version.ref = "agp" }
@@ -121,6 +123,15 @@ silkdecoder = { module = "com.github.Ujhhgtg:SilkDecoder", version.ref = "silkde
 
 aboutlibraries-core = { module = "com.mikepenz:aboutlibraries-core", version.ref = "aboutlibraries" }
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibraries" }
+
+mcp-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcpServer" }
+ktor-bom = { module = "io.ktor:ktor-bom", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
+ktor-server-auth = { module = "io.ktor:ktor-server-auth", version.ref = "ktor" }
+ktor-server-sse = { module = "io.ktor:ktor-server-sse", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

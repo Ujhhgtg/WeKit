@@ -1,33 +1,30 @@
 package moe.ouom.wekit.utils.logging
 
-import de.robv.android.xposed.XposedBridge
-import moe.ouom.wekit.constants.PreferenceKeys
-import moe.ouom.wekit.loader.utils.NativeLoader
-import moe.ouom.wekit.preferences.WePrefs
+import moe.ouom.wekit.utils.ModulePaths
 import moe.ouom.wekit.utils.formatEpoch
-import moe.ouom.wekit.utils.PathUtils
 import java.nio.file.Path
 import kotlin.io.path.appendText
 import kotlin.io.path.createDirectories
 
 object LogUtils {
-    private val logRootDirectory: Path?
+
+    private val rootDir: Path?
         get() {
-            return PathUtils.moduleDataPath?.resolve("logs")?.apply {
+            return ModulePaths.data?.resolve("logs")?.apply {
                 createDirectories()
             }
         }
 
     private val runLogDirectory: Path?
         get() {
-            return logRootDirectory?.resolve("run")?.apply {
+            return rootDir?.resolve("run")?.apply {
                 createDirectories()
             }
         }
 
     private val errorLogDirectory: Path?
         get() {
-            return logRootDirectory?.resolve("error")?.apply {
+            return rootDir?.resolve("error")?.apply {
                 createDirectories()
             }
         }
@@ -67,15 +64,6 @@ object LogUtils {
     }
 
     private fun addLog(fileName: String, desc: String?, content: Any?, isError: Boolean) {
-        try {
-            if (NativeLoader.isInitialized() && !WePrefs.getBoolOrFalse(PreferenceKeys.ENABLE_LOG)
-            ) {
-                return
-            }
-        } catch (e: Exception) {
-            XposedBridge.log(e)
-        }
-
         val directory = if (isError) errorLogDirectory else runLogDirectory
         if (directory == null) return
 

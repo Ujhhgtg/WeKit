@@ -146,9 +146,11 @@ configure<ApplicationExtension> {
         resources.excludes += listOf(
             "kotlin/**",
             "**.bin",
-            "kotlin-tooling-metadata.json"
+            "kotlin-tooling-metadata.json",
+            "META-INF/INDEX.LIST"
         )
         resources.merges += listOf(
+            "META-INF/io.netty.versions.properties",
             "META-INF/xposed/*",
             "org/mozilla/javascript/**"
         )
@@ -347,11 +349,7 @@ dependencies {
 
     compileOnly(libs.legacyxposed.api)
     compileOnly(project(":libs:common:libxposed-api"))
-    implementation(project(":libs:common:libxposed-service"))
-    // TODO: change this when libxposed is published to maven
-    implementation(libs.libxposed.service) {
-        exclude(group = "com.github.libxposed.service", module = "interface")
-    }
+    implementation(libs.libxposed.service)
     implementation(libs.dexlib2)
     implementation(libs.dexkit)
     implementation(libs.hiddenApiBypass)
@@ -382,6 +380,15 @@ dependencies {
     implementation(libs.markwon.linkify)
     implementation(libs.svg)
     implementation(libs.gif)
+
+    implementation(libs.mcp.server)
+    implementation(platform(libs.ktor.bom))
+    implementation(libs.ktor.server.netty)
+    implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.auth)
+    implementation(libs.ktor.server.sse)
+    implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
 
     implementation(project(":libs:external:nameof-kt:api"))
 }

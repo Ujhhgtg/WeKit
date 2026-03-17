@@ -43,7 +43,7 @@ fun showComposeDialog(
         if (context == null)
             HostInfo.application
         else
-            CommonContextWrapper.createAppCompatContext(context)
+            CommonContextWrapper.create(context)
 
     val dialog = Dialog(
         ctx,
@@ -119,7 +119,7 @@ fun <T> showModalComposeDialog(
             if (context == null)
                 HostInfo.application
             else
-                CommonContextWrapper.createAppCompatContext(context)
+                CommonContextWrapper.create(context)
 
         val dialog = Dialog(
             ctx,

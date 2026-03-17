@@ -2,12 +2,9 @@ package moe.ouom.wekit.loader.startup
 
 import android.annotation.SuppressLint
 import android.app.Application
-import android.content.Context
 import android.os.Build
-import android.util.Log
 import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.BuildConfig
 import moe.ouom.wekit.loader.abs.ILoaderService
 import moe.ouom.wekit.loader.utils.LibXposedApiByteCodeGenerator
 import moe.ouom.wekit.loader.utils.NativeLoader
@@ -25,6 +22,7 @@ object StartupAgent {
 
     private var sInitialized = false
 
+    @OptIn(ExperimentalPathApi::class)
     fun startup(
         modulePath: String,
         loaderService: ILoaderService
@@ -46,77 +44,45 @@ object StartupAgent {
 
         ensureHiddenApiAccess()
         checkWriteXorExecuteForModulePath(modulePath)
+
         val ctx = getBaseApplication()
-
-        initializeAfterAppCreate(ctx)
-    }
-
-    @OptIn(ExperimentalPathApi::class)
-    fun initializeAfterAppCreate(ctx: Context) {
-        HostInfo.init(ctx as Application)
+        HostInfo.init(ctx)
         LibXposedApiByteCodeGenerator.init()
-        NativeLoader.initNative()
+        NativeLoader.init()
         WeLauncher.init(ctx.classLoader, ctx)
         runCatching {
             ctx.dataDir.toPath().resolve("app_qqprotect").deleteRecursively()
-        }.onFailure(::logError)
-    }
-
-    private fun logError(th: Throwable) {
-        val msg = Log.getStackTraceString(th)
-        Log.e(BuildConfig.TAG, msg)
-        runCatching {
-            StartupInfo.getLoaderService().log(th)
-        }.onFailure {
-            if (it is NoClassDefFoundError || it is NullPointerException) {
-                Log.e("Xposed", msg)
-                Log.e("EdXposed-Bridge", msg)
-            } else throw it
-        }
+        }.onFailure { WeLogger.e(TAG, "failed to delete app_qqprotect", it) }
     }
 
     private fun checkWriteXorExecuteForModulePath(modulePath: String) {
         val moduleFile = File(modulePath)
         if (moduleFile.canWrite()) {
-            Log.w(BuildConfig.TAG, "Module path is writable: $modulePath")
-            Log.w(
-                BuildConfig.TAG,
-                "This may cause issues on Android 15+, please check your Xposed framework"
-            )
+            WeLogger.w(TAG, "Module path is writable: $modulePath\nThis may cause issues on Android 15+, please check your Xposed framework")
         }
     }
 
-    fun getBaseApplication(): Context {
-        try {
+    fun getBaseApplication(): Application {
+        runCatching {
             val tinkerAppClz = "com.tencent.tinker.loader.app.TinkerApplication".toClass()
             val getInstanceMethod = tinkerAppClz.getMethod("getInstance")
-            val app = getInstanceMethod.invoke(null) as? Context
-            if (app != null) return app
-        } catch (e: Throwable) {
-            Log.w(BuildConfig.TAG, "Failed to call TinkerApplication.getInstance()", e)
-        }
+            return getInstanceMethod.invoke(null) as Application
+        }.onFailure { WeLogger.e(TAG, "getBaseApplication: failed to call TinkerApplication.getInstance()", it) }
 
-        try {
-            @SuppressLint("PrivateApi")
+        runCatching {
             val activityThreadClz = "android.app.ActivityThread".toClass()
-
-            @SuppressLint("DiscouragedPrivateApi")
             val currentAppMethod = activityThreadClz.getDeclaredMethod("currentApplication")
             currentAppMethod.isAccessible = true
-            val app = currentAppMethod.invoke(null) as? Context
-            if (app != null) return app
-        } catch (e: Exception) {
-            WeLogger.e("getBaseApplication: ActivityThread fallback failed", e)
-        }
+            return currentAppMethod.invoke(null) as Application
+        }.onFailure { WeLogger.e(TAG, "getBaseApplication: ActivityThread fallback failed", it) }
 
-        throw UnsupportedOperationException("Failed to retrieve Application instance.")
+        error("failed to retrieve Application instance")
     }
 
-    @SuppressLint("ObsoleteSdkInt")
     private fun ensureHiddenApiAccess() {
         if (!isHiddenApiAccessible()) {
-            Log.w(
-                BuildConfig.TAG,
+            WeLogger.w(
+                TAG,
                 "Hidden API access not accessible, SDK_INT is ${Build.VERSION.SDK_INT}"
             )
             HiddenApiBypass.setHiddenApiExemptions("L")
@@ -125,11 +91,9 @@ object StartupAgent {
 
     @SuppressLint("BlockedPrivateApi", "PrivateApi")
     fun isHiddenApiAccessible(): Boolean {
-        val kContextImpl = try {
+        val kContextImpl = runCatching {
             Class.forName("android.app.ContextImpl")
-        } catch (_: ClassNotFoundException) {
-            return false
-        }
+        }.getOrElse { return false }
 
         var mActivityToken: Field? = null
         var mToken: Field? = null

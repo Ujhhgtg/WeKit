@@ -18,16 +18,16 @@ abstract class SwitchHookItem : BaseHookItem() {
             _isEnabled = value
             if (!value) {
                 if (isLoaded) {
-                    WeLogger.i("unloading $path")
+                    WeLogger.i("disabling $path...")
                     try {
                         disable()
                         isLoaded = false
                     } catch (e: Throwable) {
-                        WeLogger.e("failed to unload $path", e)
+                        WeLogger.e("failed to disable $path", e)
                     }
                 }
             } else {
-                WeLogger.i("loading $path")
+                WeLogger.i("enabling $path...")
                 enable()
                 isLoaded = true
             }

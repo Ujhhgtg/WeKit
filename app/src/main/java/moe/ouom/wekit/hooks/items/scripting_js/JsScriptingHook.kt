@@ -7,7 +7,7 @@ import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.hooks.api.core.WeDatabaseListenerApi
 import moe.ouom.wekit.hooks.api.net.intf.IWePacketInterceptor
 import moe.ouom.wekit.hooks.api.net.WeProtoData
-import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.ModulePaths
 import moe.ouom.wekit.utils.logging.WeLogger
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.div
@@ -46,7 +46,7 @@ object JsScriptingHook : SwitchHookItem(),
         WeDatabaseListenerApi.addListener(this)
 
         WeLogger.i(TAG, "loading scripts...")
-        for (path in (PathUtils.moduleDataPath!! / "scripts").listDirectoryEntries("*.js")) {
+        for (path in (ModulePaths.data!! / "scripts").listDirectoryEntries("*.js")) {
             val name = path.name
             val content = runCatching { path.readText() }.getOrElse { continue }
             WeLogger.i(TAG, "loaded script, name='${name}', length=${content.length}")

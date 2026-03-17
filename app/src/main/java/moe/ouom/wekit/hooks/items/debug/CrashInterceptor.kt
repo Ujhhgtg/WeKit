@@ -189,7 +189,7 @@ object CrashInterceptor : SwitchHookItem() {
                 try {
                     dismissPendingDialog()
                     val wrappedContext =
-                        CommonContextWrapper.createAppCompatContext(activity)
+                        CommonContextWrapper.create(activity)
 
                     pendingDialog = MaterialDialog(wrappedContext)
                         .title(text = "检测到上次 Java 崩溃")
@@ -237,7 +237,7 @@ object CrashInterceptor : SwitchHookItem() {
                 try {
                     dismissPendingDialog()
                     val wrappedContext =
-                        CommonContextWrapper.createAppCompatContext(activity)
+                        CommonContextWrapper.create(activity)
 
                     // 限制显示长度，防止卡死
                     val maxDisplayLength = 15 * 1024

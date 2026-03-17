@@ -29,7 +29,7 @@ abstract class WePrefs protected constructor() : SharedPreferences, SharedPrefer
     }
 
     fun getStringSetOrDef(key: String, def: Set<String>): Set<String> {
-        return defaultConfig.getStringSet(key, def)!!
+        return default.getStringSet(key, def)!!
     }
 
     abstract fun getObject(key: String): Any?
@@ -68,47 +68,47 @@ abstract class WePrefs protected constructor() : SharedPreferences, SharedPrefer
         const val PREFS_NAME = "wekit_prefs"
         const val CACHE_PREFS_NAME = "wekit_cache"
 
-        val defaultConfig by lazy { MmkvPrefsImpl(PREFS_NAME) }
+        val default by lazy { MmkvPrefsImpl(PREFS_NAME) }
 
         fun getBoolOrFalse(key: String): Boolean {
-            return defaultConfig.getBoolOrFalse(key)
+            return default.getBoolOrFalse(key)
         }
 
         fun getStringOrDef(key: String, def: String): String {
-            return defaultConfig.getStringOrDef(key, def)
+            return default.getStringOrDef(key, def)
         }
 
         @JvmName("getStringOrDefNullable")
         fun getStringOrDef(key: String, def: String?): String? {
-            return defaultConfig.getStringOrDef(key, def)
+            return default.getStringOrDef(key, def)
         }
 
         fun getStringSet(key: String, def: Set<String>): Set<String> {
-            return defaultConfig.getStringSetOrDef(key, def)
+            return default.getStringSetOrDef(key, def)
         }
 
         fun getIntOrDef(key: String, def: Int): Int {
-            return defaultConfig.getIntOrDef(key, def)
+            return default.getIntOrDef(key, def)
         }
 
         fun putString(key: String, value: String) {
-            defaultConfig.putString(key, value)
+            default.putString(key, value)
         }
 
         fun putInt(key: String, value: Int) {
-            defaultConfig.putInt(key, value)
+            default.putInt(key, value)
         }
 
         fun putBool(key: String, value: Boolean) {
-            defaultConfig.putBoolean(key, value)
+            default.putBoolean(key, value)
         }
 
         fun putStringSet(key: String, value: Set<String>) {
-            defaultConfig.putStringSet(key, value)
+            default.putStringSet(key, value)
         }
 
         fun remove(key: String) {
-            defaultConfig.remove(key)
+            default.remove(key)
         }
     }
 }

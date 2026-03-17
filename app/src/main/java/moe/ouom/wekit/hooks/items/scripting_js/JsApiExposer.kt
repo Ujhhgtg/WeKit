@@ -7,7 +7,7 @@ import com.google.gson.reflect.TypeToken
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.hooks.api.core.WeMessageApi
 import moe.ouom.wekit.hooks.api.net.WeApi
-import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.ModulePaths
 import moe.ouom.wekit.utils.logging.WeLogger
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -30,6 +30,7 @@ import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteRecursively
+import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.fileSize
 import kotlin.io.path.isDirectory
@@ -144,8 +145,7 @@ object JsApiExposer {
                     }
 
                     return try {
-                        var cacheDir = PathUtils.moduleCachePath
-                        cacheDir = cacheDir!!.resolve("javascript_http_api")
+                        val cacheDir = ModulePaths.cache/"javascript_http_api"
 
                         if (cacheDir.isDirectory()) {
                             // drop cache if size too large
@@ -495,7 +495,7 @@ object JsApiExposer {
     private val storage = ConcurrentHashMap<String, Any?>()
 
     private val DATA_DIR_PATH by lazy {
-        PathUtils.moduleDataPath!!.resolve("data").apply { createDirectories() }
+        ModulePaths.data!!.resolve("data").apply { createDirectories() }
     }
 
     private val storageFile get() = DATA_DIR_PATH.resolve("javascript_storage_api.json")

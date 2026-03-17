@@ -157,7 +157,7 @@ object FakeMomentsLikes : SwitchHookItem(), WeMomentsContextMenuApi.IMenuItemsPr
                     }
                     // 最后备选用wxid
                     else {
-                        append(contact.wxid)
+                        append(contact.wxId)
                     }
                 }
             }
@@ -168,10 +168,10 @@ object FakeMomentsLikes : SwitchHookItem(), WeMomentsContextMenuApi.IMenuItemsPr
             val currentSelected = fakeLikeWxIds[snsId] ?: emptySet()
 
             val currentIndices = allFriends.mapIndexedNotNull { index, contact ->
-                if (currentSelected.contains(contact.wxid)) index else null
+                if (currentSelected.contains(contact.wxId)) index else null
             }.toIntArray()
 
-            val wrappedContext = CommonContextWrapper.createAppCompatContext(context.activity)
+            val wrappedContext = CommonContextWrapper.create(context.activity)
 
             // 显示多选对话框
             MaterialDialog(wrappedContext).show {
@@ -180,7 +180,7 @@ object FakeMomentsLikes : SwitchHookItem(), WeMomentsContextMenuApi.IMenuItemsPr
                     items = displayItems,
                     initialSelection = currentIndices
                 ) { _, indices, _ ->
-                    val selectedWxids = indices.map { allFriends[it].wxid }.toSet()
+                    val selectedWxids = indices.map { allFriends[it].wxId }.toSet()
 
                     if (selectedWxids.isEmpty()) {
                         fakeLikeWxIds.remove(snsId)

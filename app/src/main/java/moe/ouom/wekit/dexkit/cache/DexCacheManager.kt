@@ -5,7 +5,7 @@ import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.constants.PreferenceKeys
 import moe.ouom.wekit.core.model.BaseHookItem
 import moe.ouom.wekit.dexkit.intf.IResolvesDex
-import moe.ouom.wekit.utils.PathUtils
+import moe.ouom.wekit.utils.ModulePaths
 import moe.ouom.wekit.utils.logging.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
@@ -35,7 +35,7 @@ object DexCacheManager {
     private var currentHostVersion: String = ""
 
     fun init(hostVersion: String) {
-        cacheDir = PathUtils.moduleDataPath!! / CACHE_DIR_NAME
+        cacheDir = ModulePaths.data!! / CACHE_DIR_NAME
         cacheDir.createDirectories()
 
         currentHostVersion = hostVersion
