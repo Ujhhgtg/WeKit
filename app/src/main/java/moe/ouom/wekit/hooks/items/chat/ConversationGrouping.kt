@@ -45,22 +45,22 @@ import moe.ouom.wekit.ui.utils.MainActivityLifecycleOwnerProvider
 import moe.ouom.wekit.ui.utils.setLifecycleOwner
 import org.luckypray.dexkit.DexKitBridge
 
-@HookItem(path = "聊天/对话分组", desc = "向主页顶部添加 Tab 栏, 将对话分组")
+@HookItem(path = "聊天/对话分组", desc = "向主页顶部添加 Tab 栏, 将对话分组\n建议同时启用 '界面美化/隐藏主页下滑「最近」页'")
 object ConversationGrouping : SwitchHookItem(), IResolvesDex {
 
     override fun onEnable() {
         methodOnTabCreate.hookAfter { param ->
-            val listView = param.thisObject.asResolver()
+            val convListView = param.thisObject.asResolver()
                 .firstField {
                     type = "com.tencent.mm.ui.conversation.ConversationListView"
                 }
                 .get()!! as ListView
 
-            val composeView = ComposeView(listView.context).apply {
+            val composeView = ComposeView(convListView.context).apply {
                 val lifecycleOwner = MainActivityLifecycleOwnerProvider.lifecycleOwner
                 setLifecycleOwner(lifecycleOwner)
 
-                // the value gets lost when ComposeView becomes invisible,
+                // this value gets lost when ComposeView becomes invisible,
                 // so we have to lift it out of the Composable
                 val selectedIndexState = mutableIntStateOf(0)
                 setContent {
@@ -110,7 +110,7 @@ object ConversationGrouping : SwitchHookItem(), IResolvesDex {
                     }
                 }
             }
-            listView.addHeaderView(composeView)
+            convListView.addHeaderView(composeView)
         }
     }
 

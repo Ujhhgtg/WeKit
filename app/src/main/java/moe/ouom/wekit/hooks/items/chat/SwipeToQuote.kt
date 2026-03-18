@@ -50,7 +50,7 @@ object SwipeToQuote : SwitchHookItem(), IResolvesDex,
     ) {
         if (cache[msgInfo.talker to msgInfo.id] == true) return
 
-        val viewGroup = view as? ViewGroup ?: return
+        val viewGroup = view as? ViewGroup? ?: return
 
         // this is actually a lot faster than findViewByIdStr, specifically ~8x times faster,
         // since it avoids resource table lookup, and the predicate is specific enough

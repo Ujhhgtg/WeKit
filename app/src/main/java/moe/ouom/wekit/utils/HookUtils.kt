@@ -45,6 +45,6 @@ inline fun Executable.hookAfterDirectly(
     )
 }
 
-fun XC_MethodHook.MethodHookParam.invokeOriginal(thisObject: Any? = null, args: Array<Any>? = null) {
+fun XC_MethodHook.MethodHookParam.invokeOriginal(thisObject: Any? = null, args: Array<Any?>? = null) {
     XposedBridge.invokeOriginalMethod(this.method, thisObject ?: this.thisObject, args ?: this.args)
 }
