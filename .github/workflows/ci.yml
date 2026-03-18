@@ -96,41 +96,10 @@ jobs:
           COMMIT_AUTHOR: ${{ github.event.head_commit.author.name || github.actor }}
           REPO:          ${{ github.repository }}
         run: |
-          caption="🎉 *检测到新的 GitHub 推送！*
-          *Commit SHA:* \`${SHA}\`
-          \`\`\`
-          ${{ github.event.head_commit.message || 'Manual Build' }}
-          \`\`\`
-          *提交者* \`${COMMIT_AUTHOR}\`
-          [查看详情](https://github.com/${REPO}/commit/${SHA})"
+          media_json=$(python3 .github/scripts/send_telegram.py \
+            "${{ github.event.head_commit.message || 'Manual Build' }}" \
+            artifacts/*.apk)
           
-          apks=(artifacts/*.apk)
-          
-          media_json=$(python3 -c "
-          import json, os, sys
-          caption = '''${{ github.event.head_commit.message || 'Manual Build' }}'''
-          sha = os.environ['SHA']
-          author = os.environ['COMMIT_AUTHOR']
-          repo = os.environ['REPO']
-          apks = sys.argv[1:]
-          caption_text = (
-          '🎉 *检测到新的 GitHub 推送！*\n'
-          f'*Commit SHA:* \`{sha}\`\n'
-          f'\`\`\`\n{caption}\n\`\`\`\n'
-          f'*提交者* \`{author}\`\n'
-          f'[查看详情](https://github.com/{repo}/commit/{sha})'
-          )
-          media = []
-          for i, apk in enumerate(apks):
-            name = f'apk{i}'
-            item = {'type': 'document', 'media': f'attach://{name}'}
-            if i == 0:
-              item['caption'] = caption_text
-              item['parse_mode'] = 'MarkdownV2'
-            media.append(item)
-            print(json.dumps(media))
-            " artifacts/*.apk)
-        
           curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup" \
             -F chat_id="${CHAT_ID}" \
             -F media="${media_json}" \
