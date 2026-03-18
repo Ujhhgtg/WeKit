@@ -194,7 +194,7 @@ object EmojiGameControl : SwitchHookItem(), IResolvesDex {
                         Toast.makeText(activity, "发送失败", Toast.LENGTH_SHORT).show()
                     }
                 },
-                onDismiss = onDismiss
+                onDismiss = dismiss
             )
         }
     }

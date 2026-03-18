@@ -243,3 +243,5 @@ chmod +x ./gradlew
 [NewMiko](https://github.com/dartcv/NewMiko/blob/archives/)
 
 [QAuxiliary](https://github.com/cinit/QAuxiliary)
+
+[FingerprintPay](https://github.com/eritpchy/FingerprintPay)

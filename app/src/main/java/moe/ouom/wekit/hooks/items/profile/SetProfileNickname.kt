@@ -30,7 +30,7 @@ object SetProfileNickname : ClickableHookItem() {
                         value = nickname, onValueChange = { nickname = it }, singleLine = false
                     )
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onClick = dismiss) { Text("取消") } },
                 confirmButton = {
                     TextButton(onClick = {
                         val payload = """{"1":{"1":1,"2":{"1":64,"2":{"1":16,"2":{"1":1,"2":"${
@@ -49,7 +49,7 @@ object SetProfileNickname : ClickableHookItem() {
                                         title = { Text("发送成功, 响应结果:") },
                                         text = { Text(json) },
                                         confirmButton = {
-                                            TextButton(onClick = onDismiss) { Text("关闭") }
+                                            TextButton(onClick = dismiss) { Text("关闭") }
                                         }
                                     )
                                 }
@@ -61,13 +61,13 @@ object SetProfileNickname : ClickableHookItem() {
                                         title = { Text("发送失败, 响应结果:") },
                                         text = { Text("type: $type, code: $code, msg: $msg") },
                                         confirmButton = {
-                                            TextButton(onClick = onDismiss) { Text("关闭") }
+                                            TextButton(onClick = dismiss) { Text("关闭") }
                                         }
                                     )
                                 }
                             }
                         }
-                        onDismiss()
+                        dismiss()
                     }) { Text("确定") }
                 })
         }

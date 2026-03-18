@@ -76,6 +76,11 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ success() && github.ref == 'refs/heads/master' }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
       - name: Download APK artifact
         uses: actions/download-artifact@v8
         with:

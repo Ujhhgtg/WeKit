@@ -21,11 +21,11 @@ object ClearDexCache : ClickableHookItem() {
                                 "确定清除吗？"
                     )
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onClick = dismiss) { Text("取消") } },
                 confirmButton = {
                     TextButton(onClick = {
                         DexCacheManager.clearAllCache()
-                        onDismiss()
+                        dismiss()
                     }) { Text("确定") }
                 })
         }

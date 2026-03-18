@@ -327,13 +327,13 @@ object AutoOpenRedPacket : ClickableHookItem(), WeDatabaseListenerApi.IInsertLis
                     confirmButton = {
                         Button(onClick = {
                             applyToggle(true)
-                            onDismiss()
+                            dismiss()
                         }) {
                             Text("确定")
                         }
                     },
                     dismissButton = {
-                        TextButton(onDismiss) {
+                        TextButton(dismiss) {
                             Text("取消")
                         }
                     }

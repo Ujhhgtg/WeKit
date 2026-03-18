@@ -161,63 +161,56 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
      * 适配旧版 SettingsUI (基于 PreferenceScreen)
      */
     private fun tryHookLegacySettings() {
-        try {
-            // 检查类是否存在
-            val clsSettingsUi = "com.tencent.mm.plugin.setting.ui.setting.SettingsUI"
-                .toClassOrNull() ?: return
+        // 检查类是否存在
+        val clsSettingsUi = "com.tencent.mm.plugin.setting.ui.setting.SettingsUI"
+            .toClassOrNull() ?: return
 
-            val setKeyMethod = methodSetKey.method
-            val setTitleMethod = methodSetTitle.method
-            val getKeyMethod = methodGetKey.method
-            val addPrefMethod = methodAddPref.method
+        val setKeyMethod = methodSetKey.method
+        val setTitleMethod = methodSetTitle.method
+        val getKeyMethod = methodGetKey.method
+        val addPrefMethod = methodAddPref.method
 
-            val mInitView = clsSettingsUi.asResolver().firstMethod {
-                name = "initView"
-                parameterCount = 0
+        val mInitView = clsSettingsUi.asResolver().firstMethod {
+            name = "initView"
+            parameterCount = 0
+        }
+
+        mInitView.hookAfter { param: XC_MethodHook.MethodHookParam ->
+            val activity = param.thisObject as Activity
+            val context = activity as Context
+
+            try {
+                val clsIconPref =
+                    "com.tencent.mm.ui.base.preference.IconPreference".toClass()
+                val prefInstance = clsIconPref.createInstance(context)
+
+                setKeyMethod.invoke(prefInstance, KEY_WEKIT_ENTRY)
+                setTitleMethod.invoke(prefInstance, TITLE_WEKIT_ENTRY)
+
+                val prefScreen = XposedHelpers.callMethod(activity, "getPreferenceScreen")
+
+                addPrefMethod.invoke(prefScreen, prefInstance, 0)
+
+            } catch (e: Throwable) {
+                WeLogger.e(TAG, "插入选项失败", e)
             }
+        }
 
-            mInitView.hookAfter { param: XC_MethodHook.MethodHookParam ->
+        WeLogger.i(TAG, "injected settings")
+
+        clsSettingsUi.asResolver().firstMethod { name = "onPreferenceTreeClick" } .hookBefore { param ->
+            if (param.args.size < 2) return@hookBefore
+            val preference = param.args[1] ?: return@hookBefore
+
+            val key = getKeyMethod.invoke(preference) as? String
+
+            if (KEY_WEKIT_ENTRY == key) {
                 val activity = param.thisObject as Activity
-                val context = activity as Context
 
-                try {
-                    val clsIconPref =
-                        "com.tencent.mm.ui.base.preference.IconPreference".toClass()
-                    val prefInstance = clsIconPref.createInstance(context)
+                openSettingsDialog(activity)
 
-                    setKeyMethod.invoke(prefInstance, KEY_WEKIT_ENTRY)
-                    setTitleMethod.invoke(prefInstance, TITLE_WEKIT_ENTRY)
-
-                    val prefScreen = XposedHelpers.callMethod(activity, "getPreferenceScreen")
-
-                    addPrefMethod.invoke(prefScreen, prefInstance, 0)
-
-                } catch (e: Throwable) {
-                    WeLogger.e(TAG, "插入选项失败", e)
-                }
+                param.result = true
             }
-
-            WeLogger.i(TAG, "injected settings")
-
-            clsSettingsUi.asResolver().firstMethod { name = "onPreferenceTreeClick" } .hookBefore { param ->
-                if (param.args.size < 2) return@hookBefore
-                val preference = param.args[1] ?: return@hookBefore
-
-                val key = getKeyMethod.invoke(preference) as? String
-
-                if (KEY_WEKIT_ENTRY == key) {
-                    val activity = param.thisObject as Activity
-
-                    openSettingsDialog(activity)
-
-                    param.result = true
-                }
-            }
-
-            WeLogger.i(TAG, "Hooked onPreferenceTreeClick")
-
-        } catch (t: Throwable) {
-            WeLogger.e("Legacy Settings: Hook 流程异常", t)
         }
     }
 
@@ -247,11 +240,7 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
     }
 
     private fun openSettingsDialog(activity: Activity) {
-        try {
-            MainSettingsDialog(activity).show()
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "failed to open settings dialog", e)
-        }
+        MainSettingsDialog(activity).show()
     }
 
     private class SettingsMenuItemClickListener(val activity: Activity) :

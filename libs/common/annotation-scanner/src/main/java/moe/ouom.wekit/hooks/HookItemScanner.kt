@@ -21,9 +21,7 @@ import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
 import moe.ouom.wekit.hooks.utils.annotation.HookItem
 
-/**
- * KSP 处理器根据 @HookItem 注解扫描并生成代码
- */
+private const val PACKAGE_NAME = "moe.ouom.wekit"
 
 class HookItemProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
@@ -38,7 +36,7 @@ class HookItemScanner(
     @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val symbols =
-            resolver.getSymbolsWithAnnotation("moe.ouom.wekit.hooks.utils.annotation.HookItem")
+            resolver.getSymbolsWithAnnotation("$PACKAGE_NAME.hooks.utils.annotation.HookItem")
                 .filterIsInstance<KSClassDeclaration>()
                 .toList()
 
@@ -52,8 +50,8 @@ class HookItemScanner(
             { symbol ->
                 val superTypes = symbol.superTypes.map { it.resolve().declaration.qualifiedName?.asString() }
                 when {
-                    superTypes.contains("moe.ouom.wekit.core.model.SwitchHookItem") -> 0
-                    superTypes.contains("moe.ouom.wekit.core.model.ClickableHookItem") -> 1
+                    superTypes.contains("$PACKAGE_NAME.core.model.SwitchHookItem") -> 0
+                    superTypes.contains("$PACKAGE_NAME.core.model.ClickableHookItem") -> 1
                     else -> 2
                 }
             },
@@ -68,7 +66,7 @@ class HookItemScanner(
 
         // 准备返回类型和基类
         val returnType = ClassName("kotlin.collections", "List")
-        val genericsType = ClassName("moe.ouom.wekit.core.model", "BaseHookItem")
+        val genericsType = ClassName("$PACKAGE_NAME.core.model", "BaseHookItem")
 
         // 创建方法构建器
         val methodBuilder = FunSpec.builder("getAllHookItems")
@@ -87,8 +85,7 @@ class HookItemScanner(
                     val desc = hookItem.desc
                     val valName = symbol.toClassName().simpleName
 
-                    val isKtObject =
-                        symbol.classKind == ClassKind.OBJECT
+                    val isKtObject = symbol.classKind == ClassKind.OBJECT
                     if (!isKtObject) {
                         addStatement("val %N = %T()", valName, typeName)
                     }
@@ -110,7 +107,7 @@ class HookItemScanner(
 
         // 输出文件到指定目录
         val dependencies = Dependencies(true, *symbols.map { it.containingFile!! }.toTypedArray())
-        FileSpec.builder("moe.ouom.wekit.hooks.gen", "HookItemEntryList")
+        FileSpec.builder("$PACKAGE_NAME.hooks.gen", "HookItemEntryList")
             .addType(classSpec)
             .build()
             .writeTo(codeGenerator, dependencies)

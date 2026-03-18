@@ -1,6 +1,9 @@
 //! JNI entry points
 
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 mod crash_handler;
 mod crash_triggerer;
@@ -9,17 +12,17 @@ mod shared;
 mod utils;
 
 use std::{
-    ffi::CString,
-    io::{BufRead, BufReader},
+    ffi::{CStr, CString, c_char, c_int},
+    ptr,
+    sync::OnceLock,
 };
 
 use crash_handler::{install_crash_handler, uninstall_crash_handler};
 use crash_triggerer::trigger_test_crash;
 
-use goblin::elf::Elf;
 use jni::sys::{
-    JNI_FALSE, JNI_TRUE, JNI_VERSION_1_6, JNIEnv as RawJNIEnv, JavaVM, jboolean, jint, jlong,
-    jobject, jstring,
+    JNI_FALSE, JNI_TRUE, JNI_VERSION_1_6, JNIEnv as RawJNIEnv, JavaVM, jboolean, jint, jobject,
+    jstring,
 };
 use libc::c_void;
 
@@ -93,124 +96,64 @@ pub unsafe extern "C" fn Java_moe_ouom_wekit_hooks_items_chat_MarkdownRendering_
     }
 }
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn Java_moe_ouom_wekit_hooks_api_core_WeNativeHooker_hookNativeFunction(
-    _env: *mut RawJNIEnv,
-    _thiz: jobject,
-    target_ptr: jlong,
-    replace_ptr: jlong,
-) {
-    unsafe {
-        let target = target_ptr as *mut c_void;
-        let replace = replace_ptr as *mut c_void;
-        match dobby_api::hook(target, replace, None) {
-            Ok(_) => logi!("hooked native func successfully"),
-            Err(err) => loge!("failed to hook native func: {:?}", err),
-        }
-    }
+static HOOK_FUNC: OnceLock<HookFunType> = OnceLock::new();
+
+fn hook_func() -> HookFunType {
+    *HOOK_FUNC.get().expect("native_init not called yet")
 }
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn Java_moe_ouom_wekit_hooks_api_core_WeNativeHooker_getSymbolOffset(
-    env: *mut RawJNIEnv,
-    _thiz: jobject,
-    so_path: jstring,
-    symbol: jstring,
-) -> jlong {
-    with_jstring(env, so_path, |path| {
-        with_jstring(env, symbol, |sym| {
-            match get_symbol_offset_from_file(path, sym) {
-                Some(offset) => offset,
-                None => {
-                    loge!("symbol {} not found in {}", sym, path);
-                    0
+unsafe extern "C" fn on_library_loaded(name: *const c_char, handle: *mut c_void) {
+    unsafe {
+        let lib_name = CStr::from_ptr(name).to_string_lossy();
+
+        if lib_name.ends_with("libtarget.so") {
+            let sym = b"target_fun\0";
+            let target = libc::dlsym(handle, sym.as_ptr() as *const c_char);
+            if !target.is_null() {
+                if let Some(hook) = hook_func() {
+                    let mut backup: *mut c_void = ptr::null_mut();
+                    hook(target, fake_target as *mut c_void, &mut backup);
+                    BACKUP_TARGET = std::mem::transmute(backup);
                 }
             }
-        })
-    })
-}
-
-fn get_symbol_offset_from_file(so_path: &str, symbol: &str) -> Option<i64> {
-    let (full_path, base_addr) = resolve_full_path_and_base(so_path)?;
-    let data = std::fs::read(&full_path).ok()?;
-    let elf = Elf::parse(&data).ok()?;
-
-    let sym = elf
-        .dynsyms
-        .iter()
-        .find(|s| elf.dynstrtab.get_at(s.st_name) == Some(symbol))
-        .or_else(|| {
-            elf.syms
-                .iter()
-                .find(|s| elf.strtab.get_at(s.st_name) == Some(symbol))
-        })?;
-
-    Some(base_addr as i64 + sym.st_value as i64)
-}
-
-fn resolve_full_path_and_base(so_name: &str) -> Option<(String, u64)> {
-    let name_only = if so_name.starts_with('/') {
-        so_name.rsplit('/').next().unwrap_or(so_name)
-    } else {
-        so_name.rsplit('/').next().unwrap_or(so_name)
-    };
-
-    let file = std::fs::File::open("/proc/self/maps").ok()?;
-
-    for line in BufReader::new(file).lines().flatten() {
-        if !line.contains(name_only) || !line.contains("r-xp") || !line.contains(" 00000000 ") {
-            continue;
-        }
-        // Parse base address from the start of the range field: "base_addr-end_addr"
-        let base_addr = line
-            .split('-')
-            .next()
-            .and_then(|s| u64::from_str_radix(s.trim(), 16).ok())?;
-
-        if let Some(path) = line.split_whitespace().last() {
-            if path.starts_with('/') {
-                // If caller gave an absolute path, verify it matches
-                if so_name.starts_with('/') && path != so_name {
-                    continue;
-                }
-                return Some((path.to_string(), base_addr));
-            }
         }
     }
-    None
+}
+
+// --- target_fun hook ---
+
+static mut BACKUP_TARGET: Option<unsafe extern "C" fn() -> c_int> = None;
+
+unsafe extern "C" fn fake_target() -> c_int {
+    (unsafe { BACKUP_TARGET.unwrap()() }) + 1
+}
+
+static mut ORIG_FOPEN: Option<unsafe extern "C" fn(*const c_char, *const c_char) -> *mut c_void> =
+    None;
+
+unsafe extern "C" fn fake_fopen(filename: *const c_char, mode: *const c_char) -> *mut c_void {
+    let name = unsafe { CStr::from_ptr(filename).to_bytes() };
+    if name.windows(6).any(|w| w == b"banned") {
+        return ptr::null_mut();
+    }
+    unsafe { ORIG_FOPEN.unwrap()(filename, mode) }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn Java_moe_ouom_wekit_hooks_api_core_WeNativeHooker_getArtQuickCode(
-    env: *mut RawJNIEnv,
-    _thiz: jobject,
-    method: jobject, // java.lang.reflect.Method
-    entry_point_offset: jint,
-) -> jlong {
-    unsafe {
-        // GetMethodID then ToReflectedMethod inverse: use FromReflectedMethod
-        // to get the jmethodID, which IS the ArtMethod*
-        let art_method_ptr = ((**env).v1_6.FromReflectedMethod)(env, method) as *const u8;
+pub unsafe extern "C" fn native_init(entries: *const NativeAPIEntries) -> NativeOnModuleLoaded {
+    let hook = (unsafe { *entries }).hook_func;
+    HOOK_FUNC.set(hook).ok();
 
-        if art_method_ptr.is_null() {
-            loge!("FromReflectedMethod returned null");
-            return 0;
+    if let Some(hook_fn) = hook {
+        let fopen_ptr = libc::fopen as *mut c_void;
+        let mut backup: *mut c_void = ptr::null_mut();
+        unsafe {
+            hook_fn(fopen_ptr, fake_fopen as *mut c_void, &mut backup);
+            ORIG_FOPEN = Some(std::mem::transmute(backup));
         }
-
-        // Read entry_point_from_quick_compiled_code_
-        let entry_point_ptr = art_method_ptr.add(entry_point_offset as usize) as *const u64;
-        *entry_point_ptr as jlong
     }
-}
 
-/// The "real" function we want to hook. Does nothing, returns 42.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn Java_moe_ouom_wekit_hooks_api_core_WeNativeHooker_hookTestTarget(
-    _env: *mut RawJNIEnv,
-    _thiz: jobject,
-) -> jint {
-    logi!("hookTestTarget: original called");
-    42
+    Some(on_library_loaded)
 }
 
 /// Required JNI library entry point — returns the JNI version we target.

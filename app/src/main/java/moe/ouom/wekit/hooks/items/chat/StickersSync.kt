@@ -485,7 +485,7 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = onDismiss) { Text("关闭") }
+                    TextButton(onClick = dismiss) { Text("关闭") }
                 })
         }
     }

@@ -147,7 +147,7 @@ object TestCrash : ClickableHookItem() {
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                                 ),
                                 modifier = Modifier.clickable {
-                                    onDismiss()
+                                    dismiss()
                                     onSelect(index)
                                 }
                             )
@@ -157,9 +157,9 @@ object TestCrash : ClickableHookItem() {
                 },
                 confirmButton = {
                     if (onBack != null) {
-                        TextButton(onClick = { onDismiss(); onBack() }) { Text("返回") }
+                        TextButton(onClick = { dismiss(); onBack() }) { Text("返回") }
                     } else {
-                        TextButton(onClick = onDismiss) { Text("取消") }
+                        TextButton(onClick = dismiss) { Text("取消") }
                     }
                 }
             )
@@ -173,7 +173,7 @@ object TestCrash : ClickableHookItem() {
                 text = { Text("确定要触发 $category 测试崩溃吗?\n这可能会导致微信数据丢失") },
                 confirmButton = {
                     TextButton(onClick = {
-                        onDismiss()
+                        dismiss()
                         when (category) {
                             "Java" -> triggerJavaCrash(crashType)
                             "Native" -> triggerNativeCrash(crashType)
@@ -183,7 +183,7 @@ object TestCrash : ClickableHookItem() {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = dismiss) { Text("取消") }
                 }
             )
         }

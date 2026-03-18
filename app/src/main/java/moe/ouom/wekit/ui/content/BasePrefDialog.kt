@@ -146,7 +146,7 @@ abstract class BasePrefDialog(
         initPreferences()
 
         showComposeDialog(context) {
-            _dismissCallback = onDismiss
+            _dismissCallback = dismiss
             DialogContent(
                 title = title,
                 rows = rows,

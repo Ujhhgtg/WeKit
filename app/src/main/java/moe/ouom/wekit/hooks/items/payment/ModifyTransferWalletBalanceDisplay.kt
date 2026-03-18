@@ -154,7 +154,6 @@ object ModifyTransferWalletBalanceDisplay : ClickableHookItem(), IWePacketInterc
                         value = cftInput,
                         onValueChange = { cftInput = it },
                         label = { Text("零钱余额 (留空不修改)") })
-                    Spacer(Modifier.height(8.dp))
                     TextField(
                         value = lqtInput,
                         onValueChange = { lqtInput = it },
@@ -171,10 +170,10 @@ object ModifyTransferWalletBalanceDisplay : ClickableHookItem(), IWePacketInterc
                             WePrefs.putString(KEY_LQT_BALANCE, lqtInput)
                         else
                             WePrefs.remove(KEY_LQT_BALANCE)
-                        onDismiss()
+                        dismiss()
                     }) { Text("确定") }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onClick = dismiss) { Text("取消") } }
             )
         }
     }

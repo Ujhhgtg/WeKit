@@ -1,6 +1,7 @@
 package moe.ouom.wekit.hooks.api.core
 
 import android.annotation.SuppressLint
+import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.dexkit.abc.IResolvesDex
@@ -14,11 +15,12 @@ import java.lang.reflect.Modifier
 @HookItem(path = "API/网络请求服务", desc = "提供通用发包能力")
 object WeNetworkApi : ApiHookItem(), IResolvesDex {
 
+    private val TAG = nameof(WeNetworkApi)
+
     private val methodGetNetSceneQueue by dexMethod()
 
     private var methodGetMgr: Method? = null
 
-    // 使用 @Volatile 保证多线程可见性
     @Volatile
     private var methodSend: Method? = null
 
@@ -29,7 +31,7 @@ object WeNetworkApi : ApiHookItem(), IResolvesDex {
      */
     fun sendRequest(netScene: Any) {
         if (!isInitialized) {
-            WeLogger.e("WeNetworkApi: Not initialized yet!")
+            WeLogger.e(TAG, "not initialized yet!")
             return
         }
 
@@ -41,16 +43,16 @@ object WeNetworkApi : ApiHookItem(), IResolvesDex {
             val method = getSendMethod(queueObj, netScene.javaClass)
 
             if (method == null) {
-                WeLogger.e("WeNetworkApi: Send method not found for ${netScene.javaClass.simpleName}")
+                WeLogger.e(TAG, "send method not found for ${netScene.javaClass.simpleName}")
                 return
             }
 
             // 执行发送
             method.invoke(queueObj, netScene)
-            WeLogger.d("WeNetworkApi: Request sent -> ${netScene.javaClass.simpleName}")
+            WeLogger.d(TAG, "request sent -> ${netScene.javaClass.simpleName}")
 
         } catch (e: Throwable) {
-            WeLogger.e("WeNetworkApi: Failed to send request", e)
+            WeLogger.e(TAG, "failed to send request", e)
         }
     }
 
@@ -70,13 +72,10 @@ object WeNetworkApi : ApiHookItem(), IResolvesDex {
                 return methodSend
             }
 
-            // 确实没有，开始查找
-            WeLogger.i("WeNetworkApi: Cache miss, searching for doScene...")
             val foundMethod = findSendMethodRecursive(queueObj.javaClass, netSceneClass)
 
             if (foundMethod != null) {
                 methodSend = foundMethod
-                WeLogger.i("WeNetworkApi: Method found and cached -> ${foundMethod.name}")
             }
 
             return methodSend
@@ -135,7 +134,7 @@ object WeNetworkApi : ApiHookItem(), IResolvesDex {
         }.singleOrNull()
 
         if (netSceneQueueClass == null) {
-            throw RuntimeException("NetSceneQueue class not found")
+            error("NetSceneQueue class not found")
         }
 
         methodGetNetSceneQueue.find(dexKit, allowMultiple = true, descriptors = descriptors) {
@@ -150,14 +149,10 @@ object WeNetworkApi : ApiHookItem(), IResolvesDex {
     }
 
     override fun onEnable() {
-        try {
-            methodGetMgr = methodGetNetSceneQueue.method
+        methodGetMgr = methodGetNetSceneQueue.method
 
-            isInitialized = true
-            WeLogger.i("WeNetworkApi: Initialized")
-        } catch (e: Throwable) {
-            WeLogger.e("WeNetworkApi: Init failed", e)
-        }
+        isInitialized = true
+        WeLogger.i(TAG, "initialized")
     }
 
     override fun onDisable() {

@@ -131,14 +131,14 @@ object LinkExternalAppJump : SwitchHookItem(),
                         items(resolveInfos) { info ->
                             AppItemRow(info, pm) {
                                 launchApp(context, info, url)
-                                onDismiss()
+                                dismiss()
                             }
                         }
 
                         item {
                             CustomTabsRow {
                                 url.openInSystem(context)
-                                onDismiss()
+                                dismiss()
                             }
                         }
 
@@ -153,7 +153,7 @@ object LinkExternalAppJump : SwitchHookItem(),
                                 } catch (e: Exception) {
                                     WeLogger.e(TAG, "failed to open internal webview", e)
                                 }
-                                onDismiss()
+                                dismiss()
                             }
                         }
                     }
@@ -165,10 +165,10 @@ object LinkExternalAppJump : SwitchHookItem(),
                         val clip = ClipData.newPlainText("WeKit_Link", url.toString())
                         clipboard.setPrimaryClip(clip)
                         ToastUtils.showToast(context, "已复制链接")
-                        onDismiss()
+                        dismiss()
                     }) { Text("复制链接") }
                 },
-                confirmButton = { TextButton(onClick = onDismiss) { Text("取消") } })
+                confirmButton = { TextButton(onClick = dismiss) { Text("取消") } })
         }
 
         param.result = null

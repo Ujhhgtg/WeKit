@@ -64,9 +64,9 @@ object SplitChatroom : ClickableHookItem() {
         showComposeDialog(context) {
             SplitChatroomDialog(
                 allGroups = groups,
-                onDismiss = onDismiss,
+                onDismiss = dismiss,
                 onSelect = { chatroomId ->
-                    onDismiss()
+                    dismiss()
                     jumpToSplitChatroom(chatroomId)
                 },
             )

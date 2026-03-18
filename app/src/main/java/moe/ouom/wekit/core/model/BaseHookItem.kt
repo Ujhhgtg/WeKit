@@ -57,7 +57,9 @@ abstract class BaseHookItem {
     }
 
     @JvmName("hookBefore2")
-    fun MethodResolver<*>.hookBefore(action: HookAction): XC_MethodHook.Unhook {
+    inline fun MethodResolver<*>.hookBefore(
+        crossinline action: HookAction
+    ): XC_MethodHook.Unhook {
         return this.self.hookBefore(action)
     }
 

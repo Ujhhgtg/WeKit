@@ -56,13 +56,13 @@ object ModifyTextMessageDisplay : SwitchHookItem(),
                                         parameters(CharSequence::class)
                                     }
                                     .invoke(input)
-                                onDismiss()
+                                dismiss()
                             }) {
                                 Text("确定")
                             }
                         },
                         dismissButton = {
-                            TextButton(onClick = { onDismiss() }) {
+                            TextButton(onClick = { dismiss() }) {
                                 Text("取消")
                             }
                         })

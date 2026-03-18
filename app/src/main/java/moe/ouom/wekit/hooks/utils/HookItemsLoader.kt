@@ -53,15 +53,15 @@ object HookItemsLoader {
         val outdatedItems = DexCacheManager.getOutdatedItems(allDexResolvingItems)
 
         // 筛选出理论上缓存有效的项
-        val potentiallyValidItems = allDexResolvingItems.filterNot { outdatedItems.contains(it) }
+        val validItems = allDexResolvingItems.filterNot { outdatedItems.contains(it) }
 
         WeLogger.i(
             TAG,
-            "found ${outdatedItems.size} outdated items, ${potentiallyValidItems.size} potentially valid items"
+            "found ${outdatedItems.size} outdated items, ${validItems.size} valid items"
         )
 
         // 尝试从缓存加载 Descriptor，返回加载失败的项
-        val corruptedItems = loadDescriptorsFromCache(potentiallyValidItems)
+        val corruptedItems = loadDescriptorsFromCache(validItems)
 
         // 汇总所有不可用的项
         val allBrokenItems = (outdatedItems + corruptedItems).distinct()
@@ -159,7 +159,7 @@ object HookItemsLoader {
                                 brokenItems,
                                 appInfo,
                                 CoroutineScope(Dispatchers.Main + SupervisorJob()),
-                                onDismiss = onDismiss
+                                onDismiss = dismiss
                             )
                         }
                     }

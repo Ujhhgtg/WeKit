@@ -73,6 +73,10 @@ abstract class WePrefs protected constructor() : SharedPreferences, SharedPrefer
             return default.getBoolOrFalse(key)
         }
 
+        fun getString(key: String): String? {
+            return default.getString(key)
+        }
+
         fun getStringOrDef(key: String, def: String): String {
             return default.getStringOrDef(key, def)
         }
@@ -82,8 +86,12 @@ abstract class WePrefs protected constructor() : SharedPreferences, SharedPrefer
             return default.getStringOrDef(key, def)
         }
 
-        fun getStringSet(key: String, def: Set<String>): Set<String> {
+        fun getStringSetOrDef(key: String, def: Set<String>): Set<String> {
             return default.getStringSetOrDef(key, def)
+        }
+
+        fun getStringSet(key: String): Set<String>? {
+            return default.getStringSet(key, null)
         }
 
         fun getIntOrDef(key: String, def: Int): Int {

@@ -116,14 +116,14 @@ object RemoveChatMessageContextMenuItems : ClickableHookItem(), IResolvesDex {
                         onValueChange = { removedNames = it },
                         label = { Text("要移除的菜单项名称 (以逗号分割):") })
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onClick = dismiss) { Text("取消") } },
                 confirmButton = {
                     TextButton(onClick = {
                         WePrefs.putString(
                             KEY_REMOVED_ITEM_NAMES,
                             removedNames
                         )
-                        onDismiss()
+                        dismiss()
                     }) { Text("确定") }
                 })
         }

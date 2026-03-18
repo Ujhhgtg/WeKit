@@ -74,7 +74,7 @@ object FeatureFlagManager : ClickableHookItem(), IResolvesDex {
     }
 
     private fun loadOverrides(): List<FeatureFlagOverride> {
-        val flags = WePrefs.getStringSet(KEY_HOOKED_FEATURE_FLAGS, setOf())
+        val flags = WePrefs.getStringSetOrDef(KEY_HOOKED_FEATURE_FLAGS, setOf())
 
         if (flags.isEmpty()) return emptyList()
 
@@ -579,7 +579,7 @@ object FeatureFlagManager : ClickableHookItem(), IResolvesDex {
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = onDismiss) {
+                    TextButton(onClick = dismiss) {
                         Text("关闭")
                     }
                 }

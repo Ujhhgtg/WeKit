@@ -437,10 +437,10 @@ object McpServer : ClickableHookItem() {
                         onValueChange = { authToken = it },
                         label = { Text("认证令牌") })
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(dismiss) { Text("取消") } },
                 confirmButton = { Button(onClick = {
                     WePrefs.putString(KEY_MCP_AUTH_TOKEN, authToken)
-                    onDismiss()
+                    dismiss()
                 }) { Text("确定") } })
         }
     }

@@ -61,7 +61,7 @@ object SendPacket : ClickableHookItem() {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = dismiss) { Text("取消") }
                 },
                 confirmButton = {
                     TextButton(onClick = {
@@ -95,7 +95,7 @@ object SendPacket : ClickableHookItem() {
                                         title = { Text("发送成功, 响应结果:") },
                                         text = { Text("json: $json\n\nbyteArray: ${byteArray?.size ?: 0} 字节") },
                                         confirmButton = {
-                                            TextButton(onClick = onDismiss) { Text("关闭") }
+                                            TextButton(onClick = dismiss) { Text("关闭") }
                                         }
                                     )
                                 }
@@ -107,13 +107,13 @@ object SendPacket : ClickableHookItem() {
                                         title = { Text("发送失败, 响应结果:") },
                                         text = { Text("type: $type, code: $code, msg: $msg") },
                                         confirmButton = {
-                                            TextButton(onClick = onDismiss) { Text("关闭") }
+                                            TextButton(onClick = dismiss) { Text("关闭") }
                                         }
                                     )
                                 }
                             }
                         }
-                        onDismiss()
+                        dismiss()
                     }) { Text("确定") }
                 })
         }

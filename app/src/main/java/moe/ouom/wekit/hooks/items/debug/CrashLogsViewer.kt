@@ -113,11 +113,11 @@ object CrashLogsViewer : ClickableHookItem() {
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        onDismiss()
+                        dismiss()
                         confirmDeleteAllLogs(context)
                     }) { Text("全部删除", color = MaterialTheme.colorScheme.error) }
                 },
-                confirmButton = { Button(onDismiss) { Text("关闭") } }
+                confirmButton = { Button(dismiss) { Text("关闭") } }
             )
         }
     }
@@ -151,7 +151,7 @@ object CrashLogsViewer : ClickableHookItem() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        onDismiss()
+                                        dismiss()
                                         when (index) {
                                             0 -> showCrashLogDetail(context, logFile)
                                             1 -> {
@@ -190,7 +190,7 @@ object CrashLogsViewer : ClickableHookItem() {
                     }
                 },
                 confirmButton = {
-                    TextButton(onDismiss) { Text("返回") }
+                    TextButton(dismiss) { Text("返回") }
                 }
             )
         }
@@ -232,13 +232,13 @@ object CrashLogsViewer : ClickableHookItem() {
                     },
                     dismissButton = {
                         TextButton(onClick = {
-                            onDismiss()
+                            dismiss()
                             showCrashLogOptions(context, logFile)
                         }) { Text("返回") }
                     },
                     confirmButton = {
                         Button(onClick = {
-                            onDismiss()
+                            dismiss()
                             copyLogToClipboard(context, logFile)
                         }) { Text("复制") }
                     }
@@ -299,13 +299,13 @@ object CrashLogsViewer : ClickableHookItem() {
                 confirmButton = {
                     TextButton(onClick = {
                         deleteLog(context, logFile)
-                        onDismiss()
+                        dismiss()
                     }) {
                         Text("删除", color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = dismiss) { Text("取消") }
                 }
             )
         }
@@ -329,19 +329,19 @@ object CrashLogsViewer : ClickableHookItem() {
     private fun confirmDeleteAllLogs(context: Context) {
         showComposeDialog(context) {
             AlertDialog(
-                onDismissRequest = onDismiss,
+                onDismissRequest = dismiss,
                 title = { Text("确认删除") },
                 text = { Text("确定要删除所有崩溃日志吗?") },
                 confirmButton = {
                     TextButton(onClick = {
                         deleteAllLogs(context)
-                        onDismiss()
+                        dismiss()
                     }) {
                         Text("全部删除", color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = dismiss) { Text("取消") }
                 }
             )
         }

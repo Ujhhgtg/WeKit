@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
             mutableStateOf(
                 ComponentName(
                     context,
-                    "moe.ouom.wekit.activity.MainActivityAlias"
+                    "${PackageNames.THIS}.activity.MainActivityAlias"
                 ).getEnabled(context)
             )
         }
@@ -184,7 +184,7 @@ class MainActivity : ComponentActivity() {
                                     showMenu = false
                                     val componentName = ComponentName(
                                         context,
-                                        "moe.ouom.wekit.activity.MainActivityAlias"
+                                        "${PackageNames.THIS}.activity.MainActivityAlias"
                                     )
                                     val newState = !isLauncherIconEnabled
                                     componentName.setEnabled(context, newState)

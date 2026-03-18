@@ -43,9 +43,9 @@ import kotlin.io.path.writeBytes
     path = "通知/通知进化",
     desc = "让应用的新消息通知更易用\n1. '快速回复' 按钮\n2. '标记为已读' 按钮\n3. 使用原生对话样式 (MessagingStyle)"
 )
-object NotificationEvolved : SwitchHookItem() {
+object NotificationsEvolved : SwitchHookItem() {
 
-    private val TAG = nameof(NotificationEvolved)
+    private val TAG = nameof(NotificationsEvolved)
 
     private val lastGroupChatSender = LruCache<String, String>()
 
@@ -56,6 +56,7 @@ object NotificationEvolved : SwitchHookItem() {
     // cache friends to avoid repeating sql queries
     // TODO: build a sql statement to directly query target contact
     private val friends by lazy { WeDatabaseApi.getFriends() }
+    private val groups by lazy { WeDatabaseApi.getGroups() }
 
     private lateinit var meAvatarIcon: Icon
 
@@ -153,7 +154,12 @@ object NotificationEvolved : SwitchHookItem() {
                 // 1. Resolve exact WXID immediately during notification creation
                 val friend =
                     friends.firstOrNull { it.nickname == notifTitle || it.remarkName == notifTitle }
-                val convWxId = friend?.wxId
+                var convWxId = friend?.wxId
+                if (convWxId == null) {
+                    val group =
+                        groups.firstOrNull { it.nickname == notifTitle }
+                    convWxId = group?.wxId
+                }
                 if (convWxId == null) {
                     WeLogger.w(TAG, "could not resolve wxid for $notifTitle, skipping enhancements")
                     return@hookBefore

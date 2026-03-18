@@ -11,14 +11,9 @@ crate-type = ["cdylib"]
 jni = { version = "0.22.4", default-features = false }
 libc = "0.2.183"
 markdown = "1.0.0"
-dobby-api = "1.0.1"
-goblin = { version = "0.10.5", features = [
-    "elf32",
-    "elf64",
-    "endian_fd",
-    "archive",
-    "std",
-], default-features = false }
+
+[build-dependencies]
+bindgen = "0.72.1"
 
 [profile.release]
 opt-level = "z"

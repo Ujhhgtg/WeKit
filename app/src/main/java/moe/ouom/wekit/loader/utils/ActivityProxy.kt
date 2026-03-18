@@ -154,7 +154,7 @@ object ActivityProxy {
             "com.tencent.mm.plugin.facedetect.ui.FaceTransparentStubUI"
 
         fun isModuleProxyActivity(className: String?): Boolean =
-            className?.startsWith("moe.ouom.wekit") == true
+            className?.startsWith(PackageNames.THIS) == true
     }
 
     class IActivityManagerHandler(private val origin: Any) : InvocationHandler {
@@ -196,9 +196,9 @@ object ActivityProxy {
                 putExtra(ActProxyMgr.ACTIVITY_PROXY_INTENT_TOKEN, token)
                 ParcelableFixer.getHybridClassLoader()?.let { setExtrasClassLoader(it) }
             }.also {
-                WeLogger.d(
+                WeLogger.i(
                     TAG,
-                    "Hijacked startActivity via Token: ${raw.component!!.className} -> ${ActProxyMgr.STUB_DEFAULT_ACTIVITY}"
+                    "hijacked startActivity via token: ${raw.component!!.className} -> ${ActProxyMgr.STUB_DEFAULT_ACTIVITY}"
                 )
             }
         }
@@ -207,7 +207,7 @@ object ActivityProxy {
     class ProxyHandlerCallback(private val next: Handler.Callback?) : Handler.Callback {
         override fun handleMessage(msg: Message): Boolean {
             when (msg.what) {
-                100 -> handleLaunchActivity(msg)   // LAUNCH_ACTIVITY (< Android 9)
+                100 -> handleLaunchActivity(msg)     // LAUNCH_ACTIVITY (< Android 9)
                 159 -> handleExecuteTransaction(msg) // EXECUTE_TRANSACTION (>= Android 9)
             }
             return runCatching { next?.handleMessage(msg) == true }

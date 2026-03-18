@@ -1,8 +1,10 @@
 package moe.ouom.wekit.hooks.items.beautify
 
+import android.app.Activity
 import android.app.Dialog
 import android.content.Context
 import android.os.Build
+import android.view.Window
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.HorizontalDivider
@@ -15,12 +17,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
+import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.model.ClickableHookItem
 import moe.ouom.wekit.dexkit.abc.IResolvesDex
 import moe.ouom.wekit.hooks.utils.annotation.HookItem
+import moe.ouom.wekit.preferences.WePrefs
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.Button
 import moe.ouom.wekit.ui.utils.showComposeDialog
@@ -41,25 +44,28 @@ object ApplyDialogBackgroundBlur : ClickableHookItem(), IResolvesDex {
     private val classMmQuickDialog by dexClass()
 
     override fun onEnable() {
-        listOf(classMmAlertDialog, classMmProgressDialog, classMmQuickDialog).forEach {
-            it.clazz.asResolver()
+        listOf(classMmAlertDialog.clazz,
+            classMmProgressDialog.clazz,
+            classMmQuickDialog.clazz,
+            "com.tencent.mm.ui.halfscreen.HalfScreenTransparentActivity".toClass()).forEach {
+            it.asResolver()
                 .firstMethod {
                     name = "onCreate"
                 }
                 .hookBefore { param ->
-                    val dialog = param.thisObject as Dialog
-                    applyBlur(dialog)
+                    val thiz = param.thisObject
+                    if (thiz is Dialog) {
+                        thiz.window?.let { w -> applyBlur(w) }
+                    }
+                    else if (thiz is Activity) {
+                        thiz.window?.let { w -> applyBlur(w) }
+                    }
                 }
         }
     }
 
-    private fun applyBlur(dialog: Dialog) {
-        dialog.window.apply {
-            if (this == null) {
-                WeLogger.w(TAG, "dialog.window is null, skipping")
-                return@apply
-            }
-
+    private fun applyBlur(window: Window) {
+        window.apply {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                 WeLogger.w(TAG, "sdk < 31, not applying blur behind dialog")
                 return@apply
@@ -133,7 +139,7 @@ object ApplyDialogBackgroundBlur : ClickableHookItem(), IResolvesDex {
                         }
                     )
                 },
-                dismissButton = { Button(onDismiss) { Text("关闭") } })
+                dismissButton = { Button(dismiss) { Text("关闭") } })
         }
     }
 

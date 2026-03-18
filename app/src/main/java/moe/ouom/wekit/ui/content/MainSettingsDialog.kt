@@ -153,9 +153,9 @@ class MainSettingsDialog(context: Context) : BasePrefDialog(context, BuildConfig
                                 text = { Text(
                                     "错误信息: ${e.message}\n" +
                                     "是否尝试直接下载并安装最新版本?") },
-                                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                                dismissButton = { TextButton(dismiss) { Text("取消") } },
                                 confirmButton = { Button(onClick = {
-                                    onDismiss()
+                                    dismiss()
                                     CoroutineScope(Dispatchers.Main).launch {
                                         UpdateDownloader.downloadAndInstall(context, UpdateChecker.DOWNLOAD_URL)
                                     }
@@ -176,9 +176,9 @@ class MainSettingsDialog(context: Context) : BasePrefDialog(context, BuildConfig
                                 "提交消息:\n" +
                                 "${update.commitMessage.prependIndent("  ")}\n" +
                                 "是否下载并安装?") },
-                            dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                            dismissButton = { TextButton(dismiss) { Text("取消") } },
                             confirmButton = { Button(onClick = {
-                                onDismiss()
+                                dismiss()
                                 CoroutineScope(Dispatchers.Main).launch {
                                     UpdateDownloader.downloadAndInstall(context, update.downloadUrl)
                                 }

@@ -11,14 +11,12 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class CryptoManager {
+object CryptoManager {
 
-    companion object {
-        private const val KEY_ALIAS = "wekit_tee_key"
-        private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
-        private const val TRANSFORMATION = "AES/GCM/NoPadding"
-        private const val GCM_TAG_LENGTH = 128
-    }
+    private const val KEY_ALIAS = "wekit_tee_key"
+    private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
+    private const val TRANSFORMATION = "AES/GCM/NoPadding"
+    private const val GCM_TAG_LENGTH = 128
 
     // Generate (or retrieve) a TEE-backed AES key requiring biometric auth
     @RequiresApi(Build.VERSION_CODES.R)
@@ -31,17 +29,16 @@ class CryptoManager {
         keyGenerator.init(
             KeyGenParameterSpec.Builder(
                 KEY_ALIAS,
-                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-            )
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256)
-                .setUserAuthenticationRequired(true)          // Requires biometric/PIN
+                .setUserAuthenticationRequired(true) // Requires biometric/PIN
                 .setUserAuthenticationParameters(
-                    0,                                         // 0 = auth required every use
+                    0, // 0 = auth required every use
                     KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
                 )
-                .setInvalidatedByBiometricEnrollment(true)    // Invalidate if new biometric added
+                .setInvalidatedByBiometricEnrollment(true) // Invalidate if new biometric added
                 .build()
         )
         return keyGenerator.generateKey()
@@ -52,7 +49,7 @@ class CryptoManager {
     fun getEncryptCipher(): Cipher {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
-        return cipher  // cipher.iv must be stored alongside ciphertext
+        return cipher // cipher.iv must be stored alongside ciphertext
     }
 
     // Call this BEFORE showing BiometricPrompt for decryption

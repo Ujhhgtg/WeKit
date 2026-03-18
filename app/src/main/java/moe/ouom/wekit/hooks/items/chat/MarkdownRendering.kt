@@ -356,7 +356,7 @@ object MarkdownRendering : ClickableHookItem(), IResolvesDex {
                         supportingContent = { Text("使用一个而非两个换行来分段") },
                         trailingContent = { Switch(compactHtml, null) })
                 },
-                confirmButton = { TextButton(onDismiss) { Text("关闭") } }
+                confirmButton = { TextButton(dismiss) { Text("关闭") } }
             )
         }
     }

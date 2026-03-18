@@ -115,7 +115,7 @@ object WeChatContactDetailsApi : ApiHookItem() {
             .firstField {
                 type = String::class
                 modifiers { !it.contains(Modifiers.FINAL) }
-            }.self
+            }.self.also { f -> f.isAccessible = true }
 
         val contactInfoUIClass = "com.tencent.mm.plugin.profile.ui.ContactInfoUI".toClass()
 
@@ -124,7 +124,7 @@ object WeChatContactDetailsApi : ApiHookItem() {
                 superclass()
                 modifiers { !it.contains(Modifiers.STATIC) }
                 type { BaseAdapter::class.java.isAssignableFrom(it) }
-            }.self
+            }.self.also { f -> f.isAccessible = true }
 
         onPreferenceTreeClickMethod = contactInfoUIClass.asResolver()
             .firstMethod {
@@ -151,10 +151,10 @@ object WeChatContactDetailsApi : ApiHookItem() {
             }.map { it.self }
 
         setSummaryMethod = charSeqMethods.getOrElse(0) {
-            throw RuntimeException("setSummary method not found")
+            error("setSummary method not found")
         }
         setTitleMethod = charSeqMethods.getOrElse(1) {
-            throw RuntimeException("setTitle method not found")
+            error("setTitle method not found")
         }
     }
 }

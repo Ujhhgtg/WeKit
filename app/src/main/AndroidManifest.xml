@@ -11,7 +11,7 @@
         android:label="@string/app_name"
         android:roundIcon="@drawable/wekit"
         android:supportsRtl="true"
-        android:description="@string/xposed_description"
+        android:description="@string/app_description"
         android:theme="@style/Theme.WeKit">
 
         <activity
@@ -23,6 +23,14 @@
                 <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".activity.StubFragmentActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity-alias
             android:name=".activity.MainActivityAlias"
@@ -42,7 +50,7 @@
             android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="@string/xposed_description" />
+            android:value="@string/app_description" />
         <meta-data
             android:name="xposedminversion"
             android:value="51" />

@@ -100,7 +100,7 @@ fun <T : View> View.findViewByChildIndexes(vararg indexes: Int): T? {
 
 fun debugViewTree(view: View, connector: String = "", indent: String = "") {
     val idStr = if (view.id != View.NO_ID) {
-        runCatching { view.resources.getResourceEntryName(view.id) }.getOrDefault("?")
+        runCatching { view.resources.getResourceEntryName(view.id) }.getOrDefault("UNKNOWN_ID")
     } else "NO_ID"
     WeLogger.d(
         nameof(::debugViewTree),
