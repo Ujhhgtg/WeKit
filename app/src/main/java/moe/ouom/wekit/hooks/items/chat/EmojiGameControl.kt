@@ -40,6 +40,7 @@ import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
 import moe.ouom.wekit.utils.RuntimeConfig
 import moe.ouom.wekit.utils.ToastUtils
+import moe.ouom.wekit.utils.invokeOriginal
 import moe.ouom.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.MatchType
@@ -156,11 +157,7 @@ object EmojiGameControl : SwitchHookItem(), IResolvesDex {
                 onSend = { isSingle, inputText ->
                     try {
                         if (isSingle) {
-                            XposedBridge.invokeOriginalMethod(
-                                param.method,
-                                param.thisObject,
-                                param.args
-                            )
+                            param.invokeOriginal()
                         } else {
                             val values = parseMultipleInput(inputText, isDice)
                             if (values.isEmpty()) {

@@ -1,13 +1,13 @@
 package moe.ouom.wekit.loader.startup
 
 import android.app.Application
-import android.content.Context
+import android.app.Instrumentation
+import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.ClassLoaderProvider
 import com.highcapable.kavaref.extension.toClass
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.loader.abs.ILoaderService
+import moe.ouom.wekit.loader.abc.ILoaderService
+import moe.ouom.wekit.utils.hookAfterDirectly
 import moe.ouom.wekit.utils.logging.WeLogger
 
 object UnifiedEntryPoint {
@@ -21,54 +21,18 @@ object UnifiedEntryPoint {
     ) {
         ClassLoaderProvider.classLoader = hostClassLoader
 
-        try {
-            XposedHelpers.findAndHookMethod(
-                "com.tencent.mm.app.Application",
-                hostClassLoader,
-                "attachBaseContext",
-                Context::class.java,
-                object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        // Hook Instrumentation.callApplicationOnCreate 以处理 Tinker 热更新场景
-                        try {
-                            hookInstrumentationForTinker(
-                                modulePath,
-                                loaderService
-                            )
-                        } catch (t: Throwable) {
-                            WeLogger.e(
-                                TAG,
-                                "failed to hook Instrumentation.callApplicationOnCreate",
-                                t
-                            )
-                        }
+        "com.tencent.mm.app.Application".toClass().asResolver()
+            .firstMethod { name = "attachBaseContext" }
+            .hookAfterDirectly {
+                // Hook Instrumentation.callApplicationOnCreate 以确保在 Tinker 热更新完成后再进行延迟初始化
+                // 这可以解决某些模块在热更新环境下找不到入口的问题
+                Instrumentation::class.asResolver()
+                    .firstMethod {
+                        name = "callApplicationOnCreate"
                     }
-                }
-            )
-            WeLogger.i(TAG, "waiting for Application.attachBaseContext")
-        } catch (t: Throwable) {
-            WeLogger.e(TAG, "failed to hook shell Application", t)
-        }
-    }
-
-    /**
-     * Hook Instrumentation.callApplicationOnCreate 以确保在 Tinker 热更新完成后再进行延迟初始化
-     * 这可以解决某些模块在热更新环境下找不到入口的问题
-     */
-    private fun hookInstrumentationForTinker(
-        modulePath: String,
-        loaderService: ILoaderService
-    ) {
-        try {
-            val instrumentationClass = "android.app.Instrumentation".toClass()
-            XposedHelpers.findAndHookMethod(
-                instrumentationClass,
-                "callApplicationOnCreate",
-                Application::class.java,
-                object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        val hostApp = param.args[0] as Application?
-                        StartupInfo.setHostApp(hostApp)
+                    .hookAfterDirectly { param ->
+                        val hostApp = param.args[0] as Application
+                        StartupInfo.hostApplication = hostApp
 
                         try {
                             StartupAgent.startup(
@@ -79,10 +43,6 @@ object UnifiedEntryPoint {
                             WeLogger.e(TAG, "StartupAgent failed", e)
                         }
                     }
-                }
-            )
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "failed to hook Instrumentation.callApplicationOnCreate", e)
-        }
+            }
     }
 }

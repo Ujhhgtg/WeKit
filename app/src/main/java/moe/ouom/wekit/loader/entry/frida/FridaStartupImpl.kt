@@ -2,8 +2,8 @@ package moe.ouom.wekit.loader.entry.frida
 
 import android.util.Log
 import moe.ouom.wekit.BuildConfig
-import moe.ouom.wekit.loader.abs.IClassLoaderHelper
-import moe.ouom.wekit.loader.abs.ILoaderService
+import moe.ouom.wekit.loader.abc.IClassLoaderHelper
+import moe.ouom.wekit.loader.abc.ILoaderService
 import java.io.File
 import java.lang.reflect.Method
 

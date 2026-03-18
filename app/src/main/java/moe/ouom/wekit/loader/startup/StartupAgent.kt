@@ -5,7 +5,7 @@ import android.app.Application
 import android.os.Build
 import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.loader.abs.ILoaderService
+import moe.ouom.wekit.loader.abc.ILoaderService
 import moe.ouom.wekit.loader.utils.LibXposedApiByteCodeGenerator
 import moe.ouom.wekit.loader.utils.NativeLoader
 import moe.ouom.wekit.utils.HostInfo
@@ -39,8 +39,8 @@ object StartupAgent {
         }
 
         System.setProperty(TAG, "true")
-        StartupInfo.setModulePath(modulePath)
-        StartupInfo.setLoaderService(loaderService)
+        StartupInfo.modulePath = modulePath
+        StartupInfo.loaderService = loaderService
 
         ensureHiddenApiAccess()
         checkWriteXorExecuteForModulePath(modulePath)

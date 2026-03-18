@@ -28,7 +28,7 @@ object LibXposedApiByteCodeGenerator {
     private const val ACC_CONSTRUCTOR = 0x00010000
 
     fun init() {
-        val loader = StartupInfo.getLoaderService()
+        val loader = StartupInfo.loaderService
         val call = LibXposedApiByteCodeGenerator::class.java
             .getMethod("call", Int::class.java, Array<Any>::class.java)
         loader.queryExtension(CMD_SET_WRAPPER, call)

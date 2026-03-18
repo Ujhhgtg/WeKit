@@ -1,208 +1,129 @@
-package moe.ouom.wekit.dexkit;
+package moe.ouom.wekit.dexkit
 
-import androidx.annotation.NonNull;
+import java.io.Serializable
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 
-import java.io.Serializable;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.List;
+class DexMethodDescriptor : Serializable {
 
-public class DexMethodDescriptor implements Serializable {
+    val declaringClass: String
+    val name: String
+    val signature: String
 
-    /**
-     * Ljava/lang/Object;
-     */
-    public final String declaringClass;
-    /**
-     * toString
-     */
-    public final String name;
-    /**
-     * ()Ljava/lang/String;
-     */
-    public final String signature;
-
-    public DexMethodDescriptor(String desc) {
-        if (desc == null) {
-            throw new NullPointerException();
-        }
-        var a = desc.indexOf("->");
-        var b = desc.indexOf('(', a);
-        if (a < 0 || b < 0) {
-            throw new IllegalArgumentException(desc);
-        }
-        var clz = desc.substring(0, a);
-        // 如果是点分格式，转换为JVM格式
-        if (!clz.startsWith("L") && !clz.startsWith("[")) {
-            declaringClass = "L" + clz.replace('.', '/') + ";";
-        } else {
-            declaringClass = clz;
-        }
-        name = desc.substring(a + 2, b);
-        signature = desc.substring(b);
+    constructor(desc: String) {
+        val a = desc.indexOf("->")
+        val b = desc.indexOf('(', a)
+        require(a >= 0 && b >= 0) { desc }
+        val clz = desc.substring(0, a)
+        declaringClass = if (!clz.startsWith("L") && !clz.startsWith("["))
+            "L${clz.replace('.', '/')};" else clz
+        name = desc.substring(a + 2, b)
+        signature = desc.substring(b)
     }
 
-    public DexMethodDescriptor(String clz, String n, String s) {
-        if (clz == null || n == null || s == null) {
-            throw new NullPointerException();
-        }
-        // 如果是点分格式，转换为 JVM 格式
-        if (!clz.startsWith("L") && !clz.startsWith("[")) {
-            declaringClass = "L" + clz.replace('.', '/') + ";";
-        } else {
-            declaringClass = clz;
-        }
-        name = n;
-        signature = s;
+    constructor(clz: String, n: String, s: String) {
+        declaringClass = if (!clz.startsWith("L") && !clz.startsWith("["))
+            "L${clz.replace('.', '/')};" else clz
+        name = n
+        signature = s
     }
 
-    public DexMethodDescriptor(Class<?> clz, String n, String s) {
-        if (clz == null || n == null || s == null) {
-            throw new NullPointerException();
-        }
-        declaringClass = getTypeSig(clz);
-        name = n;
-        signature = s;
+//    constructor(clz: Class<*>, n: String, s: String) {
+//        declaringClass = getTypeSig(clz)
+//        name = n
+//        signature = s
+//    }
+
+    override fun toString() = "$declaringClass->$name$signature"
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || javaClass != other.javaClass) return false
+        return toString() == other.toString()
     }
 
-    public static String getMethodTypeSig(final Method method) {
-        final var buf = new StringBuilder();
-        buf.append("(");
-        final var types = method.getParameterTypes();
-        for (var type : types) {
-            buf.append(getTypeSig(type));
-        }
-        buf.append(")");
-        buf.append(getTypeSig(method.getReturnType()));
-        return buf.toString();
-    }
+    override fun hashCode() = toString().hashCode()
 
-    public static String getTypeSig(final Class<?> type) {
-        if (type.isPrimitive()) {
-            if (Integer.TYPE.equals(type)) {
-                return "I";
-            }
-            if (Void.TYPE.equals(type)) {
-                return "V";
-            }
-            if (Boolean.TYPE.equals(type)) {
-                return "Z";
-            }
-            if (Character.TYPE.equals(type)) {
-                return "C";
-            }
-            if (Byte.TYPE.equals(type)) {
-                return "B";
-            }
-            if (Short.TYPE.equals(type)) {
-                return "S";
-            }
-            if (Float.TYPE.equals(type)) {
-                return "F";
-            }
-            if (Long.TYPE.equals(type)) {
-                return "J";
-            }
-            if (Double.TYPE.equals(type)) {
-                return "D";
-            }
-            throw new IllegalStateException("Type: " + type.getName() + " is not a primitive type");
-        }
-        if (type.isArray()) {
-            return "[" + getTypeSig(type.getComponentType());
-        }
-        return "L" + type.getName().replace('.', '/') + ";";
-    }
-
-    public static List<String> splitParameterTypes(String s) {
-        var i = 0;
-        var list = new ArrayList<String>();
-        while (i < s.length()) {
-            var c = s.charAt(i);
-            if (c == 'L') {
-                var j = s.indexOf(';', i);
-                list.add(s.substring(i, j + 1));
-                i = j + 1;
-            } else if (c == '[') {
-                var j = i;
-                while (j < s.length() && s.charAt(j) == '[') {
-                    j++;
-                }
-                if (j < s.length() && s.charAt(j) == 'L') {
-                    j = s.indexOf(';', j);
-                }
-                list.add(s.substring(i, j + 1));
-                i = j + 1;
-            } else {
-                list.add(String.valueOf(c));
-                i++;
-            }
-        }
-        return list;
-    }
-
-    @NonNull
-    @Override
-    public String toString() {
-        return declaringClass + "->" + name + signature;
-    }
-
-    @NonNull
-    public String getDescriptor() {
-        return declaringClass + "->" + name + signature;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        return toString().equals(o.toString());
-    }
-
-    @Override
-    public int hashCode() {
-        return toString().hashCode();
-    }
-
-    public Method getMethodInstance(ClassLoader classLoader) throws NoSuchMethodException {
+    fun getMethodInstance(classLoader: ClassLoader): Method {
         try {
             var clz = classLoader.loadClass(
-                    declaringClass.substring(1, declaringClass.length() - 1).replace('/', '.'));
-            for (var m : clz.getDeclaredMethods()) {
-                if (m.getName().equals(name) && getMethodTypeSig(m).equals(signature)) {
-                    return m;
+                declaringClass.substring(1, declaringClass.length - 1).replace('/', '.')
+            )
+            for (m in clz.declaredMethods) {
+                if (m.name == name && getMethodTypeSig(m) == signature) return m
+            }
+            while (true) {
+                clz = clz.superclass ?: break
+                for (m in clz.declaredMethods) {
+                    if (Modifier.isPrivate(m.modifiers) || Modifier.isStatic(m.modifiers)) continue
+                    if (m.name == name && getMethodTypeSig(m) == signature) return m
                 }
             }
-            while ((clz = clz.getSuperclass()) != null) {
-                for (var m : clz.getDeclaredMethods()) {
-                    if (Modifier.isPrivate(m.getModifiers()) || Modifier
-                            .isStatic(m.getModifiers())) {
-                        continue;
-                    }
-                    if (m.getName().equals(name) && getMethodTypeSig(m).equals(signature)) {
-                        return m;
-                    }
-                }
-            }
-            throw new NoSuchMethodException(declaringClass + "->" + name + signature);
-        } catch (ClassNotFoundException e) {
-            throw (NoSuchMethodException) new NoSuchMethodException(
-                    declaringClass + "->" + name + signature).initCause(e);
+            throw NoSuchMethodException("$declaringClass->$name$signature")
+        } catch (e: ClassNotFoundException) {
+            throw NoSuchMethodException("$declaringClass->$name$signature").initCause(e)
         }
     }
 
-    public List<String> getParameterTypes() {
-        var params = signature.substring(1, signature.indexOf(')'));
-        return splitParameterTypes(params);
+    fun getParameterTypes(): List<String> {
+        val params = signature.substring(1, signature.indexOf(')'))
+        return splitParameterTypes(params)
     }
 
-    public String getReturnType() {
-        var index = signature.indexOf(')');
-        return signature.substring(index + 1);
+    fun getReturnType(): String {
+        val index = signature.indexOf(')')
+        return signature.substring(index + 1)
+    }
+
+    companion object {
+        fun getMethodTypeSig(method: Method) = buildString {
+            append("(")
+            method.parameterTypes.forEach { append(getTypeSig(it)) }
+            append(")")
+            append(getTypeSig(method.returnType))
+        }
+
+        fun getTypeSig(type: Class<*>): String {
+            if (type.isPrimitive) return when (type) {
+                Int::class.javaPrimitiveType -> "I"
+                Void.TYPE -> "V"
+                Boolean::class.javaPrimitiveType -> "Z"
+                Char::class.javaPrimitiveType -> "C"
+                Byte::class.javaPrimitiveType -> "B"
+                Short::class.javaPrimitiveType -> "S"
+                Float::class.javaPrimitiveType -> "F"
+                Long::class.javaPrimitiveType -> "J"
+                Double::class.javaPrimitiveType -> "D"
+                else -> throw IllegalStateException("Type: ${type.name} is not a primitive type")
+            }
+            if (type.isArray) return "[${getTypeSig(type.componentType!!)}"
+            return "L${type.name.replace('.', '/')};"
+        }
+
+        fun splitParameterTypes(s: String): List<String> {
+            val list = mutableListOf<String>()
+            var i = 0
+            while (i < s.length) {
+                when (val c = s[i]) {
+                    'L' -> {
+                        val j = s.indexOf(';', i)
+                        list.add(s.substring(i, j + 1))
+                        i = j + 1
+                    }
+                    '[' -> {
+                        var j = i
+                        while (j < s.length && s[j] == '[') j++
+                        if (j < s.length && s[j] == 'L') j = s.indexOf(';', j)
+                        list.add(s.substring(i, j + 1))
+                        i = j + 1
+                    }
+                    else -> {
+                        list.add(c.toString())
+                        i++
+                    }
+                }
+            }
+            return list
+        }
     }
 }

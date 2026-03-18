@@ -6,8 +6,8 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import moe.ouom.wekit.constants.PreferenceKeys
 import moe.ouom.wekit.core.dsl.DexMethodDelegate
-import moe.ouom.wekit.hooks.utils.ExceptionFactory
 import moe.ouom.wekit.preferences.WePrefs
+import moe.ouom.wekit.utils.HookAction
 import moe.ouom.wekit.utils.logging.WeLogger
 import java.lang.reflect.Executable
 
@@ -20,21 +20,12 @@ abstract class BaseHookItem {
     var hasEnabled: Boolean = false
         private set
 
-    val itemName: String
-        get() {
-            val index = path.lastIndexOf("/")
-            return if (index == -1) path else path.substring(index + 1)
-        }
-
     fun enable() {
         if (hasEnabled) return
         runCatching {
             hasEnabled = true
             onEnable()
-        }.onFailure { e ->
-            WeLogger.e("failed to enable item", e)
-            ExceptionFactory.add(this, e)
-        }
+        }.onFailure { e -> WeLogger.e("failed to enable item", e) }
     }
 
     fun disable() {
@@ -51,9 +42,11 @@ abstract class BaseHookItem {
 
     // --- hookBefore ---
 
-    inline fun hookBefore(method: Executable, crossinline action: HookAction): XC_MethodHook.Unhook {
+    inline fun Executable.hookBefore(
+        crossinline action: HookAction
+    ): XC_MethodHook.Unhook {
         return XposedBridge.hookMethod(
-            method,
+            this,
             object :
                 XC_MethodHook(WePrefs.getIntOrDef(PreferenceKeys.HOOK_PRIORITY, 50)) {
                 override fun beforeHookedMethod(param: MethodHookParam) {
@@ -64,31 +57,26 @@ abstract class BaseHookItem {
     }
 
     @JvmName("hookBefore2")
-    inline fun Executable.hookBefore(
-        crossinline action: HookAction
-    ): XC_MethodHook.Unhook {
-        return hookBefore(this, action)
+    fun MethodResolver<*>.hookBefore(action: HookAction): XC_MethodHook.Unhook {
+        return this.self.hookBefore(action)
     }
 
     @JvmName("hookBefore3")
-    fun MethodResolver<*>.hookBefore(action: HookAction): XC_MethodHook.Unhook {
-        return hookBefore(this.self, action)
-    }
-
-    @JvmName("hookBefore4")
     inline fun ConstructorResolver<*>.hookBefore(
         crossinline action: HookAction
     ): XC_MethodHook.Unhook {
-        return hookBefore(this.self, action)
+        return this.self.hookBefore(action)
     }
 
     // --- end hookBefore ---
 
     // --- hookAfter ---
 
-    inline fun hookAfter(method: Executable, crossinline action: HookAction): XC_MethodHook.Unhook {
+    inline fun Executable.hookAfter(
+        crossinline action: HookAction
+    ): XC_MethodHook.Unhook {
         return XposedBridge.hookMethod(
-            method,
+            this,
             object :
                 XC_MethodHook(WePrefs.getIntOrDef(PreferenceKeys.HOOK_PRIORITY, 50)) {
                 override fun afterHookedMethod(param: MethodHookParam) {
@@ -99,24 +87,17 @@ abstract class BaseHookItem {
     }
 
     @JvmName("hookAfter2")
-    inline fun Executable.hookAfter(
-        crossinline action: HookAction
-    ): XC_MethodHook.Unhook {
-        return hookAfter(this, action)
-    }
-
-    @JvmName("hookAfter3")
     inline fun MethodResolver<*>.hookAfter(
         crossinline action: HookAction
     ): XC_MethodHook.Unhook {
-        return hookAfter(this.self, action)
+        return this.self.hookAfter(action)
     }
 
-    @JvmName("hookAfter4")
+    @JvmName("hookAfter3")
     inline fun ConstructorResolver<*>.hookAfter(
         crossinline action: HookAction
     ): XC_MethodHook.Unhook {
-        return hookAfter(this.self, action)
+        return this.self.hookAfter(action)
     }
 
     // --- end hookAfter ---
@@ -126,13 +107,13 @@ abstract class BaseHookItem {
     inline fun DexMethodDelegate.hookBefore(
         crossinline action: HookAction
     ): XC_MethodHook.Unhook {
-        return hookBefore(this.method, action)
+        return this.method.hookBefore(action)
     }
 
     inline fun DexMethodDelegate.hookAfter(
         crossinline action: HookAction
     ): XC_MethodHook.Unhook {
-        return hookAfter(this.method, action)
+        return this.method.hookAfter(action)
     }
 
     // --- end dex delegate ---
@@ -142,8 +123,6 @@ abstract class BaseHookItem {
         if (!hasEnabled) return
         runCatching {
             action(param)
-        }.onFailure { e -> ExceptionFactory.add(this, e) }
+        }.onFailure { e -> WeLogger.e("executeHookAction", "failed to execute hook of $path", e) }
     }
-
-    typealias HookAction = (param: XC_MethodHook.MethodHookParam) -> Unit
 }

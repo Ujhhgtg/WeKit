@@ -4,9 +4,9 @@ import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.annotations.XposedApiExact
 import moe.ouom.wekit.BuildConfig
-import moe.ouom.wekit.loader.abs.IClassLoaderHelper
-import moe.ouom.wekit.loader.abs.IHookBridge
-import moe.ouom.wekit.loader.abs.ILoaderService
+import moe.ouom.wekit.loader.abc.IClassLoaderHelper
+import moe.ouom.wekit.loader.abc.IHookBridge
+import moe.ouom.wekit.loader.abc.ILoaderService
 import java.lang.reflect.Constructor
 import java.lang.reflect.Member
 import java.lang.reflect.Method

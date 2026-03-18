@@ -4,7 +4,7 @@ import dev.ujhhgtg.nameof.nameof
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.annotations.XposedApiExact
-import moe.ouom.wekit.loader.abs.IHookBridge
+import moe.ouom.wekit.loader.abc.IHookBridge
 import moe.ouom.wekit.loader.entry.lsp100.codegen.Lsp100ProxyClassMaker
 import moe.ouom.wekit.loader.entry.lsp100.dyn.Lsp100CallbackProxy
 import java.lang.reflect.Constructor

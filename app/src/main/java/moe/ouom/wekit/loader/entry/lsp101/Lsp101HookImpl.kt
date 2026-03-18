@@ -6,11 +6,11 @@ import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.CtorInvoker
 import io.github.libxposed.api.XposedModule
 import moe.ouom.wekit.BuildConfig
-import moe.ouom.wekit.loader.abs.IClassLoaderHelper
-import moe.ouom.wekit.loader.abs.IHookBridge
-import moe.ouom.wekit.loader.abs.IHookBridge.IMemberHookCallback
-import moe.ouom.wekit.loader.abs.IHookBridge.MemberUnhookHandle
-import moe.ouom.wekit.loader.abs.ILoaderService
+import moe.ouom.wekit.loader.abc.IClassLoaderHelper
+import moe.ouom.wekit.loader.abc.IHookBridge
+import moe.ouom.wekit.loader.abc.IHookBridge.IMemberHookCallback
+import moe.ouom.wekit.loader.abc.IHookBridge.MemberUnhookHandle
+import moe.ouom.wekit.loader.abc.ILoaderService
 import java.lang.reflect.Constructor
 import java.lang.reflect.Executable
 import java.lang.reflect.Member

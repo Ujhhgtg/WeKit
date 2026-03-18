@@ -3,9 +3,9 @@ package moe.ouom.wekit.loader.entry.lsp101
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.annotations.XposedApiMin
-import moe.ouom.wekit.loader.abs.IHookBridge
-import moe.ouom.wekit.loader.abs.IHookBridge.IMemberHookCallback
-import moe.ouom.wekit.loader.abs.IHookBridge.MemberUnhookHandle
+import moe.ouom.wekit.loader.abc.IHookBridge
+import moe.ouom.wekit.loader.abc.IHookBridge.IMemberHookCallback
+import moe.ouom.wekit.loader.abc.IHookBridge.MemberUnhookHandle
 import java.lang.reflect.Executable
 import java.lang.reflect.Member
 import java.util.concurrent.ConcurrentHashMap

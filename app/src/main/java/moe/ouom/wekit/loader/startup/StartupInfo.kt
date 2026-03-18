@@ -1,44 +1,15 @@
-package moe.ouom.wekit.loader.startup;
+package moe.ouom.wekit.loader.startup
 
-import android.app.Application;
+import android.app.Application
+import moe.ouom.wekit.loader.abc.ILoaderService
 
-import androidx.annotation.NonNull;
+object StartupInfo {
 
-import java.util.Objects;
+    lateinit var hostApplication: Application
+    lateinit var loaderService: ILoaderService
 
-import moe.ouom.wekit.loader.abs.ILoaderService;
-
-
-public class StartupInfo {
-
-    public static Application hostApp;
-    private static String modulePath;
-    private static ILoaderService loaderService;
-
-    public static String getModulePath() {
-        if (modulePath == null) {
-            throw new IllegalStateException("Module path is null");
-        }
-        return modulePath;
-    }
-
-    public static void setModulePath(@NonNull String modulePath) {
-        Objects.requireNonNull(modulePath);
-        StartupInfo.modulePath = modulePath;
-    }
-
-    public static void setHostApp(Application hostApp) {
-        Objects.requireNonNull(hostApp);
-        StartupInfo.hostApp = hostApp;
-    }
-
-    @NonNull
-    public static ILoaderService getLoaderService() {
-        return loaderService;
-    }
-
-    public static void setLoaderService(@NonNull ILoaderService loaderService) {
-        Objects.requireNonNull(loaderService);
-        StartupInfo.loaderService = loaderService;
-    }
+    private var _modulePath: String? = null
+    var modulePath: String
+        get() = _modulePath ?: error("Module path is null")
+        set(value) { _modulePath = value }
 }

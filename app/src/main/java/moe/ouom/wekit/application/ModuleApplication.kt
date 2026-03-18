@@ -3,8 +3,8 @@ package moe.ouom.wekit.application
 import android.app.Application
 import android.util.Log
 import moe.ouom.wekit.BuildConfig
-import moe.ouom.wekit.loader.abs.IClassLoaderHelper
-import moe.ouom.wekit.loader.abs.ILoaderService
+import moe.ouom.wekit.loader.abc.IClassLoaderHelper
+import moe.ouom.wekit.loader.abc.ILoaderService
 import moe.ouom.wekit.loader.startup.StartupInfo
 import moe.ouom.wekit.utils.HostInfo
 
@@ -31,7 +31,7 @@ class ModuleApplication : Application() {
 
         }
 
-        StartupInfo.setModulePath(apkPath)
-        StartupInfo.setLoaderService(loaderService)
+        StartupInfo.modulePath= apkPath
+        StartupInfo.loaderService = loaderService
     }
 }

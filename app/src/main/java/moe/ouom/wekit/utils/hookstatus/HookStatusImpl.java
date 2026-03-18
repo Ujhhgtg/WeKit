@@ -5,10 +5,7 @@ package moe.ouom.wekit.utils.hookstatus;
  */
 public class HookStatusImpl {
 
-    static volatile boolean sZygoteHookMode = false;
-    static volatile String sZygoteHookProvider = null;
-    static volatile boolean sIsLsposedDexObfsEnabled = false;
-
-    private HookStatusImpl() {
-    }
+    static volatile boolean zygoteHookMode = false;
+    static volatile String zygoteHookProvider = null;
+    static volatile boolean isLsposedDexObfsEnabled = false;
 }

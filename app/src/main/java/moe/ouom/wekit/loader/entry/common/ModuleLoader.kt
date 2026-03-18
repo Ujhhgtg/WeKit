@@ -1,8 +1,8 @@
 package moe.ouom.wekit.loader.entry.common
 
 import dev.ujhhgtg.nameof.nameof
-import moe.ouom.wekit.loader.abs.IHookBridge
-import moe.ouom.wekit.loader.abs.ILoaderService
+import moe.ouom.wekit.loader.abc.IHookBridge
+import moe.ouom.wekit.loader.abc.ILoaderService
 import moe.ouom.wekit.loader.startup.UnifiedEntryPoint
 import moe.ouom.wekit.utils.logging.WeLogger
 
@@ -11,7 +11,7 @@ object ModuleLoader {
     private val TAG = nameof(ModuleLoader)
 
     @JvmStatic
-    val initErrors = ArrayList<Throwable?>(1)
+    val initErrors = mutableListOf<Throwable?>()
     private var isInitialized = false
 
     @JvmStatic

@@ -7,7 +7,7 @@ object LoaderExtensionHelper {
     const val CMD_GET_XPOSED_BRIDGE_CLASS: String = "GetXposedBridgeClass"
 
     fun getXposedBridgeClass(): Class<*>? {
-        val loaderService = StartupInfo.getLoaderService()
+        val loaderService = StartupInfo.loaderService
         return loaderService.queryExtension(CMD_GET_XPOSED_BRIDGE_CLASS) as Class<*>?
     }
 }

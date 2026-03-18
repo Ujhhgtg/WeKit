@@ -6,7 +6,6 @@ import io.github.libxposed.service.XposedServiceHelper
 import io.github.libxposed.service.XposedServiceHelper.OnServiceListener
 import kotlinx.coroutines.flow.MutableStateFlow
 import moe.ouom.wekit.BuildConfig
-import moe.ouom.wekit.utils.hookstatus.LoaderExtensionHelper
 import java.io.File
 
 /**
@@ -27,10 +26,10 @@ object HookStatus {
     }
 
     val zygoteHookProvider: String?
-        get() = HookStatusImpl.sZygoteHookProvider
+        get() = HookStatusImpl.zygoteHookProvider
 
     val isZygoteHookMode: Boolean
-        get() = HookStatusImpl.sZygoteHookMode
+        get() = HookStatusImpl.zygoteHookMode
 
     val isLegacyXposed: Boolean
         get() {
@@ -77,7 +76,7 @@ object HookStatus {
         }
         var hookProvider: String? = null
         if (dexObfsEnabled) {
-            HookStatusImpl.sIsLsposedDexObfsEnabled = true
+            HookStatusImpl.isLsposedDexObfsEnabled = true
             hookProvider = "LSPosed"
         } else {
             var bridgeTag: String? = null
@@ -98,7 +97,7 @@ object HookStatus {
             }
         }
         if (hookProvider != null) {
-            HookStatusImpl.sZygoteHookProvider = hookProvider
+            HookStatusImpl.zygoteHookProvider = hookProvider
         }
     }
 

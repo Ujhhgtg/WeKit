@@ -1,4 +1,4 @@
-package moe.ouom.wekit.loader.abs
+package moe.ouom.wekit.loader.abc
 
 interface IClassLoaderHelper {
 

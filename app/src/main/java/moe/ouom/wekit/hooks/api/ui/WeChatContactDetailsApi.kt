@@ -6,11 +6,8 @@ import android.widget.BaseAdapter
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.condition.type.Modifiers
 import com.highcapable.kavaref.extension.toClass
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.hooks.utils.annotation.HookItem
-import moe.ouom.wekit.utils.logging.WeLogger
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -65,13 +62,48 @@ object WeChatContactDetailsApi : ApiHookItem() {
 
     override fun onEnable() {
         initReflection()
-        hook()
-        hookItemClick()
+
+        "com.tencent.mm.plugin.profile.ui.ContactInfoUI".toClass().asResolver()
+            .firstMethod { name = "initView" }
+            .hookAfter { param ->
+                val adapterInstance = adapterField.get(param.thisObject as Activity)
+                for (listener in initCallbacks) {
+                    val item = listener.onInitContactInfoView(param.thisObject as Activity)
+                    val pref =
+                        prefConstructor.newInstance(param.thisObject as Context)
+                    item?.let {
+                        setKeyMethod.invoke(pref, it.key)
+                        setTitleMethod.invoke(pref, it.title)
+                        it.summary?.let { summary ->
+                            setSummaryMethod.invoke(
+                                pref,
+                                summary
+                            )
+                        }
+                        addPreferenceMethod.invoke(
+                            adapterInstance,
+                            pref,
+                            it.position
+                        )
+                    }
+                }
+            }
+
+        onPreferenceTreeClickMethod.hookBefore { param ->
+            val preference = param.args[1] ?: return@hookBefore
+            val key = prefKeyField.get(preference) as? String
+            if (key != null) {
+                for (listener in clickListeners) {
+                    if (listener.onItemClick(param.thisObject as Activity, key)) {
+                        param.result = true
+                        break
+                    }
+                }
+            }
+        }
     }
 
     private fun initReflection() {
-        WeLogger.d("WeChatContactDetailsApi", "initReflection")
-
         val prefClass = "com.tencent.mm.ui.base.preference.Preference".toClass()
 
         prefConstructor = prefClass.asResolver()
@@ -124,50 +156,5 @@ object WeChatContactDetailsApi : ApiHookItem() {
         setTitleMethod = charSeqMethods.getOrElse(1) {
             throw RuntimeException("setTitle method not found")
         }
-    }
-
-    fun hook() {
-        "com.tencent.mm.plugin.profile.ui.ContactInfoUI".toClass().asResolver()
-            .firstMethod { name = "initView" }
-            .hookAfter { param ->
-                val adapterInstance = adapterField.get(param.thisObject as Activity)
-                for (listener in initCallbacks) {
-                    val item = listener.onInitContactInfoView(param.thisObject as Activity)
-                    val pref =
-                        prefConstructor.newInstance(param.thisObject as Context)
-                    item?.let {
-                        setKeyMethod.invoke(pref, it.key)
-                        setTitleMethod.invoke(pref, it.title)
-                        it.summary?.let { summary ->
-                            setSummaryMethod.invoke(
-                                pref,
-                                summary
-                            )
-                        }
-                        addPreferenceMethod.invoke(
-                            adapterInstance,
-                            pref,
-                            it.position
-                        )
-                    }
-                }
-            }
-    }
-
-    private fun hookItemClick() {
-        XposedBridge.hookMethod(onPreferenceTreeClickMethod, object : XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam) {
-                val preference = param.args[1] ?: return
-                val key = prefKeyField.get(preference) as? String
-                if (key != null) {
-                    for (listener in clickListeners) {
-                        if (listener.onItemClick(param.thisObject as Activity, key)) {
-                            param.result = true
-                            break
-                        }
-                    }
-                }
-            }
-        })
     }
 }

@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import de.robv.android.xposed.XC_MethodHook;
-import moe.ouom.wekit.loader.abs.IHookBridge;
+import moe.ouom.wekit.loader.abc.IHookBridge;
 
 public class Xp51HookWrapper {
 
