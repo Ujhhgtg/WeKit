@@ -16,7 +16,6 @@ object FridaInjectEntry {
     
     private val TAG = nameof(FridaInjectEntry)
 
-    @Suppress("unused")
     @JvmStatic
     fun entry3(modulePath: String, hostDataDir: String?, xblService: Map<String, Method>?) {
         runCatching {

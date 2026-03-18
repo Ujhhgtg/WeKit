@@ -46,7 +46,7 @@ object WeStartActivityApi : ApiHookItem() {
                 }
             }
             .forEach {
-                hookBefore(it.self) { param ->
+                it.hookBefore { param ->
                     hookStartActivity(param)
                 }
             }
@@ -58,7 +58,7 @@ object WeStartActivityApi : ApiHookItem() {
                 }
             }
             .forEach {
-                hookBefore(it.self) { param ->
+                it.hookBefore { param ->
                     hookStartActivity(param)
                 }
             }

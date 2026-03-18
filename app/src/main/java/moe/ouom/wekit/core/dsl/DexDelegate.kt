@@ -32,7 +32,7 @@ class DexClassDelegate internal constructor(
             if (cachedClass == null && descriptorString != null) {
                 cachedClass = descriptorString!!.toClassOrNull()
             }
-            return cachedClass ?: throw IllegalStateException("Class not found for key: $key")
+            return cachedClass ?: error("Class not found for key: $key")
         }
 
     /**
@@ -107,9 +107,9 @@ class DexMethodDelegate internal constructor(
     val method: Method
         get() {
             if (cachedMethod == null && descriptor != null) {
-                cachedMethod = descriptor!!.getMethodInstance(ClassLoaderProvider.classLoader)
+                cachedMethod = descriptor!!.getMethodInstance(ClassLoaderProvider.classLoader!!)
             }
-            return cachedMethod ?: throw IllegalStateException("Method not found for key: $key")
+            return cachedMethod ?: error("Method not found for key: $key")
         }
 
     /**
@@ -158,13 +158,13 @@ class DexMethodDelegate internal constructor(
 
         if (results.isEmpty()) {
             if (throwOnFailure) {
-                throw RuntimeException("DexKit: No method found for key: $key")
+                error("DexKit: No method found for key: $key")
             }
             return false
         }
 
         if (results.size > 1 && !allowMultiple) {
-            throw RuntimeException("DexKit: Multiple methods found for key: $key, count: ${results.size}")
+            error("DexKit: Multiple methods found for key: $key, count: ${results.size}")
         }
 
         val methodData = results[resultIndex]
