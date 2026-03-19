@@ -56,20 +56,15 @@ object NativeCrashInterceptor : SwitchHookItem() {
             nativeCrashHandler = NativeCrashHandler()
             val installed = nativeCrashHandler?.install() ?: false
 
-            if (installed) {
-                WeLogger.i(
-                    TAG,
-                    "Native crash interceptor installed successfully"
-                )
-            } else {
-                WeLogger.e(TAG, "Failed to install native crash interceptor")
+            if (!installed) {
+                WeLogger.e(TAG, "failed to install native crash interceptor")
             }
 
             // 检查是否有待处理的崩溃
             checkPendingCrash()
 
         } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to install native crash interceptor", e)
+            WeLogger.e(TAG, "failed to install native crash interceptor", e)
         }
     }
 

@@ -244,8 +244,6 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
             }
         }
 
-        WeLogger.i(TAG, "injected settings")
-
         clsSettingsUi.asResolver().firstMethod { name = "onPreferenceTreeClick" }
             .hookBefore { param ->
                 if (param.args.size < 2) return@hookBefore

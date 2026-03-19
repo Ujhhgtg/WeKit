@@ -74,7 +74,6 @@ object ActivityProxy {
             hookPackageManager(ctx, requireNotNull(currentActivityThread), clazzActivityThread)
 
             stubHooked = true
-            WeLogger.i(TAG, "Activity Proxy Hooks installed successfully")
         }.onFailure { WeLogger.e(TAG, "Failed to init stub activity hooks", it) }
     }
 

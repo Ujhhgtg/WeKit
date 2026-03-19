@@ -29,6 +29,7 @@ object DisplayMessageSendTime : SwitchHookItem(),
     }
 
     private const val VIEW_TAG = "wekit_message_send_time"
+    private var clippingDisabled = false
 
     @SuppressLint("SetTextI18n")
     override fun onCreateView(
@@ -40,7 +41,6 @@ object DisplayMessageSendTime : SwitchHookItem(),
         val tag = view.tag
         val text = formatEpoch(msgInfo.createTime)
 
-        // FIXME: method 1, bigger font size leads to clipping
         val avatar = tag.asResolver()
             .firstField {
                 name = "avatarIV"
@@ -54,7 +54,7 @@ object DisplayMessageSendTime : SwitchHookItem(),
         val label = TextView(context).apply {
             this.tag = VIEW_TAG
             this.text = text
-            textSize = 9f
+            textSize = 11f
             gravity = Gravity.CENTER
             setTextColor(Color.GRAY)
         }
@@ -64,18 +64,20 @@ object DisplayMessageSendTime : SwitchHookItem(),
         ).apply {
             addRule(RelativeLayout.ALIGN_TOP, avatar.id)
             addRule(RelativeLayout.CENTER_HORIZONTAL)
-            topMargin = -13
+            topMargin = -24
         }
         parent.addView(label, lp)
 
-        // method 2, not as elegant as method 1 so not using
-//        val timeView = tag.asResolver()
-//            .firstField {
-//                name = "timeTV"
-//                superclass()
-//            }
-//            .get() as? TextView? ?: return
-//        timeView.text = text
-//        timeView.visibility = View.VISIBLE
+        parent.post {
+            if (!clippingDisabled) {
+                var p = avatar.parent as? ViewGroup
+                while (p != null) {
+                    p.clipChildren = false
+                    p.clipToPadding = false
+                    p = p.parent as? ViewGroup
+                }
+                clippingDisabled = true
+            }
+        }
     }
 }
