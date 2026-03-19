@@ -54,7 +54,7 @@ object WePacketDispatcher : ApiHookItem(), IResolvesDex {
                         val lastTime = recentRequests[key]
                         if (lastTime != null && currentTime - lastTime < 500) {
                             // 直接返回，不执行任何请求处理
-                            WeLogger.i("PkgDispatcher", "Request skipped (duplicate): $uri")
+                            WeLogger.i(TAG, "Request skipped (duplicate): $uri")
                             return@hookBefore
                         }
                         // 更新缓存
@@ -70,7 +70,7 @@ object WePacketDispatcher : ApiHookItem(), IResolvesDex {
 
                         WePacketManager.handleRequestTamper(uri, cgiId, reqBytes)?.let { tampered ->
                             XposedHelpers.callMethod(reqPbObj, "parseFrom", tampered)
-                            WeLogger.i("PkgDispatcher", "Request Tampered: $uri")
+                            WeLogger.i(TAG, "Request Tampered: $uri")
                         }
                     } catch (_: Throwable) {
                     }
@@ -108,7 +108,7 @@ object WePacketDispatcher : ApiHookItem(), IResolvesDex {
                                                     tampered
                                                 )
                                                 WeLogger.i(
-                                                    "PkgDispatcher",
+                                                    TAG,
                                                     "Response Tampered (WXP): $uri"
                                                 )
                                             }
@@ -146,7 +146,7 @@ object WePacketDispatcher : ApiHookItem(), IResolvesDex {
                                                             tampered
                                                         )
                                                         WeLogger.i(
-                                                            "PkgDispatcher",
+                                                            TAG,
                                                             "Response Tampered (PB): $uri"
                                                         )
                                                     }
@@ -157,7 +157,7 @@ object WePacketDispatcher : ApiHookItem(), IResolvesDex {
                                         }
                                     }
                                 } catch (t: Throwable) {
-                                    WeLogger.e("PkgDispatcher", "Tamper inner logic fail", t)
+                                    WeLogger.e(TAG, "Tamper inner logic fail", t)
                                 }
                             }
                         }

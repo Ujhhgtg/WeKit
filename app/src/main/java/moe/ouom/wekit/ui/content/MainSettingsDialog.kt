@@ -228,9 +228,9 @@ class MainSettingsDialog(context: Context) : BasePrefDialog(context, BuildConfig
         )
         addPreference(
             title = "Telegram",
-            summary = "@ouom_pub",
+            summary = "@ujhhgtg_wekit_ci",
             iconName = "ic_telegram",
-            onClick = { openUrl(context, "https://t.me/ouom_pub") }
+            onClick = { openUrl(context, "https://t.me/ujhhgtg_wekit_ci") }
         )
     }
 }

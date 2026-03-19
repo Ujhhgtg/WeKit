@@ -349,8 +349,8 @@ class MainActivity : ComponentActivity() {
                     LinkCard(
                         iconRes = R.drawable.ic_telegram,
                         title = "Telegram",
-                        subtitle = "@ouom_pub",
-                        onClick = { onUrlClick("https://t.me/ouom_pub") }
+                        subtitle = "@ujhhgtg_wekit_ci",
+                        onClick = { onUrlClick("https://t.me/ujhhgtg_wekit_ci") }
                     )
                 }
 

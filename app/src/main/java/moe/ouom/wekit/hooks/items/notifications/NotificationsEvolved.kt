@@ -21,10 +21,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import moe.ouom.wekit.constants.PackageNames
 import moe.ouom.wekit.core.model.SwitchHookItem
+import moe.ouom.wekit.hooks.api.core.WeApi
 import moe.ouom.wekit.hooks.api.core.WeConversationApi
 import moe.ouom.wekit.hooks.api.core.WeDatabaseApi
 import moe.ouom.wekit.hooks.api.core.WeMessageApi
-import moe.ouom.wekit.hooks.api.net.WeApi
 import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.utils.HostInfo
 import moe.ouom.wekit.utils.LruCache

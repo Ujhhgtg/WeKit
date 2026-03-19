@@ -1,20 +1,18 @@
 package moe.ouom.wekit.hooks.api.net
 
 import android.annotation.SuppressLint
-import moe.ouom.wekit.utils.RuntimeConfig
-import moe.ouom.wekit.hooks.api.core.WeMessageApi
 import moe.ouom.wekit.utils.logging.WeLogger
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 
-object WeApi {
+/**
+ * MsgId 预览工具
+ */
+object MsgIdPreviewer {
 
-    /**
-     * 获取当前登录的微信 ID
-     */
-    val selfWxId: String
-        get() = RuntimeConfig.getLoggedInWxId()
+    private const val MMKV_FILE_ID = "db_max_id_record"
+    private const val KEY_PREFIX = "msg."
 
     /**
      * 生成 ClientMsgId
@@ -39,15 +37,6 @@ object WeApi {
         return str2 + suffixHex + suffixNum
     }
 
-
-    /**
-     * 获取自己的微信号
-     */
-    val selfCustomWxId: String
-        get() {
-            return WeMessageApi.getSelfCustomWxId()
-        }
-
     /**
      * MD5 实现
      */
@@ -70,15 +59,6 @@ object WeApi {
             ""
         }
     }
-}
-
-/**
- * MsgId 预览工具
- */
-object MsgIdProvider {
-
-    private const val MMKV_FILE_ID = "db_max_id_record"
-    private const val KEY_PREFIX = "msg."
 
     /**
      * 获取下一个可用的 MsgId

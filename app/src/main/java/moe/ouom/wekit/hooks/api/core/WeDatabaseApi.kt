@@ -468,7 +468,8 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
                 initialNickname = row.str("pyInitial"),
                 nicknamePinyin = row.str("quanPin"),
                 avatarUrl = row.str("avatarUrl"),
-                encryptedUsername = row.str("encryptUsername")
+                encryptedUsername = row.str("encryptUsername"),
+                type = row.int("type")
             )
         }
     }

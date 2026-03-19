@@ -9,7 +9,8 @@ data class WeContact(
     val initialNickname: String,
     val nicknamePinyin: String,
     val avatarUrl: String,
-    val encryptedUsername: String
+    val encryptedUsername: String,
+    val type: Int
 )
 
 // 群聊信息模型

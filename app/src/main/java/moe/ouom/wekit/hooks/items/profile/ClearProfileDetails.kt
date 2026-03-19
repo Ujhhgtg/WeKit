@@ -3,8 +3,8 @@ package moe.ouom.wekit.hooks.items.profile
 import android.content.Context
 import androidx.compose.material3.Text
 import moe.ouom.wekit.core.model.ClickableHookItem
-import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.hooks.api.net.WePacketHelper
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.ui.content.AlertDialogContent
 import moe.ouom.wekit.ui.content.TextButton
 import moe.ouom.wekit.ui.utils.showComposeDialog
@@ -27,7 +27,7 @@ object ClearProfileDetails : ClickableHookItem() {
                         WePacketHelper.sendCgi(
                             "/cgi-bin/micromsg-bin/oplog",
                             681, 0, 0,
-                            jsonPayload = payload
+                            payload
                         ) {
                             onSuccess { json, _ ->
                                 WeLogger.i("WeProfileCleaner", "成功，回包: $json")

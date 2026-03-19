@@ -250,7 +250,7 @@ class WeProtoData {
         return before - fields.size
     }
 
-    fun setVarint(fieldNumber: Int, occurrenceIndex: Int, value: Long): Boolean {
+    fun setVarInt(fieldNumber: Int, occurrenceIndex: Int, value: Long): Boolean {
         val idx = findFieldIndex(fieldNumber, occurrenceIndex).takeIf { it >= 0 } ?: return false
         fields[idx].value = value
         return true

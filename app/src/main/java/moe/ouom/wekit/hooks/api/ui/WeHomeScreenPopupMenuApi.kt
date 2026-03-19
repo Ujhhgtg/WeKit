@@ -5,6 +5,7 @@ import android.widget.BaseAdapter
 import androidx.core.util.size
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.createInstance
+import com.highcapable.kavaref.extension.isSubclassOf
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.nameof.nameof
 import moe.ouom.wekit.core.dsl.dexClass
@@ -68,7 +69,7 @@ object WeHomeScreenPopupMenuApi : ApiHookItem(), IResolvesDex {
             val baseAdapter = thisObj.asResolver()
                 .firstField {
                     type { clazz ->
-                        BaseAdapter::class.java.isAssignableFrom(clazz)
+                        clazz isSubclassOf BaseAdapter::class
                     }
                 }
                 .get()!! as BaseAdapter

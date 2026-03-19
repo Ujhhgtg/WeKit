@@ -7,6 +7,7 @@ import moe.ouom.wekit.utils.logging.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 object WePacketManager {
+
     private val listeners = CopyOnWriteArrayList<IWePacketInterceptor>()
 
     fun addInterceptor(interceptor: IWePacketInterceptor) = listeners.addIfAbsent(interceptor)
@@ -18,7 +19,7 @@ object WePacketManager {
             val data = WeProtoData()
             data.fromBytes(reqBytes)
             WeLogger.logChunkedI(
-                "WePkgInterceptor-Request",
+                "WePacketInterceptor.Request",
                 "Request: $uri, CGI=$cgiId, LEN=${reqBytes.size}, Data=${data.toJsonObject()}, Stack=${WeLogger.getStackTraceString()}"
             )
         }
@@ -35,7 +36,7 @@ object WePacketManager {
             val data = WeProtoData()
             data.fromBytes(respBytes)
             WeLogger.logChunkedI(
-                "WePkgInterceptor-Response",
+                "WePacketInterceptor.Response",
                 "Received: $uri, CGI=$cgiId, LEN=${respBytes.size}, Data=${data.toJsonObject()}"
             )
         }

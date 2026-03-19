@@ -5,8 +5,8 @@ import android.os.Looper
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dev.ujhhgtg.nameof.nameof
+import moe.ouom.wekit.hooks.api.core.WeApi
 import moe.ouom.wekit.hooks.api.core.WeMessageApi
-import moe.ouom.wekit.hooks.api.net.WeApi
 import moe.ouom.wekit.utils.ModulePaths
 import moe.ouom.wekit.utils.logging.WeLogger
 import okhttp3.FormBody

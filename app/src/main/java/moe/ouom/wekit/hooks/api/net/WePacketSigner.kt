@@ -1,9 +1,9 @@
 package moe.ouom.wekit.hooks.api.net
 
 import de.robv.android.xposed.XposedHelpers
-import moe.ouom.wekit.hooks.api.net.MsgIdProvider.previewNextId
-import moe.ouom.wekit.hooks.api.net.WeApi.generateClientMsgId
-import moe.ouom.wekit.hooks.api.net.WeApi.selfWxId
+import moe.ouom.wekit.hooks.api.core.WeApi
+import moe.ouom.wekit.hooks.api.net.MsgIdPreviewer.generateClientMsgId
+import moe.ouom.wekit.hooks.api.net.MsgIdPreviewer.previewNextId
 import moe.ouom.wekit.hooks.api.net.abc.ISigner
 import moe.ouom.wekit.hooks.api.net.model.SignResult
 import moe.ouom.wekit.utils.logging.WeLogger
@@ -15,12 +15,10 @@ import org.json.JSONObject
 class NewSendMsgSigner : ISigner {
     override fun match(cgiId: Int) = (cgiId == 522)
     override fun sign(loader: ClassLoader, json: JSONObject): SignResult {
-        val selfWxid = selfWxId
-
         fun applySign(item: JSONObject) {
             val ts = System.currentTimeMillis()
             item.put("4", (ts / 1000).toInt())
-            item.put("5", generateClientMsgId(selfWxid, ts))
+            item.put("5", generateClientMsgId(WeApi.selfWxId, ts))
         }
 
         val list = json.optJSONArray("2")

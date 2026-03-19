@@ -3,14 +3,20 @@ package moe.ouom.wekit.hooks.api.net
 import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
+import com.highcapable.kavaref.extension.ClassLoaderProvider
+import com.highcapable.kavaref.extension.isSubclassOf
 import com.highcapable.kavaref.extension.toClass
 import de.robv.android.xposed.XposedHelpers
+import dev.ujhhgtg.nameof.nameof
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.dexkit.abc.IResolvesDex
-import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.hooks.api.net.abc.WeRequestCallback
+import moe.ouom.wekit.hooks.utils.annotation.HookItem
 import moe.ouom.wekit.utils.logging.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
@@ -48,7 +54,6 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
     private val methodGetNetQueue by dexMethod()
     private val methodNetDispatch by dexMethod()
 
-    private var classLoader: ClassLoader? = null
     private val cgiReqClassMap = mutableMapOf<Int, Class<*>>()
 
     private val signers = listOf(
@@ -58,7 +63,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
         SendPatSigner { classNetScenePat.clazz }
     )
 
-    const val TAG = "PkgHelper"
+    private val TAG = nameof(WePacketHelper)
 
     override fun onEnable() {
 
@@ -66,8 +71,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
         cgiReqClassMap[522] = classNewSendMsgReq.clazz
         cgiReqClassMap[681] = classOplogReq.clazz
 
-
-        WeLogger.i(TAG, "WePkgHelper 核心组件已加载")
+        WeLogger.i(TAG, "initialized")
     }
 
     @SuppressLint("NonUniqueDexKitData")
@@ -392,7 +396,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
         dslBlock: WeRequestDsl.() -> Unit
     ) {
         val dsl = WeRequestDsl().apply(dslBlock)
-        sendCgi(uri, cgiId, funcId, routeId, jsonPayload, dsl as WeRequestCallback)
+        sendCgi(uri, cgiId, funcId, routeId, jsonPayload, dsl)
     }
 
     fun sendCgi(
@@ -403,8 +407,8 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
         jsonPayload: String,
         callback: WeRequestCallback? = null
     ) {
-        val loader = classLoader ?: return
-        Thread {
+        CoroutineScope(Dispatchers.IO).launch {
+            val cl = ClassLoaderProvider.classLoader!!
             try {
                 var jsonObj = JSONObject(jsonPayload)
                 var nativeNetScene: Any? = null
@@ -413,7 +417,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
                 // 签名分发
                 val signer = signers.firstOrNull { it.match(cgiId) }
                 if (signer != null) {
-                    val result = signer.sign(loader, jsonObj)
+                    val result = signer.sign(cl, jsonObj)
                     jsonObj = result.json
                     nativeNetScene = result.nativeNetScene
                     successAction = result.onSendSuccess
@@ -428,7 +432,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
                     val cgiType = XposedHelpers.callMethod(nativeNetScene, "getType") as Int
 
                     val callbackProxy = Proxy.newProxyInstance(
-                        loader,
+                        cl,
                         arrayOf(classIOnSceneEnd.clazz)
                     ) { proxy, method, args ->
                         when (method.name) {
@@ -448,7 +452,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
                                 WeLogger.w(TAG, "注销原生回调失败: ${e.message}")
                             }
 
-                            NativeResponseHandler(cgiId, callback, successAction).invoke(
+                            NativeResponseHandler(callback, successAction).invoke(
                                 proxy,
                                 method,
                                 args
@@ -499,9 +503,9 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
 
                     val rr = XposedHelpers.callMethod(builder, "a")
                     val cbProxy = Proxy.newProxyInstance(
-                        loader,
+                        cl,
                         arrayOf(classCallbackIface.clazz),
-                        ResponseHandler(cgiId, callback, successAction)
+                        ResponseHandler(callback, successAction)
                     )
 
                     val methodD = XposedHelpers.findMethodExact(
@@ -520,12 +524,11 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
                 WeLogger.e(TAG, "[$cgiId] 引擎异常", e)
                 Handler(Looper.getMainLooper()).post { callback?.onFail(-1, -1, e.message ?: "") }
             }
-        }.start()
+        }
     }
 
     // 处理原生 NetScene 的回调
     private class NativeResponseHandler(
-        val cgiId: Int,
         val userCallback: WeRequestCallback?,
         val successAction: (() -> Unit)?
     ) : InvocationHandler {
@@ -551,7 +554,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
                             val v0Class =
                                 XposedHelpers.findClass("com.tencent.mm.network.v0", loader)
                             val rrField = netScene.javaClass.declaredFields.firstOrNull {
-                                v0Class.isAssignableFrom(it.type)
+                                it.type isSubclassOf v0Class
                             }
 
                             val rrObj = if (rrField != null) {
@@ -587,7 +590,6 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
 
     // 处理通用发包的回调
     private class ResponseHandler(
-        val cgiId: Int,
         val userCallback: WeRequestCallback?,
         val successAction: (() -> Unit)?
     ) : InvocationHandler {

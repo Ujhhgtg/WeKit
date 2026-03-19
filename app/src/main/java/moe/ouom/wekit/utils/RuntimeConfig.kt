@@ -26,6 +26,6 @@ object RuntimeConfig {
         mmPrefs = sharedPreferences
     }
 
-    fun getLoggedInWxId(): String =
-        mmPrefs.getString("login_weixin_username", "") ?: ""
+    val loggedInWxId: String
+        get() = mmPrefs.getString("login_weixin_username", "") ?: ""
 }
