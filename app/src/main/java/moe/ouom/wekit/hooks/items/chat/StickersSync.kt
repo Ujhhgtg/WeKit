@@ -265,8 +265,8 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
             .invoke(md5)!!
     }
 
-    private const val PLACEHOLDER_PACK_URL = "https://avatars.githubusercontent.com/Ujhhgtg"
-    private const val SEPERATOR = ":"
+    private const val PLACEHOLDER_PACK_URL = "https://example.com"
+    private const val SEPERATOR = ";"
 
     override fun onEnable() {
         val emojiGroupInfoCls = "com.tencent.mm.storage.emotion.EmojiGroupInfo".toClass()
@@ -347,21 +347,21 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
             }
         }
 
-//        ctorResourceLoadOptions.hookAfter { param ->
-//            val url = param.args[0] as String
-//            if (url.startsWith(PLACEHOLDER_PACK_URL)) {
-//                val fResSource = param.thisObject.asResolver()
-//                    .firstField {
-//                        type { it isSubclassOf Enum::class }
-//                    }
-//                val newResSource = enumValueOfClass(fResSource.get()!!.javaClass, "LOCAL_PATH")
-//                fResSource.set(newResSource)
-//                param.thisObject.asResolver()
-//                    .firstField { type = Any::class }
-//                    .set((stickersDir / url.substringAfter(SEPERATOR)).absolutePathString())
-//                WeLogger.d(TAG, "intercepted")
-//            }
-//        }
+        ctorResourceLoadOptions.hookAfter { param ->
+            val url = param.args[0] as String
+            if (url.startsWith(PLACEHOLDER_PACK_URL)) {
+                val fResSource = param.thisObject.asResolver()
+                    .firstField {
+                        type { it isSubclassOf Enum::class }
+                    }
+                val newResSource = enumValueOfClass(fResSource.get()!!.javaClass, "LOCAL_PATH")
+                fResSource.set(newResSource)
+                param.thisObject.asResolver()
+                    .firstField { type = Any::class }
+                    .set((stickersDir / url.substringAfter(SEPERATOR) / ".pack_icon.png").absolutePathString())
+                WeLogger.d(TAG, "intercepted")
+            }
+        }
     }
 
     override fun resolveDex(dexKit: DexKitBridge): Map<String, String> {
