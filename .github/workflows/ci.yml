@@ -60,8 +60,17 @@ jobs:
         run: |
           sudo apt install -y gcc-multilib
 
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/wekit-keystore.jks
+
       - name: Build Release
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
+        env:
+          WEKIT_KEYSTORE_FILE: ${{ runner.temp }}/wekit-keystore.jks
+          WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --warning-mode all --stacktrace
 
       - name: Upload Release

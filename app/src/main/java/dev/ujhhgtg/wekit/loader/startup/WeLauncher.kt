@@ -14,14 +14,14 @@ import dev.ujhhgtg.wekit.loader.utils.ActivityProxy
 import dev.ujhhgtg.wekit.loader.utils.ParcelableFixer
 import dev.ujhhgtg.wekit.utils.ModuleRes
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
-import dev.ujhhgtg.wekit.utils.TargetProcessUtils
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
 
 object WeLauncher {
 
     fun init(cl: ClassLoader, context: Context) {
-        val processType = TargetProcessUtils.getCurrentProcessType()
-        val currentProcessName = TargetProcessUtils.getCurrentProcessName()
+        val processType = TargetProcesses.getCurrentProcessType()
+        val currentProcessName = TargetProcesses.getCurrentProcessName()
         WeLogger.d(TAG, "launching in processName=$currentProcessName, type=$processType")
 
         ParcelableFixer.init(cl, WeLauncher::class.java.classLoader!!)
@@ -29,7 +29,7 @@ object WeLauncher {
         val pi = context.packageManager.getPackageInfo(context.packageName, 0)
         DexCacheManager.init(requireNotNull(pi.versionName))
 
-        if (processType == TargetProcessUtils.PROC_MAIN) {
+        if (processType == TargetProcesses.PROC_MAIN) {
             val appContext = context.applicationContext ?: context
             ActivityProxy.initForStubActivity(appContext)
 

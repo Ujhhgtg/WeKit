@@ -15,10 +15,6 @@ import android.graphics.drawable.Icon
 import androidx.core.content.ContextCompat
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import dev.ujhhgtg.nameof.nameof
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.core.model.SwitchHookItem
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
@@ -29,9 +25,14 @@ import dev.ujhhgtg.wekit.hooks.utils.annotation.HookItem
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.KnownPaths
 import dev.ujhhgtg.wekit.utils.LruCache
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
 import dev.ujhhgtg.wekit.utils.replaceEmojis
 import dev.ujhhgtg.wekit.utils.replaceRichContent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.io.path.div
@@ -46,6 +47,9 @@ import kotlin.io.path.writeBytes
 object NotificationsEvolved : SwitchHookItem() {
 
     private val TAG = nameof(NotificationsEvolved)
+
+    override val targetProcesses: Int
+        get() = TargetProcesses.PROC_MAIN or TargetProcesses.PROC_PUSH
 
     private val lastGroupChatSender = LruCache<String, String>()
 

@@ -21,7 +21,7 @@ import dev.ujhhgtg.wekit.ui.content.DexResolverDialogContent
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
-import dev.ujhhgtg.wekit.utils.TargetProcessUtils
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.measureTime
@@ -93,7 +93,7 @@ object HookItemsLoader {
         brokenItems: List<IResolvesDex>
     ) {
         if (WePrefs.getBoolOrFalse(NO_DEX_RESOLVE)) return
-        if (process != TargetProcessUtils.PROC_MAIN) return
+        if (process != TargetProcesses.PROC_MAIN) return
 
         WeLogger.i(TAG, "launching background coroutine to repair ${brokenItems.size} items")
 

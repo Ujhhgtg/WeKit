@@ -9,7 +9,7 @@ import dev.ujhhgtg.wekit.core.dsl.DexConstructorDelegate
 import dev.ujhhgtg.wekit.core.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.HookAction
-import dev.ujhhgtg.wekit.utils.TargetProcessUtils
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
 import java.lang.reflect.Executable
 
@@ -19,14 +19,14 @@ abstract class BaseHookItem {
 
     var description: String = ""
 
-    open val targetProcess = TargetProcessUtils.PROC_MAIN
+    open val targetProcesses = TargetProcesses.PROC_MAIN
 
     var hasEnabled: Boolean = false
         private set
 
     fun enable(process: Int = 1) {
         if (hasEnabled) return
-        if (process != targetProcess) return
+        if (process and targetProcesses == 0) return
         runCatching {
             hasEnabled = true
             onEnable()
@@ -35,7 +35,7 @@ abstract class BaseHookItem {
 
     fun disable(process: Int = 1) {
         if (!hasEnabled) return
-        if (process != targetProcess) return
+        if (process and targetProcesses == 0) return
         runCatching {
             hasEnabled = false
             onDisable()

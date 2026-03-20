@@ -5,7 +5,7 @@ import android.content.Context
 import android.os.Process
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
 
-object TargetProcessUtils {
+object TargetProcesses {
 
     const val PROC_MAIN = 1
     const val PROC_PUSH = 1 shl 1

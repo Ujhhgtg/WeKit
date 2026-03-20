@@ -134,20 +134,26 @@ configure<ApplicationExtension> {
 
     sourceSets["main"].jniLibs.directories += "src/main/jniLibs"
 
-    buildTypes {
-        signingConfigs {
-            getByName("debug") {
-                storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
-            }
+    signingConfigs {
+        create("release") {
+            storeFile = file(
+                System.getenv("WEKIT_KEYSTORE_FILE")
+                    ?: project.property("WEKIT_KEYSTORE_FILE") as String
+            )
+            storePassword = System.getenv("WEKIT_KEYSTORE_PASSWORD")
+                ?: project.property("WEKIT_KEYSTORE_PASSWORD") as String
+            keyAlias = System.getenv("WEKIT_KEY_ALIAS")
+                ?: project.property("WEKIT_KEY_ALIAS") as String
+            keyPassword = System.getenv("WEKIT_KEY_PASSWORD")
+                ?: project.property("WEKIT_KEY_PASSWORD") as String
         }
+    }
 
+    buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
