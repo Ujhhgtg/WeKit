@@ -21,6 +21,7 @@
 - 原生库移植至 Rust
 - 支持 arm64 与 x86_64
 - 修复问题
+- 无须禁用「Xposed API 调用保护」
 - 大量新功能
 
 ## 宿主需求
@@ -67,6 +68,7 @@ sudo apt install gcc-multilib rustup
 rustup toolchain install stable
 rustup default stable
 rustup target add x86_64-linux-android aarch64-linux-android
+$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;$(grep '^ndk' ./gradle/libs.versions.toml | sed 's/.*= "\(.*\)"/\1/')"
 ```
 
 #### B. Arch Linux
@@ -77,6 +79,7 @@ yay -Syu lib32-glibc rustup
 rustup toolchain install stable
 rustup default stable
 rustup target add x86_64-linux-android aarch64-linux-android
+$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;$(grep '^ndk' ./gradle/libs.versions.toml | sed 's/.*= "\(.*\)"/\1/')"
 ```
 
 #### C. Windows
@@ -97,7 +100,7 @@ chmod +x ./gradlew
 ## Q&A
 
 1. - Q: 我的微信突然卡得要死, 狂吃内存
-   - A：尝试禁用 'Xposed API 调用保护' 和 '隐藏应用列表'
+   - A：尝试禁用「Xposed API 调用保护」和「隐藏应用列表」
 2. - Q: XXX
    - A: [![问 DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Ujhhgtg/WeKit)
 
