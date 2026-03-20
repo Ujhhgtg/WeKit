@@ -16,6 +16,7 @@ import dev.ujhhgtg.wekit.core.model.SwitchHookItem
 import dev.ujhhgtg.wekit.hooks.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.hooks.utils.annotation.HookItem
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.ModuleRes
 import dev.ujhhgtg.wekit.utils.ToastUtils
@@ -67,7 +68,8 @@ object DisplayMessageDetails : SwitchHookItem(),
                                         })
                                 }
                             }
-                        })
+                        },
+                        confirmButton = { Button(dismiss) { Text("关闭") } })
                 }
             }
         )

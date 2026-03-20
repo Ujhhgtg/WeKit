@@ -26,11 +26,6 @@
   public static final android.os.Parcelable$Creator *;
 }
 
-# Gson
--keepclassmembers class * {
-    @com.google.gson.annotations.SerializedName <fields>;
-}
-
 # Suppress warnings
 -dontwarn java.lang.reflect.AnnotatedType
 -dontwarn java.beans.**

@@ -56,8 +56,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.topjohnwu.superuser.Shell
-import io.github.libxposed.service.XposedService
-import kotlinx.coroutines.delay
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
@@ -71,6 +69,8 @@ import dev.ujhhgtg.wekit.utils.getEnabled
 import dev.ujhhgtg.wekit.utils.hookstatus.HookStatus
 import dev.ujhhgtg.wekit.utils.openInSystem
 import dev.ujhhgtg.wekit.utils.setEnabled
+import io.github.libxposed.service.XposedService
+import kotlinx.coroutines.delay
 
 
 class MainActivity : ComponentActivity() {
@@ -358,7 +358,7 @@ class MainActivity : ComponentActivity() {
                 if (showAboutDialog) {
                     AlertDialog(
                         onDismissRequest = { showAboutDialog = false },
-                        title = { Text(text = "关于 WeKit") },
+                        title = { Text(text = "关于") },
                         text = {
                             Column {
                                 Text("WeKit 是一款基于 Xposed 框架的开源免费微信模块")
@@ -428,4 +428,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

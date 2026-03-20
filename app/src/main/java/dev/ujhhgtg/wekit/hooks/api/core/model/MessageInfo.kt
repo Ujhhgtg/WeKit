@@ -1,10 +1,17 @@
 package dev.ujhhgtg.wekit.hooks.api.core.model
 
-import com.google.gson.Gson
-import com.google.gson.JsonElement
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseApi
+import dev.ujhhgtg.wekit.utils.DefaultJson
+import dev.ujhhgtg.wekit.utils.asInt
+import dev.ujhhgtg.wekit.utils.asLong
+import dev.ujhhgtg.wekit.utils.asString
 import dev.ujhhgtg.wekit.utils.getByPath
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 
 class MessageInfo(val instance: Any) {
 
@@ -66,20 +73,20 @@ class MessageInfo(val instance: Any) {
 
     class PatMessage(jsonString: String) {
 
-        private val json = Gson().fromJson(jsonString, JsonElement::class.java)
-        val createTime: Long? by lazy { this.recordObj?.getByPath("createTime")?.asLong }
+        private val json = DefaultJson.parseToJsonElement(jsonString)
+        val createTime by lazy { this.recordObj?.getByPath("createTime")?.asLong }
         val fromUser by lazy { this.recordObj?.getByPath("fromUser")?.asString }
         val pattedUser by lazy { this.recordObj?.getByPath("pattedUser")?.asString }
         val readStatus by lazy { this.recordObj?.getByPath("readStatus")?.asInt }
-        val recordNum by lazy { json.getByPath("msg.appmsg.patMsg.records.recordNum")?.asInt }
+        val recordNum by lazy { json.getByPath("msg.appmsg.patMsg.records.recordNum")?.jsonPrimitive?.intOrNull }
         val showModifyTip by lazy { this.recordObj?.getByPath("showModifyTip")?.asInt }
         val svrId by lazy { this.recordObj?.getByPath("svrId")?.asLong }
         val talker by lazy { json.getByPath("msg.appmsg.patMsg.chatUser")?.asString }
         val template by lazy { this.recordObj?.getByPath("template")?.asString }
         val recordObj: JsonElement? by lazy {
             val byPath = this.json.getByPath("msg.appmsg.patMsg.records.record") ?: return@lazy null
-            if (byPath.isJsonArray) {
-                return@lazy byPath.asJsonArray.get(0)
+            if (byPath is JsonArray) {
+                return@lazy byPath.jsonArray[0]
             }
             return@lazy byPath
         }

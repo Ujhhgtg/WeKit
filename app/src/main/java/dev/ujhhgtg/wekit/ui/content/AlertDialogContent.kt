@@ -70,11 +70,13 @@ fun AlertDialogContent(
                 val bodyStyle = MaterialTheme.typography.bodyMedium
                 val bodyColor = MaterialTheme.colorScheme.onSurface
 
-                CompositionLocalProvider(
-                    LocalTextStyle provides bodyStyle,
-                    LocalContentColor provides bodyColor
-                ) {
-                    it()
+                Box(modifier = Modifier.weight(1f, fill = false)) {
+                    CompositionLocalProvider(
+                        LocalTextStyle provides bodyStyle,
+                        LocalContentColor provides bodyColor
+                    ) {
+                        it()
+                    }
                 }
             }
 

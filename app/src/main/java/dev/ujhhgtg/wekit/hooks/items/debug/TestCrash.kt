@@ -17,6 +17,7 @@ import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.wekit.core.model.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.utils.annotation.HookItem
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.ToastUtils.showToast
@@ -170,16 +171,16 @@ object TestCrash : ClickableHookItem() {
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text("确认触发崩溃") },
-                text = { Text("确定要触发 $category 测试崩溃吗?\n这可能会导致微信数据丢失") },
+                text = { Text("确定要触发 $category 测试崩溃吗?\n这可能导致微信数据丢失") },
                 confirmButton = {
-                    TextButton(onClick = {
+                    Button(onClick = {
                         dismiss()
                         when (category) {
                             "Java" -> triggerJavaCrash(crashType)
                             "Native" -> triggerNativeCrash(crashType)
                         }
                     }) {
-                        Text("确定", color = MaterialTheme.colorScheme.error)
+                        Text("确定")
                     }
                 },
                 dismissButton = {

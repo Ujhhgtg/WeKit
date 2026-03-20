@@ -2,14 +2,15 @@ package dev.ujhhgtg.wekit.hooks.items.scripting_js
 
 import android.os.Handler
 import android.os.Looper
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import dev.ujhhgtg.nameof.nameof
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
+import dev.ujhhgtg.wekit.utils.DefaultJson
 import dev.ujhhgtg.wekit.utils.KnownPaths
 import dev.ujhhgtg.wekit.utils.createDirectoriesNoThrow
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -502,28 +503,25 @@ object JsApiExposer {
         loadStorageFromDisk()
     }
 
-    private val gson = Gson()
     private val saveHandler = Handler(Looper.getMainLooper())
     private val saveRunnable = Runnable {
-        try {
-            storageFile.writeText(gson.toJson(storage))
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "Failed to save js storage to disk", e)
-        }
+        runCatching {
+            storageFile.writeText(DefaultJson.encodeToString(storage.mapValues { it.value }))
+        }.onFailure { WeLogger.e(TAG, "failed to save js storage to disk", it) }
     }
 
     private fun loadStorageFromDisk() {
-        try {
+        runCatching {
             if (!storageFile.exists()) return
-            val json = storageFile.readText()
-            val map = gson.fromJson<Map<String, Any?>>(
-                json,
-                object : TypeToken<Map<String, Any?>>() {}.type
-            )
-            map?.forEach { (k, v) -> storage[k] = v }
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "Failed to load js storage from disk", e)
-        }
+            val map = DefaultJson.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(storageFile.readText())
+            map.forEach { (k, v) ->
+                storage[k] = when (v) {
+                    is kotlinx.serialization.json.JsonPrimitive if v.isString -> v.content
+                    is kotlinx.serialization.json.JsonPrimitive -> v.jsonPrimitive.contentOrNull
+                    else -> v.toString()
+                }
+            }
+        }.onFailure { WeLogger.e(TAG, "failed to load js storage from disk", it) }
     }
 
     // prevent blocking js execution if the file grows too large, but that would be a misuse of this API anyway

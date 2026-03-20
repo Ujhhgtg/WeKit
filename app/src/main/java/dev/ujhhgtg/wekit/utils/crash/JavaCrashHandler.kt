@@ -1,40 +1,25 @@
 package dev.ujhhgtg.wekit.utils.crash
 
-import android.content.Context
 import android.os.Process
 import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.crash.CrashInfoCollector.collectCrashInfo
-import dev.ujhhgtg.wekit.utils.polyfills.getThreadId
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
+import dev.ujhhgtg.wekit.utils.polyfills.getThreadId
 
-class JavaCrashHandler(context: Context) : Thread.UncaughtExceptionHandler {
+object JavaCrashHandler : Thread.UncaughtExceptionHandler {
 
-    companion object {
-        private val TAG = nameof(JavaCrashHandler::class)
-    }
+    private val TAG = nameof(JavaCrashHandler::class)
 
-    private val context: Context = context.applicationContext
     private val defaultHandler: Thread.UncaughtExceptionHandler? =
         Thread.getDefaultUncaughtExceptionHandler()
 
-    /**
-     * 获取崩溃日志管理器
-     *
-     * @return 崩溃日志管理器
-     */
-    val crashLogsManager: CrashLogsManager = CrashLogsManager()
     private var isHandling = false
 
-    /**
-     * 安装崩溃拦截器
-     */
     fun install() {
         Thread.setDefaultUncaughtExceptionHandler(this)
     }
 
-    /**
-     * 卸载崩溃拦截器
-     */
     fun uninstall() {
         if (defaultHandler != null) {
             Thread.setDefaultUncaughtExceptionHandler(defaultHandler)
@@ -42,7 +27,6 @@ class JavaCrashHandler(context: Context) : Thread.UncaughtExceptionHandler {
     }
 
     override fun uncaughtException(thread: Thread, throwable: Throwable) {
-        // 防止递归调用
         if (isHandling) {
             WeLogger.e(
                 TAG,
@@ -66,10 +50,10 @@ class JavaCrashHandler(context: Context) : Thread.UncaughtExceptionHandler {
             WeLogger.e(TAG, "========================================")
 
             // 收集崩溃信息
-            val crashInfo = collectCrashInfo(context, throwable, "JAVA")
+            val crashInfo = collectCrashInfo(HostInfo.application, throwable, "JAVA")
 
             // 保存崩溃日志（标记为Java崩溃）
-            val logPath = crashLogsManager.saveCrashLog(crashInfo, true)
+            val logPath = CrashLogsManager.saveCrashLog(crashInfo, true)
             if (logPath != null) {
                 WeLogger.i(TAG, "java crash log saved to: $logPath")
             } else {

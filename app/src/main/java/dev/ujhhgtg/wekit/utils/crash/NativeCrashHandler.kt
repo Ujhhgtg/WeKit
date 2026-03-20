@@ -3,18 +3,9 @@ package dev.ujhhgtg.wekit.utils.crash
 import dev.ujhhgtg.nameof.nameof
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
 
-class NativeCrashHandler {
+object NativeCrashHandler {
 
-    companion object {
-        private val TAG = nameof(NativeCrashHandler::class)
-    }
-
-    /**
-     * 获取崩溃日志管理器
-     *
-     * @return 崩溃日志管理器
-     */
-    val crashLogsManager: CrashLogsManager = CrashLogsManager()
+    private val TAG = nameof(NativeCrashHandler::class)
 
     var isInstalled: Boolean = false
 
@@ -37,7 +28,7 @@ class NativeCrashHandler {
         }
 
         try {
-            val crashLogDir = crashLogsManager.crashLogDirPath
+            val crashLogDir = CrashLogsManager.crashLogDirPath
             val result = installNative(crashLogDir)
 
             if (result) {

@@ -23,7 +23,7 @@ import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-class CrashLogsManager {
+object CrashLogsManager {
 
     private val crashLogsDir: Path by lazy { KnownPaths.moduleData / CRASH_LOGS_DIR }
 
@@ -118,7 +118,7 @@ class CrashLogsManager {
     fun deleteAllCrashLogs(): Int {
         val count = allCrashLogs.count { deleteCrashLog(it) }
         clearPendingCrashFlag()
-        WeLogger.i(TAG, "Deleted $count crash logs")
+        WeLogger.i(TAG, "deleted $count crash logs")
         return count
     }
 
@@ -212,15 +212,13 @@ class CrashLogsManager {
         }
     }
 
-    companion object {
-        private val TAG = nameof(CrashLogsManager::class)
+    private val TAG = nameof(CrashLogsManager::class)
 
-        private const val CRASH_LOGS_DIR = "crash_logs"
-        private const val CRASH_LOGS_PREFIX = "crash_"
-        private const val CRASH_LOG_SUFFIX = ".log"
-        private const val PENDING_CRASH_FLAG = "pending_crash.flag"
-        private const val PENDING_JAVA_CRASH_FLAG = "pending_java_crash.flag"
-        private const val MAX_LOG_FILES = 50
-        private const val MAX_LOG_CONTENT_SIZE = 30 * 1024
-    }
+    private const val CRASH_LOGS_DIR = "crash_logs"
+    private const val CRASH_LOGS_PREFIX = "crash_"
+    private const val CRASH_LOG_SUFFIX = ".log"
+    private const val PENDING_CRASH_FLAG = "pending_crash.flag"
+    private const val PENDING_JAVA_CRASH_FLAG = "pending_java_crash.flag"
+    private const val MAX_LOG_FILES = 50
+    private const val MAX_LOG_CONTENT_SIZE = 30 * 1024
 }

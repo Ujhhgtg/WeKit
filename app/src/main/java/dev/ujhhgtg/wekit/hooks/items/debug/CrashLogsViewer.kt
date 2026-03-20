@@ -23,7 +23,6 @@ import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -61,15 +60,12 @@ object CrashLogsViewer : ClickableHookItem() {
 
     private val TAG = nameof(CrashLogsViewer)
 
-    private val crashLogsManager by lazy { CrashLogsManager() }
-
     override fun onClick(context: Context) {
         showCrashLogList(context)
     }
 
     private fun showCrashLogList(context: Context) {
-        val manager = crashLogsManager
-        val logFiles = manager.allCrashLogs
+        val logFiles = CrashLogsManager.allCrashLogs
 
         if (logFiles.isEmpty()) {
             ToastUtils.showToast(context, "暂无崩溃日志")
@@ -115,7 +111,7 @@ object CrashLogsViewer : ClickableHookItem() {
                     TextButton(onClick = {
                         dismiss()
                         confirmDeleteAllLogs(context)
-                    }) { Text("全部删除", color = MaterialTheme.colorScheme.error) }
+                    }) { Text("全部删除") }
                 },
                 confirmButton = { Button(dismiss) { Text("关闭") } }
             )
@@ -199,8 +195,7 @@ object CrashLogsViewer : ClickableHookItem() {
 
     private fun showCrashLogDetail(context: Context, logFile: Path) {
         try {
-            val manager = crashLogsManager
-            val crashInfo = manager.readCrashLog(logFile) ?: run {
+            val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: run {
                 ToastUtils.showToast(context, "读取日志失败")
                 return
             }
@@ -253,25 +248,23 @@ object CrashLogsViewer : ClickableHookItem() {
 
     private fun copyLogToClipboard(context: Context, logFile: Path) {
         try {
-            val manager = crashLogsManager
-            val crashInfo = manager.readCrashLog(logFile) ?: run {
+            val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: run {
                 ToastUtils.showToast(context, "读取日志失败")
                 return
             }
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-            clipboard?.setPrimaryClip(ClipData.newPlainText("Crash Log", crashInfo))
-            WeLogger.i(TAG, "Crash log copied to clipboard: ${logFile.name}")
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Crash Log", crashInfo))
+            WeLogger.i(TAG, "crash log copied to clipboard: ${logFile.name}")
             ToastUtils.showToast(context, "日志已复制到剪贴板")
         } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to copy log to clipboard", e)
+            WeLogger.e(TAG, "failed to copy log to clipboard", e)
             ToastUtils.showToast(context, "复制失败: ${e.message}")
         }
     }
 
     private fun shareLog(context: Context, logFile: Path) {
         try {
-            val manager = crashLogsManager
-            val crashInfo = manager.readCrashLog(logFile) ?: run {
+            val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: run {
                 ToastUtils.showToast(context, "读取日志失败")
                 return
             }
@@ -298,11 +291,11 @@ object CrashLogsViewer : ClickableHookItem() {
                 title = { Text("确认删除") },
                 text = { Text("确定要删除这条崩溃日志吗?") },
                 confirmButton = {
-                    TextButton(onClick = {
+                    Button(onClick = {
                         deleteLog(context, logFile)
                         dismiss()
                     }) {
-                        Text("删除", color = MaterialTheme.colorScheme.error)
+                        Text("删除")
                     }
                 },
                 dismissButton = {
@@ -314,8 +307,7 @@ object CrashLogsViewer : ClickableHookItem() {
 
     private fun deleteLog(context: Context, logFile: Path) {
         try {
-            val manager = crashLogsManager
-            if (manager.deleteCrashLog(logFile)) {
+            if (CrashLogsManager.deleteCrashLog(logFile)) {
                 WeLogger.i(TAG, "Crash log deleted: ${logFile.name}")
                 ToastUtils.showToast(context, "日志已删除")
             } else {
@@ -329,16 +321,15 @@ object CrashLogsViewer : ClickableHookItem() {
 
     private fun confirmDeleteAllLogs(context: Context) {
         showComposeDialog(context) {
-            AlertDialog(
-                onDismissRequest = dismiss,
+            AlertDialogContent(
                 title = { Text("确认删除") },
                 text = { Text("确定要删除所有崩溃日志吗?") },
                 confirmButton = {
-                    TextButton(onClick = {
+                    Button(onClick = {
                         deleteAllLogs(context)
                         dismiss()
                     }) {
-                        Text("全部删除", color = MaterialTheme.colorScheme.error)
+                        Text("确定")
                     }
                 },
                 dismissButton = {
@@ -350,8 +341,7 @@ object CrashLogsViewer : ClickableHookItem() {
 
     private fun deleteAllLogs(context: Context) {
         try {
-            val manager = crashLogsManager
-            val count = manager.deleteAllCrashLogs()
+            val count = CrashLogsManager.deleteAllCrashLogs()
             WeLogger.i(TAG, "Deleted $count crash logs")
             ToastUtils.showToast(context, "已删除 $count 条日志")
         } catch (e: Throwable) {
@@ -362,8 +352,7 @@ object CrashLogsViewer : ClickableHookItem() {
 
     private fun buildCrashSummary(logFile: Path): String {
         return try {
-            val manager = crashLogsManager
-            val crashInfo = manager.readCrashLog(logFile) ?: return "读取日志失败"
+            val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: return "读取日志失败"
 
             buildString {
                 append("文件名: ${logFile.name}\n")

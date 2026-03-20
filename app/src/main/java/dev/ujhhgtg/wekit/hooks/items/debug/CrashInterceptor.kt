@@ -1,25 +1,15 @@
 package dev.ujhhgtg.wekit.hooks.items.debug
 
 import android.annotation.SuppressLint
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.os.Handler
-import android.os.Looper
-import android.os.Process
-import android.widget.Toast
-import com.afollestad.materialdialogs.MaterialDialog
-import com.highcapable.kavaref.extension.toClass
+import android.app.Activity
 import dev.ujhhgtg.nameof.nameof
 import dev.ujhhgtg.wekit.core.model.SwitchHookItem
 import dev.ujhhgtg.wekit.hooks.utils.annotation.HookItem
-import dev.ujhhgtg.wekit.ui.utils.CommonContextWrapper
-import dev.ujhhgtg.wekit.utils.RuntimeConfig
+import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.ToastUtils
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.crash.JavaCrashHandler
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
-import java.io.File
-import java.nio.file.Path
 
 @HookItem(
     path = "调试/崩溃拦截",
@@ -30,257 +20,46 @@ object CrashInterceptor : SwitchHookItem() {
 
     private val TAG = nameof(CrashInterceptor)
 
-    private var javaCrashHandler: JavaCrashHandler? = null
-    private var crashLogsManager: CrashLogsManager? = null
-    private var appContext: Context? = null
-    private var hasPendingCrashToShow = false
-    private var pendingDialog: MaterialDialog? = null
-
     override fun onEnable() {
-        try {
-            // 获取 Application Context
-            val activityThreadClass = "android.app.ActivityThread".toClass()
-            val currentApplicationMethod = activityThreadClass.getMethod("currentApplication")
-            appContext = currentApplicationMethod.invoke(null) as? Context
-
-            if (appContext == null) {
-                WeLogger.e("CrashInterceptor", "Failed to get application context")
-                return
-            }
-
-            // 初始化崩溃日志管理器
-            crashLogsManager = CrashLogsManager()
-
-            // 安装 Java 崩溃拦截器
-            javaCrashHandler = JavaCrashHandler(appContext!!)
-            javaCrashHandler?.install()
-
-            // 检查是否有待处理的崩溃
-            checkPendingCrash()
-
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to install crash interceptor", e)
-        }
+        JavaCrashHandler.install()
+        checkPendingCrash()
     }
 
-    /**
-     * 检查是否有待处理的崩溃
-     */
     private fun checkPendingCrash() {
-        try {
-            val manager = crashLogsManager ?: return
-
-            // 只在主进程中检查待处理的崩溃
-            if (!isMainProcess()) {
-                WeLogger.d("CrashInterceptor", "Skipping pending crash check in non-main process")
+        runCatching {
+            if (!CrashInterceptorUtils.isMainProcess(HostInfo.application)) {
+                WeLogger.d(TAG, "skipping pending crash check in non-main process")
                 return
             }
 
-            // 只检查Java崩溃
-            if (manager.hasPendingJavaCrash()) {
+            if (CrashLogsManager.hasPendingJavaCrash()) {
                 WeLogger.i(
                     TAG,
                     "pending Java crash detected, will show dialog when Activity is ready"
                 )
-                hasPendingCrashToShow = true
-                showToast("检测到上次 Java 崩溃,正在准备崩溃报告...")
-                startActivityPolling()
-            }
-        } catch (e: Throwable) {
-            WeLogger.e("[CrashInterceptor] Failed to check pending crash", e)
-        }
-    }
-
-    /**
-     * 启动Activity轮询机制
-     */
-    private fun startActivityPolling() {
-        val handler = Handler(Looper.getMainLooper())
-        var retryCount = 0
-        val maxRetries = 20
-
-        val pollingRunnable = object : Runnable {
-            override fun run() {
-                try {
-                    if (!hasPendingCrashToShow) return
-
-                    val activity = RuntimeConfig.getLauncherUiActivity()
-                    if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
-                        WeLogger.i(
-                            "CrashInterceptor",
-                            "Activity is ready, showing pending crash dialog"
-                        )
-                        showPendingCrashDialog()
-                        return
-                    }
-
-                    retryCount++
-                    if (retryCount < maxRetries) {
-                        handler.postDelayed(this, 500)
-                    } else {
-                        WeLogger.w("CrashInterceptor", "Max retries reached")
-                        hasPendingCrashToShow = false
-                    }
-                } catch (e: Throwable) {
-                    WeLogger.e("[CrashInterceptor] Error in activity polling", e)
+                ToastUtils.showToast("检测到上次 Java 崩溃, 正在准备崩溃报告...")
+                CrashInterceptorUtils.startActivityPolling(TAG) { activity ->
+                    showPendingJavaCrashDialog(activity)
                 }
             }
-        }
-        handler.postDelayed(pollingRunnable, 1000)
+        }.onFailure { WeLogger.e(TAG, "failed to check for pending crash", it) }
     }
 
-    private fun isMainProcess(): Boolean {
-        return try {
-            val context = appContext ?: return false
-            val processName = getProcessName()
-            processName == context.packageName
-        } catch (_: Throwable) {
-            false
-        }
-    }
-
-    private fun getProcessName(): String {
-        return try {
-            File("/proc/${Process.myPid()}/cmdline").readText().trim('\u0000')
-        } catch (_: Throwable) {
-            ""
-        }
-    }
-
-    private fun dismissPendingDialog() {
-        try {
-            pendingDialog?.dismiss()
-            pendingDialog = null
-        } catch (e: Throwable) {
-            WeLogger.e("[CrashInterceptor] Failed to dismiss pending dialog", e)
-        }
-    }
-
-    /**
-     * 显示待处理的崩溃对话框
-     */
-    private fun showPendingCrashDialog() {
-        try {
-            val manager = crashLogsManager ?: return
-            val activity = RuntimeConfig.getLauncherUiActivity()
-
-            if (activity == null || activity.isFinishing || activity.isDestroyed) {
-                hasPendingCrashToShow = true
-                return
-            }
-
-            val crashLogFile = manager.pendingJavaCrashLogFile ?: run {
-                hasPendingCrashToShow = false
-                return
-            }
-
-            val crashInfo = manager.readCrashLog(crashLogFile) ?: run {
-                hasPendingCrashToShow = false
-                return
-            }
-
-            val summary = extractCrashSummary(crashInfo)
-
+    private fun showPendingJavaCrashDialog(activity: Activity) {
+        runCatching {
+            val crashLogFile = CrashLogsManager.pendingJavaCrashLogFile ?: return
             WeLogger.i(TAG, "crashLogFile: $crashLogFile")
-
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    dismissPendingDialog()
-                    val wrappedContext =
-                        CommonContextWrapper.create(activity)
-
-                    pendingDialog = MaterialDialog(wrappedContext)
-                        .title(text = "检测到上次 Java 崩溃")
-                        .message(text = summary)
-                        .positiveButton(text = "查看详情") { dialog ->
-                            dialog.dismiss()
-                            hasPendingCrashToShow = false
-                            showCrashDetailDialog(crashInfo, crashLogFile)
-                        }
-                        .negativeButton(text = "忽略") { dialog ->
-                            dialog.dismiss()
-                            hasPendingCrashToShow = false
-                            manager.clearPendingJavaCrashFlag()
-                        }
-                        .cancelable(false)
-
-                    pendingDialog?.show()
-                    hasPendingCrashToShow = false
-                } catch (e: Throwable) {
-                    WeLogger.e("[CrashInterceptor] Failed to show pending crash dialog", e)
-                    hasPendingCrashToShow = false
-                    manager.clearPendingJavaCrashFlag()
-                }
-            }
-        } catch (e: Throwable) {
-            WeLogger.e("[CrashInterceptor] Failed to show pending crash dialog", e)
-            hasPendingCrashToShow = false
-        }
+            CrashInterceptorUtils.showPendingCrashDialog(
+                activity = activity,
+                crashLogFile = crashLogFile,
+                titleSummary = "检测到上次 Java 崩溃",
+                titleDetail = "Java 崩溃详情",
+                clearPendingFlag = CrashLogsManager::clearPendingJavaCrashFlag,
+                extractSummary = ::extractCrashSummary
+            )
+        }.onFailure { WeLogger.e(TAG, "failed to show pending crash dialog", it) }
     }
 
-    /**
-     * 显示崩溃详情对话框
-     */
-    private fun showCrashDetailDialog(crashInfo: String, crashLogFile: Path) {
-        try {
-            val activity = RuntimeConfig.getLauncherUiActivity()
-            val manager = crashLogsManager ?: return
-
-            if (activity == null || activity.isFinishing || activity.isDestroyed) {
-                showToast("无法显示详情, 请稍后重试")
-                return
-            }
-
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    dismissPendingDialog()
-                    val wrappedContext =
-                        CommonContextWrapper.create(activity)
-
-                    // 限制显示长度，防止卡死
-                    val maxDisplayLength = 15 * 1024
-                    val displayInfo = if (crashInfo.length > maxDisplayLength) {
-                        crashInfo.take(maxDisplayLength) +
-                                "\n\n========================================\n" +
-                                "【提示】日志内容过长，此处仅展示部分内容。\n" +
-                                "请点击「导出文件」以保存完整日志。\n" +
-                                "========================================"
-                    } else {
-                        crashInfo
-                    }
-
-                    pendingDialog = MaterialDialog(wrappedContext)
-                        .title(text = "Java 崩溃详情")
-                        .message(text = displayInfo) {
-                            messageTextView.setTextIsSelectable(true)
-                        }
-                        .positiveButton(text = "复制完整日志") { dialog ->
-                            // 读取完整日志用于复制
-                            val fullCrashInfo = manager.readFullCrashLog(crashLogFile) ?: crashInfo
-                            copyToClipboard(activity, fullCrashInfo)
-                            dialog.dismiss()
-                            manager.clearPendingJavaCrashFlag()
-                        }
-                        .negativeButton(text = "关闭") { dialog ->
-                            dialog.dismiss()
-                            manager.clearPendingJavaCrashFlag()
-                        }
-                        .cancelable(true)
-
-                    pendingDialog?.show()
-                } catch (e: Throwable) {
-                    WeLogger.e("[CrashInterceptor] Failed to show crash detail dialog", e)
-                    manager.clearPendingCrashFlag()
-                }
-            }
-        } catch (e: Throwable) {
-            WeLogger.e("[CrashInterceptor] Failed to show crash detail dialog", e)
-        }
-    }
-
-    /**
-     * 提取崩溃摘要信息
-     */
     private fun extractCrashSummary(crashInfo: String): String {
         val lines = crashInfo.lines()
         val summary = StringBuilder()
@@ -305,36 +84,12 @@ object CrashInterceptor : SwitchHookItem() {
             }
             if (exceptionLineCount >= 10) break
         }
-        if (summary.isEmpty()) return "崩溃信息解析失败\n\n点击\"查看详情\"查看完整日志"
-        summary.append("\n点击\"查看详情\"查看完整日志")
+        if (summary.isEmpty()) return "崩溃信息解析失败\n\n点击「查看详情」查看完整日志"
+        summary.append("\n点击「查看详情」查看完整日志")
         return summary.toString()
     }
 
-    private fun copyToClipboard(context: Context, text: String) {
-        try {
-            val clipboard =
-                context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-            val clip = ClipData.newPlainText("Crash Log", text)
-            clipboard?.setPrimaryClip(clip)
-            showToast("已复制到剪贴板")
-        } catch (_: Throwable) {
-            showToast("复制失败")
-        }
-    }
-
-    private fun showToast(message: String) {
-        try {
-            val context = appContext ?: return
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(context, message, Toast.LENGTH_SHORT)
-                    .show()
-            }
-        } catch (e: Throwable) {
-            WeLogger.e("[CrashInterceptor] Failed to show toast", e)
-        }
-    }
-
     override fun onDisable() {
-        javaCrashHandler?.uninstall()
+        JavaCrashHandler.uninstall()
     }
 }

@@ -8,7 +8,7 @@ import android.view.View
 import android.view.Window
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,7 +80,7 @@ fun showComposeDialog(
                 setContent {
                     AppTheme {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.wrapContentSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             scope.content()
