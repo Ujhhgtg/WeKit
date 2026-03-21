@@ -35,6 +35,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.KnownPaths
 import dev.ujhhgtg.wekit.utils.ToastUtils
+import dev.ujhhgtg.wekit.utils.ToastUtils.showToastSuspend
 import dev.ujhhgtg.wekit.utils.createDirectoriesNoThrow
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
@@ -109,19 +110,14 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
         }
     }
 
-    private suspend fun showToast(message: String) =
-        withContext(Dispatchers.Main) {
-        ToastUtils.showToast(message)
-    }
-
     private val stickerPacks: List<StickerPack> by lazy {
         runBlocking {
-            showToast("正在加载贴纸包...")
+            showToastSuspend("正在加载贴纸包...")
 
             withContext(Dispatchers.IO) {
                 val packDirs = Files.list(stickersDir).filter { Files.isDirectory(it) }.convToList()
                 if (packDirs.isEmpty()) {
-                    showToast("未找到任何贴纸包")
+                    showToastSuspend("未找到任何贴纸包")
                     return@withContext emptyList<StickerPack>()
                 }
 
@@ -190,7 +186,7 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
                 }.awaitAll().filterNotNull()
 
                 val totalStickers = packs.sumOf { it.stickers.size }
-                showToast("成功加载 ${packs.size} 个贴纸包, 共 $totalStickers 个贴纸")
+                showToastSuspend("成功加载 ${packs.size} 个贴纸包, 共 $totalStickers 个贴纸")
 
                 packs
             }

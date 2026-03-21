@@ -35,9 +35,9 @@ class StubFragmentActivity : FragmentActivity() {
 
     companion object {
         @Volatile
-        private var pendingAction: ((FragmentActivity) -> Unit)? = null
+        private var pendingAction: (FragmentActivity.() -> Unit)? = null
 
-        fun launch(context: Context, action: (FragmentActivity) -> Unit) {
+        fun launch(context: Context, action: FragmentActivity.() -> Unit) {
             pendingAction = action
             context.startActivity(
                 Intent(context, StubFragmentActivity::class.java).apply {

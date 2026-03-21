@@ -120,6 +120,10 @@ abstract class WePrefs protected constructor() : SharedPreferences, SharedPrefer
             default.putLong(key, value)
         }
 
+        fun putFloat(key: String, value: Float) {
+            default.putFloat(key, value)
+        }
+
         fun putStringSet(key: String, value: Set<String>) {
             default.putStringSet(key, value)
         }

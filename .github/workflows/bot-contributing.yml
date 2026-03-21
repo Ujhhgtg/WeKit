@@ -58,7 +58,6 @@ jobs:
               repo: context.repo.repo,
               pull_number: prNumber,
               state: 'closed',
-              state_reason: 'not_planned',
             });
 
   handle-bot-issue:

@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.ui.content
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -26,15 +27,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
 import com.mikepenz.aboutlibraries.entity.Library
 import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.StubFragmentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.constants.PreferenceKeys
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.DefaultJson
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.ToastUtils
+import dev.ujhhgtg.wekit.utils.RuntimeConfig
+import dev.ujhhgtg.wekit.utils.ToastUtils.showToast
+import dev.ujhhgtg.wekit.utils.ToastUtils.showToastSuspend
 import dev.ujhhgtg.wekit.utils.formatEpoch
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
 import dev.ujhhgtg.wekit.utils.openInSystem
@@ -43,6 +50,25 @@ import dev.ujhhgtg.wekit.utils.updates.UpdateDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.float
+import kotlinx.serialization.json.floatOrNull
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
 
 class MainSettingsDialog(context: Context) : BasePrefsDialog(context, BuildConfig.TAG) {
 
@@ -128,16 +154,142 @@ class MainSettingsDialog(context: Context) : BasePrefsDialog(context, BuildConfi
             iconName = "block_24px"
         )
 
-        // ==========================================
-        // 关于 (About)
-        // ==========================================
+        addCategory("备份与恢复")
+        addPreference(
+            title = "导出配置",
+            summary = "将模块配置导出为 JSON",
+            iconName = "upload_24px",
+            onClick = {
+                StubFragmentActivity.launch(HostInfo.application) {
+                    val exportLauncher = registerForActivityResult(
+                        ActivityResultContracts.CreateDocument("application/json")
+                    ) { uri ->
+                        if (uri == null) {
+                            finish()
+                            return@registerForActivityResult
+                        }
+
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            val exportJson = run {
+                                val map = WePrefs.default.getAll()
+                                val jsonObject = buildJsonObject {
+                                    for ((key, value) in map) {
+                                        when (value) {
+                                            is Boolean -> put(key, value)
+                                            is Int -> put(key, value)
+                                            is Long -> put(key, value)
+                                            is Float -> put(key, value)
+                                            is Double -> put(key, value)
+                                            is String -> put(key, value)
+                                            is Set<*> -> put(key, buildJsonArray {
+                                                @Suppress("UNCHECKED_CAST")
+                                                (value as Set<String>).forEach { add(it) }
+                                            })
+                                            null -> put(key, JsonNull)
+                                        }
+                                    }
+                                }
+                                DefaultJson.encodeToString(jsonObject)
+                            }
+
+                            runCatching {
+                                HostInfo.application.contentResolver.openOutputStream(uri, "w")!!.use { fos ->
+                                    fos.writer().use { it.write(exportJson) }
+                                }
+                            }.onFailure {
+                                showToastSuspend("导出失败!")
+                                WeLogger.e("WePrefs", "failed to export", it)
+                            }.onSuccess { showToastSuspend("导出成功") }
+
+                            withContext(Dispatchers.Main) {
+                                finish()
+                            }
+                        }
+                    }
+                    exportLauncher.launch("wekit_prefs_backup.json")
+                }
+            }
+        )
+        addPreference(
+            title = "导入配置",
+            summary = "从 JSON 导入模块配置; JSON 中的配置将会与现有配置合并, 覆盖所有已存在的配置",
+            iconName = "download_24px",
+            onClick = {
+                StubFragmentActivity.launch(HostInfo.application) {
+                    val importLauncher = registerForActivityResult(
+                        ActivityResultContracts.OpenDocument()
+                    ) { uri ->
+                        if (uri == null) {
+                            finish()
+                            return@registerForActivityResult
+                        }
+
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            runCatching {
+                                val jsonString = RuntimeConfig.getLauncherUiActivity()!!.contentResolver.openInputStream(uri)?.use { fis ->
+                                    fis.reader().readText()
+                                } ?: return@launch
+                                val jsonObject = DefaultJson.parseToJsonElement(jsonString).jsonObject
+                                for ((key, element) in jsonObject) {
+                                    when (element) {
+                                        is JsonNull -> WePrefs.default.remove(key)
+                                        is JsonPrimitive -> when {
+                                            element.isString -> WePrefs.default.putString(key, element.content)
+                                            element.booleanOrNull != null && (element.content == "true" || element.content == "false") ->
+                                                WePrefs.putBool(key, element.boolean)
+                                            element.longOrNull != null && element.intOrNull == null ->
+                                                WePrefs.putLong(key, element.long)
+                                            element.intOrNull != null -> WePrefs.putInt(key, element.int)
+                                            element.floatOrNull != null -> WePrefs.putFloat(key, element.float)
+                                        }
+                                        is JsonArray -> WePrefs.default.putStringSet(
+                                            key,
+                                            element.mapTo(HashSet()) { it.jsonPrimitive.content }
+                                        )
+                                        else -> Unit
+                                    }
+                                }
+                            }.onFailure {
+                                showToastSuspend("导入失败!")
+                                WeLogger.e("WePrefs", "failed to import", it)
+                            }.onSuccess { showToastSuspend("导入成功") }
+
+                            withContext(Dispatchers.Main) {
+                                finish()
+                            }
+                        }
+                    }
+                    importLauncher.launch(arrayOf("application/json"))
+                }
+            }
+        )
+        var confirmDeletion = false
+        addPreference(
+            title = "清除配置",
+            summary = "清除全部模块配置 (警告: 此操作不可逆!)",
+            iconName = "delete_forever_24px",
+            onClick = {
+                if (!confirmDeletion) {
+                    showToast("再次点击以确认清除!")
+                    confirmDeletion = true
+                    return@addPreference
+                }
+
+                runBlocking(Dispatchers.IO) {
+                    WePrefs.default.clear()
+                    showToastSuspend("清除成功!")
+                }
+            }
+        )
+
         addCategory("关于")
         addPreference(
             title = "版本 (点击检查更新)",
             summary = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            iconName = "update_24px",
             onClick = {
-                ToastUtils.showToast(context, "正在检查更新...")
                 CoroutineScope(Dispatchers.Main).launch {
+                    showToastSuspend("正在检查更新...")
                     val update = runCatching { UpdateChecker.checkForUpdate() }.getOrElse { e ->
                         WeLogger.e("UpdateChecker", "failed to check for updates", e)
                         showComposeDialog(context) {
@@ -163,7 +315,7 @@ class MainSettingsDialog(context: Context) : BasePrefsDialog(context, BuildConfi
                         return@launch
                     }
                     if (update == null) {
-                        ToastUtils.showToast(context, "已是最新版本")
+                        showToastSuspend("已是最新版本")
                         return@launch
                     }
                     showComposeDialog(context) {
@@ -191,10 +343,13 @@ class MainSettingsDialog(context: Context) : BasePrefsDialog(context, BuildConfi
                 }
             }
         )
-        addPreference("构建时间", formatEpoch(BuildConfig.BUILD_TIMESTAMP, true))
+        addPreference("构建时间",
+            formatEpoch(BuildConfig.BUILD_TIMESTAMP, true),
+            iconName = "build_circle_24px")
         addPreference(
             "提示",
-            "牙膏要一点一点挤, 显卡要一刀一刀切, PPT 要一张一张放, 代码要一行一行写, 单个功能预计自出现在 commit 之日起, 三年内开发完毕"
+            "牙膏要一点一点挤, 显卡要一刀一刀切, PPT 要一张一张放, 代码要一行一行写, 单个功能预计自出现在 commit 之日起, 三年内开发完毕",
+            iconName = "lightbulb_2_24px"
         )
         addPreference(
             "捐赠",
@@ -205,7 +360,8 @@ class MainSettingsDialog(context: Context) : BasePrefsDialog(context, BuildConfi
                     putExtra("key_qrcode_url", "m0n#Z7LGW*s4AVH!z'd(?)")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 })
-            }
+            },
+            iconName = "volunteer_activism_24px"
         )
         addPreference(
             title = "开放源代码许可",

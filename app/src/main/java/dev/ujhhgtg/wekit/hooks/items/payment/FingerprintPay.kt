@@ -236,7 +236,7 @@ object FingerprintPay : ClickableHookItem() {
             return
         }
         StubFragmentActivity.launch(HostInfo.application) {
-            buildPrompt(it) { result ->
+            buildPrompt(this) { result ->
                 val authorizedCipher = result.cryptoObject?.cipher ?: run {
                     ToastUtils.showToast("指纹验证成功, 但无法获取密文对象! 请向模块作者报告问题")
                     return@buildPrompt
@@ -261,7 +261,7 @@ object FingerprintPay : ClickableHookItem() {
             return
         }
         StubFragmentActivity.launch(HostInfo.application) {
-            buildPrompt(it) { result ->
+            buildPrompt(this) { result ->
                 val authorizedCipher = result.cryptoObject?.cipher ?: run {
                     ToastUtils.showToast("指纹验证成功, 但无法获取密文对象! 请向模块作者报告问题")
                     return@buildPrompt
