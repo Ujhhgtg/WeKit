@@ -3,10 +3,10 @@ package dev.ujhhgtg.wekit.hooks.items.chat
 import android.view.KeyEvent
 import android.widget.FrameLayout
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.HookItem
+import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(path = "聊天/快捷清除引用", desc = "在输入退格时若输入框无文字自动清除引用")
@@ -58,7 +58,7 @@ object QuickRemoveQuote : SwitchHookItem(), IResolvesDex {
                 declaredClass = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
                 paramTypes("boolean", "boolean")
                 returnType = "void"
-                usingEqStrings("handleQuoteMsgFillingFrom")
+                usingEqStrings("")
             }
         }
 

@@ -95,19 +95,35 @@ object MarkdownRendering : ClickableHookItem(), IResolvesDex {
                 if (origText.isBlank()) return@hookBefore
                 origText = origText.replaceEmojis()
 
-                val msgInfo = MessageInfo(
-                    neatTextView.tag.asResolver()
+                val msgInfo: Any
+
+                val tag = neatTextView.tag
+                val fMsgInfoWrapper = tag.asResolver()
+                    .optional()
+                    .firstFieldOrNull {
+                        type = classMsgInfoWrapper.clazz
+                        superclass()
+                    }
+
+                if (fMsgInfoWrapper != null) {
+                    val msgInfoWrapper = fMsgInfoWrapper.get()!!
+                    msgInfo = MessageInfo(
+                        msgInfoWrapper.asResolver()
+                            .firstField {
+                                superclass()
+                            }
+                            .get()!!.asResolver()
+                            .firstField { type = WeMessageApi.classMsgInfo.clazz }
+                            .get()!!)
+                }
+                else {
+                    msgInfo = MessageInfo(tag.asResolver()
                         .firstField {
-                            type = classMsgInfoWrapper.clazz
+                            type = WeMessageApi.classMsgInfo.clazz
                             superclass()
-                        }
-                        .get()!!.asResolver()
-                        .firstField {
-                            superclass()
-                        }
-                        .get()!!.asResolver()
-                        .firstField { type = WeMessageApi.classMsgInfo.clazz }
-                        .get()!!)
+                        }.get()!!)
+                }
+
                 if (!msgInfo.isText) return@hookBefore
                 val isSelfSender = msgInfo.isSelfSender()
 
@@ -379,7 +395,7 @@ object MarkdownRendering : ClickableHookItem(), IResolvesDex {
 
         classMsgInfoWrapper.find(dexKit, descriptors) {
             matcher {
-                usingEqStrings("params", "other", "null cannot be cast to non-null type com.tencent.mm.storage.MsgInfo")
+                usingEqStrings("other", "null cannot be cast to non-null type com.tencent.mm.storage.MsgInfo")
             }
         }
 

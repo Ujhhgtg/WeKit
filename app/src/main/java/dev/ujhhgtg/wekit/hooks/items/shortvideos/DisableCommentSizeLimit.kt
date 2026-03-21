@@ -19,10 +19,12 @@ object DisableCommentSizeLimit : SwitchHookItem() {
                         param.result = 9999
                     }
 
-                firstMethod { name = "getCommentTextLimitStart" }
-                    .hookBefore { param ->
-                        param.result = 9999
-                    }
+                runCatching {
+                    firstMethod { name = "getCommentTextLimitStart" }
+                        .hookBefore { param ->
+                            param.result = 9999
+                        }
+                }
 
                 firstMethod { name = "getCommentTextLineLimit" }
                     .hookBefore { param ->

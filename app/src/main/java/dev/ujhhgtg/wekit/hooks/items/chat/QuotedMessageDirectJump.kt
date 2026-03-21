@@ -1,11 +1,12 @@
 package dev.ujhhgtg.wekit.hooks.items.chat
 
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
+import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.hooks.core.HookItem
+import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 import org.luckypray.dexkit.DexKitBridge
 
@@ -29,26 +30,55 @@ object QuotedMessageDirectJump : SwitchHookItem(), IResolvesDex {
             val chattingItemHolder = param.args[7]
             val chattingItem = chattingItemHolder.asResolver()
                 .firstField { type { it != String::class.java } }.get()!!
-            val msgInfo = methodGetQuoteMessageInfo.method.invoke(
-                null,
-                false /* isGroupChat: this arg is ignored */,
-                methodChattingContextGetTalker.method.invoke(chattingContext),
-                longValue,
-                stringValue,
-                msgQuoteItem,
-                "handleQuoteMsgClick" /* hardcoded in original code */
-            )
-            methodClickToPositionEvent.method.invoke(
-                null,
-                chattingContext,
-                chattingItem,
-                msgInfo,
-                view,
-                longValue,
-                stringValue,
-                msgQuoteItem,
-                enumValueOfClass(classEnumQuoteJumpToPositionSource.clazz, "QuoteLongClickFromQuoteView")
-            )
+            val mGetQuoteMessageInfo = methodGetQuoteMessageInfo.method
+            var msgInfo: Any
+            if (mGetQuoteMessageInfo.parameterCount == 6) {
+                msgInfo = mGetQuoteMessageInfo.invoke(
+                    null,
+                    false /* isGroupChat: this arg is ignored */,
+                    methodChattingContextGetTalker.method.invoke(chattingContext),
+                    longValue,
+                    stringValue,
+                    msgQuoteItem,
+                    "handleQuoteMsgClick" /* hardcoded in original code */
+                )!!
+            }
+            else {
+                msgInfo = mGetQuoteMessageInfo.invoke(
+                    null,
+                    false /* isGroupChat: this arg is ignored */,
+                    methodChattingContextGetTalker.method.invoke(chattingContext),
+                    longValue,
+                    msgQuoteItem,
+                    "handleQuoteMsgClick" /* hardcoded in original code */
+                )!!
+            }
+            val mClickToPositionEvent = methodClickToPositionEvent.method
+            if (mClickToPositionEvent.parameterCount == 8) {
+                methodClickToPositionEvent.method.invoke(
+                    null,
+                    chattingContext,
+                    chattingItem,
+                    msgInfo,
+                    view,
+                    longValue,
+                    stringValue,
+                    msgQuoteItem,
+                    enumValueOfClass(classEnumQuoteJumpToPositionSource.clazz, "QuoteLongClickFromQuoteView")
+                )
+            }
+            else {
+                methodClickToPositionEvent.method.invoke(
+                    null,
+                    chattingContext,
+                    chattingItem,
+                    msgInfo,
+                    view,
+                    longValue,
+                    msgQuoteItem,
+                    true
+                )
+            }
             param.result = null
         }
     }
@@ -79,9 +109,9 @@ object QuotedMessageDirectJump : SwitchHookItem(), IResolvesDex {
         methodGetQuoteMessageInfo.find(dexKit, descriptors) {
             matcher {
                 declaredClass(methodClickEvent.method.declaringClass)
-                usingEqStrings(
+                usingStrings(
                     "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                    "getQuoteMsgInfo %s msgId:%s msgSvrId:%s msgTaker:%s MsgQuoteItem(type:%s svrid:%s content:%s)"
+                    "%s msgId:%s msgSvrId:%s"
                 )
             }
         }
@@ -99,10 +129,13 @@ object QuotedMessageDirectJump : SwitchHookItem(), IResolvesDex {
             }
         }
 
-        classEnumQuoteJumpToPositionSource.find(dexKit, descriptors) {
+        if (!classEnumQuoteJumpToPositionSource.find(dexKit, descriptors, throwOnFailure = false) {
             matcher {
                 usingEqStrings("QuoteLongClickFromQuoteView", "QuoteClickFromTextPreviewLocateView")
             }
+        }) {
+            descriptors += "${nameof(QuotedMessageDirectJump)}:${nameof(classEnumQuoteJumpToPositionSource)}" to
+                    "com.tencent.mm.ui.LauncherUI"
         }
 
         return descriptors

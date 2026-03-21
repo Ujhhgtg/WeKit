@@ -19,9 +19,9 @@ import androidx.compose.runtime.setValue
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.toClass
 import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
-import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -29,6 +29,7 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
+import java.lang.reflect.Modifier
 import kotlin.math.roundToInt
 
 @HookItem(path = "界面美化/对话框窗口级背景模糊", desc = "为模块与宿主的对话框添加窗口级模糊处理")
@@ -44,6 +45,7 @@ object ApplyDialogBackgroundBlur : ClickableHookItem(), IResolvesDex {
     private val classMmQuickDialog by dexClass()
 
     override fun onEnable() {
+        WeLogger.d(TAG, classMmQuickDialog.clazz.name)
         listOf(
             classMmAlertDialog.clazz,
             classMmProgressDialog.clazz,
@@ -81,25 +83,33 @@ object ApplyDialogBackgroundBlur : ClickableHookItem(), IResolvesDex {
         val descriptors = mutableMapOf<String, String>()
 
         classMmAlertDialog.find(dexKit, descriptors) {
-            searchPackages("com.tencent.mm.ui.widget.dialog")
             matcher {
                 usingEqStrings("MicroMsg.MMAlertDialog", "dialog dismiss error!")
             }
         }
 
         classMmProgressDialog.find(dexKit, descriptors) {
-            searchPackages("com.tencent.mm.ui.widget.dialog")
             matcher {
                 usingEqStrings($$"com/tencent/mm/ui/widget/dialog/MMProgressDialog$Builder", "show")
             }
         }
 
         classMmQuickDialog.find(dexKit, descriptors) {
-            searchPackages("com.tencent.mm.ui.widget.dialog")
             matcher {
+                superClass("android.app.Dialog")
+                addField {
+                    type = "int"
+                    modifiers(Modifier.STATIC or Modifier.FINAL)
+                }
                 addFieldForType("android.widget.TextView")
                 addFieldForType("com.tencent.mm.ui.widget.imageview.WeImageView")
                 addFieldForType("android.widget.ProgressBar")
+                addFieldForType("android.view.View")
+                addFieldForType("int")
+                addField {
+                    type = "boolean"
+                    modifiers(Modifier.FINAL)
+                }
             }
         }
 

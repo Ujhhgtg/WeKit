@@ -148,7 +148,7 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
             }
         }
 
-        classNetSceneObserverOwner.find(dexKit, descriptors = descriptors) {
+        classNetSceneObserverOwner.find(dexKit, descriptors) {
             matcher {
                 methods {
                     add {
@@ -159,7 +159,7 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
             }
         }
 
-        classNetSceneSendMsg.find(dexKit, descriptors = descriptors) {
+        classNetSceneSendMsg.find(dexKit, descriptors) {
             matcher {
                 methods {
                     add {
@@ -170,7 +170,7 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
             }
         }
 
-        classNetSceneQueue.find(dexKit, descriptors = descriptors) {
+        classNetSceneQueue.find(dexKit, descriptors) {
             searchPackages("com.tencent.mm.modelbase")
             matcher {
                 methods {
@@ -182,14 +182,9 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
             }
         }
 
-        classNetSceneBase.find(dexKit, descriptors = descriptors) {
+        classNetSceneBase.find(dexKit, descriptors) {
             matcher {
-                methods {
-                    add {
-                        paramCount = 3
-                        usingStrings("scene security verification not passed, type=")
-                    }
-                }
+                usingEqStrings("scene security verification not passed, type=")
             }
         }
 
@@ -256,7 +251,16 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
         // 图片组件查找
         // ---------------------------------------------------------------------------------
 
-        classImageSender.find(dexKit, descriptors = descriptors) {
+        classMvvmBase.find(dexKit, descriptors) {
+            matcher {
+                usingStrings(
+                    "MicroMsg.Mvvm.MvvmPlugin",
+                    "onAccountInitialized start"
+                )
+            }
+        }
+
+        classImageSender.find(dexKit, descriptors, throwOnFailure = false) {
             matcher {
                 usingStrings(
                     "MicroMsg.ImgUpload.MsgImgSyncSendFSC",
@@ -296,15 +300,6 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
                 }
             }
 
-            classMvvmBase.find(dexKit, descriptors) {
-                matcher {
-                    usingStrings(
-                        "MicroMsg.Mvvm.MvvmPlugin",
-                        "onAccountInitialized start"
-                    )
-                }
-            }
-
             val mvvmBaseDesc = descriptors[classMvvmBase.key]
             if (mvvmBaseDesc != null) {
                 classImageServiceImpl.find(dexKit, descriptors) {
@@ -315,26 +310,29 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
                 }
             }
 
-            // 查找 ServiceManager
-            classServiceManager.find(dexKit, descriptors) {
-                matcher {
-                    usingStrings("MicroMsg.ServiceManager")
-                    methods {
-                        add {
-                            modifiers = Modifier.PUBLIC or Modifier.STATIC
-                            paramCount = 1
-                            paramTypes(Class::class.java.name)
-                        }
+            classImageTask.find(dexKit, descriptors) {
+                matcher { usingStrings("msg_raw_img_send") }
+            }
+        }
+
+        // 查找 ServiceManager
+        classServiceManager.find(dexKit, descriptors) {
+            matcher {
+                usingStrings("MicroMsg.ServiceManager")
+                methods {
+                    add {
+                        modifiers = Modifier.PUBLIC or Modifier.STATIC
+                        paramCount = 1
+                        paramTypes(Class::class.java.name)
                     }
                 }
             }
+        }
 
-            classConfigLogic.find(dexKit, descriptors) {
-                matcher { usingStrings("MicroMsg.ConfigStorageLogic", "get userinfo fail") }
-            }
-
-            classImageTask.find(dexKit, descriptors) {
-                matcher { usingStrings("msg_raw_img_send") }
+        classConfigLogic.find(dexKit, descriptors) {
+            matcher {
+                usingEqStrings("MicroMsg.ConfigStorageLogic",
+                    "get userinfo fail")
             }
         }
 

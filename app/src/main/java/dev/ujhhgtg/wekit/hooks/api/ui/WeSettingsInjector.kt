@@ -137,7 +137,7 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
         }.singleOrNull()
 
         if (adapterClass != null) {
-            methodAddPref.find(dexKit, allowMultiple = true, descriptors = descriptors) {
+            methodAddPref.find(dexKit, descriptors, allowMultiple = true) {
                 searchPackages("com.tencent.mm.ui.base.preference")
                 matcher {
                     declaredClass = adapterClass.name
@@ -147,54 +147,53 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
             }
         }
 
-        if ("com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupMain".toClassOrNull() != null) {
-            classSettingItemClassesProvider.find(dexKit, descriptors, throwOnFailure = false) {
-                matcher {
-                    usingEqStrings("Repairer_Setting")
+        if (!classSettingItemClassesProvider.find(dexKit, descriptors, throwOnFailure = false) {
+            matcher {
+                usingEqStrings("Repairer_Setting")
 
-                    superClass {
-                        usingEqStrings("type")
-                    }
+                superClass {
+                    usingEqStrings("type")
                 }
             }
-
-            classBaseSettingItem.find(dexKit, descriptors) {
-                matcher {
-                    usingEqStrings("", "activity", "context", "intent")
-
-                    addMethod {
-                        name = "<init>"
-                        paramTypes("androidx.appcompat.app.AppCompatActivity")
-                    }
-
-                    addInterface {
-                        className("com.tencent.mm.plugin.newtips.model", StringMatchType.StartsWith)
-                    }
-                }
-            }
-
-            classSettingLocation.find(dexKit, descriptors) {
-                matcher {
-                    usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")
-                }
-            }
-
-            methodSettingGroupAccountInfoReturns1.find(dexKit, descriptors) {
-                matcher {
-                    declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
-                    usingNumbers(1)
-                    returnType = "int"
-                }
-            }
-        }
-        else {
-            // placeholders
+        }) {
             descriptors += "${nameof(WeSettingsInjector)}:${nameof(classSettingItemClassesProvider)}" to
                     "com.tencent.mm.ui.LauncherUI"
+        }
+
+        if (!classBaseSettingItem.find(dexKit, descriptors, throwOnFailure = false) {
+            matcher {
+                usingEqStrings("", "activity", "context", "intent")
+
+                addMethod {
+                    name = "<init>"
+                    paramTypes("androidx.appcompat.app.AppCompatActivity")
+                }
+
+                addInterface {
+                    className("com.tencent.mm.plugin.newtips.model", StringMatchType.StartsWith)
+                }
+            }
+        }) {
             descriptors += "${nameof(WeSettingsInjector)}:${nameof(classBaseSettingItem)}" to
                     "com.tencent.mm.ui.LauncherUI"
+        }
+
+        if (!classSettingLocation.find(dexKit, descriptors, throwOnFailure = false) {
+            matcher {
+                usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")
+            }
+        }) {
             descriptors += "${nameof(WeSettingsInjector)}:${nameof(classSettingLocation)}" to
                     "com.tencent.mm.ui.LauncherUI"
+        }
+
+        if (!methodSettingGroupAccountInfoReturns1.find(dexKit, descriptors, throwOnFailure = false) {
+            matcher {
+                declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
+                usingNumbers(1)
+                returnType = "int"
+            }
+        }) {
             descriptors += "${nameof(WeSettingsInjector)}:${nameof(methodSettingGroupAccountInfoReturns1)}" to
                     "Lcom/tencent/mm/ui/LauncherUI;->()Lcom/tencent/mm/ui/LauncherUI;"
         }

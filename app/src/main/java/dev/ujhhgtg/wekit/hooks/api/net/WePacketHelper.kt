@@ -8,16 +8,16 @@ import com.highcapable.kavaref.extension.isSubclassOf
 import com.highcapable.kavaref.extension.toClass
 import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.hooks.api.net.abc.WeRequestCallback
+import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
+import dev.ujhhgtg.wekit.hooks.core.HookItem
+import dev.ujhhgtg.wekit.utils.logging.WeLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
-import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
-import dev.ujhhgtg.wekit.hooks.api.net.abc.WeRequestCallback
-import dev.ujhhgtg.wekit.hooks.core.HookItem
-import dev.ujhhgtg.wekit.utils.logging.WeLogger
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.OpCodeMatchType
@@ -78,7 +78,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
         // 查找 Protobuf 基类
         classProtoBase.find(dexKit, descriptors) {
             matcher {
-                usingStrings("computeSize error")
+                usingEqStrings("Cannot use this method")
                 methods {
                     add {
                         name = "op"

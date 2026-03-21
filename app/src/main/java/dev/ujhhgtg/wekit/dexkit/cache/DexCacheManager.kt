@@ -2,8 +2,8 @@ package dev.ujhhgtg.wekit.dexkit.cache
 
 import dev.ujhhgtg.nameof.nameof
 import dev.ujhhgtg.wekit.constants.PreferenceKeys
-import dev.ujhhgtg.wekit.hooks.core.BaseHookItem
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
+import dev.ujhhgtg.wekit.hooks.core.BaseHookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.KnownPaths
 import dev.ujhhgtg.wekit.utils.createDirectoriesNoThrow
@@ -76,7 +76,7 @@ object DexCacheManager {
 
         val cacheFile = getCacheFile(item.path)
         if (!cacheFile.exists()) {
-            WeLogger.d(TAG, "Cache not found for: ${item.path}")
+            WeLogger.d(TAG, "cache not found for ${item.path}")
             return false
         }
 
@@ -100,7 +100,7 @@ object DexCacheManager {
                 .toList()
 
             if (dataKeys.isEmpty()) {
-                WeLogger.d(TAG, "Cache is empty for: ${item.path}, need rescan")
+                WeLogger.d(TAG, "cache is empty for ${item.path}, need rescan")
                 return false
             }
 
@@ -111,7 +111,7 @@ object DexCacheManager {
                 if (value.isEmpty() || value == "null") {
                     WeLogger.d(
                         TAG,
-                        "Cache has invalid data for key: $key in ${item.path}"
+                        "cache has invalid data for key: $key in ${item.path}"
                     )
                     hasInvalidData = true
                     break
@@ -121,7 +121,7 @@ object DexCacheManager {
             if (hasInvalidData) {
                 WeLogger.d(
                     TAG,
-                    "Cache data incomplete for: ${item.path}, need rescan"
+                    "cache data incomplete for: ${item.path}, need rescan"
                 )
                 return false
             }
@@ -129,7 +129,7 @@ object DexCacheManager {
 //            WeLogger.d(TAG, "Cache valid for: ${item.path}, keys: $dataKeys")
             return true
         } catch (e: Exception) {
-            WeLogger.e("DexCacheManager: Failed to read cache for: ${item.path}", e)
+            WeLogger.e(TAG, "failed to read cache for: ${item.path}", e)
             return false
         }
     }
@@ -223,7 +223,7 @@ object DexCacheManager {
 
             return result
         } catch (e: Exception) {
-            WeLogger.e("DexCacheManager: Failed to load cache for: ${item.path}", e)
+            WeLogger.e(TAG, "failed to load cache for: ${item.path}", e)
             return null
         }
     }

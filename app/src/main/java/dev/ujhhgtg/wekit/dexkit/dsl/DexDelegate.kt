@@ -3,8 +3,9 @@ package dev.ujhhgtg.wekit.dexkit.dsl
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.ClassLoaderProvider
 import com.highcapable.kavaref.extension.toClassOrNull
-import dev.ujhhgtg.wekit.hooks.core.BaseHookItem
 import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
+import dev.ujhhgtg.wekit.hooks.core.BaseHookItem
+import dev.ujhhgtg.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.FindClass
 import org.luckypray.dexkit.query.FindMethod
@@ -63,7 +64,7 @@ class DexClassDelegate internal constructor(
      */
     fun find(
         dexKit: DexKitBridge,
-        descriptors: MutableMap<String, String>? = null,
+        descriptors: MutableMap<String, String>,
         allowMultiple: Boolean = false,
         throwOnFailure: Boolean = true,
         block: FindClass.() -> Unit
@@ -82,7 +83,7 @@ class DexClassDelegate internal constructor(
         }
 
         setDescriptor(results[0].name)
-        descriptors?.let { it[key] = results[0].name }
+        descriptors[key] = results[0].name
         return true
     }
 

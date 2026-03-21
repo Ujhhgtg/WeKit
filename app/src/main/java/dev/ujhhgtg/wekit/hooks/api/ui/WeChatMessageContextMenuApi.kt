@@ -4,12 +4,12 @@ import android.annotation.SuppressLint
 import android.graphics.drawable.Drawable
 import android.view.View
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
+import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
-import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.hooks.api.core.model.MessageInfo
+import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
 import org.luckypray.dexkit.DexKitBridge
@@ -54,13 +54,26 @@ object WeChatMessageContextMenuApi : ApiHookItem(), IResolvesDex {
             currentView = param.args[1] as View
             val tag = currentView!!.tag
 
-            val msgInfo = tag.asResolver()
-                .firstMethod {
+            val msgInfo: Any
+
+            val mGetMsgInfo = tag.asResolver()
+                .optional()
+                .firstMethodOrNull {
                     returnType = WeMessageApi.classMsgInfo.clazz
                     parameterCount(0)
                     superclass()
                 }
-                .invoke()!!
+
+            if (mGetMsgInfo != null) {
+                msgInfo = mGetMsgInfo.invoke()!!
+            }
+            else {
+                msgInfo = tag.asResolver()
+                    .firstField {
+                        type = WeMessageApi.classMsgInfo.clazz
+                        superclass()
+                    }.get()!!
+            }
 
             try {
                 for (item in menuItems.values.flatten()) {
