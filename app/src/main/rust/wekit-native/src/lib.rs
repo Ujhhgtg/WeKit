@@ -11,11 +11,7 @@ mod logging;
 mod shared;
 mod utils;
 
-use std::{
-    ffi::{CStr, CString, c_char, c_int},
-    ptr,
-    sync::OnceLock,
-};
+use std::ffi::CString;
 
 use crash_handler::{install_crash_handler, uninstall_crash_handler};
 use crash_triggerer::trigger_test_crash;
@@ -96,65 +92,65 @@ pub unsafe extern "C" fn Java_dev_ujhhgtg_wekit_hooks_items_chat_MarkdownRenderi
     }
 }
 
-static HOOK_FUNC: OnceLock<HookFunType> = OnceLock::new();
+// static HOOK_FUNC: OnceLock<HookFunType> = OnceLock::new();
 
-fn hook_func() -> HookFunType {
-    *HOOK_FUNC.get().expect("native_init not called yet")
-}
+// fn hook_func() -> HookFunType {
+//     *HOOK_FUNC.get().expect("native_init not called yet")
+// }
 
-unsafe extern "C" fn on_library_loaded(name: *const c_char, handle: *mut c_void) {
-    unsafe {
-        let lib_name = CStr::from_ptr(name).to_string_lossy();
+// unsafe extern "C" fn on_library_loaded(name: *const c_char, handle: *mut c_void) {
+//     unsafe {
+//         let lib_name = CStr::from_ptr(name).to_string_lossy();
 
-        if lib_name.ends_with("libtarget.so") {
-            let sym = b"target_fun\0";
-            let target = libc::dlsym(handle, sym.as_ptr() as *const c_char);
-            if !target.is_null() {
-                if let Some(hook) = hook_func() {
-                    let mut backup: *mut c_void = ptr::null_mut();
-                    hook(target, fake_target as *mut c_void, &mut backup);
-                    BACKUP_TARGET = std::mem::transmute(backup);
-                }
-            }
-        }
-    }
-}
+//         if lib_name.ends_with("libtarget.so") {
+//             let sym = b"target_fun\0";
+//             let target = libc::dlsym(handle, sym.as_ptr() as *const c_char);
+//             if !target.is_null() {
+//                 if let Some(hook) = hook_func() {
+//                     let mut backup: *mut c_void = ptr::null_mut();
+//                     hook(target, fake_target as *mut c_void, &mut backup);
+//                     BACKUP_TARGET = std::mem::transmute(backup);
+//                 }
+//             }
+//         }
+//     }
+// }
 
-// --- target_fun hook ---
+// // --- target_fun hook ---
 
-static mut BACKUP_TARGET: Option<unsafe extern "C" fn() -> c_int> = None;
+// static mut BACKUP_TARGET: Option<unsafe extern "C" fn() -> c_int> = None;
 
-unsafe extern "C" fn fake_target() -> c_int {
-    (unsafe { BACKUP_TARGET.unwrap()() }) + 1
-}
+// unsafe extern "C" fn fake_target() -> c_int {
+//     (unsafe { BACKUP_TARGET.unwrap()() }) + 1
+// }
 
-static mut ORIG_FOPEN: Option<unsafe extern "C" fn(*const c_char, *const c_char) -> *mut c_void> =
-    None;
+// static mut ORIG_FOPEN: Option<unsafe extern "C" fn(*const c_char, *const c_char) -> *mut c_void> =
+//     None;
 
-unsafe extern "C" fn fake_fopen(filename: *const c_char, mode: *const c_char) -> *mut c_void {
-    let name = unsafe { CStr::from_ptr(filename).to_bytes() };
-    if name.windows(6).any(|w| w == b"banned") {
-        return ptr::null_mut();
-    }
-    unsafe { ORIG_FOPEN.unwrap()(filename, mode) }
-}
+// unsafe extern "C" fn fake_fopen(filename: *const c_char, mode: *const c_char) -> *mut c_void {
+//     let name = unsafe { CStr::from_ptr(filename).to_bytes() };
+//     if name.windows(6).any(|w| w == b"banned") {
+//         return ptr::null_mut();
+//     }
+//     unsafe { ORIG_FOPEN.unwrap()(filename, mode) }
+// }
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn native_init(entries: *const NativeAPIEntries) -> NativeOnModuleLoaded {
-    let hook = (unsafe { *entries }).hook_func;
-    HOOK_FUNC.set(hook).ok();
+// #[unsafe(no_mangle)]
+// pub unsafe extern "C" fn native_init(entries: *const NativeAPIEntries) -> NativeOnModuleLoaded {
+//     let hook = (unsafe { *entries }).hook_func;
+//     HOOK_FUNC.set(hook).ok();
 
-    if let Some(hook_fn) = hook {
-        let fopen_ptr = libc::fopen as *mut c_void;
-        let mut backup: *mut c_void = ptr::null_mut();
-        unsafe {
-            hook_fn(fopen_ptr, fake_fopen as *mut c_void, &mut backup);
-            ORIG_FOPEN = Some(std::mem::transmute(backup));
-        }
-    }
+//     if let Some(hook_fn) = hook {
+//         let fopen_ptr = libc::fopen as *mut c_void;
+//         let mut backup: *mut c_void = ptr::null_mut();
+//         unsafe {
+//             hook_fn(fopen_ptr, fake_fopen as *mut c_void, &mut backup);
+//             ORIG_FOPEN = Some(std::mem::transmute(backup));
+//         }
+//     }
 
-    Some(on_library_loaded)
-}
+//     Some(on_library_loaded)
+// }
 
 /// Required JNI library entry point — returns the JNI version we target.
 #[unsafe(no_mangle)]

@@ -39,12 +39,7 @@ object AutoCleanCache : ClickableHookItem() {
         val storageDataDir = HostInfo.application.externalCacheDir!!.toPath().parent!!
 
         paths.add(dataDir / "cache")
-        paths.add(storageDataDir / "cache")
         paths.add(dataDir / "MicroMsg" / "crash")
-        paths.add(storageDataDir / "files" / "onelog")
-        paths.add(storageDataDir / "files" / "tbslog")
-        paths.add(storageDataDir / "files" / "Tencent" / "tbs_common_log")
-        paths.add(storageDataDir / "files" / "Tencent" / "tbs_live_log")
         paths.add(dataDir / "appbrand")
         paths.add(dataDir / "cache" / "appbrand")
         paths.add(dataDir / "MicroMsg" / "appbrand")
@@ -53,6 +48,12 @@ object AutoCleanCache : ClickableHookItem() {
         paths.add(dataDir / "tinker")
         paths.add(dataDir / "tinker_server")
         paths.add(dataDir / "tinker_temp")
+        paths.add(storageDataDir / "cache")
+        paths.add(storageDataDir / "files" / "xlog")
+        paths.add(storageDataDir / "files" / "onelog")
+        paths.add(storageDataDir / "files" / "tbslog")
+        paths.add(storageDataDir / "files" / "Tencent" / "tbs_common_log")
+        paths.add(storageDataDir / "files" / "Tencent" / "tbs_live_log")
 
         return@run paths
     }
