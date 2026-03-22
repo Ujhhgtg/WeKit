@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.hooks.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.logging.WeLogger
@@ -32,7 +33,7 @@ object SetProfileNickname : ClickableHookItem() {
                 },
                 dismissButton = { TextButton(onClick = dismiss) { Text("取消") } },
                 confirmButton = {
-                    TextButton(onClick = {
+                    Button(onClick = {
                         val payload = """{"1":{"1":1,"2":{"1":64,"2":{"1":16,"2":{"1":1,"2":"${
                             escapeJsonString(nickname)
                         }"}}}}}"""

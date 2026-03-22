@@ -15,12 +15,12 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeServiceApi
-import dev.ujhhgtg.wekit.hooks.api.core.model.MessageInfo
 import dev.ujhhgtg.wekit.hooks.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import dev.ujhhgtg.wekit.utils.LruCache
 import org.luckypray.dexkit.DexKitBridge
+import java.util.Collections
+import java.util.WeakHashMap
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -31,152 +31,121 @@ import kotlin.math.exp
 object SwipeToQuote : SwitchHookItem(), IResolvesDex,
     WeChatMessageViewApi.ICreateViewListener {
 
-    private val cache = LruCache<Pair<String, Long>, Boolean>()
+    // Mutable per-view gesture state, kept off the heap as long as the view lives
+    private class SwipeState(
+        val chattingContext: Any,
+        val triggerThreshold: Float,
+        var startX: Float = 0f,
+        var startY: Float = 0f,
+        var isDragging: Boolean = false,
+        var triggered: Boolean = false,
+    )
+
+    // WeakHashMap: entries are automatically removed when the View is GC'd
+    // (RecyclerView recycles views, so this stays small in practice)
+    private val states: MutableMap<View, SwipeState> =
+        Collections.synchronizedMap(WeakHashMap())
+
+    // ── lifecycle ────────────────────────────────────────────────────────────
 
     override fun onEnable() {
         WeChatMessageViewApi.addListener(this)
-    }
-
-    override fun onDisable() {
-        WeChatMessageViewApi.removeListener(this)
-    }
-
-    override fun onCreateView(
-        param: XC_MethodHook.MethodHookParam,
-        view: View
-    ) {
-        val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
-        if (cache[msgInfo.talker to msgInfo.id] == true) return
-        val chattingContext = WeChatMessageViewApi.getChattingContextFromParam(param)
-        attachSwipeGesture(view, chattingContext, msgInfo)
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun attachSwipeGesture(
-        originalView: View,
-        chattingContext: Any,
-        msgInfo: MessageInfo
-    ) {
-        var startX = 0f
-        var startY = 0f
-        var isDragging = false
-        val triggerThreshold = dpToPx(originalView.context, 60).toFloat()
-        var triggered = false
-
         ViewGroup::class.asResolver()
-            .firstMethod {
-                name = "onInterceptTouchEvent"
-            }
+            .firstMethod { name = "onInterceptTouchEvent" }
             .hookAfter { param ->
                 val v = param.thisObject as ViewGroup
-                if (v !== originalView) return@hookAfter
-
+                val s = states[v] ?: return@hookAfter
                 val event = param.args[0] as MotionEvent
 
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
-                        startX = event.x
-                        startY = event.y
-                        isDragging = false
-                        triggered = false
-                        // Never intercept DOWN — children need it to arm their listeners
+                        s.startX = event.x
+                        s.startY = event.y
+                        s.isDragging = false
+                        s.triggered = false
                     }
-
                     MotionEvent.ACTION_MOVE -> {
-                        val dx = event.x - startX
-                        val dy = event.y - startY
-
-                        if (!isDragging && abs(dx) > abs(dy) && dx < 0) {
-                            isDragging = true
+                        val dx = event.x - s.startX
+                        val dy = event.y - s.startY
+                        if (!s.isDragging && abs(dx) > abs(dy) && dx < 0) {
+                            s.isDragging = true
                             v.parent?.requestDisallowInterceptTouchEvent(true)
                         }
-
-                        if (isDragging) {
-                            // Returning true here cancels children and routes
-                            // subsequent events to our onTouchEvent
-                            param.result = true
-                        }
+                        if (s.isDragging) param.result = true
                     }
-
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        isDragging = false
+                        s.isDragging = false
                     }
                 }
             }
 
-        View::class.asResolver().firstMethod {
-            name = "onTouchEvent"
-            superclass()
-        }
+        View::class.asResolver()
+            .firstMethod { name = "onTouchEvent"; superclass() }
             .hookAfter { param ->
                 val v = param.thisObject as View
-                if (v !== originalView) return@hookAfter
-
+                val s = states[v] ?: return@hookAfter
                 val event = param.args[0] as MotionEvent
 
                 when (event.action) {
                     MotionEvent.ACTION_MOVE -> {
-                        if (isDragging) {
-                            val rawDx = event.x - startX
-                            val dx = rawDx.coerceIn(-triggerThreshold, 0f)
-                            v.translationX = dx
-
-                            if (!triggered && rawDx < -triggerThreshold) {
-                                triggered = true
+                        if (s.isDragging) {
+                            val rawDx = event.x - s.startX
+                            v.translationX = rawDx.coerceIn(-s.triggerThreshold, 0f)
+                            if (!s.triggered && rawDx < -s.triggerThreshold) {
+                                s.triggered = true
                                 v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             }
-
                             param.result = true
                         }
                     }
-
                     MotionEvent.ACTION_UP -> {
-                        if (isDragging) {
+                        if (s.isDragging) {
                             v.animate()
                                 .translationX(0f)
                                 .setDuration(250)
                                 .setInterpolator(SpringInterpolator())
                                 .start()
-
-                            if (triggered) onSwipeLeft(originalView, chattingContext)
-
+                            if (s.triggered) onSwipeLeft(v, s.chattingContext)
                             v.parent?.requestDisallowInterceptTouchEvent(false)
-                            isDragging = false
-
+                            s.isDragging = false
                             param.result = true
                         }
                     }
-
                     MotionEvent.ACTION_CANCEL -> {
-                        if (isDragging) {
-                            v.animate()
-                                .translationX(0f)
-                                .setDuration(150)
-                                .start()
-
+                        if (s.isDragging) {
+                            v.animate().translationX(0f).setDuration(150).start()
                             v.parent?.requestDisallowInterceptTouchEvent(false)
-
-                            isDragging = false
+                            s.isDragging = false
                         }
                     }
                 }
             }
-
-        cache[msgInfo.talker to msgInfo.id] = true
     }
 
-    // Poor man's spring: decelerates then slightly overshoots back to 0
+    override fun onDisable() {
+        WeChatMessageViewApi.removeListener(this)
+        states.clear() // hooks still exist but map is empty → zero work per event
+    }
+
+    // ── ICreateViewListener ──────────────────────────────────────────────────
+
+    override fun onCreateView(param: XC_MethodHook.MethodHookParam, view: View) {
+        if (states.containsKey(view)) return
+        val chattingContext = WeChatMessageViewApi.getChattingContextFromParam(param)
+        states[view] = SwipeState(
+            chattingContext = chattingContext,
+            triggerThreshold = dpToPx(view.context, 60).toFloat(),
+        )
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
     private class SpringInterpolator : Interpolator {
-        override fun getInterpolation(t: Float): Float {
-            // Damped sine approximation
-            return (1f - (cos(t * PI * 2.5) * exp(-t * 5f))).toFloat()
-        }
+        override fun getInterpolation(t: Float): Float =
+            (1f - (cos(t * PI * 2.5) * exp(-t * 5f))).toFloat()
     }
 
-    private fun onSwipeLeft(
-        originalView: View,
-        chattingContext: Any
-    ) {
+    private fun onSwipeLeft(originalView: View, chattingContext: Any) {
         val apiMan = chattingContext.asResolver()
             .firstField { type = WeServiceApi.methodApiManagerGetApi.method.declaringClass }
             .get()!!
@@ -186,22 +155,14 @@ object SwipeToQuote : SwitchHookItem(), IResolvesDex,
             .get()!! as FrameLayout
         val quoteMethod = chatFooter.asResolver()
             .firstMethod {
-                parameters { params ->
-                    params[0] == WeMessageApi.classMsgInfo.clazz
-                }
+                parameters { params -> params[0] == WeMessageApi.classMsgInfo.clazz }
                 returnType = Boolean::class
             }.self
         val chatHolder = originalView.tag.asResolver()
-            .firstField {
-                name = "chatHolder"
-                superclass()
-            }.get()!!
+            .firstField { name = "chatHolder"; superclass() }.get()!!
         val msgInfo = methodGetMsgInfo.method.invoke(null, chatHolder, chattingContext)
-        if (quoteMethod.parameterCount == 1) {
-            quoteMethod.invoke(chatFooter, msgInfo)
-        } else {
-            quoteMethod.invoke(chatFooter, msgInfo, null)
-        }
+        if (quoteMethod.parameterCount == 1) quoteMethod.invoke(chatFooter, msgInfo)
+        else quoteMethod.invoke(chatFooter, msgInfo, null)
     }
 
     private fun dpToPx(context: Context, dp: Int) =
@@ -223,9 +184,7 @@ object SwipeToQuote : SwitchHookItem(), IResolvesDex,
 
         methodGetMsgInfo.find(dexKit) {
             searchPackages("com.tencent.mm.ui.chatting.viewitems")
-            matcher {
-                usingEqStrings("ItemDataTag", "getCurrentMsg2 err")
-            }
+            matcher { usingEqStrings("ItemDataTag", "getCurrentMsg2 err") }
         }
     }
 }

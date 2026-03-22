@@ -70,7 +70,7 @@ import android.widget.Button as AndroidButton
     path = "聊天/聊天输入栏增强",
     desc = "为聊天输入栏添加更多功能\n1. 在聊天界面长按「发送」或「加号菜单」按钮打开菜单\n2. 长按「语音」按钮发送自定义语音文件 (SILK/AMR 或 MP3)"
 )
-object ChatInputBarEnhancement : SwitchHookItem() {
+object ChatInputBarEnhancements : SwitchHookItem() {
 
     interface IChatMenuItemProvider {
         @Composable
