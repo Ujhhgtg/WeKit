@@ -78,13 +78,8 @@ class Lsp100HookImpl private constructor() : IHookBridge, ILoaderService {
         Lsp100ExtCmd.handleQueryExtension(key, args as Array<Any?>?)
 
     companion object {
-        @JvmField
         val INSTANCE = Lsp100HookImpl()
-
-        @JvmField
         var self: XposedModule? = null
-
-        @JvmStatic
         fun init(base: XposedModule) {
             self = base
             Lsp100HookWrapper.self = base

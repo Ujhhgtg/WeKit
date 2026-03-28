@@ -11,22 +11,21 @@ import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.CtorInvoker
 import io.github.libxposed.api.XposedModule
+import io.github.libxposed.api.annotations.XposedApiMin
 import java.lang.reflect.Constructor
 import java.lang.reflect.Executable
 import java.lang.reflect.Member
 import java.lang.reflect.Method
 
+@XposedApiMin(101)
 class Lsp101HookImpl private constructor() : IHookBridge, ILoaderService {
 
     private var mClassLoaderHelper: IClassLoaderHelper? = null
 
-    override val apiLevel: Int = self!!.getApiVersion()
-
-    override val frameworkName: String = self!!.getFrameworkName()
-
-    override val frameworkVersion: String = self!!.getFrameworkVersion()
-
-    override val frameworkVersionCode: Long = self!!.getFrameworkVersionCode()
+    override val apiLevel: Int get() = self!!.getApiVersion()
+    override val frameworkName: String get() = self!!.getFrameworkName()
+    override val frameworkVersion: String get() = self!!.getFrameworkVersion()
+    override val frameworkVersionCode: Long get() = self!!.getFrameworkVersionCode()
 
     override fun hookMethod(
         member: Member,
@@ -65,9 +64,9 @@ class Lsp101HookImpl private constructor() : IHookBridge, ILoaderService {
         return invoker.newInstance(*args)
     }
 
-    override val hookCounter: Long = Lsp101HookWrapper.hookCounter.toLong()
+    override val hookCounter: Long get() = Lsp101HookWrapper.hookCounter.toLong()
 
-    override val hookedMethods: Set<Member?> = Lsp101HookWrapper.hookedMethodsRaw
+    override val hookedMethods: Set<Member?> get() = Lsp101HookWrapper.hookedMethodsRaw
 
     override val entryPointName: String = nameof(Lsp101HookImpl::class)
 
@@ -75,7 +74,7 @@ class Lsp101HookImpl private constructor() : IHookBridge, ILoaderService {
 
     override val loaderVersionName: String = BuildConfig.VERSION_NAME
 
-    override val mainModulePath: String = self!!.getModuleApplicationInfo().sourceDir
+    override val mainModulePath: String get() = self!!.getModuleApplicationInfo().sourceDir
 
     override fun log(msg: String) {
         val level = Log.INFO
@@ -99,7 +98,7 @@ class Lsp101HookImpl private constructor() : IHookBridge, ILoaderService {
     override var classLoaderHelper: IClassLoaderHelper? = mClassLoaderHelper
 
     companion object {
-        val INSTANCE: Lsp101HookImpl = Lsp101HookImpl()
+        val INSTANCE = Lsp101HookImpl()
         var self: XposedModule? = null
         private val TAG = nameof(Lsp101HookImpl::class)
         fun init(base: XposedModule) {

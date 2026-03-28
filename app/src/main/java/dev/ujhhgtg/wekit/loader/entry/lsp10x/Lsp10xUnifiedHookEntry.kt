@@ -13,6 +13,7 @@ import io.github.libxposed.api.annotations.XposedApiMin
 
 @Keep
 class Lsp10xUnifiedHookEntry : XposedModule {
+
     private val mHandler: Lsp10xHookEntryHandler
 
     @Suppress("unused")

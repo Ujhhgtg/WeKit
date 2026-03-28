@@ -12,6 +12,7 @@ import io.github.libxposed.api.annotations.XposedApiMin
 @XposedApiMin(101)
 class Lsp101HookEntry(private val self: XposedModule) : Lsp10xHookEntryHandler {
 
+    @Suppress("unused")
     fun onModuleLoaded(param: XposedModuleInterface.ModuleLoadedParam) {
         Lsp101HookImpl.init(self)
     }
@@ -28,7 +29,7 @@ class Lsp101HookEntry(private val self: XposedModule) : Lsp10xHookEntryHandler {
                     param.classLoader,
                     Lsp101HookImpl.INSTANCE,
                     Lsp101HookImpl.INSTANCE,
-                    self.applicationInfo.sourceDir,
+                    self.moduleApplicationInfo.sourceDir,
                     true
                 )
             }
