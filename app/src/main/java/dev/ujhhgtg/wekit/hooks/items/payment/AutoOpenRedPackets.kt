@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.net.toUri
 import de.robv.android.xposed.XposedHelpers
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -45,7 +45,7 @@ import kotlin.random.Random
 object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertListener,
     IResolvesDex {
 
-    private val TAG = nameof(AutoOpenRedPackets)
+    private val TAG = nameOf(AutoOpenRedPackets)
 
     private val classReceiveLuckyMoney by dexClass()
     private val classOpenLuckyMoney by dexClass()

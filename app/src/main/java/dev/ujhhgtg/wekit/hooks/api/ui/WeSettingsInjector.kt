@@ -20,7 +20,7 @@ import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersona
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.preference.IconPreference
 import de.robv.android.xposed.XposedHelpers
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
@@ -53,7 +53,7 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
     private val classSettingLocation by dexClass()
     private val methodSettingGroupAccountInfoReturns1 by dexMethod()
 
-    private val TAG = nameof(WeSettingsInjector)
+    private val TAG = nameOf(WeSettingsInjector)
 
     private const val PREFS_KEY = "wekit_settings_entry"
     private const val PREFS_TITLE = "${BuildConfig.TAG} 设置"

@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.condition.type.Modifiers
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -26,7 +26,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @HookItem(path = "调试/重定向微信日志", desc = "将微信内部日志打印至模块日志")
 object RedirectHostLogs : ClickableHookItem() {
 
-    private val TAG = nameof(RedirectHostLogs)
+    private val TAG = nameOf(RedirectHostLogs)
     private const val KEY_PREFIX = "redirect_"
 
     override fun onEnable() {

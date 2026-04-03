@@ -215,9 +215,9 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
-version = "0.2.183"
+version = "0.2.184"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5b646652bf6661599e1da8901b3b9522896f01e736bad5f723fe7a3a27f899d"
+checksum = "48f5d2a454e16a5ea0f4ced81bd44e4cfc7bd3a507b61887c99fd3538b28e4af"
 
 [[package]]
 name = "libloading"
@@ -346,9 +346,9 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "rustc-hash"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
+checksum = "94300abf3f1ae2e2b8ffb7b58043de3d399c73fa6f4b73826402a5c457614dbe"
 
 [[package]]
 name = "rustc_version"
@@ -381,9 +381,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
-name = "silk-v3-rs"
+name = "silk-v3-sys"
 version = "0.1.0"
-source = "git+https://github.com/Ujhhgtg/silk-v3-rs.git#323b4ed05afff35e18113e1809b6f4318b9f12f0"
+source = "git+https://github.com/Ujhhgtg/silk-v3-sys.git#4e645e278b8026083c1ff606798321d21ba0ad53"
 dependencies = [
  "bindgen",
  "cc",
@@ -527,7 +527,7 @@ dependencies = [
  "libc",
  "markdown",
  "mp3lame-encoder",
- "silk-v3-rs",
+ "silk-v3-sys",
  "symphonia",
 ]
 

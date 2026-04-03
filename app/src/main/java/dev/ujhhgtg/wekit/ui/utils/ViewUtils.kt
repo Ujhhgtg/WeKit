@@ -4,7 +4,7 @@ import android.app.Activity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ListAdapter
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 fun <T : View> View.findViewByClassName(className: String): T? {
@@ -91,7 +91,7 @@ fun debugViewTree(view: View, connector: String = "", indent: String = "") {
         runCatching { view.resources.getResourceEntryName(view.id) }.getOrDefault("UNKNOWN_ID")
     } else "NO_ID"
     WeLogger.d(
-        nameof(::debugViewTree),
+        nameOf(::debugViewTree),
         "$indent$connector${view.javaClass.name} [ID: $idStr / ${view.id}] [TAG: ${view.tag?.javaClass?.name ?: "null"}]"
     )
     if (view is ViewGroup) {

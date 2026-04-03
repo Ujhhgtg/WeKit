@@ -20,7 +20,7 @@ import android.os.PersistableBundle
 import android.os.TestLooperManager
 import android.view.KeyEvent
 import android.view.MotionEvent
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.ModuleRes
@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 object ActivityProxy {
 
-    private val TAG = nameof(ActivityProxy)
+    private val TAG = nameOf(ActivityProxy)
     private var stubHooked = false
 
     @SuppressLint("PrivateApi", "DiscouragedPrivateApi")

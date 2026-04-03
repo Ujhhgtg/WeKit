@@ -34,7 +34,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.graphics.withTranslation
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.tencent.mm.ui.widget.MMNeat7extView
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
@@ -65,7 +65,7 @@ import org.luckypray.dexkit.DexKitBridge
 @HookItem(path = "聊天/Markdown 渲染", desc = "渲染 Markdown 消息")
 object MarkdownRendering : ClickableHookItem(), IResolvesDex {
 
-    private val TAG = nameof(MarkdownRendering)
+    private val TAG = nameOf(MarkdownRendering)
 
     private const val KEY_USE_MARKWON = "use_markwon"
     private const val KEY_COMPACT_HTML = "compact_html"

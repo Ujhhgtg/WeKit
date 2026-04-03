@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.core
 
 import android.content.Context
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -23,12 +23,12 @@ abstract class SwitchHookItem : BaseHookItem() {
             _isEnabled = value
             if (!value) {
                 if (isLoaded) {
-                    WeLogger.i(nameof(SwitchHookItem::class), "disabling $path...")
+                    WeLogger.i(nameOf(SwitchHookItem::class), "disabling $path...")
                     disable()
                     isLoaded = false
                 }
             } else {
-                WeLogger.i(nameof(SwitchHookItem::class), "enabling $path...")
+                WeLogger.i(nameOf(SwitchHookItem::class), "enabling $path...")
                 enable()
                 isLoaded = true
             }

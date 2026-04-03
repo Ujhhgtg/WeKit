@@ -19,7 +19,7 @@
 //@HookItem(path = "API/配置界面修改服务", desc = "为其他功能提供修改配置界面的能力")
 //object WePreferenceScreenApi : ApiHookItem(), IDexFind {
 //
-//    private val TAG = nameof(WePreferenceScreenApi)
+//    private val TAG = nameOf(WePreferenceScreenApi)
 //
 //    interface IPrefItemsProvider {
 //        fun getMenuItems(activity: Activity, baseAdapter: BaseAdapter): List<PrefItem>

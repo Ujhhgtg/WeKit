@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.hooks.items.shortvideos
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.hooks.api.ui.WeShortVideosShareMenuApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
@@ -13,6 +13,7 @@ import dev.ujhhgtg.wekit.utils.KnownPaths
 import dev.ujhhgtg.wekit.utils.ModuleRes
 import dev.ujhhgtg.wekit.utils.showToast
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.copyToClipboard
 import dev.ujhhgtg.wekit.utils.formatBytesSize
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +35,7 @@ import kotlin.io.path.outputStream
 object DownloadMedia : SwitchHookItem(),
     WeShortVideosShareMenuApi.IMenuItemsProvider {
 
-    private val TAG = nameof(DownloadMedia)
+    private val TAG = nameOf(DownloadMedia)
 
     override fun onEnable() {
         WeShortVideosShareMenuApi.addProvider(this)
@@ -57,10 +58,7 @@ object DownloadMedia : SwitchHookItem(),
                         json.getString("url") + json.getString("url_token")
                     }
 
-                    val clipboard = HostInfo.application
-                        .getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    val clip = ClipData.newPlainText("Url", imageUrls.joinToString("\n"))
-                    clipboard.setPrimaryClip(clip)
+                    copyToClipboard(imageUrls.joinToString("\n"))
                     showToast("已复制")
                     return@MenuItem
                 }
@@ -91,12 +89,7 @@ object DownloadMedia : SwitchHookItem(),
                         clipItems += "链接" to json.getString("pcdn_url")
                     }
 
-                    val cm = HostInfo.application
-                        .getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    val clip = ClipData.newPlainText(
-                        "Content",
-                        clipItems.joinToString("\n") { pair -> "${pair.first}: ${pair.second}" })
-                    cm.setPrimaryClip(clip)
+                    copyToClipboard(clipItems.joinToString("\n") { pair -> "${pair.first}: ${pair.second}" })
                     showToast("已复制")
 
                     return@MenuItem

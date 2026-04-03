@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.api.core
 
 import android.annotation.SuppressLint
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
@@ -15,7 +15,7 @@ import java.lang.reflect.Modifier
 @HookItem(path = "API/网络请求服务", desc = "提供通用发包能力")
 object WeNetworkApi : ApiHookItem(), IResolvesDex {
 
-    private val TAG = nameof(WeNetworkApi)
+    private val TAG = nameOf(WeNetworkApi)
 
     private val methodGetNetSceneQueue by dexMethod()
 

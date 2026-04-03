@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.hooks.api.net
 
 import com.google.protobuf.CodedInputStream
 import com.google.protobuf.CodedOutputStream
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hexToBytes
 import org.json.JSONArray
@@ -426,7 +426,7 @@ class WeProtoData private constructor() {
                 }
 
                 null -> Unit
-                else -> WeLogger.w(nameof(WeProtoData::class), "fromJSON Unknown type: ${value.javaClass.name}")
+                else -> WeLogger.w(nameOf(WeProtoData::class), "fromJSON Unknown type: ${value.javaClass.name}")
             }
         }
     }

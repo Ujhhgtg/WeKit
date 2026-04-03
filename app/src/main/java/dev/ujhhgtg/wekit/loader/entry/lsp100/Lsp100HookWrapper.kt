@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.loader.entry.lsp100
 
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.entry.lsp100.codegen.Lsp100ProxyClassMaker
 import dev.ujhhgtg.wekit.loader.entry.lsp100.dyn.Lsp100CallbackProxy
@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong
 @XposedApiExact(100)
 object Lsp100HookWrapper {
 
-    private val TAG = nameof(Lsp100HookWrapper)
+    private val TAG = nameOf(Lsp100HookWrapper)
 
     var self: XposedModule? = null
 

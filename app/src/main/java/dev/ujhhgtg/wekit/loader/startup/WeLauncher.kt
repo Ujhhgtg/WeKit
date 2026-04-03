@@ -5,7 +5,7 @@ import android.content.Context
 import android.os.Bundle
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.tencent.mm.ui.LauncherUI
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.hooks.core.HookItemsLoader
@@ -22,12 +22,12 @@ object WeLauncher {
     fun init(cl: ClassLoader, context: Context) {
         val processType = TargetProcesses.getCurrentProcessType()
         val currentProcessName = TargetProcesses.getCurrentProcessName()
-        WeLogger.d(TAG, "initializing in processName=$currentProcessName, type=$processType")
+        WeLogger.d(TAG, "loading in processName=$currentProcessName, type=$processType")
 
         ParcelableFixer.init(cl, WeLauncher::class.java.classLoader!!)
 
         val pi = context.packageManager.getPackageInfo(context.packageName, 0)
-        DexCacheManager.init(requireNotNull(pi.versionName))
+        DexCacheManager.init(pi.versionName!!)
 
         if (processType == TargetProcesses.PROC_MAIN) {
             val appContext = context.applicationContext ?: context
@@ -60,5 +60,5 @@ object WeLauncher {
         }
     }
 
-    private val TAG = nameof(WeLauncher)
+    private val TAG = nameOf(WeLauncher)
 }

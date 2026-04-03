@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.loader.utils
 
 import android.content.Context
 import com.tencent.mmkv.MMKV
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import kotlin.io.path.createDirectories
 import kotlin.io.path.div
@@ -10,7 +10,7 @@ import kotlin.io.path.exists
 
 object NativeLoader {
 
-    private val TAG = nameof(NativeLoader)
+    private val TAG = nameOf(NativeLoader)
     var initialized = false
 
     init {

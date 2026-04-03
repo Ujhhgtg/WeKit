@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.hooks.items.contacts
 
 import android.app.Activity
 import com.highcapable.kavaref.extension.toClassOrNull
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -10,7 +10,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @HookItem(path = "联系人与群组/移除消息批量转发限制", desc = "移除消息多选目标的 9 个数量限制")
 object RemoveMessageBatchForwardLimit : SwitchHookItem() {
 
-    private val TAG = nameof(RemoveMessageBatchForwardLimit)
+    private val TAG = nameOf(RemoveMessageBatchForwardLimit)
 
     override fun onEnable() {
         listOf(

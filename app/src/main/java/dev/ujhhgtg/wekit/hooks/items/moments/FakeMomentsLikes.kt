@@ -22,7 +22,7 @@ import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.createInstance
 import com.tencent.mm.plugin.sns.ui.SnsCommentFooter
 import com.tencent.mm.protocal.protobuf.SnsObject
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseListenerApi
@@ -47,7 +47,7 @@ import java.util.LinkedList
 object FakeMomentsLikes : SwitchHookItem(), WeMomentsContextMenuApi.IMenuItemsProvider,
     WeDatabaseListenerApi.IUpdateListener {
 
-    private val TAG = nameof(FakeMomentsLikes)
+    private val TAG = nameOf(FakeMomentsLikes)
     private const val TBL_SNS_INFO = "SnsInfo"
 
     // 存储每个朋友圈动态的伪点赞用户配置 (snsId -> Set<WxId>)

@@ -16,7 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import com.tencent.mm.ui.LauncherUI
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -28,7 +28,7 @@ import java.nio.file.Path
 
 internal object CrashInterceptorUtils {
 
-    private val TAG = nameof(CrashInterceptorUtils)
+    private val TAG = nameOf(CrashInterceptorUtils)
 
     fun isMainProcess(appContext: Context): Boolean {
         return runCatching {

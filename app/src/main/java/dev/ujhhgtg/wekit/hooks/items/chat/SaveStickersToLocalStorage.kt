@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.hooks.items.chat
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.condition.type.Modifiers
 import com.tencent.mm.plugin.gif.MMWXGFJNI
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -27,7 +27,7 @@ import kotlin.io.path.outputStream
 object SaveStickersToLocalStorage : SwitchHookItem(), IResolvesDex,
     WeChatMessageContextMenuApi.IMenuItemsProvider {
 
-    private val TAG = nameof(SaveStickersToLocalStorage)
+    private val TAG = nameOf(SaveStickersToLocalStorage)
 
     private val classEmojiFileEncryptMgr by dexClass()
 

@@ -1,10 +1,10 @@
 package dev.ujhhgtg.wekit.loader.entry.frida
 
 import android.annotation.SuppressLint
-import android.app.Application
+import android.app.ActivityThread
 import android.util.Log
 import androidx.annotation.Keep
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.loader.entry.common.ModuleLoader
 import java.io.File
 import java.lang.reflect.InvocationTargetException
@@ -14,7 +14,7 @@ import java.lang.reflect.Method
 @SuppressLint("PrivateApi")
 object FridaInjectEntry {
 
-    private val TAG = nameof(FridaInjectEntry)
+    private val TAG = nameOf(FridaInjectEntry)
 
     @JvmStatic
     fun entry3(modulePath: String, hostDataDir: String?, xblService: Map<String, Method>?) {
@@ -61,21 +61,22 @@ object FridaInjectEntry {
             setXblService(xblService)
         }
         val cl = findHostClassLoader()
-        ModuleLoader.init(hostDataDir.absolutePath, cl, FridaStartupImpl, null, modulePath.absolutePath, false)
+        ModuleLoader.init(
+            hostDataDir.absolutePath,
+            cl,
+            FridaStartupImpl,
+            null,
+            modulePath.absolutePath,
+            false
+        )
     }
 
     private fun findHostClassLoader(): ClassLoader {
-        val kActivityThread = Class.forName("android.app.ActivityThread")
-        val activityThread = kActivityThread.getMethod("currentActivityThread").invoke(null)
-        val app = kActivityThread.getMethod("getApplication").invoke(activityThread) as Application
-        return app.classLoader
+        return ActivityThread.currentActivityThread().application.classLoader
     }
 
     private fun findHostDataDir(): File {
-        val kActivityThread = Class.forName("android.app.ActivityThread")
-        val activityThread = kActivityThread.getMethod("currentActivityThread").invoke(null)
-        val app = kActivityThread.getMethod("getApplication").invoke(activityThread) as Application
-        return app.dataDir
+        return ActivityThread.currentActivityThread().application.dataDir
     }
 
     private fun Throwable.unwrapIte(): Throwable {

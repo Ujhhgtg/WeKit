@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.items.moments
 
 import android.content.ContentValues
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.hooks.api.net.WeProtoData
 import dev.ujhhgtg.wekit.hooks.core.HookItem
@@ -14,7 +14,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 )
 object AntiMomentsDelete : SwitchHookItem(), WeDatabaseListenerApi.IUpdateListener {
 
-    private val TAG = nameof(AntiMomentsDelete)
+    private val TAG = nameOf(AntiMomentsDelete)
     private const val TBL_SNS_INFO = "SnsInfo"
     private const val DEFAULT_MARK = "[拦截删除]"
 

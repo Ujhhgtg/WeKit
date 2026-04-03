@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.items.debug
 
 import com.tencent.mm.ui.LauncherUI
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -16,7 +16,7 @@ import dev.ujhhgtg.wekit.utils.showToast
 )
 object NativeCrashInterceptor : SwitchHookItem() {
 
-    private val TAG = nameof(NativeCrashInterceptor)
+    private val TAG = nameOf(NativeCrashInterceptor)
 
     override fun onEnable() {
         if (!NativeCrashHandler.install()) {

@@ -19,7 +19,7 @@ import com.highcapable.kavaref.extension.ClassLoaderProvider
 import com.highcapable.kavaref.extension.createInstance
 import com.highcapable.kavaref.extension.isSubclassOf
 import com.tencent.mm.storage.emotion.EmojiGroupInfo
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
@@ -71,7 +71,7 @@ import kotlin.io.path.writeText
 )
 object StickersSync : ClickableHookItem(), IResolvesDex {
 
-    private val TAG = nameof(StickersSync)
+    private val TAG = nameOf(StickersSync)
     private const val STICKER_PACK_ID_PREFIX = "wekit.stickers.sync"
     private val ALLOWED_STICKER_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp")
 

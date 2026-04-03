@@ -39,7 +39,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.Open_in_new
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
@@ -49,6 +49,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.showToast
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.copyToClipboard
 import dev.ujhhgtg.wekit.utils.openInSystem
 
 @HookItem(
@@ -58,7 +59,7 @@ import dev.ujhhgtg.wekit.utils.openInSystem
 object LinkExternalAppJump : SwitchHookItem(),
     WeStartActivityApi.IStartActivityListener {
 
-    private val TAG = nameof(LinkExternalAppJump)
+    private val TAG = nameOf(LinkExternalAppJump)
 
     private val WECHAT_INTERNAL_HOSTS = setOf(
         "weixin.com",
@@ -160,10 +161,7 @@ object LinkExternalAppJump : SwitchHookItem(),
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        val clipboard =
-                            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("WeKit_Link", url.toString())
-                        clipboard.setPrimaryClip(clip)
+                        copyToClipboard(context, url.toString())
                         showToast(context, "已复制链接")
                         onDismiss()
                     }) { Text("复制链接") }

@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.loader.utils.LibXposedApiByteCodeGenerator
 import io.github.libxposed.api.XposedInterface
 
 object Lsp100ExtCmd {
+
     fun handleQueryExtension(cmd: String, arg: Array<Any?>?): Any? {
         when (cmd) {
             "GetXposedInterfaceClass" -> return XposedInterface::class.java

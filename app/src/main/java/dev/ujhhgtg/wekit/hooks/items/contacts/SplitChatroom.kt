@@ -32,7 +32,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Search
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.chatting.ChattingUI
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.hooks.api.core.model.WeGroup
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
@@ -47,7 +47,7 @@ import dev.ujhhgtg.wekit.utils.showToast
 @HookItem(path = "联系人与群组/分裂群组", desc = "让群聊一分为二")
 object SplitChatroom : ClickableHookItem() {
 
-    private val TAG = nameof(SplitChatroom)
+    private val TAG = nameOf(SplitChatroom)
 
     override fun onClick(context: Context) {
         val groups = try {

@@ -14,7 +14,7 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import androidx.core.content.ContextCompat
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeConversationApi
@@ -47,7 +47,7 @@ import kotlin.io.path.writeBytes
 )
 object NotificationsEvolved : SwitchHookItem() {
 
-    private val TAG = nameof(NotificationsEvolved)
+    private val TAG = nameOf(NotificationsEvolved)
 
     override fun startup(process: Int) {
         if (process != TargetProcesses.PROC_MAIN && process != TargetProcesses.PROC_PUSH) return

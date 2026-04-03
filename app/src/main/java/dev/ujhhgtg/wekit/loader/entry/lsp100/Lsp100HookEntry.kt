@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.loader.entry.lsp100
 import androidx.annotation.Keep
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.loader.entry.common.ModuleLoader
-import dev.ujhhgtg.wekit.loader.entry.lsp100.Lsp100HookImpl.Companion.init
 import dev.ujhhgtg.wekit.loader.entry.lsp10x.Lsp10xHookEntryHandler
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
@@ -14,7 +13,7 @@ import io.github.libxposed.api.annotations.XposedApiExact
 class Lsp100HookEntry(private val self: XposedModule) : Lsp10xHookEntryHandler {
 
     init {
-        init(self)
+        Lsp100HookImpl.init(self)
     }
 
     @XposedApiExact(100)
@@ -25,8 +24,8 @@ class Lsp100HookEntry(private val self: XposedModule) : Lsp10xHookEntryHandler {
                 ModuleLoader.init(
                     ai.dataDir,
                     param.classLoader,
-                    Lsp100HookImpl.INSTANCE,
-                    Lsp100HookImpl.INSTANCE,
+                    Lsp100HookImpl,
+                    Lsp100HookImpl,
                     self.applicationInfo.sourceDir,
                     true
                 )

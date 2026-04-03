@@ -9,7 +9,7 @@ import com.highcapable.kavaref.extension.createInstance
 import com.tencent.mm.opensdk.modelmsg.WXFileObject
 import com.tencent.mm.opensdk.modelmsg.WXMediaMessage
 import de.robv.android.xposed.XposedHelpers
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -107,7 +107,7 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
     private lateinit var unsafeInstance: Any
     private lateinit var allocateInstanceMethod: Method
 
-    private val TAG = nameof(WeMessageApi)
+    private val TAG = nameOf(WeMessageApi)
 
     @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex(dexKit: DexKitBridge) {

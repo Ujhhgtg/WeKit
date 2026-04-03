@@ -10,7 +10,7 @@ import com.tencent.mm.chatroom.ui.ChatroomInfoUI
 import com.tencent.mm.plugin.profile.ui.ContactInfoUI
 import com.tencent.mm.ui.base.preference.MMPreference
 import com.tencent.mm.ui.base.preference.Preference
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -34,7 +34,7 @@ object WeContactPrefsScreenApi : ApiHookItem() {
         val position: Int = -1
     )
 
-    private val TAG = nameof(WeContactPrefsScreenApi)
+    private val TAG = nameOf(WeContactPrefsScreenApi)
 
     private val providers = CopyOnWriteArrayList<IContactInfoProvider>()
 

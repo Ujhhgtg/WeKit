@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.hooks.api.ui
 import android.view.View
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
@@ -39,7 +39,7 @@ object WeChatMessageViewApi : ApiHookItem(), IResolvesDex {
         )
     }
 
-    private val TAG = nameof(WeChatMessageViewApi)
+    private val TAG = nameOf(WeChatMessageViewApi)
 
     private val methodChatItemOnBindView by dexMethod()
 

@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ContentValues
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.VariousClass
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.constants.PreferenceKeys
 import dev.ujhhgtg.wekit.constants.WeChatVersion
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
@@ -30,7 +30,7 @@ object WeDatabaseListenerApi : ApiHookItem() {
         fun onQuery(sql: String): String?
     }
 
-    private val TAG = nameof(WeDatabaseApi)
+    private val TAG = nameOf(WeDatabaseApi)
 
     private val insertListeners = CopyOnWriteArrayList<IInsertListener>()
     private val updateListeners = CopyOnWriteArrayList<IUpdateListener>()

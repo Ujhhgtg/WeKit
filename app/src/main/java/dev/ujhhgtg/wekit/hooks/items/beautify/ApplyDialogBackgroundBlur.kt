@@ -18,7 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.tencent.mm.ui.halfscreen.HalfScreenTransparentActivity
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
 @HookItem(path = "界面美化/对话框窗口级背景模糊", desc = "为模块与微信的对话框添加窗口级模糊处理")
 object ApplyDialogBackgroundBlur : ClickableHookItem() {
 
-    private val TAG = nameof(ApplyDialogBackgroundBlur)
+    private val TAG = nameOf(ApplyDialogBackgroundBlur)
 
     private const val KEY_BLUR_RADIUS = "blur_radius"
     private const val DEFAULT_BLUR_RADIUS = 20

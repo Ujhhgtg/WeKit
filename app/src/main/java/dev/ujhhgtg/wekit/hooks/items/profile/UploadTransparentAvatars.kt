@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.items.profile
 
 import android.graphics.Bitmap
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.HookItem
@@ -12,7 +12,7 @@ import org.luckypray.dexkit.DexKitBridge
 @HookItem(path = "个人资料/上传透明头像", desc = "头像上传时使用 PNG 格式保持透明")
 object UploadTransparentAvatars : SwitchHookItem(), IResolvesDex {
 
-    private val TAG = nameof(UploadTransparentAvatars)
+    private val TAG = nameOf(UploadTransparentAvatars)
 
     private val methodSaveBitmap by dexMethod()
 

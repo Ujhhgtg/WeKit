@@ -10,7 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -26,7 +26,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 )
 object TriggerCrash : ClickableHookItem() {
 
-    private val TAG = nameof(TriggerCrash)
+    private val TAG = nameOf(TriggerCrash)
 
     override fun onClick(context: Context) {
         showCrashCategoryDialog(context)

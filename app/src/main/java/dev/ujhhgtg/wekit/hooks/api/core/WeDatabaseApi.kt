@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.hooks.api.core
 import android.annotation.SuppressLint
 import android.database.Cursor
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -36,7 +36,7 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
     lateinit var rawQueryMethod: Method
     lateinit var execStatementMethod: Method
 
-    private val TAG = nameof(WeDatabaseApi)
+    private val TAG = nameOf(WeDatabaseApi)
 
     val coreStorage by lazy {
         classMmKernel.asResolver()

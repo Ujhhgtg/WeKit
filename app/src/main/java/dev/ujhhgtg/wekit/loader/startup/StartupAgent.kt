@@ -5,7 +5,7 @@ import android.app.ActivityThread
 import android.app.Application
 import android.os.Build
 import com.highcapable.kavaref.extension.toClass
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 import dev.ujhhgtg.wekit.loader.utils.LibXposedApiByteCodeGenerator
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
@@ -19,7 +19,7 @@ import kotlin.io.path.deleteRecursively
 
 object StartupAgent {
 
-    private val TAG = nameof(StartupAgent)
+    private val TAG = nameOf(StartupAgent)
 
     private var sInitialized = false
 
@@ -41,6 +41,7 @@ object StartupAgent {
         LibXposedApiByteCodeGenerator.init()
         NativeLoader.init(ctx)
         WeLauncher.init(ctx.classLoader, ctx)
+
         runCatching {
             ctx.dataDir.toPath().resolve("app_qqprotect").deleteRecursively()
         }.onFailure { WeLogger.e(TAG, "failed to delete app_qqprotect", it) }

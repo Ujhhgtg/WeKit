@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.hooks.api.ui.WeContactPrefsScreenApi.ContactInfoItem
 import dev.ujhhgtg.wekit.hooks.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
+import dev.ujhhgtg.wekit.utils.copyToClipboard
 import dev.ujhhgtg.wekit.utils.showToast
 
 @HookItem(
@@ -35,8 +36,7 @@ object ShowWxIdInContactDetails : SwitchHookItem(), IContactInfoProvider {
     override fun onItemClick(activity: Activity, key: String): Boolean {
         if (!key.startsWith(PREF_KEY)) return false
         val wxId = key.substringAfter(SEPARATOR)
-        val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("WxId", wxId))
+        copyToClipboard(activity, wxId)
         showToast(activity, "已复制")
         return true
     }

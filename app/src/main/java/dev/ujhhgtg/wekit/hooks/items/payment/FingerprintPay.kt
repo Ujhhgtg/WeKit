@@ -30,7 +30,7 @@ import com.composables.icons.materialsymbols.outlinedfilled.Visibility_off
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.toClass
 import com.tencent.mm.plugin.fingerprint.ui.FingerPrintAuthTransparentUI
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.activity.StubFragmentActivity
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
@@ -53,7 +53,7 @@ import dev.ujhhgtg.wekit.utils.showToast
 @HookItem(path = "红包与支付/指纹支付", desc = "使用指纹快捷确认支付")
 object FingerprintPay : ClickableHookItem() {
 
-    private val TAG = nameof(FingerprintPay)
+    private val TAG = nameOf(FingerprintPay)
     private const val KEY_ENCRYPTED_DATA = "payment_pswd_encdata"
 
     private const val SPLIT_CHAR = ':'

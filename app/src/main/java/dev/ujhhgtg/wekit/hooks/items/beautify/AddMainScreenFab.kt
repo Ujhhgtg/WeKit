@@ -55,7 +55,7 @@ import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Update
 import com.composables.icons.materialsymbols.outlinedfilled.Wallet
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.hooks.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
@@ -87,7 +87,7 @@ object AddMainScreenFab : SwitchHookItem() {
         providers.remove(provider)
     }
 
-    private val TAG = nameof(AddMainScreenFab)
+    private val TAG = nameOf(AddMainScreenFab)
 
     private fun startActivityByName(context: Context, className: String) {
         val intent = Intent().apply {

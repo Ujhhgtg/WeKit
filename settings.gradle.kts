@@ -56,8 +56,8 @@ rootProject.name = "wekit"
 
 include(":app",
     ":libs:common:annotation-scanner",
-    ":libs:external:nameof-kt:plugin",
-    ":libs:external:nameof-kt:api",
+    ":libs:external:comptime-kt:plugin",
+    ":libs:external:comptime-kt:api",
     ":libs:common:libxposed-api"
 )
 include(":libs:common:stubs")

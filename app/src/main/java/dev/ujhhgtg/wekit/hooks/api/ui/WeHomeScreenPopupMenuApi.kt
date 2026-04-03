@@ -7,7 +7,7 @@ import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.createInstance
 import com.highcapable.kavaref.extension.isSubclassOf
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -40,7 +40,7 @@ object WeHomeScreenPopupMenuApi : ApiHookItem(), IResolvesDex {
         providers.remove(provider)
     }
 
-    private val TAG = nameof(WeHomeScreenPopupMenuApi)
+    private val TAG = nameOf(WeHomeScreenPopupMenuApi)
 
     private val methodAddItem by dexMethod()
     private val methodHandleItemClick by dexMethod()

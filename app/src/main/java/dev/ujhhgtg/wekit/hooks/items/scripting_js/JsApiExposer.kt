@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.hooks.items.scripting_js
 
 import android.os.Handler
 import android.os.Looper
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.utils.DefaultJson
@@ -40,7 +40,7 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 object JsApiExposer {
-    private val TAG = nameof(JsApiExposer)
+    private val TAG = nameOf(JsApiExposer)
     private const val TAG_LOG_API = "JsApiExposer.LogApi"
     private const val TAG_HTTP_API = "JsApiExposer.HttpApi"
 

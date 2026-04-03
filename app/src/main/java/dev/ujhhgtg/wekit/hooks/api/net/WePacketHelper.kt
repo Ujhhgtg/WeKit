@@ -7,7 +7,7 @@ import com.highcapable.kavaref.extension.ClassLoaderProvider
 import com.highcapable.kavaref.extension.isSubclassOf
 import com.highcapable.kavaref.extension.toClass
 import de.robv.android.xposed.XposedHelpers
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -63,7 +63,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
         SendPatSigner { classNetScenePat.clazz }
     )
 
-    private val TAG = nameof(WePacketHelper)
+    private val TAG = nameOf(WePacketHelper)
 
     override fun onEnable() {
         // 映射业务请求类

@@ -4,6 +4,17 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="$PROJECT_DIR$/buildSrc" name="buildSrc">
+                <projects>
+                  <project path="$PROJECT_DIR$/buildSrc" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
         <option name="testRunner" value="CHOOSE_PER_TEST" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="gradleJvm" value="temurin-21" />
@@ -11,15 +22,16 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/buildSrc" />
             <option value="$PROJECT_DIR$/libs" />
             <option value="$PROJECT_DIR$/libs/common" />
             <option value="$PROJECT_DIR$/libs/common/annotation-scanner" />
             <option value="$PROJECT_DIR$/libs/common/libxposed-api" />
             <option value="$PROJECT_DIR$/libs/common/stubs" />
             <option value="$PROJECT_DIR$/libs/external" />
-            <option value="$PROJECT_DIR$/libs/external/nameof-kt" />
-            <option value="$PROJECT_DIR$/libs/external/nameof-kt/api" />
-            <option value="$PROJECT_DIR$/libs/external/nameof-kt/plugin" />
+            <option value="$PROJECT_DIR$/libs/external/comptime-kt" />
+            <option value="$PROJECT_DIR$/libs/external/comptime-kt/api" />
+            <option value="$PROJECT_DIR$/libs/external/comptime-kt/plugin" />
           </set>
         </option>
       </GradleProjectSettings>

@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.dexkit.dsl
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.ClassLoaderProvider
 import com.highcapable.kavaref.extension.toClassOrNull
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
 import dev.ujhhgtg.wekit.hooks.core.BaseHookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -19,7 +19,7 @@ import kotlin.reflect.KProperty
 
 /**
  * 所有 Dex 委托的公共接口，用于统一缓存读写。
- * 每个委托负责自己的序列化/反序列化，不依赖外部 Map。
+ * 每个委托负责自己的序列化/反序列化。
  */
 sealed interface DexDelegateBase {
     val key: String
@@ -60,7 +60,7 @@ class DexClassDelegate internal constructor(
     }
 
     fun setPlaceholderDescriptor() {
-        WeLogger.w(nameof(DexClassDelegate::class), "setting placeholder for $key")
+        WeLogger.w(nameOf(DexClassDelegate::class), "setting placeholder for $key")
         setDescriptor("com.tencent.mm.ui.LauncherUI")
     }
 
@@ -71,7 +71,7 @@ class DexClassDelegate internal constructor(
     override fun loadDescriptor(value: String) = setDescriptor(value)
 
     /**
-     * 查找 Dex 类。结果直接写入委托自身，无需外部 descriptors Map。
+     * 查找 Dex 类。结果直接写入委托自身。
      */
     fun find(
         dexKit: DexKitBridge,
@@ -138,7 +138,7 @@ class DexMethodDelegate internal constructor(
         setDescriptor(DexMethodDescriptor(className, methodName, methodSign))
 
     fun setPlaceholderDescriptor() {
-        WeLogger.w(nameof(DexMethodDelegate::class), "setting placeholder for $key")
+        WeLogger.w(nameOf(DexMethodDelegate::class), "setting placeholder for $key")
         setDescriptor(DexMethodDescriptor("Lcom/tencent/mm/ui/LauncherUI;->getInstance()Lcom/tencent/mm/ui/LauncherUI;"))
     }
 
@@ -150,7 +150,7 @@ class DexMethodDelegate internal constructor(
     }
 
     /**
-     * 查找 Dex 方法。结果直接写入委托自身，无需外部 descriptors Map。
+     * 查找 Dex 方法。结果直接写入委托自身。
      */
     fun find(
         dexKit: DexKitBridge,
@@ -219,7 +219,7 @@ class DexConstructorDelegate internal constructor(
     }
 
     /**
-     * 查找 Dex 构造函数。结果直接写入委托自身，无需外部 descriptors Map。
+     * 查找 Dex 构造函数。结果直接写入委托自身。
      */
     fun find(
         dexKit: DexKitBridge,

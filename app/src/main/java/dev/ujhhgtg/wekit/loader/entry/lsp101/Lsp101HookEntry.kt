@@ -27,8 +27,8 @@ class Lsp101HookEntry(private val self: XposedModule) : Lsp10xHookEntryHandler {
                 ModuleLoader.init(
                     ai.dataDir,
                     param.classLoader,
-                    Lsp101HookImpl.INSTANCE,
-                    Lsp101HookImpl.INSTANCE,
+                    Lsp101HookImpl,
+                    Lsp101HookImpl,
                     self.moduleApplicationInfo.sourceDir,
                     true
                 )

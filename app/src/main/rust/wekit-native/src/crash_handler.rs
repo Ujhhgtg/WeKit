@@ -318,8 +318,6 @@ unsafe fn write_crash_log(sig: c_int, info: *mut siginfo_t, ctx: *mut c_void) {
         w.i32_dec((*info).si_code);
         w.s("\n");
         w.s("Fault Address: ");
-        // si_addr() is a method on libc's siginfo_t that extracts the fault address
-        // from the embedded union (equivalent to info->si_addr in C).
         w.ptr((*info).si_addr() as *const c_void);
         w.s("\n\n");
 
@@ -353,9 +351,6 @@ unsafe fn write_crash_log(sig: c_int, info: *mut siginfo_t, ctx: *mut c_void) {
             {
                 let uc = &*(ctx as *const ucontext_t);
                 let mc = &uc.uc_mcontext;
-                // The original C++ code had a bug here: it added i*sizeof(long) to
-                // the *value* of arm_r0 instead of indexing the register array.
-                // Fixed: access each named field individually.
                 let regs: [u32; 13] = [
                     mc.arm_r0, mc.arm_r1, mc.arm_r2, mc.arm_r3, mc.arm_r4, mc.arm_r5, mc.arm_r6,
                     mc.arm_r7, mc.arm_r8, mc.arm_r9, mc.arm_r10, mc.arm_fp, mc.arm_ip,
@@ -379,6 +374,80 @@ unsafe fn write_crash_log(sig: c_int, info: *mut siginfo_t, ctx: *mut c_void) {
                 w.s("pc:  ");
                 w.hex(mc.arm_pc as u64, 8);
                 w.s("\n\n");
+            }
+
+            #[cfg(target_arch = "x86_64")]
+            {
+                use libc::{
+                    REG_CSGSFS, REG_EFL, REG_R8, REG_R9, REG_R10, REG_R11, REG_R12, REG_R13,
+                    REG_R14, REG_R15, REG_RAX, REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX,
+                    REG_RIP, REG_RSI, REG_RSP,
+                };
+                let uc = &*(ctx as *const ucontext_t);
+                let gregs = &uc.uc_mcontext.gregs;
+
+                let named: &[(&str, i32)] = &[
+                    ("rax", REG_RAX),
+                    ("rbx", REG_RBX),
+                    ("rcx", REG_RCX),
+                    ("rdx", REG_RDX),
+                    ("rsi", REG_RSI),
+                    ("rdi", REG_RDI),
+                    ("rbp", REG_RBP),
+                    ("rsp", REG_RSP),
+                    ("r8 ", REG_R8),
+                    ("r9 ", REG_R9),
+                    ("r10", REG_R10),
+                    ("r11", REG_R11),
+                    ("r12", REG_R12),
+                    ("r13", REG_R13),
+                    ("r14", REG_R14),
+                    ("r15", REG_R15),
+                    ("rip", REG_RIP),
+                    ("efl", REG_EFL),
+                    ("csgsfs", REG_CSGSFS),
+                ];
+                for &(name, idx) in named {
+                    w.s(name);
+                    w.s(": ");
+                    w.hex(gregs[idx as usize] as u64, 16);
+                    w.s("\n");
+                }
+                w.s("\n");
+            }
+
+            #[cfg(target_arch = "x86")]
+            {
+                use libc::{
+                    REG_DS, REG_EAX, REG_EBP, REG_EBX, REG_ECX, REG_EDI, REG_EDX, REG_EFL, REG_EIP,
+                    REG_ES, REG_ESI, REG_ESP, REG_FS, REG_GS,
+                };
+                let uc = &*(ctx as *const ucontext_t);
+                let gregs = &uc.uc_mcontext.gregs;
+
+                let named: &[(&str, i32)] = &[
+                    ("eax", REG_EAX),
+                    ("ebx", REG_EBX),
+                    ("ecx", REG_ECX),
+                    ("edx", REG_EDX),
+                    ("esi", REG_ESI),
+                    ("edi", REG_EDI),
+                    ("ebp", REG_EBP),
+                    ("esp", REG_ESP),
+                    ("eip", REG_EIP),
+                    ("efl", REG_EFL),
+                    ("gs", REG_GS),
+                    ("fs", REG_FS),
+                    ("es", REG_ES),
+                    ("ds", REG_DS),
+                ];
+                for &(name, idx) in named {
+                    w.s(name);
+                    w.s(": ");
+                    w.hex(gregs[idx as usize] as u64, 8);
+                    w.s("\n");
+                }
+                w.s("\n");
             }
         }
 
@@ -502,7 +571,7 @@ unsafe extern "C" fn signal_handler(sig: c_int, info: *mut siginfo_t, ctx: *mut 
 
         // Restore the default disposition and re-raise to produce the correct
         // termination status / core dump.
-        logi!("Restoring default handler and re-raising signal {}", sig);
+        logi!("restoring default handler and re-raising signal {}", sig);
         signal(sig, SIG_DFL);
         raise(sig);
     }
@@ -516,13 +585,13 @@ unsafe extern "C" fn signal_handler(sig: c_int, info: *mut siginfo_t, ctx: *mut 
 /// Returns `true` on success.
 pub fn install_crash_handler(log_dir: &str) -> bool {
     if HANDLER_INSTALLED.load(Ordering::SeqCst) {
-        logi!("Native crash handler already installed");
+        logi!("native crash handler already installed");
         return true;
     }
 
     let bytes = log_dir.as_bytes();
     if bytes.is_empty() {
-        loge!("Invalid crash log directory");
+        loge!("invalid crash log directory");
         return false;
     }
 
@@ -549,13 +618,13 @@ pub fn install_crash_handler(log_dir: &str) -> bool {
         let ok = unsafe { sigaction(sig, &sa, G_OLD_HANDLERS[slot].as_mut_ptr()) == 0 };
         if ok {
             logi!(
-                "Installed handler for signal {} ({})",
+                "installed handler for signal {} ({})",
                 sig,
                 signal_name(sig)
             );
         } else {
             loge!(
-                "Failed to install handler for signal {} ({})",
+                "failed to install handler for signal {} ({})",
                 sig,
                 signal_name(sig)
             );
@@ -565,7 +634,7 @@ pub fn install_crash_handler(log_dir: &str) -> bool {
 
     if all_ok {
         HANDLER_INSTALLED.store(true, Ordering::SeqCst);
-        logi!("Native crash handler installed successfully");
+        logi!("native crash handler installed successfully");
     }
 
     all_ok

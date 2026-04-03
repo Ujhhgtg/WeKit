@@ -1,12 +1,9 @@
 package dev.ujhhgtg.wekit.ui.content
 
 import android.app.Dialog
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Process
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,11 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.hooks.core.BaseHookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.copyToClipboard
+import dev.ujhhgtg.wekit.utils.showToast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -70,7 +69,7 @@ private sealed class DialogPhase {
     data class Error(val message: String) : DialogPhase()
 }
 
-private val TAG = nameof(::DexResolverDialogContent)
+private val TAG = nameOf(::DexResolverDialogContent)
 
 @Composable
 fun DexResolverDialogContent(
@@ -249,17 +248,9 @@ fun DexResolverDialogContent(
                     ErrorDetailsSection(
                         failedResults = failed,
                         onCopy = {
-                            val text = buildErrorReport(failed)
-                            val clipboard =
-                                context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(
-                                ClipData.newPlainText(
-                                    "WeKit Dex Finder Error",
-                                    text
-                                )
-                            )
-                            Toast.makeText(context, "错误信息已复制到剪贴板", Toast.LENGTH_SHORT)
-                                .show()
+                            val report = buildErrorReport(failed)
+                            copyToClipboard(context, report)
+                            showToast(context, "已复制")
                         }
                     )
                 }

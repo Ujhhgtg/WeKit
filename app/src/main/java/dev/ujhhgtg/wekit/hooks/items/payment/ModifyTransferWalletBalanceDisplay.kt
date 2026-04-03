@@ -7,7 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.net.WePacketManager
 import dev.ujhhgtg.wekit.hooks.api.net.WeProtoData
 import dev.ujhhgtg.wekit.hooks.api.net.abc.IWePacketInterceptor
@@ -26,7 +26,7 @@ import org.json.JSONObject
 @HookItem(path = "红包与支付/修改转账显示余额", desc = "伪装转账时显示的余额文字")
 object ModifyTransferWalletBalanceDisplay : ClickableHookItem(), IWePacketInterceptor {
 
-    private val TAG = nameof(ModifyTransferWalletBalanceDisplay)
+    private val TAG = nameOf(ModifyTransferWalletBalanceDisplay)
 
     private const val KEY_CFT_BALANCE = "fake_cft_balance"
     private const val KEY_LQT_BALANCE = "fake_lqt_balance"

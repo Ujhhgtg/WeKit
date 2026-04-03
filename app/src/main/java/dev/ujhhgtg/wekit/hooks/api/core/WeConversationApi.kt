@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.hooks.api.core
 
 import android.database.Cursor
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -14,7 +14,7 @@ import org.luckypray.dexkit.DexKitBridge
 @HookItem(path = "API/对话服务", desc = "为其他功能提供对话管理能力")
 object WeConversationApi : ApiHookItem(), IResolvesDex {
 
-    private val TAG = nameof(WeConversationApi)
+    private val TAG = nameOf(WeConversationApi)
     val classConversationStorage by dexClass()
     val methodUpdateUnreadByTalker by dexMethod()
     val methodHiddenConvParent by dexMethod()

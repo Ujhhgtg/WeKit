@@ -7,7 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
@@ -20,7 +20,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 
 @HookItem(path = "调试/发包调试", desc = "发送自定义数据包到微信服务器")
 object SendPacket : ClickableHookItem() {
-    private val TAG = nameof(SendPacket)
+    private val TAG = nameOf(SendPacket)
 
     override fun onClick(context: Context) {
         showComposeDialog(context) {

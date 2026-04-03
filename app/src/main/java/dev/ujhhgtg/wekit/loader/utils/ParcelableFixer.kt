@@ -4,12 +4,12 @@ import android.content.Intent
 import android.os.Bundle
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object ParcelableFixer {
 
-    private val TAG = nameof(ParcelableFixer)
+    private val TAG = nameOf(ParcelableFixer)
 
     private var moduleClassLoader: ClassLoader? = null
     private var isInit = false

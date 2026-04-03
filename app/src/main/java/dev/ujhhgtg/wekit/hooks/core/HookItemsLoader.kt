@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.hooks.core
 
 import android.content.pm.ApplicationInfo
 import com.tencent.mm.ui.LauncherUI
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.constants.PreferenceKeys.NO_DEX_RESOLVE
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
@@ -25,7 +25,7 @@ import kotlin.time.measureTime
 
 object HookItemsLoader {
 
-    private val TAG = nameof(HookItemsLoader)
+    private val TAG = nameOf(HookItemsLoader)
 
     fun loadHookItems(process: Int) =
         loadHookItems(process, HostInfo.appInfo)
@@ -70,7 +70,7 @@ object HookItemsLoader {
     /**
      * 逐委托从缓存恢复状态。
      *
-     * - 某个委托的 key 缺失 → 其他委托**不受影响**，仍正常加载。
+     * - 某个委托的 key 缺失 → 其他委托不受影响，仍正常加载。
      * - 有任意 key 缺失的 item 加入返回列表，等待 DexKit 重新扫描。
      * - 缓存文件整体读取失败 → 删除损坏文件，整个 item 加入返回列表。
      */

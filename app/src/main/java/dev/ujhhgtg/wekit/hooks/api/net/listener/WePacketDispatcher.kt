@@ -7,7 +7,7 @@ import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.ClassLoaderProvider
 import com.tencent.kinda.framework.module.impl.WXPCommReqResp
 import de.robv.android.xposed.XposedHelpers
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.hooks.api.net.WePacketHelper
@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
 @HookItem(path = "API/数据包拦截与篡改服务", desc = "响应数据包拦截与篡改")
 object WePacketDispatcher : ApiHookItem(), IResolvesDex {
 
-    private val TAG = nameof(WePacketDispatcher)
+    private val TAG = nameOf(WePacketDispatcher)
     private val classOnGYNetEnd by dexClass()
 
     // 缓存最近 10 条记录，避免因脚本引起的无限递归

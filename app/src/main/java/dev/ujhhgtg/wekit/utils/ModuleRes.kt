@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.drawable.Drawable
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.constants.PackageNames
 
 /**
@@ -14,7 +14,7 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 @SuppressLint("StaticFieldLeak")
 object ModuleRes {
 
-    private val TAG = nameof(ModuleRes)
+    private val TAG = nameOf(ModuleRes)
 
     var moduleContext: Context? = null
     var resources: Resources? = null

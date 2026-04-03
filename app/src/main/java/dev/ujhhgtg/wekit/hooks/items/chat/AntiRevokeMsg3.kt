@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.hooks.items.chat
 import android.content.ContentValues
 import android.database.Cursor
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseApi
@@ -18,7 +18,7 @@ import kotlin.random.Random
 @HookItem(path = "聊天/阻止消息撤回 3", desc = "有撤回提示")
 object AntiRevokeMsg3 : SwitchHookItem(), IResolvesDex {
 
-    private val TAG = nameof(AntiRevokeMsg3)
+    private val TAG = nameOf(AntiRevokeMsg3)
 
     private val methodXmlParser by dexMethod()
 

@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow, bail};
 use mp3lame_encoder::{Bitrate, Builder, FlushNoGap, MonoPcm, Quality};
-use silk_v3_rs::*;
+use silk_v3_sys::*;
 use std::ffi::c_void;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom, Write};

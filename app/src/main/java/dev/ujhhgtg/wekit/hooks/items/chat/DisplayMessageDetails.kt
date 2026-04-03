@@ -20,6 +20,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.ModuleRes
+import dev.ujhhgtg.wekit.utils.copyToClipboard
 import dev.ujhhgtg.wekit.utils.showToast
 
 @HookItem(path = "聊天/显示消息详情", desc = "向消息长按菜单添加菜单项, 可查看消息详情")
@@ -61,10 +62,7 @@ object DisplayMessageDetails : SwitchHookItem(),
                                         headlineContent = { Text(key) },
                                         supportingContent = { Text(value) },
                                         modifier = Modifier.clickable {
-                                            val clipboard =
-                                                view.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                            val clip = ClipData.newPlainText("Value", value)
-                                            clipboard.setPrimaryClip(clip)
+                                            copyToClipboard(value)
                                             showToast("已复制")
                                         })
                                 }

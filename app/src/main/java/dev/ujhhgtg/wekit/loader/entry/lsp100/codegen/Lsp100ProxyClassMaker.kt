@@ -57,7 +57,7 @@ class Lsp100ProxyClassMaker private constructor() {
     }
 
     private fun loadProxyClassForPriority(className: String, dex: ByteArray): Class<*> {
-        val helper = Lsp100HookImpl.INSTANCE.classLoaderHelper
+        val helper = Lsp100HookImpl.classLoaderHelper
             ?: throw UnsupportedOperationException("ClassLoaderHelper not set")
 
         sLoadClassException?.let {

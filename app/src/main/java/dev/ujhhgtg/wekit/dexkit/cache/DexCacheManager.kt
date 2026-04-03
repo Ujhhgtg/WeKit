@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.dexkit.cache
 
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.constants.PreferenceKeys
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.hooks.core.BaseHookItem
@@ -14,7 +14,6 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.listDirectoryEntries
-import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
@@ -22,37 +21,30 @@ import kotlin.io.path.writeText
  * Dex 缓存管理器
  * 负责管理 Dex 查找结果的缓存，支持版本控制和增量更新。
  *
- * 缓存的 key→value 由各 [dev.ujhhgtg.wekit.dexkit.dsl.DexDelegateBase] 直接提供，
- * 不再通过 resolveDex 返回的 Map 传递。
+ * 缓存的 key → value 由各 [dev.ujhhgtg.wekit.dexkit.dsl.DexDelegateBase] 直接提供
  */
 object DexCacheManager {
 
-    private val TAG = nameof(DexCacheManager)
+    private val TAG = This.Class.name
 
     private const val CACHE_DIR_NAME = "dex_cache"
-    private const val HOST_VERSION_FILE = "host_version.txt"
     private const val CACHE_FILE_SUFFIX = ".json"
+    private const val KEY_HOST_VERSION = "host_version"
 
     private val cacheDir: Path by lazy {
         (KnownPaths.moduleData / CACHE_DIR_NAME).createDirectoriesNoThrow()
     }
-    private var currentHostVersion: String = ""
 
-    fun init(hostVersion: String) {
-        currentHostVersion = hostVersion
-
-        val versionFile = cacheDir / HOST_VERSION_FILE
-        if (versionFile.exists()) {
-            val cachedVersion = versionFile.readText().trim()
-            if (!cachedVersion.isBlank() && cachedVersion != hostVersion) {
-                WeLogger.i(TAG, "Host version changed: $cachedVersion -> $hostVersion, reseting cache")
-                clearAllCache()
-                WePrefs.putBool(PreferenceKeys.NO_DEX_RESOLVE, false)
-                WeLogger.i(TAG, "setting NO_DEX_RESOLVE to false due to version change")
-            }
+    fun init(currentHostVersion: String) {
+        val cachedVersion = WePrefs.getString(KEY_HOST_VERSION)
+        if (cachedVersion != currentHostVersion) {
+            WeLogger.i(TAG, "host version changed: $cachedVersion -> $currentHostVersion, resetting all cache")
+            clearAllCache()
+            WePrefs.putBool(PreferenceKeys.NO_DEX_RESOLVE, false)
+            WeLogger.i(TAG, "disabling NO_DEX_RESOLVE due to host version change")
         }
 
-        versionFile.writeText(hostVersion)
+        WePrefs.putString(KEY_HOST_VERSION, currentHostVersion)
     }
 
     /**
@@ -105,7 +97,7 @@ object DexCacheManager {
 
     /**
      * 将 [item] 所有委托的当前描述符持久化到缓存文件。
-     * 数据来自 [IResolvesDex.collectDescriptors]，不需要调用方传入 Map。
+     * 数据来自 [IResolvesDex.collectDescriptors]。
      */
     fun saveItemCache(item: IResolvesDex) {
         if (item !is BaseHookItem) {
@@ -116,7 +108,6 @@ object DexCacheManager {
         try {
             val json = JSONObject()
             json.put("methodHash", calculateMethodHash(item))
-            json.put("hostVersion", currentHostVersion)
             json.put("timestamp", System.currentTimeMillis())
 
             item.collectDescriptors().forEach { (key, value) ->
@@ -161,7 +152,7 @@ object DexCacheManager {
 
     fun clearAllCache() {
         cacheDir.listDirectoryEntries().forEach { path ->
-            if (path.name != HOST_VERSION_FILE) path.deleteIfExists()
+            path.deleteIfExists()
         }
         WeLogger.i(TAG, "all cache cleared")
     }
@@ -171,20 +162,19 @@ object DexCacheManager {
 
     // ---------------------------------------------------------------------------
 
-    private val META_KEYS = setOf("methodHash", "hostVersion", "timestamp")
+    private val META_KEYS = setOf("methodHash", "timestamp")
 
     private fun getCacheFile(path: String): Path =
         cacheDir / (path.replace("/", "_") + CACHE_FILE_SUFFIX)
 
     /**
-     * 计算 resolveDex 方法的哈希，用于检测实现变化。
-     * 使用编译时生成的哈希
+     * 获取 resolveDex 方法编译时生成的哈希，用于检测实现变化。
      */
     private fun calculateMethodHash(item: IResolvesDex): String {
-        val clazz = item::class.java
-        val generatedHash = GeneratedMethodHashes.getHash(clazz.name)
-        if (generatedHash.isNotEmpty())
-            return generatedHash
-        error("shouldn't happen")
+        val className = item.javaClass.name
+        val hash = GeneratedMethodHashes.HASHES[className]
+        if (hash.isNullOrBlank())
+            error("failed to retrieve method hash for item $className; this shouldn't happen")
+        return hash
     }
 }

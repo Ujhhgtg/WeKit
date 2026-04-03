@@ -2,14 +2,14 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="21">
-      <module name="wekit.buildSrc" target="21" />
-      <module name="wekit.buildSrc.main" target="21" />
-      <module name="wekit.buildSrc.test" target="21" />
       <module name="wekit.libs.util.libxposed.api" target="21" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="wekit.libs.external.comptime-kt.plugin" options="-proc:none" />
+      <module name="wekit.libs.external.comptime-kt.plugin.main" options="-proc:none" />
+      <module name="wekit.libs.external.comptime-kt.plugin.test" options="-proc:none" />
       <module name="wekit.libs.external.nameof-kt.plugin" options="-proc:none" />
       <module name="wekit.libs.external.nameof-kt.plugin.main" options="-proc:none" />
       <module name="wekit.libs.external.nameof-kt.plugin.test" options="-proc:none" />

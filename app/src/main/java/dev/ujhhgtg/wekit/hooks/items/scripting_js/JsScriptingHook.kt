@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.items.scripting_js
 
 import android.content.ContentValues
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.hooks.api.net.WeProtoData
 import dev.ujhhgtg.wekit.hooks.api.net.abc.IWePacketInterceptor
@@ -19,7 +19,7 @@ import kotlin.io.path.readText
 object JsScriptingHook : SwitchHookItem(),
     WeDatabaseListenerApi.IInsertListener, IWePacketInterceptor {
 
-    private val TAG = nameof(JsScriptingHook)
+    private val TAG = nameOf(JsScriptingHook)
 
     // type=0 post
     // type=1 plain text

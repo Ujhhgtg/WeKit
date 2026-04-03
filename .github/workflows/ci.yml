@@ -7,7 +7,6 @@ on:
     paths-ignore:
       - '**/*.md'
       - '**/*.txt'
-      - 'renovate.json'
       - '.editorconfig'
       - '.gitignore'
       - '.idea/**'
@@ -18,7 +17,6 @@ on:
     paths-ignore:
       - '**/*.md'
       - '**/*.txt'
-      - 'renovate.json'
       - '.editorconfig'
       - '.gitignore'
       - '.idea/**'

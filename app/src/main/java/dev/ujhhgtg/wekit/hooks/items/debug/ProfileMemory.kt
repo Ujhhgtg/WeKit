@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.hooks.items.debug
 import android.content.Context
 import android.os.Debug
 import android.os.Process
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -11,7 +11,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @HookItem(path = "调试/内存分析", desc = "分析微信内存占用组成")
 object ProfileMemory : ClickableHookItem() {
 
-    private val TAG = nameof(ProfileMemory)
+    private val TAG = nameOf(ProfileMemory)
 
     override val noSwitchWidget = true
 

@@ -18,7 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.hooks.api.net.WePacketHelper
@@ -44,7 +44,7 @@ object DetectDeletedFriends : ClickableHookItem() {
     override val noSwitchWidget: Boolean
         get() = true
 
-    private val TAG = nameof(DetectDeletedFriends)
+    private val TAG = nameOf(DetectDeletedFriends)
 
     private enum class AbnormalFriendStatus {
         Blocked,

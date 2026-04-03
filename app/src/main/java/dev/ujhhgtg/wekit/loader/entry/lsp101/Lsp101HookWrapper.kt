@@ -216,7 +216,7 @@ object Lsp101HookWrapper {
                 try {
                     callbacks[i].callback.beforeHookedMember(param)
                 } catch (t: Throwable) {
-                    Lsp101HookImpl.INSTANCE.log(t)
+                    Lsp101HookImpl.log(t)
                 }
             }
             param.index = -1
@@ -241,7 +241,7 @@ object Lsp101HookWrapper {
                 try {
                     callbacks[i].callback.afterHookedMember(param)
                 } catch (t: Throwable) {
-                    Lsp101HookImpl.INSTANCE.log(t)
+                    Lsp101HookImpl.log(t)
                 }
             }
 

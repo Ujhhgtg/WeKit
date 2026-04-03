@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.createInstance
 import com.highcapable.kavaref.extension.toClass
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -48,6 +48,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.showToast
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.copyToClipboard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.luckypray.dexkit.DexKitBridge
@@ -56,7 +57,7 @@ import java.lang.reflect.Modifier
 @HookItem(path = "系统与隐私/灰度测试管理器", desc = "覆盖应用灰度测试 (Feature Flag) 的值")
 object FeatureFlagManager : ClickableHookItem(), IResolvesDex {
 
-    private val TAG = nameof(FeatureFlagManager)
+    private val TAG = nameOf(FeatureFlagManager)
 
     private const val KEY_HOOKED_FEATURE_FLAGS = "hooked_feature_flags"
 
@@ -315,14 +316,7 @@ object FeatureFlagManager : ClickableHookItem(), IResolvesDex {
                                                             },
                                                             supportingContent = { Text(className) },
                                                             modifier = androidx.compose.ui.Modifier.clickable {
-                                                                val clipboard =
-                                                                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                                clipboard.setPrimaryClip(
-                                                                    ClipData.newPlainText(
-                                                                        "ClassName",
-                                                                        className
-                                                                    )
-                                                                )
+                                                                copyToClipboard(context, className)
                                                             })
 
                                                         ListItem(
@@ -334,14 +328,7 @@ object FeatureFlagManager : ClickableHookItem(), IResolvesDex {
                                                             },
                                                             supportingContent = { Text(internalName) },
                                                             modifier = androidx.compose.ui.Modifier.clickable {
-                                                                val clipboard =
-                                                                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                                clipboard.setPrimaryClip(
-                                                                    ClipData.newPlainText(
-                                                                        "InternalName",
-                                                                        internalName
-                                                                    )
-                                                                )
+                                                                copyToClipboard(context, internalName)
                                                             })
 
                                                         ListItem(
@@ -353,14 +340,7 @@ object FeatureFlagManager : ClickableHookItem(), IResolvesDex {
                                                             },
                                                             supportingContent = { Text(description) },
                                                             modifier = androidx.compose.ui.Modifier.clickable {
-                                                                val clipboard =
-                                                                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                                clipboard.setPrimaryClip(
-                                                                    ClipData.newPlainText(
-                                                                        "Description",
-                                                                        description
-                                                                    )
-                                                                )
+                                                                copyToClipboard(context, description)
                                                             })
 
                                                         ListItem(
@@ -372,14 +352,7 @@ object FeatureFlagManager : ClickableHookItem(), IResolvesDex {
                                                             },
                                                             supportingContent = { Text(configKey) },
                                                             modifier = androidx.compose.ui.Modifier.clickable {
-                                                                val clipboard =
-                                                                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                                clipboard.setPrimaryClip(
-                                                                    ClipData.newPlainText(
-                                                                        "ConfigKey",
-                                                                        configKey
-                                                                    )
-                                                                )
+                                                                copyToClipboard(context, configKey)
                                                             })
 
                                                         ListItem(

@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.loader.startup
 import android.app.Instrumentation
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.ClassLoaderProvider
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 import dev.ujhhgtg.wekit.loader.utils.HybridClassLoader
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -11,7 +11,7 @@ import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 
 object UnifiedEntryPoint {
 
-    private val TAG = nameof(UnifiedEntryPoint)
+    private val TAG = nameOf(UnifiedEntryPoint)
 
     fun entry(
         loaderService: ILoaderService,

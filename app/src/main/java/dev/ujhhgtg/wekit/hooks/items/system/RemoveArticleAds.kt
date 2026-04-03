@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.hooks.items.system
 
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.net.WePacketManager
 import dev.ujhhgtg.wekit.hooks.api.net.WeProtoData
 import dev.ujhhgtg.wekit.hooks.api.net.abc.IWePacketInterceptor
@@ -13,7 +13,7 @@ import org.json.JSONObject
 @HookItem(path = "系统与隐私/去除文章广告", desc = "清除文章中的广告数据")
 object RemoveArticleAds : SwitchHookItem(), IWePacketInterceptor {
 
-    private val TAG = nameof(RemoveArticleAds)
+    private val TAG = nameOf(RemoveArticleAds)
 
     override fun onEnable() {
         WePacketManager.addInterceptor(this)

@@ -7,6 +7,7 @@ import java.lang.reflect.Method
 
 @Keep
 interface IHookBridge {
+
     interface IMemberHookCallback {
         fun beforeHookedMember(param: IMemberHookParam)
 

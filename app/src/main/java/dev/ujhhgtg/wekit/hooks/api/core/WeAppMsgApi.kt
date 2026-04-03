@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.api.core
 
 import android.annotation.SuppressLint
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -26,7 +26,7 @@ object WeAppMsgApi : ApiHookItem(), IResolvesDex {
     private var sendAppMsgMethod: Method? = null
     private var appMsgContentClass: Class<*>? = null
 
-    private val TAG = nameof(WeAppMsgApi)
+    private val TAG = nameOf(WeAppMsgApi)
 
     @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex(dexKit: DexKitBridge) {

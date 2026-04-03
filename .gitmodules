@@ -1,3 +1,3 @@
-[submodule "nameof-kt"]
-	path = libs/external/nameof-kt
-	url = https://github.com/Ujhhgtg/nameof-kt.git
+[submodule "comptime-kt"]
+	path = libs/external/comptime-kt
+	url = https://github.com/Ujhhgtg/comptime-kt

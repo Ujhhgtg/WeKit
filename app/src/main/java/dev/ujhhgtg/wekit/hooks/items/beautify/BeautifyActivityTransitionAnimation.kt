@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -19,7 +19,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 )
 object BeautifyActivityTransitionAnimation : SwitchHookItem() {
 
-    private val TAG = nameof(BeautifyActivityTransitionAnimation)
+    private val TAG = nameOf(BeautifyActivityTransitionAnimation)
     private var width = 0
     private var height = 0
     private var x = 0f

@@ -1,7 +1,5 @@
 package dev.ujhhgtg.wekit.hooks.items.debug
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.clickable
@@ -35,18 +33,19 @@ import com.composables.icons.materialsymbols.outlined.Content_copy
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Share
 import com.composables.icons.materialsymbols.outlined.Text_snippet
-import dev.ujhhgtg.nameof.nameof
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.showToast
+import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.copyToClipboard
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.formatBytesSize
 import dev.ujhhgtg.wekit.utils.formatEpoch
-import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.showToast
 import java.nio.file.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.getLastModifiedTime
@@ -58,7 +57,7 @@ import kotlin.io.path.name
 )
 object CrashLogsViewer : ClickableHookItem() {
 
-    private val TAG = nameof(CrashLogsViewer)
+    private val TAG = nameOf(CrashLogsViewer)
 
     override fun onClick(context: Context) {
         showCrashLogList(context)
@@ -109,8 +108,7 @@ object CrashLogsViewer : ClickableHookItem() {
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        onDismiss()
-                        confirmDeleteAllLogs(context)
+                        confirmDeleteAllLogs(context, onDismiss)
                     }) { Text("全部删除") }
                 },
                 confirmButton = { Button(onDismiss) { Text("关闭") } }
@@ -118,15 +116,13 @@ object CrashLogsViewer : ClickableHookItem() {
         }
     }
 
-    private data class LogOption(val label: String, val icon: ImageVector, val destructive: Boolean = false)
-
     private fun showCrashLogOptions(context: Context, logFile: Path) {
         val options = listOf(
-            LogOption("查看详情", MaterialSymbols.Outlined.Article),
-            LogOption("复制简易信息", MaterialSymbols.Outlined.Text_snippet),
-            LogOption("复制完整日志", MaterialSymbols.Outlined.Content_copy),
-            LogOption("分享日志", MaterialSymbols.Outlined.Share),
-            LogOption("删除日志", MaterialSymbols.Outlined.Delete, destructive = true)
+            "查看详情" to MaterialSymbols.Outlined.Article,
+            "复制简易信息" to MaterialSymbols.Outlined.Text_snippet,
+            "复制完整日志" to MaterialSymbols.Outlined.Content_copy,
+            "分享日志" to MaterialSymbols.Outlined.Share,
+            "删除日志" to MaterialSymbols.Outlined.Delete
         )
 
         showComposeDialog(context) {
@@ -152,7 +148,7 @@ object CrashLogsViewer : ClickableHookItem() {
                                             0 -> showCrashLogDetail(context, logFile)
                                             1 -> {
                                                 val summary = buildCrashSummary(logFile)
-                                                copyTextToClipboard(context, summary)
+                                                copyToClipboard(context, summary)
                                                 showToast(context, "简易信息已复制")
                                             }
 
@@ -164,22 +160,16 @@ object CrashLogsViewer : ClickableHookItem() {
                                     .padding(horizontal = 4.dp, vertical = 14.dp)
                             ) {
                                 Icon(
-                                    imageVector = option.icon,
+                                    imageVector = option.second,
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp),
-                                    tint = if (option.destructive)
-                                        MaterialTheme.colorScheme.error
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(Modifier.width(14.dp))
                                 Text(
-                                    text = option.label,
+                                    text = option.first,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = if (option.destructive)
-                                        MaterialTheme.colorScheme.error
-                                    else
-                                        MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                             if (index < options.lastIndex) HorizontalDivider(thickness = 0.5.dp)
@@ -194,95 +184,78 @@ object CrashLogsViewer : ClickableHookItem() {
     }
 
     private fun showCrashLogDetail(context: Context, logFile: Path) {
-        try {
-            val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: run {
-                showToast(context, "读取日志失败")
-                return
-            }
+        val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: run {
+            showToast(context, "读取日志失败")
+            return
+        }
 
-            WeLogger.i(TAG, "Showing crash detail for: ${logFile.name}, size: ${crashInfo.length}")
+        WeLogger.i(TAG, "Showing crash detail for: ${logFile.name}, size: ${crashInfo.length}")
 
-            showComposeDialog(context) {
-                AlertDialogContent(
-                    title = {
-                        Text(
-                            text = logFile.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    text = {
-                        val scrollState = rememberScrollState()
-                        Text(
-                            text = crashInfo,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(320.dp)
-                                .verticalScroll(scrollState)
-                        )
-                    },
-                    dismissButton = {
-                        TextButton(onClick = {
-                            onDismiss()
-                            showCrashLogOptions(context, logFile)
-                        }) { Text("返回") }
-                    },
-                    confirmButton = {
-                        Button(onClick = {
-                            onDismiss()
-                            copyLogToClipboard(context, logFile)
-                        }) { Text("复制") }
-                    }
-                )
-            }
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to show crash log detail", e)
-            showToast(context, "显示详情失败: ${e.message}")
+        showComposeDialog(context) {
+            AlertDialogContent(
+                title = {
+                    Text(
+                        text = logFile.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                text = {
+                    val scrollState = rememberScrollState()
+                    Text(
+                        text = crashInfo,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(320.dp)
+                            .verticalScroll(scrollState)
+                    )
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        onDismiss()
+                        showCrashLogOptions(context, logFile)
+                    }) { Text("返回") }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        onDismiss()
+                        copyLogToClipboard(context, logFile)
+                    }) { Text("复制") }
+                }
+            )
         }
     }
 
     private fun copyLogToClipboard(context: Context, logFile: Path) {
-        try {
-            val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: run {
-                showToast(context, "读取日志失败")
-                return
-            }
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Crash Log", crashInfo))
-            WeLogger.i(TAG, "crash log copied to clipboard: ${logFile.name}")
-            showToast(context, "日志已复制到剪贴板")
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "failed to copy log to clipboard", e)
-            showToast(context, "复制失败: ${e.message}")
+        val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: run {
+            showToast(context, "读取日志失败")
+            return
         }
+        copyToClipboard(context, crashInfo)
+        showToast(context, "已复制")
     }
 
     private fun shareLog(context: Context, logFile: Path) {
-        try {
-            val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: run {
-                showToast(context, "读取日志失败")
-                return
-            }
-            val chooser = Intent.createChooser(
-                Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_SUBJECT, "WeKit Crash Log - ${logFile.name}")
-                    putExtra(Intent.EXTRA_TEXT, crashInfo)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                },
-                "分享崩溃日志"
-            ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-            context.startActivity(chooser)
-            WeLogger.i(TAG, "Sharing crash log: ${logFile.name}")
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to share log", e)
-            showToast(context, "分享失败: ${e.message}")
+        val crashInfo = CrashLogsManager.readCrashLog(logFile) ?: run {
+            showToast(context, "读取日志失败")
+            return
         }
+        val chooser = Intent.createChooser(
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "WeKit Crash Log - ${logFile.name}")
+                putExtra(Intent.EXTRA_TEXT, crashInfo)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+            "分享崩溃日志"
+        ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        context.startActivity(chooser)
+        WeLogger.i(TAG, "Sharing crash log: ${logFile.name}")
     }
 
     private fun confirmDeleteLog(context: Context, logFile: Path) {
@@ -319,7 +292,7 @@ object CrashLogsViewer : ClickableHookItem() {
         }
     }
 
-    private fun confirmDeleteAllLogs(context: Context) {
+    private fun confirmDeleteAllLogs(context: Context, dismissParent: () -> Unit) {
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text("确认删除") },
@@ -328,12 +301,13 @@ object CrashLogsViewer : ClickableHookItem() {
                     Button(onClick = {
                         deleteAllLogs(context)
                         onDismiss()
+                        dismissParent()
                     }) {
                         Text("确定")
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text("取消") }
                 }
             )
         }
@@ -342,10 +316,10 @@ object CrashLogsViewer : ClickableHookItem() {
     private fun deleteAllLogs(context: Context) {
         try {
             val count = CrashLogsManager.deleteAllCrashLogs()
-            WeLogger.i(TAG, "Deleted $count crash logs")
+            WeLogger.i(TAG, "deleted $count crash logs")
             showToast(context, "已删除 $count 条日志")
         } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to delete all logs", e)
+            WeLogger.e(TAG, "failed to delete all logs", e)
             showToast(context, "删除失败: ${e.message}")
         }
     }
@@ -382,22 +356,10 @@ object CrashLogsViewer : ClickableHookItem() {
                 }
             }
         } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to build crash summary", e)
+            WeLogger.e(TAG, "failed to build crash summary", e)
             "构建简易信息失败: ${e.message}"
         }
     }
 
-    private fun copyTextToClipboard(context: Context, text: String) {
-        try {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-            clipboard?.setPrimaryClip(ClipData.newPlainText("CrashInfo", text))
-            WeLogger.i(TAG, "Text copied to clipboard")
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "Failed to copy text to clipboard", e)
-            showToast(context, "复制失败: ${e.message}")
-        }
-    }
-
-    override val noSwitchWidget: Boolean
-        get() = true
+    override val noSwitchWidget = true
 }
