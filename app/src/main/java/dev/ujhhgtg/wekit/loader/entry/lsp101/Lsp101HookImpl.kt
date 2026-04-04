@@ -21,7 +21,7 @@ import java.lang.reflect.Method
 object Lsp101HookImpl : IHookBridge, ILoaderService {
 
     lateinit var self: XposedModule
-    private val TAG = This.Class.name
+    private val TAG = This.Class.simpleName
 
     override var classLoaderHelper: IClassLoaderHelper? = null
 

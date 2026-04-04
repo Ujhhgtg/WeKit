@@ -20,7 +20,7 @@ object ModuleRes {
     var resources: Resources? = null
 
     @SuppressLint("DiscouragedApi")
-    fun init(hostContext: Context, modulePkgName: String) {
+    fun init(hostContext: Context) {
         if (moduleContext != null) return
 
         runCatching {

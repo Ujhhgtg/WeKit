@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.app.ActivityThread
 import android.app.Application
 import android.os.Build
-import com.highcapable.kavaref.extension.toClass
+import com.tencent.tinker.loader.app.TinkerApplication
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
@@ -59,15 +59,12 @@ object StartupAgent {
 
     fun getBaseApplication(): Application {
         runCatching {
-            val tinkerAppClz = "com.tencent.tinker.loader.app.TinkerApplication".toClass()
-            val getInstanceMethod = tinkerAppClz.getMethod("getInstance")
-            return getInstanceMethod.invoke(null) as Application
+            return TinkerApplication.getInstance()
         }.onFailure { WeLogger.e(TAG, "getBaseApplication: failed to call TinkerApplication.getInstance()", it) }
 
         runCatching {
-            val app = ActivityThread.currentApplication()!!
-            return app
-        }.onFailure { WeLogger.e(TAG, "getBaseApplication: ActivityThread fallback failed", it) }
+            return ActivityThread.currentApplication()!!
+        }.onFailure { WeLogger.e(TAG, "getBaseApplication: failed to call ActivityThread.currentApplication()", it) }
 
         error("failed to retrieve Application instance")
     }
@@ -76,7 +73,7 @@ object StartupAgent {
         if (!isHiddenApiAccessible()) {
             WeLogger.w(
                 TAG,
-                "Hidden API access not accessible, SDK_INT is ${Build.VERSION.SDK_INT}"
+                "hidden api is not accessible, SDK_INT is ${Build.VERSION.SDK_INT}"
             )
             HiddenApiBypass.setHiddenApiExemptions("L")
         }

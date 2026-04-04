@@ -1,20 +1,11 @@
 package dev.ujhhgtg.wekit.preferences
 
 import android.content.SharedPreferences
-import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 
 abstract class WePrefs protected constructor() : SharedPreferences, SharedPreferences.Editor {
 
     fun getBoolOrFalse(key: String): Boolean {
-        return getBoolOrDef(key, false)
-    }
-
-    fun getBoolOrDef(key: String, def: Boolean): Boolean {
-        return getBoolean(key, def)
-    }
-
-    fun getIntOrDef(key: String, def: Int): Int {
-        return getInt(key, def)
+        return getBoolean(key, false)
     }
 
     abstract fun getString(key: String): String?
@@ -50,16 +41,6 @@ abstract class WePrefs protected constructor() : SharedPreferences, SharedPrefer
 
     override fun edit(): SharedPreferences.Editor {
         return this
-    }
-
-    override fun registerOnSharedPreferenceChangeListener(
-        listener: OnSharedPreferenceChangeListener
-    ) {
-    }
-
-    override fun unregisterOnSharedPreferenceChangeListener(
-        listener: OnSharedPreferenceChangeListener
-    ) {
     }
 
     abstract val isReadOnly: Boolean
@@ -101,7 +82,7 @@ abstract class WePrefs protected constructor() : SharedPreferences, SharedPrefer
         }
 
         fun getIntOrDef(key: String, def: Int): Int {
-            return default.getIntOrDef(key, def)
+            return default.getInt(key, def)
         }
 
         fun getFloatOrDef(key: String, def: Float): Float {

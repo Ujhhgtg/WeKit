@@ -27,7 +27,7 @@ object Lsp100HookImpl : IHookBridge, ILoaderService {
     override val hookCounter: Long get() = Lsp100HookWrapper.getHookCounter()
     override val hookedMethods: Set<Member> get() = Lsp100HookWrapper.getHookedMethodsRaw()
 
-    override val entryPointName: String = This.Class.simpleName
+    override val entryPointName: String = This.Class.name
     override val loaderVersionName: String = BuildConfig.VERSION_NAME
     override val loaderVersionCode: Int = BuildConfig.VERSION_CODE
     override val mainModulePath: String get() = self.applicationInfo.sourceDir

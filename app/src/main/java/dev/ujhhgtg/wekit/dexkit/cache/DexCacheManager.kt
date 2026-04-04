@@ -25,7 +25,7 @@ import kotlin.io.path.writeText
  */
 object DexCacheManager {
 
-    private val TAG = This.Class.name
+    private val TAG = This.Class.simpleName
 
     private const val CACHE_DIR_NAME = "dex_cache"
     private const val CACHE_FILE_SUFFIX = ".json"

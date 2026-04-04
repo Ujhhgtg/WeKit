@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.preferences
 
+import android.content.SharedPreferences
 import com.tencent.mmkv.MMKV
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -249,4 +250,8 @@ class MmkvPrefsImpl(name: String) : WePrefs() {
     override fun apply() = Unit
     override val isReadOnly: Boolean = false
     override val isPersistent: Boolean = true
+
+    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {}
+
+    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {}
 }

@@ -74,7 +74,7 @@ object ActivityProxy {
             hookPackageManager(ctx, requireNotNull(currentActivityThread), clazzActivityThread)
 
             stubHooked = true
-        }.onFailure { WeLogger.e(TAG, "Failed to init stub activity hooks", it) }
+        }.onFailure { WeLogger.e(TAG, "failed to init stub activity hooks", it) }
     }
 
     @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
@@ -90,7 +90,7 @@ object ActivityProxy {
                     .invoke(singleton)
             }
             val instance = instanceField.get(singleton) ?: run {
-                WeLogger.e(TAG, "Instance is null for ${iface.simpleName}, aborting hook.")
+                WeLogger.e(TAG, "instance is null for ${iface.simpleName}")
                 return
             }
             val proxy = Proxy.newProxyInstance(
@@ -142,7 +142,7 @@ object ActivityProxy {
             )
             sPackageManagerField.set(sCurrentActivityThread, pmProxy)
             mPmField.set(pm, pmProxy)
-        }.onFailure { WeLogger.e(TAG, "Failed to hook PackageManager (Non-fatal)", it) }
+        }.onFailure { WeLogger.e(TAG, "failed to hook PackageManager (non-fatal)", it) }
     }
 
     // --- Inner types ---
@@ -282,8 +282,8 @@ object ActivityProxy {
                 resolvedIntent = it
                 resolvedClass = it.component!!.className
                 WeLogger.w(
-                    "ProxyInstrumentation",
-                    "Recovered intent in newActivity fallback: $resolvedClass"
+                    nameOf(ProxyInstrumentation::class),
+                    "recovered intent in newActivity fallback: $resolvedClass"
                 )
             }
             return try {
@@ -349,7 +349,7 @@ object ActivityProxy {
 
         private fun checkAndInjectResources(activity: Activity) {
             if (ActProxyMgr.isModuleProxyActivity(activity.javaClass.name)) {
-                ModuleRes.init(activity, PackageNames.THIS)
+                ModuleRes.init(activity)
             }
         }
 

@@ -44,7 +44,7 @@ object WeLauncher {
         LauncherUI::class.asResolver().apply {
             firstMethod { name = "onResume" }.hookAfterDirectly { param ->
                 val activity = param.thisObject as Activity
-                ModuleRes.init(activity, PackageNames.THIS)
+                ModuleRes.init(activity)
             }
 
             firstMethod {
