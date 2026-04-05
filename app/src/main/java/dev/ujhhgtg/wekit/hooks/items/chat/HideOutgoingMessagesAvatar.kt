@@ -9,7 +9,7 @@ import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import java.lang.reflect.Field
 
-@HookItem(path = "聊天/隐藏发送消息头像", description = "Telegram 风格")
+@HookItem(path = "聊天/隐藏发送消息头像", description = "隐藏自己发出的消息的用户头像 (Telegram 风格)")
 object HideOutgoingMessagesAvatar : SwitchHookItem(), WeChatMessageViewApi.ICreateViewListener {
 
     override fun onEnable() {
