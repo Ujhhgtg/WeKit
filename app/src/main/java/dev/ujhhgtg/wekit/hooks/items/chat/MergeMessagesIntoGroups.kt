@@ -12,7 +12,7 @@ import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import java.lang.reflect.Field
 
-@HookItem(path = "聊天/合并消息显示", description = "将同来源的连续多条消息合并为一组消息显示 (Telegram 风格)")
+@HookItem(path = "聊天/合并消息显示", description = "将同一发送者的连续多条消息合并为一组消息显示 (Telegram 风格)")
 object MergeMessagesIntoGroups : SwitchHookItem(), WeChatMessageViewApi.ICreateViewListener {
 
     override fun onEnable() {
@@ -64,9 +64,9 @@ object MergeMessagesIntoGroups : SwitchHookItem(), WeChatMessageViewApi.ICreateV
 
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
         if (msgInfo.isSend != 0) return
-        if (!msgInfo.isInGroupChat) return
         if (msgInfo.isType(MessageType.SYSTEM) || msgInfo.isType(MessageType.PAT)) return
 
+        val isGroupChat = msgInfo.isInGroupChat
         val currentSender = msgInfo.sender
         val position = param.args[2] as Int
 
@@ -76,34 +76,33 @@ object MergeMessagesIntoGroups : SwitchHookItem(), WeChatMessageViewApi.ICreateV
 
         ensureFields(tag)
 
-        // Record whether THIS message's timestamp is visible so that the
-        // message at position-1 can use it when it is (re-)bound.
         val currentHasVisibleTime =
             (timeField.get(tag) as? View)?.visibility == View.VISIBLE
         timeVisibilityCache.put(position, currentHasVisibleTime)
 
-        val prevSender = senderAt(adapter, position - 1)
-        val nextSender = senderAt(adapter, position + 1)
+        val isFirstInGroup = run {
+            val prevSender = senderAt(adapter, position - 1)
+            prevSender != currentSender || currentHasVisibleTime
+        }
 
-        // A visible timeTV means WeChat inserted a time-gap separator *above*
-        // this bubble → hard group break regardless of sender identity.
-        val isFirstInGroup = prevSender != currentSender || currentHasVisibleTime
-
-        // The next message having a visible timeTV means a time-gap separator
-        // appears *below* this bubble → this bubble closes the group.
         val nextHasVisibleTime = timeVisibilityCache.get(position + 1, false)
-        val isLastInGroup = nextSender != currentSender || nextHasVisibleTime
+        val isLastInGroup = run {
+            val nextSender = senderAt(adapter, position + 1)
+            nextSender != currentSender || nextHasVisibleTime
+        }
 
-        // Avatar: INVISIBLE (not GONE) so the text column stays aligned.
+        // Avatar: INVISIBLE (not GONE) so the text column stays aligned
         (avatarField.get(tag) as? View)?.let { avatar ->
             val avatarContainer = avatar.parent as? View ?: avatar
             avatarContainer.visibility =
                 if (isLastInGroup) View.VISIBLE else View.INVISIBLE
         }
 
-        // Display Name: GONE collapses the row height for mid-group bubbles.
-        (displayNameField.get(tag) as? View)?.visibility =
-            if (isFirstInGroup) View.VISIBLE else View.GONE
+        // Display Name: only shown in group chats
+        if (isGroupChat) {
+            (displayNameField.get(tag) as? View)?.visibility =
+                if (isFirstInGroup) View.VISIBLE else View.GONE
+        }
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

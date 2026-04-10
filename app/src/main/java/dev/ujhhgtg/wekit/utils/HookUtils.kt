@@ -10,16 +10,18 @@ typealias HookAction = XC_MethodHook.MethodHookParam.() -> Unit
 // most extension methods are inside BaseHookItem for enabled state checking
 
 inline fun MethodResolver<*>.hookBeforeDirectly(
+    priority: Int = 50,
     crossinline action: HookAction
 ): XC_MethodHook.Unhook {
-    return this.self.hookBeforeDirectly(action)
+    return this.self.hookBeforeDirectly(priority, action)
 }
 
 inline fun Executable.hookBeforeDirectly(
+    priority: Int = 50,
     crossinline action: HookAction
 ): XC_MethodHook.Unhook {
     return XposedBridge.hookMethod(
-        this, object : XC_MethodHook() {
+        this, object : XC_MethodHook(priority) {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 action(param)
             }
@@ -28,16 +30,18 @@ inline fun Executable.hookBeforeDirectly(
 }
 
 inline fun MethodResolver<*>.hookAfterDirectly(
+    priority: Int = 50,
     crossinline action: HookAction
 ): XC_MethodHook.Unhook {
-    return this.self.hookAfterDirectly(action)
+    return this.self.hookAfterDirectly(priority, action)
 }
 
 inline fun Executable.hookAfterDirectly(
+    priority: Int = 50,
     crossinline action: HookAction
 ): XC_MethodHook.Unhook {
     return XposedBridge.hookMethod(
-        this, object : XC_MethodHook() {
+        this, object : XC_MethodHook(priority) {
             override fun afterHookedMethod(param: MethodHookParam) {
                 action(param)
             }

@@ -5,6 +5,7 @@ import android.graphics.drawable.Drawable
 import android.view.View
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.isSubclassOf
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -30,7 +31,7 @@ object WeChatMessageContextMenuApi : ApiHookItem(), IResolvesDex {
         val onClick: (View, Any, MessageInfo) -> Unit /* 2: ChattingContext */
     )
 
-    private const val TAG: String = "WeChatMessageContextMenuApi"
+    private val TAG = This.Class.simpleName
 
     private val menuItems = mutableMapOf<String, List<MenuItem>>()
 

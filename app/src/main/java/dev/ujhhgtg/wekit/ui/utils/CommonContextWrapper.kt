@@ -22,8 +22,8 @@ class CommonContextWrapper private constructor(base: Context?): ContextWrapper(b
         this.mTheme = this.mResources.newTheme()
     }
 
-    override fun getClassLoader(): ClassLoader? {
-        return javaClass.classLoader
+    override fun getClassLoader(): ClassLoader {
+        return javaClass.classLoader!!
     }
 
     override fun getResources(): Resources {
