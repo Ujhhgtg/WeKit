@@ -47,20 +47,9 @@ import androidx.compose.ui.unit.sp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Arrow_back
 import com.composables.icons.materialsymbols.outlined.Keyboard_arrow_right
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.ModuleRes
 import dev.ujhhgtg.wekit.utils.WeLogger
-
-// ---------------------------------------------------------------------------
-//  Icon source – either a resource name resolved via ModuleRes, or a vector
-// ---------------------------------------------------------------------------
-
-sealed class PrefIcon {
-    data class ResId(val id: Int) : PrefIcon()
-    data class Vector(val imageVector: ImageVector) : PrefIcon()
-}
 
 // ---------------------------------------------------------------------------
 //  Internal state model
@@ -77,7 +66,7 @@ private sealed class PrefRow {
         val configKey: String,
         val title: String,
         val summary: String,
-        val icon: PrefIcon?,
+        val icon: ImageVector?,
     ) : PrefRow()
 
     data class EditText(
@@ -90,7 +79,7 @@ private sealed class PrefRow {
         val inputType: Int,
         val maxLength: Int,
         val singleLine: Boolean,
-        val icon: PrefIcon?,
+        val icon: ImageVector?,
         val summaryFormatter: ((String) -> String)?,
     ) : PrefRow()
 
@@ -101,14 +90,14 @@ private sealed class PrefRow {
         val baseSummary: String,
         val options: Map<Int, String>,
         val defaultValue: Int,
-        val icon: PrefIcon?,
+        val icon: ImageVector?,
     ) : PrefRow()
 
     data class Plain(
         override val rowKey: String,
         val title: String,
         val summary: String?,
-        val icon: PrefIcon?,
+        val icon: ImageVector?,
         val onClick: (() -> Unit)?,
     ) : PrefRow()
 }
@@ -182,21 +171,7 @@ abstract class BasePrefsDialog(
         key: String,
         title: String,
         summary: String,
-        icon: Int? = null,
-    ): String = addSwitchPreference(key, title, summary, icon?.let { PrefIcon.ResId(it) })
-
-    protected fun addSwitchPreference(
-        key: String,
-        title: String,
-        summary: String,
-        icon: ImageVector,
-    ): String = addSwitchPreference(key, title, summary, PrefIcon.Vector(icon))
-
-    protected fun addSwitchPreference(
-        key: String,
-        title: String,
-        summary: String,
-        icon: PrefIcon?,
+        icon: ImageVector?,
     ): String {
         val rk = nextKey("sw_$key")
         rows += PrefRow.Switch(rk, key, title, summary, icon)
@@ -211,16 +186,7 @@ abstract class BasePrefsDialog(
         summary: String,
         options: Map<Int, String>,
         defaultValue: Int,
-        icon: ImageVector,
-    ) = addSelectPreference(key, title, summary, options, defaultValue, PrefIcon.Vector(icon))
-
-    protected fun addSelectPreference(
-        key: String,
-        title: String,
-        summary: String,
-        options: Map<Int, String>,
-        defaultValue: Int,
-        icon: PrefIcon?,
+        icon: ImageVector?,
     ) {
         val rk = nextKey("sel_$key")
         rows += PrefRow.Select(rk, key, title, summary, options, defaultValue, icon)
@@ -231,38 +197,11 @@ abstract class BasePrefsDialog(
     protected fun addPreference(
         title: String,
         summary: String? = null,
-        icon: Int? = null,
-        onClick: (() -> Unit)? = null,
-    ) = addPreference(title, summary, icon?.let { PrefIcon.ResId(it) }, onClick)
-
-    protected fun addPreference(
-        title: String,
-        summary: String? = null,
-        icon: ImageVector,
-        onClick: (() -> Unit)? = null,
-    ) = addPreference(title, summary, PrefIcon.Vector(icon), onClick)
-
-    protected fun addPreference(
-        title: String,
-        summary: String? = null,
-        icon: PrefIcon?,
+        icon: ImageVector? = null,
         onClick: (() -> Unit)? = null,
     ) {
         val rk = nextKey("pref_$title")
         rows += PrefRow.Plain(rk, title, summary, icon, onClick)
-    }
-
-    // ── setDependency ──────────────────────────────────────────────────────
-
-    protected fun setDependency(
-        dependentKey: String,
-        dependencyKey: String,
-        enableWhen: Boolean = true,
-        hideWhenDisabled: Boolean = false,
-    ) {
-        dependencies
-            .getOrPut(dependencyKey) { mutableListOf() }
-            .add(DepInfo(dependentKey, enableWhen, hideWhenDisabled))
     }
 
     // -----------------------------------------------------------------------
@@ -512,32 +451,16 @@ private fun DialogContent(
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun PrefIconSlot(icon: PrefIcon?) {
+private fun PrefIconSlot(icon: ImageVector?) {
     if (icon == null) return
-    when (icon) {
-        is PrefIcon.ResId -> {
-            val drawable = remember(icon.id) { ModuleRes.getDrawable(icon.id) }
-            if (drawable != null) {
-                Icon(
-                    painter = rememberDrawablePainter(drawable),
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.width(16.dp))
-            }
-        }
 
-        is PrefIcon.Vector -> {
-            Icon(
-                imageVector = icon.imageVector,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.width(16.dp))
-        }
-    }
+    Icon(
+        imageVector = icon,
+        contentDescription = null,
+        modifier = Modifier.size(24.dp),
+        tint = MaterialTheme.colorScheme.primary,
+    )
+    Spacer(Modifier.width(16.dp))
 }
 
 // ---------------------------------------------------------------------------
@@ -592,7 +515,7 @@ private fun SwitchRow(
 private fun SimpleRow(
     title: String,
     summary: String?,
-    icon: PrefIcon?,
+    icon: ImageVector?,
     enabled: Boolean,
     showArrow: Boolean,
     onClick: (() -> Unit)?,

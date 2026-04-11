@@ -221,13 +221,11 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.browser)
-    implementation(libs.accompanist.drawablepainter)
     implementation(libs.aboutlibraries.core)
     implementation(libs.aboutlibraries.compose.m3)
     implementation(libs.kyant0.backdrop)
@@ -254,10 +252,10 @@ dependencies {
     implementation(project(":libs:common:annotation-scanner"))
     ksp(project(":libs:common:annotation-scanner"))
 
-    implementation(libs.dalvik.dx)
     implementation(libs.okhttp3.okhttp)
 
-    implementation(libs.rhino.android)
+    implementation(libs.rhino)
+    implementation(libs.rhino.kotlin)
 
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)

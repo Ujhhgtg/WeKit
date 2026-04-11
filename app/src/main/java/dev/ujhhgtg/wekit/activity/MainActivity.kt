@@ -41,8 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -54,12 +54,13 @@ import com.composables.icons.materialsymbols.outlinedfilled.More_vert
 import com.composables.icons.materialsymbols.outlinedfilled.Warning
 import com.topjohnwu.superuser.Shell
 import dev.ujhhgtg.wekit.BuildConfig
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.AppTheme
+import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
+import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.formatEpoch
 import dev.ujhhgtg.wekit.utils.getEnabled
@@ -380,13 +381,13 @@ class MainActivity : ComponentActivity() {
 
                 // Link Cards
                 LinkCard(
-                    iconRes = R.drawable.github_24px,
+                    icon = GitHubIcon,
                     title = "GitHub",
                     subtitle = "修改于 Ujhhgtg/WeKit (原始: cwuom/WeKit)",
                     onClick = { onUrlClick("https://github.com/Ujhhgtg/WeKit") }
                 )
                 LinkCard(
-                    iconRes = R.drawable.telegram_24px,
+                    icon = TelegramIcon,
                     title = "Telegram",
                     subtitle = "@ujhhgtg_wekit_ci",
                     onClick = { onUrlClick("https://t.me/ujhhgtg_wekit_ci") }
@@ -434,7 +435,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun LinkCard(iconRes: Int, title: String, subtitle: String, onClick: () -> Unit) {
+    fun LinkCard(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
         ElevatedCard(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth()
@@ -444,7 +445,7 @@ class MainActivity : ComponentActivity() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    painter = painterResource(id = iconRes),
+                    imageVector = icon,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.primary

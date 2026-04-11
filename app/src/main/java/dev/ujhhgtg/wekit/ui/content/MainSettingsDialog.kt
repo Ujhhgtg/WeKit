@@ -63,6 +63,8 @@ import dev.ujhhgtg.wekit.constants.PreferenceKeys
 import dev.ujhhgtg.wekit.hooks.items.easter_egg.AprilFools
 import dev.ujhhgtg.wekit.hooks.items.easter_egg.isAprilFools
 import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
+import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.DefaultJson
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -412,13 +414,13 @@ class MainSettingsDialog(context: Context) : BasePrefsDialog(context, BuildConfi
         addPreference(
             title = "GitHub",
             summary = "修改于 Ujhhgtg/WeKit (原始: cwuom/WeKit)",
-            icon = R.drawable.github_24px,
+            icon = GitHubIcon,
             onClick = { "https://github.com/Ujhhgtg/WeKit".toUri().openInSystem(context, true) }
         )
         addPreference(
             title = "Telegram",
             summary = "@ujhhgtg_wekit_ci",
-            icon = R.drawable.telegram_24px,
+            icon = TelegramIcon,
             onClick = { "https://t.me/ujhhgtg_wekit_ci".toUri().openInSystem(context, true) }
         )
     }

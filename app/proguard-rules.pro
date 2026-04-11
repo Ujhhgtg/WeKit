@@ -4,6 +4,7 @@
 
 # Attributes
 -keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault,LineNumberTable,SourceFile,*Annotation*
+-keep class kotlin.Metadata
 
 # Natives
 -keepclasseswithmembernames class * {

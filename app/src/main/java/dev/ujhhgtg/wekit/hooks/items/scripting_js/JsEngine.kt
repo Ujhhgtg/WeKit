@@ -46,7 +46,7 @@ object JsEngine {
     ) {
         val cx: Context = Context.enter()
         try {
-            cx.optimizationLevel = -1
+            cx.isInterpretedMode = true
             val scope = cx.initStandardObjects()
 
             JsApiExposer.exposeApis(scope, talker)
@@ -131,7 +131,7 @@ object JsEngine {
     ): JSONObject? {
         val cx: Context = Context.enter()
         try {
-            cx.optimizationLevel = -1
+            cx.isInterpretedMode = true
             val scope = cx.initStandardObjects()
 
             JsApiExposer.exposeApis(scope)
@@ -195,7 +195,7 @@ object JsEngine {
     ): JSONObject? {
         val cx: Context = Context.enter()
         try {
-            cx.optimizationLevel = -1
+            cx.isInterpretedMode = true
             val scope = cx.initStandardObjects()
 
             JsApiExposer.exposeApis(scope)

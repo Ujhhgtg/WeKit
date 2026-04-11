@@ -2,7 +2,6 @@
 agp = "9.1.0"
 compose-bom = "2026.03.01"
 dexkit = "2.1.0"
-accompanist = "0.37.3"
 appcompat = "1.7.1"
 composablehorizons-symbols = "2.2.1"
 lifecycle-runtime = "2.10.0"
@@ -12,7 +11,7 @@ kotlin = "2.3.20"
 androidx-core-ktx = "1.18.0"
 mmkv = "2.4.0"
 osmdroid = "6.1.20"
-rhino = "1.3.0"
+rhino = "1.9.1"
 serialization = "1.11.0"
 lombok = "1.18.44"
 protobuf = "4.34.1"
@@ -53,7 +52,6 @@ androidx-annotation = { module = "androidx.annotation:annotation", version.ref =
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
-androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle-runtime" }
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
@@ -64,7 +62,6 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "browser" }
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
-accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanist" }
 composablehorizons-material-symbols-outlined = { module = "com.composables:icons-material-symbols-outlined-cmp", version.ref = "composablehorizons-symbols" }
 composablehorizons-material-symbols-filled = { module = "com.composables:icons-material-symbols-outlined-filled-cmp", version.ref = "composablehorizons-symbols" }
 kyant0-backdrop = { module = "io.github.kyant0:backdrop", version.ref = "kyant0-backdrop" }
@@ -88,14 +85,14 @@ legacyxposed-api = { module = "de.robv.android.xposed:api", version = "82" }
 dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
 dexlib2 = { module = "org.smali:dexlib2", version.ref = "dexlib2" }
 dexmaker = { module = "com.linkedin.dexmaker:dexmaker", version.ref = "dexmaker" }
-dalvik-dx = { module = "com.jakewharton.android.repackaged:dalvik-dx", version = "16.0.1" }
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hidden-api-bypass" }
 kavaref-core = { module = "com.highcapable.kavaref:kavaref-core", version.ref = "kavaref" }
 kavaref-extension = { module = "com.highcapable.kavaref:kavaref-extension", version.ref = "kavaref" }
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsu" }
 libxposed-service = { module = "io.github.libxposed:service", version.ref = "libxposed" }
 
-rhino-android = { module = "io.apisense:rhino-android", version.ref = "rhino" }
+rhino = { module = "org.mozilla:rhino", version.ref = "rhino" }
+rhino-kotlin = { module = "org.mozilla:rhino-kotlin", version.ref = "rhino" }
 ksp = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
 kotlinpoet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinpoet" }
 
