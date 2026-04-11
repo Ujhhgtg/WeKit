@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Arrow_back
+import com.composables.icons.materialsymbols.outlined.Settings
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
 // ---------------------------------------------------------------------------
@@ -275,7 +277,16 @@ private fun ClickableSettingsRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = title, style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = MaterialSymbols.Outlined.Settings,
+                    contentDescription = "Configurable",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (summary.isNotEmpty()) {
                 Spacer(Modifier.height(2.dp))
                 Text(
