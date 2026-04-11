@@ -6,18 +6,18 @@ import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import org.json.JSONObject
 
-@HookItem(path = "小程序/跳过视频广告", description = "跳过小程序视频广告")
-object SkipMiniAppVideoAds : SwitchHookItem() {
+@HookItem(path = "小程序/移除视频广告", description = "跳过小程序视频广告")
+object RemoveVideoAds : SwitchHookItem() {
 
     override fun onEnable() {
         "com.tencent.mm.appbrand.commonjni.AppBrandJsBridgeBinding".toClass().asResolver()
             .firstMethod { name = "subscribeHandler" }
             .hookBefore {
-                val arg0 = args[0] as String? ?: ""
-                val arg1 = args[1] as String? ?: ""
+                val type = args[0] as String? ?: ""
+                val json = args[1] as String? ?: ""
 
-                if (arg0 == "onVideoTimeUpdate") {
-                    val json = JSONObject(arg1)
+                if (type == "onVideoTimeUpdate") {
+                    val json = JSONObject(json)
                     json.put("position", 60)
                     json.put("duration", 1)
                     args[1] = json.toString()

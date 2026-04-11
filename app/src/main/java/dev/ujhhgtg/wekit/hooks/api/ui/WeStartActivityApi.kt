@@ -5,6 +5,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import de.robv.android.xposed.XC_MethodHook
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -17,22 +18,16 @@ object WeStartActivityApi : ApiHookItem() {
         fun onStartActivity(param: XC_MethodHook.MethodHookParam, intent: Intent)
     }
 
-    private const val TAG: String = "WeStartActivityListenerApi"
+    private val TAG = This.Class.simpleName
 
     private val listeners = CopyOnWriteArrayList<IStartActivityListener>()
 
     fun addListener(listener: IStartActivityListener) {
-        if (!listeners.contains(listener)) {
-            listeners.add(listener)
-        }
+        listeners.addIfAbsent(listener)
     }
 
     fun removeListener(listener: IStartActivityListener) {
-        val removed = listeners.remove(listener)
-        WeLogger.i(
-            TAG,
-            "listener remove ${if (removed) "succeeded" else "failed"}, current listener count: ${listeners.size}"
-        )
+        listeners.remove(listener)
     }
 
     override fun onEnable() {

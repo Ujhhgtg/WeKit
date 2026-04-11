@@ -18,10 +18,8 @@ object RemoveMomentsAds : SwitchHookItem() {
                 parameters(String::class)
             }
             .hookBefore {
-                if (args.isNotEmpty() && args[0] is String) {
-                    args[0] = ""
-                    WeLogger.i(TAG, "blocked ad")
-                }
+                WeLogger.i(TAG, "blocked ad")
+                result = null
             }
     }
 }

@@ -9,7 +9,7 @@ import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.StringMatchType
 
 @HookItem(path = "小程序/去除菜单限制", description = "移除小程序右上角菜单的限制")
-object RemoveMiniAppMenuLimits : SwitchHookItem(), IResolvesDex {
+object RemoveMenuLimits : SwitchHookItem(), IResolvesDex {
 
     private lateinit var showAndClickableEnumValue: Any
 

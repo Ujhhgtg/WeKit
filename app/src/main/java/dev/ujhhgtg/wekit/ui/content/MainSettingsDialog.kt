@@ -73,8 +73,6 @@ import dev.ujhhgtg.wekit.utils.formatEpoch
 import dev.ujhhgtg.wekit.utils.openInSystem
 import dev.ujhhgtg.wekit.utils.showToast
 import dev.ujhhgtg.wekit.utils.showToastSuspend
-import dev.ujhhgtg.wekit.utils.updates.UpdateChecker
-import dev.ujhhgtg.wekit.utils.updates.UpdateDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -305,64 +303,9 @@ class MainSettingsDialog(context: Context) : BasePrefsDialog(context, BuildConfi
 
         addCategory("关于")
         addPreference(
-            title = "版本 (点击检查更新)",
+            title = "版本",
             summary = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
             icon = MaterialSymbols.Outlined.Update,
-            onClick = {
-                CoroutineScope(Dispatchers.Main).launch {
-                    showToastSuspend("正在检查更新...")
-                    val update = runCatching { UpdateChecker.checkForUpdate() }.getOrElse { e ->
-                        WeLogger.e("UpdateChecker", "failed to check for updates", e)
-                        showComposeDialog(context) {
-                            AlertDialogContent(
-                                title = { Text("检查更新失败") },
-                                text = {
-                                    Text(
-                                        "错误信息: ${e.message}\n" +
-                                                "是否尝试直接下载并安装最新版本?"
-                                    )
-                                },
-                                dismissButton = { TextButton(onDismiss) { Text("取消") } },
-                                confirmButton = {
-                                    Button(onClick = {
-                                        onDismiss()
-                                        CoroutineScope(Dispatchers.Main).launch {
-                                            UpdateDownloader.downloadAndInstall(context, UpdateChecker.DOWNLOAD_URL)
-                                        }
-                                    }) { Text("确定") }
-                                }
-                            )
-                        }
-                        return@launch
-                    }
-                    if (update == null) {
-                        showToastSuspend("已是最新版本")
-                        return@launch
-                    }
-                    showComposeDialog(context) {
-                        AlertDialogContent(
-                            title = { Text("检测到新版本") },
-                            text = {
-                                Text(
-                                    "当前版本: ${BuildConfig.GIT_HASH} → 新版本: ${update.latestSha}\n" +
-                                            "提交消息:\n" +
-                                            "${update.commitMessage.prependIndent("  ")}\n" +
-                                            "是否下载并安装?"
-                                )
-                            },
-                            dismissButton = { TextButton(onDismiss) { Text("取消") } },
-                            confirmButton = {
-                                Button(onClick = {
-                                    onDismiss()
-                                    CoroutineScope(Dispatchers.Main).launch {
-                                        UpdateDownloader.downloadAndInstall(context, update.downloadUrl)
-                                    }
-                                }) { Text("确定") }
-                            }
-                        )
-                    }
-                }
-            }
         )
         addPreference(
             "构建时间",

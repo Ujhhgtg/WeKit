@@ -2,22 +2,17 @@ package dev.ujhhgtg.wekit.hooks.items.contacts
 
 import android.content.Context
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseApi
@@ -60,7 +55,7 @@ object DetectDeletedFriends : ClickableHookItem() {
     )
 
     private sealed class DialogPhase {
-        object Idle : DialogPhase()
+        data object Idle : DialogPhase()
         data class Scanning(var completed: MutableIntState, val total: Int) : DialogPhase()
         data class Done(val friends: List<AbnormalFriend>) : DialogPhase()
     }
@@ -69,7 +64,7 @@ object DetectDeletedFriends : ClickableHookItem() {
         val phaseState = mutableStateOf<DialogPhase>(DialogPhase.Idle)
 
         val friends = WeDatabaseApi.getFriends().filter { c ->
-            c.type != 2051 && c.type != 2049 && c.wxId.startsWith("wxid_") && c.wxId != WeApi.selfWxId
+            c.type != 2051 && c.type != 2049 && c.wxId != WeApi.selfWxId
         }
 
         showComposeDialog(context) {
@@ -127,7 +122,6 @@ object DetectDeletedFriends : ClickableHookItem() {
                             val completed by (phase as DialogPhase.Scanning).completed
                             val total = (phase as DialogPhase.Scanning).total
                             DefaultColumn {
-                                Spacer(modifier = Modifier.height(8.dp))
                                 Text("正在扫描, 请稍等...\n已完成: $completed/$total")
                                 LinearWavyProgressIndicator(progress = { completed.toFloat() / total })
                             }
@@ -153,28 +147,24 @@ object DetectDeletedFriends : ClickableHookItem() {
                     }
                 },
                 dismissButton = when (phase) {
-                    is DialogPhase.Idle -> {
-                        @Composable {
-                            TextButton(onDismiss) { Text("取消") }
-                        }
-                    }
+                    is DialogPhase.Idle -> { {
+                        TextButton(onDismiss) { Text("取消") }
+                    } }
 
                     is DialogPhase.Scanning -> null
                     is DialogPhase.Done -> null
                 },
                 confirmButton = when (phase) {
-                    is DialogPhase.Idle -> {
-                        {
-                            Button(onClick = {
-                                phase = DialogPhase.Scanning(mutableIntStateOf(0), friends.size)
-                            })
-                            { Text("确定") }
-                        }
-                    }
+                    is DialogPhase.Idle -> { {
+                        Button(onClick = {
+                            phase = DialogPhase.Scanning(mutableIntStateOf(0), friends.size)
+                        })
+                        { Text("确定") }
+                    } }
 
-                    is DialogPhase.Done -> {
-                        { Button(onDismiss) { Text("关闭") } }
-                    }
+                    is DialogPhase.Done -> { {
+                        Button(onDismiss) { Text("关闭") }
+                    } }
 
                     else -> null
                 }
