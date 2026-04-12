@@ -1,4 +1,3 @@
-import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
@@ -24,9 +23,13 @@ fun getGitHash(): String {
     }.standardOutput.asText.get().trim()
 }
 
-configure<ApplicationExtension> {
+android {
     namespace = libs.versions.namespace.get()
-    compileSdk = libs.versions.targetSdk.get().toInt()
+    compileSdk {
+        version = release(libs.versions.targetSdk.get().toInt()) {
+            minorApiLevel = 1
+        }
+    }
     ndkVersion = libs.versions.ndk.get()
 
     val commitCount = getCommitCount()
