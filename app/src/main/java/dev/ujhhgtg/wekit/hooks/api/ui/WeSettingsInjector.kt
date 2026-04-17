@@ -13,14 +13,14 @@ import com.highcapable.kavaref.extension.createInstance
 import com.highcapable.kavaref.extension.toClass
 import com.highcapable.kavaref.extension.toClassOrNull
 import com.tencent.mm.plugin.setting.ui.setting_new.base.BaseSettingPrefUI
-import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingAdditionHeaderSearch
 import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo
 import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupMain
-import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersonalInfo
+import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupNotify
+import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPrivacyPermission
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.preference.IconPreference
 import de.robv.android.xposed.XposedHelpers
-import dev.ujhhgtg.comptime.nameOf
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
@@ -53,7 +53,7 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
     private val classSettingLocation by dexClass()
     private val methodSettingGroupAccountInfoReturns1 by dexMethod()
 
-    private val TAG = nameOf(WeSettingsInjector)
+    private val TAG = This.Class.simpleName
 
     private const val PREFS_KEY = "wekit_settings_entry"
     private const val PREFS_TITLE = "${BuildConfig.TAG} 设置"
@@ -61,7 +61,6 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
 
     @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex(dexKit: DexKitBridge) {
-        // 查找 Preference 类
         val prefClass = dexKit.findClass {
             matcher { className = PREFERENCE_CLASS_NAME }
         }.singleOrNull() ?: run {
@@ -69,7 +68,6 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
             return
         }
 
-        // 查找 setKey 方法
         methodSetKey.find(dexKit, allowMultiple = true) {
             searchPackages("com.tencent.mm.ui.base.preference")
             matcher {
@@ -80,7 +78,6 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
             }
         }
 
-        // 查找 setTitle 方法
         val setTitleCandidates = prefClass.findMethod {
             matcher {
                 returnType = "void"
@@ -98,7 +95,6 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
             )
         }
 
-        // 查找 getKey 方法
         val getKeyCandidates = prefClass.findMethod {
             matcher {
                 paramCount = 0
@@ -118,7 +114,6 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
             )
         }
 
-        // 查找 Adapter 类和 addPreference 方法
         val adapterClass = dexKit.findClass {
             searchPackages("com.tencent.mm.ui.base.preference")
             matcher {
@@ -190,12 +185,12 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
 
     override fun onEnable() {
         // 尝试 Hook 旧版 UI
-        tryHookLegacySettings()
+        injectLegacy()
 
         // 尝试 Hook 新版 UI (8.0.67+)
         // tryHookNewSettingsMethod1()
-        tryHookNewSettingsMethod2()
-        // tryHookNewSettingsMethod3()
+        injectModernMethod2()
+        // injectModernMethod3()
 
         hookLauncherUi()
     }
@@ -203,10 +198,13 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
     /**
      * 适配旧版 SettingsUI (基于 PreferenceScreen)
      */
-    private fun tryHookLegacySettings() {
+    private fun injectLegacy() {
         // 检查类是否存在
         val clsSettingsUi = "${PackageNames.WECHAT}.plugin.setting.ui.setting.SettingsUI"
-            .toClassOrNull() ?: return
+            .toClassOrNull() ?: run {
+            WeLogger.w(TAG, "legacy settings class not found, skipping")
+            return
+        }
 
         val setKeyMethod = methodSetKey.method
         val setTitleMethod = methodSetTitle.method
@@ -279,12 +277,14 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
 
     private const val WEKIT_SETTING_ITEM_NAME_RES_ID = -1337
 
+    private val GROUP_SETTING_ITEM_CLASS by lazy { SettingGroupMain::class.java }
+    private val PARENT_SETTING_ITEM_CLASS by lazy { SettingGroupPrivacyPermission::class.java }
+    private val CHILD_SETTING_ITEM_CLASS by lazy { SettingGroupNotify::class.java }
+
     private val customSettingItemClass by lazy {
-        val baseSettingClass = classBaseSettingItem.clazz
-        val settingGroupMainClass = SettingGroupMain::class.java
-        val settingGroupAccountInfoClass = SettingGroupAccountInfo::class.java
-        settingGroupAccountInfoClass.declaredMethods.run {
-            val mGetClass = this.first { m -> m.returnType == Class::class.java }.name
+        // this is only used for resolving method names, so we'll hard-code SettingGroupAccountInfo
+        SettingGroupAccountInfo::class.java.declaredMethods.run {
+            val mGetGroupItemClass = this.first { m -> m.returnType == Class::class.java }.name
             val mReturns1 = methodSettingGroupAccountInfoReturns1.method.name
             val mOnClick = this.first { m -> m.parameterCount == 3 }.name
             val mGetStringId = this.last { m -> m.returnType == String::class.java }.name
@@ -301,25 +301,21 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
             // play 8.0.68: E6, M6, T6, z6, B6, D6
             WeLogger.d(
                 TAG,
-                "resolved all method names: $mGetClass, $mReturns1, $mOnClick, $mGetStringId, $mGetSettingLocation, $mGetNameResId"
+                "resolved all method names: $mGetGroupItemClass, $mReturns1, $mOnClick, $mGetStringId, $mGetSettingLocation, $mGetNameResId"
             )
 
             val handler = InvocationHandler { proxy, method, args ->
                 when (method.name) {
-                    mGetClass -> return@InvocationHandler settingGroupMainClass
-                    mReturns1 -> return@InvocationHandler 1
-                    mOnClick -> {
-                        openSettingsDialog(args[0] as Context)
-                    }
-
-                    mGetStringId -> return@InvocationHandler "SettingGroup_Main_Other_WeKit"
-                    mGetSettingLocation -> return@InvocationHandler classSettingLocation.clazz.createInstance(
-                        settingGroupMainClass,
-                        SettingAdditionHeaderSearch::class.java
+                    mGetGroupItemClass -> GROUP_SETTING_ITEM_CLASS
+                    mReturns1 -> 1
+                    mOnClick -> openSettingsDialog(args[0] as Context)
+                    mGetStringId -> "SettingGroup_Main_Other_WeKit"
+                    mGetSettingLocation -> classSettingLocation.clazz.createInstance(
+                        GROUP_SETTING_ITEM_CLASS,
+                        PARENT_SETTING_ITEM_CLASS
                     )
-
-                    mGetNameResId -> return@InvocationHandler WEKIT_SETTING_ITEM_NAME_RES_ID
-                    else -> return@InvocationHandler ProxyBuilder.callSuper(
+                    mGetNameResId -> WEKIT_SETTING_ITEM_NAME_RES_ID
+                    else -> ProxyBuilder.callSuper(
                         proxy,
                         method,
                         *args
@@ -327,7 +323,7 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
                 }
             }
 
-            ProxyBuilder.forClass(baseSettingClass)
+            ProxyBuilder.forClass(classBaseSettingItem.clazz)
                 .dexCache((KnownPaths.moduleData / "generated_proxy_classes").createDirectoriesNoThrow().toFile())
                 .parentClassLoader(ClassLoaderProvider.classLoader!!)
                 // AppCompactActivity is shipped with the host app itself, so we mustn't use AppCompatActivity::class here
@@ -343,10 +339,12 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
         }
     }
 
-    private fun tryHookNewSettingsMethod2() {
-        val settingGroupMainClass =
-            "${PackageNames.WECHAT}.plugin.setting.ui.setting_new.settings.SettingGroupMain".toClassOrNull()
-                ?: return
+    private fun injectModernMethod2() {
+        "${PackageNames.WECHAT}.plugin.setting.ui.setting_new.settings.SettingGroupMain".toClassOrNull()
+            ?: run {
+                WeLogger.w(TAG, "modern settings class not found, skipping")
+                return
+            }
 
         // a simple way to inject string resource
         Context::class.asResolver()
@@ -361,13 +359,13 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
             }
 
         // create dependency chain
-        SettingGroupPersonalInfo::class.asResolver()
+        CHILD_SETTING_ITEM_CLASS.asResolver()
             .firstMethod {
                 returnType = classSettingLocation.clazz
             }
             .hookBefore {
                 result = classSettingLocation.clazz.createInstance(
-                    settingGroupMainClass,
+                    GROUP_SETTING_ITEM_CLASS,
                     customSettingItemClass
                 )
             }
@@ -394,7 +392,11 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
             }
     }
 
-//    private fun tryHookNewSettingsMethod3() {
+//    private fun injectModernMethod3() {
+//        if (methodSettingGroupPluginOnClick.isPlaceholder) {
+//            WeLogger.w(TAG, "methodSettingGroupPluginOnClick not found, skipping")
+//            return
+//        }
 //        methodSettingGroupPluginOnClick.hookBefore {
 //            val context = args[0] as Context
 //            openSettingsDialog(context)
