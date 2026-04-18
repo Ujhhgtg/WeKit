@@ -128,7 +128,7 @@ object ApplyDialogBackgroundBlur : ClickableHookItem(), IResolvesDex {
                     Text("如果本对话框背景没有模糊, 说明系统 Android 版本过低 (SDK < 31) 或未在开发者选项中启用")
                     HorizontalDivider()
                     ListItem(
-                        headlineContent = { Text("模糊半径 (即时生效)") },
+                        headlineContent = { Text("模糊半径 (实时生效)") },
                         supportingContent = {
                             IntSlider(
                                 blurRadius,
@@ -137,6 +137,7 @@ object ApplyDialogBackgroundBlur : ClickableHookItem(), IResolvesDex {
                                     WePrefs.putInt(KEY_BLUR_RADIUS, blurRadius)
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                         window.attributes.blurBehindRadius = blurRadius
+                                        window.attributes = window.attributes // trigger onWindowAttributesChanged
                                     } else {
                                         WeLogger.w(TAG, "sdk < 31, not applying blur behind dialog")
                                     }
