@@ -103,10 +103,6 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
     private lateinit var voiceDurationField: Field     // 语音时长字段
     private lateinit var voiceOffsetField: Field       // 偏移量字段
 
-    // Unsafe
-    private lateinit var unsafeInstance: Any
-    private lateinit var allocateInstanceMethod: Method
-
     private val TAG = nameOf(WeMessageApi)
 
     @SuppressLint("NonUniqueDexKitData")
@@ -421,9 +417,6 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
     }
 
     override fun onEnable() {
-        // 初始化 Unsafe 反射
-        initUnsafe()
-
         // -----------------------------------------------------------------------------
         // 图片组件初始化
         // -----------------------------------------------------------------------------
@@ -509,21 +502,6 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
 
         crossParamsClass = classImageTask.clazz.declaredConstructors
             .first { it.parameterCount == 5 }.parameterTypes[4]
-    }
-
-    /**
-     * 初始化 Unsafe 反射
-     */
-    @SuppressLint("DiscouragedPrivateApi")
-    private fun initUnsafe() {
-        val unsafeClass = Class.forName("sun.misc.Unsafe")
-        val theUnsafeField = unsafeClass.getDeclaredField("theUnsafe")
-        theUnsafeField.isAccessible = true
-        unsafeInstance = theUnsafeField.get(null)!!
-        allocateInstanceMethod = unsafeClass.getMethod(
-            "allocateInstance",
-            Class::class.java
-        )
     }
 
     /**

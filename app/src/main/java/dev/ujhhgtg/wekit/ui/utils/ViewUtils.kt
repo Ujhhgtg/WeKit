@@ -4,6 +4,7 @@ import android.app.Activity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ListAdapter
+import dev.ujhhgtg.wekit.utils.HostInfo
 
 fun <T : View> View.findViewByClassName(className: String): T? {
     if (this.javaClass.name == className || this.javaClass.simpleName == className) {
@@ -100,3 +101,7 @@ fun ListAdapter.iterable(parent: ViewGroup): Iterable<View> =
 
 inline val Activity.rootView: ViewGroup
     get() = this.findViewById(android.R.id.content)
+
+@Suppress("NOTHING_TO_INLINE")
+inline fun Int.dpToPx(): Int =
+    (this * HostInfo.application.resources.displayMetrics.density).toInt()

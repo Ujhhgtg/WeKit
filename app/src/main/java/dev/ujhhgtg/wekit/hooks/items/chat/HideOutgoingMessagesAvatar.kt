@@ -38,7 +38,7 @@ object HideOutgoingMessagesAvatar : SwitchHookItem(), WeChatMessageViewApi.ICrea
         val avatar = avatarViewField.get(tag) as? View? ?: return
         (avatar.parent as View).apply {
             val view = parent as ViewGroup
-            (view.layoutParams as ViewGroup.MarginLayoutParams).rightMargin = 20
+            (view.layoutParams as? ViewGroup.MarginLayoutParams? ?: return).rightMargin = 20
             view.requestLayout()
             visibility = View.GONE
         }

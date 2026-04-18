@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.hooks.items.miniapps
 
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
@@ -12,13 +13,13 @@ import java.lang.reflect.Field
 @HookItem(path = "小程序/移除嵌入广告", description = "移除小程序嵌入广告")
 object RemoveEmbeddedAds : SwitchHookItem(), IResolvesDex {
 
-    private val methodNetSceneJSOperateWxDataDoScene by dexMethod()
+    private val classNetSceneJSOperateWxData by dexClass()
     private val methodBaseTransferRequestOnLoad by dexMethod()
 
     private lateinit var protoField: Field
 
     override fun onEnable() {
-        methodNetSceneJSOperateWxDataDoScene.hookBefore {
+        classNetSceneJSOperateWxData.asResolver().firstConstructor().hookBefore {
             val json = JSONObject(args[1] as String)
             if (json.getString("api_name") == "webapi_getadvert") {
                 json.put("data", json.getJSONObject("data").put("ad_unit_id", ""))
@@ -50,7 +51,7 @@ object RemoveEmbeddedAds : SwitchHookItem(), IResolvesDex {
     }
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        methodNetSceneJSOperateWxDataDoScene.find(dexKit) {
+        classNetSceneJSOperateWxData.find(dexKit) {
             matcher {
                 usingEqStrings("MicroMsg.NetSceneJSOperateWxData", "doScene hash=%d, funcid=%d")
             }

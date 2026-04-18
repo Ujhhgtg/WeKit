@@ -32,7 +32,7 @@ import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
 import kotlin.math.roundToInt
 
-@HookItem(path = "界面美化/对话框窗口级背景模糊", description = "为模块与微信的对话框添加窗口级模糊处理")
+@HookItem(path = "界面美化/对话框窗口级背景模糊", description = "为模块与微信的对话框添加窗口级模糊处理 [需 SDK >= 31]")
 object ApplyDialogBackgroundBlur : ClickableHookItem(), IResolvesDex {
 
     private val TAG = nameOf(ApplyDialogBackgroundBlur)

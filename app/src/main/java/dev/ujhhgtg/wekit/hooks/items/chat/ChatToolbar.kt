@@ -47,7 +47,7 @@ import com.composables.icons.materialsymbols.outlined.Voice_chat
 import com.highcapable.kavaref.KavaRef.Companion.asResolver
 import com.highcapable.kavaref.extension.createInstance
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
-import dev.ujhhgtg.comptime.nameOf
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.HookItem
@@ -68,7 +68,7 @@ import kotlin.time.Duration.Companion.seconds
 @HookItem(path = "聊天/聊天工具栏", description = "在输入框上方添加工具栏")
 object ChatToolbar : SwitchHookItem(), IResolvesDex {
 
-    private val TAG = nameOf(ChatToolbar)
+    private val TAG = This.Class.simpleName
 
     private val methodAppPanelInitAppGrid by dexMethod()
     private val methodAppPanelOnMeasure by dexMethod()
