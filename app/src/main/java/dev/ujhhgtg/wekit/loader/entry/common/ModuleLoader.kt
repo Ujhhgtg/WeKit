@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.loader.entry.common
 
-import dev.ujhhgtg.comptime.nameOf
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 import dev.ujhhgtg.wekit.loader.startup.UnifiedEntryPoint
@@ -8,9 +8,10 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 
 object ModuleLoader {
 
-    private val TAG = nameOf(ModuleLoader)
+    private val TAG = This.Class.simpleName
     private var isInitialized = false
 
+    @Suppress("unused")
     @JvmStatic
     fun init(
         hostDataDir: String,

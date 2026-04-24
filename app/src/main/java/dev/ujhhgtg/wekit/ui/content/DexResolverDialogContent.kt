@@ -37,6 +37,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.WeLogger.exitProcess
 import dev.ujhhgtg.wekit.utils.copyToClipboard
 import dev.ujhhgtg.wekit.utils.showToast
+import dev.ujhhgtg.wekit.utils.unreachable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -108,7 +109,7 @@ fun DexResolverDialogContent(
         dexKit: DexKitBridge,
         progressChannel: Channel<ScanProgress>
     ): ScanResult {
-        val path = if (item is BaseHookItem) item.path else error("unreachable")
+        val path = if (item is BaseHookItem) item.path else unreachable()
         return try {
             progressChannel.send(ScanProgress.Start(path))
             item.resolveDex(dexKit)

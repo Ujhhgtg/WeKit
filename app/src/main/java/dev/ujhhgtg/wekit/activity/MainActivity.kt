@@ -68,10 +68,6 @@ import dev.ujhhgtg.wekit.utils.hook_status.HookStatus
 import dev.ujhhgtg.wekit.utils.openInSystem
 import dev.ujhhgtg.wekit.utils.setEnabled
 import dev.ujhhgtg.wekit.utils.showToast
-import java.nio.file.Path
-import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
-import kotlin.io.path.div
 
 
 class MainActivity : ComponentActivity() {
@@ -189,7 +185,7 @@ private fun AppContent(onUrlClick: (String) -> Unit) {
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("屏蔽微信热更新") },
+                            text = { Text("修复模块加载") },
                             onClick = {
                                 showMenu = false
                                 showConfirmDeletionDialog = true
@@ -364,21 +360,20 @@ private fun AppContent(onUrlClick: (String) -> Unit) {
 
             if (showConfirmDeletionDialog) {
                 val paths = remember {
-                    val paths = mutableListOf<Path>()
+                    val userId = context.androidUserId
                     @Suppress("SdCardPath")
-                    val dataDir = Path("/data/user/${context.androidUserId}/${PackageNames.WECHAT}/")
-                    paths.apply {
-                        add(dataDir / "tinker")
-                        add(dataDir / "tinker_server")
-                        add(dataDir / "tinker_temp")
-                    }
+                    listOf(
+                        "/data/user/$userId/${PackageNames.WECHAT}/tinker",
+                        "/data/user/$userId/${PackageNames.WECHAT}/tinker_server",
+                        "/data/user/$userId/${PackageNames.WECHAT}/tinker_temp"
+                    )
                 }
 
                 AlertDialog(
                     onDismissRequest = { showConfirmDeletionDialog = false },
-                    title = { Text("确定执行?") },
-                    text = { Text("本操作将尝试尝试修复微信热更新导致的模块不加载\n将删除以下路径的文件, 请确认无误后再删除!\n${
-                        paths.joinToString("\n") { "- " + it.absolutePathString() }}") },
+                    title = { Text("修复模块加载") },
+                    text = { Text("本操作将尝试修复微信热更新导致的模块不加载\n将删除以下路径的文件, 请确认无误后再删除!\n${
+                        paths.joinToString("\n") { "- $it" }}") },
                     dismissButton = {
                         TextButton(onClick = { showConfirmDeletionDialog = false }) { Text("取消") }
                     },
@@ -391,7 +386,7 @@ private fun AppContent(onUrlClick: (String) -> Unit) {
                             else {
                                 // if using Shell.cmd or su -c without -mm, the view of /data/user/0 is restricted
                                 paths.forEach { path ->
-                                    ProcessBuilder("su", "-mm", "-c", "rm -rf ${path.absolutePathString()}")
+                                    ProcessBuilder("su", "-mm", "-c", "rm -rf $path")
                                         .redirectErrorStream(true)
                                         .start()
                                 }

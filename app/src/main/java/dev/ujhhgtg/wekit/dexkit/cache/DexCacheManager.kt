@@ -5,9 +5,10 @@ import dev.ujhhgtg.wekit.constants.PreferenceKeys
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.hooks.core.BaseHookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.utils.paths.KnownPaths
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.paths.KnownPaths
 import dev.ujhhgtg.wekit.utils.paths.createDirectoriesNoThrow
+import dev.ujhhgtg.wekit.utils.unreachable
 import org.json.JSONObject
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists
@@ -56,10 +57,7 @@ object DexCacheManager {
      * 3. [item] 的每个委托 key 都有非空值
      */
     fun isItemCacheValid(item: IResolvesDex): Boolean {
-        if (item !is BaseHookItem) {
-            WeLogger.w(TAG, "Item is not BaseHookItem, cannot get path")
-            return false
-        }
+        if (item !is BaseHookItem) unreachable()
 
         val cacheFile = getCacheFile(item.path)
         if (!cacheFile.exists()) {

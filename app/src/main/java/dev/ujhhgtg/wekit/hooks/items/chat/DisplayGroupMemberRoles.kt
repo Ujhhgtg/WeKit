@@ -17,6 +17,7 @@ import dev.ujhhgtg.wekit.hooks.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.collections.LruCache
+import dev.ujhhgtg.wekit.utils.unreachable
 import org.luckypray.dexkit.DexKitBridge
 import kotlin.math.roundToInt
 
@@ -90,7 +91,7 @@ object DisplayGroupMemberRoles : SwitchHookItem(), IResolvesDex,
             1 -> "群主"
             2 -> "管理员"
             3 -> "成员"
-            else -> error("unreachable")
+            else -> unreachable()
         }
 
         val fullText = "$roleText $displayName"
@@ -100,7 +101,7 @@ object DisplayGroupMemberRoles : SwitchHookItem(), IResolvesDex,
             1 -> OWNER_COLOR.toInt()
             2 -> ADMIN_COLOR.toInt()
             3 -> MEMBER_COLOR.toInt()
-            else -> error("unreachable")
+            else -> unreachable()
         }
 
         sb.setSpan(

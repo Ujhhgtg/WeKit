@@ -133,7 +133,7 @@ object HookItemsLoader {
                 return@launch
             }
 
-            delay(1_500)
+            delay(1_500.milliseconds)
 
             withContext(Dispatchers.Main) {
                 showComposeDialog(activity) {

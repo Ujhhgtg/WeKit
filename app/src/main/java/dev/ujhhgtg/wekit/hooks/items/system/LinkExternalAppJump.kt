@@ -36,6 +36,7 @@ import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.Open_in_new
+import com.tencent.mm.ui.LauncherUI
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.ui.WeStartActivityApi
@@ -44,7 +45,6 @@ import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.copyToClipboard
 import dev.ujhhgtg.wekit.utils.openInSystem
@@ -84,12 +84,16 @@ object LinkExternalAppJump : SwitchHookItem(),
     ) {
         // prevent loop
         if (intent.getBooleanExtra("skip_link_hook", false)) return
-        // FIXME: doesn't work when opening urls from qr code scanning,
-        //        so we disable this for now
-        if (intent.extras?.run {
+
+        val context = if (intent.extras?.run {
                 containsKey("key_scan_qr_code_get_a8key_resp") ||
                         containsKey("key_scan_qr_code_get_a8key_req")
-            } ?: false) return
+            } ?: false) {
+            LauncherUI.getInstance()!!
+        }
+        else {
+            param.thisObject as Context
+        }
 
         val component = intent.component ?: return
         val shortClassName = component.shortClassName ?: return
@@ -105,23 +109,12 @@ object LinkExternalAppJump : SwitchHookItem(),
         newIntent.addCategory(Intent.CATEGORY_BROWSABLE)
         newIntent.data = url
 
-        val pm = HostInfo.application.packageManager
+        val pm = context.packageManager
 
         @SuppressLint("QueryPermissionsNeeded")
-        val resolveInfos =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                pm.queryIntentActivities(
-                    newIntent,
-                    PackageManager.ResolveInfoFlags.of(
-                        PackageManager.MATCH_DEFAULT_ONLY.toLong()
-                    )
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                pm.queryIntentActivities(newIntent, PackageManager.MATCH_DEFAULT_ONLY)
-            }
+        val resolveInfos = pm.queryIntentActivities(newIntent,
+            PackageManager.MATCH_DEFAULT_ONLY)
 
-        val context = param.thisObject as Context
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text("选择打开方式") },

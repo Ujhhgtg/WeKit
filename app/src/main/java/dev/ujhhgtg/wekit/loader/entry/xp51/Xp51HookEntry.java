@@ -11,42 +11,40 @@ import dev.ujhhgtg.wekit.loader.entry.common.ModuleLoader;
 @Keep
 public class Xp51HookEntry implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
-    public static String sCurrentPackageName = null;
-    private static XC_LoadPackage.LoadPackageParam sLoadPackageParam = null;
-    private static StartupParam sInitZygoteStartupParam = null;
-    private static String sModulePath = null;
+    private static XC_LoadPackage.LoadPackageParam param = null;
+    private static StartupParam startupParam = null;
+    private static String modulePath = null;
 
     public static XC_LoadPackage.LoadPackageParam getLoadPackageParam() {
-        if (sLoadPackageParam == null) {
+        if (param == null) {
             throw new IllegalStateException("LoadPackageParam is null");
         }
-        return sLoadPackageParam;
+        return param;
     }
 
     public static String getModulePath() {
-        if (sModulePath == null) {
+        if (modulePath == null) {
             throw new IllegalStateException("Module path is null");
         }
-        return sModulePath;
+        return modulePath;
     }
 
     public static StartupParam getInitZygoteStartupParam() {
-        if (sInitZygoteStartupParam == null) {
+        if (startupParam == null) {
             throw new IllegalStateException("InitZygoteStartupParam is null");
         }
-        return sInitZygoteStartupParam;
+        return startupParam;
     }
 
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws ReflectiveOperationException {
-        sLoadPackageParam = lpparam;
+        param = lpparam;
         if (lpparam.packageName.equals(PackageNames.THIS)) {
             Xp51HookStatusInit.init(lpparam.classLoader);
         } else if (PackageNames.isWeChat(lpparam.packageName)) {
-            if (sInitZygoteStartupParam == null) {
+            if (startupParam == null) {
                 throw new IllegalStateException("handleLoadPackage: sInitZygoteStartupParam is null");
             }
-            sCurrentPackageName = lpparam.packageName;
             ModuleLoader.init(
                 lpparam.appInfo.dataDir,
                 lpparam.classLoader,
@@ -60,7 +58,7 @@ public class Xp51HookEntry implements IXposedHookLoadPackage, IXposedHookZygoteI
 
     @Override
     public void initZygote(StartupParam startupParam) {
-        sInitZygoteStartupParam = startupParam;
-        sModulePath = startupParam.modulePath;
+        Xp51HookEntry.startupParam = startupParam;
+        modulePath = startupParam.modulePath;
     }
 }
