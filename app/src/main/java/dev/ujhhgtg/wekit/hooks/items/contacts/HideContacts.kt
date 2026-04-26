@@ -29,6 +29,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
+import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import dev.ujhhgtg.wekit.utils.reflection.resolve
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Field
@@ -120,7 +121,9 @@ object HideContacts : ClickableHookItem(), IResolvesDex {
             }
         }
 
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+            // unused
+        }
     }
 
     private fun exitToMainActivity(activity: Activity) {
@@ -175,7 +178,7 @@ object HideContacts : ClickableHookItem(), IResolvesDex {
                     .firstField {
                         name = "field_username"
                         superclass()
-                    }.self.also { it.isAccessible = true }
+                    }.self.makeAccessible()
             }
 
             val hiddenContacts = hiddenContacts
@@ -230,6 +233,7 @@ object HideContacts : ClickableHookItem(), IResolvesDex {
                 args[0] = actualPos
             }
 
+        // TODO:
 //        methodMainAdapterPreformSearch.hookAfter {
 //            val queryString = args[1] as String
 //            val searchUnit = args[0]

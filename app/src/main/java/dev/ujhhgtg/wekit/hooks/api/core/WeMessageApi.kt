@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
+import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlTag
 import org.luckypray.dexkit.DexKitBridge
@@ -529,7 +530,7 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
                     // 排除干扰项
                     if (m.name == "toString") continue
 
-                    m.isAccessible = true
+                    m.makeAccessible()
                     val result = m.invoke(storageObj) as? String
 
                     // 特征校验：包含 "MicroMsg" 且以 "/" 结尾
@@ -633,7 +634,7 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
                     it.name == "INSTANCE" || it.type == implClass
                 }
                 if (instanceField != null) {
-                    instanceField.isAccessible = true
+                    instanceField.makeAccessible()
                     finalServiceObj = instanceField.get(null)
                 }
             }

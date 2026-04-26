@@ -164,7 +164,6 @@ object AddMainScreenFab : SwitchHookItem() {
 
             val lifecycleOwner = LifecycleOwnerProvider.lifecycleOwner
             val root = activity.rootView
-            val monetEngineActive = MonetEngine.isActive
 
             root.addView(
                 ComposeView(activity).apply {

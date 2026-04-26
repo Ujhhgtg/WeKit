@@ -115,7 +115,6 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                 }
 
             val useBackdrop = WePrefs.getBoolOrFalse(KEY_USE_BACKDROP)
-            val monetEngineActive = MonetEngine.isActive
 
             bottomTabViewGroup.removeAllViews()
             bottomTabViewGroup.addView(

@@ -16,6 +16,7 @@ import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
+import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -548,8 +549,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
                             }
 
                             val rrObj = if (rrField != null) {
-                                rrField.isAccessible = true
-                                rrField.get(netScene)
+                                rrField.makeAccessible().get(netScene)
                             } else {
                                 XposedHelpers.getObjectField(netScene, "d")
                             }

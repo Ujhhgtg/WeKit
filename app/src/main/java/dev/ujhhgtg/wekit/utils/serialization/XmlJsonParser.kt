@@ -152,20 +152,24 @@ object XmlJsonParser {
                             }
 
                             val attrValue = token
-                            if (config.convertNilAttributeToNull && attrName == NULL_ATTR && attrValue.toBooleanStrictOrNull() == true) {
-                                nilAttributeFound = true
-                            } else if (config.xsiTypeMap.isNotEmpty() && attrName == TYPE_ATTR) {
-                                xmlXsiTypeConverter = config.xsiTypeMap[attrValue]
-                            } else if (!nilAttributeFound) {
-                                jsonObject.accumulate(
-                                    attrName,
-                                    stringToJsonElement(
-                                        attrValue,
-                                        config.keepBooleanAsString,
-                                        config.keepNumberAsString,
-                                        config.keepStrings
+                            when {
+                                config.convertNilAttributeToNull && attrName == NULL_ATTR && attrValue.toBooleanStrictOrNull() == true -> {
+                                    nilAttributeFound = true
+                                }
+                                config.xsiTypeMap.isNotEmpty() && attrName == TYPE_ATTR -> {
+                                    xmlXsiTypeConverter = config.xsiTypeMap[attrValue]
+                                }
+                                !nilAttributeFound -> {
+                                    jsonObject.accumulate(
+                                        attrName,
+                                        stringToJsonElement(
+                                            attrValue,
+                                            config.keepBooleanAsString,
+                                            config.keepNumberAsString,
+                                            config.keepStrings
+                                        )
                                     )
-                                )
+                                }
                             }
                             token = null
                         } else {

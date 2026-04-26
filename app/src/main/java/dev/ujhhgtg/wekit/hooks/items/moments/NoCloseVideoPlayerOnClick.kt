@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
+import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -57,7 +58,7 @@ object NoCloseVideoPlayerOnClick : SwitchHookItem(), IResolvesDex {
                 if (!::getToggleBtnMethod.isInitialized) {
                     getToggleBtnMethod = expandableSeekBar.asResolver()
                         .firstMethod { name = "getExpandBarBtn" }
-                        .self.also { it.isAccessible = true }
+                        .self.makeAccessible()
                 }
 
                 val toggleBtn = getToggleBtnMethod.invoke(expandableSeekBar) as FrameLayout

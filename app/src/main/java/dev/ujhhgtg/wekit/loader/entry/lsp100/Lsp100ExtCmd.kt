@@ -7,16 +7,16 @@ import io.github.libxposed.api.XposedInterface
 object Lsp100ExtCmd {
 
     fun handleQueryExtension(cmd: String, arg: Array<Any?>?): Any? {
-        when (cmd) {
-            "GetXposedInterfaceClass" -> return XposedInterface::class.java
-            "GetInitErrors" -> return emptyList<Throwable?>()
+        return when (cmd) {
+            "GetXposedInterfaceClass" -> XposedInterface::class.java
+            "GetInitErrors" -> emptyList<Throwable?>()
             LibXposedApiByteCodeGenerator.CMD_SET_WRAPPER -> {
                 Lsp100ProxyClassMaker.setWrapperMethod((arg!![0] as java.lang.reflect.Method?)!!)
-                return true
+                true
             }
 
-            "GetLoadPackageParam", "GetInitZygoteStartupParam" -> return null
-            else -> return null
+            "GetLoadPackageParam", "GetInitZygoteStartupParam" -> null
+            else -> null
         }
     }
 }

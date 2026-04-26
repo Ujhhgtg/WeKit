@@ -38,6 +38,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.invokeOriginal
+import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.MatchType
 import kotlin.random.Random
@@ -106,8 +107,7 @@ object EmojiGameControl : SwitchHookItem(), IResolvesDex {
                         field.modifiers
                     )
                 ) {
-                    field.isAccessible = true
-                    infoType = field.getInt(obj)
+                    infoType = field.makeAccessible().getInt(obj)
                     break
                 }
             }
@@ -117,7 +117,7 @@ object EmojiGameControl : SwitchHookItem(), IResolvesDex {
                     fields.firstOrNull { it.type.name.contains("IEmojiInfo") }
 
                 if (emojiInfoField != null) {
-                    emojiInfoField.isAccessible = true
+                    emojiInfoField.makeAccessible()
                     val emojiInfo = emojiInfoField.get(obj)
 
                     if (emojiInfo != null) {

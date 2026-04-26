@@ -19,15 +19,15 @@ import java.util.concurrent.CopyOnWriteArrayList
 @HookItem(path = "API/数据库监听服务", description = "提供数据库插入、更新与查询监听能力")
 object WeDatabaseListenerApi : ApiHookItem() {
 
-    interface IInsertListener {
+    fun interface IInsertListener {
         fun onInsert(table: String, values: ContentValues)
     }
 
-    interface IUpdateListener {
+    fun interface IUpdateListener {
         fun onUpdate(table: String, values: ContentValues): Boolean
     }
 
-    interface IQueryListener {
+    fun interface IQueryListener {
         fun onQuery(sql: String): String?
     }
 

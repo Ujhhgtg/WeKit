@@ -25,6 +25,7 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.ModuleRes
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
@@ -44,12 +45,12 @@ object ActivityProxy {
             val clazzActivityThread = Class.forName("android.app.ActivityThread")
             val currentActivityThread = clazzActivityThread
                 .getDeclaredMethod("currentActivityThread")
-                .also { it.isAccessible = true }
+                .makeAccessible()
                 .invoke(null)
 
             // Hook Instrumentation
             val mInstrumentationField = clazzActivityThread.getDeclaredField("mInstrumentation")
-                .also { it.isAccessible = true }
+                .makeAccessible()
             val instrumentation =
                 mInstrumentationField.get(currentActivityThread) as Instrumentation
             if (instrumentation !is ProxyInstrumentation) {
@@ -61,10 +62,10 @@ object ActivityProxy {
 
             // Hook Handler (mH)
             val oriHandler = clazzActivityThread.getDeclaredField("mH")
-                .also { it.isAccessible = true }
+                .makeAccessible()
                 .get(currentActivityThread) as Handler
             val callbackField = Handler::class.java.getDeclaredField("mCallback")
-                .also { it.isAccessible = true }
+                .makeAccessible()
             val current = callbackField.get(oriHandler) as? Handler.Callback
             if (current == null || current.javaClass.name != ProxyHandlerCallback::class.java.name) {
                 callbackField.set(oriHandler, ProxyHandlerCallback(current))
@@ -81,12 +82,12 @@ object ActivityProxy {
     private fun hookIActivityManager() {
         val singletonClass = Class.forName("android.util.Singleton")
         val instanceField =
-            singletonClass.getDeclaredField("mInstance").also { it.isAccessible = true }
+            singletonClass.getDeclaredField("mInstance").makeAccessible()
 
         fun hookSingleton(singleton: Any?, iface: Class<*>) {
             if (singleton == null) return
             runCatching {
-                singletonClass.getDeclaredMethod("get").also { it.isAccessible = true }
+                singletonClass.getDeclaredMethod("get").makeAccessible()
                     .invoke(singleton)
             }
             val instance = instanceField.get(singleton) ?: run {
@@ -108,14 +109,14 @@ object ActivityProxy {
             val c = Class.forName("android.app.ActivityManager")
             c to c.getDeclaredField("IActivityManagerSingleton")
         }
-        defField.isAccessible = true
+        defField.makeAccessible()
         hookSingleton(defField.get(null), Class.forName("android.app.IActivityManager"))
 
         // Android 10+ (Q)
         runCatching {
             val atmClass = Class.forName("android.app.ActivityTaskManager")
             val singleton = atmClass.getDeclaredField("IActivityTaskManagerSingleton")
-                .also { it.isAccessible = true }.get(null)
+                .makeAccessible().get(null)
             hookSingleton(singleton, Class.forName("android.app.IActivityTaskManager"))
         }
     }
@@ -128,12 +129,12 @@ object ActivityProxy {
     ) {
         runCatching {
             val sPackageManagerField = clazzActivityThread.getDeclaredField("sPackageManager")
-                .also { it.isAccessible = true }
+                .makeAccessible()
             val packageManagerImpl = sPackageManagerField.get(sCurrentActivityThread)
             val iPackageManagerInterface = Class.forName("android.content.pm.IPackageManager")
 
             val pm = ctx.packageManager
-            val mPmField = pm.javaClass.getDeclaredField("mPM").also { it.isAccessible = true }
+            val mPmField = pm.javaClass.getDeclaredField("mPM").makeAccessible()
 
             val pmProxy = Proxy.newProxyInstance(
                 iPackageManagerInterface.classLoader,
@@ -236,7 +237,7 @@ object ActivityProxy {
             runCatching {
                 val record = msg.obj
                 val intentField =
-                    record.javaClass.getDeclaredField("intent").also { it.isAccessible = true }
+                    record.javaClass.getDeclaredField("intent").makeAccessible()
                 val wrapper = intentField.get(record) as? Intent
                 unwrapIntent(wrapper)?.let { intentField.set(record, it) }
             }.onFailure { WeLogger.e(TAG, "handleLaunchActivity error", it) }
@@ -246,13 +247,13 @@ object ActivityProxy {
             runCatching {
                 val transaction = msg.obj
                 val callbacks = transaction.javaClass.getDeclaredMethod("getCallbacks")
-                    .also { it.isAccessible = true }
+                    .makeAccessible()
                     .invoke(transaction) as? List<*> ?: return
 
                 callbacks.forEach { item ->
                     if (item != null && item.javaClass.name.contains("LaunchActivityItem")) {
                         val intentField = item.javaClass.getDeclaredField("mIntent")
-                            .also { it.isAccessible = true }
+                            .makeAccessible()
                         val wrapper = intentField.get(item) as? Intent
                         unwrapIntent(wrapper)?.let { intentField.set(item, it) }
                     }
@@ -327,7 +328,7 @@ object ActivityProxy {
                 ParcelableFixer.getHybridClassLoader()?.let { cl ->
                     runCatching {
                         Activity::class.java.getDeclaredField("mClassLoader")
-                            .also { it.isAccessible = true }.set(activity, cl)
+                            .makeAccessible().set(activity, cl)
                     }
                     activity.intent?.let { intent ->
                         intent.setExtrasClassLoader(cl)

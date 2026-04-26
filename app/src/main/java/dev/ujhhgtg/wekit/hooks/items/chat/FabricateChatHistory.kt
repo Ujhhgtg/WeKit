@@ -262,8 +262,6 @@ private class MessageRowState(
     senderWxId: String? = null,
     text: String = ""
 ) {
-//    val id: String = UUID.randomUUID().toString()
-
     var senderWxId by mutableStateOf(senderWxId)
     var text by mutableStateOf(text)
 

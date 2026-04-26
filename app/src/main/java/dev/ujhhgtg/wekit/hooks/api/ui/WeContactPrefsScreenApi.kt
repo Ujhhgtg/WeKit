@@ -13,6 +13,7 @@ import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import dev.ujhhgtg.wekit.utils.reflection.resolve
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
@@ -117,13 +118,13 @@ object WeContactPrefsScreenApi : ApiHookItem() {
             .firstField {
                 type = String::class
                 modifiers { !it.contains(Modifiers.FINAL) }
-            }.self.also { it.isAccessible = true }
+            }.self.makeAccessible()
 
         adapterField = MMPreference::class.resolve()
             .firstField {
                 modifiers { !it.contains(Modifiers.STATIC) }
                 type { it isSubclassOf BaseAdapter::class }
-            }.self.also { it.isAccessible = true }
+            }.self.makeAccessible()
 
         addPreferenceMethod = adapterField.type.resolve()
             .firstMethod {
