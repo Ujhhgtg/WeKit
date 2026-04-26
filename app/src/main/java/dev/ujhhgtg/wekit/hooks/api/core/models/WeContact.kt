@@ -35,7 +35,7 @@ data class WeGroup(
 }
 
 // 公众号信息模型
-data class WeOfficial(
+data class WeOfficialAccount(
     override val wxId: String,
     override val nickname: String,
     val avatarUrl: String

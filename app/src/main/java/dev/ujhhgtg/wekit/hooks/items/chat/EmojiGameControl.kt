@@ -55,11 +55,11 @@ object EmojiGameControl : SwitchHookItem(), IResolvesDex {
     private var valMorra = 0
     private var valDice = 0
 
-    enum class MorraType(val index: Int, val chineseName: String) {
+    private enum class MorraType(val index: Int, val chineseName: String) {
         SCISSORS(0, "剪刀"), STONE(1, "石头"), PAPER(2, "布")
     }
 
-    enum class DiceFace(val index: Int, val chineseName: String) {
+    private enum class DiceFace(val index: Int, val chineseName: String) {
         ONE(0, "1"), TWO(1, "2"), THREE(2, "3"),
         FOUR(3, "4"), FIVE(4, "5"), SIX(5, "6")
     }

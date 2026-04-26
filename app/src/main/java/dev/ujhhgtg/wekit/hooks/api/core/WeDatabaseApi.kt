@@ -11,7 +11,7 @@ import dev.ujhhgtg.wekit.hooks.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.hooks.api.core.models.WeContact
 import dev.ujhhgtg.wekit.hooks.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.hooks.api.core.models.WeMessage
-import dev.ujhhgtg.wekit.hooks.api.core.models.WeOfficial
+import dev.ujhhgtg.wekit.hooks.api.core.models.WeOfficialAccount
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -359,9 +359,9 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
     /**
      * 获取【公众号】
      */
-    fun getOfficialAccounts(): List<WeOfficial> {
+    fun getOfficialAccounts(): List<WeOfficialAccount> {
         return executeQuery(SqlStatements.OFFICIAL_LIST).map { row ->
-            WeOfficial(
+            WeOfficialAccount(
                 wxId = row.str("username"),
                 nickname = row.str("nickname"),
                 avatarUrl = row.str("avatarUrl")

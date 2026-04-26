@@ -14,6 +14,7 @@ abstract class SwitchHookItem : BaseHookItem() {
         if (_isEnabled) enable()
     }
 
+    @Suppress("PropertyName")
     protected var _isEnabled = false
 
     var isEnabled

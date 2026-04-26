@@ -5,5 +5,5 @@ import org.json.JSONObject
 
 interface ISigner {
     fun match(cgiId: Int): Boolean
-    fun sign(loader: ClassLoader, json: JSONObject): SignResult
+    fun sign(cl: ClassLoader, json: JSONObject): SignResult
 }

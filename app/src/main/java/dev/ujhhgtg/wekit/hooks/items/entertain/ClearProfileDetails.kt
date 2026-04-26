@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.hooks.items.profile
+package dev.ujhhgtg.wekit.hooks.items.entertain
 
 import android.content.Context
 import androidx.compose.material3.Text
@@ -11,7 +11,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@HookItem(path = "个人资料/清空资料信息", description = "清空当前用户的地区与性别等资料信息")
+@HookItem(path = "娱乐/清空资料信息", description = "清空当前用户的地区与性别等资料信息")
 object ClearProfileDetails : ClickableHookItem() {
 
     override fun onClick(context: Context) {

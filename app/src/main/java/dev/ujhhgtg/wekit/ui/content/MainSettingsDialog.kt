@@ -35,6 +35,7 @@ import com.composables.icons.materialsymbols.outlined.Bug_report
 import com.composables.icons.materialsymbols.outlined.Build_circle
 import com.composables.icons.materialsymbols.outlined.Camera
 import com.composables.icons.materialsymbols.outlined.Chat
+import com.composables.icons.materialsymbols.outlined.Comedy_mask
 import com.composables.icons.materialsymbols.outlined.Contacts
 import com.composables.icons.materialsymbols.outlined.Delete_forever
 import com.composables.icons.materialsymbols.outlined.Download
@@ -124,7 +125,8 @@ class MainSettingsDialog(context: Context) : BasePrefsDialog(context, BuildConfi
             "视频号" to MaterialSymbols.Outlined.Movie,
             "个人资料" to MaterialSymbols.Outlined.Account_circle,
             "调试" to MaterialSymbols.Outlined.Bug_report,
-            "脚本" to MaterialSymbols.Outlined.Terminal
+            "脚本" to MaterialSymbols.Outlined.Terminal,
+            "娱乐" to MaterialSymbols.Outlined.Comedy_mask
         )
         categories.forEach { (name, icon) ->
             addPreference(

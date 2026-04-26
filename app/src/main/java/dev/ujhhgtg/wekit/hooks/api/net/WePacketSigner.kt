@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.hooks.api.net
 
-import de.robv.android.xposed.XposedHelpers
+import com.highcapable.kavaref.extension.createInstance
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.net.MsgIdPreviewer.generateClientMsgId
 import dev.ujhhgtg.wekit.hooks.api.net.MsgIdPreviewer.previewNextId
@@ -12,9 +12,10 @@ import org.json.JSONObject
 /**
  * 消息发送签名器 (CGI 522)
  */
-class NewSendMsgSigner : ISigner {
+object NewSendMsgSigner : ISigner {
     override fun match(cgiId: Int) = (cgiId == 522)
-    override fun sign(loader: ClassLoader, json: JSONObject): SignResult {
+
+    override fun sign(cl: ClassLoader, json: JSONObject): SignResult {
         fun applySign(item: JSONObject) {
             val ts = System.currentTimeMillis()
             item.put("4", (ts / 1000).toInt())
@@ -33,9 +34,10 @@ class NewSendMsgSigner : ISigner {
 /**
  * AppMsg 签名注入 (CGI 222)
  */
-class AppMsgSigner : ISigner {
+object AppMsgSigner : ISigner {
     override fun match(cgiId: Int) = (cgiId == 222)
-    override fun sign(loader: ClassLoader, json: JSONObject): SignResult {
+
+    override fun sign(cl: ClassLoader, json: JSONObject): SignResult {
         val innerMsg = json.optJSONObject("2") ?: return SignResult(json)
         val toUser = innerMsg.optString("4")
 
@@ -57,9 +59,10 @@ class AppMsgSigner : ISigner {
 /**
  * 表情签名器 (CGI 175)
  */
-class EmojiSigner : ISigner {
+object EmojiSigner : ISigner {
     override fun match(cgiId: Int) = (cgiId == 175)
-    override fun sign(loader: ClassLoader, json: JSONObject): SignResult {
+
+    override fun sign(cl: ClassLoader, json: JSONObject): SignResult {
         val tag3Obj = json.optJSONObject("3")
         if (tag3Obj != null) {
             val ts = System.currentTimeMillis().toString()
@@ -72,11 +75,11 @@ class EmojiSigner : ISigner {
 /**
  * 拍一拍签名器 (CGI 849)
  */
-class SendPatSigner(private val clsProvider: () -> Class<*>?) : ISigner {
+class SendPatSigner(private val lazyClass: () -> Class<*>?) : ISigner {
     override fun match(cgiId: Int) = (cgiId == 849)
 
-    override fun sign(loader: ClassLoader, json: JSONObject): SignResult {
-        val cls = clsProvider() ?: return SignResult(json)
+    override fun sign(cl: ClassLoader, json: JSONObject): SignResult {
+        val cls = lazyClass() ?: return SignResult(json)
 
         try {
             val toUser = json.optString("3")
@@ -86,12 +89,11 @@ class SendPatSigner(private val clsProvider: () -> Class<*>?) : ISigner {
             // wxid_xxxxx_761663_1770315448000
             val validPair = android.util.Pair(previewNextId("message"), System.currentTimeMillis())
 
-            val nativeScene = XposedHelpers.newInstance(
-                cls,
+            val nativeScene = cls.createInstance(
                 validPair,   // Pair
-                toUser,      // String
-                pattedUser,  // String
-                scene        // int
+                toUser,             // String
+                pattedUser,         // String
+                scene               // int
             )
             return SignResult(json, nativeNetScene = nativeScene)
         } catch (e: Throwable) {

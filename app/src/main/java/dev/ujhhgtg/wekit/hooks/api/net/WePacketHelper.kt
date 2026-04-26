@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.hooks.api.net
 import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
+import com.highcapable.kavaref.extension.createInstance
 import com.highcapable.kavaref.extension.isSubclassOf
 import com.highcapable.kavaref.extension.toClass
 import de.robv.android.xposed.XposedHelpers
@@ -31,10 +32,10 @@ import java.lang.reflect.Proxy
 object WePacketHelper : ApiHookItem(), IResolvesDex {
 
     // 核心 Protobuf 类
-    val classProtoBase by dexClass()
+    private val classProtoBase by dexClass()
     private val classRawReq by dexClass()
     private val classGenericResp by dexClass()
-    val classConfigBuilder by dexClass()
+    private val classConfigBuilder by dexClass()
 
     // 业务特定请求类
     private val classNewSendMsgReq by dexClass()
@@ -57,9 +58,9 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
     private val cgiReqClassMap = mutableMapOf<Int, Class<*>>()
 
     private val signers = listOf(
-        NewSendMsgSigner(),
-        EmojiSigner(),
-        AppMsgSigner(),
+        NewSendMsgSigner,
+        EmojiSigner,
+        AppMsgSigner,
         SendPatSigner { classNetScenePat.clazz }
     )
 
@@ -157,6 +158,8 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
 
         val protoBaseName = classProtoBase.getDescriptorString() ?: ""
         classConfigBuilder.find(dexKit) {
+            searchPackages("com.tencent.mm.modelbase")
+
             matcher {
                 fields {
                     countMin(10)
@@ -473,8 +476,7 @@ object WePacketHelper : ApiHookItem(), IResolvesDex {
                         WeLogger.i(TAG, "[$cgiId] 使用通用原始类: ${rawCls.name}")
                     }
 
-                    val builder = classConfigBuilder.clazz.getDeclaredConstructor().newInstance()
-                        ?: error("ConfigBuilder 实例化失败")
+                    val builder = classConfigBuilder.clazz.createInstance()
 
                     XposedHelpers.setObjectField(builder, "a", finalReqObject)
                     XposedHelpers.setObjectField(

@@ -7,7 +7,6 @@ import com.highcapable.kavaref.condition.type.VagueType
 import com.highcapable.kavaref.extension.createInstance
 import com.tencent.mm.opensdk.modelmsg.WXFileObject
 import com.tencent.mm.opensdk.modelmsg.WXMediaMessage
-import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -558,9 +557,10 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
 
             val serviceObj = getServiceMethod?.invoke(null, apiInterface) ?: return false
 
-            val paramsClass = crossParamsClass
-            val paramsObj = XposedHelpers.newInstance(paramsClass)
-            assignValueToFirstFieldByType(paramsObj, Int::class.javaPrimitiveType!!, 4)
+            val paramsObj = crossParamsClass.createInstance()
+            paramsObj.asResolver()
+                .firstField { type = Int::class.javaPrimitiveType }
+                .set(4)
 
             val taskObj = taskClass.createInstance(
                 imgPath,
@@ -569,7 +569,9 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
                 toUser,
                 paramsObj
             )
-            assignValueToLastFieldByType(taskObj, String::class.java, "media_generate_send_img")
+            taskObj.asResolver()
+                .lastField { type = String::class }
+                .set("media_generate_send_img")
 
             sendImageMethod.invoke(serviceObj, taskObj)
 
@@ -710,20 +712,6 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
         get() {
             return getSelfAliasMethod.invoke(null) as? String ?: ""
         }
-
-    private fun assignValueToFirstFieldByType(obj: Any, type: Class<*>, value: Any) {
-        obj.javaClass.declaredFields.firstOrNull { it.type == type }?.let {
-            it.isAccessible = true
-            it.set(obj, value)
-        }
-    }
-
-    private fun assignValueToLastFieldByType(obj: Any, type: Class<*>, value: Any) {
-        obj.javaClass.declaredFields.lastOrNull { it.type == type }?.let {
-            it.isAccessible = true
-            it.set(obj, value)
-        }
-    }
 
     fun getMsgInfoFromTag(tag: Any): Any {
         val mGetMsgInfo = tag.asResolver()
