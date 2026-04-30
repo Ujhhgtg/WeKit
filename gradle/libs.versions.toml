@@ -12,7 +12,7 @@ kotlin = "2.3.21"
 androidx-core-ktx = "1.18.0"
 mmkv = "2.4.0"
 osmdroid = "6.1.20"
-rhino = "1.9.1"
+rhino = "45f29f6"
 serialization = "1.11.0"
 lombok = "1.18.46"
 protobuf = "4.34.1"
@@ -97,8 +97,7 @@ kavaref-extension = { module = "com.highcapable.kavaref:kavaref-extension", vers
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsu" }
 libxposed-service = { module = "io.github.libxposed:service", version.ref = "libxposed" }
 
-rhino = { module = "org.mozilla:rhino", version.ref = "rhino" }
-rhino-kotlin = { module = "org.mozilla:rhino-kotlin", version.ref = "rhino" }
+rhino = { module = "com.github.Ujhhgtg.rhino:rhino", version.ref = "rhino" }
 ksp = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
 kotlinpoet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinpoet" }
 

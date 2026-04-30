@@ -442,6 +442,10 @@ function commmandChangelog() {
     );
 }
 
+function onLoad() {
+    log.i("onLoad() triggered")
+}
+
 function onMessage(talker, content, type, isSend) {
     log.i("onMessage() triggered");
 

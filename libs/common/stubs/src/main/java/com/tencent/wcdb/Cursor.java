@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.Bundle;
 
 /* JADX INFO: loaded from: classes11.dex */
+@SuppressWarnings({"unused", "UnnecessaryModifier"})
 public interface Cursor extends android.database.Cursor {
 
     public static final int FIELD_TYPE_BLOB = 4;

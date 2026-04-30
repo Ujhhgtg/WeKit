@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Alternate_email
+import com.composables.icons.materialsymbols.outlined.Bomb
 import com.composables.icons.materialsymbols.outlined.Send_time_extension
 import com.composables.icons.materialsymbols.outlined.Voice_chat
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
@@ -110,81 +111,89 @@ object ChatInputBarEnhancements : SwitchHookItem() {
                                         Column {
                                             ActionItem(
                                                 icon = MaterialSymbols.Outlined.Voice_chat,
-                                                label = "发送语音文件",
-                                                onClick = {
-                                                    onDismiss()
-                                                    selectAndSendVoice(context, currentConv)
-                                                },
-                                            )
+                                                label = "发送语音文件"
+                                            ) {
+                                                onDismiss()
+                                                selectAndSendVoice(context, currentConv)
+                                            }
 
                                             ActionItem(
                                                 icon = MaterialSymbols.Outlined.Send_time_extension,
-                                                label = "发送卡片消息",
-                                                onClick = {
-                                                    onDismiss()
-                                                    val currentConv = currentConv
-                                                    val content = chatFooter.lastText
+                                                label = "发送卡片消息"
+                                            ) {
+                                                onDismiss()
+                                                val currentConv = currentConv
+                                                val content = chatFooter.lastText
 
-                                                    if (content.isEmpty()) {
-                                                        showToast("输入内容为空!")
-                                                        return@ActionItem
-                                                    }
+                                                if (content.isEmpty()) {
+                                                    showToast("输入内容为空!")
+                                                    return@ActionItem
+                                                }
 
-                                                    val isSuccess = WeMessageApi.sendXmlAppMsg(currentConv, content)
-                                                    if (!isSuccess) {
-                                                        showToast("发送卡片消息失败, 请检查格式")
-                                                        return@ActionItem
-                                                    }
+                                                val isSuccess = WeMessageApi.sendXmlAppMsg(currentConv, content)
+                                                if (!isSuccess) {
+                                                    showToast("发送卡片消息失败, 请检查格式")
+                                                    return@ActionItem
+                                                }
 
-                                                    chatFooter.findViewWhich<EditText> { view is EditText }?.setText("")
-                                                },
-                                            )
+                                                chatFooter.findViewWhich<EditText> { view is EditText }?.setText("")
+                                            }
 
                                             ActionItem(
                                                 icon = MaterialSymbols.Outlined.Alternate_email,
-                                                label = "@所有人",
-                                                onClick = {
-                                                    onDismiss()
+                                                label = "@所有人"
+                                            ) {
+                                                onDismiss()
 
-                                                    if (!currentConv.endsWith("@chatroom")) {
-                                                        showToast("只能在群组里使用!")
-                                                        return@ActionItem
-                                                    }
+                                                if (!currentConv.endsWith("@chatroom")) {
+                                                    showToast("只能在群组里使用!")
+                                                    return@ActionItem
+                                                }
 
-                                                    val contacts = WeDatabaseApi
-                                                        .getGroupMembers(currentConv)
-                                                        .filter { c -> c.wxId != WeApi.selfWxId }
-                                                    val content = chatFooter.lastText
+                                                val contacts = WeDatabaseApi
+                                                    .getGroupMembers(currentConv)
+                                                    .filter { c -> c.wxId != WeApi.selfWxId }
+                                                val content = chatFooter.lastText
 
-                                                    val reqBody = buildJsonObject {
-                                                        put("1", 1)
-                                                        putJsonObject("2") {
-                                                            putJsonObject("1") {
-                                                                put("1", currentConv)
-                                                            }
-                                                            put("2", contacts.joinToString("") { c ->
-                                                                "@${c.nickname} "
-                                                            } + content)
-                                                            put("3", 1)
-                                                            put("4", System.currentTimeMillis() / 1000)
-                                                            put("5", -388413336)
-                                                            put(
-                                                                "6", """
+                                                val reqBody = buildJsonObject {
+                                                    put("1", 1)
+                                                    putJsonObject("2") {
+                                                        putJsonObject("1") {
+                                                            put("1", currentConv)
+                                                        }
+                                                        put("2", contacts.joinToString("") { c ->
+                                                            "@${c.nickname} "
+                                                        } + content)
+                                                        put("3", 1)
+                                                        put("4", System.currentTimeMillis() / 1000)
+                                                        put("5", -388413336)
+                                                        put(
+                                                            "6", """
                                                                         <msgsource><atuserlist><![CDATA[${contacts.joinToString(",") { c -> c.wxId }}]]></atuserlist><pua>1</pua><alnode><cf>5</cf><inlenlist>73</inlenlist></alnode><eggIncluded>1</eggIncluded></msgsource>
                                                                     """.trimIndent()
-                                                            )
-                                                        }
+                                                        )
                                                     }
+                                                }
 
-                                                    WePacketHelper.sendCgi(
-                                                        "/cgi-bin/micromsg-bin/newsendmsg",
-                                                        522,
-                                                        0,
-                                                        0,
-                                                        reqBody.toString()
-                                                    )
-                                                },
-                                            )
+                                                WePacketHelper.sendCgi(
+                                                    "/cgi-bin/micromsg-bin/newsendmsg",
+                                                    522,
+                                                    0,
+                                                    0,
+                                                    reqBody.toString()
+                                                ) {
+                                                    onSuccess { _, _ ->
+                                                        showToast("已发送! (自己无法看到该消息)")
+                                                    }
+                                                }
+                                            }
+
+                                            ActionItem(
+                                                icon = MaterialSymbols.Outlined.Bomb,
+                                                label = "发送闪退贴纸表情",
+                                            ) {
+
+                                            }
                                         }
                                     })
                             }

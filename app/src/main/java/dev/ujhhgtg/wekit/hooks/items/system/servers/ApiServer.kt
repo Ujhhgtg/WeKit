@@ -68,12 +68,14 @@ import java.net.NetworkInterface
 object ApiServer : ClickableHookItem() {
 
     private const val KEY_AUTH_TOKEN = "api_auth_token"
-    private val AUTH_TOKEN
+    private var AUTH_TOKEN
         get() = WePrefs.getStringOrDef(KEY_AUTH_TOKEN, "your_token")
+        set(value) = WePrefs.putString(KEY_AUTH_TOKEN, value)
 
     private const val KEY_SERVER_PORT = "api_port"
-    private val SERVER_PORT
+    private var SERVER_PORT
         get() = WePrefs.getIntOrDef(KEY_SERVER_PORT, 3001)
+        set(value) = WePrefs.putInt(KEY_SERVER_PORT, value)
 
     // -------------------------------------------------------------------------
     // REST response models
@@ -507,8 +509,8 @@ object ApiServer : ClickableHookItem() {
                             return@Button
                         }
 
-                        WePrefs.putInt(KEY_SERVER_PORT, serverPort)
-                        WePrefs.putString(KEY_AUTH_TOKEN, authToken)
+                        SERVER_PORT = serverPort
+                        AUTH_TOKEN = authToken
                         onDismiss()
                     }) { Text("确定") }
                 })

@@ -259,7 +259,7 @@ dependencies {
     implementation(libs.okhttp3.okhttp)
 
     implementation(libs.rhino)
-    implementation(libs.rhino.kotlin)
+//    implementation(libs.rhino.kotlin)
 
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)

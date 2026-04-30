@@ -2,12 +2,16 @@ package dev.ujhhgtg.wekit.hooks.items.scripting_js
 
 import android.os.Handler
 import android.os.Looper
-import dev.ujhhgtg.comptime.nameOf
+import com.highcapable.kavaref.extension.toClass
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
+import dev.ujhhgtg.wekit.hooks.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirectoriesNoThrow
+import dev.ujhhgtg.wekit.utils.hookAfterDirectly
+import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -29,6 +33,7 @@ import org.mozilla.javascript.ScriptableObject
 import org.mozilla.javascript.Undefined
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.absolutePathString
@@ -42,9 +47,10 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 object JsApiExposer {
-    private val TAG = nameOf(JsApiExposer)
+    private val TAG = This.Class.simpleName
     private const val TAG_LOG_API = "JsApiExposer.LogApi"
     private const val TAG_HTTP_API = "JsApiExposer.HttpApi"
+    private const val TAG_XPOSED_API = "JsApiExposer.XposedApi"
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
@@ -58,7 +64,8 @@ object JsApiExposer {
         exposeHttpApis(scope)
         exposeLogApis(scope)
         exposeStorageApis(scope)
-        exposeTimeApis(scope)
+        exposeDateTimeApis(scope)
+        exposeXposedApis(scope)
         exposeWeChatApis(scope, talker)
     }
 
@@ -364,7 +371,7 @@ object JsApiExposer {
                 ): Any {
                     val msg = args.joinToString(" ") { it?.toString() ?: "null" }
                     WeLogger.d(TAG_LOG_API, msg)
-                    return Context.getUndefinedValue()
+                    return Undefined.instance
                 }
             }
         )
@@ -381,7 +388,7 @@ object JsApiExposer {
                 ): Any {
                     val msg = args.joinToString(" ") { it?.toString() ?: "null" }
                     WeLogger.i(TAG_LOG_API, msg)
-                    return Context.getUndefinedValue()
+                    return Undefined.instance
                 }
             }
         )
@@ -398,7 +405,7 @@ object JsApiExposer {
                 ): Any {
                     val msg = args.joinToString(" ") { it?.toString() ?: "null" }
                     WeLogger.w(TAG_LOG_API, msg)
-                    return Context.getUndefinedValue()
+                    return Undefined.instance
                 }
             }
         )
@@ -415,7 +422,7 @@ object JsApiExposer {
                 ): Any {
                     val msg = args.joinToString(" ") { it?.toString() ?: "null" }
                     WeLogger.e(TAG_LOG_API, msg)
-                    return Context.getUndefinedValue()
+                    return Undefined.instance
                 }
             }
         )
@@ -423,12 +430,12 @@ object JsApiExposer {
         ScriptableObject.putProperty(scope, "log", logObj)
     }
 
-    private fun exposeTimeApis(scope: ScriptableObject) {
-        val timeObj = NativeObject()
+    private fun exposeDateTimeApis(scope: ScriptableObject) {
+        val dtObj = NativeObject()
 
         // time.sleepS(seconds)
         ScriptableObject.putProperty(
-            timeObj, "sleepS",
+            dtObj, "sleepS",
             object : BaseFunction() {
                 override fun call(
                     cx: Context,
@@ -445,14 +452,14 @@ object JsApiExposer {
                             Thread.currentThread().interrupt()
                         }
                     }
-                    return Context.getUndefinedValue()
+                    return Undefined.instance
                 }
             }
         )
 
         // time.sleepMs(milliseconds)
         ScriptableObject.putProperty(
-            timeObj, "sleepMs",
+            dtObj, "sleepMs",
             object : BaseFunction() {
                 override fun call(
                     cx: Context,
@@ -469,14 +476,14 @@ object JsApiExposer {
                             Thread.currentThread().interrupt()
                         }
                     }
-                    return Context.getUndefinedValue()
+                    return Undefined.instance
                 }
             }
         )
 
         // time.getCurrentUnixEpoch()
         ScriptableObject.putProperty(
-            timeObj, "getCurrentUnixEpoch",
+            dtObj, "getCurrentUnixEpoch",
             object : BaseFunction() {
                 override fun call(
                     cx: Context,
@@ -489,7 +496,7 @@ object JsApiExposer {
             }
         )
 
-        ScriptableObject.putProperty(scope, "time", timeObj)
+        ScriptableObject.putProperty(scope, "datetime", dtObj)
     }
 
     @Suppress("JavaCollectionWithNullableTypeArgument")
@@ -548,7 +555,7 @@ object JsApiExposer {
                     val key = args.getOrNull(0)?.toString() ?: return null
                     val value = storage[key]
 
-                    return value ?: Context.getUndefinedValue()
+                    return value ?: Undefined.instance
                 }
             }
         )
@@ -565,7 +572,7 @@ object JsApiExposer {
                 ): Any? {
                     val key = args.getOrNull(0)?.toString() ?: return args.getOrNull(1)
                     return storage.getOrDefault(key, args.getOrNull(1))
-                        ?: Context.getUndefinedValue()
+                        ?: Undefined.instance
                 }
             }
         )
@@ -611,7 +618,7 @@ object JsApiExposer {
                 ): Any? {
                     storage.clear()
                     saveStorageToDisk()
-                    return null
+                    return Undefined.instance
                 }
             }
         )
@@ -626,10 +633,10 @@ object JsApiExposer {
                     thisObj: Scriptable,
                     args: Array<Any?>
                 ): Any? {
-                    val key = args.getOrNull(0)?.toString() ?: return null
+                    val key = args.getOrNull(0)?.toString() ?: return Undefined.instance
                     storage.remove(key)
                     saveStorageToDisk()
-                    return null
+                    return Undefined.instance
                 }
             }
         )
@@ -644,9 +651,9 @@ object JsApiExposer {
                     thisObj: Scriptable,
                     args: Array<Any?>
                 ): Any? {
-                    val key = args.getOrNull(0)?.toString() ?: return Context.getUndefinedValue()
+                    val key = args.getOrNull(0)?.toString() ?: return Undefined.instance
                     return (storage.remove(key)
-                        ?: Context.getUndefinedValue()).also { saveStorageToDisk() }
+                        ?: Undefined.instance).also { saveStorageToDisk() }
                 }
             }
         )
@@ -713,11 +720,10 @@ object JsApiExposer {
             }
         )
 
-        // Bind the object to the global scope
         ScriptableObject.putProperty(scope, "storage", storageObj)
     }
 
-    fun exposeWeChatApis(scope: ScriptableObject, talker: String? = null) {
+    private fun exposeWeChatApis(scope: ScriptableObject, talker: String? = null) {
         val weObj = NativeObject()
 
         ScriptableObject.putProperty(
@@ -729,10 +735,10 @@ object JsApiExposer {
                     thisObj: Scriptable,
                     args: Array<Any?>
                 ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return null
-                    val text = args.getOrNull(1)?.toString() ?: return null
+                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                    val text = args.getOrNull(1)?.toString() ?: return Undefined.instance
                     WeMessageApi.sendText(to, text)
-                    return null
+                    return Undefined.instance
                 }
             }
         )
@@ -745,10 +751,10 @@ object JsApiExposer {
                     thisObj: Scriptable,
                     args: Array<Any?>
                 ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return null
-                    val path = args.getOrNull(1)?.toString() ?: return null
+                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                    val path = args.getOrNull(1)?.toString() ?: return Undefined.instance
                     WeMessageApi.sendImage(to, path)
-                    return null
+                    return Undefined.instance
                 }
             }
         )
@@ -761,11 +767,11 @@ object JsApiExposer {
                     thisObj: Scriptable,
                     args: Array<Any?>
                 ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return null
-                    val path = args.getOrNull(1)?.toString() ?: return null
+                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                    val path = args.getOrNull(1)?.toString() ?: return Undefined.instance
                     val title = args.getOrNull(2)?.toString() ?: path.substringAfterLast('/')
                     WeMessageApi.sendFile(to, path, title)
-                    return null
+                    return Undefined.instance
                 }
             }
         )
@@ -778,11 +784,11 @@ object JsApiExposer {
                     thisObj: Scriptable,
                     args: Array<Any?>
                 ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return null
-                    val path = args.getOrNull(1)?.toString() ?: return null
+                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                    val path = args.getOrNull(1)?.toString() ?: return Undefined.instance
                     val durationMs = (args.getOrNull(2) as? Number)?.toInt() ?: 0
                     WeMessageApi.sendVoice(to, path, durationMs)
-                    return null
+                    return Undefined.instance
                 }
             }
         )
@@ -795,10 +801,46 @@ object JsApiExposer {
                     thisObj: Scriptable,
                     args: Array<Any?>
                 ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return null
-                    val content = args.getOrNull(1)?.toString() ?: return null
+                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                    val content = args.getOrNull(1)?.toString() ?: return Undefined.instance
                     WeMessageApi.sendXmlAppMsg(to, content)
-                    return null
+                    return Undefined.instance
+                }
+            }
+        )
+        ScriptableObject.putProperty(
+            weObj, "sendCgi",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any? {
+                    val uri = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                    val cgiId = (args.getOrNull(1) as? Int) ?: return Undefined.instance
+                    val funcId = (args.getOrNull(2) as? Int) ?: return Undefined.instance
+                    val routeId = (args.getOrNull(3) as? Int) ?: return Undefined.instance
+                    val jsonPayload = args.getOrNull(4)?.toString() ?: return Undefined.instance
+
+                    var result: String? = null
+                    val latch = CountDownLatch(1)
+
+                    WePacketHelper.sendCgi(
+                        uri, cgiId, funcId, routeId, jsonPayload
+                    ) {
+                        onSuccess { json, _ ->
+                            result = json
+                            latch.countDown()
+                        }
+                        onFailure { _, _, errMsg ->
+                            result = errMsg
+                            latch.countDown()
+                        }
+                    }
+
+                    latch.await()
+                    return result
                 }
             }
         )
@@ -812,9 +854,9 @@ object JsApiExposer {
                         thisObj: Scriptable,
                         args: Array<Any?>
                     ): Any? {
-                        val text = args.getOrNull(0)?.toString() ?: return null
+                        val text = args.getOrNull(0)?.toString() ?: return Undefined.instance
                         WeMessageApi.sendText(talker, text)
-                        return null
+                        return Undefined.instance
                     }
                 }
             )
@@ -827,9 +869,9 @@ object JsApiExposer {
                         thisObj: Scriptable,
                         args: Array<Any?>
                     ): Any? {
-                        val path = args.getOrNull(0)?.toString() ?: return null
+                        val path = args.getOrNull(0)?.toString() ?: return Undefined.instance
                         WeMessageApi.sendImage(talker, path)
-                        return null
+                        return Undefined.instance
                     }
                 }
             )
@@ -842,10 +884,10 @@ object JsApiExposer {
                         thisObj: Scriptable,
                         args: Array<Any?>
                     ): Any? {
-                        val path = args.getOrNull(0)?.toString() ?: return null
+                        val path = args.getOrNull(0)?.toString() ?: return Undefined.instance
                         val title = args.getOrNull(1)?.toString() ?: path.substringAfterLast('/')
                         WeMessageApi.sendFile(talker, path, title)
-                        return null
+                        return Undefined.instance
                     }
                 }
             )
@@ -858,10 +900,10 @@ object JsApiExposer {
                         thisObj: Scriptable,
                         args: Array<Any?>
                     ): Any? {
-                        val path = args.getOrNull(0)?.toString() ?: return null
+                        val path = args.getOrNull(0)?.toString() ?: return Undefined.instance
                         val durationMs = (args.getOrNull(1) as? Number)?.toInt() ?: 0
                         WeMessageApi.sendVoice(talker, path, durationMs)
-                        return null
+                        return Undefined.instance
                     }
                 }
             )
@@ -874,9 +916,9 @@ object JsApiExposer {
                         thisObj: Scriptable,
                         args: Array<Any?>
                     ): Any? {
-                        val content = args.getOrNull(0)?.toString() ?: return null
+                        val content = args.getOrNull(0)?.toString() ?: return Undefined.instance
                         WeMessageApi.sendXmlAppMsg(talker, content)
-                        return null
+                        return Undefined.instance
                     }
                 }
             )
@@ -886,7 +928,7 @@ object JsApiExposer {
                 cx: Context?,
                 scope: Scriptable?,
                 thisObj: Scriptable?,
-                args: Array<out Any?>?
+                args: Array<Any?>?
             ): Any {
                 return WeApi.selfWxId
             }
@@ -896,12 +938,94 @@ object JsApiExposer {
                 cx: Context?,
                 scope: Scriptable?,
                 thisObj: Scriptable?,
-                args: Array<out Any?>?
+                args: Array<Any?>?
             ): Any {
                 return WeApi.selfCustomWxId
             }
         })
 
         ScriptableObject.putProperty(scope, "wechat", weObj)
+    }
+
+    private fun exposeXposedApis(scope: ScriptableObject) {
+        val xposedObj = NativeObject()
+
+        ScriptableObject.putProperty(
+            xposedObj, "hookBefore",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any {
+                    val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                    val methodName = args.getOrNull(1)?.toString() ?: return Undefined.instance
+                    val hookFunc = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return Undefined.instance
+
+                    try {
+                        val clazz = className.toClass()
+                        val method = clazz.methods.firstOrNull { it.name == methodName }
+                        if (method == null) {
+                            WeLogger.e(TAG_XPOSED_API, "xposed.hookBefore: no method named $methodName in $className")
+                            return Undefined.instance
+                        }
+                        method.hookBeforeDirectly {
+                            val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
+                            val jsArgs = args.let { Context.javaToJS(it, scope, cx) }
+                                ?: Undefined.instance
+                            val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs))
+                            if (hookResult != null && hookResult !is Undefined) {
+                                result = hookResult
+                            }
+                        }
+                    } catch (e: Exception) {
+                        WeLogger.e(TAG_XPOSED_API, "xposed.before failed", e)
+                    }
+                    return Undefined.instance
+                }
+            }
+        )
+
+        ScriptableObject.putProperty(
+            xposedObj, "hookAfter",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any {
+                    val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                    val methodName = args.getOrNull(1)?.toString() ?: return Undefined.instance
+                    val hookFunc = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return Undefined.instance
+
+                    try {
+                        val clazz = className.toClass()
+                        val method = clazz.methods.firstOrNull { it.name == methodName }
+                        if (method == null) {
+                            WeLogger.e(TAG_XPOSED_API, "xposed.hookAfter: no method named $methodName in $className")
+                            return Undefined.instance
+                        }
+                        method.hookAfterDirectly {
+                            val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
+                            val jsArgs = args.let { Context.javaToJS(it, scope, cx) }
+                                ?: Undefined.instance
+                            val jsResult = result?.let { Context.javaToJS(it, scope, cx) }
+                                ?: Undefined.instance
+                            val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs, jsResult))
+                            if (hookResult != null && hookResult !is Undefined) {
+                                result = hookResult
+                            }
+                        }
+                    } catch (e: Exception) {
+                        WeLogger.e(TAG_XPOSED_API, "xposed.after failed", e)
+                    }
+                    return Undefined.instance
+                }
+            }
+        )
+
+        ScriptableObject.putProperty(scope, "xposed", xposedObj)
     }
 }

@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.items.scripting_js
 
 import android.content.ContentValues
-import dev.ujhhgtg.comptime.nameOf
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.hooks.api.net.WeProtoData
 import dev.ujhhgtg.wekit.hooks.api.net.abc.IWePacketInterceptor
@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.fs.createDirectoriesNoThrow
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.div
 import kotlin.io.path.listDirectoryEntries
@@ -19,7 +20,9 @@ import kotlin.io.path.readText
 object JsScriptingHook : SwitchHookItem(),
     WeDatabaseListenerApi.IInsertListener, IWePacketInterceptor {
 
-    private val TAG = nameOf(JsScriptingHook)
+    private val TAG = This.Class.simpleName
+
+    private val SCRIPTS_DIR = (KnownPaths.moduleData / "scripts").createDirectoriesNoThrow()
 
     // type=0 post
     // type=1 plain text
@@ -45,36 +48,29 @@ object JsScriptingHook : SwitchHookItem(),
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
 
-        WeLogger.i(TAG, "loading scripts...")
-        for (path in (KnownPaths.moduleData / "scripts").listDirectoryEntries("*.js")) {
+        WeLogger.d(TAG, "loading scripts...")
+        for (path in SCRIPTS_DIR.listDirectoryEntries("*.js")) {
             val name = path.name
             val content = runCatching { path.readText() }.getOrElse { continue }
-            WeLogger.i(TAG, "loaded script, name='${name}', length=${content.length}")
+            WeLogger.d(TAG, "loaded script, name='${name}', length=${content.length}")
             rules[name] = content
         }
+
+        JsEngine.executeAllOnLoad(rules)
     }
 
     // --- onMessage ---
     override fun onInsert(table: String, values: ContentValues) {
         if (!isEnabled) return
-        if (!OnMessage.isEnabled) {
-            WeLogger.i(TAG, "OnMessage hook is disabled, ignoring")
-            return
-        }
+        if (!OnMessage.isEnabled) return
 
         if (table != "message") return
 
         val isSend = values.getAsInteger("isSend") ?: return
-        // if (isSend != 0) return // ignore outgoing
 
         val talker = values.getAsString("talker") ?: return
         val content = values.getAsString("content") ?: return
         val type = values.getAsInteger("type") ?: 0
-
-        WeLogger.i(
-            TAG,
-            "message received: talker=$talker type=$type content.length=${content.length}"
-        )
 
         JsEngine.executeAllOnMessage(rules, talker, content, type, isSend)
     }
@@ -87,10 +83,7 @@ object JsScriptingHook : SwitchHookItem(),
     // --- onRequest ---
     override fun onRequest(uri: String, cgiId: Int, reqBytes: ByteArray): ByteArray? {
         if (!isEnabled) return null
-        if (!OnRequest.isEnabled) {
-            WeLogger.i(TAG, "OnRequest hook is disabled, ignoring")
-            return null
-        }
+        if (!OnRequest.isEnabled) return null
 
         try {
             val data = WeProtoData.fromBytes(reqBytes)
@@ -108,10 +101,7 @@ object JsScriptingHook : SwitchHookItem(),
     // --- onResponse ---
     override fun onResponse(uri: String, cgiId: Int, respBytes: ByteArray): ByteArray? {
         if (!isEnabled) return null
-        if (!OnResponse.isEnabled) {
-            WeLogger.i(TAG, "OnResponse hook is disabled, ignoring")
-            return null
-        }
+        if (!OnResponse.isEnabled) return null
 
         try {
             val data = WeProtoData.fromBytes(respBytes)

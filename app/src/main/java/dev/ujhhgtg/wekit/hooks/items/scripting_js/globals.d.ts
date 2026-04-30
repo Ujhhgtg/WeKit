@@ -184,7 +184,7 @@ declare namespace storage {
     function isEmpty(): boolean;
 }
 
-declare namespace time {
+declare namespace datetime {
     /**
      * 休眠指定的秒数
      * @param seconds 休眠的秒数
@@ -259,7 +259,14 @@ declare namespace wechat {
      */
     declare function sendVoice(to: string, path: string, durationMs: number): void;
 
-    declare function sendAppMsg(content: string): void;
+    /**
+     * 向指定用户发送卡片消息
+     * @param to 接收者的 wxid 或群 ID
+     * @param content 消息内容
+     * @example
+     * sendAppMsg("wxid_abc123", "<msg>...</msg>");
+     */
+    declare function sendAppMsg(to: string, content: string): void;
 
     // --- 消息回复 API (自动回复至发送者) ---
 
@@ -295,14 +302,77 @@ declare namespace wechat {
      */
     declare function replyVoice(path: string, durationMs: number): void;
 
+    /**
+     * 回复卡片消息给当前发送者
+     * @param content 消息内容
+     * @example
+     * replyAppMsg("<msg>...</msg>");
+     */
     declare function replyAppMsg(content: string): void;
 
+    // --- 其他 API ---
+
+    /**
+     * 发送 CGI 请求
+     * @param uri 请求的 URI
+     * @param cgiId 请求的 CGI ID
+     * @param funcId 请求的 Func ID
+     * @param routeId 请求的 Route ID
+     * @param jsonPayload JSON 负载字符串
+     * @returns 成功返回 JSON 字符串，失败返回错误信息字符串
+     */
+    function sendCgi(uri: string, cgiId: number, funcId: number, routeId: number, jsonPayload: string): string;
+
+    /**
+     * 获取当前用户的微信 ID
+     * @returns 当前用户的微信 ID 字符串
+     */
     declare function getSelfWxId(): string;
 
+    /**
+     * 获取当前用户的微信号
+     * @returns 当前用户的微信号字符串
+     */
     declare function getSelfCustomWxId(): string;
 }
 
-// --- 钩子函数定义 ---
+declare namespace xposed {
+    /**
+     * 在目标 Java 方法执行前插入钩子，可修改方法参数或返回值
+     * @param className 目标类的全限定名（例如 "com.tencent.mm.ui.LauncherUI"）
+     * @param methodName 目标方法名
+     * @param hookFunc 钩子回调函数，接收参数：
+     *   - thisObj: 方法调用的 this 对象（静态方法为 null）
+     *   - args: 方法参数数组
+     *   若返回非 undefined 的值，将作为方法的返回值
+     * @example
+     * xposed.before("com.example.TargetClass", "targetMethod", function(thisObj, args) {
+     *   log.i("方法调用，参数：", args);
+     *   // 修改第一个参数
+     *   args[0] = "modified";
+     * });
+     */
+    declare function hookBefore(className: string, methodName: string, hookFunc: (thisObj: any, args: any[]) => any | void): void;
+
+    /**
+     * 在目标 Java 方法执行后插入钩子，可修改方法返回值
+     * @param className 目标类的全限定名（例如 "com.tencent.mm.ui.LauncherUI"）
+     * @param methodName 目标方法名
+     * @param hookFunc 钩子回调函数，接收参数：
+     *   - thisObj: 方法调用的 this 对象（静态方法为 null）
+     *   - args: 方法参数数组
+     *   - originalResult: 方法的原始返回值
+     *   若返回非 undefined 的值，将作为方法的新返回值
+     * @example
+     * xposed.after("com.example.TargetClass", "targetMethod", function(thisObj, args, result) {
+     *   log.i("方法返回：", result);
+     *   return result + "（已修改）";
+     * });
+     */
+    declare function hookAfter(className: string, methodName: string, hookFunc: (thisObj: any, args: any[], originalResult: any) => any | void): void;
+}
+
+// --- 入口点函数定义 ---
 
 /**
  * onMessage 钩子可以返回的消息对象结构
@@ -321,6 +391,11 @@ interface MessageResponse {
     /** 语音时长（毫秒，仅用于 "voice") */
     duration?: number;
 }
+
+/**
+ * 加载钩子 - 当全部脚本加载完成后触发
+ */
+declare function onLoad(): void;
 
 /**
  * 消息钩子 - 当收到消息时触发

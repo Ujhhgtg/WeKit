@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.hooks.items.scripting_js
 
-import dev.ujhhgtg.comptime.nameOf
-import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.json.JSONObject
 import org.mozilla.javascript.Context
@@ -11,7 +10,37 @@ import org.mozilla.javascript.ScriptableObject
 
 object JsEngine {
 
-    private val TAG = nameOf(JsEngine)
+    private val TAG = This.Class.simpleName
+
+    fun executeAllOnLoad(rules: Map<String, String>) {
+        for (rule in rules) {
+            WeLogger.d(TAG, "executing onLoad for rule name='${rule.key}'")
+            try {
+                executeOnLoad(rule.value)
+            } catch (e: Exception) {
+                WeLogger.e(TAG, "rule name='${rule.key}' threw during onLoad", e)
+            }
+        }
+    }
+
+    private fun executeOnLoad(script: String) {
+        val cx: Context = Context.enter()
+        try {
+            val scope = cx.init()
+
+            cx.evaluateString(scope, script, "JsScript", 1, null)
+
+            val fn = scope.get("onLoad", scope)
+            if (fn == ScriptableObject.NOT_FOUND || fn !is Function) {
+                WeLogger.d(TAG, "JS script does not define onLoad()")
+                return
+            }
+
+            fn.call(cx, scope, scope, arrayOf<Any?>())
+        } finally {
+            Context.exit()
+        }
+    }
 
     fun executeAllOnMessage(
         rules: Map<String, String>,
@@ -20,7 +49,6 @@ object JsEngine {
         type: Int,
         isSend: Int,
     ) {
-        // if (isSend != 0) return // ignore outgoing
         if (content.isBlank()) {
             WeLogger.i(TAG, "message is blank")
             return
@@ -46,12 +74,9 @@ object JsEngine {
     ) {
         val cx: Context = Context.enter()
         try {
-            cx.isInterpretedMode = true
-            val scope = cx.initStandardObjects()
+            val scope = cx.init()
 
-            JsApiExposer.exposeApis(scope, talker)
-
-            cx.evaluateString(scope, script, "AutomationRule", 1, null)
+            cx.evaluateString(scope, script, "JsScript", 1, null)
 
             val fn = scope.get("onMessage", scope)
             if (fn == ScriptableObject.NOT_FOUND || fn !is Function) {
@@ -59,45 +84,9 @@ object JsEngine {
                 return
             }
 
-            val result = fn.call(cx, scope, scope, arrayOf<Any?>(talker, content, type, isSend))
-                ?: return
-
-            handleOnMessageReturnValue(result, talker)
+            fn.call(cx, scope, scope, arrayOf<Any?>(talker, content, type, isSend))
         } finally {
             Context.exit()
-        }
-    }
-
-    private fun handleOnMessageReturnValue(result: Any, talker: String) {
-        when (result) {
-            is String -> {
-                if (result.isNotBlank()) WeMessageApi.sendText(talker, result)
-            }
-
-            is NativeObject -> {
-                val type = result["type"]?.toString() ?: "text"
-                val content = result["content"]?.toString()
-                val path = result["path"]?.toString()
-                val title = result["title"]?.toString()
-                val duration = (result["duration"] as? Number)?.toInt() ?: 0
-
-                when (type) {
-                    "text" -> content?.let { WeMessageApi.sendText(talker, it) }
-                    "image" -> path?.let { WeMessageApi.sendImage(talker, it) }
-                    "file" -> path?.let {
-                        WeMessageApi.sendFile(
-                            talker,
-                            it,
-                            title ?: path.substringAfterLast('/')
-                        )
-                    }
-
-                    "voice" -> path?.let { WeMessageApi.sendVoice(talker, it, duration) }
-                    else -> WeLogger.w(TAG, "unknown js return type: $type")
-                }
-            }
-
-            else -> WeLogger.w(TAG, "onMessage() returned unexpected type: ${result::class.java}")
         }
     }
 
@@ -131,15 +120,12 @@ object JsEngine {
     ): JSONObject? {
         val cx: Context = Context.enter()
         try {
-            cx.isInterpretedMode = true
-            val scope = cx.initStandardObjects()
-
-            JsApiExposer.exposeApis(scope)
+            val scope = cx.init()
 
             val jsonStr = json.toString()
             val jsonObj = cx.evaluateString(scope, "($jsonStr)", "json", 1, null)
 
-            cx.evaluateString(scope, script, "AutomationRule", 1, null)
+            cx.evaluateString(scope, script, "JsScript", 1, null)
 
             val fn = scope.get("onRequest", scope)
             if (fn == ScriptableObject.NOT_FOUND || fn !is Function) {
@@ -195,15 +181,12 @@ object JsEngine {
     ): JSONObject? {
         val cx: Context = Context.enter()
         try {
-            cx.isInterpretedMode = true
-            val scope = cx.initStandardObjects()
-
-            JsApiExposer.exposeApis(scope)
+            val scope = cx.init()
 
             val jsonStr = json.toString()
             val jsonObj = cx.evaluateString(scope, "($jsonStr)", "json", 1, null)
 
-            cx.evaluateString(scope, script, "AutomationRule", 1, null)
+            cx.evaluateString(scope, script, "JsScript", 1, null)
 
             val fn = scope.get("onResponse", scope)
             if (fn == ScriptableObject.NOT_FOUND || fn !is Function) {
