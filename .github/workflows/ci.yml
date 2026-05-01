@@ -23,6 +23,9 @@ on:
       - '**/*.js'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -95,6 +98,60 @@ jobs:
         with:
           name: wekit-apk
           path: app/build/outputs/apk/release/*.apk
+
+  release-ci:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ success() && github.ref == 'refs/heads/master' }}
+
+    steps:
+      - name: Download APK artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: wekit-apk
+          path: artifacts
+
+      - name: Delete existing CI release (if exists)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete CI --yes || true
+          gh api -X DELETE repos/${{ github.repository }}/git/refs/tags/CI || true
+
+      - name: Generate update.json
+        run: |
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          GIT_HASH=$(git rev-parse --short HEAD)
+
+          cat > artifacts/update.json <<EOF
+          {
+            "versionCode": ${COMMIT_COUNT},
+            "versionName": "git+${GIT_HASH}",
+            "commit": "${GIT_HASH}"
+          }
+          EOF
+
+          echo "Generated update.json:"
+          cat artifacts/update.json
+
+      - name: Create CI release and upload APK
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: CI
+          name: CI
+          body: |
+            最新 CI 构建产物于 `${{ github.sha }}`
+
+            提交消息:
+            ```
+            ${{ github.event.head_commit.message || '手动构建' }}
+            ```
+          files: |
+            artifacts/*.apk
+            artifacts/update.json
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   upload-telegram:
     needs: build
