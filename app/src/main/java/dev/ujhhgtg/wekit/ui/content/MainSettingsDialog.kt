@@ -42,6 +42,7 @@ import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Edit_document
 import com.composables.icons.materialsymbols.outlined.Frame_bug
 import com.composables.icons.materialsymbols.outlined.Imagesearch_roller
+import com.composables.icons.materialsymbols.outlined.Label
 import com.composables.icons.materialsymbols.outlined.License
 import com.composables.icons.materialsymbols.outlined.Lightbulb_2
 import com.composables.icons.materialsymbols.outlined.Movie
@@ -67,7 +68,9 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.AppUpdater
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.UpdateResult
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -306,11 +309,63 @@ class MainSettingsDialog(context: Context) : BasePrefsDialog(context, BuildConfi
             }
         )
 
+        addCategory("更新")
+        addPreference(
+            title = "检查更新",
+            summary = "立即检查模块是否有新版本并自动下载",
+            icon = MaterialSymbols.Outlined.Update,
+            onClick = {
+                CoroutineScope(Dispatchers.Default).launch {
+                    showToastSuspend("正在检查更新...")
+                    when (val result = AppUpdater.checkForUpdate()) {
+                        UpdateResult.UpToDate -> showToastSuspend("已是最新版本")
+                        is UpdateResult.UpdateAvailable -> withContext(Dispatchers.Main) {
+                            showComposeDialog(context) {
+                                AlertDialogContent(
+                                    title = { Text("检测到新版本") },
+                                    text = {
+                                        Text(
+                                            "当前版本: ${BuildConfig.VERSION_NAME} → 新版本: ${result.info.versionName}\n" +
+                                                    "是否下载并安装?"
+                                        )
+                                    },
+                                    dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                                    confirmButton = {
+                                        Button(onClick = {
+                                            onDismiss()
+                                            CoroutineScope(Dispatchers.Default).launch {
+                                                AppUpdater.downloadAndInstall(context, result.info)
+                                            }
+                                        }) { Text("确定") }
+                                    }
+                                )
+                            }
+                        }
+
+                        is UpdateResult.Error -> {
+                            WeLogger.e("AppUpdater", "failed to check for updates", result.cause)
+                            showComposeDialog(context) {
+                                AlertDialogContent(
+                                    title = { Text("检查更新失败") },
+                                    text = {
+                                        Text(
+                                            "错误信息: ${result.cause.message}"
+                                        )
+                                    },
+                                    confirmButton = { TextButton(onDismiss) { Text("关闭") } },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
         addCategory("关于")
         addPreference(
             title = "版本",
             summary = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-            icon = MaterialSymbols.Outlined.Update,
+            icon = MaterialSymbols.Outlined.Label,
         )
         addPreference(
             "构建时间",

@@ -144,7 +144,9 @@ jobs:
           tag_name: CI
           name: CI
           body: |
-            最新 CI 构建产物于 `${{ github.sha }}`
+            本 Release 始终包含最新的 CI 构建产物, 便于未登录 GitHub 的用户下载模块或模块内置更新器更新
+            
+            提交 SHA: `${{ github.sha }}`
 
             提交消息:
             ```
