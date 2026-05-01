@@ -57,15 +57,10 @@ jobs:
         with:
           targets: aarch64-linux-android,x86_64-linux-android,armv7-linux-androideabi,i686-linux-android
 
-      - name: Cache Rust build cache
-        uses: actions/cache@v5
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-            app/src/main/rust/wekit-native/target
-          key: rust-build-cache
+          cache-on-failure: true
 
       - name: Cache Gradle build cache
         uses: actions/cache@v5
@@ -73,7 +68,9 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/configuration-cache
-          key: gradle-build-cache
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - name: Install system dependencies
         run: |
