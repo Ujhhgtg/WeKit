@@ -45,6 +45,7 @@ import kotlin.io.path.fileSize
 import kotlin.io.path.outputStream
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlin.concurrent.thread
 
 object JsApiExposer {
     private val TAG = This.Class.simpleName
@@ -65,6 +66,7 @@ object JsApiExposer {
         exposeLogApis(scope)
         exposeStorageApis(scope)
         exposeDateTimeApis(scope)
+        exposeTaskApis(scope)
         exposeXposedApis(scope)
         exposeWeChatApis(scope, talker)
     }
@@ -499,6 +501,46 @@ object JsApiExposer {
         ScriptableObject.putProperty(scope, "datetime", dtObj)
     }
 
+    /**
+     * 暴露异步任务 API
+     * 允许脚本在后台线程中执行函数，避免阻塞主线程
+     */
+    private fun exposeTaskApis(scope: ScriptableObject) {
+        val taskObj = NativeObject()
+
+        // task.runAsync(callback)
+        // 在后台线程中执行回调函数
+        ScriptableObject.putProperty(
+            taskObj, "runAsync",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any? {
+                    val callback = args.getOrNull(0)
+                    if (callback !is Function) {
+                        return Undefined.instance
+                    }
+
+                    // 在后台线程中执行回调
+                    thread(isDaemon = true, name = "JS-AsyncTask") {
+                        try {
+                            callback.call(cx, scope, scope, emptyArray())
+                        } catch (e: Exception) {
+                            WeLogger.e(TAG, "AsyncTask failed", e)
+                        }
+                    }
+
+                    return Undefined.instance
+                }
+            }
+        )
+
+        ScriptableObject.putProperty(scope, "task", taskObj)
+    }
+
     @Suppress("JavaCollectionWithNullableTypeArgument")
     private val storage = ConcurrentHashMap<String, Any?>()
 
@@ -826,6 +868,7 @@ object JsApiExposer {
 
                     var result: String? = null
                     val latch = CountDownLatch(1)
+                    val isMainThread = Looper.myLooper() == Looper.getMainLooper()
 
                     WePacketHelper.sendCgi(
                         uri, cgiId, funcId, routeId, jsonPayload
@@ -840,10 +883,31 @@ object JsApiExposer {
                         }
                     }
 
-                    if (!latch.await(cgiTimeout.toLong(), java.util.concurrent.TimeUnit.SECONDS)) {
-                        result = "Error: Timeout waiting for CGI response"
+                    // 防止死锁：如果在主线程上，使用后台线程来等待响应
+                    if (isMainThread) {
+                        var finalResult: String? = null
+                        val waitLatch = CountDownLatch(1)
+                        
+                        thread(isDaemon = true, name = "JS-CGI-${cgiId}-Waiter") {
+                            if (!latch.await(cgiTimeout.toLong(), TimeUnit.SECONDS)) {
+                                result = "Error: Timeout waiting for CGI response"
+                            }
+                            finalResult = result
+                            waitLatch.countDown()
+                        }
+                        
+                        // 在主线程中等待短时间，但不要完全阻塞
+                        // 这样允许处理 Handler.post() 消息并调用 countDown()
+                        val waited = waitLatch.await((cgiTimeout + 1).toLong(), TimeUnit.SECONDS)
+                        
+                        return finalResult ?: if (waited) "Error: Unknown error (result is null)" else "Error: Timeout waiting for CGI response"
+                    } else {
+                        // 如果已经在后台线程，可以安全地直接阻塞等待
+                        if (!latch.await(cgiTimeout.toLong(), TimeUnit.SECONDS)) {
+                            result = "Error: Timeout waiting for CGI response"
+                        }
+                        return result ?: "Error: Unknown error (result is null)"
                     }
-                    return result ?: "Error: Unknown error (result is null)"
                 }
             }
         )
