@@ -501,46 +501,6 @@ object JsApiExposer {
         ScriptableObject.putProperty(scope, "datetime", dtObj)
     }
 
-    /**
-     * 暴露异步任务 API
-     * 允许脚本在后台线程中执行函数，避免阻塞主线程
-     */
-    private fun exposeTaskApis(scope: ScriptableObject) {
-        val taskObj = NativeObject()
-
-        // task.runAsync(callback)
-        // 在后台线程中执行回调函数
-        ScriptableObject.putProperty(
-            taskObj, "runAsync",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val callback = args.getOrNull(0)
-                    if (callback !is Function) {
-                        return Undefined.instance
-                    }
-
-                    // 在后台线程中执行回调
-                    thread(isDaemon = true, name = "JS-AsyncTask") {
-                        try {
-                            callback.call(cx, scope, scope, emptyArray())
-                        } catch (e: Exception) {
-                            WeLogger.e(TAG, "AsyncTask failed", e)
-                        }
-                    }
-
-                    return Undefined.instance
-                }
-            }
-        )
-
-        ScriptableObject.putProperty(scope, "task", taskObj)
-    }
-
     @Suppress("JavaCollectionWithNullableTypeArgument")
     private val storage = ConcurrentHashMap<String, Any?>()
 

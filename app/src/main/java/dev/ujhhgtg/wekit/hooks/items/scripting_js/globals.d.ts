@@ -215,39 +215,6 @@ declare namespace datetime {
     function getCurrentUnixEpoch(): number;
 }
 
-declare namespace task {
-    /**
-     * 在后台线程中异步执行一个函数
-     * 这避免了在主线程中长时间阻塞，特别是在调用 wechat.sendCgi() 时很有用
-     * 
-     * @param callback 要在后台线程执行的函数
-     * @returns undefined
-     * 
-     * @example
-     * // 正确用法：在后台线程中执行 CGI 操作
-     * function onLoad() {
-     *   task.runAsync(function() {
-     *     var result = wechat.sendCgi(uri, cgiId, funcId, routeId, json);
-     *     log.i("结果: " + result);
-     *   });
-     *   log.i("主线程继续执行");
-     * }
-     * 
-     * @example
-     * // 顺序执行多个任务
-     * task.runAsync(function() {
-     *   var result1 = wechat.sendCgi(...);
-     *   log.i("任务1完成");
-     *   
-     *   datetime.sleepMs(500); // 延迟
-     *   
-     *   var result2 = wechat.sendCgi(...);
-     *   log.i("任务2完成");
-     * });
-     */
-    function runAsync(callback: () => void): void;
-}
-
 declare namespace wechat {
     // --- 消息发送 API (指定接收人) ---
 
