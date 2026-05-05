@@ -68,6 +68,85 @@ object JsApiExposer {
         exposeDateTimeApis(scope)
         exposeXposedApis(scope)
         exposeWeChatApis(scope, talker)
+        exposeTaskApis(scope, talker)
+    }
+
+    private fun exposeTaskApis(scope: ScriptableObject, talker: String? = null) {
+        val taskObj = NativeObject()
+
+        // task.runAsync(function)
+        ScriptableObject.putProperty(
+            taskObj, "runAsync",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any? {
+                    val callback =
+                        args.getOrNull(0) as? org.mozilla.javascript.Function ?: return Undefined.instance
+
+                    thread {
+                        val newCx = Context.enter()
+                        try {
+                            val newScope = newCx.init(talker)
+                            callback.call(newCx, newScope, newScope, emptyArray())
+                        } catch (e: Exception) {
+                            WeLogger.e(TAG, "Error in task.runAsync callback", e)
+                        } finally {
+                            Context.exit()
+                        }
+                    }
+                    return Undefined.instance
+                }
+            }
+        )
+
+        // task.runInterval(function, intervalMs?, count?)
+        // interval default 24h (24 * 60 * 60 * 1000)
+        // count default 0 (infinite)
+        ScriptableObject.putProperty(
+            taskObj, "runInterval",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any? {
+                    val callback =
+                        args.getOrNull(0) as? org.mozilla.javascript.Function ?: return Undefined.instance
+                    val interval = (args.getOrNull(1) as? Number)?.toLong() ?: (24 * 60 * 60 * 1000L)
+                    val count = (args.getOrNull(2) as? Number)?.toInt() ?: 0
+
+                    thread {
+                        var executedCount = 0
+                        while (count == 0 || executedCount < count) {
+                            try {
+                                Thread.sleep(interval)
+                            } catch (e: InterruptedException) {
+                                break
+                            }
+
+                            val newCx = Context.enter()
+                            try {
+                                val newScope = newCx.init(talker)
+                                callback.call(newCx, newScope, newScope, emptyArray())
+                                executedCount++
+                            } catch (e: Exception) {
+                                WeLogger.e(TAG, "Error in task.runInterval callback", e)
+                            } finally {
+                                Context.exit()
+                            }
+                        }
+                    }
+                    return Undefined.instance
+                }
+            }
+        )
+
+        ScriptableObject.putProperty(scope, "task", taskObj)
     }
 
     private const val MAX_CACHE_SIZE_IN_MIB = 500
@@ -827,7 +906,6 @@ object JsApiExposer {
 
                     var result: String? = null
                     val latch = CountDownLatch(1)
-                    val isMainThread = Looper.myLooper() == Looper.getMainLooper()
 
                     WePacketHelper.sendCgi(
                         uri, cgiId, funcId, routeId, jsonPayload
@@ -842,30 +920,10 @@ object JsApiExposer {
                         }
                     }
 
-                    // 防止死锁：如果在主线程上，使用后台线程来等待响应
-                    if (isMainThread) {
-                        var finalResult: String? = null
-                        val waitLatch = CountDownLatch(1)
-                        
-                        thread(isDaemon = true, name = "JS-CGI-${cgiId}-Waiter") {
-                            if (!latch.await(cgiTimeout.toLong(), TimeUnit.SECONDS)) {
-                                result = "Error: Timeout waiting for CGI response"
-                            }
-                            finalResult = result
-                            waitLatch.countDown()
-                        }
-                        
-                        // 在主线程中等待短时间，但不要完全阻塞
-                        // 这样允许处理 Handler.post() 消息并调用 countDown()
-                        val waited = waitLatch.await((cgiTimeout + 1).toLong(), TimeUnit.SECONDS)
-                        
-                        return finalResult ?: if (waited) "Error: Unknown error (result is null)" else "Error: Timeout waiting for CGI response"
-                    } else {
-                        // 如果已经在后台线程，可以安全地直接阻塞等待
-                        if (!latch.await(cgiTimeout.toLong(), TimeUnit.SECONDS)) {
-                            result = "Error: Timeout waiting for CGI response"
-                        }
-                        return result ?: "Error: Unknown error (result is null)"
+                    if (!latch.await(cgiTimeout.toLong(), java.util.concurrent.TimeUnit.SECONDS)) {
+                        result = "Error: Timeout waiting for CGI response"
+                    }
+                    return result ?: "Error: Unknown error (result is null)"
                     }
                 }
             }

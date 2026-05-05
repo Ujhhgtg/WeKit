@@ -336,6 +336,37 @@ declare namespace wechat {
     declare function getSelfCustomWxId(): string;
 }
 
+declare namespace task {
+    /**
+     * 异步执行 JavaScript 代码
+     * @param callback 要异步执行的函数
+     * @example
+     * task.runAsync(function() {
+     *     var result = wechat.sendCgi(url, 1089, 0, 0, json);
+     *     log.i("Result: " + result);
+     * });
+     */
+    function runAsync(callback: () => void): void;
+
+    /**
+     * 异步定时执行 JavaScript 代码
+     * @param callback 要执行的函数
+     * @param interval 执行间隔（毫秒），默认为 24 小时 (24 * 60 * 60 * 1000)
+     * @param count 执行次数，默认为 0（表示无限次）
+     * @example
+     * // 每隔 1 小时执行一次，无限次
+     * task.runInterval(function() {
+     *     log.i("定时任务执行");
+     * }, 60 * 60 * 1000);
+     * 
+     * // 每隔 10 秒执行一次，执行 5 次
+     * task.runInterval(function() {
+     *     log.i("有限次定时任务");
+     * }, 10000, 5);
+     */
+    function runInterval(callback: () => void, interval?: number, count?: number): void;
+}
+
 declare namespace xposed {
     /**
      * 在目标 Java 方法执行前插入钩子，可修改方法参数或返回值
