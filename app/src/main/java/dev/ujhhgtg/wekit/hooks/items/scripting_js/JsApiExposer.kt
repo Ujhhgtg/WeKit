@@ -924,7 +924,6 @@ object JsApiExposer {
                         result = "Error: Timeout waiting for CGI response"
                     }
                     return result ?: "Error: Unknown error (result is null)"
-                    }
                 }
             }
         )
