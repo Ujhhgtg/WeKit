@@ -68,85 +68,7 @@ object JsApiExposer {
         exposeDateTimeApis(scope)
         exposeXposedApis(scope)
         exposeWeChatApis(scope, talker)
-        exposeTaskApis(scope, talker)
-    }
-
-    private fun exposeTaskApis(scope: ScriptableObject, talker: String? = null) {
-        val taskObj = NativeObject()
-
-        // task.runAsync(function)
-        ScriptableObject.putProperty(
-            taskObj, "runAsync",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val callback =
-                        args.getOrNull(0) as? org.mozilla.javascript.Function ?: return Undefined.instance
-
-                    thread {
-                        val newCx = Context.enter()
-                        try {
-                            val newScope = newCx.init(talker)
-                            callback.call(newCx, newScope, newScope, emptyArray())
-                        } catch (e: Exception) {
-                            WeLogger.e(TAG, "Error in task.runAsync callback", e)
-                        } finally {
-                            Context.exit()
-                        }
-                    }
-                    return Undefined.instance
-                }
-            }
-        )
-
-        // task.runInterval(function, intervalMs?, count?)
-        // interval default 24h (24 * 60 * 60 * 1000)
-        // count default 0 (infinite)
-        ScriptableObject.putProperty(
-            taskObj, "runInterval",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val callback =
-                        args.getOrNull(0) as? org.mozilla.javascript.Function ?: return Undefined.instance
-                    val interval = (args.getOrNull(1) as? Number)?.toLong() ?: (24 * 60 * 60 * 1000L)
-                    val count = (args.getOrNull(2) as? Number)?.toInt() ?: 0
-
-                    thread {
-                        var executedCount = 0
-                        while (count == 0 || executedCount < count) {
-                            try {
-                                Thread.sleep(interval)
-                            } catch (e: InterruptedException) {
-                                break
-                            }
-
-                            val newCx = Context.enter()
-                            try {
-                                val newScope = newCx.init(talker)
-                                callback.call(newCx, newScope, newScope, emptyArray())
-                                executedCount++
-                            } catch (e: Exception) {
-                                WeLogger.e(TAG, "Error in task.runInterval callback", e)
-                            } finally {
-                                Context.exit()
-                            }
-                        }
-                    }
-                    return Undefined.instance
-                }
-            }
-        )
-
-        ScriptableObject.putProperty(scope, "task", taskObj)
+        exposeTaskApis(scope)
     }
 
     private const val MAX_CACHE_SIZE_IN_MIB = 500
@@ -924,6 +846,7 @@ object JsApiExposer {
                         result = "Error: Timeout waiting for CGI response"
                     }
                     return result ?: "Error: Unknown error (result is null)"
+                    }
                 }
             }
         )
@@ -1110,5 +1033,79 @@ object JsApiExposer {
         )
 
         ScriptableObject.putProperty(scope, "xposed", xposedObj)
+    }
+
+    private fun exposeTaskApis(scope: ScriptableObject) {
+        val taskObj = NativeObject()
+
+        ScriptableObject.putProperty(
+            taskObj, "runAsync",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any {
+                    val func = args.getOrNull(0) as? org.mozilla.javascript.Function ?: return Undefined.instance
+
+                    thread(name = "JsTaskAsyncThread") {
+                        val newCx = Context.enter()
+                        newCx.isInterpretedMode = true
+                        try {
+                            func.call(newCx, scope, scope, emptyArray())
+                        } catch (e: Exception) {
+                            WeLogger.e(TAG, "task.runAsync failed", e)
+                        } finally {
+                            Context.exit()
+                        }
+                    }
+
+                    return Undefined.instance
+                }
+            }
+        )
+
+        ScriptableObject.putProperty(
+            taskObj, "runTimer",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any {
+                    val func = args.getOrNull(0) as? org.mozilla.javascript.Function ?: return Undefined.instance
+                    val interval = (args.getOrNull(1) as? Number)?.toLong() ?: (24L * 60 * 60 * 1000)
+                    val count = (args.getOrNull(2) as? Number)?.toInt() ?: 0
+
+                    thread(name = "JsTaskTimerThread") {
+                        var executedCount = 0
+                        while (count == 0 || executedCount < count) {
+                            try {
+                                Thread.sleep(interval)
+                            } catch (e: InterruptedException) {
+                                break
+                            }
+
+                            val newCx = Context.enter()
+                            newCx.isInterpretedMode = true
+                            try {
+                                func.call(newCx, scope, scope, emptyArray())
+                            } catch (e: Exception) {
+                                WeLogger.e(TAG, "task.runTimer failed", e)
+                            } finally {
+                                Context.exit()
+                            }
+                            executedCount++
+                        }
+                    }
+
+                    return Undefined.instance
+                }
+            }
+        )
+
+        ScriptableObject.putProperty(scope, "task", taskObj)
     }
 }
