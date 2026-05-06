@@ -45,6 +45,7 @@ import kotlin.io.path.fileSize
 import kotlin.io.path.outputStream
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlin.concurrent.thread
 
 object JsApiExposer {
     private val TAG = This.Class.simpleName
@@ -67,6 +68,7 @@ object JsApiExposer {
         exposeDateTimeApis(scope)
         exposeXposedApis(scope)
         exposeWeChatApis(scope, talker)
+        exposeTaskApis(scope)
     }
 
     private const val MAX_CACHE_SIZE_IN_MIB = 500
@@ -818,10 +820,11 @@ object JsApiExposer {
                     args: Array<Any?>
                 ): Any? {
                     val uri = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                    val cgiId = (args.getOrNull(1) as? Int) ?: return Undefined.instance
-                    val funcId = (args.getOrNull(2) as? Int) ?: return Undefined.instance
-                    val routeId = (args.getOrNull(3) as? Int) ?: return Undefined.instance
+                    val cgiId = (args.getOrNull(1) as? Number)?.toInt() ?: return Undefined.instance
+                    val funcId = (args.getOrNull(2) as? Number)?.toInt() ?: return Undefined.instance
+                    val routeId = (args.getOrNull(3) as? Number)?.toInt() ?: return Undefined.instance
                     val jsonPayload = args.getOrNull(4)?.toString() ?: return Undefined.instance
+                    var cgiTimeout = (args.getOrNull(5) as? Number)?.toInt() ?: 30
 
                     var result: String? = null
                     val latch = CountDownLatch(1)
@@ -839,8 +842,10 @@ object JsApiExposer {
                         }
                     }
 
-                    latch.await()
-                    return result
+                    if (!latch.await(cgiTimeout.toLong(), java.util.concurrent.TimeUnit.SECONDS)) {
+                        result = "Error: Timeout waiting for CGI response"
+                    }
+                    return result ?: "Error: Unknown error (result is null)"
                 }
             }
         )
@@ -1027,5 +1032,79 @@ object JsApiExposer {
         )
 
         ScriptableObject.putProperty(scope, "xposed", xposedObj)
+    }
+
+    private fun exposeTaskApis(scope: ScriptableObject) {
+        val taskObj = NativeObject()
+
+        ScriptableObject.putProperty(
+            taskObj, "runAsync",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any {
+                    val func = args.getOrNull(0) as? org.mozilla.javascript.Function ?: return Undefined.instance
+
+                    thread(name = "JsTaskAsyncThread") {
+                        val newCx = Context.enter()
+                        newCx.isInterpretedMode = true
+                        try {
+                            func.call(newCx, scope, scope, emptyArray())
+                        } catch (e: Exception) {
+                            WeLogger.e(TAG, "task.runAsync failed", e)
+                        } finally {
+                            Context.exit()
+                        }
+                    }
+
+                    return Undefined.instance
+                }
+            }
+        )
+
+        ScriptableObject.putProperty(
+            taskObj, "runTimer",
+            object : BaseFunction() {
+                override fun call(
+                    cx: Context,
+                    scope: Scriptable,
+                    thisObj: Scriptable,
+                    args: Array<Any?>
+                ): Any {
+                    val func = args.getOrNull(0) as? org.mozilla.javascript.Function ?: return Undefined.instance
+                    val interval = (args.getOrNull(1) as? Number)?.toLong() ?: (24L * 60 * 60 * 1000)
+                    val count = (args.getOrNull(2) as? Number)?.toInt() ?: 0
+
+                    thread(name = "JsTaskTimerThread") {
+                        var executedCount = 0
+                        while (count == 0 || executedCount < count) {
+                            try {
+                                Thread.sleep(interval)
+                            } catch (e: InterruptedException) {
+                                break
+                            }
+
+                            val newCx = Context.enter()
+                            newCx.isInterpretedMode = true
+                            try {
+                                func.call(newCx, scope, scope, emptyArray())
+                            } catch (e: Exception) {
+                                WeLogger.e(TAG, "task.runTimer failed", e)
+                            } finally {
+                                Context.exit()
+                            }
+                            executedCount++
+                        }
+                    }
+
+                    return Undefined.instance
+                }
+            }
+        )
+
+        ScriptableObject.putProperty(scope, "task", taskObj)
     }
 }

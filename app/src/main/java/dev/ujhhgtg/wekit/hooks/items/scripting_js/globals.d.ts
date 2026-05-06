@@ -184,10 +184,33 @@ declare namespace storage {
     function isEmpty(): boolean;
 }
 
+declare namespace task {
+    /**
+     * 异步执行 JavaScript 函数。
+     * @param func 要异步执行的函数
+     * @example
+     * task.runAsync(function() {
+     *     log.i("异步任务执行...");
+     * });
+     */
+    function runAsync(func: () => void): void;
+
+    /**
+     * 定时执行 JavaScript 函数。
+     * @param func 要定时执行的函数
+     * @param interval 两次执行之间的时间间隔（毫秒）。默认是 86400000 (24小时)。
+     * @param count 执行的总次数。0 表示无限次执行。
+     * @example
+     * task.runTimer(function() {
+     *     log.i("定时任务执行...");
+     * }, 60000, 0); // 每 60000 毫秒 (1分钟) 执行一次，无限次执行
+     */
+    function runTimer(func: () => void, interval?: number, count?: number): void;
+}
+
 declare namespace datetime {
     /**
      * 休眠指定的秒数
-     * @param seconds 休眠的秒数
      * @example
      * log.i("开始等待...");
      * time.sleepS(3);
