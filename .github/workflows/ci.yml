@@ -1,18 +1,40 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
+      - '.editorconfig'
+      - '.gitignore'
+      - '.idea/**'
+      - '**/*.js'
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
+      - '.editorconfig'
+      - '.gitignore'
+      - '.idea/**'
+      - '**/*.js'
   workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Release Tag Name (e.g. v1.0.0)'
-        required: false
-        default: ''
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (
+        !startsWith(github.event.head_commit.message, '[skip ci]') && 
+        (github.ref == 'refs/heads/master' || github.event_name == 'pull_request')
+      )
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -35,15 +57,11 @@ jobs:
         with:
           targets: aarch64-linux-android,x86_64-linux-android,armv7-linux-androideabi,i686-linux-android
 
-      - name: Cache Rust build cache
-        uses: actions/cache@v5
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-            app/src/main/rust/wekit-native/target
-          key: rust-build-cache
+          cache-on-failure: true
+          workspaces: app/src/main/rust/wekit-native -> target
 
       - name: Cache Gradle build cache
         uses: actions/cache@v5
@@ -51,7 +69,9 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/configuration-cache
-          key: gradle-build-cache
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - name: Install system dependencies
         run: |
@@ -62,6 +82,7 @@ jobs:
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/wekit-keystore.jks
 
       - name: Build Release
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
         env:
           WEKIT_KEYSTORE_FILE: ${{ runner.temp }}/wekit-keystore.jks
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -69,37 +90,152 @@ jobs:
           WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --warning-mode all --stacktrace
 
-      - name: Get Version
-        id: get_version
-        run: |
-          if [[ -n "${{ github.event.inputs.tag_name }}" ]]; then
-            TAG_NAME="${{ github.event.inputs.tag_name }}"
-            VERSION_NAME="${TAG_NAME#v}"
-          elif [[ $GITHUB_REF == refs/tags/* ]]; then
-            TAG_NAME=${GITHUB_REF#refs/tags/}
-            VERSION_NAME="${TAG_NAME#v}"
-          else
-            VERSION_NAME=$(git rev-parse --short HEAD)
-            TAG_NAME="v${VERSION_NAME}"
-          fi
-          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-
       - name: Upload Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-        with:
-          tag_name: ${{ steps.get_version.outputs.tag_name }}
-          name: Release ${{ env.VERSION_NAME }}
-          files: app/build/outputs/apk/release/*.apk
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v7
         with:
           name: wekit-apk
           path: app/build/outputs/apk/release/*.apk
+
+  release-ci:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ success() && github.ref == 'refs/heads/master' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: wekit-apk
+          path: artifacts
+
+      - name: Delete existing CI release (if exists)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete CI --yes || true
+          gh api -X DELETE repos/${{ github.repository }}/git/refs/tags/CI || true
+
+      - name: Generate update.json
+        run: |
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          GIT_HASH=$(git rev-parse --short HEAD)
+
+          cat > artifacts/update.json <<EOF
+          {
+            "versionCode": ${COMMIT_COUNT},
+            "versionName": "git+${GIT_HASH}",
+            "commit": "${GIT_HASH}"
+          }
+          EOF
+
+          echo "Generated update.json:"
+          cat artifacts/update.json
+
+      - name: Create CI release and upload APK
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: CI
+          name: CI
+          body: |
+            本 Release 始终包含最新的 CI 构建产物, 便于未登录 GitHub 的用户下载模块或模块内置更新器更新
+            
+            提交 SHA: `${{ github.sha }}`
+
+            提交消息:
+            ```
+            ${{ github.event.head_commit.message || '手动构建' }}
+            ```
+          files: |
+            artifacts/*.apk
+            artifacts/update.json
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-telegram:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ success() && github.ref == 'refs/heads/master' }}
+    services:
+      telegram-bot-api:
+        image: aiogram/telegram-bot-api:latest
+        env:
+          TELEGRAM_API_ID: "21724"
+          TELEGRAM_API_HASH: "3e0cb5efcd52300aec5994fdfc5bdc16"
+          TELEGRAM_STATISTICS: 1
+        ports:
+          - 8081:8081
+
+    steps:
+      - name: Download APK artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: wekit-apk
+          path: artifacts
+
+      - name: Wait for Telegram API
+        run: |
+          until curl -s http://localhost:8081 > /dev/null; do
+          echo "Waiting for Telegram API server..."
+          sleep 1
+          done
+
+      - name: Send APKs via Telegram API
+        env:
+          BOT_TOKEN:     ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID:       ${{ secrets.TELEGRAM_CHAT_ID }}
+          SHA:           ${{ github.sha }}
+          COMMIT_AUTHOR: ${{ github.event.head_commit.author.name || github.actor }}
+          REPO:          ${{ github.repository }}
+        run: |
+          caption="🎉 *检测到新的 GitHub 推送！*
+          *Commit SHA:* \`${SHA}\`
+          \`\`\`
+          ${{ github.event.head_commit.message || 'Manual Build' }}
+          \`\`\`
+          *提交者* \`${COMMIT_AUTHOR}\`
+          [查看详情](https://github.com/${REPO}/commit/${SHA})"
+          
+          apks=(artifacts/*.apk)
+          
+          echo $apks
+          
+          if [ ${#apks[@]} -eq 1 ]; then
+            # Single APK — use sendDocument (supports caption)
+            curl -s -X POST "http://localhost:8081/bot${BOT_TOKEN}/sendDocument" \
+              -F chat_id="${CHAT_ID}" \
+              -F document=@"${apks[0]}" \
+              -F caption="${caption}" \
+              -F parse_mode=Markdown
+          else
+            media_json="["
+            form_args=()
+            for i in "${!apks[@]}"; do
+              apk="${apks[$i]}"
+              name="apk${i}"
+              form_args+=(-F "${name}=@${apk}")
+          
+              if [ $i -gt 0 ]; then media_json+=","; fi
+          
+              if [ $i -eq $(( ${#apks[@]} - 1 )) ]; then
+                media_json+="{\"type\":\"document\",\"media\":\"attach://${name}\",\"caption\":\"${caption}\",\"parse_mode\":\"Markdown\"}"
+              else
+                media_json+="{\"type\":\"document\",\"media\":\"attach://${name}\"}"
+              fi
+            done
+            media_json+="]"
+          
+            echo $media_json
+          
+            curl -s -X POST "http://localhost:8081/bot${BOT_TOKEN}/sendMediaGroup" \
+              -F chat_id="${CHAT_ID}" \
+              -F media="${media_json}" \
+              "${form_args[@]}"
+          fi
