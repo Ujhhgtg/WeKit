@@ -35,7 +35,7 @@ object ModifyTextMessageDisplay : SwitchHookItem(),
             WeChatMessageContextMenuApi.MenuItem(
                 777002,
                 "修改内容",
-                { EditIcon },
+                EditIcon,
                 { msgInfo -> msgInfo.type?.isText ?: false }
             ) { view, _, _ ->
                 showComposeDialog(view.context) {

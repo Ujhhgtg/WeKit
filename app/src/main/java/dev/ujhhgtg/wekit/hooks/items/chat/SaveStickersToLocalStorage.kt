@@ -57,7 +57,7 @@ object SaveStickersToLocalStorage : SwitchHookItem(), IResolvesDex,
             WeChatMessageContextMenuApi.MenuItem(
                 777001,
                 "存本地",
-                { DownloadIcon },
+                DownloadIcon,
                 { msgInfo -> msgInfo.type?.isSticker ?: false }
             ) { _, _, msgInfo ->
                 val md5 = msgInfo.imagePath

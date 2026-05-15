@@ -27,7 +27,7 @@ object WeChatMessageContextMenuApi : ApiHookItem(), IResolvesDex {
 
     data class MenuItem(
         val id: Int,
-        val text: String, val drawable: () -> Drawable,
+        val text: String, val drawable: Drawable,
         val shouldShow: (MessageInfo) -> Boolean,
         val onClick: (View, ChattingContext, MessageInfo) -> Unit
     )
@@ -76,7 +76,7 @@ object WeChatMessageContextMenuApi : ApiHookItem(), IResolvesDex {
                                 parameters(Int::class, CharSequence::class, Drawable::class)
                                 returnType = android.view.MenuItem::class
                             }
-                            .invoke(item.id, item.text, item.drawable())
+                            .invoke(item.id, item.text, item.drawable)
                     }
                 }
             } catch (ex: Throwable) {

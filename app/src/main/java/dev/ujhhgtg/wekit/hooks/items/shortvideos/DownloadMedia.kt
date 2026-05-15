@@ -47,7 +47,7 @@ object DownloadMedia : SwitchHookItem(),
             WeShortVideosShareMenuApi.MenuItem(
                 777004,
                 "复制链接",
-                { LinkIcon }
+                LinkIcon
             )
             { _, mediaType, mediaList ->
                 if (mediaType == 2) {
@@ -97,7 +97,7 @@ object DownloadMedia : SwitchHookItem(),
             WeShortVideosShareMenuApi.MenuItem(
                 777007,
                 "下载",
-                { DownloadIcon }
+                DownloadIcon
             )
             { _, mediaType, mediaList ->
                 if (mediaType == 2) {

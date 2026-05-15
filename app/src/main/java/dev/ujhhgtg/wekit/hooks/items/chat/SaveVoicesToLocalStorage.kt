@@ -67,7 +67,7 @@ object SaveVoicesToLocalStorage : SwitchHookItem(), IResolvesDex,
             WeChatMessageContextMenuApi.MenuItem(
                 777003,
                 "存本地",
-                { DownloadIcon },
+                DownloadIcon,
                 { msgInfo -> msgInfo.typeCode == MessageType.VOICE.code }
             ) { _, _, msgInfo ->
                 CoroutineScope(Dispatchers.IO).launch {

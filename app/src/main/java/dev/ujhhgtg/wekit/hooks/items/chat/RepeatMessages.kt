@@ -28,7 +28,7 @@ object RepeatMessages : SwitchHookItem(), WeChatMessageContextMenuApi.IMenuItems
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777008, "复读", { ExposurePlus1Icon },
+                777008, "复读", ExposurePlus1Icon,
                 shouldShow = { it.type in SUPPORTED_MSG_TYPES },
                 onClick = { view, _, msgInfo ->
                     val context = view.context

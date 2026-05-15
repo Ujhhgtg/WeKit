@@ -35,7 +35,7 @@ object WeMomentsContextMenuApi : ApiHookItem(), IResolvesDex {
 
     data class MenuItem(
         val id: Int,
-        val text: String, val drawable: () -> Drawable,
+        val text: String, val drawable: Drawable,
         val shouldShow: (context: MomentsContext, itemId: Int) -> Boolean,
         val onClick: (context: MomentsContext) -> Unit
     )
@@ -116,7 +116,7 @@ object WeMomentsContextMenuApi : ApiHookItem(), IResolvesDex {
                 .firstMethod {
                     parameters(Int::class, CharSequence::class, Drawable::class)
                 }
-                .invoke(item.id, item.text, item.drawable())
+                .invoke(item.id, item.text, item.drawable)
         }
     }
 

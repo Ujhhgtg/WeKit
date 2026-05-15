@@ -21,7 +21,7 @@ object WeShortVideosShareMenuApi : ApiHookItem(), IResolvesDex {
 
     data class MenuItem(
         val id: Int,
-        val text: String, val drawable: () -> Drawable,
+        val text: String, val drawable: Drawable,
         val onClick: (XC_MethodHook.MethodHookParam, Int, List<JSONObject>) -> Unit
     )
 
@@ -76,7 +76,7 @@ object WeShortVideosShareMenuApi : ApiHookItem(), IResolvesDex {
                 .firstMethod {
                     parameters(Int::class, CharSequence::class, Drawable::class)
                 }
-                .invoke(item.id, item.text, item.drawable())
+                .invoke(item.id, item.text, item.drawable)
         }
     }
 

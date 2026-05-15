@@ -53,7 +53,7 @@ object FakeMomentsLikes : SwitchHookItem(), WeMomentsContextMenuApi.IMenuItemsPr
             WeMomentsContextMenuApi.MenuItem(
                 777006,
                 "伪点赞",
-                { StarIcon },
+                StarIcon,
                 { _, _ -> true }
             ) { moments ->
                 val allFriends = WeDatabaseApi.getContacts()

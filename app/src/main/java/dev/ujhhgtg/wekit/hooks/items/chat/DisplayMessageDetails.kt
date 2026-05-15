@@ -35,7 +35,7 @@ object DisplayMessageDetails : SwitchHookItem(),
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777005, "查看详情",
-                { ChatInfoIcon }, { _ -> true })
+                ChatInfoIcon, { _ -> true })
             { view, _, msgInfo ->
                 val displayItems = mutableListOf<Pair<String, String>>()
                 displayItems += "类型" to msgInfo.typeCode.toString()

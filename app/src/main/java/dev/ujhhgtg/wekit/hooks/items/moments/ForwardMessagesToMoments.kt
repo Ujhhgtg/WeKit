@@ -31,7 +31,7 @@ object ForwardMessagesToMoments : SwitchHookItem(), WeChatMessageContextMenuApi.
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777009, "转圈", { CameraIcon },
+                777009, "转圈", CameraIcon,
                 shouldShow = { it.type in SUPPORTED_MSG_TYPES },
                 onClick = { _, chattingContext, msgInfo ->
                     val activity = chattingContext.activity
