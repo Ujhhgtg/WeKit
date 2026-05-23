@@ -138,7 +138,7 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
                                 .filter {
                                     it.isRegularFile() &&
                                             it.extension.lowercase() in ALLOWED_STICKER_EXTENSIONS &&
-                                            it.name != ".pack_icon.png" &&
+                                            !it.name.startsWith(".pack_icon.") &&
                                             !(it.extension.lowercase() == "webp" && it.resolveSibling("${it.nameWithoutExtension}.png").isRegularFile())
                                 }
                                 .toList()
@@ -353,7 +353,20 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
                     }
                 val newResSource = enumValueOfClass(fResSource.get()!!.javaClass, "LOCAL_PATH")
                 fResSource.set(newResSource)
-                val path = (stickersDir / url.substringAfter(SEPERATOR) / ".pack_icon.png").absolutePathString()
+                val packDir = stickersDir / url.substringAfter(SEPERATOR)
+                val iconFile = (ALLOWED_STICKER_EXTENSIONS - "webp").firstNotNullOfOrNull { ext ->
+                    (packDir / ".pack_icon.$ext").takeIf { it.isRegularFile() }
+                }
+                val path = if (iconFile != null) {
+                    iconFile.absolutePathString()
+                } else {
+                    val fallback = packDir.walk().firstOrNull { f ->
+                        f.isRegularFile() &&
+                                f.extension.lowercase() in ALLOWED_STICKER_EXTENSIONS &&
+                                !f.name.startsWith(".pack_icon.")
+                    }
+                    (fallback ?: packDir / ".pack_icon.png").absolutePathString()
+                }
                 thisObject.asResolver()
                     .firstField { type = Any::class }
                     .set(path)

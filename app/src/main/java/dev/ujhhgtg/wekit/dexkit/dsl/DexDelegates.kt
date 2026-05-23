@@ -53,7 +53,8 @@ class DexClassDelegate internal constructor(
             return cachedClass ?: error("Class not found for key: $key")
         }
 
-    fun asResolver() = clazz.asResolver()
+    @Suppress("NOTHING_TO_INLINE")
+    inline fun asResolver() = clazz.asResolver()
 
     fun setDescriptor(className: String) {
         descriptorString = className

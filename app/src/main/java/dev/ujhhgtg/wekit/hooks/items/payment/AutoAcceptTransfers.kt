@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseListenerApi
+import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.hooks.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.hooks.api.core.models.MessageType
 import dev.ujhhgtg.wekit.hooks.api.net.WeNetSceneApi
@@ -78,24 +79,39 @@ object AutoAcceptTransfers : SwitchHookItem(), IResolvesDex, WeDatabaseListenerA
             return
         }
 
-        val msg = MessageInfo.TransferMessage(content)
-        if (msg.payerUsername == WeApi.selfWxId) {
+        val msgInfo = MessageInfo(WeMessageApi.convertMsgInfoFromContentValues(values, true))
+
+        val transferMsg = msgInfo.toTransferMessage() ?: run {
+            WeLogger.w(TAG, "failed to parse transfer message")
+            return
+        }
+
+        val payerUsername = msgInfo.sender
+        // FIXME: payerUsername is empty
+//        if (msg.payerUsername == WeApi.selfWxId) {
+//            WeLogger.w(TAG, "self is payer, ignoring")
+//            return
+//        }
+        if (payerUsername == WeApi.selfWxId) {
             WeLogger.w(TAG, "self is payer, ignoring")
             return
         }
 
         val netScene = run {
-            val transactionId = msg.transactionId
-            val transferId = msg.transferId
-            val payerUser = msg.payerUsername
-            val invalidTime = msg.invalidTime
+            val transactionId = transferMsg.transactionId
+            val transferId = transferMsg.transferId
+            // FIXME: payerUsername is empty
+//            val payerUser = msg.payerUsername
+            val invalidTime = transferMsg.invalidTime
+
+            WeLogger.d(TAG, "$transactionId, $transferId, $payerUsername, $invalidTime")
 
             val ctor = ctorNetSceneTransferOperation.constructor
             return@run when (ctor.parameterCount) {
-                10 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUser, invalidTime, "", null, 1, null)
-                12 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUser, invalidTime, "", null, 1, null, 0L, "")
-                13 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUser, invalidTime, "", null, 1, null, 0L, "", "")
-                14 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUser, invalidTime, "", null, 1, "", null, 0L, "", "")
+                10 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUsername, invalidTime, "", null, 1, null)
+                12 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUsername, invalidTime, "", null, 1, null, 0L, "")
+                13 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUsername, invalidTime, "", null, 1, null, 0L, "", "")
+                14 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUsername, invalidTime, "", null, 1, "", null, 0L, "", "")
                 else -> error("unknown NetSceneTransferOperation constructor variant")
             }
         }

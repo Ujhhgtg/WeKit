@@ -1,17 +1,14 @@
 package dev.ujhhgtg.wekit.hooks.items.chat
 
-import android.content.ContentValues
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
-import dev.ujhhgtg.wekit.hooks.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.luckypray.dexkit.DexKitBridge
-import kotlin.random.Random
 
 @HookItem(path = "聊天/阻止消息撤回 3", description = "有撤回提示")
 object AntiMessageRecall3 : SwitchHookItem(), IResolvesDex {
@@ -29,7 +26,7 @@ object AntiMessageRecall3 : SwitchHookItem(), IResolvesDex {
         }
     }
 
-    private val nameRegex = Regex("([\"「])(.*?)([」\"])")
+    private val NAME_REGEX = Regex("([\"「])(.*?)([」\"])")
 
     override fun onEnable() {
         methodXmlParser.hookAfter {
@@ -67,33 +64,16 @@ object AntiMessageRecall3 : SwitchHookItem(), IResolvesDex {
 
                 cursor.use { cursor ->
                     if (cursor.moveToFirst()) {
-                        val originalCreateTime =
+                        val createTime =
                             cursor.getLong(cursor.getColumnIndexOrThrow("createTime"))
-
-                        val match = nameRegex.find(replaceMsg)
-
+                        val match = NAME_REGEX.find(replaceMsg)
                         val senderName = match?.groupValues?.get(2) ?: "未知"
-
                         val interceptNotice = "「$senderName」尝试撤回上一条消息 (已阻止)"
-
-                        val contentValues = ContentValues().apply {
-                            put("msgid", 0)
-                            put(
-                                "msgSvrId",
-                                originalCreateTime + Random.nextInt()
-                            )
-                            put("type", 10000)
-                            put("status", 3)
-                            put("createTime", originalCreateTime + 1)
-                            put("talker", session)
-                            put("content", interceptNotice)
-                        }
-
-                        val msgInfo =
-                            WeMessageApi.createMsgInfoFromContentValues(contentValues, true)
-                        WeMessageApi.methodMsgInfoStorageInsertMessage.method.invoke(
-                            WeServiceApi.messageInfoStorage,
-                            msgInfo
+                        WeMessageApi.createSimpleMsgInfoAndInsert(
+                            10000,
+                            session,
+                            interceptNotice,
+                            createTime + 1
                         )
                         WeLogger.d(TAG, "blocked message revoke")
                     }

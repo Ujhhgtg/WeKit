@@ -3,7 +3,6 @@
 package dev.ujhhgtg.wekit.hooks.api.core.models
 
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
-import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import dev.ujhhgtg.wekit.utils.removeWxIdPrefix
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
@@ -70,17 +69,24 @@ class MessageInfo(val instance: Any) {
     val isSelfSender get() = isSend != 0
 
     inline fun toPatMessage(): PatMessage? {
-        if (type != MessageType.PAT)
+        if (typeCode != MessageType.PAT.code)
             return null
 
         return PatMessage(content)
     }
 
-    inline fun toQuoteMessage(): QuoteMessage? {
-        if (type != MessageType.QUOTE)
+    fun toQuoteMessage(): QuoteMessage? {
+        if (typeCode != MessageType.QUOTE.code)
             return null
 
         return QuoteMessage(content)
+    }
+
+    fun toTransferMessage(): TransferMessage? {
+        if (type != MessageType.TRANSFER)
+            return null
+
+        return TransferMessage(content)
     }
 
     class PatMessage(jsonString: String) {
@@ -105,11 +111,7 @@ class MessageInfo(val instance: Any) {
     }
 
     class QuoteMessage(jsonString: String) {
-        private val json = run {
-            val json = XmlJsonParser.toJsonObject(jsonString.cleanupXml())
-            WeLogger.d("test", json.toString())
-            json
-        }
+        private val json = XmlJsonParser.toJsonObject(jsonString.cleanupXml())
 
         val title by lazy { json.getByPath("msg.appmsg.title")!!.asString }
     }
@@ -121,7 +123,9 @@ class MessageInfo(val instance: Any) {
         // 'transcationid' is WeChat's typo
         val transactionId by lazy { json.getByPath("msg.wcpayinfo.transcationid")!!.asString }
         val transferId by lazy { json.getByPath("msg.wcpayinfo.transferid")!!.asString }
-        val payerUsername by lazy { json.getByPath("msg.wcpayinfo.payer_username")!!.asString }
+
+        // FIXME: payerUsername is empty
+        //        val payerUsername by lazy { json.getByPath("msg.wcpayinfo.payer_username")!!.asString }
         val invalidTime by lazy { json.getByPath("msg.wcpayinfo.invalidtime")!!.asString.toInt() }
     }
 

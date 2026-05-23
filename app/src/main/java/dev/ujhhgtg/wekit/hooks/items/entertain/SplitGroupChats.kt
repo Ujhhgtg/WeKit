@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 @HookItem(path = "娱乐/分裂群组", description = "让群聊一分为二")
@@ -26,25 +25,23 @@ object SplitGroupChats : ClickableHookItem() {
                 onDismiss = onDismiss,
             ) {
                 onDismiss()
-                jumpToSplitChatroom(it)
+                jumpToSplitChatroom(context, it)
             }
         }
     }
 
-    private fun jumpToSplitChatroom(wxId: String) {
+    private fun jumpToSplitChatroom(context: Context, wxId: String) {
         runCatching {
-            val ctx = HostInfo.application
-
             val rawId = wxId.substringBefore("@")
             val targetSplitId = "${rawId}@@chatroom"
             WeLogger.i(TAG, "launching ChattingUI for chatroom: $wxId")
 
-            val intent = Intent(ctx, ChattingUI::class.java).apply {
+            val intent = Intent(context, ChattingUI::class.java).apply {
                 putExtra("Chat_User", targetSplitId)
                 putExtra("Chat_Mode", 1)
             }
 
-            ctx.startActivity(intent)
+            context.startActivity(intent)
         }.onFailure { WeLogger.e(TAG, "exception occured", it) }
     }
 

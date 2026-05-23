@@ -45,7 +45,7 @@ object WeServiceApi : ApiHookItem(), IResolvesDex {
                 parameterCount = 0
                 returnType = WeMessageApi.classMsgInfoStorage.clazz
             }
-            .invoke()
+            .invoke()!!
     }
 
     val chatroomService by lazy {

@@ -36,6 +36,7 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import kotlin.random.Random
 
 
 @SuppressLint("DiscouragedApi")
@@ -465,7 +466,7 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
         classVoiceServiceInterface.setDescriptor(targetInterface.name)
     }
 
-    fun createMsgInfoFromContentValues(contentValues: ContentValues, boolValue: Boolean): Any {
+    fun convertMsgInfoFromContentValues(contentValues: ContentValues, boolValue: Boolean): Any {
         val msgInfo = classMsgInfo.clazz.createInstance()
         msgInfo.asResolver().firstMethod {
             name = "convertFrom"
@@ -473,6 +474,23 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
             superclass()
         }.invoke(contentValues, boolValue)
         return msgInfo
+    }
+
+    fun createSimpleMsgInfoAndInsert(type: Int, talker: String, content: String, currentTime: Long) {
+        val values = ContentValues().apply {
+            put("msgid", 0)
+            put("msgSvrId", currentTime + Random.nextInt())
+            put("type", type)
+            put("status", 3)
+            put("createTime", currentTime)
+            put("talker", talker)
+            put("content", content)
+        }
+        val msgInfo = convertMsgInfoFromContentValues(values, true)
+        methodMsgInfoStorageInsertMessage.method.invoke(
+            WeServiceApi.messageInfoStorage,
+            msgInfo
+        )
     }
 
     override fun onEnable() {
