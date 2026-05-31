@@ -432,18 +432,11 @@ function commandHelp(content) {
     );
 }
 
-function commmandChangelog() {
-    return (
-        "更新内容:\n" +
-        "2026.02.17 - 模块添加 '自动回复' 功能\n" +
-        "2026.02.18 - 功能重构为 '自动化', 与原 '脚本管理' 合并, 移除了除 JavaScript 以外的消息匹配方式\n" +
-        "             添加命令 help, changelog, weather, random-pic, hitokoto, debug-msg\n" +
-        "2026.02.22 - 将微信相关 API 移动至命名空间 wechat 下"
-    );
-}
-
 function onLoad() {
-    log.i("onLoad() triggered")
+    log.i("onLoad() triggered");
+    const Toast = android.widget.Toast;
+    const ctx = hostinfo.application;
+    Toast.makeText(ctx, "脚本已加载!", Toast.LENGTH_SHORT).show();
 }
 
 function onMessage(talker, content, type, isSend) {

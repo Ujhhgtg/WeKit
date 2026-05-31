@@ -21,8 +21,8 @@ object WeLogger {
     private const val CHUNK_SIZE = 4000
     private const val MAX_CHUNKS = 200
 
-    private val timestampFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-    private val dateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    private val timestampFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+    private val dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
     private val lock = ReentrantLock()
 

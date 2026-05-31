@@ -266,7 +266,7 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
                 text = {
                     DefaultColumn {
                         ListItem(
-                            headlineContent = { Text(if (useWhitelist) "黑名单 [> 白名单]" else "[> 黑名单] 白名单") },
+                            headlineContent = { Text(if (useWhitelist) "黑名单 [> 白名单 <]" else "[> 黑名单 <] 白名单") },
                             supportingContent = { Text(if (useWhitelist) "仅对选中联系人抢红包" else "对选中联系人跳过抢红包") },
                             trailingContent = { Switch(checked = useWhitelist, onCheckedChange = { useWhitelist = it }) },
                             modifier = Modifier.clickable { useWhitelist = !useWhitelist }

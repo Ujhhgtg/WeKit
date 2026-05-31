@@ -262,7 +262,7 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
                 } while (cursor.moveToNext())
             }
         } catch (e: Exception) {
-            WeLogger.e(TAG, "SQL Query 执行异常", e)
+            WeLogger.e(TAG, "sql query failed", e)
         } finally {
             cursor?.close()
         }

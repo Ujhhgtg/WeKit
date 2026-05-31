@@ -12,13 +12,13 @@ object JsEngine {
 
     private val TAG = This.Class.simpleName
 
-    fun executeAllOnLoad(rules: Map<String, String>) {
-        for (rule in rules) {
-            WeLogger.d(TAG, "executing onLoad for rule name='${rule.key}'")
+    fun executeAllOnLoad(scripts: Map<String, String>) {
+        for (script in scripts) {
+            WeLogger.d(TAG, "executing onLoad for script name='${script.key}'")
             try {
-                executeOnLoad(rule.value)
+                executeOnLoad(script.value)
             } catch (e: Exception) {
-                WeLogger.e(TAG, "rule name='${rule.key}' threw during onLoad", e)
+                WeLogger.e(TAG, "script name='${script.key}' threw during onLoad", e)
             }
         }
     }
@@ -43,7 +43,7 @@ object JsEngine {
     }
 
     fun executeAllOnMessage(
-        rules: Map<String, String>,
+        scripts: Map<String, String>,
         talker: String,
         content: String,
         type: Int,
@@ -54,13 +54,13 @@ object JsEngine {
             return
         }
 
-        for (rule in rules) {
-            WeLogger.d(TAG, "evaluating rule name='${rule.key}'")
+        for (script in scripts) {
+            WeLogger.d(TAG, "evaluating script name='${script.key}'")
 
             try {
-                executeOnMessage(rule.value, talker, content, type, isSend)
+                executeOnMessage(script.value, talker, content, type, isSend)
             } catch (e: Exception) {
-                WeLogger.e(TAG, "rule name='${rule.key}' threw during onMessage", e)
+                WeLogger.e(TAG, "script name='${script.key}' threw during onMessage", e)
             }
         }
     }
@@ -97,14 +97,14 @@ object JsEngine {
     ): JSONObject {
         var modifiedJson = json
 
-        for (rule in JsScriptingHook.rules) {
+        for (script in JsScriptingHook.scripts) {
             try {
-                val result = executeOnRequest(rule.value, uri, cgiId, modifiedJson)
+                val result = executeOnRequest(script.value, uri, cgiId, modifiedJson)
                 if (result != null) {
                     modifiedJson = result
                 }
             } catch (e: Exception) {
-                WeLogger.e(TAG, "rule name='${rule.key}' threw during onRequest", e)
+                WeLogger.e(TAG, "script name='${script.key}' threw during onRequest", e)
             }
         }
 
@@ -159,14 +159,14 @@ object JsEngine {
     ): JSONObject {
         var modifiedJson = json
 
-        for (rule in JsScriptingHook.rules) {
+        for (script in JsScriptingHook.scripts) {
             try {
-                val result = executeOnResponse(rule.value, uri, cgiId, modifiedJson)
+                val result = executeOnResponse(script.value, uri, cgiId, modifiedJson)
                 if (result != null) {
                     modifiedJson = result
                 }
             } catch (e: Exception) {
-                WeLogger.e(TAG, "rule name='${rule.key}' threw during onResponse", e)
+                WeLogger.e(TAG, "script name='${script.key}' threw during onResponse", e)
             }
         }
 

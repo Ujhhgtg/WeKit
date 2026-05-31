@@ -150,7 +150,7 @@ object WeMomentsContextMenuApi : ApiHookItem(), IResolvesDex {
                 param.result = null
                 return
             } catch (e: Throwable) {
-                WeLogger.e(TAG, "OnSelect 回调执行异常", e)
+                WeLogger.e(TAG, "onSelect callback failed", e)
             }
         }
     }

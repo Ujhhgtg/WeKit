@@ -105,7 +105,8 @@ private fun AppContent(onUrlClick: (String) -> Unit) {
 
     var showMenu by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
-    var showConfirmDeletionDialog by remember { mutableStateOf(false) }
+    var showConfirmDeleteTinkerDialog by remember { mutableStateOf(false) }
+    var showConfirmDeleteModuleDataDialog by remember { mutableStateOf(false) }
     var showNoRootDialog by remember { mutableStateOf(false) }
 
     var isLauncherIconEnabled by remember {
@@ -186,10 +187,17 @@ private fun AppContent(onUrlClick: (String) -> Unit) {
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
+                            text = { Text("清除模块数据") },
+                            onClick = {
+                                showMenu = false
+                                showConfirmDeleteModuleDataDialog = true
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text("修复模块加载") },
                             onClick = {
                                 showMenu = false
-                                showConfirmDeletionDialog = true
+                                showConfirmDeleteTinkerDialog = true
                             }
                         )
                         DropdownMenuItem(
@@ -358,33 +366,72 @@ private fun AppContent(onUrlClick: (String) -> Unit) {
                 }
             }
 
-            if (showConfirmDeletionDialog) {
+            if (showConfirmDeleteTinkerDialog) {
                 val paths = remember {
-                    val userId = context.androidUserId
                     @Suppress("SdCardPath")
                     listOf(
-                        "/data/user/$userId/${PackageNames.WECHAT}/tinker",
-                        "/data/user/$userId/${PackageNames.WECHAT}/tinker_server",
-                        "/data/user/$userId/${PackageNames.WECHAT}/tinker_temp"
+                        "/data/data/${PackageNames.WECHAT}/tinker",
+                        "/data/data/${PackageNames.WECHAT}/tinker_server",
+                        "/data/data/${PackageNames.WECHAT}/tinker_temp"
                     )
                 }
 
                 AlertDialog(
-                    onDismissRequest = { showConfirmDeletionDialog = false },
+                    onDismissRequest = { showConfirmDeleteTinkerDialog = false },
                     title = { Text("修复模块加载") },
                     text = {
                         Text(
-                            "本操作将尝试修复微信热更新导致的模块不加载\n将删除以下路径的文件, 请确认无误后再删除!\n${
+                            "本操作将尝试修复微信热更新导致的模块不加载, 执行后请重启微信\n将删除以下路径的文件, 请确认无误后再删除!\n${
                                 paths.joinToString("\n") { "- $it" }
                             }"
                         )
                     },
                     dismissButton = {
-                        TextButton(onClick = { showConfirmDeletionDialog = false }) { Text("取消") }
+                        TextButton(onClick = { showConfirmDeleteTinkerDialog = false }) { Text("取消") }
                     },
                     confirmButton = {
                         Button(onClick = {
-                            showConfirmDeletionDialog = false
+                            showConfirmDeleteTinkerDialog = false
+                            if (!(Shell.isAppGrantedRoot() ?: false)) {
+                                showNoRootDialog = true
+                            } else {
+                                // if using Shell.cmd or su -c without -mm, the view of /data/user/0 is restricted
+                                paths.forEach { path ->
+                                    ProcessBuilder("su", "-mm", "-c", "rm -rf $path")
+                                        .redirectErrorStream(true)
+                                        .start()
+                                }
+                                showToast(context, "删除成功!")
+                            }
+                        }) { Text("确定") }
+                    })
+            }
+
+            if (showConfirmDeleteModuleDataDialog) {
+                val paths = remember {
+                    @Suppress("SdCardPath")
+                    listOf(
+                        "/data/data/${PackageNames.WECHAT}/files/mmkv/wekit_prefs",
+                        "/data/data/${PackageNames.WECHAT}/files/mmkv/wekit_prefs.crc",
+                    )
+                }
+
+                AlertDialog(
+                    onDismissRequest = { showConfirmDeleteModuleDataDialog = false },
+                    title = { Text("清除模块数据") },
+                    text = {
+                        Text(
+                            "本操作将删除模块的功能配置, 用于解决部分功能导致微信无限闪退, 删除后请重启微信\n此操作*不会*重新执行 DEX 解析\n将删除以下路径的文件, 请确认无误后再删除!\n${
+                                paths.joinToString("\n") { "- $it" }
+                            }"
+                        )
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showConfirmDeleteModuleDataDialog = false }) { Text("取消") }
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            showConfirmDeleteModuleDataDialog = false
                             if (!(Shell.isAppGrantedRoot() ?: false)) {
                                 showNoRootDialog = true
                             } else {

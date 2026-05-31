@@ -379,16 +379,43 @@ declare namespace task {
     function run(fn: () => void): void;
 }
 
+// --- 宿主信息 API ---
+
+declare namespace hostinfo {
+    /**
+     * 当前宿主 (WeChat) 的 Application 对象，可作为 Context 使用
+     * @example
+     * const ctx = hostinfo.application;
+     * android.widget.Toast.makeText(ctx, "Hello", 0).show();
+     */
+    const application: unknown;
+
+    /**
+     * 宿主包名，例如 "com.tencent.mm"
+     */
+    const packageName: string;
+
+    /**
+     * 宿主版本号 (versionCode)
+     */
+    const versionCode: number;
+
+    /**
+     * 宿主版本名 (versionName)
+     */
+    const versionName: string;
+}
+
 // --- Xposed Hook API ---
 
 declare namespace xposed {
     /**
      * 在目标 Java 方法执行前插入钩子（通过 JavaMethod 对象匹配）
-     * @param method 通过 reflect.methods/firstMethod 获取的 JavaMethod 对象
+     * @param method 通过 reflect.findMethods/findFirstMethod 获取的 JavaMethod 对象
      * @param hookFunc 钩子回调函数，接收 (thisObj, args)
      *   若返回非 undefined 的值，将作为方法的返回值
      * @example
-     * const m = reflect.firstMethod("com.example.Cls", function(name, pt, ret, mods) {
+     * const m = reflect.findFirstMethod("com.example.Cls", function(name, pt, ret, mods) {
      *   return name === "targetMethod";
      * });
      * xposed.hookBefore(m, function(thisObj, args) {
@@ -417,7 +444,7 @@ declare namespace xposed {
 
     /**
      * 在目标 Java 方法执行后插入钩子（通过 JavaMethod 对象匹配）
-     * @param method 通过 reflect.methods/firstMethod 获取的 JavaMethod 对象
+     * @param method 通过 reflect.findMethods/findFirstMethod 获取的 JavaMethod 对象
      * @param hookFunc 钩子回调函数，接收 (thisObj, args, originalResult)
      *   若返回非 undefined 的值，将作为方法的新返回值
      */
@@ -450,7 +477,7 @@ interface JavaField {
     /** 所属类的全限定名 */
     readonly className: string;
     /** 字段类型的全限定名 */
-    readonly type: string;
+    readonly type: JavaClass;
     /**
      * 修饰符数组
      * @example ["public", "static", "final"]
@@ -462,12 +489,12 @@ interface JavaField {
      * @returns 字段的值
      * @example
      * // 读取静态 int 字段
-     * const f = reflect.firstField("com.example.Cls", (n, t, m) => n === "count" && t === "int");
+     * const f = reflect.findFirstField("com.example.Cls", (n, t, m) => n === "count" && t === "int");
      * const val = f.get();
      * log.i("count =", val);
      *
      * // 读取实例字段
-     * const nameField = reflect.firstField("com.example.User", (n) => n === "name");
+     * const nameField = reflect.findFirstField("com.example.User", (n) => n === "name");
      * const userName = nameField.get(userInstance);
      */
     get(instance?: object): unknown;
@@ -477,11 +504,11 @@ interface JavaField {
      * @param value 要设置的值（实例字段需要此参数）
      * @example
      * // 设置静态字段
-     * reflect.firstField("com.example.Config", (n) => n === "debug")
+     * reflect.findFirstField("com.example.Config", (n) => n === "debug")
      *   .set(true);
      *
      * // 设置实例字段：set(instance, newValue)
-     * const balanceField = reflect.firstField("com.example.Account", (n) => n === "balance");
+     * const balanceField = reflect.findFirstField("com.example.Account", (n) => n === "balance");
      * balanceField.set(accountObj, 100);
      */
     set(instanceOrValue: object, value?: object): void;
@@ -495,9 +522,9 @@ interface JavaMethod {
     /** JVM 方法描述符，例如 "(Landroid/os/Bundle;)V" */
     readonly descriptor: string;
     /** 参数类型全限定名数组 */
-    readonly paramTypes: string[];
+    readonly paramTypes: JavaClass[];
     /** 返回值类型的全限定名 */
-    readonly returnType: string;
+    readonly returnType: JavaClass;
     /** 修饰符数组 */
     readonly modifiers: string[];
     /**
@@ -508,7 +535,7 @@ interface JavaMethod {
      *   不会被同名其他重载触发。
      * @example
      * // 钩住特定重载的 onCreate
-     * const m = reflect.firstMethod("com.tencent.mm.ui.LauncherUI",
+     * const m = reflect.findFirstMethod("com.tencent.mm.ui.LauncherUI",
      *   (name, pt) => name === "onCreate" && pt.length === 1 && pt[0] === "android.os.Bundle"
      * );
      * m.hookBefore((thisObj, args) => {
@@ -525,7 +552,7 @@ interface JavaMethod {
      * @remarks 此钩子绑定到精确重载，不会影响同名其他重载。
      * @example
      * // 修改方法返回值
-     * const m = reflect.firstMethod("com.example.Calculator",
+     * const m = reflect.findFirstMethod("com.example.Calculator",
      *   (name, pt, ret) => name === "add" && pt.length === 2 && ret === "int"
      * );
      * m.hookAfter((thisObj, args, result) => {
@@ -545,12 +572,12 @@ interface JavaMethod {
      *   若调用抛出异常，exception 为 true，value 为异常对象
      * @example
      * // 调用静态方法
-     * const m = reflect.firstMethod("com.example.Util", (n) => n === "getVersion");
+     * const m = reflect.findFirstMethod("com.example.Util", (n) => n === "getVersion");
      * const rv = m.invoke(null, []);
      * if (!rv.exception) log.i("版本:", rv.value);
      *
      * // 调用实例方法
-     * const m2 = reflect.firstMethod("com.example.User", (n, pt) => n === "getName" && pt.length === 0);
+     * const m2 = reflect.findFirstMethod("com.example.User", (n, pt) => n === "getName" && pt.length === 0);
      * const rv2 = m2.invoke(userInstance, []);
      * log.i("用户名:", rv2.value);
      */
@@ -566,25 +593,50 @@ interface JavaClass {
      * @returns 新创建的实例
      * @example
      * // 创建无参实例
-     * const clazz = reflect.toJavaClass("com.example.User");
+     * const clazz = reflect.toClass("com.example.User");
      * const user = clazz.createInstance([]);
      *
      * // 创建有参实例
-     * const bufClazz = reflect.toJavaClass("java.lang.StringBuilder");
+     * const bufClazz = reflect.toClass("java.lang.StringBuilder");
      * const buf = bufClazz.createInstance(["Hello"]);
      */
     createInstance(args: unknown[]): unknown;
+
+    /**
+     * 获取该类的所有声明方法
+     * @returns JavaMethod 数组
+     * @example
+     * const clazz = reflect.toClass("com.example.User");
+     * const methods = clazz.getMethods();
+     * for (let i = 0; i < methods.length; i++) {
+     *   log.i(methods[i].name);
+     * }
+     */
+    getMethods(): JavaMethod[];
+
+    /**
+     * 获取该类的所有声明字段
+     * @returns JavaField 数组
+     * @example
+     * const clazz = reflect.toClass("com.example.User");
+     * const fields = clazz.getFields();
+     * for (let i = 0; i < fields.length; i++) {
+     *   log.i(fields[i].name);
+     * }
+     */
+    getFields(): JavaField[];
 }
 
 declare namespace reflect {
     /**
      * 查找类中所有符合条件的字段
      * @param className 目标类的全限定名
+     * @param superclass 是否搜索继承的 public 字段（true 时使用 Class.getFields()，会包含父类的 public 字段）
      * @param condition 过滤条件，接收 (name, type, modifiers)
      * @returns 匹配的字段数组
      * @example
      * // 查找所有静态 int 字段并打印值
-     * const intFields = reflect.fields("com.tencent.mm.some.Class",
+      * const intFields = reflect.findFields("com.tencent.mm.some.Class", false,
      *   (name, type, mods) => mods.includes("static") && type === "int"
      * );
      * for (let i = 0; i < intFields.length; i++) {
@@ -592,54 +644,30 @@ declare namespace reflect {
      * }
      *
      * // 查找 String 类型的字段
-     * const strFields = reflect.fields("com.example.Config",
+     * const strFields = reflect.findFields("com.example.Config", false,
      *   (name, type) => type === "java.lang.String"
      * );
      * log.i("找到", strFields.length, "个 String 字段");
      *
      * // 结合 modifiers 过滤：查找 public 字段
-     * const pubFields = reflect.fields("com.example.Data",
+     * const pubFields = reflect.findFields("com.example.Data", false,
      *   (name, type, mods) => mods.includes("public")
      * );
      * for (let i = 0; i < pubFields.length; i++) {
      *   log.i("公开字段:", pubFields[i].name, "=", pubFields[i].get());
      * }
      */
-    function fields(className: string, condition: (name: string, type: string, modifiers: string[]) => boolean): JavaField[];
-
-    /**
-     * 查找类中第一个符合条件的字段
-     * @param className 目标类的全限定名
-     * @param condition 过滤条件，接收 (name, type, modifiers)
-     * @returns 匹配的字段，未找到返回 null
-     * @example
-     * // 按名称查找单例实例
-     * const instanceField = reflect.firstField("com.example.App",
-     *   (name, type, mods) => name === "sInstance" && mods.includes("static")
-     * );
-     * if (instanceField) {
-     *   const app = instanceField.get();
-     *   log.i("App instance:", app);
-     * } else {
-     *   log.w("未找到 sInstance 字段");
-     * }
-     *
-     * // 快速检查某个字段是否存在
-     * const hasCache = reflect.firstField("com.example.Service",
-     *   (n) => n === "cache"
-     * ) !== null;
-     * log.i("是否有 cache 字段:", hasCache);
-     */
-    function firstField(className: string, condition: (name: string, type: string, modifiers: string[]) => boolean): JavaField | null;
+    function findFields(className: string, superclass: boolean, condition: (name: string, type: JavaClass, modifiers: string[]) => boolean): JavaField[];
 
     /**
      * 查找类中所有符合条件的方法
      * @param className 目标类的全限定名
+     * @param superclass 是否搜索继承的 public 方法（true 时使用 Class.getMethods()，会包含父类的 public 方法）
      * @param condition 过滤条件，接收 (name, paramTypes, returnType, modifiers)
      * @returns 匹配的方法数组
      * @example
      * // 精确匹配带 Bundle 参数的 onCreate（避免匹配无参的 onCreate）
-     * const onCreateMethods = reflect.methods("com.tencent.mm.ui.LauncherUI",
+     * const onCreateMethods = reflect.findMethods("com.tencent.mm.ui.LauncherUI", false,
      *   (name, paramTypes) =>
      *     name === "onCreate" &&
      *     paramTypes.length === 1 &&
@@ -652,7 +680,7 @@ declare namespace reflect {
      * }
      *
      * // 查找所有返回 boolean 的无参方法
-     * const boolMethods = reflect.methods("com.example.Checker",
+     * const boolMethods = reflect.findMethods("com.example.Checker", false,
      *   (name, paramTypes, retType) =>
      *     paramTypes.length === 0 && retType === "boolean"
      * );
@@ -661,13 +689,13 @@ declare namespace reflect {
      * }
      *
      * // 使用 modifiers 筛选私有方法
-     * const privateMethods = reflect.methods("com.example.Internal",
+     * const privateMethods = reflect.findMethods("com.example.Internal", false,
      *   (name, pt, ret, mods) => mods.includes("private")
      * );
      * log.i("私有方法数量:", privateMethods.length);
      *
      * // 批量钩住特定模式的方法
-     * const setters = reflect.methods("com.example.User",
+     * const setters = reflect.findMethods("com.example.User", false,
      *   (name, pt, ret) => name.startsWith("set") && pt.length === 1 && ret === "void"
      * );
      * for (let i = 0; i < setters.length; i++) {
@@ -677,40 +705,14 @@ declare namespace reflect {
      * }
      *
      * // 配合 xposed.hookBefore 使用 JavaMethod（等效）
-     * const m = reflect.firstMethod("com.example.Service",
+     * const m = reflect.findFirstMethod("com.example.Service", false,
      *   (name, pt) => name === "handle" && pt.length === 2
      * );
      * xposed.hookBefore(m, (thisObj, args) => {
      *   log.i("handle 方法被调用");
      * });
      */
-    function methods(className: string, condition: (name: string, paramTypes: string[], returnType: string, modifiers: string[]) => boolean): JavaMethod[];
-
-    /**
-     * 查找类中第一个符合条件的方法
-     * @param className 目标类的全限定名
-     * @param condition 过滤条件，接收 (name, paramTypes, returnType, modifiers)
-     * @returns 匹配的方法，未找到返回 null
-     * @example
-     * // 查找特定方法并直接钩住
-     * const sendMsg = reflect.firstMethod("com.tencent.mm.storage.MsgInfoStorage",
-     *   (name, pt, ret) => name === "insert" && pt.length === 1 && ret === "long"
-     * );
-     * if (sendMsg) {
-     *   sendMsg.hookAfter((thisObj, args, result) => {
-     *     log.i("insert 返回:", result);
-     *   });
-     * } else {
-     *   log.w("未找到 insert(long) 方法");
-     * }
-     *
-     * // 检查方法是否存在
-     * const hasMethod = reflect.firstMethod("com.example.Cls",
-     *   (n) => n === "targetMethod"
-     * ) !== null;
-     * log.i("targetMethod 存在:", hasMethod);
-     */
-    function firstMethod(className: string, condition: (name: string, paramTypes: string[], returnType: string, modifiers: string[]) => boolean): JavaMethod | null;
+    function findMethods(className: string, superclass: boolean, condition: (name: string, paramTypes: JavaClass[], returnType: JavaClass, modifiers: string[]) => boolean): JavaMethod[];
 
     /**
      * 获取 Java 类的封装对象
@@ -718,26 +720,26 @@ declare namespace reflect {
      * @returns JavaClass 对象，失败返回 null
      * @example
      * // 创建无参实例
-     * const clazz = reflect.toJavaClass("com.example.User");
+     * const clazz = reflect.toClass("com.example.User");
      * if (clazz) {
      *   const user = clazz.createInstance([]);
      *   log.i("创建成功:", user);
      * }
      *
      * // 创建有参实例
-     * const sb = reflect.toJavaClass("java.lang.StringBuilder");
+     * const sb = reflect.toClass("java.lang.StringBuilder");
      * if (sb) {
      *   const instance = sb.createInstance(["Hello"]);
      *   log.i("StringBuilder 实例:", instance);
      * }
      *
      * // 配合 reflect.*Method 使用
-     * const clz = reflect.toJavaClass("com.example.Config");
+     * const clz = reflect.toClass("com.example.Config");
      * const cfg = clz.createInstance([]);
-     * const m = reflect.firstMethod("com.example.Config", (n) => n === "setup");
+     * const m = reflect.findFirstMethod("com.example.Config", (n) => n === "setup");
      * if (m) m.invoke(cfg, []);
      */
-    function toJavaClass(className: string): JavaClass | null;
+    function toClass(className: string): JavaClass | null;
 }
 
 // --- DexKit API (基于字节码的搜索) ---
@@ -753,9 +755,9 @@ interface MethodsSearcher {
     /** 方法名 */
     name?: string;
     /** 参数类型全限定名数组 */
-    paramTypes?: string[];
+    paramTypes?: (string | JavaClass)[];
     /** 返回值类型全限定名 */
-    returnType?: string;
+    returnType?: string | JavaClass;
     /** 参数数量 */
     paramCount?: number;
 }
@@ -862,7 +864,7 @@ declare namespace dexkit {
      *   if (singleOne) {
      *     log.i("唯一匹配:", singleOne);
      *     // 配合 reflect API 继续查找
-     *     const methods = reflect.methods(singleOne, (name) => name === "insert");
+     *     const methods = reflect.findMethods(singleOne, (name) => name === "insert");
      *     log.i("该类有", methods.length, "个 insert 方法");
      *   }
      * }

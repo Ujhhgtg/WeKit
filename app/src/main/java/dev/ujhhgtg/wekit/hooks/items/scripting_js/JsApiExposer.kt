@@ -9,6 +9,7 @@ import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.hooks.api.net.WePacketHelper
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirectoriesNoThrow
@@ -18,10 +19,16 @@ import dev.ujhhgtg.wekit.utils.reflection.asMethod
 import dev.ujhhgtg.wekit.utils.reflection.dexKit
 import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.longOrNull
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -80,6 +87,7 @@ object JsApiExposer {
         exposeReflectApis(scope)
         exposeDexKitApis(scope)
         exposeTaskApis(scope)
+        exposeHostInfoApis(scope)
         exposeWeChatApis(scope, talker)
     }
 
@@ -171,15 +179,22 @@ object JsApiExposer {
                     return try {
                         val cacheDir = (KnownPaths.moduleCache / "javascript_http_api").createDirectoriesNoThrow()
 
-                        // drop cache if size too large
-                        if (cacheDir.fileSize() / 1024 / 1024 >= MAX_CACHE_SIZE_IN_MIB) {
+                        // drop cache if total size of files exceeds limit
+                        val totalBytes = try {
+                            java.nio.file.Files.walk(cacheDir)
+                                .filter { !java.nio.file.Files.isDirectory(it) }
+                                .mapToLong { it.fileSize() }
+                                .sum()
+                        } catch (_: Exception) {
+                            0L
+                        }
+                        if (totalBytes / 1024 / 1024 >= MAX_CACHE_SIZE_IN_MIB) {
                             WeLogger.w(
                                 TAG,
                                 "http.download cache size too large, dropping cache..."
                             )
                             cacheDir.deleteRecursively()
                         }
-                        cacheDir.createDirectoriesNoThrow()
 
                         val destFile = cacheDir.resolve(filename)
 
@@ -261,9 +276,8 @@ object JsApiExposer {
                 formBuilder.build()
             }
 
-            else -> {
-                "".toRequestBody("text/plain; charset=utf-8".toMediaType())
-            }
+            // No body — use empty RequestBody without content-type
+            else -> "".toRequestBody(null)
         }
 
         requestBuilder.post(body)
@@ -504,9 +518,7 @@ object JsApiExposer {
     @Suppress("JavaCollectionWithNullableTypeArgument")
     private val storage = ConcurrentHashMap<String, Any?>()
 
-    private val DATA_DIR_PATH by lazy {
-        (KnownPaths.moduleData / "data").createDirectoriesNoThrow()
-    }
+    private val DATA_DIR_PATH by lazy { (KnownPaths.moduleData / "data").createDirectoriesNoThrow() }
 
     private val storageFile get() = DATA_DIR_PATH.resolve("javascript_storage_api.json")
 
@@ -517,22 +529,70 @@ object JsApiExposer {
     private val saveHandler = Handler(Looper.getMainLooper())
     private val saveRunnable = Runnable {
         runCatching {
-            storageFile.writeText(DefaultJson.encodeToString(storage.mapValues { it.value }))
+            val json = buildJsonObject {
+                storage.forEach { (key, value) ->
+                    storageValueToJson(value)?.let { put(key, it) }
+                }
+            }
+            storageFile.writeText(DefaultJson.encodeToString(json))
         }.onFailure { WeLogger.e(TAG, "failed to save js storage to disk", it) }
+    }
+
+    private fun storageValueToJson(value: Any?): JsonElement? = when (value) {
+        null -> JsonNull
+        is String -> JsonPrimitive(value)
+        is Boolean -> JsonPrimitive(value)
+        is Number -> JsonPrimitive(value)
+        is NativeObject -> {
+            buildJsonObject {
+                value.keys.forEach { key ->
+                    val child = storageValueToJson(value[key])
+                    if (child != null) put(key.toString(), child)
+                }
+            }
+        }
+
+        is NativeArray -> {
+            buildJsonArray {
+                for (i in 0 until value.length) {
+                    val child = storageValueToJson(value[i])
+                    if (child != null) add(child)
+                }
+            }
+        }
+
+        else -> null // skip functions, wrappers, etc.
     }
 
     private fun loadStorageFromDisk() {
         runCatching {
             if (!storageFile.exists()) return
-            val map = DefaultJson.decodeFromString<Map<String, JsonElement>>(storageFile.readText())
-            map.forEach { (k, v) ->
-                storage[k] = when (v) {
-                    is JsonPrimitive if v.isString -> v.content
-                    is JsonPrimitive -> v.jsonPrimitive.contentOrNull
-                    else -> v.toString()
-                }
+            val root = DefaultJson.decodeFromString<JsonObject>(storageFile.readText())
+            root.forEach { (k, v) ->
+                storage[k] = jsonToStorageValue(v)
             }
         }.onFailure { WeLogger.e(TAG, "failed to load js storage from disk", it) }
+    }
+
+    private fun jsonToStorageValue(element: JsonElement): Any? = when (element) {
+        is JsonNull -> null
+
+        is JsonPrimitive -> when {
+            element.isString -> element.content
+            else -> element.booleanOrNull ?: element.longOrNull ?: element.doubleOrNull ?: element.content
+        }
+
+        is JsonObject -> {
+            val map = LinkedHashMap<String, Any?>(element.size)
+            element.forEach { (k, v) -> map[k] = jsonToStorageValue(v) }
+            map
+        }
+
+        is JsonArray -> {
+            val list = ArrayList<Any?>(element.size)
+            element.forEach { list.add(jsonToStorageValue(it)) }
+            list
+        }
     }
 
     // prevent blocking js execution if the file grows too large, but that would be a misuse of this API anyway
@@ -557,7 +617,7 @@ object JsApiExposer {
                     val key = args.getOrNull(0)?.toString() ?: return null
                     val value = storage[key]
 
-                    return value ?: Undefined.instance
+                    return value?.let { Context.javaToJS(it, scope, cx) } ?: Undefined.instance
                 }
             }
         )
@@ -573,8 +633,8 @@ object JsApiExposer {
                     args: Array<Any?>
                 ): Any? {
                     val key = args.getOrNull(0)?.toString() ?: return args.getOrNull(1)
-                    return storage.getOrDefault(key, args.getOrNull(1))
-                        ?: Undefined.instance
+                    val value = storage.getOrDefault(key, args.getOrNull(1))
+                    return value?.let { Context.javaToJS(it, scope, cx) } ?: Undefined.instance
                 }
             }
         )
@@ -636,8 +696,9 @@ object JsApiExposer {
                     args: Array<Any?>
                 ): Any? {
                     val key = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                    return (storage.remove(key)
-                        ?: Undefined.instance).also { saveStorageToDisk() }
+                    val removed = storage.remove(key)
+                    saveStorageToDisk()
+                    return removed?.let { Context.javaToJS(it, scope, cx) } ?: Undefined.instance
                 }
             }
         )
@@ -684,7 +745,7 @@ object JsApiExposer {
                     args: Array<Any?>
                 ): Any {
                     // Converts Kotlin Set to a JS Array
-                    return cx.newArray(scope, storage.keys.toTypedArray())
+                    return cx.newArray(scope, storage.keys.toTypedArray<Any>())
                 }
             }
         )
@@ -707,91 +768,66 @@ object JsApiExposer {
         ScriptableObject.putProperty(scope, "storage", storageObj)
     }
 
+    private fun exposeHostInfoApis(scope: ScriptableObject) {
+        val hostObj = NativeObject()
+
+        ScriptableObject.putProperty(hostObj, "application", HostInfo.application)
+        ScriptableObject.putProperty(hostObj, "packageName", HostInfo.packageName)
+        ScriptableObject.putProperty(hostObj, "versionCode", HostInfo.versionCode)
+        ScriptableObject.putProperty(hostObj, "versionName", HostInfo.versionName)
+        ScriptableObject.putProperty(hostObj, "isHostGooglePlay", HostInfo.isHostGooglePlay)
+
+        ScriptableObject.putProperty(scope, "hostinfo", hostObj)
+    }
+
     private fun exposeWeChatApis(scope: ScriptableObject, talker: String? = null) {
         val weObj = NativeObject()
 
-        ScriptableObject.putProperty(
-            weObj, "sendText",
-            object : BaseFunction() {
+        fun NativeObject.putAction(name: String, action: (Array<Any?>) -> Unit) {
+            ScriptableObject.putProperty(this, name, object : BaseFunction() {
                 override fun call(
                     cx: Context,
                     scope: Scriptable,
                     thisObj: Scriptable,
                     args: Array<Any?>
                 ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                    val text = args.getOrNull(1)?.toString() ?: return Undefined.instance
-                    WeMessageApi.sendText(to, text)
+                    action(args)
                     return Undefined.instance
                 }
+            })
+        }
+
+        weObj.putAction("sendText") { args ->
+            val to = args.getOrNull(0)?.toString()
+            val text = args.getOrNull(1)?.toString()
+            if (to != null && text != null) WeMessageApi.sendText(to, text)
+        }
+        weObj.putAction("sendImage") { args ->
+            val to = args.getOrNull(0)?.toString()
+            val path = args.getOrNull(1)?.toString()
+            if (to != null && path != null) WeMessageApi.sendImage(to, path)
+        }
+        weObj.putAction("sendFile") { args ->
+            val to = args.getOrNull(0)?.toString()
+            val path = args.getOrNull(1)?.toString()
+            if (to != null && path != null) {
+                val title = args.getOrNull(2)?.toString() ?: path.substringAfterLast('/')
+                WeMessageApi.sendFile(to, path, title)
             }
-        )
-        ScriptableObject.putProperty(
-            weObj, "sendImage",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                    val path = args.getOrNull(1)?.toString() ?: return Undefined.instance
-                    WeMessageApi.sendImage(to, path)
-                    return Undefined.instance
-                }
+        }
+        weObj.putAction("sendVoice") { args ->
+            val to = args.getOrNull(0)?.toString()
+            val path = args.getOrNull(1)?.toString()
+            if (to != null && path != null) {
+                val durationMs = (args.getOrNull(2) as? Number)?.toInt() ?: 0
+                WeMessageApi.sendVoice(to, path, durationMs)
             }
-        )
-        ScriptableObject.putProperty(
-            weObj, "sendFile",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                    val path = args.getOrNull(1)?.toString() ?: return Undefined.instance
-                    val title = args.getOrNull(2)?.toString() ?: path.substringAfterLast('/')
-                    WeMessageApi.sendFile(to, path, title)
-                    return Undefined.instance
-                }
-            }
-        )
-        ScriptableObject.putProperty(
-            weObj, "sendVoice",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                    val path = args.getOrNull(1)?.toString() ?: return Undefined.instance
-                    val durationMs = (args.getOrNull(2) as? Number)?.toInt() ?: 0
-                    WeMessageApi.sendVoice(to, path, durationMs)
-                    return Undefined.instance
-                }
-            }
-        )
-        ScriptableObject.putProperty(
-            weObj, "sendAppMsg",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val to = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                    val content = args.getOrNull(1)?.toString() ?: return Undefined.instance
-                    WeMessageApi.sendXmlAppMsg(to, content)
-                    return Undefined.instance
-                }
-            }
-        )
+        }
+        weObj.putAction("sendAppMsg") { args ->
+            val to = args.getOrNull(0)?.toString()
+            val content = args.getOrNull(1)?.toString()
+            if (to != null && content != null) WeMessageApi.sendXmlAppMsg(to, content)
+        }
         ScriptableObject.putProperty(
             weObj, "sendCgi",
             object : BaseFunction() {
@@ -825,83 +861,32 @@ object JsApiExposer {
             }
         )
         if (talker != null) {
-            ScriptableObject.putProperty(
-                weObj, "replyText",
-                object : BaseFunction() {
-                    override fun call(
-                        cx: Context,
-                        scope: Scriptable,
-                        thisObj: Scriptable,
-                        args: Array<Any?>
-                    ): Any? {
-                        val text = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                        WeMessageApi.sendText(talker, text)
-                        return Undefined.instance
-                    }
+            weObj.putAction("replyText") { args ->
+                val text = args.getOrNull(0)?.toString()
+                if (text != null) WeMessageApi.sendText(talker, text)
+            }
+            weObj.putAction("replyImage") { args ->
+                val path = args.getOrNull(0)?.toString()
+                if (path != null) WeMessageApi.sendImage(talker, path)
+            }
+            weObj.putAction("replyFile") { args ->
+                val path = args.getOrNull(0)?.toString()
+                if (path != null) {
+                    val title = args.getOrNull(1)?.toString() ?: path.substringAfterLast('/')
+                    WeMessageApi.sendFile(talker, path, title)
                 }
-            )
-            ScriptableObject.putProperty(
-                weObj, "replyImage",
-                object : BaseFunction() {
-                    override fun call(
-                        cx: Context,
-                        scope: Scriptable,
-                        thisObj: Scriptable,
-                        args: Array<Any?>
-                    ): Any? {
-                        val path = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                        WeMessageApi.sendImage(talker, path)
-                        return Undefined.instance
-                    }
+            }
+            weObj.putAction("replyVoice") { args ->
+                val path = args.getOrNull(0)?.toString()
+                if (path != null) {
+                    val durationMs = (args.getOrNull(1) as? Number)?.toInt() ?: 0
+                    WeMessageApi.sendVoice(talker, path, durationMs)
                 }
-            )
-            ScriptableObject.putProperty(
-                weObj, "replyFile",
-                object : BaseFunction() {
-                    override fun call(
-                        cx: Context,
-                        scope: Scriptable,
-                        thisObj: Scriptable,
-                        args: Array<Any?>
-                    ): Any? {
-                        val path = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                        val title = args.getOrNull(1)?.toString() ?: path.substringAfterLast('/')
-                        WeMessageApi.sendFile(talker, path, title)
-                        return Undefined.instance
-                    }
-                }
-            )
-            ScriptableObject.putProperty(
-                weObj, "replyVoice",
-                object : BaseFunction() {
-                    override fun call(
-                        cx: Context,
-                        scope: Scriptable,
-                        thisObj: Scriptable,
-                        args: Array<Any?>
-                    ): Any? {
-                        val path = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                        val durationMs = (args.getOrNull(1) as? Number)?.toInt() ?: 0
-                        WeMessageApi.sendVoice(talker, path, durationMs)
-                        return Undefined.instance
-                    }
-                }
-            )
-            ScriptableObject.putProperty(
-                weObj, "replyAppMsg",
-                object : BaseFunction() {
-                    override fun call(
-                        cx: Context,
-                        scope: Scriptable,
-                        thisObj: Scriptable,
-                        args: Array<Any?>
-                    ): Any? {
-                        val content = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                        WeMessageApi.sendXmlAppMsg(talker, content)
-                        return Undefined.instance
-                    }
-                }
-            )
+            }
+            weObj.putAction("replyAppMsg") { args ->
+                val content = args.getOrNull(0)?.toString()
+                if (content != null) WeMessageApi.sendXmlAppMsg(talker, content)
+            }
         }
         ScriptableObject.putProperty(weObj, "getSelfWxId", object : BaseFunction() {
             override fun call(
@@ -958,9 +943,10 @@ object JsApiExposer {
                                 ?: return Undefined.instance
                             try {
                                 val unhook = methodProp.makeAccessible().hookBeforeDirectly {
+                                    val cx = Context.enter()
+                                    val scope = cx.init()
                                     val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                                    val jsArgs = args.let { Context.javaToJS(it, scope, cx) }
-                                        ?: Undefined.instance
+                                    val jsArgs = cx.newArray(scope, this.args)
                                     val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs))
                                     if (hookResult != null && hookResult !is Undefined) {
                                         result = hookResult
@@ -971,6 +957,7 @@ object JsApiExposer {
                                 WeLogger.e(TAG_XPOSED_API, "xposed.hookBefore (JavaMethod) failed", e)
                             }
                         }
+                        return Undefined.instance
                     }
 
                     // Original (className, methodName, hookFunc) overload
@@ -986,9 +973,10 @@ object JsApiExposer {
                             return Undefined.instance
                         }
                         val unhook = method.hookBeforeDirectly {
+                            val cx = Context.enter()
+                            val scope = cx.init()
                             val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                            val jsArgs = args.let { Context.javaToJS(it, scope, cx) }
-                                ?: Undefined.instance
+                            val jsArgs = cx.newArray(scope, this.args)
                             val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs))
                             if (hookResult != null && hookResult !is Undefined) {
                                 result = hookResult
@@ -1031,9 +1019,10 @@ object JsApiExposer {
                                 ?: return Undefined.instance
                             try {
                                 val unhook = methodProp.makeAccessible().hookAfterDirectly {
+                                    val cx = Context.enter()
+                                    val scope = cx.init()
                                     val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                                    val jsArgs = args.let { Context.javaToJS(it, scope, cx) }
-                                        ?: Undefined.instance
+                                    val jsArgs = cx.newArray(scope, this.args)
                                     val jsResult = result?.let { Context.javaToJS(it, scope, cx) }
                                         ?: Undefined.instance
                                     val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs, jsResult))
@@ -1046,6 +1035,7 @@ object JsApiExposer {
                                 WeLogger.e(TAG_XPOSED_API, "xposed.hookAfter (JavaMethod) failed", e)
                             }
                         }
+                        return Undefined.instance
                     }
 
                     // Original (className, methodName, hookFunc) overload
@@ -1061,9 +1051,10 @@ object JsApiExposer {
                             return Undefined.instance
                         }
                         val unhook = method.hookAfterDirectly {
+                            val cx = Context.enter()
+                            val scope = cx.init()
                             val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                            val jsArgs = args.let { Context.javaToJS(it, scope, cx) }
-                                ?: Undefined.instance
+                            val jsArgs = cx.newArray(scope, this.args)
                             val jsResult = result?.let { Context.javaToJS(it, scope, cx) }
                                 ?: Undefined.instance
                             val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs, jsResult))
@@ -1099,10 +1090,10 @@ object JsApiExposer {
                         ?: return Undefined.instance
 
                     thread(name = "JsTaskThread") {
-                        val threadCx = Context.enter()
+                        val cx = Context.enter()
                         try {
-                            val threadScope = threadCx.init()
-                            func.call(threadCx, threadScope, thisObj, emptyArray())
+                            val scope = cx.init()
+                            func.call(cx, scope, thisObj, emptyArray())
                         } catch (e: Exception) {
                             WeLogger.e(TAG, "task.run failed", e)
                         } finally {
@@ -1143,7 +1134,7 @@ object JsApiExposer {
         return "($params)${getJvmDescriptor(method.returnType)}"
     }
 
-    private fun getModifierStrings(mods: Int): Array<String> =
+    private fun getModifierStrings(mods: Int): Array<Any> =
         Modifier.toString(mods).split(" ").toTypedArray()
 
     private fun createJavaClassObject(clazz: Class<*>): NativeObject {
@@ -1178,6 +1169,34 @@ object JsApiExposer {
             }
         })
 
+        ScriptableObject.putProperty(obj, "getMethods", object : BaseFunction() {
+            override fun call(
+                cx: Context,
+                scope: Scriptable,
+                thisObj: Scriptable,
+                args: Array<Any?>
+            ): Any {
+                val wrappers = clazz.declaredMethods.map {
+                    createJavaMethodObject(it, clazz.name, cx, scope)
+                }
+                return cx.newArray(scope, wrappers.toTypedArray<Any>())
+            }
+        })
+
+        ScriptableObject.putProperty(obj, "getFields", object : BaseFunction() {
+            override fun call(
+                cx: Context,
+                scope: Scriptable,
+                thisObj: Scriptable,
+                args: Array<Any?>
+            ): Any {
+                val wrappers = clazz.declaredFields.map {
+                    createJavaFieldObject(it, clazz.name, cx, scope)
+                }
+                return cx.newArray(scope, wrappers.toTypedArray<Any>())
+            }
+        })
+
         return obj
     }
 
@@ -1190,7 +1209,7 @@ object JsApiExposer {
         val obj = NativeObject()
         ScriptableObject.putProperty(obj, "name", field.name)
         ScriptableObject.putProperty(obj, "className", className)
-        ScriptableObject.putProperty(obj, "type", field.type.name)
+        ScriptableObject.putProperty(obj, "type", createJavaClassObject(field.type))
         ScriptableObject.putProperty(
             obj, "modifiers",
             cx.newArray(scope, getModifierStrings(field.modifiers))
@@ -1265,9 +1284,9 @@ object JsApiExposer {
         ScriptableObject.putProperty(obj, "descriptor", getMethodDescriptor(method))
         ScriptableObject.putProperty(
             obj, "paramTypes",
-            cx.newArray(scope, method.parameterTypes.map { it.name }.toTypedArray())
+            cx.newArray(scope, method.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
         )
-        ScriptableObject.putProperty(obj, "returnType", method.returnType.name)
+        ScriptableObject.putProperty(obj, "returnType", createJavaClassObject(method.returnType))
         ScriptableObject.putProperty(
             obj, "modifiers",
             cx.newArray(scope, getModifierStrings(method.modifiers))
@@ -1288,9 +1307,10 @@ object JsApiExposer {
                     ?: return Undefined.instance
                 try {
                     val unhook = method.makeAccessible().hookBeforeDirectly {
+                        val cx = Context.enter()
+                        val scope = cx.init()
                         val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                        val jsArgs = args.let { Context.javaToJS(it, scope, cx) }
-                            ?: Undefined.instance
+                        val jsArgs = cx.newArray(scope, this.args)
                         val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs))
                         if (hookResult != null && hookResult !is Undefined) {
                             result = hookResult
@@ -1315,11 +1335,11 @@ object JsApiExposer {
                     ?: return Undefined.instance
                 try {
                     val unhook = method.makeAccessible().hookAfterDirectly {
+                        val cx = Context.enter()
+                        val scope = cx.init()
                         val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                        val jsArgs = args.let { Context.javaToJS(it, scope, cx) }
-                            ?: Undefined.instance
+                        val jsArgs = cx.newArray(scope, this.args)
                         val jsResult = result?.let { Context.javaToJS(it, scope, cx) }
-                            ?: Undefined.instance
                         val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs, jsResult))
                         if (hookResult != null && hookResult !is Undefined) {
                             result = hookResult
@@ -1394,131 +1414,72 @@ object JsApiExposer {
     private fun exposeReflectApis(scope: ScriptableObject) {
         val reflectObj = NativeObject()
 
-        ScriptableObject.putProperty(reflectObj, "fields", object : BaseFunction() {
+        ScriptableObject.putProperty(reflectObj, "findFields", object : BaseFunction() {
             override fun call(
                 cx: Context,
                 scope: Scriptable,
                 thisObj: Scriptable,
                 args: Array<Any?>
             ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return cx.newArray(scope, emptyArray())
-                val condition = args.getOrNull(1) as? org.mozilla.javascript.Function
-                    ?: return cx.newArray(scope, emptyArray())
+                val className = args.getOrNull(0)?.toString() ?: return cx.newArray(scope, emptyArray<Any>())
+                val superclassFlag = Context.toBoolean(args.getOrNull(1))
+                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function
+                    ?: return cx.newArray(scope, emptyArray<Any>())
                 return try {
                     val clazz = className.toClass()
-                    val matches = clazz.declaredFields.filter { field ->
+                    val fields = if (superclassFlag) clazz.fields.toList() else clazz.declaredFields.toList()
+                    val matches = fields.filter { field ->
                         val modStrs = getModifierStrings(field.modifiers)
                         val jsModStrs = cx.newArray(scope, modStrs)
                         val condResult = condition.call(
                             cx, scope, thisObj,
-                            arrayOf(field.name, field.type.name, jsModStrs)
+                            arrayOf(field.name, createJavaClassObject(field.type), jsModStrs)
                         )
                         Context.toBoolean(condResult)
                     }
                     val wrappers = matches.map { createJavaFieldObject(it, className, cx, scope) }
-                    cx.newArray(scope, wrappers.toTypedArray())
+                    cx.newArray(scope, wrappers.toTypedArray<Any>())
                 } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.fields failed for $className", e)
-                    cx.newArray(scope, emptyArray())
+                    WeLogger.e(TAG_REFLECT_API, "reflect.findFields failed for $className", e)
+                    cx.newArray(scope, emptyArray<Any>())
                 }
             }
         })
 
-        ScriptableObject.putProperty(reflectObj, "firstField", object : BaseFunction() {
+        ScriptableObject.putProperty(reflectObj, "findMethods", object : BaseFunction() {
             override fun call(
                 cx: Context,
                 scope: Scriptable,
                 thisObj: Scriptable,
                 args: Array<Any?>
             ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                val condition = args.getOrNull(1) as? org.mozilla.javascript.Function
-                    ?: return Undefined.instance
+                val className = args.getOrNull(0)?.toString() ?: return cx.newArray(scope, emptyArray<Any>())
+                val superclassFlag = Context.toBoolean(args.getOrNull(1))
+                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function
+                    ?: return cx.newArray(scope, emptyArray<Any>())
                 return try {
                     val clazz = className.toClass()
-                    val match = clazz.declaredFields.firstOrNull { field ->
-                        val modStrs = getModifierStrings(field.modifiers)
-                        val jsModStrs = cx.newArray(scope, modStrs)
-                        val condResult = condition.call(
-                            cx, scope, thisObj,
-                            arrayOf(field.name, field.type.name, jsModStrs)
-                        )
-                        Context.toBoolean(condResult)
-                    }
-                    match?.let { createJavaFieldObject(it, className, cx, scope) }
-                        ?: Undefined.instance
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.firstField failed for $className", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(reflectObj, "methods", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return cx.newArray(scope, emptyArray())
-                val condition = args.getOrNull(1) as? org.mozilla.javascript.Function
-                    ?: return cx.newArray(scope, emptyArray())
-                return try {
-                    val clazz = className.toClass()
-                    val matches = clazz.declaredMethods.filter { method ->
-                        val paramTypeNames = method.parameterTypes.map { it.name }.toTypedArray()
-                        val jsParamTypes = cx.newArray(scope, paramTypeNames)
+                    val methods = if (superclassFlag) clazz.methods.toList() else clazz.declaredMethods.toList()
+                    val matches = methods.filter { method ->
+                        val jsParamTypes = cx.newArray(scope, method.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
                         val modStrs = getModifierStrings(method.modifiers)
                         val jsModStrs = cx.newArray(scope, modStrs)
                         val condResult = condition.call(
                             cx, scope, thisObj,
-                            arrayOf(method.name, jsParamTypes, method.returnType.name, jsModStrs)
+                            arrayOf(method.name, jsParamTypes, createJavaClassObject(method.returnType), jsModStrs)
                         )
                         Context.toBoolean(condResult)
                     }
                     val wrappers = matches.map { createJavaMethodObject(it, className, cx, scope) }
-                    cx.newArray(scope, wrappers.toTypedArray())
+                    cx.newArray(scope, wrappers.toTypedArray<Any>())
                 } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.methods failed for $className", e)
-                    cx.newArray(scope, emptyArray())
+                    WeLogger.e(TAG_REFLECT_API, "reflect.findMethods failed for $className", e)
+                    cx.newArray(scope, emptyArray<Any>())
                 }
             }
         })
 
-        ScriptableObject.putProperty(reflectObj, "firstMethod", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                val condition = args.getOrNull(1) as? org.mozilla.javascript.Function
-                    ?: return Undefined.instance
-                return try {
-                    val clazz = className.toClass()
-                    val match = clazz.declaredMethods.firstOrNull { method ->
-                        val paramTypeNames = method.parameterTypes.map { it.name }.toTypedArray()
-                        val jsParamTypes = cx.newArray(scope, paramTypeNames)
-                        val modStrs = getModifierStrings(method.modifiers)
-                        val jsModStrs = cx.newArray(scope, modStrs)
-                        val condResult = condition.call(
-                            cx, scope, thisObj,
-                            arrayOf(method.name, jsParamTypes, method.returnType.name, jsModStrs)
-                        )
-                        Context.toBoolean(condResult)
-                    }
-                    match?.let { createJavaMethodObject(it, className, cx, scope) }
-                        ?: Undefined.instance
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.firstMethod failed for $className", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(reflectObj, "toJavaClass", object : BaseFunction() {
+        ScriptableObject.putProperty(reflectObj, "toClass", object : BaseFunction() {
             override fun call(
                 cx: Context,
                 scope: Scriptable,
@@ -1530,7 +1491,7 @@ object JsApiExposer {
                     val clazz = className.toClass()
                     createJavaClassObject(clazz)
                 } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.toJavaClass failed for $className", e)
+                    WeLogger.e(TAG_REFLECT_API, "reflect.toClass failed for $className", e)
                     Undefined.instance
                 }
             }
@@ -1539,17 +1500,32 @@ object JsApiExposer {
         ScriptableObject.putProperty(scope, "reflect", reflectObj)
     }
 
-    // --- DexKit API ---
-
     private fun getStringProperty(obj: NativeObject, key: String): String? {
-        val v = ScriptableObject.getProperty(obj, key)
-        return (v as? String)?.takeIf { it.isNotEmpty() }
+        return when (val v = ScriptableObject.getProperty(obj, key)) {
+            is String -> v.takeIf { it.isNotEmpty() }
+            is NativeObject -> {
+                val name = ScriptableObject.getProperty(v, "name")
+                (name as? String)?.takeIf { it.isNotEmpty() }
+            }
+
+            else -> null
+        }
     }
 
     private fun getStringArrayProperty(obj: NativeObject, key: String): Array<String>? {
         val v = ScriptableObject.getProperty(obj, key)
         if (v !is NativeArray || v.length.toInt() == 0) return null
-        return (0 until v.length.toInt()).map { v[it]?.toString() ?: "" }.toTypedArray()
+        return (0 until v.length.toInt()).map { i ->
+            when (val elem = v[i]) {
+                is String -> elem
+                is NativeObject -> {
+                    val name = ScriptableObject.getProperty(elem, "name")
+                    name?.toString() ?: ""
+                }
+
+                else -> elem?.toString() ?: ""
+            }
+        }.toTypedArray()
     }
 
     private fun getIntProperty(obj: NativeObject, key: String): Int? {
@@ -1575,7 +1551,7 @@ object JsApiExposer {
             val method = md.asMethod
             createJavaMethodObject(method, method.declaringClass.name, cx, scope)
         }
-        val jsArray = cx.newArray(scope, methods.toTypedArray())
+        val jsArray = cx.newArray(scope, methods.toTypedArray<Any>())
         ScriptableObject.putProperty(result, "methods", jsArray)
 
         ScriptableObject.putProperty(result, "single", object : BaseFunction() {
@@ -1600,7 +1576,7 @@ object JsApiExposer {
         scope: Scriptable
     ): NativeObject {
         val result = NativeObject()
-        val names = classDataList.map { it.name }.toTypedArray()
+        val names = classDataList.map { it.name }.toTypedArray<Any>()
         val jsArray = cx.newArray(scope, names)
         ScriptableObject.putProperty(result, "classes", jsArray)
 

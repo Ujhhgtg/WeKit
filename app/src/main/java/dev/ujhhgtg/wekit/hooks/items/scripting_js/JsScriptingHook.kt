@@ -43,7 +43,7 @@ object JsScriptingHook : SwitchHookItem(),
     // type=1040187441 qq music
     // type=1090519089 file
 
-    val rules = ConcurrentHashMap<String, String>()
+    val scripts = ConcurrentHashMap<String, String>()
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
@@ -53,10 +53,10 @@ object JsScriptingHook : SwitchHookItem(),
             val name = path.name
             val content = runCatching { path.readText() }.getOrElse { continue }
             WeLogger.d(TAG, "loaded script, name='${name}', length=${content.length}")
-            rules[name] = content
+            scripts[name] = content
         }
 
-        JsEngine.executeAllOnLoad(rules)
+        JsEngine.executeAllOnLoad(scripts)
     }
 
     // --- onMessage ---
@@ -72,12 +72,12 @@ object JsScriptingHook : SwitchHookItem(),
         val content = values.getAsString("content") ?: return
         val type = values.getAsInteger("type") ?: 0
 
-        JsEngine.executeAllOnMessage(rules, talker, content, type, isSend)
+        JsEngine.executeAllOnMessage(scripts, talker, content, type, isSend)
     }
 
     override fun onDisable() {
-        WeLogger.i(TAG, "removing automation DB listener")
         WeDatabaseListenerApi.removeListener(this)
+        scripts.clear()
     }
 
     // --- onRequest ---
