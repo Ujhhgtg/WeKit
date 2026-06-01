@@ -153,7 +153,7 @@ object ApplyGlobalBackground : ClickableHookItem(), IResolvesDex {
 //            }
 
         methodChattingBackgroundComponentInitBg.hookAfter {
-            val imageView = thisObject!!.asResolver()
+            val imageView = thisObject.asResolver()
                 .firstField { type = ImageView::class }.get() as? ImageView? ?: return@hookAfter
 
             val parent = imageView.parent as ViewGroup
@@ -208,7 +208,7 @@ object ApplyGlobalBackground : ClickableHookItem(), IResolvesDex {
 
         MainUI::class.resolve()
             .firstMethod { parameters(Bundle::class) }.hookAfter {
-                val thisObject = thisObject!!
+                val thisObject = thisObject
                 val conversationListView = thisObject.asResolver()
                     .firstField { type = "com.tencent.mm.ui.conversation.ConversationListView" }
                     .get() as? ConversationListView? ?: return@hookAfter
@@ -219,7 +219,7 @@ object ApplyGlobalBackground : ClickableHookItem(), IResolvesDex {
 
         ConversationListView::class.resolve()
             .firstMethod { name = "attachViewToParent" }.hookAfter {
-                thisObject!!.asResolver()
+                thisObject.asResolver()
                     .field { type = View::class }
                     .forEach {
                         val view = it.get() as? View? ?: return@forEach
@@ -232,7 +232,7 @@ object ApplyGlobalBackground : ClickableHookItem(), IResolvesDex {
 
         ConversationListView::class.java.constructors.forEach {
             it.hookBefore {
-                thisObject!!.asResolver()
+                thisObject.asResolver()
                     .field {
                         type = Paint::class
                         superclass()

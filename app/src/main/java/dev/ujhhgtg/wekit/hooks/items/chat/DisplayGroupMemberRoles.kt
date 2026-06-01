@@ -8,13 +8,13 @@ import android.text.Spanned
 import android.text.style.ReplacementSpan
 import android.view.View
 import android.widget.TextView
+import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.hooks.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.collections.LruCache
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import dev.ujhhgtg.wekit.utils.unreachable
@@ -46,7 +46,7 @@ object DisplayGroupMemberRoles : SwitchHookItem(), IResolvesDex,
     private const val MEMBER_COLOR = 0xFF9E9E9E
 
     override fun onCreateView(
-        param: IHookBridge.IMemberHookParam,
+        param: XC_MethodHook.MethodHookParam,
         view: View
     ) {
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)

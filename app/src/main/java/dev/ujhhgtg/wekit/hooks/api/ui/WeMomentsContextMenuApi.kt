@@ -3,12 +3,12 @@ package dev.ujhhgtg.wekit.hooks.api.ui
 import android.app.Activity
 import android.graphics.drawable.Drawable
 import android.view.ContextMenu
+import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import org.luckypray.dexkit.DexKitBridge
@@ -109,7 +109,7 @@ object WeMomentsContextMenuApi : ApiHookItem(), IResolvesDex {
         }
     }
 
-    private fun handleCreateMenu(param: IHookBridge.IMemberHookParam) {
+    private fun handleCreateMenu(param: XC_MethodHook.MethodHookParam) {
         val menu = param.args.getOrNull(0) as? ContextMenu? ?: return
         for (item in menuItems.values.flatten()) {
             menu.asResolver()
@@ -120,9 +120,9 @@ object WeMomentsContextMenuApi : ApiHookItem(), IResolvesDex {
         }
     }
 
-    private fun handleSelectMenu(param: IHookBridge.IMemberHookParam) {
+    private fun handleSelectMenu(param: XC_MethodHook.MethodHookParam) {
         val menuItem = param.args.getOrNull(0) as? android.view.MenuItem ?: return
-        val hookedObject = param.thisObject!!
+        val hookedObject = param.thisObject
         val fields = hookedObject.javaClass.declaredFields
 
         val activity = fields.firstOrNull { it.type == Activity::class.java }

@@ -32,9 +32,6 @@ object UnifiedEntryPoint {
             .firstField { name = "parent"; superclass() }
             .set(HybridClassLoader)
 
-        StartupInfo.loaderService = loaderService
-        StartupInfo.hookBridge = hookBridge
-
         Application::class.resolve()
             .firstMethod { name = "attachBaseContext" }
             .hookAfterDirectly {

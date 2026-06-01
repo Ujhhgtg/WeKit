@@ -47,7 +47,7 @@ object AutoViewOriginalMedia : SwitchHookItem(), IResolvesDex {
             if (method.isPlaceholder) return@forEach
 
             method.hookAfter {
-                thisObject!!.asResolver().field {
+                thisObject.asResolver().field {
                     type = Button::class
                 }.forEach {
                     it.get<Button>()?.let { imgBtn ->

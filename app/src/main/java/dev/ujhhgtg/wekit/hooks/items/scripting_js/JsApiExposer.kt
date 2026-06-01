@@ -4,11 +4,11 @@ import android.os.Handler
 import android.os.Looper
 import com.highcapable.kavaref.extension.createInstance
 import com.highcapable.kavaref.extension.toClass
+import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.hooks.api.net.WePacketHelper
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
@@ -1261,7 +1261,7 @@ object JsApiExposer {
         return obj
     }
 
-    private fun createHookHandle(unhook: IHookBridge.MemberUnhookHandle): NativeObject {
+    private fun createHookHandle(unhook: XC_MethodHook.Unhook): NativeObject {
         val handle = NativeObject()
         ScriptableObject.putProperty(handle, "unhook", object : BaseFunction() {
             override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any {

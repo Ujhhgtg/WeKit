@@ -38,7 +38,7 @@ object RemoveChatMessageContextMenuItems : ClickableHookItem(), IResolvesDex {
                     .split(',')
 
             if (removedNames.contains(name)) {
-                val list = thisObject!!.asResolver()
+                val list = thisObject.asResolver()
                     .firstField { type = List::class }
                     .get()!! as ArrayList<*>
                 list.removeAt(list.size - 1)
@@ -52,7 +52,7 @@ object RemoveChatMessageContextMenuItems : ClickableHookItem(), IResolvesDex {
                     .split(',')
 
             if (removedNames.contains(name)) {
-                val list = thisObject!!.asResolver()
+                val list = thisObject.asResolver()
                     .firstField { type = List::class }
                     .get()!! as ArrayList<*>
                 list.removeAt(list.size - 1)

@@ -2,12 +2,12 @@ package dev.ujhhgtg.wekit.hooks.items.system
 
 import android.content.ComponentName
 import android.content.Intent
+import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.hooks.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 
@@ -22,7 +22,7 @@ object UseLegacyOfficialAccountsView : SwitchHookItem(), WeStartActivityApi.ISta
         WeStartActivityApi.removeListener(this)
     }
 
-    override fun onStartActivity(param: IHookBridge.IMemberHookParam, intent: Intent) {
+    override fun onStartActivity(param: XC_MethodHook.MethodHookParam, intent: Intent) {
         val className = intent.component?.className
         if (className == "${PackageNames.WECHAT}.plugin.brandservice.ui.flutter.BizFlutterTLFlutterViewActivity" ||
             className == "${PackageNames.WECHAT}.plugin.brandservice.ui.timeline.BizTimeLineUI"

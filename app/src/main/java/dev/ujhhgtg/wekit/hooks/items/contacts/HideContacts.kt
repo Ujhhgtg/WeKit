@@ -144,7 +144,7 @@ object HideContacts : ClickableHookItem(), IResolvesDex {
                 WeLogger.d(TAG, "hid ${it.size} contacts in conversation list")
             }.toTypedArray())
 
-            val context = thisObject!!.asResolver()
+            val context = thisObject.asResolver()
                 .firstField { type { it isSubclassOf Activity::class } }
                 .get()!! as Activity
             val filter = IntentFilter().apply {
@@ -197,7 +197,7 @@ object HideContacts : ClickableHookItem(), IResolvesDex {
         }
 
         methodChatroomContactAdapterInitCursor.hookAfter {
-            val cursor = thisObject!!.asResolver()
+            val cursor = thisObject.asResolver()
                 .firstMethod {
                     parameterCount = 0
                     returnType = Cursor::class
@@ -224,7 +224,7 @@ object HideContacts : ClickableHookItem(), IResolvesDex {
 
         methodChatroomContactAdapterInitCursor.method.declaringClass.resolve()
             .firstMethod { name = "getCount" }.hookAfter {
-                result = result as Int - hiddenPositions.size
+                result = (result as Int) - hiddenPositions.size
             }
 
         methodChatroomContactAdapterInitCursor.method.declaringClass.resolve()

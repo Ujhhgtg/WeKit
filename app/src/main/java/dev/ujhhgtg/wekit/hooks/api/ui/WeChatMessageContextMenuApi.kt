@@ -61,7 +61,7 @@ object WeChatMessageContextMenuApi : ApiHookItem(), IResolvesDex {
 
     override fun onEnable() {
         methodCreateMenu.hookBefore {
-            val menu = args[0]!!
+            val menu = args[0]
 
             currentView = args[1] as View
             val tag = currentView.tag
@@ -89,7 +89,7 @@ object WeChatMessageContextMenuApi : ApiHookItem(), IResolvesDex {
         }
 
         methodSelectMenuItem.hookBefore {
-            val viewOnLongClickListener = thisObject!!.asResolver()
+            val viewOnLongClickListener = thisObject.asResolver()
                 .firstField {
                     type {
                         it isSubclassOf View.OnLongClickListener::class

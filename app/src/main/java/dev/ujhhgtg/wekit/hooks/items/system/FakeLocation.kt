@@ -25,7 +25,7 @@ object FakeLocation : ClickableHookItem(), IResolvesDex {
     override fun onEnable() {
         listOf(methodListener, methodListenerWgs84, methodDefaultManager).forEach {
             it.hookBefore {
-                val tencentLocation = args[0]!!
+                val tencentLocation = args[0]
                 tencentLocation::class.resolve().apply {
                     firstMethod {
                         name = "getLatitude"

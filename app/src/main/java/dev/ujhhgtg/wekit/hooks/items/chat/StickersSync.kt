@@ -347,7 +347,7 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
         ctorResourceLoadOptions.hookAfter {
             val url = args[0] as String
             if (url.startsWith(PLACEHOLDER_PACK_URL)) {
-                val fResSource = thisObject!!.asResolver()
+                val fResSource = thisObject.asResolver()
                     .firstField {
                         type { it isSubclassOf Enum::class }
                     }
@@ -367,7 +367,7 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
                     }
                     (fallback ?: packDir / ".pack_icon.png").absolutePathString()
                 }
-                thisObject!!.asResolver()
+                thisObject.asResolver()
                     .firstField { type = Any::class }
                     .set(path)
             }

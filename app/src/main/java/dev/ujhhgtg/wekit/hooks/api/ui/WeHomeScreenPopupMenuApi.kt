@@ -5,13 +5,13 @@ import android.widget.BaseAdapter
 import androidx.core.util.size
 import com.highcapable.kavaref.extension.createInstance
 import com.highcapable.kavaref.extension.isSubclassOf
+import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import org.luckypray.dexkit.DexKitBridge
@@ -21,7 +21,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 object WeHomeScreenPopupMenuApi : ApiHookItem(), IResolvesDex {
 
     interface IMenuItemsProvider {
-        fun getMenuItems(param: IHookBridge.IMemberHookParam): List<MenuItem>
+        fun getMenuItems(param: XC_MethodHook.MethodHookParam): List<MenuItem>
     }
 
     data class MenuItem(
@@ -50,7 +50,7 @@ object WeHomeScreenPopupMenuApi : ApiHookItem(), IResolvesDex {
     override fun onEnable() {
         // WeChat 8.0.70 moved this to com.tencent.mm.ui.HomeUI
         methodAddItem.hookAfter {
-            var thisObj = thisObject!!
+            var thisObj = thisObject
 
             if (thisObj.javaClass.simpleName == "HomeUI") {
                 thisObj = thisObj.asResolver()
@@ -98,7 +98,7 @@ object WeHomeScreenPopupMenuApi : ApiHookItem(), IResolvesDex {
         }
 
         methodHandleItemClick.hookBefore {
-            val thisObj = thisObject!!
+            val thisObj = thisObject
 
             @Suppress("UNCHECKED_CAST")
             val items = thisObj.asResolver()

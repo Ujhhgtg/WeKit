@@ -2,11 +2,11 @@ package dev.ujhhgtg.wekit.hooks.api.ui
 
 import android.graphics.drawable.Drawable
 import android.view.ContextMenu
+import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
@@ -22,7 +22,7 @@ object WeShortVideosShareMenuApi : ApiHookItem(), IResolvesDex {
     data class MenuItem(
         val id: Int,
         val text: String, val drawable: Drawable,
-        val onClick: (IHookBridge.IMemberHookParam, Int, List<JSONObject>) -> Unit
+        val onClick: (XC_MethodHook.MethodHookParam, Int, List<JSONObject>) -> Unit
     )
 
     private val menuItems = mutableMapOf<String, List<MenuItem>>()
@@ -48,7 +48,7 @@ object WeShortVideosShareMenuApi : ApiHookItem(), IResolvesDex {
 
         methodOnSelectMenuItem1.hookBefore {
             val menuItem = args[0] as android.view.MenuItem
-            val baseFinderFeed = thisObject!!.asResolver()
+            val baseFinderFeed = thisObject.asResolver()
                 .firstField {
                     type = "com.tencent.mm.plugin.finder.model.BaseFinderFeed"
                 }
@@ -63,7 +63,7 @@ object WeShortVideosShareMenuApi : ApiHookItem(), IResolvesDex {
 
         methodOnSelectMenuItem2.hookBefore {
             val menuItem = args[1] as android.view.MenuItem
-            val baseFinderFeed = args[0]!!
+            val baseFinderFeed = args[0]
             handleOnSelectMenuItem(this, menuItem, baseFinderFeed)
         }
     }
@@ -81,7 +81,7 @@ object WeShortVideosShareMenuApi : ApiHookItem(), IResolvesDex {
     }
 
     private fun handleOnSelectMenuItem(
-        param: IHookBridge.IMemberHookParam,
+        param: XC_MethodHook.MethodHookParam,
         menuItem: android.view.MenuItem,
         baseFinderFeed: Any
     ) {

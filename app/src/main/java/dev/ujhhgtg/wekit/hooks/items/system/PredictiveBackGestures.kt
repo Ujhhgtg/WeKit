@@ -68,7 +68,7 @@ object PredictiveBackGestures : ClickableHookItem(), IResolvesDex {
         ActivityThread::class.resolve()
             .firstMethod { name = "handleLaunchActivity" }
             .hookBefore {
-                val record = args[0]!!
+                val record = args[0]
                 val infoField =
                     record.asResolver().firstField { name = "activityInfo" }
                 val info = infoField.get() as ActivityInfo
@@ -78,7 +78,7 @@ object PredictiveBackGestures : ClickableHookItem(), IResolvesDex {
         // --- LauncherUI ChattingUIFragment workaround ---
 
         methodChattingUIFragmentDoResume.hookAfter {
-            val activity = thisObject!!.asResolver()
+            val activity = thisObject.asResolver()
                 .firstMethod {
                     name = "thisActivity"
                     superclass()
@@ -95,7 +95,7 @@ object PredictiveBackGestures : ClickableHookItem(), IResolvesDex {
 //            .firstMethod { name = "finish" }
         methodChattingUIFragmentDoPause
             .hookAfter {
-                val activity = thisObject!!.asResolver()
+                val activity = thisObject.asResolver()
                     .firstMethod {
                         name = "thisActivity"
                         superclass()

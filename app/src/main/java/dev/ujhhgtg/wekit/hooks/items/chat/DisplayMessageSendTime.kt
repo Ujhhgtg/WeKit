@@ -7,10 +7,10 @@ import android.view.ViewGroup
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.core.graphics.toColorInt
+import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.wekit.hooks.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import dev.ujhhgtg.wekit.utils.formatEpoch
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
@@ -33,7 +33,7 @@ object DisplayMessageSendTime : SwitchHookItem(),
 
     @SuppressLint("SetTextI18n")
     override fun onCreateView(
-        param: IHookBridge.IMemberHookParam,
+        param: XC_MethodHook.MethodHookParam,
         view: View
     ) {
         val tag = view.tag

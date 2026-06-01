@@ -28,9 +28,7 @@ object NoCloseVideoPlayerOnClick : SwitchHookItem(), IResolvesDex {
     override fun onEnable() {
         methodVideoOnTouchListenerOnTouch.hookBefore {
             val event = args[1] as MotionEvent
-            if (event.action and 0xFF == MotionEvent.ACTION_UP) {
-                val thisObject = thisObject!!
-
+            if ((event.action and 0xFF) == MotionEvent.ACTION_UP) {
                 if (!::activityField.isInitialized) {
                     activityField = thisObject.asResolver()
                         .firstField { type { it isSubclassOf Activity::class } }

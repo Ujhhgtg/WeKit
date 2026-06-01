@@ -75,8 +75,6 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
 
     override fun onEnable() {
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
-            val thisObject = thisObject!!
-
             val activity = thisObject.asResolver()
                 .firstField {
                     type = "com.tencent.mm.ui.MMFragmentActivity"

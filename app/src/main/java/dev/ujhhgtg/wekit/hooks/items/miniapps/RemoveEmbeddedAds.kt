@@ -29,7 +29,7 @@ object RemoveEmbeddedAds : SwitchHookItem(), IResolvesDex {
         }
 
         methodBaseTransferRequestOnLoad.hookBefore {
-            val transferResultInfo = args[0]!!
+            val transferResultInfo = args[0]
             if (!::protoField.isInitialized) {
                 protoField = transferResultInfo.asResolver()
                     .firstField {

@@ -66,7 +66,7 @@ object MonetEngine : ClickableHookItem() {
 
         "com.tencent.mm.ui.widget.MMSwitchBtn".toClass().constructors.forEach {
             it.hookAfter {
-                thisObject!!.asResolver()
+                thisObject.asResolver()
                     .field {
                         type = Int::class
                         superclass()

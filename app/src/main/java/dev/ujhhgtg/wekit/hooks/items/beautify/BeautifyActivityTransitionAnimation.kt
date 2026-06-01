@@ -96,7 +96,7 @@ object BeautifyActivityTransitionAnimation : SwitchHookItem() {
             .hookBefore {
                 WeLogger.d(
                     TAG,
-                    "called Activity.overridePendingTransition on ${thisObject!!.javaClass.name}"
+                    "called Activity.overridePendingTransition on ${thisObject.javaClass.name}"
                 )
                 result = null
             }

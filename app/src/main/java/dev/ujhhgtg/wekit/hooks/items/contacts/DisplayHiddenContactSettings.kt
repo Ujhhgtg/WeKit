@@ -15,7 +15,7 @@ object DisplayHiddenContactSettings : SwitchHookItem() {
             .firstMethod {
                 name = "initView"
             }.hookAfter {
-                val prefScreen = thisObject!!.asResolver()
+                val prefScreen = thisObject.asResolver()
                     .firstMethod {
                         name = "getPreferenceScreen"
                         superclass()

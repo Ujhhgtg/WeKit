@@ -29,7 +29,7 @@ object AutoApproveDeviceLogin : SwitchHookItem() {
         }
 
         targetClass.resolve().firstMethod { name = "initView" }.hookAfter {
-            val button = thisObject!!.asResolver()
+            val button = thisObject.asResolver()
                 .firstField {
                     type = Button::class
                 }.get()!! as Button

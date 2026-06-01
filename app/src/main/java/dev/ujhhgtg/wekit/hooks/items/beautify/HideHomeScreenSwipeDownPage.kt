@@ -19,7 +19,7 @@ object HideHomeScreenSwipeDownPage : SwitchHookItem() {
                 parameterCount = 3
             }
             .hookBefore {
-                if (thisObject!!.javaClass.simpleName != "ConversationListView") return@hookBefore
+                if (thisObject.javaClass.simpleName != "ConversationListView") return@hookBefore
                 val view = args[0] as View
                 val className = view.javaClass.simpleName
                 if (className == "TaskBarContainer") {

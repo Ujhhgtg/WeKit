@@ -37,11 +37,11 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.Open_in_new
 import com.tencent.mm.ui.LauncherUI
-import dev.ujhhgtg.comptime.This
+import de.robv.android.xposed.XC_MethodHook
+import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.hooks.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -52,12 +52,12 @@ import dev.ujhhgtg.wekit.utils.openInSystem
 
 @HookItem(
     path = "系统与隐私/链接跳转系统打开方式",
-    description = "打开链接或卡片链接时显示对话框, 可直接使用系统打开方式打开\n若要跳转到第三方应用, 需先在对应应用设置中启用「在此应用中打开支持的网页链接」"
+    description = "打开链接或卡片链接时显示对话框, 可直接使用系统打开方式打开\n若要跳转到第三方应用, 需先在对应应用设置中启用 '在此应用中打开支持的网页链接'"
 )
 object LinkExternalAppJump : SwitchHookItem(),
     WeStartActivityApi.IStartActivityListener {
 
-    private val TAG = This.Class.simpleName
+    private val TAG = nameOf(LinkExternalAppJump)
 
     private val WECHAT_INTERNAL_HOSTS = setOf(
         "weixin.com",
@@ -79,7 +79,7 @@ object LinkExternalAppJump : SwitchHookItem(),
     }
 
     override fun onStartActivity(
-        param: IHookBridge.IMemberHookParam,
+        param: XC_MethodHook.MethodHookParam,
         intent: Intent
     ) {
         // prevent loop

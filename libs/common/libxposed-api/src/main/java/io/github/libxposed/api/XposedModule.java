@@ -1,7 +1,6 @@
 package io.github.libxposed.api;
 
 import androidx.annotation.NonNull;
-
 import io.github.libxposed.api.annotations.XposedApiExact;
 import io.github.libxposed.api.annotations.XposedApiMin;
 

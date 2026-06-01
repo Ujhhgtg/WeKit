@@ -24,8 +24,6 @@ object QuickRemoveQuote : SwitchHookItem(), IResolvesDex {
             val keyEvent = args[2] as KeyEvent
             if (keyEvent.keyCode != 67 || keyEvent.action != 0) return@hookBefore
 
-            val thisObject = thisObject!!
-
             if (!::chatFooterHelperField.isInitialized) {
                 chatFooterHelperField = thisObject.asResolver()
                     .firstField {

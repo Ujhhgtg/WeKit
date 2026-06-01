@@ -20,7 +20,7 @@ object PreventModuleDataDeletion : SwitchHookItem(), IResolvesDex {
         methodNativeFileSystemEntryDelete.hookBefore {
             val relPath = args[0] as String
             if (!::basePathField.isInitialized) {
-                basePathField = thisObject!!.asResolver()
+                basePathField = thisObject.asResolver()
                     .firstField {
                         type = String::class
                         modifiers(Modifiers.FINAL)

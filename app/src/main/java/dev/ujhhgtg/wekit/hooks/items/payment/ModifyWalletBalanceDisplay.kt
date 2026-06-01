@@ -31,7 +31,7 @@ object ModifyWalletBalanceDisplay : ClickableHookItem(), IResolvesDex {
     override fun onEnable() {
         methodUpdateBalanceDisplay.hookAfter {
             val text = WePrefs.getStringOrDef(KEY_BALANCE, null) ?: return@hookAfter
-            val balanceView = thisObject!!.asResolver()
+            val balanceView = thisObject.asResolver()
                 .firstField { type = TextView::class }
                 .get()!! as TextView
             balanceView.text = text

@@ -23,13 +23,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -56,13 +56,13 @@ object EmojiGameControl : SwitchHookItem(), IResolvesDex {
     private var valMorra = 0
     private var valDice = 0
 
-    private enum class MorraType(val chineseName: String) {
-        SCISSORS("剪刀"), STONE("石头"), PAPER("布")
+    private enum class MorraType(val index: Int, val chineseName: String) {
+        SCISSORS(0, "剪刀"), STONE(1, "石头"), PAPER(2, "布")
     }
 
-    private enum class DiceFace(val chineseName: String) {
-        ONE("1"), TWO("2"), THREE("3"),
-        FOUR("4"), FIVE("5"), SIX("6")
+    private enum class DiceFace(val index: Int, val chineseName: String) {
+        ONE(0, "1"), TWO(1, "2"), THREE(2, "3"),
+        FOUR(3, "4"), FIVE(4, "5"), SIX(5, "6")
     }
 
     override fun resolveDex(dexKit: DexKitBridge) {
@@ -140,7 +140,7 @@ object EmojiGameControl : SwitchHookItem(), IResolvesDex {
         }
     }
 
-    private fun showSelectDialog(param: IHookBridge.IMemberHookParam, isDice: Boolean, activity: Activity) {
+    private fun showSelectDialog(param: XC_MethodHook.MethodHookParam, isDice: Boolean, activity: Activity) {
         param.result = null
 
         showComposeDialog(activity) {
@@ -301,7 +301,7 @@ object EmojiGameControl : SwitchHookItem(), IResolvesDex {
     }
 
     private fun sendMultiple(
-        param: IHookBridge.IMemberHookParam,
+        param: XC_MethodHook.MethodHookParam,
         values: List<Int>,
         isDice: Boolean,
         activity: Activity

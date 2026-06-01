@@ -35,7 +35,7 @@ object EnableWebViewFeatures : SwitchHookItem(), IResolvesDex {
             }
 
         methodInitWebViewFeatures.hookBefore {
-            val intent = thisObject!!.asResolver().firstMethod {
+            val intent = thisObject.asResolver().firstMethod {
                 name = "getIntent"
                 superclass()
             }.invoke() as Intent

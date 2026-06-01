@@ -2,13 +2,13 @@ package dev.ujhhgtg.wekit.hooks.items.chat
 
 import android.util.SparseBooleanArray
 import android.view.View
+import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.hooks.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.hooks.api.core.models.MessageType
 import dev.ujhhgtg.wekit.hooks.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import java.lang.reflect.Field
 
@@ -59,7 +59,7 @@ object MergeMessagesIntoGroups : SwitchHookItem(), WeChatMessageViewApi.ICreateV
 
     // ── ICreateViewListener ──────────────────────────────────────────────────
 
-    override fun onCreateView(param: IHookBridge.IMemberHookParam, view: View) {
+    override fun onCreateView(param: XC_MethodHook.MethodHookParam, view: View) {
         val tag = view.tag ?: return
 
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
@@ -70,7 +70,7 @@ object MergeMessagesIntoGroups : SwitchHookItem(), WeChatMessageViewApi.ICreateV
         val currentSender = msgInfo.sender
         val position = param.args[2] as Int
 
-        val adapter = param.thisObject!!.asResolver()
+        val adapter = param.thisObject.asResolver()
             .firstField { type = WeMessageApi.classChattingDataAdapter.clazz }
             .get() ?: return
 

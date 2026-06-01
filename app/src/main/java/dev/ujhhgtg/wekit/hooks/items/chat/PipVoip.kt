@@ -56,7 +56,7 @@ object PipVoip : SwitchHookItem(), IResolvesDex {
             .firstMethod {
                 name = "dealContentView"
             }.hookBefore {
-                WeLogger.d(TAG, "dealContentView: ${args[0]!!.javaClass}")
+                WeLogger.d(TAG, "dealContentView: ${args[0].javaClass}")
             }
 
         ActivityInfo::class.resolve()
@@ -72,7 +72,7 @@ object PipVoip : SwitchHookItem(), IResolvesDex {
                 name = "onPictureInPictureModeChanged"
                 parameterCount = 2
             }.hookBefore {
-                if (thisObject!!.javaClass.simpleName != "VideoActivity") return@hookBefore
+                if (thisObject.javaClass.simpleName != "VideoActivity") return@hookBefore
 
                 val isInPip = args[0] as Boolean
                 if (isInPip) {

@@ -99,7 +99,7 @@ object AddMainScreenFab : SwitchHookItem() {
 
     override fun onEnable() {
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
-            val activity = thisObject!!.asResolver()
+            val activity = thisObject.asResolver()
                 .firstField {
                     type = "com.tencent.mm.ui.MMFragmentActivity"
                 }

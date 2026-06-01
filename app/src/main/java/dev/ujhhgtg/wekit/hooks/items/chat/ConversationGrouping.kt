@@ -51,7 +51,7 @@ object ConversationGrouping : SwitchHookItem(), IResolvesDex {
 
     override fun onEnable() {
         methodOnTabCreate.hookAfter {
-            val convListView = thisObject!!.asResolver()
+            val convListView = thisObject.asResolver()
                 .firstField {
                     type = "com.tencent.mm.ui.conversation.ConversationListView"
                 }

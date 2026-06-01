@@ -14,7 +14,7 @@ object UseLegacyWalletView : SwitchHookItem(), IResolvesDex {
 
     override fun onEnable() {
         methodGetOrderAndCardEntranceInfo.hookAfter {
-            result!!.asResolver()
+            result.asResolver()
                 .firstField {
                     type = Int::class.java
                 }.set(1)

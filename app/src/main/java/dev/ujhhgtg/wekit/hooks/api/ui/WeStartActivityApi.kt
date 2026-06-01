@@ -3,10 +3,10 @@ package dev.ujhhgtg.wekit.hooks.api.ui
 import android.app.Activity
 import android.content.ContextWrapper
 import android.content.Intent
+import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
-import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.resolve
 import java.util.concurrent.CopyOnWriteArrayList
@@ -15,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 object WeStartActivityApi : ApiHookItem() {
 
     interface IStartActivityListener {
-        fun onStartActivity(param: IHookBridge.IMemberHookParam, intent: Intent)
+        fun onStartActivity(param: XC_MethodHook.MethodHookParam, intent: Intent)
     }
 
     private val TAG = This.Class.simpleName
@@ -56,7 +56,7 @@ object WeStartActivityApi : ApiHookItem() {
             }
     }
 
-    private fun hookStartActivity(param: IHookBridge.IMemberHookParam) {
+    private fun hookStartActivity(param: XC_MethodHook.MethodHookParam) {
         val intent = param.args[0] as? Intent ?: param.args[1] as? Intent
         if (intent == null) {
             WeLogger.w(TAG, "startActivity called but no Intent found in arguments")
