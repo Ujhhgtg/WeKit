@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.hooks.items.chat
 
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -34,7 +35,7 @@ import kotlin.io.path.nameWithoutExtension
 object SaveVoicesToLocalStorage : SwitchHookItem(), IResolvesDex,
     WeChatMessageContextMenuApi.IMenuItemsProvider {
 
-    private val TAG = nameOf(SaveVoicesToLocalStorage)
+    private val TAG = This.Class.simpleName
 
     private val classVoiceLogic by dexClass()
     private val methodGetAmrFullPath by dexMethod()

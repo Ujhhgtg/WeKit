@@ -47,13 +47,12 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarItem
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.liquid.installerMiuixBlurEffect
 import dev.ujhhgtg.wekit.ui.content.liquid.rememberMiuixBlurBackdrop
 import dev.ujhhgtg.wekit.ui.utils.AppTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
@@ -75,7 +74,7 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
         MaterialSymbols.OutlinedFilled.Person to "我"
     )
 
-    private const val KEY_USE_BACKDROP = "nav_bar_use_backdrop"
+    private var useBackdrop by prefOption("nav_bar_use_backdrop", false)
 
     override fun onEnable() {
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
@@ -117,8 +116,6 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                     selectedPageIndexState.intValue = position
                     scrollOffsetState.floatValue = positionOffset
                 }
-
-            val useBackdrop = WePrefs.getBoolOrFalse(KEY_USE_BACKDROP)
 
             bottomTabViewGroup.removeAllViews()
             bottomTabViewGroup.addView(
@@ -200,7 +197,7 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                     }
                                 }
                             } else {
-                                val backdrop = rememberMiuixBlurBackdrop(true)!!
+                                val backdrop = rememberMiuixBlurBackdrop(false)!!
 
                                 Box(
                                     modifier = Modifier.fillMaxWidth()
@@ -216,14 +213,14 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                             .padding(
                                                 bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues()
                                                     .calculateBottomPadding()
-                                            ).installerMiuixBlurEffect(backdrop),
+                                            ),
                                         selectedIndex = { selectedPageIndexState.intValue },
                                         onSelected = { index ->
                                             methodOnTabClick.invoke(index)
                                         },
                                         backdrop = backdrop,
                                         tabsCount = ICONS.size,
-                                        isBlurEnabled = true
+                                        isBlurEnabled = false
                                     ) {
                                         ICONS.forEachIndexed { index, item ->
                                             FloatingBottomBarItem(
@@ -275,11 +272,7 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
 
     override fun onClick(context: Context) {
         showComposeDialog(context) {
-            var useBackdrop by remember {
-                mutableStateOf(
-                    WePrefs.getBoolOrFalse(KEY_USE_BACKDROP)
-                )
-            }
+            var useBackdropInput by remember { mutableStateOf(useBackdrop) }
 
             AlertDialogContent(
                 title = { Text("美化首页底部导航栏") },
@@ -288,15 +281,15 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                         headlineContent = { Text("启用液态玻璃效果") },
                         trailingContent = {
                             Switch(
-                                useBackdrop,
-                                { useBackdrop = it })
+                                useBackdropInput,
+                                { useBackdropInput = it })
                         }
                     )
                 },
                 dismissButton = { TextButton(onDismiss) { Text("取消") } },
                 confirmButton = {
                     Button(onClick = {
-                        WePrefs.putBool(KEY_USE_BACKDROP, useBackdrop)
+                        useBackdrop = useBackdropInput
                         onDismiss()
                     }) { Text("确定") }
                 }

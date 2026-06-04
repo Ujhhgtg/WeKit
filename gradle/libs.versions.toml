@@ -9,7 +9,7 @@ lifecycle-runtime = "2.10.0"
 material = "1.14.0"
 activity = "1.13.0"
 kotlin = "2.3.21"
-androidx-core-ktx = "1.18.0"
+androidx-core-ktx = "1.19.0"
 mmkv = "2.4.0"
 osmdroid = "6.1.20"
 rhino = "45f29f6"
@@ -21,7 +21,7 @@ okhttp = "5.3.2"
 kavaref = "1.0.3"
 hidden-api-bypass = "6.1"
 runtime = "1.11.2"
-compose-material3 = "1.5.0-alpha20"
+compose-material3 = "1.5.0-alpha19"
 libsu = "5.2.2"
 libxposed = "101.0.0"
 dexlib2 = "2.5.2"
@@ -81,6 +81,7 @@ markwon-html = { module = "io.noties.markwon:html", version.ref = "markwon" }
 osmdroid-android = { module = "org.osmdroid:osmdroid-android", version.ref = "osmdroid" }
 
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+kotlinx-serialization-protobuf = { module = "org.jetbrains.kotlinx:kotlinx-serialization-protobuf", version.ref = "serialization" }
 mmkv = { module = "com.tencent:mmkv", version.ref = "mmkv" }
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 google-protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protobuf" }

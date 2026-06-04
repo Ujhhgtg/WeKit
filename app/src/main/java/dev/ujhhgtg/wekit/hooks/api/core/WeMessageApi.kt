@@ -19,11 +19,14 @@ import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.collections.emptyHashSet
+import dev.ujhhgtg.wekit.utils.reflection.BBool
+import dev.ujhhgtg.wekit.utils.reflection.BInt
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.isBuiltin
+import dev.ujhhgtg.wekit.utils.reflection.isStatic
 import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import dev.ujhhgtg.wekit.utils.serialization.JsonToXmlConverter
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
@@ -36,6 +39,9 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import kotlin.io.path.Path
 import kotlin.random.Random
 
 
@@ -82,6 +88,10 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
     private val classPathUtil by dexClass()             // 路径计算工具 (原 h1)
     private val classMmKernel by dexClass()             // 核心 Kernel (原 j1)
     private val methodMmKernelGetStorage by dexMethod() // Kernel.getStorage
+    private val classVoiceLogic by dexClass()
+    private val methodGetAmrFullPath by dexMethod()
+    private val methodStartRecvAndSend by dexMethod()
+    private val classSceneVoiceService by dexClass()
 
     // 查找 Service 接口 (sc0.e)
     private val classVoiceServiceInterface by dexClass()
@@ -400,6 +410,30 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
                         paramTypes(classVoiceParams.clazz)
                     }
                 }
+            }
+        }
+
+        classVoiceLogic.find(dexKit) {
+            matcher {
+                usingEqStrings("MicroMsg.VoiceLogic", "startRecord insert voicestg success")
+            }
+        }
+
+        methodGetAmrFullPath.find(dexKit) {
+            matcher {
+                usingEqStrings("getAmrFullPath cost: ")
+            }
+        }
+
+        methodStartRecvAndSend.find(dexKit) {
+            matcher {
+                usingEqStrings("MicroMsg.SceneVoiceService", "Start Recv[%s] :%s", "Start Send :")
+            }
+        }
+
+        classSceneVoiceService.find(dexKit) {
+            matcher {
+                usingEqStrings("MicroMsg.SceneVoiceService", "//voicetrymore", "getVoiceService %s")
             }
         }
 
@@ -738,7 +772,7 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
 
     /** 发送私有路径下的语音文件 */
     fun sendVoice(toUser: String, path: String, durationMs: Int): Boolean {
-        return try {
+        var succeeded = runCatching {
             // 尝试通过 ServiceManager 获取
             var finalServiceObj: Any? = null
             if (getServiceMethod != null) {
@@ -761,7 +795,7 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
                 }
             }
 
-            if (finalServiceObj == null) error("failed to retrive VoiceService instance")
+            if (finalServiceObj == null) error("failed to retrieve VoiceService instance")
 
             // 准备文件
             val fileName = voiceNameGenMethod.invoke(null, selfCustomWxId, "amr_") as? String
@@ -783,12 +817,52 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
                 ?: error("failed to construct voice task")
 
             methodSendVoice.method.invoke(finalServiceObj, taskObj)
-            WeLogger.i(TAG, "sent voice message: $fileName")
-            true
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to send voice message", e)
-            false
-        }
+            WeLogger.i(TAG, "sent voice (method 1): $fileName")
+        }.onFailure { WeLogger.e(TAG, "failed to send voice (method 1)", it) }.isSuccess
+
+        if (succeeded) return true
+
+        succeeded = runCatching {
+            val partialPath = classVoiceLogic.asResolver()
+                .firstMethod {
+                    parameters(BString, BString)
+                    returnType = BString
+                }
+                .invoke(toUser, "amr_") as String
+            val mGetAmrFullPath = methodGetAmrFullPath.method
+            val fullPath = if (mGetAmrFullPath.isStatic) {
+                mGetAmrFullPath.invoke(null, partialPath, true)
+            } else {
+                mGetAmrFullPath.invoke(WeServiceApi.getServiceByClass(mGetAmrFullPath.declaringClass), null, partialPath, true)
+            } as String
+
+            Files.copy(Path(path), Path(fullPath), StandardCopyOption.REPLACE_EXISTING)
+
+            val target = classVoiceLogic.clazz.asResolver()
+                .firstMethod {
+                    parameters {
+                        it[0] == BString && it[1] == BInt && it[2] == BInt
+                    }
+                    returnType = BBool
+                }.self
+            if (target.parameterCount == 4) {
+                target.invoke(null, fullPath, durationMs, 0, null)
+            } else {
+                target.invoke(null, fullPath, durationMs, 0)
+            }
+
+            val service = classSceneVoiceService.clazz.asResolver()
+                .firstMethod {
+                    returnType = methodStartRecvAndSend.method.declaringClass
+                    modifiers { it.contains(Modifiers.STATIC) }
+                }.invoke()!!
+
+            methodStartRecvAndSend.method.invoke(null, service)
+
+            WeLogger.i(TAG, "sent voice (method 2): $fullPath")
+        }.onFailure { WeLogger.e(TAG, "failed to send voice (method 2)", it) }.isSuccess
+
+        return succeeded
     }
 
     fun sendXmlAppMsg(toUser: String, xmlContent: String): Boolean {

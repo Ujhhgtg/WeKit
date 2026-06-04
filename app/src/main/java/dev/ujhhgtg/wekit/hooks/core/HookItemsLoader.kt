@@ -140,7 +140,6 @@ object HookItemsLoader {
                     DexResolver(
                         activity,
                         brokenItems,
-                        appInfo,
                         MainScope(),
                         dialog,
                         onDismiss

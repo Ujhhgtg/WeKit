@@ -46,6 +46,7 @@ import org.mozilla.javascript.Scriptable
 import org.mozilla.javascript.ScriptableObject
 import org.mozilla.javascript.Undefined
 import java.lang.reflect.Field
+import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.nio.file.Path
@@ -1177,7 +1178,7 @@ object JsApiExposer {
                 args: Array<Any?>
             ): Any {
                 val wrappers = clazz.declaredMethods.map {
-                    createJavaMethodObject(it, clazz.name, cx, scope)
+                    createJavaMethodObject(it, clazz, cx, scope)
                 }
                 return cx.newArray(scope, wrappers.toTypedArray<Any>())
             }
@@ -1191,7 +1192,7 @@ object JsApiExposer {
                 args: Array<Any?>
             ): Any {
                 val wrappers = clazz.declaredFields.map {
-                    createJavaFieldObject(it, clazz.name, cx, scope)
+                    createJavaFieldObject(it, clazz, cx, scope)
                 }
                 return cx.newArray(scope, wrappers.toTypedArray<Any>())
             }
@@ -1202,13 +1203,13 @@ object JsApiExposer {
 
     private fun createJavaFieldObject(
         field: Field,
-        className: String,
+        clazz: Class<*>,
         cx: Context,
         scope: Scriptable
     ): NativeObject {
         val obj = NativeObject()
         ScriptableObject.putProperty(obj, "name", field.name)
-        ScriptableObject.putProperty(obj, "className", className)
+        ScriptableObject.putProperty(obj, "clazz", createJavaClassObject(clazz))
         ScriptableObject.putProperty(obj, "type", createJavaClassObject(field.type))
         ScriptableObject.putProperty(
             obj, "modifiers",
@@ -1227,7 +1228,7 @@ object JsApiExposer {
                     val value = field.makeAccessible().get(if (instance is Undefined) null else instance)
                     Context.javaToJS(value, scope, cx) ?: Undefined.instance
                 } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect field.get failed on $className.${field.name}", e)
+                    WeLogger.e(TAG_REFLECT_API, "reflect field.get failed on ${clazz.name}.${field.name}", e)
                     Undefined.instance
                 }
             }
@@ -1252,7 +1253,7 @@ object JsApiExposer {
                     }
                     Undefined.instance
                 } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect field.set failed on $className.${field.name}", e)
+                    WeLogger.e(TAG_REFLECT_API, "reflect field.set failed on ${clazz.name}.${field.name}", e)
                     Undefined.instance
                 }
             }
@@ -1274,13 +1275,13 @@ object JsApiExposer {
 
     private fun createJavaMethodObject(
         method: Method,
-        className: String,
+        clazz: Class<*>,
         cx: Context,
         scope: Scriptable
     ): NativeObject {
         val obj = NativeObject()
         ScriptableObject.putProperty(obj, "name", method.name)
-        ScriptableObject.putProperty(obj, "className", className)
+        ScriptableObject.putProperty(obj, "clazz", createJavaClassObject(clazz))
         ScriptableObject.putProperty(obj, "descriptor", getMethodDescriptor(method))
         ScriptableObject.putProperty(
             obj, "paramTypes",
@@ -1294,7 +1295,6 @@ object JsApiExposer {
 
         // Store hidden references for the xposed.* overload that accepts JavaMethod
         ScriptableObject.putProperty(obj, "__method", method)
-        ScriptableObject.putProperty(obj, "__className", className)
 
         ScriptableObject.putProperty(obj, "hookBefore", object : BaseFunction() {
             override fun call(
@@ -1318,7 +1318,7 @@ object JsApiExposer {
                     }
                     return createHookHandle(unhook)
                 } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect method hookBefore failed on $className.${method.name}", e)
+                    WeLogger.e(TAG_REFLECT_API, "reflect method hookBefore failed on ${clazz.name}.${method.name}", e)
                 }
                 return Undefined.instance
             }
@@ -1347,7 +1347,7 @@ object JsApiExposer {
                     }
                     return createHookHandle(unhook)
                 } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect method hookAfter failed on $className.${method.name}", e)
+                    WeLogger.e(TAG_REFLECT_API, "reflect method hookAfter failed on ${clazz.name}.${method.name}", e)
                 }
                 return Undefined.instance
             }
@@ -1397,7 +1397,7 @@ object JsApiExposer {
                 } catch (e: Exception) {
                     WeLogger.e(
                         TAG_REFLECT_API,
-                        "reflect method invoke failed on $className.${method.name}",
+                        "reflect method invoke failed on ${clazz.name}.${method.name}",
                         e
                     )
                     resultObj.put("value", resultObj, Context.javaToJS(e, scope, cx) ?: Undefined.instance)
@@ -1437,7 +1437,7 @@ object JsApiExposer {
                         )
                         Context.toBoolean(condResult)
                     }
-                    val wrappers = matches.map { createJavaFieldObject(it, className, cx, scope) }
+                    val wrappers = matches.map { createJavaFieldObject(it, clazz, cx, scope) }
                     cx.newArray(scope, wrappers.toTypedArray<Any>())
                 } catch (e: Exception) {
                     WeLogger.e(TAG_REFLECT_API, "reflect.findFields failed for $className", e)
@@ -1470,7 +1470,7 @@ object JsApiExposer {
                         )
                         Context.toBoolean(condResult)
                     }
-                    val wrappers = matches.map { createJavaMethodObject(it, className, cx, scope) }
+                    val wrappers = matches.map { createJavaMethodObject(it, clazz, cx, scope) }
                     cx.newArray(scope, wrappers.toTypedArray<Any>())
                 } catch (e: Exception) {
                     WeLogger.e(TAG_REFLECT_API, "reflect.findMethods failed for $className", e)
@@ -1492,6 +1492,134 @@ object JsApiExposer {
                     createJavaClassObject(clazz)
                 } catch (e: Exception) {
                     WeLogger.e(TAG_REFLECT_API, "reflect.toClass failed for $className", e)
+                    Undefined.instance
+                }
+            }
+        })
+
+        ScriptableObject.putProperty(reflectObj, "findFirstMethod", object : BaseFunction() {
+            override fun call(
+                cx: Context,
+                scope: Scriptable,
+                thisObj: Scriptable,
+                args: Array<Any?>
+            ): Any? {
+                val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                val condition = args.getOrNull(1) as? org.mozilla.javascript.Function ?: return Undefined.instance
+                return try {
+                    val clazz = className.toClass()
+                    for (method in clazz.declaredMethods) {
+                        val jsParamTypes = cx.newArray(scope, method.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
+                        val modStrs = getModifierStrings(method.modifiers)
+                        val jsModStrs = cx.newArray(scope, modStrs)
+                        val condResult = condition.call(
+                            cx, scope, thisObj,
+                            arrayOf(method.name, jsParamTypes, createJavaClassObject(method.returnType), jsModStrs)
+                        )
+                        if (Context.toBoolean(condResult)) {
+                            return createJavaMethodObject(method, clazz, cx, scope)
+                        }
+                    }
+                    Undefined.instance
+                } catch (e: Exception) {
+                    WeLogger.e(TAG_REFLECT_API, "reflect.findFirstMethod failed for $className", e)
+                    Undefined.instance
+                }
+            }
+        })
+
+        ScriptableObject.putProperty(reflectObj, "findFirstField", object : BaseFunction() {
+            override fun call(
+                cx: Context,
+                scope: Scriptable,
+                thisObj: Scriptable,
+                args: Array<Any?>
+            ): Any? {
+                val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                val superclassFlag = Context.toBoolean(args.getOrNull(1))
+                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return Undefined.instance
+                return try {
+                    val clazz = className.toClass()
+                    val fields = if (superclassFlag) clazz.fields.toList() else clazz.declaredFields.toList()
+                    for (field in fields) {
+                        val modStrs = getModifierStrings(field.modifiers)
+                        val jsModStrs = cx.newArray(scope, modStrs)
+                        val condResult = condition.call(
+                            cx, scope, thisObj,
+                            arrayOf(field.name, createJavaClassObject(field.type), jsModStrs)
+                        )
+                        if (Context.toBoolean(condResult)) {
+                            return createJavaFieldObject(field, clazz, cx, scope)
+                        }
+                    }
+                    Undefined.instance
+                } catch (e: Exception) {
+                    WeLogger.e(TAG_REFLECT_API, "reflect.findFirstField failed for $className", e)
+                    Undefined.instance
+                }
+            }
+        })
+
+        ScriptableObject.putProperty(reflectObj, "findConstructors", object : BaseFunction() {
+            override fun call(
+                cx: Context,
+                scope: Scriptable,
+                thisObj: Scriptable,
+                args: Array<Any?>
+            ): Any? {
+                val className = args.getOrNull(0)?.toString() ?: return cx.newArray(scope, emptyArray<Any>())
+                val superclassFlag = Context.toBoolean(args.getOrNull(1))
+                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return cx.newArray(scope, emptyArray<Any>())
+                return try {
+                    val clazz = className.toClass()
+                    val constructors = if (superclassFlag) clazz.constructors.toList() else clazz.declaredConstructors.toList()
+                    val matches = constructors.filter { constructor ->
+                        val jsParamTypes = cx.newArray(scope, constructor.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
+                        val modStrs = getModifierStrings(constructor.modifiers)
+                        val jsModStrs = cx.newArray(scope, modStrs)
+                        val condResult = condition.call(
+                            cx, scope, thisObj,
+                            arrayOf(constructor.name, jsParamTypes, createJavaClassObject(clazz), jsModStrs)
+                        )
+                        Context.toBoolean(condResult)
+                    }
+                    val wrappers = matches.map { createJavaConstructorObject(it, clazz, cx, scope) }
+                    cx.newArray(scope, wrappers.toTypedArray<Any>())
+                } catch (e: Exception) {
+                    WeLogger.e(TAG_REFLECT_API, "reflect.findConstructors failed for $className", e)
+                    cx.newArray(scope, emptyArray<Any>())
+                }
+            }
+        })
+
+        ScriptableObject.putProperty(reflectObj, "findFirstConstructor", object : BaseFunction() {
+            override fun call(
+                cx: Context,
+                scope: Scriptable,
+                thisObj: Scriptable,
+                args: Array<Any?>
+            ): Any? {
+                val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
+                val superclassFlag = Context.toBoolean(args.getOrNull(1))
+                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return Undefined.instance
+                return try {
+                    val clazz = className.toClass()
+                    val constructors = if (superclassFlag) clazz.constructors.toList() else clazz.declaredConstructors.toList()
+                    for (constructor in constructors) {
+                        val jsParamTypes = cx.newArray(scope, constructor.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
+                        val modStrs = getModifierStrings(constructor.modifiers)
+                        val jsModStrs = cx.newArray(scope, modStrs)
+                        val condResult = condition.call(
+                            cx, scope, thisObj,
+                            arrayOf(constructor.name, jsParamTypes, createJavaClassObject(clazz), jsModStrs)
+                        )
+                        if (Context.toBoolean(condResult)) {
+                            return createJavaConstructorObject(constructor, clazz, cx, scope)
+                        }
+                    }
+                    Undefined.instance
+                } catch (e: Exception) {
+                    WeLogger.e(TAG_REFLECT_API, "reflect.findFirstConstructor failed for $className", e)
                     Undefined.instance
                 }
             }
@@ -1541,7 +1669,7 @@ object JsApiExposer {
         return nums.toTypedArray()
     }
 
-    private fun createDexMethodsResult(
+    private fun createDexMethodResult(
         methodDataList: List<MethodData>,
         cx: Context,
         scope: Scriptable
@@ -1549,7 +1677,7 @@ object JsApiExposer {
         val result = NativeObject()
         val methods = methodDataList.map { md ->
             val method = md.asMethod
-            createJavaMethodObject(method, method.declaringClass.name, cx, scope)
+            createJavaMethodObject(method, method.declaringClass, cx, scope)
         }
         val jsArray = cx.newArray(scope, methods.toTypedArray<Any>())
         ScriptableObject.putProperty(result, "methods", jsArray)
@@ -1570,14 +1698,21 @@ object JsApiExposer {
         return result
     }
 
-    private fun createDexClassesResult(
+    private fun createDexClassResult(
         classDataList: List<ClassData>,
         cx: Context,
         scope: Scriptable
     ): NativeObject {
         val result = NativeObject()
-        val names = classDataList.map { it.name }.toTypedArray<Any>()
-        val jsArray = cx.newArray(scope, names)
+        val classList = classDataList.mapNotNull { cd ->
+            try {
+                createJavaClassObject(cd.name.toClass())
+            } catch (e: Exception) {
+                WeLogger.w(TAG_DEXKIT_API, "failed to load class ${cd.name}", e)
+                null
+            }
+        }
+        val jsArray = cx.newArray(scope, classList.toTypedArray<Any>())
         ScriptableObject.putProperty(result, "classes", jsArray)
 
         ScriptableObject.putProperty(result, "single", object : BaseFunction() {
@@ -1587,8 +1722,8 @@ object JsApiExposer {
                 thisObj: Scriptable,
                 args: Array<Any?>
             ): Any? {
-                return when (names.size) {
-                    1 -> names[0]
+                return when (classList.size) {
+                    1 -> classList[0]
                     else -> Undefined.instance
                 }
             }
@@ -1596,10 +1731,62 @@ object JsApiExposer {
         return result
     }
 
+    private fun getConstructorDescriptor(constructor: Constructor<*>): String {
+        val params = constructor.parameterTypes.joinToString("") { getJvmDescriptor(it) }
+        return "($params)V"
+    }
+
+    private fun createJavaConstructorObject(
+        constructor: Constructor<*>,
+        clazz: Class<*>,
+        cx: Context,
+        scope: Scriptable
+    ): NativeObject {
+        val obj = NativeObject()
+        ScriptableObject.putProperty(obj, "name", constructor.name)
+        ScriptableObject.putProperty(obj, "clazz", createJavaClassObject(clazz))
+        ScriptableObject.putProperty(obj, "descriptor", getConstructorDescriptor(constructor))
+        ScriptableObject.putProperty(
+            obj, "paramTypes",
+            cx.newArray(scope, constructor.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
+        )
+        ScriptableObject.putProperty(obj, "returnType", createJavaClassObject(constructor.declaringClass))
+        ScriptableObject.putProperty(
+            obj, "modifiers",
+            cx.newArray(scope, getModifierStrings(constructor.modifiers))
+        )
+
+        ScriptableObject.putProperty(obj, "invoke", object : BaseFunction() {
+            override fun call(
+                cx: Context,
+                scope: Scriptable,
+                thisObj: Scriptable,
+                args: Array<Any?>
+            ): Any? {
+                val jsArgs = args.getOrNull(0) as? NativeArray ?: return Undefined.instance
+                val javaArgs = Array(constructor.parameterTypes.size) { i ->
+                    if (i < jsArgs.length.toInt()) {
+                        try { Context.jsToJava(jsArgs[i], constructor.parameterTypes[i]) }
+                        catch (_: Exception) { jsArgs[i] }
+                    } else null
+                    }
+                return try {
+                    val instance = constructor.makeAccessible().newInstance(*javaArgs)
+                    Context.javaToJS(instance, scope, cx) ?: Undefined.instance
+                } catch (e: Exception) {
+                    WeLogger.e(TAG_REFLECT_API, "reflect constructor invoke failed on ${clazz.name}", e)
+                    Undefined.instance
+                }
+            }
+        })
+
+        return obj
+    }
+
     private fun exposeDexKitApis(scope: ScriptableObject) {
         val dexkitObj = NativeObject()
 
-        ScriptableObject.putProperty(dexkitObj, "findMethods", object : BaseFunction() {
+        ScriptableObject.putProperty(dexkitObj, "findMethod", object : BaseFunction() {
             override fun call(
                 cx: Context,
                 scope: Scriptable,
@@ -1622,15 +1809,15 @@ object JsApiExposer {
                             getNumberArrayProperty(searcher, "usingNumbers")?.let { usingNumbers(*it) }
                         }
                     }
-                    createDexMethodsResult(results.toList(), cx, scope)
+                    createDexMethodResult(results.toList(), cx, scope)
                 } catch (e: Exception) {
-                    WeLogger.e(TAG_DEXKIT_API, "dexkit.findMethods failed", e)
-                    createDexMethodsResult(emptyList(), cx, scope)
+                    WeLogger.e(TAG_DEXKIT_API, "dexkit.findMethod failed", e)
+                    createDexMethodResult(emptyList(), cx, scope)
                 }
             }
         })
 
-        ScriptableObject.putProperty(dexkitObj, "findClasses", object : BaseFunction() {
+        ScriptableObject.putProperty(dexkitObj, "findClass", object : BaseFunction() {
             override fun call(
                 cx: Context,
                 scope: Scriptable,
@@ -1652,10 +1839,10 @@ object JsApiExposer {
                             }
                         }
                     }
-                    createDexClassesResult(results.toList(), cx, scope)
+                    createDexClassResult(results.toList(), cx, scope)
                 } catch (e: Exception) {
-                    WeLogger.e(TAG_DEXKIT_API, "dexkit.findClasses failed", e)
-                    createDexClassesResult(emptyList(), cx, scope)
+                    WeLogger.e(TAG_DEXKIT_API, "dexkit.findClass failed", e)
+                    createDexClassResult(emptyList(), cx, scope)
                 }
             }
         })

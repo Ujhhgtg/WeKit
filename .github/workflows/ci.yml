@@ -84,6 +84,7 @@ jobs:
       - name: Build Release
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WEKIT_KEYSTORE_FILE: ${{ runner.temp }}/wekit-keystore.jks
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

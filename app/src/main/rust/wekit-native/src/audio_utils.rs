@@ -394,7 +394,7 @@ pub fn get_audio_duration_ms(path: &str) -> Result<i64> {
 
     match extension.as_deref() {
         Some("mp3") => get_mp3_duration_ms(path),
-        Some("amr") => get_silk_duration_ms(path),
+        Some("amr" | "silk") => get_silk_duration_ms(path),
         Some(ext) => bail!("Unsupported file extension: .{}", ext),
         None => bail!("File has no extension: {}", path),
     }

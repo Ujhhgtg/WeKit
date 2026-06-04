@@ -270,6 +270,7 @@ dependencies {
     implementation(libs.google.guava)
     implementation(libs.google.protobuf.javalite)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.serialization.protobuf)
     implementation(libs.mmkv)
 
     compileOnly(libs.legacyxposed.api)

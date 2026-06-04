@@ -474,8 +474,8 @@ declare namespace xposed {
 interface JavaField {
     /** 字段名 */
     readonly name: string;
-    /** 所属类的全限定名 */
-    readonly className: string;
+    /** 所属类的 JavaClass 对象 */
+    readonly clazz: JavaClass;
     /** 字段类型的全限定名 */
     readonly type: JavaClass;
     /**
@@ -489,12 +489,12 @@ interface JavaField {
      * @returns 字段的值
      * @example
      * // 读取静态 int 字段
-     * const f = reflect.findFirstField("com.example.Cls", (n, t, m) => n === "count" && t === "int");
+     * const f = reflect.findFirstField("com.example.Cls", false, (n, t, m) => n === "count" && t.name === "int");
      * const val = f.get();
      * log.i("count =", val);
      *
      * // 读取实例字段
-     * const nameField = reflect.findFirstField("com.example.User", (n) => n === "name");
+     * const nameField = reflect.findFirstField("com.example.User", false, (n) => n === "name");
      * const userName = nameField.get(userInstance);
      */
     get(instance?: object): unknown;
@@ -504,21 +504,53 @@ interface JavaField {
      * @param value 要设置的值（实例字段需要此参数）
      * @example
      * // 设置静态字段
-     * reflect.findFirstField("com.example.Config", (n) => n === "debug")
+     * reflect.findFirstField("com.example.Config", false, (n) => n === "debug")
      *   .set(true);
      *
      * // 设置实例字段：set(instance, newValue)
-     * const balanceField = reflect.findFirstField("com.example.Account", (n) => n === "balance");
+     * const balanceField = reflect.findFirstField("com.example.Account", false, (n) => n === "balance");
      * balanceField.set(accountObj, 100);
      */
     set(instanceOrValue: object, value?: object): void;
 }
 
+interface JavaConstructor {
+    /**
+     * 构造器名（JVM 名 `<init>`）
+     */
+    readonly name: string;
+    /** 所属类的 JavaClass 对象 */
+    readonly clazz: JavaClass;
+    /** JVM 方法描述符 */
+    readonly descriptor: string;
+    /** 参数类型全限定名数组 */
+    readonly paramTypes: JavaClass[];
+    /** 返回值类型（即构造器所属类） */
+    readonly returnType: JavaClass;
+    /** 修饰符数组 */
+    readonly modifiers: string[];
+    /**
+     * 调用该构造器创建新实例
+     * @param args 构造器参数数组
+     * @returns 新创建的实例
+     * @example
+     * // 创建有参实例
+     * const ctor = reflect.findFirstConstructor("java.lang.StringBuilder", false,
+     *   (name, pt) => pt.length === 1 && pt[0].name === "java.lang.String"
+     * );
+     * if (ctor) {
+     *   const sb = ctor.invoke(["Hello"]);
+     *   log.i("StringBuilder:", sb);
+     * }
+     */
+    invoke(args: unknown[]): unknown;
+}
+
 interface JavaMethod {
     /** 方法名 */
     readonly name: string;
-    /** 所属类的全限定名 */
-    readonly className: string;
+    /** 所属类的 JavaClass 对象 */
+    readonly clazz: JavaClass;
     /** JVM 方法描述符，例如 "(Landroid/os/Bundle;)V" */
     readonly descriptor: string;
     /** 参数类型全限定名数组 */
@@ -536,7 +568,7 @@ interface JavaMethod {
      * @example
      * // 钩住特定重载的 onCreate
      * const m = reflect.findFirstMethod("com.tencent.mm.ui.LauncherUI",
-     *   (name, pt) => name === "onCreate" && pt.length === 1 && pt[0] === "android.os.Bundle"
+     *   (name, pt) => name === "onCreate" && pt.length === 1 && pt[0].name === "android.os.Bundle"
      * );
      * m.hookBefore((thisObj, args) => {
      *   log.i("LauncherUI.onCreate 被调用");
@@ -553,7 +585,7 @@ interface JavaMethod {
      * @example
      * // 修改方法返回值
      * const m = reflect.findFirstMethod("com.example.Calculator",
-     *   (name, pt, ret) => name === "add" && pt.length === 2 && ret === "int"
+     *   (name, pt, ret) => name === "add" && pt.length === 2 && ret.name === "int"
      * );
      * m.hookAfter((thisObj, args, result) => {
      *   log.i("原始结果:", result);
@@ -635,9 +667,8 @@ declare namespace reflect {
      * @param condition 过滤条件，接收 (name, type, modifiers)
      * @returns 匹配的字段数组
      * @example
-     * // 查找所有静态 int 字段并打印值
       * const intFields = reflect.findFields("com.tencent.mm.some.Class", false,
-     *   (name, type, mods) => mods.includes("static") && type === "int"
+     *   (name, type, mods) => mods.includes("static") && type.name === "int"
      * );
      * for (let i = 0; i < intFields.length; i++) {
      *   log.i(intFields[i].name, "=", intFields[i].get());
@@ -645,7 +676,7 @@ declare namespace reflect {
      *
      * // 查找 String 类型的字段
      * const strFields = reflect.findFields("com.example.Config", false,
-     *   (name, type) => type === "java.lang.String"
+     *   (name, type) => type.name === "java.lang.String"
      * );
      * log.i("找到", strFields.length, "个 String 字段");
      *
@@ -671,7 +702,7 @@ declare namespace reflect {
      *   (name, paramTypes) =>
      *     name === "onCreate" &&
      *     paramTypes.length === 1 &&
-     *     paramTypes[0] === "android.os.Bundle"
+     *     paramTypes[0].name === "android.os.Bundle"
      * );
      * if (onCreateMethods.length > 0) {
      *   onCreateMethods[0].hookBefore((thisObj, args) => {
@@ -682,7 +713,7 @@ declare namespace reflect {
      * // 查找所有返回 boolean 的无参方法
      * const boolMethods = reflect.findMethods("com.example.Checker", false,
      *   (name, paramTypes, retType) =>
-     *     paramTypes.length === 0 && retType === "boolean"
+     *     paramTypes.length === 0 && retType.name === "boolean"
      * );
      * for (let i = 0; i < boolMethods.length; i++) {
      *   log.i("无参 boolean 方法:", boolMethods[i].name);
@@ -696,7 +727,7 @@ declare namespace reflect {
      *
      * // 批量钩住特定模式的方法
      * const setters = reflect.findMethods("com.example.User", false,
-     *   (name, pt, ret) => name.startsWith("set") && pt.length === 1 && ret === "void"
+     *   (name, pt, ret) => name.startsWith("set") && pt.length === 1 && ret.name === "void"
      * );
      * for (let i = 0; i < setters.length; i++) {
      *   setters[i].hookBefore((thisObj, args) => {
@@ -705,11 +736,10 @@ declare namespace reflect {
      * }
      *
      * // 配合 xposed.hookBefore 使用 JavaMethod（等效）
-     * const m = reflect.findFirstMethod("com.example.Service", false,
+     * const m = reflect.findFirstMethod("com.example.Service",
      *   (name, pt) => name === "handle" && pt.length === 2
      * );
      * xposed.hookBefore(m, (thisObj, args) => {
-     *   log.i("handle 方法被调用");
      * });
      */
     function findMethods(className: string, superclass: boolean, condition: (name: string, paramTypes: JavaClass[], returnType: JavaClass, modifiers: string[]) => boolean): JavaMethod[];
@@ -740,10 +770,75 @@ declare namespace reflect {
      * if (m) m.invoke(cfg, []);
      */
     function toClass(className: string): JavaClass | null;
+
+    /**
+     * 查找类中第一个符合条件的字段
+     * @param className 目标类的全限定名
+     * @param superclass 是否搜索继承的 public 字段（true 时使用 Class.getFields()，会包含父类的 public 字段）
+     * @param condition 过滤条件，接收 (name, type, modifiers)
+     * @returns 匹配的 JavaField，未找到返回 null
+     * @example
+     * const countField = reflect.findFirstField("com.example.Config", false,
+     *   (n, t, m) => n === "debug" && t.name === "boolean"
+     * );
+     * if (countField) {
+     *   log.i("debug =", countField.get());
+     * }
+     */
+    function findFirstField(className: string, superclass: boolean, condition: (name: string, type: JavaClass, modifiers: string[]) => boolean): JavaField | null;
+
+    /**
+     * 查找类中第一个符合条件的方法
+     * @param className 目标类的全限定名
+     * @param condition 过滤条件，接收 (name, paramTypes, returnType, modifiers)
+     * @returns 匹配的 JavaMethod，未找到返回 null
+     * @example
+     * const m = reflect.findFirstMethod("com.example.Service",
+     *   (name, pt) => name === "handle" && pt.length === 2
+     * );
+     * if (m) {
+     *   m.hookBefore((thisObj, args) => {
+     *     log.i("handle 方法被调用");
+     *   });
+     * }
+     */
+    function findFirstMethod(className: string, condition: (name: string, paramTypes: JavaClass[], returnType: JavaClass, modifiers: string[]) => boolean): JavaMethod | null;
+
+    /**
+     * 查找类中所有符合条件的构造器
+     * @param className 目标类的全限定名
+     * @param superclass 是否仅搜索 public 构造器（true 时使用 Class.getConstructors()，仅返回 public 构造器）
+     * @param condition 过滤条件，接收 (name, paramTypes, returnType, modifiers)
+     * @returns 匹配的 JavaConstructor 数组
+     * @example
+     * const ctors = reflect.findConstructors("com.example.User", false,
+     *   (name, pt) => pt.length === 2
+     * );
+     * for (let i = 0; i < ctors.length; i++) {
+     *   log.i("构造器参数:", ctors[i].paramTypes.map(t => t.name).join(", "));
+     * }
+     */
+    function findConstructors(className: string, superclass: boolean, condition: (name: string, paramTypes: JavaClass[], returnType: JavaClass, modifiers: string[]) => boolean): JavaConstructor[];
+
+    /**
+     * 查找类中第一个符合条件的构造器
+     * @param className 目标类的全限定名
+     * @param superclass 是否仅搜索 public 构造器（true 时使用 Class.getConstructors()，仅返回 public 构造器）
+     * @param condition 过滤条件，接收 (name, paramTypes, returnType, modifiers)
+     * @returns 匹配的 JavaConstructor，未找到返回 null
+     * @example
+     * const ctor = reflect.findFirstConstructor("java.lang.StringBuilder", false,
+     *   (name, pt) => pt.length === 1 && pt[0].name === "java.lang.String"
+     * );
+     * if (ctor) {
+     *   const sb = ctor.invoke(["Hello"]);
+     * }
+     */
+    function findFirstConstructor(className: string, superclass: boolean, condition: (name: string, paramTypes: JavaClass[], returnType: JavaClass, modifiers: string[]) => boolean): JavaConstructor | null;
 }
 
 // --- DexKit API (基于字节码的搜索) ---
-interface MethodsSearcher {
+interface MethodSearcher {
     /** 搜索的包名前缀，例如 ["com.tencent.mm.storage"] */
     searchPackages?: string[];
     /** 精确字符串匹配，方法体内需要包含这些字符串 */
@@ -762,7 +857,7 @@ interface MethodsSearcher {
     paramCount?: number;
 }
 
-interface ClassesSearcher {
+interface ClassSearcher {
     /** 搜索的包名前缀 */
     searchPackages?: string[];
     /** 精确字符串匹配 */
@@ -770,23 +865,23 @@ interface ClassesSearcher {
     /** 类名（支持通配符） */
     name?: string;
     /** 基类全限定名 */
-    superclass?: string;
+    superclass?: string | JavaClass;
     /** 实现的接口全限定名列表 */
-    interfaces?: string[];
+    interfaces?: (string | JavaClass)[];
 }
 
-interface MethodsResult {
+interface MethodResult {
     /** 匹配到的方法数组 */
     methods: JavaMethod[];
     /** 如果仅匹配到一个方法则返回之，否则返回 null */
     single(): JavaMethod | null;
 }
 
-interface ClassesResult {
-    /** 匹配到的类名数组 */
-    classes: string[];
-    /** 如果仅匹配到一个类则返回其名称，否则返回 null */
-    single(): string | null;
+interface ClassResult {
+    /** 匹配到的 JavaClass 对象数组 */
+    classes: JavaClass[];
+    /** 如果仅匹配到一个类则返回其 JavaClass 对象，否则返回 null */
+    single(): JavaClass | null;
 }
 
 declare namespace dexkit {
@@ -797,7 +892,7 @@ declare namespace dexkit {
      * @example
      * // --- 按字符串特征查找 ---
      * // 查找方法体内包含特定日志字符串的方法
-     * const logMethods = dexkit.findMethods({
+     * const logMethods = dexkit.findMethod({
      *   searchPackages: ["com.tencent.mm.model"],
      *   usingEqStrings: ["MicroMsg.MMCore", "initialize"]
      * });
@@ -809,7 +904,7 @@ declare namespace dexkit {
      * }
      *
      * // --- 按方法和参数名查找 ---
-     * const namedMethods = dexkit.findMethods({
+     * const namedMethods = dexkit.findMethod({
      *   name: "onCreate",
      *   paramCount: 1
      * });
@@ -823,7 +918,7 @@ declare namespace dexkit {
      * }
      *
      * // --- 综合多条件过滤 ---
-     * const filtered = dexkit.findMethods({
+     * const filtered = dexkit.findMethod({
      *   searchPackages: ["com.tencent.mm.storage"],
      *   declaringClass: "com.tencent.mm.storage.MsgInfoStorage",
      *   usingEqStrings: ["MicroMsg.MsgInfoStorage", "insert"],
@@ -839,67 +934,67 @@ declare namespace dexkit {
      * }
      *
      * // --- 按数值常量查找 ---
-     * const numMethods = dexkit.findMethods({
+     * const numMethods = dexkit.findMethod({
      *   searchPackages: ["com.tencent.mm.plugin"],
      *   usingNumbers: [60000, 1],
      *   paramCount: 3
      * });
      * log.i("包含数值 60000 的方法数:", numMethods.methods.length);
      */
-    function findMethods(searcher: MethodsSearcher): MethodsResult;
+    function findMethod(searcher: MethodSearcher): MethodResult;
 
     /**
      * 使用 DexKit 基于字节码特征查找类
      * @param searcher 搜索条件对象
-     * @returns 类名搜索结果
+     * @returns 类搜索结果
      * @example
      * // --- 按字符串特征查找类 ---
-     * const classes = dexkit.findClasses({
+     * const classesResult = dexkit.findClass({
      *   searchPackages: ["com.tencent.mm.storage"],
      *   usingEqStrings: ["MicroMsg.MsgInfo", "insert db error"]
      * });
-     * if (classes.classes.length > 0) {
-     *   log.i("找到类:", classes.classes.join(", "));
-     *   const singleOne = classes.single();
+     * if (classesResult.classes.length > 0) {
+     *   log.i("找到类:", classesResult.classes.map(c => c.name).join(", "));
+     *   const singleOne = classesResult.single();
      *   if (singleOne) {
-     *     log.i("唯一匹配:", singleOne);
+     *     log.i("唯一匹配:", singleOne.name);
      *     // 配合 reflect API 继续查找
-     *     const methods = reflect.findMethods(singleOne, (name) => name === "insert");
+     *     const methods = reflect.findMethods(singleOne.name, false, (name) => name === "insert");
      *     log.i("该类有", methods.length, "个 insert 方法");
      *   }
      * }
      *
      * // --- 按类名搜索（支持通配符） ---
-     * const wildcard = dexkit.findClasses({
+     * const wildcard = dexkit.findClass({
      *   name: "*Config*"
      * });
-     * log.i("匹配 Config 的类:", wildcard.classes);
+     * log.i("匹配 Config 的类:", wildcard.classes.map(c => c.name));
      *
      * // --- 按基类搜索 ---
-     * const subClasses = dexkit.findClasses({
+     * const subClasses = dexkit.findClass({
      *   searchPackages: ["com.tencent.mm.plugin"],
      *   superclass: "com.tencent.mm.plugin.BasePlugin"
      * });
-     * log.i("BasePlugin 的子类:", subClasses.classes);
+     * log.i("BasePlugin 的子类:", subClasses.classes.map(c => c.name));
      *
      * // --- 按实现的接口搜索 ---
-     * const implClasses = dexkit.findClasses({
+     * const implClasses = dexkit.findClass({
      *   searchPackages: ["com.tencent.mm.model"],
      *   interfaces: ["com.tencent.mm.model.IOnAccountInitialized"]
      * });
-     * log.i("实现了接口的类:", implClasses.classes);
+     * log.i("实现了接口的类:", implClasses.classes.map(c => c.name));
      *
      * // --- 综合条件查找 ---
-     * const strict = dexkit.findClasses({
+     * const strict = dexkit.findClass({
      *   searchPackages: ["com.tencent.mm.storage"],
      *   usingEqStrings: ["MicroMsg.MsgInfoStorage"],
      *   interfaces: ["com.tencent.mm.storage.IMsgInfoProvider"]
      * });
      * if (strict.classes.length === 1) {
-     *   log.i("唯一匹配:", strict.single());
+     *   log.i("唯一匹配:", strict.single().name);
      * }
      */
-    function findClasses(searcher: ClassesSearcher): ClassesResult;
+    function findClass(searcher: ClassSearcher): ClassResult;
 }
 
 // --- 入口点函数定义 ---

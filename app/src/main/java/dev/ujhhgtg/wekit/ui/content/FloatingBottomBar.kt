@@ -79,6 +79,7 @@ import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.highlight.LightPosition
 import top.yukonga.miuix.kmp.blur.highlight.LightSource
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.sensor.rememberDeviceTilt
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.PI
@@ -234,7 +235,7 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val containerColor = if (isBlurEnabled) colors.containerColor.copy(0.4f) else colors.containerColor
 
-    val tabsBackdrop = rememberMiuixBlurBackdrop(true)!!
+    val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     val animationScope = rememberCoroutineScope()

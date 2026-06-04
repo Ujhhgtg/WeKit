@@ -1,7 +1,10 @@
 package dev.ujhhgtg.wekit.preferences
 
 import android.content.SharedPreferences
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KProperty
 
+@Suppress("unused")
 abstract class WePrefs protected constructor() : SharedPreferences, SharedPreferences.Editor {
 
     fun getBoolOrFalse(key: String): Boolean {
@@ -110,5 +113,134 @@ abstract class WePrefs protected constructor() : SharedPreferences, SharedPrefer
         fun containsKey(key: String) = default.containsKey(key)
 
         fun remove(key: String) = default.remove(key)
+
+        // -- Delegate properties --
+
+        fun prefOption(key: String, default: String): ReadWriteProperty<Any?, String> =
+            object : ReadWriteProperty<Any?, String> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): String =
+                    getStringOrDef(key, default)
+
+                override fun setValue(thisRef: Any?, property: KProperty<*>, value: String) {
+                    putString(key, value)
+                }
+            }
+
+        fun prefOption(key: String, default: Int): ReadWriteProperty<Any?, Int> =
+            object : ReadWriteProperty<Any?, Int> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): Int =
+                    getIntOrDef(key, default)
+
+                override fun setValue(thisRef: Any?, property: KProperty<*>, value: Int) {
+                    putInt(key, value)
+                }
+            }
+
+        fun prefOption(key: String, defValue: Boolean): ReadWriteProperty<Any?, Boolean> =
+            object : ReadWriteProperty<Any?, Boolean> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): Boolean =
+                    default.getBoolean(key, defValue)
+
+                override fun setValue(thisRef: Any?, property: KProperty<*>, value: Boolean) {
+                    putBool(key, value)
+                }
+            }
+
+        fun prefOption(key: String, default: Long): ReadWriteProperty<Any?, Long> =
+            object : ReadWriteProperty<Any?, Long> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): Long =
+                    getLongOrDef(key, default)
+
+                override fun setValue(thisRef: Any?, property: KProperty<*>, value: Long) {
+                    putLong(key, value)
+                }
+            }
+
+        fun prefOption(key: String, default: Float): ReadWriteProperty<Any?, Float> =
+            object : ReadWriteProperty<Any?, Float> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): Float =
+                    getFloatOrDef(key, default)
+
+                override fun setValue(thisRef: Any?, property: KProperty<*>, value: Float) {
+                    putFloat(key, value)
+                }
+            }
+
+        fun prefOption(key: String, default: Set<String>): ReadWriteProperty<Any?, Set<String>> =
+            object : ReadWriteProperty<Any?, Set<String>> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): Set<String> =
+                    getStringSetOrDef(key, default)
+
+                override fun setValue(
+                    thisRef: Any?,
+                    property: KProperty<*>,
+                    value: Set<String>
+                ) {
+                    putStringSet(key, value)
+                }
+            }
+
+        fun prefOption(key: String, defValue: ByteArray): ReadWriteProperty<Any?, ByteArray> =
+            object : ReadWriteProperty<Any?, ByteArray> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): ByteArray =
+                    default.getBytesOrDefault(key, defValue)
+
+                override fun setValue(
+                    thisRef: Any?,
+                    property: KProperty<*>,
+                    value: ByteArray
+                ) {
+                    default.putBytes(key, value)
+                }
+            }
+
+        @JvmName("prefOptionNullable")
+        fun prefOption(key: String, defValue: String?): ReadWriteProperty<Any?, String?> =
+            object : ReadWriteProperty<Any?, String?> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): String? =
+                    getStringOrDef(key, defValue)
+
+                override fun setValue(
+                    thisRef: Any?,
+                    property: KProperty<*>,
+                    value: String?
+                ) {
+                    default.putString(key, value)
+                }
+            }
+
+        @JvmName("prefOptionNullableBytes")
+        fun prefOption(key: String, defValue: ByteArray?): ReadWriteProperty<Any?, ByteArray?> =
+            object : ReadWriteProperty<Any?, ByteArray?> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): ByteArray? =
+                    default.getBytes(key, defValue)
+
+                override fun setValue(
+                    thisRef: Any?,
+                    property: KProperty<*>,
+                    value: ByteArray?
+                ) {
+                    if (value != null) default.putBytes(key, value) else remove(key)
+                }
+            }
+
+        inline fun <reified T : Any> prefOption(
+            key: String,
+            defValue: T
+        ): ReadWriteProperty<Any?, T> =
+            object : ReadWriteProperty<Any?, T> {
+                override fun getValue(thisRef: Any?, property: KProperty<*>): T {
+                    @Suppress("UNCHECKED_CAST")
+                    return (default.getObject(key) as? T) ?: defValue
+                }
+
+                override fun setValue(
+                    thisRef: Any?,
+                    property: KProperty<*>,
+                    value: T
+                ) {
+                    default.putObject(key, value)
+                }
+            }
     }
 }

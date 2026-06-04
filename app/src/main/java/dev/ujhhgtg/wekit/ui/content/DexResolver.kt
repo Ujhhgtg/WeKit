@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.ui.content
 
 import android.app.Dialog
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -76,7 +75,6 @@ private val TAG = nameOf(::DexResolver)
 fun DexResolver(
     context: Context,
     outdatedItems: List<IResolvesDex>,
-    appInfo: ApplicationInfo,
     scope: CoroutineScope,
     dialog: Dialog,
     dismiss: () -> Unit
