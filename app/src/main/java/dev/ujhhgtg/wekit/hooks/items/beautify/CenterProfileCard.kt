@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
+import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
@@ -47,12 +48,14 @@ import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.hooks.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(
-    name = "资料卡居中", categories = ["界面美化", "个人资料"],
-    description = "居中「我」界面的资料卡"
+    name = "资料卡居中",
+    categories = ["界面美化", "个人资料"],
+    description = "居中「我」界面的资料卡",
 )
 object CenterProfileCard : ClickableHookItem(), IResolvesDex {
 
@@ -130,63 +133,63 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                     DefaultColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
+                            .verticalScroll(rememberScrollState()),
                     ) {
                         Text(
                             "内容可见性",
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
                         )
                         ListItem(
                             modifier = Modifier.clickable { showName = !showName },
                             headlineContent = { Text("显示昵称") },
-                            trailingContent = { Switch(showName, null) }
+                            trailingContent = { Switch(showName, null) },
                         )
                         ListItem(
                             modifier = Modifier.clickable { showAlias = !showAlias },
                             headlineContent = { Text("显示微信号") },
-                            trailingContent = { Switch(showAlias, null) }
+                            trailingContent = { Switch(showAlias, null) },
                         )
                         ListItem(
                             modifier = Modifier.clickable { showSignature = !showSignature },
                             headlineContent = { Text("显示签名") },
-                            trailingContent = { Switch(showSignature, null) }
+                            trailingContent = { Switch(showSignature, null) },
                         )
 
                         Text(
                             "文本替换设定",
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
                         )
                         OutlinedTextField(
                             value = nameText,
                             onValueChange = { nameText = it },
                             label = { Text("自定义昵称（留空使用原文）") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = aliasText,
                             onValueChange = { aliasText = it },
                             label = { Text("自定义微信号（留空使用原文）") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = signatureText,
                             onValueChange = { signatureText = it },
                             label = { Text("自定义签名（留空使用原文）") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
 
                         Text(
                             "布局与尺寸配置",
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
                         )
                         OutlinedTextField(
                             value = avatarTopMargin,
@@ -194,7 +197,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                             label = { Text("头像顶部边距 dp") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = avatarSize,
@@ -202,7 +205,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                             label = { Text("头像大小 dp") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = nameTopMargin,
@@ -210,7 +213,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                             label = { Text("昵称顶部边距 dp") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = aliasTopMargin,
@@ -218,7 +221,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                             label = { Text("微信号顶部边距 dp") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = signatureTopMargin,
@@ -226,28 +229,28 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                             label = { Text("签名顶部边距 dp") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
 
                         Text(
                             "背景颜色配置",
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
                         )
                         OutlinedTextField(
                             value = lightBg,
                             onValueChange = { lightBg = it },
                             label = { Text("亮色背景 ARGB") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = darkBg,
                             onValueChange = { darkBg = it },
                             label = { Text("暗色背景 ARGB") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 },
@@ -273,7 +276,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                     }) {
                         Text("保存")
                     }
-                }
+                },
             )
         }
     }
@@ -281,7 +284,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
     override fun resolveDex(dexKit: DexKitBridge) {
         methodBindAccountInfo.find(dexKit, allowMultiple = true) {
             matcher {
-                declaredClass(ACCOUNT_INFO_PREFERENCE)
+                declaredClass = ACCOUNT_INFO_PREFERENCE
                 paramTypes(View::class.java.name)
             }
         }
@@ -298,7 +301,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
             tag = CENTER_CARD_TAG
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT,
             )
             setPadding(dp(context, 20), dp(context, 12), dp(context, 20), dp(context, 12))
             setBackgroundColor(parseColor(if (context.isDarkMode) darkBgPref else lightBgPref, Color.TRANSPARENT))
@@ -313,7 +316,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
             id = avatarFrameId
             layoutParams = RelativeLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT,
             ).apply {
                 addRule(RelativeLayout.CENTER_HORIZONTAL)
                 topMargin = dp(context, avatarTopMarginPref)
@@ -337,7 +340,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                 text = source.name,
                 visible = showNamePref && source.name.isNotBlank(),
                 maxLines = 1,
-                style = Typeface.BOLD
+                style = Typeface.BOLD,
             )
         )
         card.addView(
@@ -350,7 +353,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                 text = source.customWxId,
                 visible = showAliasPref && source.customWxId.isNotBlank(),
                 maxLines = Int.MAX_VALUE,
-                style = Typeface.NORMAL
+                style = Typeface.NORMAL,
             )
         )
         card.addView(
@@ -360,10 +363,10 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
                 anchorId = aliasId,
                 topMarginDp = signatureTopMarginPref,
                 textSizeSp = 14f,
-                text = source.wxId,
-                visible = showSignaturePref && source.wxId.isNotBlank(),
+                text = source.signature,
+                visible = showSignaturePref && source.signature.isNotBlank(),
                 maxLines = Int.MAX_VALUE,
-                style = Typeface.NORMAL
+                style = Typeface.NORMAL,
             )
         )
 
@@ -378,12 +381,26 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
             }
         }
 
-        val self = WeDatabaseApi.getFriend(WeApi.selfWxId)!!
+        val self = WeDatabaseApi.getFriend(WeApi.selfWxId)
+
+        val name = nameTextPref.ifBlank { self?.nickname ?: "" }
+        val customWxId = if (aliasTextPref.isNotBlank()) {
+            "微信号: $aliasTextPref"
+        } else {
+            val alias = WeApi.selfCustomWxId
+            if (alias.isNotBlank()) "微信号: $alias" else ""
+        }
+        val signature = if (signatureTextPref.isNotBlank()) {
+            signatureTextPref
+        } else {
+            WeDatabaseApi.getSelfProfileField(SelfProfileField.SIGNATURE).toString()
+        }
+
         return AccountInfoSource(
             avatarDrawable = imageViews.maxByOrNull { it.visibleArea() }?.drawable,
-            name = self.nickname,
-            customWxId = "微信号: ${WeApi.selfCustomWxId}",
-            wxId = "微信 ID: ${WeApi.selfWxId}"
+            name = name,
+            customWxId = customWxId,
+            signature = signature,
         )
     }
 
@@ -396,12 +413,12 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
         text: String,
         visible: Boolean,
         maxLines: Int,
-        style: Int
+        style: Int,
     ): TextView = TextView(context).apply {
         this.id = id
         layoutParams = RelativeLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+            ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply {
             addRule(RelativeLayout.CENTER_HORIZONTAL)
             addRule(RelativeLayout.BELOW, anchorId)
@@ -412,7 +429,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
         setText(text)
         this.maxLines = maxLines
         setTypeface(typeface, style)
-        visibility = if (visible) View.VISIBLE else View.GONE
+        isVisible = visible
         if (context.isDarkMode) {
             setTextColor(Color.WHITE)
         } else {
@@ -423,7 +440,7 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
     private fun hideDescendants(root: ViewGroup) {
         traverse(root) { view ->
             if (view !== root && view.tag != CENTER_CARD_TAG) {
-                view.visibility = View.GONE
+                view.isGone = true
             }
         }
     }
@@ -434,9 +451,9 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
         while (queue.isNotEmpty()) {
             val view = queue.removeFirst()
             action(view)
-            if (view is ViewGroup) {
-                for (i in 0 until view.childCount) {
-                    queue.add(view.getChildAt(i))
+            (view as? ViewGroup)?.let { group ->
+                for (i in 0 until group.childCount) {
+                    queue.add(group.getChildAt(i))
                 }
             }
         }
@@ -477,6 +494,6 @@ object CenterProfileCard : ClickableHookItem(), IResolvesDex {
         val avatarDrawable: Drawable?,
         val name: String,
         val customWxId: String,
-        val wxId: String
+        val signature: String,
     )
 }
