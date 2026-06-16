@@ -299,7 +299,7 @@ object CustomLocalFriendAvatars : ClickableHookItem(), IContactInfoProvider, IRe
     private var roundAvatarRadiusFactor by prefOption("custom_avatar_round_radius", 0.5f)
 
     private fun effectiveRadiusFactor(loaderRadiusFactor: Float): Float {
-        return if (RoundAvatarHook.isEnabled) roundAvatarRadiusFactor else loaderRadiusFactor
+        return if (RoundAvatars.hasEnabled) roundAvatarRadiusFactor else loaderRadiusFactor
     }
 
     // com.tencent.mm.pluginsdk.ui.u.b
