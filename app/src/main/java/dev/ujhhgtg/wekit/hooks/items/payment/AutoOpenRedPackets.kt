@@ -106,7 +106,6 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
 
         methodOpenOnGYNetEnd.hookAfter {
             val json = args[2] as? JSONObject ?: return@hookAfter
-            WeLogger.d(TAG,  "" + json.toString())
 
             val sendId = json.optString("sendId")
             if (sendId.isNullOrEmpty()) return@hookAfter
