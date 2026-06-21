@@ -236,12 +236,14 @@ wekit/
 │   │   └── resources/         # Xposed 配置
 │   ├── build.gradle.kts       # 应用构建配置
 │   └── proguard-rules.pro     # 混淆规则
-├── build-logic/               # 自定义构建逻辑
-│   └── convention/            # 构建约定插件
 ├── libs/                      # 子模块库
-│   └── common/
-│       ├── annotation-scanner/# KSP 注解处理器
-│       └── libxposed/         # LibXposed API/Service
+│   ├── common/
+│   │   ├── annotation-scanner/# KSP 注解处理器
+│   │   ├── bsh/               # BeanShell 子模块
+│   │   ├── reflekt/           # 反射工具子模块
+│   │   └── libxposed/         # LibXposed API/Service
+│   └── external/
+│       └── comptime-kt/       # 编译期反射子模块
 ├── gradle/                    # Gradle Wrapper
 ├── build.gradle.kts           # 根项目构建配置
 ├── settings.gradle.kts        # 项目设置
