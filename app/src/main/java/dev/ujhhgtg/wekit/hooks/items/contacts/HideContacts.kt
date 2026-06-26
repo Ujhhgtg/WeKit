@@ -466,7 +466,8 @@ object HideContacts : ClickableHookItem(), IResolveDex {
 
         methodVoipLaunchIncomingCardAsync.find(dexKit) {
             matcher {
-                usingEqStrings("MicroMsg.VoIPMP.CoreV2", "launchInComingCardAsync: ")
+                // 8.0.76 changed from "launchInComingCardAsync: " to "[volume report] launchInComingCardAsync: "
+                usingStrings("MicroMsg.VoIPMP.CoreV2", "launchInComingCardAsync: ")
             }
         }
 

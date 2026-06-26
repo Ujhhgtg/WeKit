@@ -12,7 +12,7 @@
 
 `/sdcard/Android/data/<宿主包名>/WeKit`
 
-## 4. 不受支持的旧版本启动一直弹 DEX 缓存更新怎么办
+## 4. 不受支持的旧版本启动一直弹 DEX 缓存更新怎么办?
 
 模块通用设置启用 「禁用版本适配」 或更新到 >= 8.0.65。
 
@@ -59,6 +59,10 @@
 
 4. 用 `DB Browser for SQLite` 或类似工具打开 `decrypted_wechat.db`
 
-## 10. 其他问题
+## 10. 「指纹支付」在分身微信里加解密崩溃
+
+原因为 ROM 提供的应用分身功能不兼容指纹, 不会修复
+
+## 11. 其他问题
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Ujhhgtg/WeKit)

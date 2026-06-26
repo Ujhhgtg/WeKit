@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Resources
 import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.comptime.This
+import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.hooks.core.HookItemsLoader
@@ -16,7 +17,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.invokeOriginal
 import dev.ujhhgtg.wekit.utils.reflection.int
-import dev.ujhhgtg.reflekt.reflekt
 
 object WeLauncher {
 
@@ -25,7 +25,7 @@ object WeLauncher {
 
         ParcelableFixer.init()
 
-        DexCacheManager.init(HostInfo.versionCode.toString())
+        DexCacheManager.init("${HostInfo.versionName}${HostInfo.versionCode}")
 
         if (TargetProcesses.isInMain) {
             val appContext = context.applicationContext ?: context
