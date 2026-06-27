@@ -25,7 +25,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import org.osmdroid.util.GeoPoint
 import java.util.concurrent.ConcurrentHashMap
 
@@ -82,6 +81,8 @@ object FakeLocation : ClickableFeature(), IResolveDex {
 
     override fun onDisable() {
         hookedLocationClasses.clear()
+        pendingWechatLocationPick = false
+        wechatLocationPickerResultHooked = false
     }
 
     override fun onClick(context: Context) {
@@ -196,19 +197,20 @@ object FakeLocation : ClickableFeature(), IResolveDex {
         return synchronized(this) {
             if (wechatLocationPickerResultHooked) return@synchronized true
 
-            runCatching {
-                val onActivityResult = redirectUiClass.reflekt().firstMethod {
+            val onActivityResult = runCatching {
+                redirectUiClass.reflekt().firstMethod {
                     name = "onActivityResult"
                     parameters(Int::class, Int::class, Intent::class)
                 }.self
-
-                onActivityResult.hookAfterDirectly {
-                    handleWechatLocationPickerResult(args)
-                }
-                wechatLocationPickerResultHooked = true
             }.onFailure {
-                WeLogger.e(TAG, "failed to hook native location picker result", it)
-            }.isSuccess
+                WeLogger.e(TAG, "failed to find native location picker result handler", it)
+            }.getOrNull() ?: return@synchronized false
+
+            onActivityResult.hookAfter {
+                handleWechatLocationPickerResult(args)
+            }
+            wechatLocationPickerResultHooked = true
+            true
         }
     }
 
