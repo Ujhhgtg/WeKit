@@ -171,7 +171,7 @@ object DisPlayMessageSendTime : ClickableFeature(),
         timeView.text = formatTime(msgInfo.createTime)
         timeView.textSize = fontSize.toFloat()
         timeView.setTextColor(resolveTextColor())
-        positionTimeView(timeView, position)
+        positionTimeView(timeView, position, msgInfo.isSelfSender)
         timeView.visibility = View.VISIBLE
         wrapper.visibility = View.VISIBLE
         ensureItemPadding(view, position)
@@ -277,12 +277,14 @@ object DisPlayMessageSendTime : ClickableFeature(),
         return timeView
     }
 
-    private fun positionTimeView(timeView: TextView, position: Int) {
+    private fun positionTimeView(timeView: TextView, position: Int, isSelfSender: Boolean) {
         val layoutParams = timeView.layoutParams as? FrameLayout.LayoutParams ?: return
+        val horizontalGravity = if (isSelfSender) Gravity.END else Gravity.START
+        timeView.gravity = if (isSelfSender) Gravity.END else Gravity.START
         layoutParams.gravity = if (position == POSITION_TOP) {
-            Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            Gravity.TOP or horizontalGravity
         } else {
-            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            Gravity.BOTTOM or horizontalGravity
         }
         timeView.layoutParams = layoutParams
         timeView.measure(
