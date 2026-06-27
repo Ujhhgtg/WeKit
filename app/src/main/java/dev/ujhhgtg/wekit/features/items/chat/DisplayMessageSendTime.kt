@@ -7,12 +7,19 @@ import android.view.Gravity
 import android.view.View
 import android.widget.RelativeLayout
 import android.widget.TextView
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
@@ -60,13 +67,14 @@ object DisplayMessageSendTime : ClickableFeature(),
         time.visibility = View.VISIBLE
         time.text = text
         time.setTextColor(android.graphics.Color.GRAY)
+        time.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize.toFloat())
 
         val context = time.context
 
         // 1. Convert 16dp to pixels dynamically so it matches standard screen-edge spacing
         val edgeMarginPx = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
-            12f,
+            10f,
             context.resources.displayMetrics
         ).toInt()
 
@@ -133,21 +141,33 @@ object DisplayMessageSendTime : ClickableFeature(),
     }
 
     private var pattern by prefOption("msg_time_pattern", "yyyy/MM/dd HH:mm:ss")
+    private var textSize by prefOption("msg_time_text_size", 10)
 
     override fun onClick(context: Context) {
         showComposeDialog(context) {
-            var input by remember { mutableStateOf(pattern) }
+            var inputPattern by remember { mutableStateOf(pattern) }
+            var inputTextSize by remember { mutableStateOf(textSize.toString()) }
 
             AlertDialogContent(title = { Text("显示消息时间") },
                 text = {
-                    TextField(
-                        value = input,
-                        onValueChange = { input = it },
-                        label = { Text("时间格式 (Java)") })
+                    Column {
+                        TextField(
+                            value = inputPattern,
+                            onValueChange = { inputPattern = it },
+                            label = { Text("时间格式 (Java)") })
+                        Spacer(Modifier.height(8.dp))
+                        TextField(
+                            value = inputTextSize,
+                            onValueChange = { inputTextSize = it },
+                            label = { Text("字体大小") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
                 },
                 confirmButton = {
                     Button(onClick = {
-                        pattern = input
+                        pattern = inputPattern
+                        textSize = inputTextSize.toIntOrNull() ?: 10
                         onDismiss()
                     }) { Text("确定") }
                 },
