@@ -514,6 +514,10 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
 
     fun sendQuoteMsg(talker: String, msgSvrId: Long, content: String): Boolean {
+        return sendQuoteMsg(talker, msgSvrId, content, null)
+    }
+
+    fun sendQuoteMsg(talker: String, msgSvrId: Long, content: String, referContent: String?): Boolean {
         return try {
             WeLogger.i(TAG, "sending quote message to $talker")
             val storage = WeServiceApi.messageInfoStorage
@@ -532,7 +536,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             refermsg.put("chatusr", mi.talker)
             refermsg.put("displayname", WeDatabaseApi.getDisplayName(mi.talker))
             refermsg.put("msgsource", "")
-            refermsg.put("content", content)
+            refermsg.put("content", referContent ?: mi.actualContent)
             refermsg.put("strid", "")
             refermsg.put("createtime", mi.createTime)
             appmsg.put("refermsg", refermsg)
@@ -575,27 +579,35 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-//    fun sendEmojiByMd5(toUser: String, md5: String): Boolean {
-//        return try {
-//            WeLogger.i(TAG, "sending emoji: $md5 to $toUser")
-//            val emojiInfo = WeServiceApi.emojiInfoStorage.reflekt()
-//                .firstMethod {
-//                    parameters(String::class)
-//                    returnType = EmojiInfo::class
-//                }.invoke(md5)
-//            if (emojiInfo == null) {
-//                WeLogger.w(TAG, "EmojiInfo not found for md5: $md5")
-//                return false
-//            }
-//            val methodSendEmoji = WeServiceApi.emojiMgr.reflekt().firstMethod {
-//                returnType = Void.TYPE
-//                parameterCount = 5
-//                parameters(BString, EmojiInfo::class)
-//            }
-//            methodSendEmoji.invoke(WeServiceApi.emojiMgr, toUser, emojiInfo, null, null, 0)
-//            true
-//        } catch (e: Exception) { WeLogger.e(TAG, "sendEmoji failed", e); false }
-//    }
+    fun sendEmojiByMd5(toUser: String, md5: String): Boolean {
+        return runCatching {
+            WeLogger.i(TAG, "sending emoji: $md5 to $toUser")
+            val emojiInfo = WeServiceApi.getEmojiInfoByMd5(md5)
+
+            val sendMethod = WeServiceApi.emojiMgrImpl.reflekt().firstMethod {
+                parameters {
+                    it[0] == BString &&
+                            it[1] == WeServiceApi.methodSaveEmojiThumb.method.declaringClass &&
+                            it[2] == classMsgInfo.clazz
+                }
+                returnType = void
+            }
+
+            val paramCount = sendMethod.self.parameterCount
+            if (paramCount == 4) {
+                sendMethod.invoke(toUser, emojiInfo, null, null)
+            } else if (paramCount != 5) {
+                sendMethod.invoke(toUser, emojiInfo, null)
+            } else {
+                sendMethod.invoke(toUser, emojiInfo, null, null, 0)
+            }
+
+            true
+        }.getOrElse {
+            WeLogger.e(TAG, "failed to send emoji by md5: $md5", it)
+            false
+        }
+    }
 
     fun sendPat(toUser: String, patTargetWxId: String): Boolean {
         return try {
