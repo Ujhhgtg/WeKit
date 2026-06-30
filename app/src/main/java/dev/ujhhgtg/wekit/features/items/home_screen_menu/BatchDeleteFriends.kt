@@ -157,8 +157,8 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                     val body = if (mode == 0) """{"2":"${t.wxId}","4":1}""" else """{"2":"${t.wxId}","4":3}"""
                     var ok = false
                     WePacketHelper.sendCgi("/cgi-bin/micromsg-bin/deletecontact", 376, 0, 0, body) {
-                        onSuccess { ok = true }
-                        onFailure { ok = false }
+                        onSuccess { _, _ -> ok = true }
+                        onFailure { _, _, _ -> ok = false }
                     }
                     if (!ok) fails.add(t.displayName.ifEmpty { t.wxId })
                 } catch (e: Exception) {

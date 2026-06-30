@@ -103,7 +103,7 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                                     var confirmStep by remember { mutableIntStateOf(1) }
                                     Column {
                                         Text(msgs.getOrElse(confirmStep - 1) { "" })
-                                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceEnd) {
+                                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
                                             Button(onClick = {
                                                 if (confirmStep >= 3) {
                                                     phase = 2
@@ -146,8 +146,8 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                     val body = """{"2":"${t.wxId}"}"""
                     var ok = false
                     WePacketHelper.sendCgi("/cgi-bin/micromsg-bin/quitchatroom", 343, 0, 0, body) {
-                        onSuccess { ok = true }
-                        onFailure { ok = false }
+                        onSuccess { _, _ -> ok = true }
+                        onFailure { _, _, _ -> ok = false }
                     }
                     if (!ok) { /* retry */ }
                 } catch (e: Exception) {
