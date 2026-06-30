@@ -219,7 +219,13 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
         val timeText = formatEpoch(createTime.toLong() * 1000, timeFormat)
         val typeText = "0x" + type.toString(16).uppercase(Locale.ROOT)
 
-        return textFormat
+        val format = if (CustomMomentsBottomDetails.isEnabled) {
+            CustomMomentsBottomDetails.getCustomText(snsId) ?: textFormat
+        } else {
+            textFormat
+        }
+
+        return format
             .replace(PH_ORIGINAL, originalText)
             .replace(PH_TIME, timeText)
             .replace(PH_TYPE, typeText)
