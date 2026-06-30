@@ -3,13 +3,16 @@ package dev.ujhhgtg.wekit.features.api.core
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.makeAccessible
-import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi.modifyLabel
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.reflection.DexKit
+import org.luckypray.dexkit.DexKitBridge
+import org.luckypray.dexkit.result.FieldUsingType
 import java.util.LinkedList
 
 @Feature(name = "联系人标签服务", categories = ["API"], description = "提供联系人标签查询与修改能力")
@@ -18,36 +21,6 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
     private val TAG = This.Class.simpleName
 
     data class ContactLabel(val labelId: Int, val labelName: String)
-
-    // MANY protobuf classes (~250) follow this pattern, and we have no more conditions
-//    // mx4.so6
-//    private val classContactLabelPb by dexClass {
-//        matcher {
-//            fields {
-//                count(2)
-//                add { type = "java.lang.String" }
-//                add { type = "java.lang.String" }
-//            }
-//            methods {
-//                add {
-//                    name = "compareContent"
-//                    // z01.f
-//                    addInvoke {
-//                        declaredClass {
-//                            modifiers(AccessFlagsMatcher(Modifier.ABSTRACT))
-//                            usingEqStrings("obj", "key")
-//                        }
-//                        modifiers(AccessFlagsMatcher(Modifier.STATIC or Modifier.FINAL))
-//                        returnType = "boolean"
-//                        paramTypes(Any::class.java, Any::class.java)
-//                    }
-//                }
-//                add {
-//                    name = "op"
-//                }
-//            }
-//        }
-//    }
 
     private val classNetSceneModifyContactLabelList by dexClass {
         matcher {
@@ -109,6 +82,33 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
     }
 
     /**
+     * Get the label names currently associated with a contact.
+     * Reads the comma-separated `contactLabelIds` column off `rcontact` and resolves each id
+     * back to its name. Useful for additive label edits, since [modifyLabel] replaces the whole
+     * label set of a contact rather than appending to it.
+     */
+    fun getLabelNamesForContact(username: String): List<String> {
+        return try {
+            val labelIds = WeDatabaseApi.rawQuery(
+                "SELECT contactLabelIds FROM rcontact WHERE username = ?",
+                arrayOf(username)
+            ).use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+
+            if (labelIds.isNullOrBlank()) return emptyList()
+
+            val idToName = getAllLabels().associate { it.labelId to it.labelName }
+            labelIds.split(",")
+                .mapNotNull { it.trim().toIntOrNull() }
+                .mapNotNull { idToName[it] }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "getLabelNamesForContact failed", e)
+            emptyList()
+        }
+    }
+
+    /**
      * Get contacts belonging to a specific label, by label name.
      * First resolves the label name to label ID, then queries contacts.
      */
@@ -122,7 +122,47 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private val contactLabelPbClass by lazy { "mx4.so6".toClass() }
+    /**
+     * The contact-label protobuf class (e.g. `fs4.il6` on 8.0.65) cannot be located by structural
+     * matching alone: ~250 protobuf classes share the exact same shape (extends
+     * `com.tencent.mm.protobuf.f`, exactly two `String` fields). Instead, we anchor on the unique
+     * string "UserLabelInfoList".
+     *
+     * The response handler that uses that string (e.g. `m03.m2.call`) iterates a
+     * `LinkedList<ContactLabelPb>` and reads the `UserName` String field off each element. That
+     * field read is an `iget-object` whose declaring class is exactly the protobuf class we want.
+     * So: among methods that use "UserLabelInfoList", find a read of a `String` field whose
+     * declaring class has exactly two fields, both `String` — that class is the target.
+     */
+    private val classContactLabelPb by dexClass()
+
+    override fun resolveDex(dexKit: DexKitBridge) {
+        val candidates = DexKit.findMethod {
+            matcher {
+                usingEqStrings("UserLabelInfoList")
+            }
+        }.asSequence()
+            .flatMap { it.usingFields.asSequence() }
+            .filter { it.usingType == FieldUsingType.Read }
+            .map { it.field }
+            .filter { it.typeName == "java.lang.String" }
+            .map { it.declaredClass }
+            .filter { clazz ->
+                val fields = clazz.fields
+                fields.size == 2 && fields.all { it.typeName == "java.lang.String" }
+            }
+            .map { it.name }
+            .distinct()
+            .toList()
+
+        val className = candidates.singleOrNull()
+        if (className == null) {
+            WeLogger.e(TAG, "contactLabelPbClass resolution failed, candidates=$candidates")
+            error("failed to locate classContactLabelPb")
+        }
+
+        classContactLabelPb.setDescriptor(className)
+    }
 
     /**
      * Modify contact labels.
@@ -143,9 +183,11 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
                 }
             }
 
-            val pbInstance = contactLabelPbClass.createInstance()
+            val pbClass = classContactLabelPb.clazz
 
-            val stringFields = contactLabelPbClass.declaredFields.filter { it.type == String::class.java }
+            val pbInstance = pbClass.createInstance()
+
+            val stringFields = pbClass.declaredFields.filter { it.type == String::class.java }
             if (stringFields.size < 2) {
                 throw IllegalStateException("ContactLabelPb does not have at least 2 String fields")
             }

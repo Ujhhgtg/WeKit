@@ -126,7 +126,7 @@ fun OsmLocationPicker(
 ) {
     // osmdroid requires a user-agent to be set before first MapView creation
     SideEffect {
-        Configuration.getInstance().userAgentValue = PackageNames.THIS
+        Configuration.getInstance().userAgentValue = PackageNames.MODULE
     }
 
     var pickedPoint by remember { mutableStateOf<GeoPoint?>(null) }

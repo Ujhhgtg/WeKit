@@ -1560,33 +1560,33 @@ object JavaEngine {
 
             // === SNS Moments ===
             setMethod(BshMethod("uploadText", arrayOf(BString)) {
-                return@BshMethod WeMomentsApi.uploadText(it[0] as String)
+                return@BshMethod WeMomentsApi.sendText(it[0] as String)
             })
             setMethod(BshMethod("uploadText", arrayOf(BString, BString, BString)) {
-                return@BshMethod WeMomentsApi.uploadText(it[0] as String, it[1] as String, it[2] as String)
+                return@BshMethod WeMomentsApi.sendText(it[0] as String, it[1] as String, it[2] as String)
             })
             setMethod(BshMethod("uploadText", arrayOf(org.json.JSONObject::class.java)) {
                 val jo = it[0] as org.json.JSONObject
                 @Suppress("TYPE_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-                return@BshMethod WeMomentsApi.uploadText(
+                return@BshMethod WeMomentsApi.sendText(
                     jo.optString("content", ""),
                     jo.optString("sdkId", null),
                     jo.optString("sdkAppName", null)
                 )
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(BString, BString)) {
-                return@BshMethod WeMomentsApi.uploadTextAndPicList(it[0] as String, listOf(it[1] as String))
+                return@BshMethod WeMomentsApi.sendTextAndPicList(it[0] as String, listOf(it[1] as String))
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(BString, BString, BString, BString)) {
-                return@BshMethod WeMomentsApi.uploadTextAndPicList(it[0] as String, listOf(it[1] as String), it[2] as String, it[3] as String)
+                return@BshMethod WeMomentsApi.sendTextAndPicList(it[0] as String, listOf(it[1] as String), it[2] as String, it[3] as String)
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(BString, List::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return@BshMethod WeMomentsApi.uploadTextAndPicList(it[0] as String, it[1] as List<String>)
+                return@BshMethod WeMomentsApi.sendTextAndPicList(it[0] as String, it[1] as List<String>)
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(BString, List::class.java, BString, BString)) {
                 @Suppress("UNCHECKED_CAST")
-                return@BshMethod WeMomentsApi.uploadTextAndPicList(it[0] as String, it[1] as List<String>, it[2] as String, it[3] as String)
+                return@BshMethod WeMomentsApi.sendTextAndPicList(it[0] as String, it[1] as List<String>, it[2] as String, it[3] as String)
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(org.json.JSONObject::class.java)) {
                 val jo = it[0] as org.json.JSONObject
@@ -1598,7 +1598,7 @@ object JavaEngine {
                     }
                 }
                 @Suppress("TYPE_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-                return@BshMethod WeMomentsApi.uploadTextAndPicList(
+                return@BshMethod WeMomentsApi.sendTextAndPicList(
                     jo.optString("content", ""),
                     picList,
                     jo.optString("sdkId", null),
@@ -1728,14 +1728,16 @@ object JavaEngine {
         val props = Properties()
         val file = configFile(plugin)
         if (file.exists()) {
-            FileInputStream(file).use { stream -> props.load(stream) }
+            file.reader(Charsets.UTF_8).use { reader ->
+                props.load(reader)
+            }
         }
         return props
     }
 
     private fun saveConfig(plugin: JavaPlugin, props: Properties) {
-        FileOutputStream(configFile(plugin)).use { stream ->
-            props.store(stream, null)
+        configFile(plugin).writer(Charsets.UTF_8).use { writer ->
+            props.store(writer, null)
         }
     }
 

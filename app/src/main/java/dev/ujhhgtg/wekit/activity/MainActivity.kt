@@ -2,14 +2,11 @@ package dev.ujhhgtg.wekit.activity
 
 import android.content.ComponentName
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -46,6 +44,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Open_in_new
@@ -58,13 +57,14 @@ import com.topjohnwu.superuser.Shell
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.AppTheme
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
-import dev.ujhhgtg.wekit.utils.BshSnapshotDecompiler
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.registerBshSnapshotDecompileLaunchers
 import dev.ujhhgtg.wekit.utils.android.Intent
 import dev.ujhhgtg.wekit.utils.android.androidUserId
 import dev.ujhhgtg.wekit.utils.android.getEnabled
@@ -77,6 +77,8 @@ import dev.ujhhgtg.wekit.utils.openInSystem
 
 class MainActivity : ComponentActivity() {
 
+    private val prefs by lazy { getPreferences(MODE_PRIVATE) }
+
     private var isLaunchingWeChat = false
 
     override fun onStop() {
@@ -87,49 +89,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private var pendingDecompileResult: String? = null
-
-    private val selectFileLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                Log.i(BuildConfig.TAG, "file $uri chosen")
-                contentResolver.openInputStream(uri)?.use { inputStream ->
-                    Log.i(BuildConfig.TAG, "decompiling file...")
-                    val result = BshSnapshotDecompiler.decompileStream(inputStream).trim()
-                    Log.i(BuildConfig.TAG, "decompiled successfully (${result.length} chars)")
-                    if (result.isEmpty()) {
-                        showToast(this, "错误: 反编译结果为空!")
-                        return@use
-                    }
-                    pendingDecompileResult = result
-                    val inputName = uri.lastPathSegment?.substringBeforeLast(".") ?: "decompiled"
-                    saveFileLauncher.launch("$inputName.java")
-                }
-            } catch (ex: Exception) {
-                Log.e(BuildConfig.TAG, "exception thrown", ex)
-                showToast(this, "错误: ${ex.message}")
-            }
-        } else {
-            showToast(this, "文件选择已取消!")
-        }
-    }
-
-    private val saveFileLauncher = registerForActivityResult(
-        ActivityResultContracts.CreateDocument("text/plain")
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val text = pendingDecompileResult
-            if (text != null) {
-                contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(text.toByteArray())
-                    showToast(this, "已保存到 $uri")
-                }
-            }
-            pendingDecompileResult = null
-        }
-    }
+    private val selectFileLauncher = registerBshSnapshotDecompileLaunchers()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -166,12 +126,14 @@ class MainActivity : ComponentActivity() {
         var showConfirmDeleteTinkerDialog by remember { mutableStateOf(false) }
         var showConfirmDeleteModuleDataDialog by remember { mutableStateOf(false) }
         var showNoRootDialog by remember { mutableStateOf(false) }
+        var showModifyHostPkgNameDialog by remember { mutableStateOf(false) }
+        var shortcutError by remember { mutableStateOf<String?>(null) }
 
         var isLauncherIconEnabled by remember {
             mutableStateOf(
                 ComponentName(
                     this,
-                    "${PackageNames.THIS}.activity.MainActivityAlias"
+                    "${PackageNames.MODULE}.activity.MainActivityAlias"
                 ).getEnabled(this)
             )
         }
@@ -245,10 +207,10 @@ class MainActivity : ComponentActivity() {
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("清除模块数据") },
+                                text = { Text("设置宿主包名") },
                                 onClick = {
                                     showMenu = false
-                                    showConfirmDeleteModuleDataDialog = true
+                                    showModifyHostPkgNameDialog = true
                                 }
                             )
                             DropdownMenuItem(
@@ -256,6 +218,13 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     showMenu = false
                                     showConfirmDeleteTinkerDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("清除模块数据") },
+                                onClick = {
+                                    showMenu = false
+                                    showConfirmDeleteModuleDataDialog = true
                                 }
                             )
                             DropdownMenuItem(
@@ -271,7 +240,7 @@ class MainActivity : ComponentActivity() {
                                     showMenu = false
                                     val componentName = ComponentName(
                                         this@MainActivity,
-                                        "${PackageNames.THIS}.activity.MainActivityAlias"
+                                        "${PackageNames.MODULE}.activity.MainActivityAlias"
                                     )
                                     val newState = !isLauncherIconEnabled
                                     componentName.setEnabled(this@MainActivity, newState)
@@ -358,11 +327,19 @@ class MainActivity : ComponentActivity() {
                             showNoRootDialog = true
                         } else {
                             val userId = androidUserId
+                            val hostPkg =
+                                prefs.getString("host_pkg_name", PackageNames.WECHAT)!!
                             Shell.cmd(
-                                "am force-stop --user $userId ${PackageNames.WECHAT}",
-                                "am start --user $userId -n ${PackageNames.WECHAT}/${PackageNames.WECHAT}.ui.LauncherUI"
-                            ).submit {
-                                finishAndRemoveTask()
+                                "am force-stop --user $userId $hostPkg",
+                                "am start --user $userId -n $hostPkg/${PackageNames.WECHAT}.ui.LauncherUI"
+                            ).submit { result ->
+                                if (result.isSuccess) {
+                                    finishAndRemoveTask()
+                                } else {
+                                    shortcutError = (result.out + result.err)
+                                        .joinToString("\n")
+                                        .ifBlank { "无法启动微信 (包名: $hostPkg)" }
+                                }
                             }
                         }
                     },
@@ -396,12 +373,19 @@ class MainActivity : ComponentActivity() {
 
                 ElevatedCard(
                     onClick = {
-                        startActivity(Intent {
-                            setClassName(PackageNames.WECHAT, "${PackageNames.WECHAT}.ui.LauncherUI")
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            putExtra(BuildConfig.TAG, "1")
-                        })
-                        isLaunchingWeChat = true
+                        val hostPkg =
+                            prefs.getString("host_pkg_name", PackageNames.WECHAT)!!
+                        try {
+                            startActivity(Intent {
+                                setClassName(hostPkg, "${PackageNames.WECHAT}.ui.LauncherUI")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                putExtra(BuildConfig.TAG, "1")
+                            })
+                            isLaunchingWeChat = true
+                        } catch (e: Exception) {
+                            shortcutError = e.message
+                                ?: "无法打开微信 (包名: $hostPkg)"
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -433,12 +417,19 @@ class MainActivity : ComponentActivity() {
 
                 ElevatedCard(
                     onClick = {
-                        startActivity(Intent {
-                            setClassName(PackageNames.WECHAT, "${PackageNames.WECHAT}.ui.LauncherUI")
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            putExtra(BuildConfig.TAG, "2")
-                        })
-                        isLaunchingWeChat = true
+                        val hostPkg =
+                            prefs.getString("host_pkg_name", PackageNames.WECHAT)!!
+                        try {
+                            startActivity(Intent {
+                                setClassName(hostPkg, "${PackageNames.WECHAT}.ui.LauncherUI")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                putExtra(BuildConfig.TAG, "2")
+                            })
+                            isLaunchingWeChat = true
+                        } catch (e: Exception) {
+                            shortcutError = e.message
+                                ?: "无法打开微信 (包名: $hostPkg)"
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -468,6 +459,37 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                if (showModifyHostPkgNameDialog) {
+                    var pkgName by remember { mutableStateOf(prefs.getString("host_pkg_name", PackageNames.WECHAT)!!) }
+
+                    AlertDialog(
+                        onDismissRequest = { showModifyHostPkgNameDialog = false },
+                        title = { Text("设置宿主包名") },
+                        text = {
+                            DefaultColumn {
+                                Text("本选项控制模块应用首页三个快捷方式打开的目标微信包名, 适用于通过修改包名而非多用户实现多微信共存的用户")
+
+                                TextField(
+                                    label = { Text("宿主包名 (默认为 com.tencent.mm)") },
+                                    value = pkgName,
+                                    onValueChange = { pkgName = it }
+                                )
+                            }
+
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showModifyHostPkgNameDialog = false }) { Text("取消") }
+                        },
+                        confirmButton = {
+                            Button(onClick = {
+                                showModifyHostPkgNameDialog = false
+                                prefs.edit {
+                                    putString("host_pkg_name", pkgName)
+                                }
+                            }) { Text("确定") }
+                        })
+                }
+
                 if (showConfirmDeleteTinkerDialog) {
                     val paths = remember {
                         @Suppress("SdCardPath")
@@ -489,9 +511,10 @@ class MainActivity : ComponentActivity() {
                         title = { Text("修复模块加载") },
                         text = {
                             Text(
-                                "本操作将尝试修复微信热更新导致的模块不加载, 执行后请重启微信\n将删除以下路径的文件, 请确认无误后再删除!\n${
-                                    paths.joinToString("\n") { "- $it" }
-                                }"
+                                "本操作将尝试修复微信热更新导致的模块不加载, 执行后请重启微信\n" +
+                                        "将清空以下路径的内容, 并将其权限递归设置为 000 以阻止微信重读写, 请确认无误后再继续!\n${
+                                            paths.joinToString("\n") { "- $it" }
+                                        }"
                             )
                         },
                         dismissButton = {
@@ -503,13 +526,18 @@ class MainActivity : ComponentActivity() {
                                 if (!(Shell.isAppGrantedRoot() ?: false)) {
                                     showNoRootDialog = true
                                 } else {
-                                    // if using Shell.cmd or su -c without -mm, the view of /data/user/0 is restricted
                                     paths.forEach { path ->
-                                        ProcessBuilder("su", "-mm", "-c", "rm -rf $path")
+                                        ProcessBuilder(
+                                            "su", "-mm", "-c",
+                                            "if [ -d '$path' ]; then " +
+                                                    "find '$path' -mindepth 1 -exec rm -rf {} + ; " +
+                                                    "chmod -R 000 '$path' ; " +
+                                                    "fi"
+                                        )
                                             .redirectErrorStream(true)
                                             .start()
                                     }
-                                    showToast(this@MainActivity, "删除成功!")
+                                    showToast(this@MainActivity, "操作成功!")
                                 }
                             }) { Text("确定") }
                         })
@@ -567,6 +595,18 @@ class MainActivity : ComponentActivity() {
                         })
                 }
 
+                shortcutError?.let { error ->
+                    AlertDialog(
+                        onDismissRequest = { shortcutError = null },
+                        title = { Text("操作失败") },
+                        text = { Text(error) },
+                        confirmButton = {
+                            Button(onClick = {
+                                shortcutError = null
+                            }) { Text("确定") }
+                        })
+                }
+
                 HorizontalDivider(
                     modifier = Modifier
                         .padding(vertical = 4.dp)
@@ -583,7 +623,7 @@ class MainActivity : ComponentActivity() {
                 LinkCard(
                     icon = TelegramIcon,
                     title = "Telegram",
-                    subtitle = "@ujhhgtg_wekit_announce",
+                    subtitle = "Telegram 超级群组",
                     onClick = { onUrlClick("https://t.me/+4XsfR-SWAtk1NGRl") }
                 )
             }

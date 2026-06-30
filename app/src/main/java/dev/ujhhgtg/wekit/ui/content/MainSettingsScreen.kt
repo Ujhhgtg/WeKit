@@ -358,7 +358,7 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
                                     title = { Text("检测到新版本") },
                                     text = {
                                         Text(
-                                            "当前版本: ${BuildConfig.VERSION_NAME} → 新版本: ${result.info.versionName}\n" +
+                                            "当前版本: ${BuildConfig.VERSION_NAME}\n新版本: ${result.info.versionName}\n" +
                                                     "是否下载并安装?"
                                         )
                                     },

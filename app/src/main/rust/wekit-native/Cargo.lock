@@ -663,7 +663,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "silk-v3-sys"
 version = "0.1.0"
-source = "git+https://github.com/Ujhhgtg/silk-v3-sys.git#585c070efc1d905c7f021316d1d372b3d941bf7c"
+source = "git+https://github.com/Ujhhgtg/silk-v3-sys.git#336ac8a8962bce7e4948820fc58379e9f716be90"
 dependencies = [
  "bindgen 0.72.1",
  "cc",
@@ -876,6 +876,7 @@ name = "wekit-native"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bindgen 0.72.1",
  "jni",
  "libc",
  "libsql",

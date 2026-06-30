@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.SendIcon
 import dev.ujhhgtg.wekit.ui.utils.ShareIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.Intent
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.fs.asPath
@@ -167,11 +166,7 @@ object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
                     return
                 }
 
-                activity.startActivity(Intent {
-                    setClassName(activity, "com.tencent.mm.plugin.sns.ui.SnsUploadUI")
-                    putStringArrayListExtra("sns_kemdia_path_list", tempPaths)
-                    putExtra("Kdescription", contentText)
-                })
+                WeMomentsApi.sendImagesInUi(activity, tempPaths)
             }
             15, 5 -> { // 视频
                 val videoPath = fetchVideoPath(data.nativeMediaList)
@@ -184,24 +179,14 @@ object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
                 val tempPath = tempVideo.absolutePathString()
 
                 if (copyVfsFile(videoPath, tempPath)) {
-                    activity.startActivity(Intent {
-                        setClassName(activity, "com.tencent.mm.plugin.sns.ui.SnsUploadUI")
-                        putExtra("Ksnsupload_type", 14)
-                        putExtra("KSightPath", tempPath)
-                        putExtra("KSightThumbPath", tempPath)
-                        putExtra("Kdescription", contentText)
-                    })
+                    WeMomentsApi.sendVideoInUi(activity, tempPath, contentText)
                 } else {
                     showToast("视频文件准备失败!")
                 }
             }
             else -> { // 文字
                 WeLogger.i(TAG, "reposting type ${data.type}")
-                activity.startActivity(Intent {
-                    setClassName(activity, "com.tencent.mm.plugin.sns.ui.SnsUploadUI")
-                    putExtra("Ksnsupload_type", 9)
-                    putExtra("Kdescription", contentText)
-                })
+                WeMomentsApi.sendTextInUi(activity, contentText)
             }
         }
     }

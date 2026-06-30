@@ -4,6 +4,7 @@ import android.app.Activity
 import android.graphics.drawable.Drawable
 import android.view.ContextMenu
 import de.robv.android.xposed.XC_MethodHook
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
@@ -18,7 +19,7 @@ import java.lang.reflect.Modifier
 @Feature(name = "朋友圈菜单增强扩展", categories = ["API"], description = "为朋友圈消息长按菜单提供添加菜单项功能")
 object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
 
-    private val TAG = nameOf(WeMomentsContextMenuApi)
+    private val TAG = This.Class.simpleName
 
     fun interface IMenuItemsProvider {
         fun getMenuItems(): List<MenuItem>

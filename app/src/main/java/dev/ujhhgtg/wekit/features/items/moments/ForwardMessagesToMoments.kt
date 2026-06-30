@@ -1,14 +1,13 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
-import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
+import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.CameraIcon
-import dev.ujhhgtg.wekit.utils.android.Intent
-import dev.ujhhgtg.wekit.utils.strings.removeWxIdPrefix
+import dev.ujhhgtg.wekit.utils.strings.stripWxId
 
 @Suppress("DEPRECATION")
 @Feature(name = "消息转圈", categories = ["朋友圈"], description = "将一些简单的消息转发到朋友圈")
@@ -26,8 +25,6 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
         MessageType.TEXT, MessageType.QUOTE, MessageType.IMAGE, MessageType.VIDEO
     )
 
-    private const val MOMENTS_CLASS = "${PackageNames.WECHAT}.plugin.sns.ui.SnsUploadUI"
-
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
@@ -38,11 +35,7 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
 
                     when (msgInfo.type) {
                         MessageType.TEXT -> {
-                            activity.startActivity(Intent {
-                                setClassName(activity, MOMENTS_CLASS)
-                                putExtra("Ksnsupload_type", 9)
-                                putExtra("Kdescription", msgInfo.actualContent)
-                            })
+                            WeMomentsApi.sendTextInUi(activity, msgInfo.actualContent)
                         }
 
                         MessageType.QUOTE -> {
@@ -50,35 +43,19 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
 
                             var text = quoteMsg.title
                             if (msgInfo.isInGroupChat) {
-                                text = text.removeWxIdPrefix()
+                                text = text.stripWxId()
                             }
 
-                            activity.startActivity(Intent {
-                                setClassName(activity, MOMENTS_CLASS)
-                                putExtra("Ksnsupload_type", 9)
-                                putExtra("Kdescription", text)
-                            })
+                            WeMomentsApi.sendTextInUi(activity, text)
                         }
 
                         MessageType.IMAGE -> {
-                            activity.startActivity(Intent {
-                                setClassName(activity, MOMENTS_CLASS)
-                                putStringArrayListExtra(
-                                    "sns_kemdia_path_list", arrayListOf(WeServiceApi.getImageMd5FromMsgInfo(msgInfo))
-                                )
-                                putExtra("Kdescription", "")
-                            })
+                            WeMomentsApi.sendImagesInUi(activity, listOf(WeServiceApi.getImageMd5FromMsgInfo(msgInfo)))
                         }
 
                         MessageType.VIDEO -> {
                             val mp4Path = WeServiceApi.getVideoMp4PathFromMsgInfo(msgInfo)
-                            activity.startActivity(Intent {
-                                setClassName(activity, MOMENTS_CLASS)
-                                putExtra("Ksnsupload_type", 14)
-                                putExtra("KSightPath", mp4Path)
-                                putExtra("KSightThumbPath", mp4Path)
-                                putExtra("Kdescription", "")
-                            })
+                            WeMomentsApi.sendVideoInUi(activity, mp4Path)
                         }
 
                         else -> {}

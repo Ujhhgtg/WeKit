@@ -1,10 +1,12 @@
 package dev.ujhhgtg.wekit.features.api.ui
 
+import android.content.Context
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
@@ -13,6 +15,7 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.Intent
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.long
@@ -326,7 +329,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    fun uploadText(content: String, sdkId: String? = null, sdkAppName: String? = null): Boolean {
+    fun sendText(content: String, sdkId: String? = null, sdkAppName: String? = null): Boolean {
         return try {
             val helper = ctorUploadPackHelper.constructor.newInstance(2, null)
             methodSetContentDes.method.invoke(helper, content)
@@ -344,7 +347,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    fun uploadTextAndPicList(content: String, picPaths: List<String>, sdkId: String? = null, sdkAppName: String? = null): Boolean {
+    fun sendTextAndPicList(content: String, picPaths: List<String>, sdkId: String? = null, sdkAppName: String? = null): Boolean {
         return try {
             val helper = ctorUploadPackHelper.constructor.newInstance(1, null)
             methodSetContentDes.method.invoke(helper, content)
@@ -480,6 +483,34 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "failed to get Moments snsInfo by snsId=$snsId", error)
             null
         }
+    }
+
+    private const val MOMENTS_CLASS = "${PackageNames.WECHAT}.plugin.sns.ui.SnsUploadUI"
+
+    fun sendTextInUi(context: Context, text: String) {
+        context.startActivity(Intent {
+            setClassName(PackageNames.WECHAT, MOMENTS_CLASS)
+            putExtra("Ksnsupload_type", 9)
+            putExtra("Kdescription", text)
+        })
+    }
+
+    fun sendImagesInUi(context: Context, mediaMd5s: List<String>) {
+        context.startActivity(Intent {
+            setClassName(PackageNames.WECHAT, MOMENTS_CLASS)
+            putStringArrayListExtra("sns_kemdia_path_list", mediaMd5s.toCollection(ArrayList()))
+            putExtra("Kdescription", "")
+        })
+    }
+
+    fun sendVideoInUi(context: Context, videoPath: String, text: String? = null) {
+        context.startActivity(Intent {
+            setClassName(PackageNames.WECHAT, MOMENTS_CLASS)
+            putExtra("Ksnsupload_type", 14)
+            putExtra("KSightPath", videoPath)
+            putExtra("KSightThumbPath", videoPath)
+            putExtra("Kdescription", text ?: "")
+        })
     }
 
     private fun sendLike(

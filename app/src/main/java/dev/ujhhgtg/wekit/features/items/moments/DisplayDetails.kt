@@ -45,7 +45,7 @@ import dev.ujhhgtg.wekit.utils.formatEpoch
 import java.util.Locale
 
 @Feature(
-    name = "朋友圈底部详细信息", categories = ["朋友圈"],
+    name = "底部详细信息", categories = ["朋友圈"],
     description = "在朋友圈列表项底部显示详情信息"
 )
 object DisplayDetails : ClickableFeature(), IResolveDex {
@@ -56,14 +56,14 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
     private var timeFormat by prefOption("moments_details_time_format", DEFAULT_TIME_FORMAT)
     private var hideGroupIcon by prefOption("moments_details_hide_group", false)
 
-    private const val DEFAULT_TEXT_FORMAT = $$"${time} | ${originalText}"
+    private const val DEFAULT_TEXT_FORMAT = $$"$time | $originalText"
     private const val DEFAULT_TIME_FORMAT = "yyyy-MM-dd HH:mm:ss"
 
-    private const val PH_ORIGINAL = $$"${originalText}"
-    private const val PH_TIME = $$"${time}"
-    private const val PH_TYPE = $$"${type}"
-    private const val PH_SNS_ID = $$"${snsId}"
-    private const val PH_USER_NAME = $$"${userName}"
+    private const val PH_ORIGINAL = $$"$originalText"
+    private const val PH_TIME = $$"$time"
+    private const val PH_TYPE = $$"$type"
+    private const val PH_SNS_ID = $$"$snsId"
+    private const val PH_USER_NAME = $$"$userName"
 
     private val TIMESTAMP_REGEX = Regex(
         """^\d+分钟前$|^\d+小时前$|^\d+天前$|^刚刚$|^昨天$|^\d+\s*mins?\s*ago$|^\d+\s*hrs?\s*ago$|^\d+\s*days?\s*ago$|^yesterday$""",
@@ -103,7 +103,7 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
                 title = { Text("朋友圈底部信息详细") },
                 text = {
                     DefaultColumn {
-                        Text($$"占位符: ${originalText} ${time} ${type} ${snsId} ${userName}")
+                        Text($$"占位符: $originalText $time $type $snsId $userName")
                         OutlinedTextField(
                             value = textFormatInput,
                             onValueChange = { textFormatInput = it },
@@ -219,7 +219,12 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
         val timeText = formatEpoch(createTime.toLong() * 1000, timeFormat)
         val typeText = "0x" + type.toString(16).uppercase(Locale.ROOT)
 
-        return textFormat
+        val format = if (CustomDetails.isEnabled) {
+            CustomDetails.getCustomText(snsId) ?: textFormat
+        } else {
+            textFormat
+        }
+        return format
             .replace(PH_ORIGINAL, originalText)
             .replace(PH_TIME, timeText)
             .replace(PH_TYPE, typeText)

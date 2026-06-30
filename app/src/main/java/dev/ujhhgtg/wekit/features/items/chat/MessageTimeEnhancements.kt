@@ -68,7 +68,7 @@ object MessageTimeEnhancements : ClickableFeature(),
 
     private lateinit var avatarField: Field
 
-    private var pattern by prefOption("msg_time_pattern", "yyyy/MM/dd HH:mm:ss")
+    private var timeFormat by prefOption("msg_time_pattern", "yyyy/MM/dd HH:mm:ss")
     private var textSize by prefOption("msg_time_text_size", 10)
     private var displayFormat by prefOption("msg_time_display_format", $$"$time | $type")
     private var isAlwaysCentered by prefOption("msg_time_always_centered", false)
@@ -79,7 +79,7 @@ object MessageTimeEnhancements : ClickableFeature(),
         var result = displayFormat
 
         if (result.contains($$"$time")) {
-            val timeStr = formatEpoch(msgInfo.createTime, pattern)
+            val timeStr = formatEpoch(msgInfo.createTime, timeFormat)
             result = result.replace($$"$time", timeStr)
         }
 
@@ -246,7 +246,7 @@ object MessageTimeEnhancements : ClickableFeature(),
     override fun onClick(context: Context) {
         showComposeDialog(context) {
             var displayFormatInput by remember { mutableStateOf(TextFieldValue(displayFormat)) }
-            var patternInput by remember { mutableStateOf(pattern) }
+            var timeFormatInput by remember { mutableStateOf(timeFormat) }
             var textSizeInputRaw by remember { mutableStateOf(textSize.toString()) }
             var isAlwaysCenteredInput by remember { mutableStateOf(isAlwaysCentered) }
             var textColorLightInput by remember { mutableStateOf(textColorLight) }
@@ -313,9 +313,9 @@ object MessageTimeEnhancements : ClickableFeature(),
                         }
 
                         TextField(
-                            value = patternInput,
-                            onValueChange = { patternInput = it },
-                            label = { Text("时间格式 (Java)") },
+                            value = timeFormatInput,
+                            onValueChange = { timeFormatInput = it },
+                            label = { Text("时间格式") },
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -365,7 +365,7 @@ object MessageTimeEnhancements : ClickableFeature(),
                         }
 
                         displayFormat = displayFormatInput.text
-                        pattern = patternInput
+                        timeFormat = timeFormatInput
                         textSize = textSizeInput
                         isAlwaysCentered = isAlwaysCenteredInput // 保存配置
                         textColorLight = textColorLightInput

@@ -139,7 +139,7 @@ fun String.replaceEmojis(): String {
 
 private val WXID_PREFIX_REGEX = Regex("""^wxid_[^:]+:\n(.*)$""", setOf(RegexOption.DOT_MATCHES_ALL))
 
-fun String.removeWxIdPrefix(): String {
+fun String.stripWxId(): String {
     val match = WXID_PREFIX_REGEX.find(this)
     return match?.groupValues?.get(1) ?: this
 }

@@ -285,7 +285,6 @@ dependencies {
     implementation(libs.composablehorizons.material.symbols.filled)
     implementation(libs.composablehorizons.material.symbols.outlined)
 
-//    implementation(libs.google.guava)
     implementation(libs.google.protobuf.javalite)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.serialization.protobuf)
@@ -310,7 +309,7 @@ dependencies {
 
     implementation(libs.rhino)
 
-    implementation("com.alibaba.fastjson2:fastjson2:2.0.49")
+    implementation(libs.fastjson2)
 
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)

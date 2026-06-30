@@ -5,7 +5,7 @@ import dev.ujhhgtg.wekit.BuildConfig
 object PackageNames {
 
     const val WECHAT = "com.tencent.mm"
-    const val THIS = BuildConfig.APPLICATION_ID
+    const val MODULE = BuildConfig.APPLICATION_ID
 
     @Suppress("NOTHING_TO_INLINE")
     @JvmStatic

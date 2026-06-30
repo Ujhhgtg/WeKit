@@ -23,7 +23,7 @@ object HideModuleFromAppList : SwitchFeature() {
                 @Suppress("UNCHECKED_CAST")
                 val infos = result as MutableList<ResolveInfo>
                 infos.removeAll { info ->
-                    (info.activityInfo.packageName == PackageNames.THIS).also {
+                    (info.activityInfo.packageName == PackageNames.MODULE).also {
                         if (it) WeLogger.i(TAG, "removed module from PackageManager::queryIntentActivities")
                     }
                 }
@@ -35,7 +35,7 @@ object HideModuleFromAppList : SwitchFeature() {
             }.forEach {
                 it.hookBefore {
                     val pkg = args[0] as String
-                    if (pkg == PackageNames.THIS) {
+                    if (pkg == PackageNames.MODULE) {
                         throwable = PackageManager.NameNotFoundException(pkg)
                         WeLogger.i(TAG, "thrown NameNotFoundException from PackageManager::getPackageInfo")
                     }
@@ -48,7 +48,7 @@ object HideModuleFromAppList : SwitchFeature() {
             }.forEach {
                 it.hookBefore {
                     val pkg = args[0] as String
-                    if (pkg == PackageNames.THIS) {
+                    if (pkg == PackageNames.MODULE) {
                         throwable = PackageManager.NameNotFoundException(pkg)
                         WeLogger.i(TAG, "thrown NameNotFoundException from PackageManager::getApplicationInfo")
                     }

@@ -6,6 +6,7 @@ mod audio_utils;
 mod crash_handler;
 mod crash_triggerer;
 mod logging;
+mod native_hook;
 mod preferences_db;
 mod utils;
 

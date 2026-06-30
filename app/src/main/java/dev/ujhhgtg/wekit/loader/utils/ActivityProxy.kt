@@ -162,7 +162,7 @@ object ActivityProxy {
         }
 
         fun isModuleProxyActivity(className: String?): Boolean =
-            className?.startsWith(PackageNames.THIS) == true
+            className?.startsWith(PackageNames.MODULE) == true
     }
 
     private class IActivityManagerHandler(private val origin: Any) : InvocationHandler {

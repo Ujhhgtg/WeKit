@@ -5,7 +5,8 @@ compose-bom = "2026.06.00"
 dexkit = "2.2.0"
 appcompat = "1.7.1"
 composablehorizons-symbols = "2.2.1"
-junitJupiter = "6.1.0"
+fastjson2 = "2.0.62"
+junitJupiter = "6.1.1"
 lifecycle-runtime = "2.11.0"
 material = "1.14.0"
 activity = "1.13.0"
@@ -41,7 +42,7 @@ dexmaker = "2.28.6"
 # noinspection UnusedVersionCatalogEntry
 namespace = "dev.ujhhgtg.wekit"
 # noinspection UnusedVersionCatalogEntry
-minSdk = "29"
+minSdk = "28"
 # noinspection UnusedVersionCatalogEntry
 targetSdk = "37"
 # noinspection UnusedVersionCatalogEntry
@@ -71,6 +72,7 @@ androidx-browser = { module = "androidx.browser:browser", version.ref = "browser
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 composablehorizons-material-symbols-outlined = { module = "com.composables:icons-material-symbols-outlined-cmp", version.ref = "composablehorizons-symbols" }
 composablehorizons-material-symbols-filled = { module = "com.composables:icons-material-symbols-outlined-filled-cmp", version.ref = "composablehorizons-symbols" }
+fastjson2 = { module = "com.alibaba.fastjson2:fastjson2", version.ref = "fastjson2" }
 miuix-core = { group = "top.yukonga.miuix.kmp", name = "miuix-core-android", version.ref = "miuix" }
 miuix-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-ui-android", version.ref = "miuix" }
 miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", version.ref = "miuix" }
@@ -93,7 +95,6 @@ kotlinx-serialization-protobuf = { module = "org.jetbrains.kotlinx:kotlinx-seria
 mmkv = { module = "com.tencent:mmkv", version.ref = "mmkv" }
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 google-protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "google-protobuf" }
-google-guava = { module = "com.google.guava:guava", version = "33.6.0-android" }
 okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 
 legacyxposed-api = { module = "de.robv.android.xposed:api", version = "82" }

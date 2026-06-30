@@ -526,7 +526,7 @@ object AggregateChats : ClickableFeature(),
         val placeholders = members.joinToString(",") { "?" }
         val cursor = WeDatabaseApi.rawQuery(
             """
-            SELECT ${ConversationTable.DIGEST}, ${ConversationTable.DIGEST_USER}, ${ConversationTable.IS_SEND}, ${ConversationTable.STATUS}, ${ConversationTable.CONVERSATION_TIME},
+            SELECT ${ConversationTable.USERNAME}, ${ConversationTable.DIGEST}, ${ConversationTable.DIGEST_USER}, ${ConversationTable.IS_SEND}, ${ConversationTable.STATUS}, ${ConversationTable.CONVERSATION_TIME},
                    ${ConversationTable.FLAG}, ${ConversationTable.UNREAD_COUNT}, ${ConversationTable.UNREAD_MUTE_COUNT}, ${ConversationTable.CONTENT}, ${ConversationTable.MSG_TYPE}, ${ConversationTable.CHAT_MODE}
             FROM ${ConversationTable.NAME}
             WHERE ${ConversationTable.USERNAME} IN ($placeholders)
@@ -542,7 +542,10 @@ object AggregateChats : ClickableFeature(),
         // write sites compose the final flag via composeFolderFlag(), preserving those bits.
         val latest = cursor.use { cursor ->
             if (!cursor.moveToFirst()) null else FolderSummary(
-                digest = cursor.getStringOrEmpty(ConversationTable.DIGEST),
+                digest = prefixWithConversationName(
+                    cursor.getStringOrEmpty(ConversationTable.USERNAME),
+                    cursor.getStringOrEmpty(ConversationTable.DIGEST)
+                ),
                 digestUser = cursor.getStringOrEmpty(ConversationTable.DIGEST_USER),
                 isSend = cursor.getIntOrZero(ConversationTable.IS_SEND),
                 status = cursor.getIntOrZero(ConversationTable.STATUS),
@@ -560,6 +563,21 @@ object AggregateChats : ClickableFeature(),
             unreadCount = unreadCountForMembers(members),
             unreadMuteCount = unreadMuteCountForMembers(members)
         )
+    }
+
+    /**
+     * Prefixes the folder digest with the originating conversation's display name, so the
+     * homepage folder row reads like "群聊名: 最新一条消息" instead of a bare message whose
+     * source is ambiguous once several chats are aggregated. Returns the digest untouched
+     * when it is blank or the name can't be resolved, to avoid a dangling "name: " prefix.
+     */
+    private fun prefixWithConversationName(username: String, digest: String): String {
+        if (digest.isBlank() || username.isBlank()) return digest
+        val name = runCatching { WeDatabaseApi.getDisplayName(username) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() && it != username }
+            ?: return digest
+        return "$name: $digest"
     }
 
     /**
@@ -1184,8 +1202,40 @@ object AggregateChats : ClickableFeature(),
 
     private fun getFallbackAvatarMember(folderId: String): String? {
         val folder = folderById(folderId) ?: return null
-        val members = getFolderMembers(folder).filterNot(::isFolderId)
-        return members.firstOrNull()
+        val members = getFolderMembers(folder).filterNot(::isFolderId).distinct()
+        if (members.isEmpty()) return null
+        // Prefer the member whose conversation most recently saw activity: WeChat bumps
+        // rconversation.conversationTime on every sent or received message, so the folder
+        // borrows the avatar of the chat that last lit up rather than an arbitrary first
+        // member. Falls back to the first member when none of them has any message yet.
+        return latestActiveMember(members) ?: members.firstOrNull()
+    }
+
+    /** Member with the newest conversationTime (latest sent/received message), or null. */
+    private fun latestActiveMember(members: List<String>): String? {
+        if (members.isEmpty() || !WeDatabaseApi.isReady) return null
+        return runCatching {
+            // Suppress query rewrite: these members' parentRef is the folder id, which
+            // appendParentRefFilter would otherwise filter out, hiding every row.
+            withQueryRewriteSuppressed {
+                val placeholders = members.joinToString(",") { "?" }
+                val cursor = WeDatabaseApi.rawQuery(
+                    """
+                    SELECT ${ConversationTable.USERNAME}
+                    FROM ${ConversationTable.NAME}
+                    WHERE ${ConversationTable.USERNAME} IN ($placeholders) AND ${ConversationTable.CONVERSATION_TIME} > 0
+                    ORDER BY ${ConversationTable.CONVERSATION_TIME} DESC
+                    LIMIT 1
+                    """.trimIndent(),
+                    arrayOf(*members.toTypedArray())
+                )
+                cursor.use { c ->
+                    if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else null
+                }
+            }
+        }.onFailure {
+            WeLogger.w(TAG, "failed to resolve latest active member", it)
+        }.getOrNull()
     }
 
     private fun loadFolders(): List<ChatFolder> {

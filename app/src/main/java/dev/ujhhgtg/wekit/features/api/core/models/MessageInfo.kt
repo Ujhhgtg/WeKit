@@ -12,7 +12,7 @@ import dev.ujhhgtg.wekit.utils.serialization.asString
 import dev.ujhhgtg.wekit.utils.serialization.get
 import dev.ujhhgtg.wekit.utils.serialization.getByPath
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
-import dev.ujhhgtg.wekit.utils.strings.removeWxIdPrefix
+import dev.ujhhgtg.wekit.utils.strings.stripWxId
 import java.nio.ByteBuffer
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -34,7 +34,7 @@ class MessageInfo(val instance: Any) {
         get() {
             var text = content
             if (isInGroupChat) {
-                text = text.removeWxIdPrefix()
+                text = text.stripWxId()
             }
             return text
         }

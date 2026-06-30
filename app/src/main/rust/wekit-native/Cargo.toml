@@ -21,6 +21,9 @@ anyhow = "1"
 libsql = { version = "0.6.0", default-features = false, features = ["core"] }
 tokio = { version = "1", default-features = false, features = ["rt", "sync"] }
 
+[build-dependencies]
+bindgen = "0.72"
+
 [profile.release]
 opt-level = "z"
 lto = true

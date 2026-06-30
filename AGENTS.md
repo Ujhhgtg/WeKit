@@ -51,6 +51,16 @@
 - NEVER wrap `hookBefore` and `hookAfter` in a `try-catch`/`runCatching` block. They should NOT fail. If they fail, then it's the module developer's problem.
 - Use `WePrefs.Companion.prefOption` delegates to declare & use preference items easily.
 
+## Naming Conventions
+
+- 群聊: WeChat: chatroom; WeKit: group/群组
+- 朋友圈: WeChat: sns; WeKit: moment
+
+## Context you need
+
+- WeChat decompiled sources: ~/coding/wechat_8074
+- Decrypted WeChat main database: ./decrypted_wechat.db
+
 ## CI
 
 - GitHub Actions: builds on push/PR to `master` (skips non-code changes)

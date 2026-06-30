@@ -46,7 +46,7 @@ object HookStatus {
         get() = File("/system/framework/edxp.jar").exists()
 
     fun init(context: Context) {
-        if (context.packageName == PackageNames.THIS) {
+        if (context.packageName == PackageNames.MODULE) {
             if (!xposedServiceListenerRegistered) {
                 XposedServiceHelper.registerListener(xposedServiceListener)
                 xposedServiceListenerRegistered = true

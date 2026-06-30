@@ -55,7 +55,7 @@ object HostInfo {
             hostSpecies = run {
                 if (PackageNames.isWeChat(packageName)) return@run HostSpecies.WeChat
                 return@run when (packageName) {
-                    PackageNames.THIS -> HostSpecies.WeKit
+                    PackageNames.MODULE -> HostSpecies.WeKit
                     else -> HostSpecies.Unknown
                 }
             }
