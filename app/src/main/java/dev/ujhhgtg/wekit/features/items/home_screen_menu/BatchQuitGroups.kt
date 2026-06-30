@@ -94,11 +94,12 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
         )
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun showUI(ctx: Context) {
         phase.value = Phase.Idle
         showComposeDialog(ctx) {
             val p by remember { phase }
-            when (p) {
+            when (val current = p) {
                 is Phase.Idle -> {
                     val glist = remember { WeDatabaseApi.getGroups() }
                     val sel = remember { mutableStateListOf<String>() }
@@ -108,78 +109,86 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                         text = {
                             Column(Modifier.size(320.dp, 420.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("操作间隔: ${interval}ms", 13.sp)
-                                    Slider(interval.toFloat(), { interval = it.toInt() }, 500f..5000f, 17, Modifier.weight(1f))
+                                    Text("操作间隔: ${interval}ms", fontSize = 13.sp)
+                                    Slider(
+                                        value = interval.toFloat(),
+                                        onValueChange = { interval = it.toInt() },
+                                        valueRange = 500f..5000f,
+                                        steps = 17,
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
                                 Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-                                    TextButton({ sel.clear(); sel.addAll(glist.map { it.wxId }) }) { Text("全选", 13.sp) }
-                                    TextButton({ val cur = sel.toSet(); sel.clear(); sel.addAll(glist.map { it.wxId }.filter { it !in cur }) }) { Text("反选", 13.sp) }
-                                    TextButton({ sel.clear() }) { Text("清空", 13.sp) }
+                                    TextButton(onClick = { sel.clear(); sel.addAll(glist.map { it.wxId }) }) { Text("全选", fontSize = 13.sp) }
+                                    TextButton(onClick = { val cur = sel.toSet(); sel.clear(); sel.addAll(glist.map { it.wxId }.filter { it !in cur }) }) { Text("反选", fontSize = 13.sp) }
+                                    TextButton(onClick = { sel.clear() }) { Text("清空", fontSize = 13.sp) }
                                 }
                                 HorizontalDivider()
-                                Text("已选 ${sel.size}/${glist.size}", 12.sp, Color.Gray)
+                                Text("已选 ${sel.size}/${glist.size}", fontSize = 12.sp, color = Color.Gray)
                                 LazyColumn(Modifier.weight(1f)) {
                                     items(glist, { it.wxId }) { g ->
                                         ListItem(
-                                            headlineContent = { Text(g.nickname.ifEmpty { g.wxId }, 14.sp) },
-                                            supportingContent = { Text(g.wxId, 11.sp, Color.Gray) },
+                                            headlineContent = { Text(g.nickname.ifEmpty { g.wxId }, fontSize = 14.sp) },
+                                            supportingContent = { Text(g.wxId, fontSize = 11.sp, color = Color.Gray) },
                                             leadingContent = {
-                                                Checkbox(g.wxId in sel, { c -> if (c) sel.add(g.wxId) else sel.remove(g.wxId) }, colors = CheckboxDefaults.colors())
+                                                Checkbox(
+                                                    checked = g.wxId in sel,
+                                                    onCheckedChange = { c -> if (c) sel.add(g.wxId) else sel.remove(g.wxId) },
+                                                    colors = CheckboxDefaults.colors()
+                                                )
                                             }
                                         )
                                     }
                                 }
                             }
                         },
-                        confirmButton = {{
-                            if (sel.isEmpty()) { Toast.makeText(ctx, "请至少选一个群聊", 0).show(); return@Button }
+                        confirmButton = { Button(onClick = {
+                            if (sel.isEmpty()) { Toast.makeText(ctx, "请至少选一个群聊", 0).show(); return@onClick }
                             quitInterval = interval
                             phase.value = Phase.Confirming(glist.filter { it.wxId in sel }, 1)
-                        }},
-                        dismissButton = {{ TextButton(onDismiss) { Text("取消") } }}
+                        }) { Text("下一步") } },
+                        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
                     )
                 }
                 is Phase.Confirming -> {
+                    val cp = current
                     val msgs = listOf(
-                        "⚠️ 第一次确认
-
-即将批量退出 ${p.targets.size} 个群聊，退出后需要重新被邀请才能进入！",
-                        "⚠️ 第二次确认
-
-您确定吗？退出群聊后之前的聊天记录将无法访问。",
-                        "⚠️ 最终确认
-
-这是最后一次确认！
-即将批量退出 ${p.targets.size} 个群聊，操作间隔 ${quitInterval}ms。
-是否继续？"
+                        "⚠️ 第一次确认\n即将批量退出 ${cp.targets.size} 个群聊，退出后需要重新被邀请才能进入！",
+                        "⚠️ 第二次确认\n您确定吗？退出群聊后之前的聊天记录将无法访问。",
+                        "⚠️ 最终确认\n这是最后一次确认！\n即将批量退出 ${cp.targets.size} 个群聊，操作间隔 ${quitInterval}ms。\n是否继续？"
                     )
-                    val t = listOf("第一次确认", "第二次确认", "最终确认").getOrElse(p.step - 1) { "确认" }
+                    val titles = listOf("第一次确认", "第二次确认", "最终确认")
+                    val stepIdx = cp.step - 1
+                    val title = titles.getOrElse(stepIdx) { "确认" }
+                    val msg = msgs.getOrElse(stepIdx) { "确认?" }
                     AlertDialogContent(
-                        title = { Text(t, fontWeight = FontWeight.Bold) },
-                        text = { Text(msgs.getOrElse(p.step - 1) { "确认?" }) },
-                        confirmButton = {{
-                            if (p.step >= 3) {
+                        title = { Text(title, fontWeight = FontWeight.Bold) },
+                        text = { Text(msg) },
+                        confirmButton = { Button(onClick = {
+                            if (cp.step >= 3) {
                                 val fails = mutableListOf<String>()
-                                phase.value = Phase.Running(p.targets.size, 0, fails)
-                                startExec(ctx, p.targets, quitInterval, fails)
+                                phase.value = Phase.Running(cp.targets.size, 0, fails)
+                                startExec(ctx, cp.targets, quitInterval, fails)
                             } else {
-                                phase.value = p.copy(step = p.step + 1)
+                                phase.value = cp.copy(step = cp.step + 1)
                             }
-                        }},
-                        dismissButton = {{ TextButton({ phase.value = Phase.Idle }) { Text("取消") } }}
+                        }) { Text("确认") } },
+                        dismissButton = { TextButton(onClick = { phase.value = Phase.Idle }) { Text("取消") } }
                     )
                 }
                 is Phase.Running -> {
+                    val rp = current
+                    val progress = if (rp.total > 0) rp.done.toFloat() / rp.total else 0f
                     AlertDialogContent(
                         title = { Text("正在退出群聊...") },
                         text = {
                             Column {
-                                Text("进度: ${p.done}/${p.total}")
+                                Text("进度: ${rp.done}/${rp.total}")
                                 Spacer(Modifier.height(8.dp))
-                                LinearProgressIndicator({ if (p.total > 0) p.done.toFloat() / p.total else 0f }, Modifier.fillMaxWidth())
-                                if (p.failed.isNotEmpty()) {
+                                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                                if (rp.failed.isNotEmpty()) {
                                     Spacer(Modifier.height(8.dp))
-                                    Text("失败: ${p.failed.size} 个", Color.Red, 12.sp)
+                                    Text("失败: ${rp.failed.size} 个", color = Color.Red, fontSize = 12.sp)
                                 }
                             }
                         },
@@ -187,15 +196,16 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                     )
                 }
                 is Phase.Finished -> {
+                    val fp = current
                     AlertDialogContent(
                         title = { Text("退出完成", fontWeight = FontWeight.Bold) },
                         text = {
                             Column {
-                                Text("总计: ${p.total} | 成功: ${p.success} | 失败: ${p.failed.size}")
-                                p.failed.forEach { Text("  • $it", 12.sp) }
+                                Text("总计: ${fp.total} | 成功: ${fp.success} | 失败: ${fp.failed.size}")
+                                fp.failed.forEach { Text("  • $it", fontSize = 12.sp) }
                             }
                         },
-                        confirmButton = {{ Button(onDismiss) { Text("关闭") } }}
+                        confirmButton = { Button(onClick = onDismiss) { Text("关闭") } }
                     )
                 }
             }

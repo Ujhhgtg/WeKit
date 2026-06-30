@@ -118,10 +118,10 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                         text = {
                             Column(Modifier.size(320.dp, 420.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(mode == 0) { mode = 0 }
+                                    RadioButton(selected = mode == 0, onClick = { mode = 0 })
                                     Text("仅删除", fontSize = 13.sp)
                                     Spacer(Modifier.width(12.dp))
-                                    RadioButton(mode == 1) { mode = 1 }
+                                    RadioButton(selected = mode == 1, onClick = { mode = 1 })
                                     Text("拉黑+删除", fontSize = 13.sp)
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
