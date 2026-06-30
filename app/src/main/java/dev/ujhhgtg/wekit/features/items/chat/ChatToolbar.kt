@@ -12,28 +12,45 @@ import android.widget.GridView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.view.children
 import androidx.lifecycle.Lifecycle
@@ -45,6 +62,7 @@ import com.composables.icons.materialsymbols.outlined.Arrow_downward
 import com.composables.icons.materialsymbols.outlined.Arrow_upward
 import com.composables.icons.materialsymbols.outlined.Attach_file
 import com.composables.icons.materialsymbols.outlined.Attach_money
+import com.composables.icons.materialsymbols.outlined.AutoAwesome
 import com.composables.icons.materialsymbols.outlined.Camera
 import com.composables.icons.materialsymbols.outlined.Favorite
 import com.composables.icons.materialsymbols.outlined.Format_list_numbered
@@ -54,6 +72,7 @@ import com.composables.icons.materialsymbols.outlined.Mic
 import com.composables.icons.materialsymbols.outlined.Music_note
 import com.composables.icons.materialsymbols.outlined.Photo_library
 import com.composables.icons.materialsymbols.outlined.Redeem
+import com.composables.icons.materialsymbols.outlined.Settings
 import com.composables.icons.materialsymbols.outlined.Video_chat
 import com.composables.icons.materialsymbols.outlined.Voice_chat
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
@@ -65,6 +84,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.items.chat.ai.AiReplyHelper
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -81,11 +101,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import java.lang.ref.WeakReference
 
 @SuppressLint("StaticFieldLeak")
-@Feature(name = "聊天工具栏", categories = ["聊天"], description = "在输入框上方添加工具栏 (点击配置)")
+@Feature(name = "聊天工具栏", categories = ["聊天"], description = "在输入框上方添加工具栏 (点击配置); 支持 AI 回复")
 object ChatToolbar : ClickableFeature(), IResolveDex {
-
     private val TAG = This.Class.simpleName
-
     private val NAME_TO_ICON_MAP = mapOf(
         "相册" to MaterialSymbols.Outlined.Photo_library,
         "拍摄" to MaterialSymbols.Outlined.Camera,
@@ -104,6 +122,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         "音乐" to MaterialSymbols.Outlined.Music_note
     )
 
+    companion object {
+        const val AI_REPLY_KEY = "AI 回复"
+        const val AI_SETTINGS_KEY = "AI 配置"
+    }
+
     private val methodAppPanelInitAppGrid by dexMethod {
         matcher {
             declaredClass = "com.tencent.mm.pluginsdk.ui.chat.AppPanel"
@@ -119,9 +142,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             )
         }
     }
-
     private var lastConversation: String? = null
-
     private data class MenuItem(
         val name: String,
         val onClickListener: AdapterView.OnItemClickListener,
@@ -130,11 +151,15 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         val itemView: WeakReference<View>,
         val indexInGrid: Int
     )
-
     private val toolsState = MutableStateFlow<List<Pair<String, MenuItem>>>(emptyList())
-
-    private var itemsOrder by WePrefs.prefOption("chat_toolbar_order", NAME_TO_ICON_MAP.keys.joinToString(","))
-    private var enabledItems by WePrefs.prefOption("chat_toolbar_enabled_items", NAME_TO_ICON_MAP.keys)
+    private var itemsOrder by WePrefs.prefOption(
+        "chat_toolbar_order",
+        (NAME_TO_ICON_MAP.keys.joinToString(",") + "," + AI_REPLY_KEY + "," + AI_SETTINGS_KEY)
+    )
+    private var enabledItems by WePrefs.prefOption(
+        "chat_toolbar_enabled_items",
+        NAME_TO_ICON_MAP.keys + AI_REPLY_KEY + AI_SETTINGS_KEY
+    )
 
     override fun onEnable() {
         methodAppPanelInitAppGrid.apply {
@@ -143,25 +168,19 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 val measurer = methodAppPanelOnMeasure.method.declaringClass.createInstance(appPanel)
                 methodAppPanelOnMeasure.method.invoke(measurer, 1440, 1200)
             }
-
             hookAfter {
                 val currentConv = WeCurrentConversationApi.value
-
                 if (currentConv == lastConversation && toolsState.value.isNotEmpty()) return@hookAfter
-
                 val tools = mutableListOf<Pair<String, MenuItem>>()
-
                 val appPanel = args[0] as LinearLayout
                 val grids = appPanel.findViewByChildIndexes<ViewGroup>(0, 0, 0)!!
                     .children.map { view -> view as GridView }
-
                 grids.forEach { grid ->
                     val onClickListener = grid.reflekt()
                         .firstField { type = AdapterView.OnItemClickListener::class }.get()!! as AdapterView.OnItemClickListener
                     val onLongClickListener = grid.reflekt()
                         .firstField { type = AdapterView.OnItemLongClickListener::class }.get()!! as AdapterView.OnItemLongClickListener
                     val listAdapter = grid.adapter
-
                     listAdapter.iterable(grid).forEachIndexed { index, itemView ->
                         val name = (itemView.tag.reflekt()
                             .firstField { type = TextView::class }
@@ -178,13 +197,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         )
                     }
                 }
-
                 WeLogger.d(TAG, "populated tool list with ${tools.size} items for conversation: $currentConv")
                 toolsState.value = tools
                 lastConversation = currentConv
             }
         }
-
         ChatFooter::class.reflekt()
             .firstConstructor {
                 parameters(Context::class, AttributeSet::class, Int::class)
@@ -192,18 +209,14 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             .hookAfter {
                 val chatFooter = thisObject as FrameLayout
                 val activity = chatFooter.context as Activity
-
                 val lifecycleOwner = LifecycleOwnerProvider.getOrCreate(activity )
-
                 chatFooter.setLifecycleOwner(lifecycleOwner)
                 val linearLayout = chatFooter.findViewByChildIndexes<LinearLayout>(0, 1)!!
                 linearLayout.setLifecycleOwner(lifecycleOwner)
                 if (linearLayout.findViewWhich<View> { it is ComposeView } != null) return@hookAfter
                 activity.window.decorView.setLifecycleOwner(lifecycleOwner)
-
                 linearLayout.addView(ComposeView(activity).apply {
                     setLifecycleOwner(lifecycleOwner)
-
                     setContent {
                         AppTheme {
                             DisposableEffect(lifecycleOwner) {
@@ -214,13 +227,10 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                         Lifecycle.Event.ON_DESTROY -> {
                                             lastConversation = null
                                         }
-
                                         else -> {}
                                     }
                                 }
-
                                 lifecycleOwner.lifecycle.addObserver(observer)
-
                                 onDispose {
                                     lifecycleOwner.lifecycle.removeObserver(observer)
                                     toolsState.value = emptyList()
@@ -231,21 +241,17 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             val tools by toolsState.collectAsStateWithLifecycle()
                             val itemsOrder = remember { itemsOrder }
                             val enabledItems = remember { enabledItems }
-
                             val sortedVisibleItems = remember(tools) {
                                 if (tools.isEmpty()) return@remember emptyList()
-
                                 val firstTool = tools[0].second
                                 val orderList = itemsOrder.split(",").filter { it.isNotEmpty() }
                                 val list = mutableListOf<Pair<String, () -> Unit>>()
-
                                 list.add("相册" to {
                                     firstTool.onClickListener.onItemClick(firstTool.gridView.get()!!, firstTool.itemView.get()!!, 0, 0)
                                 })
                                 list.add("系统拍摄" to {
                                     firstTool.onLongClickListener.onItemLongClick(null, null, 0, 0)
                                 })
-
                                 tools.forEach { (name, menuItem) ->
                                     if (name in NAME_TO_ICON_MAP && name != "相册" && name != "系统拍摄") {
                                         val gridView = menuItem.gridView.get() ?: return@forEach
@@ -260,6 +266,14 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                         })
                                     }
                                 }
+                                // ── AI 回复芯片 ──
+                                list.add(AI_REPLY_KEY to {
+                                    AiReplyHelper.replyToCurrentConversation(activity)
+                                })
+                                // ── AI 配置入口 ──
+                                list.add(AI_SETTINGS_KEY to {
+                                    showAiConfigDialog(activity)
+                                })
 
                                 list.filter { it.first in enabledItems }
                                     .sortedBy { item ->
@@ -273,7 +287,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
                                 items(sortedVisibleItems, key = { it.first }) { (name, onClick) ->
-                                    val icon = NAME_TO_ICON_MAP[name]!!
+                                    val icon = when (name) {
+                                        AI_REPLY_KEY -> MaterialSymbols.Outlined.AutoAwesome
+                                        AI_SETTINGS_KEY -> MaterialSymbols.Outlined.Settings
+                                        else -> NAME_TO_ICON_MAP[name]!!
+                                    }
                                     FeatureChip(name, icon, onClick)
                                 }
                             }
@@ -292,21 +310,27 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         showComposeDialog(context) {
             val currentOrder = remember {
                 val order = itemsOrder.split(",").filter { it.isNotEmpty() }.toMutableStateList()
-                NAME_TO_ICON_MAP.keys.forEach { if (it !in order) order.add(it) }
+                (NAME_TO_ICON_MAP.keys + AI_REPLY_KEY + AI_SETTINGS_KEY).forEach {
+                    if (it !in order) order.add(it)
+                }
                 order
             }
             val currentEnabled = remember { enabledItems.toMutableStateList() }
-
             AlertDialogContent(
                 title = { Text("聊天工具栏配置") },
                 text = {
                     LazyColumn(modifier = Modifier.size(height = 400.dp, width = 300.dp)) {
                         itemsIndexed(currentOrder) { index, name ->
+                            val icon = when (name) {
+                                AI_REPLY_KEY -> MaterialSymbols.Outlined.AutoAwesome
+                                AI_SETTINGS_KEY -> MaterialSymbols.Outlined.Settings
+                                else -> NAME_TO_ICON_MAP[name]
+                            }
                             ListItem(
                                 headlineContent = { Text(name) },
                                 leadingContent = {
-                                    NAME_TO_ICON_MAP[name]?.let { icon ->
-                                        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+                                    icon?.let { ic ->
+                                        Icon(ic, contentDescription = null, modifier = Modifier.size(24.dp))
                                     }
                                 },
                                 trailingContent = {
@@ -348,6 +372,111 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         onDismiss()
                     }) {
                         Text("确定")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismiss) {
+                        Text("取消")
+                    }
+                }
+            )
+        }
+    }
+
+    private fun showAiConfigDialog(context: Context) {
+        showComposeDialog(context) {
+            var apiUrl by remember { mutableStateOf(AiReplyHelper.apiUrl) }
+            var apiKey by remember { mutableStateOf(AiReplyHelper.apiKey) }
+            var model by remember { mutableStateOf(AiReplyHelper.model) }
+            var systemPrompt by remember { mutableStateOf(AiReplyHelper.systemPrompt) }
+            var temperature by remember { mutableFloatStateOf(AiReplyHelper.temperature) }
+            var maxTokens by remember { mutableIntStateOf(AiReplyHelper.maxTokens) }
+            var contextCount by remember { mutableIntStateOf(AiReplyHelper.contextCount) }
+
+            AlertDialogContent(
+                title = { Text("AI 回复配置") },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .size(height = 420.dp, width = 320.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        OutlinedTextField(
+                            value = apiUrl,
+                            onValueChange = { apiUrl = it },
+                            label = { Text("API 地址") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = apiKey,
+                            onValueChange = { apiKey = it },
+                            label = { Text("API Key") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = model,
+                            onValueChange = { model = it },
+                            label = { Text("模型名称") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("gpt-4o-mini") }
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text("温度: ${String.format("%.1f", temperature)}")
+                        Slider(
+                            value = temperature,
+                            onValueChange = { temperature = it },
+                            valueRange = 0f..2f,
+                            steps = 19
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = systemPrompt,
+                            onValueChange = { systemPrompt = it },
+                            label = { Text("系统提示词") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp),
+                            maxLines = 4
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("上下文消息数: $contextCount")
+                            Spacer(Modifier.width(8.dp))
+                            Slider(
+                                value = contextCount.toFloat(),
+                                onValueChange = { contextCount = it.toInt() },
+                                valueRange = 1f..50f,
+                                steps = 48,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        OutlinedTextField(
+                            value = maxTokens.toString(),
+                            onValueChange = { it.toIntOrNull()?.let { n -> maxTokens = n } },
+                            label = { Text("最大 Token") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        AiReplyHelper.apiUrl = apiUrl
+                        AiReplyHelper.apiKey = apiKey
+                        AiReplyHelper.model = model
+                        AiReplyHelper.systemPrompt = systemPrompt
+                        AiReplyHelper.temperature = temperature
+                        AiReplyHelper.maxTokens = maxTokens
+                        AiReplyHelper.contextCount = contextCount
+                        onDismiss()
+                    }) {
+                        Text("保存")
                     }
                 },
                 dismissButton = {
