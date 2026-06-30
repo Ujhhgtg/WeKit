@@ -211,13 +211,11 @@ object BlockGroupMemberMessages : SwitchFeature() {
                     Column(Modifier.size(340.dp, 440.dp)) {
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
                             TextButton(
-                                { tab = 0 },
-                                fontWeight = if (tab == 0) FontWeight.Bold else FontWeight.Normal
-                            ) { Text("已屏蔽 (${blockedMembers.size})", 13.sp) }
+                                { tab = 0 }
+                            ) { Text("已屏蔽 (${blockedMembers.size})", fontSize = 13.sp, fontWeight = if (tab == 0) FontWeight.Bold else FontWeight.Normal) }
                             TextButton(
-                                { tab = 1 },
-                                fontWeight = if (tab == 1) FontWeight.Bold else FontWeight.Normal
-                            ) { Text("批量屏蔽", 13.sp) }
+                                { tab = 1 }
+                            ) { Text("批量屏蔽", fontSize = 13.sp, fontWeight = if (tab == 1) FontWeight.Bold else FontWeight.Normal) }
                         }
                         HorizontalDivider()
                         Spacer(Modifier.height(8.dp))
@@ -225,7 +223,7 @@ object BlockGroupMemberMessages : SwitchFeature() {
                         when (tab) {
                             0 -> {
                                 if (blockedMembers.isEmpty()) {
-                                    Text("暂无已屏蔽的成员", 14.sp, ComposeColor.Gray, Modifier.padding(16.dp))
+                                    Text("暂无已屏蔽的成员", fontSize = 14.sp, color = ComposeColor.Gray, modifier = Modifier.padding(16.dp))
                                 } else {
                                     LazyColumn(Modifier.weight(1f)) {
                                         items(blockedMembers, { it.wxId }) { bm ->
@@ -234,14 +232,14 @@ object BlockGroupMemberMessages : SwitchFeature() {
                                                 if (mins > 0) "剩余 ${mins}分钟" else "即将过期"
                                             } else "永久"
                                             ListItem(
-                                                headlineContent = { Text(bm.displayName, 14.sp) },
-                                                supportingContent = { Text("${if (bm.isTemp) "临时" else "永久"} | $timeLeft", 12.sp, ComposeColor.Gray) },
+                                                headlineContent = { Text(bm.displayName, fontSize = 14.sp) },
+                                                supportingContent = { Text("${if (bm.isTemp) "临时" else "永久"} | $timeLeft", fontSize = 12.sp, color = ComposeColor.Gray) },
                                                 trailingContent = {
                                                     TextButton(onClick = {
                                                         unblockMember(groupId, bm.wxId)
                                                         blockedMembers.remove(bm)
                                                         Toast.makeText(context, "已解除屏蔽", Toast.LENGTH_SHORT).show()
-                                                    }) { Text("解除", 12.sp) }
+                                                    }) { Text("解除", fontSize = 12.sp) }
                                                 }
                                             )
                                         }
@@ -273,22 +271,22 @@ object BlockGroupMemberMessages : SwitchFeature() {
                                 Spacer(Modifier.height(4.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     RadioButton(searchMode == 0, { searchMode = 0 })
-                                    Text("永久", 13.sp)
+                                    Text("永久", fontSize = 13.sp)
                                     Spacer(Modifier.width(8.dp))
                                     RadioButton(searchMode == 1, { searchMode = 1 })
-                                    Text("临时 (${tempDurationMs / 60000}分钟)", 13.sp)
+                                    Text("临时 (${tempDurationMs / 60000}分钟)", fontSize = 13.sp)
                                 }
                                 if (searchResults.isNotEmpty()) {
                                     Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-                                        TextButton({ selectedSearch.addAll(searchResults.map { it.wxId }) }) { Text("全选", 12.sp) }
-                                        TextButton({ selectedSearch.clear() }) { Text("清空", 12.sp) }
+                                        TextButton({ selectedSearch.addAll(searchResults.map { it.wxId }) }) { Text("全选", fontSize = 12.sp) }
+                                        TextButton({ selectedSearch.clear() }) { Text("清空", fontSize = 12.sp) }
                                     }
                                 }
                                 LazyColumn(Modifier.weight(1f)) {
                                     items(searchResults, { it.wxId }) { member ->
                                         ListItem(
-                                            headlineContent = { Text(member.displayName.ifEmpty { member.nickname }, 14.sp) },
-                                            supportingContent = { Text(member.wxId, 11.sp, ComposeColor.Gray) },
+                                            headlineContent = { Text(member.displayName.ifEmpty { member.nickname }, fontSize = 14.sp) },
+                                            supportingContent = { Text(member.wxId, fontSize = 11.sp, color = ComposeColor.Gray) },
                                             leadingContent = {
                                                 Checkbox(
                                                     member.wxId in selectedSearch,
@@ -322,11 +320,11 @@ object BlockGroupMemberMessages : SwitchFeature() {
                         }
                     }
                 },
-                confirmButton = {
+                confirmButton = { TextButton(onClick = {
                     blockedMembers.clear()
                     blockedMembers.addAll(getBlockedMembersDetails(groupId))
-                },
-                dismissButton = { Text("关闭") }
+                }) { Text("刷新") } },
+                dismissButton = { TextButton(onClick = { /* dismiss handled by dialog */ }) { Text("关闭") } }
             )
         }
     }
