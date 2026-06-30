@@ -121,10 +121,8 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         "音乐" to MaterialSymbols.Outlined.Music_note
     )
 
-    companion object {
-        const val AI_REPLY_KEY = "AI 回复"
-        const val AI_SETTINGS_KEY = "AI 配置"
-    }
+    const val AI_REPLY_KEY = "AI 回复"
+    const val AI_SETTINGS_KEY = "AI 配置"
 
     private val methodAppPanelInitAppGrid by dexMethod {
         matcher {

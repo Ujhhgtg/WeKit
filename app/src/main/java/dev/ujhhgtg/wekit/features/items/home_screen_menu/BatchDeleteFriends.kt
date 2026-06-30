@@ -118,22 +118,22 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                             Column(Modifier.size(320.dp, 420.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     RadioButton(mode == 0) { mode = 0 }
-                                    Text("仅删除", 13.sp)
+                                    Text("仅删除", fontSize = 13.sp)
                                     Spacer(Modifier.width(12.dp))
                                     RadioButton(mode == 1) { mode = 1 }
-                                    Text("拉黑+删除", 13.sp)
+                                    Text("拉黑+删除", fontSize = 13.sp)
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("间隔: ${interval}ms", 13.sp)
+                                    Text("间隔: ${interval}ms", fontSize = 13.sp)
                                     Slider(interval.toFloat(), { interval = it.toInt() }, 200f..5000f, 23, Modifier.weight(1f))
                                 }
                                 Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-                                    TextButton({ sel.clear(); sel.addAll(flist.map { it.wxId }) }) { Text("全选", 13.sp) }
-                                    TextButton({ val cur = sel.toSet(); sel.clear(); sel.addAll(flist.map { it.wxId }.filter { it !in cur }) }) { Text("反选", 13.sp) }
-                                    TextButton({ sel.clear() }) { Text("清空", 13.sp) }
+                                    TextButton({ sel.clear(); sel.addAll(flist.map { it.wxId }) }) { Text("全选", fontSize = 13.sp) }
+                                    TextButton({ val cur = sel.toSet(); sel.clear(); sel.addAll(flist.map { it.wxId }.filter { it !in cur }) }) { Text("反选", fontSize = 13.sp) }
+                                    TextButton({ sel.clear() }) { Text("清空", fontSize = 13.sp) }
                                 }
                                 HorizontalDivider()
-                                Text("已选 ${sel.size}/${flist.size}", 12.sp, Color.Gray)
+                                Text("已选 ${sel.size}/${flist.size}", fontSize = 12.sp, color = Color.Gray)
                                 LazyColumn(Modifier.weight(1f)) {
                                     items(flist, { it.wxId }) { f ->
                                         ListItem(
@@ -147,13 +147,17 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                                 }
                             }
                         },
-                        confirmButton = {{
-                            if (sel.isEmpty()) { Toast.makeText(ctx, "请至少选一个好友", 0).show(); return@Button }
+                        confirmButton = { Button(onClick = {
+                            if (sel.isEmpty()) { Toast.makeText(ctx, "请至少选一个好友", 0).show(); return@onClick }
                             deleteMode = mode; deleteInterval = interval
                             phase.value = Phase.Confirming(flist.filter { it.wxId in sel }, mode, 1)
-                        }},
-                        dismissButton = {{ TextButton(onDismiss) { Text("取消") } }}
+                        }) { Text("下一步") } },
+                        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
                     )
+                }
+                is Phase.Selecting -> {
+                    // Show selecting UI handled by Phase.Idle
+                    Text("选择好友中...")
                 }
                 is Phase.Confirming -> {
                     val msgs = listOf(
@@ -174,7 +178,7 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                     AlertDialogContent(
                         title = { Text(t, fontWeight = FontWeight.Bold) },
                         text = { Text(msgs.getOrElse(p.step - 1) { "确认?" }) },
-                        confirmButton = {{
+                        confirmButton = { Button(onClick = {
                             if (p.step >= 3) {
                                 val fails = mutableListOf<String>()
                                 phase.value = Phase.Running(p.targets.size, 0, fails)
@@ -182,8 +186,8 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                             } else {
                                 phase.value = p.copy(step = p.step + 1)
                             }
-                        }},
-                        dismissButton = {{ TextButton({ phase.value = Phase.Idle }) { Text("取消") } }}
+                        }) { Text("确认") } },
+                        dismissButton = { TextButton(onClick = { phase.value = Phase.Idle }) { Text("取消") } }
                     )
                 }
                 is Phase.Running -> {
@@ -209,10 +213,10 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                         text = {
                             Column {
                                 Text("总计: ${p.total} | 成功: ${p.success} | 失败: ${p.failed.size}")
-                                p.failed.forEach { Text("  • $it", 12.sp) }
+                                p.failed.forEach { Text("  • $it", fontSize = 12.sp) }
                             }
                         },
-                        confirmButton = {{ Button(onDismiss) { Text("关闭") } }}
+                        confirmButton = { Button(onClick = onDismiss) { Text("关闭") } }
                     )
                 }
             }
