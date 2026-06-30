@@ -152,8 +152,8 @@ object AutoForwardMoments : ClickableFeature() {
             val success = WeMomentsApi.uploadText(contentText)
 
             if (success) {
-                forwardedSnsIds.add(latestSnsId)
-                WeLogger.i(TAG, "forwarded moment $latestSnsId")
+                // forwarded, no ID tracking needed
+                WeLogger.i(TAG, "forwarded moment (keyword matched)")
                 // Cleanup old IDs
                 if (forwardedSnsIds.size > 1000) {
                     val toRemove = forwardedSnsIds.take(500).toSet()
@@ -257,7 +257,7 @@ object AutoForwardMoments : ClickableFeature() {
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("运行状态: ", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            Text(if (running) "🟢 运行中" else "🔴 已停止", 14.sp)
+                            Text(if (running) "🟢 运行中" else "🔴 已停止", fontSize = 14.sp)
                         }
                     }
                 },
