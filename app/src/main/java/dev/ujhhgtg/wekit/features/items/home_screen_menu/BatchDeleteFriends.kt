@@ -98,11 +98,12 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
         )
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun showUI(ctx: Context) {
         phase.value = Phase.Idle
         showComposeDialog(ctx) {
             val p by remember { phase }
-            when (p) {
+            when (val current = p) {
                 is Phase.Idle -> {
                     val flist = remember {
                         WeDatabaseApi.getFriends().filter { c ->
@@ -125,12 +126,18 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text("间隔: ${interval}ms", fontSize = 13.sp)
-                                    Slider(interval.toFloat(), { interval = it.toInt() }, 200f..5000f, 23, Modifier.weight(1f))
+                                    Slider(
+                                        value = interval.toFloat(),
+                                        onValueChange = { interval = it.toInt() },
+                                        valueRange = 200f..5000f,
+                                        steps = 23,
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
                                 Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-                                    TextButton({ sel.clear(); sel.addAll(flist.map { it.wxId }) }) { Text("全选", fontSize = 13.sp) }
-                                    TextButton({ val cur = sel.toSet(); sel.clear(); sel.addAll(flist.map { it.wxId }.filter { it !in cur }) }) { Text("反选", fontSize = 13.sp) }
-                                    TextButton({ sel.clear() }) { Text("清空", fontSize = 13.sp) }
+                                    TextButton(onClick = { sel.clear(); sel.addAll(flist.map { it.wxId }) }) { Text("全选", fontSize = 13.sp) }
+                                    TextButton(onClick = { val cur = sel.toSet(); sel.clear(); sel.addAll(flist.map { it.wxId }.filter { it !in cur }) }) { Text("反选", fontSize = 13.sp) }
+                                    TextButton(onClick = { sel.clear() }) { Text("清空", fontSize = 13.sp) }
                                 }
                                 HorizontalDivider()
                                 Text("已选 ${sel.size}/${flist.size}", fontSize = 12.sp, color = Color.Gray)
@@ -140,7 +147,11 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                                             headlineContent = { Text(f.displayName.ifEmpty { f.nickname }, fontSize = 14.sp) },
                                             supportingContent = { Text(f.wxId, fontSize = 11.sp, color = Color.Gray) },
                                             leadingContent = {
-                                                Checkbox(f.wxId in sel, { c -> if (c) sel.add(f.wxId) else sel.remove(f.wxId) }, colors = CheckboxDefaults.colors())
+                                                Checkbox(
+                                                    checked = f.wxId in sel,
+                                                    onCheckedChange = { c -> if (c) sel.add(f.wxId) else sel.remove(f.wxId) },
+                                                    colors = CheckboxDefaults.colors()
+                                                )
                                             }
                                         )
                                     }
@@ -156,48 +167,47 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                     )
                 }
                 is Phase.Selecting -> {
-                    // Show selecting UI handled by Phase.Idle
                     Text("选择好友中...")
                 }
                 is Phase.Confirming -> {
+                    val cp = current
                     val msgs = listOf(
-                        """⚠️ 第一次确认
-即将批量删除 ${p.targets.size} 个好友，此操作不可逆！请确认已备份重要聊天记录。""".trimIndent(),
-                        """⚠️ 第二次确认
-确认执行吗？删除后聊天记录将被清除，需对方重新添加。
-当前模式：${if (p.mode == 0) "仅删除" else "拉黑+删除"}""".trimIndent(),
-                        """⚠️ 最终确认
-这是最后一次确认！
-即将批量处理 ${p.targets.size} 个好友，操作间隔 ${deleteInterval}ms。
-执行后将无法撤销，是否继续？""".trimIndent()
+                        "⚠️ 第一次确认\n即将批量删除 ${cp.targets.size} 个好友，此操作不可逆！请确认已备份重要聊天记录。",
+                        "⚠️ 第二次确认\n确认执行吗？删除后聊天记录将被清除，需对方重新添加。\n当前模式：${if (cp.mode == 0) "仅删除" else "拉黑+删除"}",
+                        "⚠️ 最终确认\n这是最后一次确认！\n即将批量处理 ${cp.targets.size} 个好友，操作间隔 ${deleteInterval}ms。\n执行后将无法撤销，是否继续？"
                     )
-                    val t = listOf("第一次确认", "第二次确认", "最终确认").getOrElse(p.step - 1) { "确认" }
+                    val titles = listOf("第一次确认", "第二次确认", "最终确认")
+                    val stepIdx = cp.step - 1
+                    val title = titles.getOrElse(stepIdx) { "确认" }
+                    val msg = msgs.getOrElse(stepIdx) { "确认?" }
                     AlertDialogContent(
-                        title = { Text(t, fontWeight = FontWeight.Bold) },
-                        text = { Text(msgs.getOrElse(p.step - 1) { "确认?" }) },
+                        title = { Text(title, fontWeight = FontWeight.Bold) },
+                        text = { Text(msg) },
                         confirmButton = { Button(onClick = {
-                            if (p.step >= 3) {
+                            if (cp.step >= 3) {
                                 val fails = mutableListOf<String>()
-                                phase.value = Phase.Running(p.targets.size, 0, fails)
-                                startExec(ctx, p.targets, p.mode, deleteInterval, fails)
+                                phase.value = Phase.Running(cp.targets.size, 0, fails)
+                                startExec(ctx, cp.targets, cp.mode, deleteInterval, fails)
                             } else {
-                                phase.value = p.copy(step = p.step + 1)
+                                phase.value = cp.copy(step = cp.step + 1)
                             }
                         }) { Text("确认") } },
                         dismissButton = { TextButton(onClick = { phase.value = Phase.Idle }) { Text("取消") } }
                     )
                 }
                 is Phase.Running -> {
+                    val rp = current
+                    val progress = if (rp.total > 0) rp.done.toFloat() / rp.total else 0f
                     AlertDialogContent(
                         title = { Text("正在删除好友...") },
                         text = {
                             Column {
-                                Text("进度: ${p.done}/${p.total}")
+                                Text("进度: ${rp.done}/${rp.total}")
                                 Spacer(Modifier.height(8.dp))
-                                LinearProgressIndicator({ if (p.total > 0) p.done.toFloat() / p.total else 0f }, Modifier.fillMaxWidth())
-                                if (p.failed.isNotEmpty()) {
+                                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                                if (rp.failed.isNotEmpty()) {
                                     Spacer(Modifier.height(8.dp))
-                                    Text("失败: ${p.failed.size} 个", color = Color.Red, fontSize = 12.sp)
+                                    Text("失败: ${rp.failed.size} 个", color = Color.Red, fontSize = 12.sp)
                                 }
                             }
                         },
@@ -205,12 +215,13 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                     )
                 }
                 is Phase.Finished -> {
+                    val fp = current
                     AlertDialogContent(
                         title = { Text("删除完成", fontWeight = FontWeight.Bold) },
                         text = {
                             Column {
-                                Text("总计: ${p.total} | 成功: ${p.success} | 失败: ${p.failed.size}")
-                                p.failed.forEach { Text("  • $it", fontSize = 12.sp) }
+                                Text("总计: ${fp.total} | 成功: ${fp.success} | 失败: ${fp.failed.size}")
+                                fp.failed.forEach { Text("  • $it", fontSize = 12.sp) }
                             }
                         },
                         confirmButton = { Button(onClick = onDismiss) { Text("关闭") } }
