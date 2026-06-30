@@ -72,11 +72,12 @@ object AutoForwardMoments : ClickableFeature() {
     private var timeMode by WePrefs.prefOption("auto_fwd_moments_time_mode", 0)
     private var startHour by WePrefs.prefOption("auto_fwd_moments_start_hr", 1)
     private var endHour by WePrefs.prefOption("auto_fwd_moments_end_hr", 21)
-    private var dedupSeconds by WePrefs.prefOption("auto_fwd_moments_dedup_sec", 86400)
 
     private var monitoringJob: Job? = null
-    private val forwardedSnsIds = mutableSetOf<Long>()
+    private val forwardedContent = mutableSetOf<String>()
     private var isRunning by mutableStateOf(false)
+    // Track the last checked SnsInfo ID
+    private var lastCheckedSnsId = 0L
 
     private fun getTargetList(): List<String> =
         targetWxIds.split(",").filter { it.isNotBlank() }
@@ -94,7 +95,8 @@ object AutoForwardMoments : ClickableFeature() {
     private fun startMonitoring() {
         if (monitoringJob?.isActive == true) return
         isRunning = true
-        forwardedSnsIds.clear()
+        forwardedContent.clear()
+        lastCheckedSnsId = 0L
         monitoringJob = CoroutineScope(Dispatchers.IO).launch {
             WeLogger.i(TAG, "auto-forward monitoring started")
             while (isActive) {
@@ -128,18 +130,42 @@ object AutoForwardMoments : ClickableFeature() {
         val kwList = keywords.split(",", "，").map { it.trim() }.filter { it.isNotEmpty() }
         if (targets.isEmpty() || kwList.isEmpty()) return
 
-        for (target in targets) {
+        // Scan recent SnsInfo objects by trying sequential IDs
+        // WeChat uses auto-increment IDs for moments
+        val startId = lastCheckedSnsId + 1
+        val endId = startId + 50 // check up to 50 new IDs
+
+        for (snsId in startId until endId) {
             try {
-                // Use public API: WeMomentsApi.getSnsInfoBySnsId
-                // We iterate recent snsIds (a simple approach: try last 100 ids)
-                // In practice, the WeChat SnsInfo storage uses auto-increment IDs
-                for (snsId in (WeMomentsApi.getSnsInfoBySnsId(0L)?.let { 1L } ?: 1L)..1000L) {
-                    // Actually we need a different approach - let's try to find moments from the target user
-                    // by scanning recent SnsInfo objects
+                val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: continue
+                lastCheckedSnsId = snsId
+
+                val ownerWxId = WeMomentsApi.getOwnerWxId(snsInfo) ?: continue
+                if (ownerWxId !in targets) continue
+
+                val contentText = WeMomentsApi.getContentText(snsInfo) ?: continue
+                if (contentText.isBlank()) continue
+
+                // Dedup by content hash
+                val contentKey = "$ownerWxId:$contentText"
+                if (contentKey in forwardedContent) continue
+
+                // Check keywords
+                val matched = kwList.any { contentText.contains(it, ignoreCase = true) }
+                if (!matched) continue
+
+                // Forward!
+                WeLogger.i(TAG, "keyword matched! forwarding from $ownerWxId: ${contentText.take(100)}")
+                val success = WeMomentsApi.uploadText(contentText)
+                if (success) {
+                    forwardedContent.add(contentKey)
+                    WeLogger.i(TAG, "forwarded moment $snsId from $ownerWxId")
+                    // Limit dedup set size
+                    if (forwardedContent.size > 1000) {
+                        val toRemove = forwardedContent.take(500).toSet()
+                        forwardedContent.removeAll(toRemove)
+                    }
                 }
-                // Simplified: just check if there's a way to get moments
-                // For now, log monitoring activity
-                WeLogger.d(TAG, "monitoring $target, keywords=$kwList")
             } catch (_: Exception) { }
         }
     }
@@ -147,7 +173,6 @@ object AutoForwardMoments : ClickableFeature() {
     @Suppress("UNCHECKED_CAST")
     override fun onClick(context: Context) {
         showComposeDialog(context) {
-            // Get friend list for multi-select
             val friends = remember {
                 WeDatabaseApi.getFriends().filter { it.wxId != WeApi.selfWxId }
             }
@@ -162,7 +187,6 @@ object AutoForwardMoments : ClickableFeature() {
             var mode by remember { mutableIntStateOf(AutoForwardMoments.timeMode) }
             var sHour by remember { mutableIntStateOf(AutoForwardMoments.startHour) }
             var eHour by remember { mutableIntStateOf(AutoForwardMoments.endHour) }
-            var dedup by remember { mutableIntStateOf(AutoForwardMoments.dedupSeconds) }
             var running by remember { mutableStateOf(AutoForwardMoments.isRunning) }
             var showFriendPicker by remember { mutableStateOf(false) }
 
@@ -200,7 +224,7 @@ object AutoForwardMoments : ClickableFeature() {
                             }
                         }
                     },
-                    confirmButton = { Button(onClick = { showFriendPicker = false }) { Text("确定", fontSize = 13.sp) } },
+                    confirmButton = { Button(onClick = { showFriendPicker = false }) { Text("确定") } },
                     dismissButton = { TextButton(onClick = { showFriendPicker = false }) { Text("取消") } }
                 )
             } else {
@@ -210,7 +234,6 @@ object AutoForwardMoments : ClickableFeature() {
                         Column(
                             Modifier.size(340.dp, 440.dp).verticalScroll(rememberScrollState())
                         ) {
-                            // Friend selector
                             Text("监控好友 (${selected.size} 人)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Button(onClick = { showFriendPicker = true }) {
                                 Text("选择好友...", fontSize = 13.sp)
@@ -281,7 +304,6 @@ object AutoForwardMoments : ClickableFeature() {
                         AutoForwardMoments.timeMode = mode
                         AutoForwardMoments.startHour = sHour
                         AutoForwardMoments.endHour = eHour
-                        AutoForwardMoments.dedupSeconds = dedup
 
                         AutoForwardMoments.stopMonitoring()
                         if (selected.isNotEmpty() && keywordsStr.isNotBlank()) {
