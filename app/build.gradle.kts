@@ -183,7 +183,7 @@ androidComponents {
             group = "wekit"
             description = "Embed eruda.min.js as a String constant for $variantName"
 
-            url.set("https://unpkg.com/eruda@3.4.3/eruda.min.js")
+            url.set("https://cdnjs.cloudflare.com/ajax/libs/eruda/3.4.3/eruda.min.js")
             outputDir.set(layout.buildDirectory.dir("generated/source/eruda/${variant.name}"))
             namespace.set(libs.versions.namespace.get())
         }
