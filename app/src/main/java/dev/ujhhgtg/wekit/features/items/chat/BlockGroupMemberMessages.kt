@@ -41,7 +41,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 @Feature(
     name = "群聊屏蔽功能",
     categories = ["聊天"],
-    description = "屏蔽群成员消息和屏蔽关键词自动屏蔽；在对话列表长按群聊进入管理"
+    description = "屏蔽群成员消息（手动选择）和屏蔽消息（关键词过滤）；长按群聊进入管理"
 )
 object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.IMenuItemsProvider {
     private val TAG = nameOf(BlockGroupMemberMessages::class)
@@ -58,7 +58,11 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
         )
     }
 
+    // ── 缓存被隐藏的消息 View（供解除屏蔽时恢复） ──
     private val hiddenSendersCache = mutableMapOf<String, MutableMap<String, MutableList<View>>>()
+
+    // ── 被关键词屏蔽的 View 缓存（不持久化，只是临时隐藏） ──
+    private val keywordHiddenViews = mutableMapOf<String, MutableList<View>>()
 
     override fun onEnable() {
         WeConversationContextMenuApi.addProvider(this)
@@ -71,22 +75,38 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
                     val sender = msgInfo.sender
                     if (sender.isEmpty() || sender == "system") return
 
+                    // 【功能1：屏蔽成员】手动屏蔽的发送者，隐藏其所有消息
                     if (sender in getBlockedSet(groupId)) {
-                        hideView(view, groupId, sender); return
+                        cacheAndHide(view, groupId, sender)
+                        return
                     }
 
-                    if (getKeywordBlockEnabled(groupId)) {
-                        val keywords = getKeywords(groupId)
-                        val targets = getKeywordTargets(groupId)
+                    // 【功能2：屏蔽消息】关键词过滤，只隐藏单条消息，不屏蔽发送者
+                    if (getKeywordFilterEnabled(groupId)) {
+                        val keywords = getFilterKeywords(groupId)
+                        val targets = getFilterTargets(groupId)
                         if (keywords.isNotEmpty() && (targets.isEmpty() || sender in targets)) {
-                            val content = msgInfo.actualContent
-                            for (kw in keywords) {
-                                if (content.contains(kw, ignoreCase = true)) {
-                                    getBlockedSet(groupId).toMutableSet().also {
-                                        it.add(sender); saveBlockedSet(groupId, it)
+                            val rawContent = msgInfo.content
+                            val actualContent = msgInfo.actualContent
+                            val strippedContent = actualContent.substringAfter(":").substringAfter("\n").trim()
+                            val textsToCheck = listOfNotNull(
+                                actualContent.takeIf { it.isNotBlank() },
+                                rawContent.takeIf { it.isNotBlank() },
+                                strippedContent.takeIf { it.isNotBlank() }
+                            ).distinct()
+
+                            for (text in textsToCheck) {
+                                for (kw in keywords) {
+                                    if (text.contains(kw, ignoreCase = true)) {
+                                        WeLogger.i(TAG, "keyword filter: hiding msg from $sender, kw='$kw'")
+                                        // 只隐藏这条消息，不修改 blocked set
+                                        synchronized(keywordHiddenViews) {
+                                            keywordHiddenViews.getOrPut(groupId) { mutableListOf() }.add(view)
+                                        }
+                                        view.visibility = View.GONE
+                                        view.layoutParams = android.view.ViewGroup.LayoutParams(0, 0)
+                                        return
                                     }
-                                    WeLogger.i(TAG, "auto-blocked $sender via keyword: $kw")
-                                    hideView(view, groupId, sender); return
                                 }
                             }
                         }
@@ -97,10 +117,12 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
     }
 
     override fun onDisable() {
-        WeConversationContextMenuApi.removeProvider(this); hiddenSendersCache.clear()
+        WeConversationContextMenuApi.removeProvider(this)
+        hiddenSendersCache.clear()
+        keywordHiddenViews.clear()
     }
 
-    private fun hideView(view: View, groupId: String, sender: String) {
+    private fun cacheAndHide(view: View, groupId: String, sender: String) {
         synchronized(hiddenSendersCache) {
             hiddenSendersCache.getOrPut(groupId) { mutableMapOf() }
                 .getOrPut(sender) { mutableListOf() }.add(view)
@@ -108,19 +130,26 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
         view.visibility = View.GONE
     }
 
-    private fun blockedPrefKey(g: String) = "blocked_members_$g"
-    private fun kwPrefKey(g: String) = "block_keywords_$g"
-    private fun tgtPrefKey(g: String) = "block_keyword_targets_$g"
+    // ── Pref 读写 ──
 
+    // 功能1：屏蔽成员
+    private fun blockedPrefKey(g: String) = "blocked_members_$g"
     private fun getBlockedSet(g: String): Set<String> = WePrefs.getStringSetOrDef(blockedPrefKey(g), emptySet())
     private fun saveBlockedSet(g: String, s: Set<String>) = WePrefs.putStringSet(blockedPrefKey(g), s)
-    private fun getKeywords(g: String): Set<String> = WePrefs.getStringSetOrDef(kwPrefKey(g), emptySet())
-    private fun saveKeywords(g: String, s: Set<String>) = WePrefs.putStringSet(kwPrefKey(g), s)
-    private fun getKeywordTargets(g: String): Set<String> = WePrefs.getStringSetOrDef(tgtPrefKey(g), emptySet())
-    private fun saveKeywordTargets(g: String, s: Set<String>) = WePrefs.putStringSet(tgtPrefKey(g), s)
-    private fun getKeywordBlockEnabled(g: String): Boolean = WePrefs.getBoolOrDef(kwPrefKey(g) + "_enabled", false)
-    private fun setKeywordBlockEnabled(g: String, v: Boolean) = WePrefs.putBool(kwPrefKey(g) + "_enabled", v)
 
+    // 功能2：屏蔽消息（关键词过滤）
+    private fun filterKwPrefKey(g: String) = "filter_keywords_$g"
+    private fun filterTgtPrefKey(g: String) = "filter_targets_$g"
+    private fun filterEnabledPrefKey(g: String) = "filter_enabled_$g"
+
+    private fun getFilterKeywords(g: String): Set<String> = WePrefs.getStringSetOrDef(filterKwPrefKey(g), emptySet())
+    private fun saveFilterKeywords(g: String, s: Set<String>) = WePrefs.putStringSet(filterKwPrefKey(g), s)
+    private fun getFilterTargets(g: String): Set<String> = WePrefs.getStringSetOrDef(filterTgtPrefKey(g), emptySet())
+    private fun saveFilterTargets(g: String, s: Set<String>) = WePrefs.putStringSet(filterTgtPrefKey(g), s)
+    private fun getKeywordFilterEnabled(g: String): Boolean = WePrefs.getBoolOrDef(filterEnabledPrefKey(g), false)
+    private fun setKeywordFilterEnabled(g: String, v: Boolean) = WePrefs.putBool(filterEnabledPrefKey(g), v)
+
+    // ── 解除屏蔽成员 ──
     private fun unblockMember(g: String, wx: String) {
         val set = getBlockedSet(g).toMutableSet(); set.remove(wx); saveBlockedSet(g, set)
         synchronized(hiddenSendersCache) {
@@ -137,6 +166,8 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
         }
     }
 
+    // ── 主管理界面 ──
+
     fun showBlockManager(context: Context, groupId: String) {
         showComposeDialog(context) {
             var tab by remember { mutableIntStateOf(0) }
@@ -146,10 +177,10 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
                     Column(Modifier.size(360.dp, 480.dp)) {
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
                             TextButton(onClick = { tab = 0 }) { Text("屏蔽成员", fontSize = 13.sp, fontWeight = if (tab == 0) FontWeight.Bold else FontWeight.Normal) }
-                            TextButton(onClick = { tab = 1 }) { Text("屏蔽关键词", fontSize = 13.sp, fontWeight = if (tab == 1) FontWeight.Bold else FontWeight.Normal) }
+                            TextButton(onClick = { tab = 1 }) { Text("屏蔽消息", fontSize = 13.sp, fontWeight = if (tab == 1) FontWeight.Bold else FontWeight.Normal) }
                         }
                         HorizontalDivider(); Spacer(Modifier.height(4.dp))
-                        when (tab) { 0 -> BlockMemberTab(context, groupId); 1 -> KeywordTab(context, groupId) }
+                        when (tab) { 0 -> BlockMemberTab(context, groupId); 1 -> KeywordFilterTab(context, groupId) }
                     }
                 },
                 confirmButton = {},
@@ -157,6 +188,10 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
             )
         }
     }
+
+    // ═══════════════════════════════════════════════
+    // 功能1：屏蔽成员（手动选择屏蔽某人全部消息）
+    // ═══════════════════════════════════════════════
 
     @Composable
     private fun BlockMemberTab(context: Context, groupId: String) {
@@ -187,9 +222,8 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
 
             when (innerTab) {
                 0 -> {
-                    if (blockedSet.value.isEmpty()) {
-                        Text("暂无已屏蔽的成员", modifier = Modifier.padding(16.dp), color = CColor.Gray)
-                    } else {
+                    if (blockedSet.value.isEmpty()) { Text("暂无已屏蔽的成员", modifier = Modifier.padding(16.dp), color = CColor.Gray) }
+                    else {
                         LazyColumn(Modifier.weight(1f)) {
                             items(blockedSet.value.toList().sorted(), { it }) { wxId ->
                                 val contact = try { WeDatabaseApi.getFriend(wxId) } catch (_: Exception) { null }
@@ -236,18 +270,21 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
         }
     }
 
+    // ═══════════════════════════════════════════════
+    // 功能2：屏蔽消息（关键词过滤，只隐藏消息不屏蔽人）
+    // ═══════════════════════════════════════════════
+
     @Composable
-    private fun KeywordTab(context: Context, groupId: String) {
+    private fun KeywordFilterTab(context: Context, groupId: String) {
         Column(Modifier.fillMaxWidth()) {
             var innerTab by remember { mutableIntStateOf(0) }
-            val keywords = remember { mutableStateOf(getKeywords(groupId)) }
-            val enabled = remember { mutableStateOf(getKeywordBlockEnabled(groupId)) }
+            val keywords = remember { mutableStateOf(getFilterKeywords(groupId)) }
+            val enabled = remember { mutableStateOf(getKeywordFilterEnabled(groupId)) }
             val members = remember { mutableStateOf<List<WeContact>>(emptyList()) }
-            val keywordTargets = remember { mutableStateOf(getKeywordTargets(groupId)) }
+            val filterTargets = remember { mutableStateOf(getFilterTargets(groupId)) }
             var loaded by remember { mutableStateOf(false) }
             var searchQuery by remember { mutableStateOf("") }
             val selectedTargets = remember { mutableStateListOf<String>() }
-            val selectedForAddKw = remember { mutableStateListOf<String>() }
             var newKeyword by remember { mutableStateOf("") }
 
             LaunchedEffect(Unit) {
@@ -256,18 +293,24 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
             }
 
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-                TextButton(onClick = { innerTab = 0 }) { Text("关键词列表 (${keywords.value.size})", fontSize = 12.sp, fontWeight = if (innerTab == 0) FontWeight.Bold else FontWeight.Normal) }
+                TextButton(onClick = { innerTab = 0 }) { Text("关键词 (${keywords.value.size})", fontSize = 12.sp, fontWeight = if (innerTab == 0) FontWeight.Bold else FontWeight.Normal) }
                 TextButton(onClick = { innerTab = 1 }) { Text("添加关键词", fontSize = 12.sp, fontWeight = if (innerTab == 1) FontWeight.Bold else FontWeight.Normal) }
                 TextButton(onClick = { innerTab = 2 }) { Text("监控对象", fontSize = 12.sp, fontWeight = if (innerTab == 2) FontWeight.Bold else FontWeight.Normal) }
             }
             HorizontalDivider(); Spacer(Modifier.height(4.dp))
 
             when (innerTab) {
+                // ── 关键词列表 ──
                 0 -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("自动屏蔽", fontSize = 13.sp); Spacer(Modifier.width(6.dp))
-                        Switch(checked = enabled.value, onCheckedChange = { enabled.value = it; setKeywordBlockEnabled(groupId, it); showToast(context, if (it) "关键词屏蔽已开启" else "关键词屏蔽已关闭") })
+                        Text("关键词过滤", fontSize = 13.sp); Spacer(Modifier.width(6.dp))
+                        Switch(checked = enabled.value, onCheckedChange = {
+                            enabled.value = it; setKeywordFilterEnabled(groupId, it)
+                            showToast(context, if (it) "关键词过滤已开启" else "关键词过滤已关闭")
+                        })
                     }
+                    Spacer(Modifier.height(4.dp))
+                    Text("提示：匹配关键词的消息会被隐藏，但发送者不会被屏蔽", fontSize = 10.sp, color = CColor.Gray)
                     Spacer(Modifier.height(4.dp))
                     if (keywords.value.isEmpty()) { Text("暂无关键词", modifier = Modifier.padding(16.dp), color = CColor.Gray) }
                     else {
@@ -275,56 +318,36 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
                             items(keywords.value.toList().sorted(), { it }) { kw ->
                                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text("🔑 ", fontSize = 14.sp); Text(kw, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                                    TextButton(onClick = { val s = getKeywords(groupId).toMutableSet(); s.remove(kw); saveKeywords(groupId, s); keywords.value = s; showToast(context, "已删除关键词: $kw") }) { Text("删除", fontSize = 12.sp, color = CColor(0xFFF44336)) }
+                                    TextButton(onClick = {
+                                        val s = getFilterKeywords(groupId).toMutableSet(); s.remove(kw)
+                                        saveFilterKeywords(groupId, s); keywords.value = s; showToast(context, "已删除关键词: $kw")
+                                    }) { Text("删除", fontSize = 12.sp, color = CColor(0xFFF44336)) }
                                 }
                             }
                         }
                         Spacer(Modifier.height(4.dp))
                         if (enabled.value) {
-                            val tc = keywordTargets.value.size; val tm = members.value.size
+                            val tc = filterTargets.value.size; val tm = members.value.size
                             Text(if (tc == 0) "监控对象: 全部成员 ($tm 人)" else "监控对象: $tc/$tm 人", fontSize = 11.sp, color = CColor.Gray)
                         }
                     }
                 }
+
+                // ── 添加关键词 ──
                 1 -> {
                     OutlinedTextField(value = newKeyword, onValueChange = { newKeyword = it }, label = { Text("输入关键词") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text))
                     Spacer(Modifier.height(8.dp))
                     if (newKeyword.isNotBlank()) {
-                        Button(onClick = { val s = getKeywords(groupId).toMutableSet(); s.add(newKeyword.trim()); saveKeywords(groupId, s); keywords.value = s; newKeyword = ""; showToast(context, "已添加关键词") }) { Text("添加", fontSize = 13.sp) }
+                        Button(onClick = {
+                            val s = getFilterKeywords(groupId).toMutableSet(); s.add(newKeyword.trim())
+                            saveFilterKeywords(groupId, s); keywords.value = s; newKeyword = ""; showToast(context, "已添加关键词")
+                        }) { Text("添加", fontSize = 13.sp) }
                     }
-                    Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(4.dp))
-                    Text("也可批量从已屏蔽成员中添加", fontSize = 12.sp, color = CColor.Gray)
-                    Spacer(Modifier.height(4.dp))
-
-                    val blockedSet = getBlockedSet(groupId)
-                    val blockedMembers = remember(blockedSet, members.value) { members.value.filter { it.wxId in blockedSet } }
-
-                    if (blockedMembers.isEmpty()) { Text("暂无已屏蔽成员可提取关键词", fontSize = 12.sp, color = CColor.Gray, modifier = Modifier.padding(8.dp)) }
-                    else {
-                        OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("搜索已屏蔽成员") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        val filteredBlocked = remember(searchQuery, blockedMembers) {
-                            if (searchQuery.isBlank()) blockedMembers else blockedMembers.filter { it.displayName.lowercase().contains(searchQuery.lowercase()) || it.wxId.lowercase().contains(searchQuery.lowercase()) }
-                        }
-                        LazyColumn(Modifier.weight(1f)) {
-                            items(filteredBlocked, { it.wxId }) { m ->
-                                Row(Modifier.fillMaxWidth().clickable { if (m.wxId in selectedForAddKw) selectedForAddKw.remove(m.wxId) else selectedForAddKw.add(m.wxId) }.padding(vertical = 4.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = m.wxId in selectedForAddKw, onCheckedChange = { c -> if (c) selectedForAddKw.add(m.wxId) else selectedForAddKw.remove(m.wxId) })
-                                    Spacer(Modifier.width(8.dp))
-                                    AsyncImage(model = m.avatarUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(32.dp).clip(RoundedCornerShape(6.dp)), imageLoader = GlobalImageLoader)
-                                    Spacer(Modifier.width(8.dp))
-                                    Column(Modifier.weight(1f)) { Text(m.displayName.ifEmpty { m.nickname }, fontSize = 13.sp); Text(m.wxId, fontSize = 10.sp, color = CColor.Gray) }
-                                }
-                            }
-                        }
-                        if (selectedForAddKw.isNotEmpty()) {
-                            Button(onClick = {
-                                val ck = getKeywords(groupId).toMutableSet()
-                                selectedForAddKw.forEach { wx -> val c = members.value.find { it.wxId == wx }; val kw = c?.nickname?.take(6) ?: wx.take(8); if (kw.isNotBlank()) ck.add(kw) }
-                                saveKeywords(groupId, ck); keywords.value = ck; selectedForAddKw.clear(); showToast(context, "已添加关键词")
-                            }, Modifier.fillMaxWidth()) { Text("以昵称为关键词添加 (${selectedForAddKw.size})", fontSize = 13.sp) }
-                        }
-                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("提示：消息内容包含关键词就会被隐藏，不区分大小写", fontSize = 10.sp, color = CColor.Gray)
                 }
+
+                // ── 选择监控对象 ──
                 2 -> {
                     if (!loaded) { Text("加载成员中...", modifier = Modifier.padding(16.dp)) }
                     else if (members.value.isEmpty()) { Text("无法获取群成员列表", modifier = Modifier.padding(16.dp), color = CColor.Gray) }
@@ -334,11 +357,13 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
                         OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("搜索成员") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.height(4.dp))
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-                            TextButton(onClick = { selectedTargets.addAll(members.value.map { it.wxId }); keywordTargets.value = selectedTargets.toSet() }) { Text("全选", fontSize = 12.sp) }
-                            TextButton(onClick = { selectedTargets.clear(); keywordTargets.value = emptySet() }) { Text("清空(监控全部)", fontSize = 12.sp) }
+                            TextButton(onClick = { selectedTargets.addAll(members.value.map { it.wxId }); filterTargets.value = selectedTargets.toSet() }) { Text("全选", fontSize = 12.sp) }
+                            TextButton(onClick = { selectedTargets.clear(); filterTargets.value = emptySet() }) { Text("清空(监控全部)", fontSize = 12.sp) }
                         }
                         val filteredMembers = remember(searchQuery, members.value) {
-                            if (searchQuery.isBlank()) members.value else members.value.filter { it.displayName.lowercase().contains(searchQuery.lowercase()) || it.wxId.lowercase().contains(searchQuery.lowercase()) }
+                            if (searchQuery.isBlank()) members.value else members.value.filter {
+                                it.displayName.lowercase().contains(searchQuery.lowercase()) || it.wxId.lowercase().contains(searchQuery.lowercase())
+                            }
                         }
                         Spacer(Modifier.height(2.dp))
                         Text("已选 ${selectedTargets.size} 人", fontSize = 11.sp, color = CColor(0xFF4CAF50))
@@ -354,7 +379,10 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
                                 }
                             }
                         }
-                        Button(onClick = { saveKeywordTargets(groupId, selectedTargets.toSet()); keywordTargets.value = selectedTargets.toSet(); showToast(context, "已保存监控对象（${selectedTargets.size} 人）") }, Modifier.fillMaxWidth()) { Text("保存监控对象", fontSize = 13.sp) }
+                        Button(onClick = {
+                            saveFilterTargets(groupId, selectedTargets.toSet()); filterTargets.value = selectedTargets.toSet()
+                            showToast(context, "已保存监控对象（${selectedTargets.size} 人）")
+                        }, Modifier.fillMaxWidth()) { Text("保存监控对象", fontSize = 13.sp) }
                     }
                 }
             }
