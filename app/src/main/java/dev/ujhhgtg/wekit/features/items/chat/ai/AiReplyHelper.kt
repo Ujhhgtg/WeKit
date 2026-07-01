@@ -32,11 +32,7 @@ object AiReplyHelper {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    // ── Preferences ──
-    var apiUrl by WePrefs.prefOption(
-        "ai_reply_api_url",
-        "https://api.openai.com/v1/chat/completions"
-    )
+    var apiUrl by WePrefs.prefOption("ai_reply_api_url", "https://api.openai.com/v1/chat/completions")
     var apiKey by WePrefs.prefOption("ai_reply_api_key", "")
     var model by WePrefs.prefOption("ai_reply_model", "gpt-4o-mini")
     var systemPrompt by WePrefs.prefOption(
@@ -47,121 +43,81 @@ object AiReplyHelper {
     var maxTokens by WePrefs.prefOption("ai_reply_max_tokens", 1000)
     var contextCount by WePrefs.prefOption("ai_reply_context_count", 10)
 
-    /**
-     * 检查是否已配置 API
-     */
-    fun isConfigured(): Boolean {
-        return apiUrl.isNotBlank() && apiKey.isNotBlank()
-    }
+    fun isConfigured(): Boolean = apiUrl.isNotBlank() && apiKey.isNotBlank()
 
-    /**
-     * 获取当前聊天上下文并调用 AI API
-     */
     fun replyToCurrentConversation(context: Context) {
         if (!isConfigured()) {
-            showToast(context, "请先配置 AI API（聊天工具栏设置 > AI 回复配置）")
+            showToast(context, "请先配置 AI API（聊天工具栏 > AI 配置）")
             return
         }
-
         val convId = WeCurrentConversationApi.value
         if (convId.isBlank()) {
-            showToast(context, "未检测到当前聊天")
+            showToast(context, "请先进入一个聊天再点击 AI 回复")
             return
         }
-
         showToast(context, "AI 思考中…")
-
         MainScope().launch(Dispatchers.IO + SupervisorJob()) {
             try {
                 val messages = WeDatabaseApi.getMessages(convId, 1, contextCount)
                 if (messages.isEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        showToast(context, "没有可用的聊天记录")
-                    }
+                    withContext(Dispatchers.Main) { showToast(context, "没有聊天记录") }
                     return@launch
                 }
-
                 val reply = callAiApi(buildMessages(messages))
                 if (reply != null) {
-                    val sent = WeMessageApi.sendText(convId, reply)
-                    withContext(Dispatchers.Main) {
-                        if (sent) {
-                            WeLogger.i(TAG, "AI reply sent to $convId")
-                        } else {
-                            showToast(context, "AI 回复发送失败")
-                        }
-                    }
+                    WeMessageApi.sendText(convId, reply)
+                    withContext(Dispatchers.Main) { WeLogger.i(TAG, "AI reply sent") }
                 } else {
-                    withContext(Dispatchers.Main) {
-                        showToast(context, "AI 回复获取失败，请检查 API 配置")
-                    }
+                    withContext(Dispatchers.Main) { showToast(context, "AI 回复失败，请检查 API 配置和网络") }
                 }
             } catch (e: Exception) {
                 WeLogger.e(TAG, "AI reply failed", e)
-                withContext(Dispatchers.Main) {
-                    showToast(context, "AI 回复出错: ${e.message?.take(50) ?: "未知错误"}")
-                }
+                withContext(Dispatchers.Main) { showToast(context, "AI 出错: ${e.message?.take(50) ?: "未知"}") }
             }
         }
     }
 
-    /**
-     * 将微信消息转换为 OpenAI 格式的 messages
-     */
     private fun buildMessages(messages: List<WeMessage>): List<Pair<String, String>> {
-        val result = mutableListOf<Pair<String, String>>()
-        // System prompt first
-        result.add("system" to systemPrompt)
-
-        // Add conversation history (from oldest to newest)
+        val result = mutableListOf("system" to systemPrompt)
+        // messages are newest-first, reverse to chronological
         for (msg in messages.reversed()) {
             val role = if (msg.isSend == 1) "assistant" else "user"
-            val content = msg.content.ifBlank { "[非文本消息]" }
-            result.add(role to content)
+            val text = msg.content.ifBlank { "[非文本消息]" }
+            result.add(role to text)
         }
-
         return result
     }
 
-    /**
-     * 调用 OpenAI 兼容的 Chat Completions API
-     */
     private fun callAiApi(messages: List<Pair<String, String>>): String? {
         val bodyJson = JSONObject().apply {
             put("model", model)
             put("temperature", temperature.toDouble())
             put("max_tokens", maxTokens)
             put("messages", JSONArray(messages.map { (role, content) ->
-                JSONObject().apply {
-                    put("role", role)
-                    put("content", content)
-                }
+                JSONObject().apply { put("role", role); put("content", content) }
             }))
         }
-
         val request = Request.Builder()
             .url(apiUrl)
             .addHeader("Authorization", "Bearer $apiKey")
             .addHeader("Content-Type", "application/json")
             .post(bodyJson.toString().toRequestBody(JSON_MEDIA_TYPE))
             .build()
-
         return try {
             val response = client.newCall(request).execute()
             val body = response.body?.string()
             if (!response.isSuccessful) {
-                WeLogger.e(TAG, "API error: ${response.code} $body")
+                WeLogger.e(TAG, "API error: ${response.code} ${body?.take(200)}")
                 return null
             }
             val json = JSONObject(body ?: return null)
             val choices = json.optJSONArray("choices")
             if (choices != null && choices.length() > 0) {
-                val choice = choices.getJSONObject(0)
-                choice.optJSONObject("message")?.optString("content", null)
-                    ?: choice.optString("text", null)
-            } else {
-                null
-            }
+                choices.getJSONObject(0)
+                    .optJSONObject("message")
+                    ?.optString("content", null)
+                    ?: choices.getJSONObject(0).optString("text", null)
+            } else null
         } catch (e: Exception) {
             WeLogger.e(TAG, "API call failed", e)
             null
@@ -169,8 +125,6 @@ object AiReplyHelper {
     }
 
     private fun showToast(context: Context, msg: String) {
-        try {
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-        } catch (_: Exception) {}
+        try { Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
     }
 }

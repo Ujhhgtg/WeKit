@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.home_screen_menu
 
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,6 +27,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.PersonRemoveIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -49,7 +49,7 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
     override fun getMenuItems(param: XC_MethodHook.MethodHookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(777020, "批量删除好友", PersonRemoveIcon) {
-                val ctx = try { (param.thisObject as? android.app.Activity) ?: return@MenuItem } catch (_: Exception) { return@MenuItem }
+                val ctx = getTopMostActivity() ?: return@MenuItem
                 showComposeDialog(ctx) {
                     val friends = remember { WeDatabaseApi.getFriends() }
                     val sel = remember { mutableStateListOf<String>() }
@@ -99,20 +99,20 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                                             Button(onClick = {
                                                 deleteMode = mode; deleteInterval = interval
                                                 phase = 1
-                                            }) { Text("下一步", fontSize = 13.sp) }
+                                            }, Modifier.fillMaxWidth()) { Text("下一步 (${sel.size})", fontSize = 13.sp) }
                                         }
                                     }
                                 }
                                 1 -> {
                                     val msgs = listOf(
-                                        "第一次确认：即将删除 ${sel.size} 位好友",
-                                        "第二次确认：操作不可逆！",
-                                        "最终确认：即将执行"
+                                        "⚠️ 第一次确认：即将删除 ${sel.size} 位好友",
+                                        "⚠️ 第二次确认：操作不可逆！",
+                                        "⚠️ 最终确认：即将执行"
                                     )
                                     var confirmStep by remember { mutableIntStateOf(1) }
                                     Column {
                                         Text(msgs.getOrElse(confirmStep - 1) { "" })
-                                        Spacer(Modifier.height(8.dp))
+                                        Spacer(Modifier.height(12.dp))
                                         Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
                                             Button(onClick = {
                                                 if (confirmStep >= 3) {
@@ -120,7 +120,7 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                                                     val fails = mutableListOf<String>()
                                                     startDeletion(ctx, friends.filter { it.wxId in sel }, deleteMode, deleteInterval, fails)
                                                 } else { confirmStep++ }
-                                            }) { Text("确认", fontSize = 13.sp) }
+                                            }) { Text("确认 (${confirmStep}/3)", fontSize = 13.sp) }
                                             TextButton(onClick = { phase = 0 }) { Text("取消", fontSize = 13.sp) }
                                         }
                                     }
@@ -137,11 +137,10 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                                         Text("删除完成！")
                                         Text("总计: ${sel.size}")
                                     }
+                                    Spacer(Modifier.height(8.dp))
                                     Button(onClick = onDismiss) { Text("关闭", fontSize = 13.sp) }
                                 }
-                                else -> {
-                                    Text("状态错误")
-                                }
+                                else -> { Text("状态错误") }
                             }
                         }
                     )

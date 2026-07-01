@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.home_screen_menu
 
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,6 +27,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.GroupRemoveIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -48,7 +48,7 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
     override fun getMenuItems(param: XC_MethodHook.MethodHookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(777021, "批量退出群聊", GroupRemoveIcon) {
-                val ctx = try { (param.thisObject as? android.app.Activity) ?: return@MenuItem } catch (_: Exception) { return@MenuItem }
+                val ctx = getTopMostActivity() ?: return@MenuItem
                 showComposeDialog(ctx) {
                     val groups = remember { WeDatabaseApi.getGroups() }
                     val sel = remember { mutableStateListOf<String>() }
@@ -90,7 +90,7 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                                             Button(onClick = {
                                                 quitInterval = interval
                                                 phase = 1
-                                            }) { Text("下一步 →", fontSize = 13.sp) }
+                                            }, Modifier.fillMaxWidth()) { Text("下一步 (${sel.size})", fontSize = 13.sp) }
                                         }
                                     }
                                 }
@@ -103,13 +103,14 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                                     var confirmStep by remember { mutableIntStateOf(1) }
                                     Column {
                                         Text(msgs.getOrElse(confirmStep - 1) { "" })
-                                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
+                                        Spacer(Modifier.height(12.dp))
+                                        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
                                             Button(onClick = {
                                                 if (confirmStep >= 3) {
                                                     phase = 2
                                                     startQuit(ctx, groups.filter { it.wxId in sel }, quitInterval, sel.toList())
                                                 } else { confirmStep++ }
-                                            }) { Text("确认", fontSize = 13.sp) }
+                                            }) { Text("确认 (${confirmStep}/3)", fontSize = 13.sp) }
                                             TextButton(onClick = { phase = 0 }) { Text("取消", fontSize = 13.sp) }
                                         }
                                     }
@@ -117,6 +118,7 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                                 2 -> {
                                     Column {
                                         Text("执行中...")
+                                        Spacer(Modifier.height(8.dp))
                                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                                     }
                                 }
@@ -125,13 +127,12 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                                         Text("退出完成！")
                                         Text("总计: ${sel.size}")
                                     }
-                                    Button(onClick = { phase = 0 }) { Text("关闭", fontSize = 13.sp) }
+                                    Spacer(Modifier.height(8.dp))
+                                    Button(onClick = onDismiss) { Text("关闭", fontSize = 13.sp) }
                                 }
                                 else -> { Text("未知状态") }
                             }
-                        },
-                        confirmButton = { Button(onClick = { phase = 1 }) { Text("确定", fontSize = 13.sp) } },
-                        dismissButton = { TextButton(onClick = { phase = 0 }) { Text("取消", fontSize = 13.sp) } }
+                        }
                     )
                 }
             }
@@ -149,7 +150,7 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                         onSuccess { _, _ -> ok = true }
                         onFailure { _, _, _ -> ok = false }
                     }
-                    if (!ok) { /* retry */ }
+                    if (!ok) { /* retry later */ }
                 } catch (e: Exception) {
                     WeLogger.e(TAG, "quit ${t.wxId} failed", e)
                 }
