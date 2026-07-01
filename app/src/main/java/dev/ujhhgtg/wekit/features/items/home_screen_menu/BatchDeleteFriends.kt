@@ -32,6 +32,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @Feature(
     name = "批量删除好友",
@@ -55,7 +57,10 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                     val sel = remember { mutableStateListOf<String>() }
                     var mode by remember { mutableIntStateOf(deleteMode) }
                     var interval by remember { mutableIntStateOf(deleteInterval) }
-                    var phase by remember { mutableIntStateOf(0) }
+                    var phase by remember { mutableIntStateOf(0) }  // 0=选择 1=确认 2=执行 3=完成
+                    var progress by remember { mutableIntStateOf(0) }
+                    var total by remember { mutableIntStateOf(0) }
+                    var failList by remember { mutableStateOf("") }
 
                     AlertDialogContent(
                         title = { Text("批量删除好友", fontWeight = FontWeight.Bold) },
@@ -117,8 +122,15 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                                             Button(onClick = {
                                                 if (confirmStep >= 3) {
                                                     phase = 2
-                                                    val fails = mutableListOf<String>()
-                                                    startDeletion(ctx, friends.filter { it.wxId in sel }, deleteMode, deleteInterval, fails)
+                                                    progress = 0
+                                                    total = sel.size
+                                                    failList = ""
+                                                    startDeletion(ctx, friends.filter { it.wxId in sel }, deleteMode, deleteInterval) { done, totalCnt, fails ->
+                                                        progress = done
+                                                        total = totalCnt
+                                                        failList = fails.take(3).joinToString(", ")
+                                                        if (done >= totalCnt) { phase = 3 }
+                                                    }
                                                 } else { confirmStep++ }
                                             }) { Text("确认 (${confirmStep}/3)", fontSize = 13.sp) }
                                             TextButton(onClick = { phase = 0 }) { Text("取消", fontSize = 13.sp) }
@@ -126,19 +138,27 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
                                     }
                                 }
                                 2 -> {
-                                    Column {
-                                        Text("执行中...")
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                        Text("正在删除... $progress/$total", fontSize = 14.sp)
                                         Spacer(Modifier.height(8.dp))
-                                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                        LinearProgressIndicator(progress = { if (total > 0) progress.toFloat() / total else 0f }, modifier = Modifier.fillMaxWidth())
+                                        if (failList.isNotEmpty()) {
+                                            Spacer(Modifier.height(4.dp))
+                                            Text("失败: $failList", fontSize = 11.sp, color = Color(0xFFF44336))
+                                        }
                                     }
                                 }
                                 3 -> {
-                                    Column {
-                                        Text("删除完成！")
-                                        Text("总计: ${sel.size}")
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                        Text("✅ 删除完成！", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
+                                        Text("成功: ${total - failList.split(",").filter { it.isNotBlank() }.size}/${total}", fontSize = 14.sp)
+                                        if (failList.isNotEmpty()) {
+                                            Spacer(Modifier.height(4.dp))
+                                            Text("失败: $failList", fontSize = 12.sp, color = Color(0xFFF44336))
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        Button(onClick = onDismiss) { Text("关闭", fontSize = 13.sp) }
                                     }
-                                    Spacer(Modifier.height(8.dp))
-                                    Button(onClick = onDismiss) { Text("关闭", fontSize = 13.sp) }
                                 }
                                 else -> { Text("状态错误") }
                             }
@@ -149,21 +169,35 @@ object BatchDeleteFriends : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItems
         )
     }
 
-    private fun startDeletion(ctx: Context, targets: List<WeContact>, mode: Int, intervalMs: Int, fails: MutableList<String>) {
+    /**
+     * 同步删除一个好友（等待 sendCgi 回调结果）
+     */
+    private fun deleteOne(wxId: String, mode: Int): Boolean {
+        val latch = CountDownLatch(1)
+        var success = false
+        try {
+            val body = if (mode == 0) """{"2":"${wxId.replace("'","''")}","4":1}""" else """{"2":"${wxId.replace("'","''")}","4":3}"""
+            WePacketHelper.sendCgi("/cgi-bin/micromsg-bin/deletecontact", 376, 0, 0, body) {
+                onSuccess { _, _ -> success = true; latch.countDown() }
+                onFailure { _, _, _ -> success = false; latch.countDown() }
+            }
+            latch.await(15, TimeUnit.SECONDS)
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "delete $wxId error", e)
+            latch.countDown()
+        }
+        return success
+    }
+
+    private fun startDeletion(ctx: Context, targets: List<WeContact>, mode: Int, intervalMs: Int, onProgress: (Int, Int, List<String>) -> Unit) {
+        val fails = mutableListOf<String>()
         CoroutineScope(Dispatchers.IO).launch {
+            var done = 0
             for (t in targets) {
-                try {
-                    val body = if (mode == 0) """{"2":"${t.wxId}","4":1}""" else """{"2":"${t.wxId}","4":3}"""
-                    var ok = false
-                    WePacketHelper.sendCgi("/cgi-bin/micromsg-bin/deletecontact", 376, 0, 0, body) {
-                        onSuccess { _, _ -> ok = true }
-                        onFailure { _, _, _ -> ok = false }
-                    }
-                    if (!ok) fails.add(t.displayName.ifEmpty { t.wxId })
-                } catch (e: Exception) {
-                    WeLogger.e(TAG, "delete ${t.wxId} failed", e)
-                    fails.add(t.displayName.ifEmpty { t.wxId })
-                }
+                val ok = deleteOne(t.wxId, mode)
+                if (!ok) fails.add(t.displayName.ifEmpty { t.wxId })
+                done++
+                onProgress(done, targets.size, fails.toList())
                 delay(intervalMs.toLong())
             }
         }

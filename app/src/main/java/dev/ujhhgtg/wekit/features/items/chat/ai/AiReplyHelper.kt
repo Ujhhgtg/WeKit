@@ -30,7 +30,25 @@ object AiReplyHelper {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        // Xposed 环境可能证书链不全，信任所有证书
+        .sslSocketFactory(createTrustAllSslSocketFactory(), createTrustAllTrustManager())
+        .hostnameVerifier { _, _ -> true }
         .build()
+
+    private fun createTrustAllSslSocketFactory(): javax.net.ssl.SSLSocketFactory {
+        val trustAll = createTrustAllTrustManager()
+        val sslContext = javax.net.ssl.SSLContext.getInstance("TLS")
+        sslContext.init(null, arrayOf(trustAll), java.security.SecureRandom())
+        return sslContext.socketFactory
+    }
+
+    private fun createTrustAllTrustManager(): javax.net.ssl.X509TrustManager {
+        return object : javax.net.ssl.X509TrustManager {
+            override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+            override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+            override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = emptyArray()
+        }
+    }
 
     var apiUrl by WePrefs.prefOption("ai_reply_api_url", "https://api.openai.com/v1/chat/completions")
     var apiKey by WePrefs.prefOption("ai_reply_api_key", "")

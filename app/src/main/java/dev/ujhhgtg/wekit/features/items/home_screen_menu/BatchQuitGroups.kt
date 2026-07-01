@@ -32,6 +32,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @Feature(
     name = "批量退出群聊",
@@ -54,6 +56,9 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                     val sel = remember { mutableStateListOf<String>() }
                     var interval by remember { mutableIntStateOf(quitInterval) }
                     var phase by remember { mutableIntStateOf(0) }
+                    var progress by remember { mutableIntStateOf(0) }
+                    var total by remember { mutableIntStateOf(0) }
+                    var failList by remember { mutableStateOf("") }
 
                     AlertDialogContent(
                         title = { Text("批量退出群聊", fontWeight = FontWeight.Bold) },
@@ -87,10 +92,7 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                                             }
                                         }
                                         if (sel.isNotEmpty()) {
-                                            Button(onClick = {
-                                                quitInterval = interval
-                                                phase = 1
-                                            }, Modifier.fillMaxWidth()) { Text("下一步 (${sel.size})", fontSize = 13.sp) }
+                                            Button(onClick = { quitInterval = interval; phase = 1 }, Modifier.fillMaxWidth()) { Text("下一步 (${sel.size})", fontSize = 13.sp) }
                                         }
                                     }
                                 }
@@ -107,28 +109,33 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
                                         Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
                                             Button(onClick = {
                                                 if (confirmStep >= 3) {
-                                                    phase = 2
-                                                    startQuit(ctx, groups.filter { it.wxId in sel }, quitInterval, sel.toList())
-                                                } else { confirmStep++ }
+                                                    phase = 2; progress = 0; total = sel.size; failList = ""
+                                                    startQuit(ctx, groups.filter { it.wxId in sel }, quitInterval) { done, totalCnt, fails ->
+                                                        progress = done; total = totalCnt; failList = fails.take(3).joinToString(", ")
+                                                        if (done >= totalCnt) phase = 3
+                                                    }
+                                                } else confirmStep++
                                             }) { Text("确认 (${confirmStep}/3)", fontSize = 13.sp) }
                                             TextButton(onClick = { phase = 0 }) { Text("取消", fontSize = 13.sp) }
                                         }
                                     }
                                 }
                                 2 -> {
-                                    Column {
-                                        Text("执行中...")
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                        Text("正在退出... $progress/$total", fontSize = 14.sp)
                                         Spacer(Modifier.height(8.dp))
-                                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                        LinearProgressIndicator(progress = { if (total > 0) progress.toFloat() / total else 0f }, modifier = Modifier.fillMaxWidth())
+                                        if (failList.isNotEmpty()) Text("失败: $failList", fontSize = 11.sp, color = Color(0xFFF44336))
                                     }
                                 }
                                 3 -> {
-                                    Column {
-                                        Text("退出完成！")
-                                        Text("总计: ${sel.size}")
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                        Text("✅ 退出完成！", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
+                                        Text("成功: ${total - failList.split(",").filter { it.isNotBlank() }.size}/${total}", fontSize = 14.sp)
+                                        if (failList.isNotEmpty()) Text("失败: $failList", fontSize = 12.sp, color = Color(0xFFF44336))
+                                        Spacer(Modifier.height(8.dp))
+                                        Button(onClick = onDismiss) { Text("关闭", fontSize = 13.sp) }
                                     }
-                                    Spacer(Modifier.height(8.dp))
-                                    Button(onClick = onDismiss) { Text("关闭", fontSize = 13.sp) }
                                 }
                                 else -> { Text("未知状态") }
                             }
@@ -139,22 +146,32 @@ object BatchQuitGroups : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
         )
     }
 
-    private fun startQuit(ctx: Context, targets: List<WeGroup>, intervalMs: Int, selList: List<String>) {
+    private fun quitOne(wxId: String): Boolean {
+        val latch = CountDownLatch(1)
+        var success = false
+        try {
+            val body = """{"2":"${wxId.replace("'","''")}"}"""
+            WePacketHelper.sendCgi("/cgi-bin/micromsg-bin/quitchatroom", 343, 0, 0, body) {
+                onSuccess { _, _ -> success = true; latch.countDown() }
+                onFailure { _, _, _ -> success = false; latch.countDown() }
+            }
+            latch.await(15, TimeUnit.SECONDS)
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "quit $wxId error", e)
+            latch.countDown()
+        }
+        return success
+    }
+
+    private fun startQuit(ctx: Context, targets: List<WeGroup>, intervalMs: Int, onProgress: (Int, Int, List<String>) -> Unit) {
+        val fails = mutableListOf<String>()
         CoroutineScope(Dispatchers.IO).launch {
             var done = 0
             for (t in targets) {
-                try {
-                    val body = """{"2":"${t.wxId}"}"""
-                    var ok = false
-                    WePacketHelper.sendCgi("/cgi-bin/micromsg-bin/quitchatroom", 343, 0, 0, body) {
-                        onSuccess { _, _ -> ok = true }
-                        onFailure { _, _, _ -> ok = false }
-                    }
-                    if (!ok) { /* retry later */ }
-                } catch (e: Exception) {
-                    WeLogger.e(TAG, "quit ${t.wxId} failed", e)
-                }
+                val ok = quitOne(t.wxId)
+                if (!ok) fails.add(t.nickname.ifEmpty { t.wxId })
                 done++
+                onProgress(done, targets.size, fails.toList())
                 delay(intervalMs.toLong())
             }
         }
