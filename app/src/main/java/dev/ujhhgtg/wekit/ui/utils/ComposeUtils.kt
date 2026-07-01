@@ -115,7 +115,7 @@ private fun LiquidGlassBox(
     }
 
     Box(Modifier.fillMaxSize()) {
-        // 1. 截屏作为背景源（供 backdrop 截取）
+        // 1. 截屏作为背景源
         Image(
             bitmap = imageBitmap,
             contentDescription = null,
@@ -123,28 +123,30 @@ private fun LiquidGlassBox(
             contentScale = ContentScale.FillBounds
         )
 
-        // 2. 暗色遮罩
-        Box(Modifier.fillMaxSize().background(CColor.Black.copy(alpha = 0.25f)))
+        // 2. 明显暗色遮罩，突出玻璃效果
+        Box(Modifier.fillMaxSize().background(CColor.Black.copy(alpha = 0.45f)))
 
-        // 3. 玻璃效果的内容区域
+        // 3. 全屏液态玻璃层（更明显的效果）
         Box(
-            modifier = Modifier.fillMaxSize().wrapContentSize(Alignment.Center)
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { RoundedCornerShape(28.dp) },
-                    effects = {
-                        colorControls(brightness = 0.15f, saturation = 1.3f)
-                        blur(24f)
-                        lens(20f, 40f, depthEffect = true)
-                    },
-                    highlight = { Highlight.Plain },
-                    onDrawSurface = {
-                        drawRect(CColor.White.copy(alpha = 0.45f))
-                    }
-                )
+            modifier = Modifier.fillMaxSize().drawBackdrop(
+                backdrop = backdrop,
+                shape = { RoundedCornerShape(28.dp) },
+                effects = {
+                    vibrancy()
+                    colorControls(brightness = 0.3f, saturation = 1.8f)
+                    blur(32f)
+                    lens(28f, 56f, depthEffect = true, chromaticAberration = true)
+                },
+                highlight = { Highlight.Plain },
+                onDrawSurface = {
+                    drawRect(CColor.White.copy(alpha = 0.3f))
+                }
+            )
         ) {
-            // 内部内容保留原来外观
-            Box(Modifier.fillMaxSize()) {
+            // 4. 内部内容
+            Box(
+                modifier = Modifier.fillMaxSize().wrapContentSize(Alignment.Center)
+            ) {
                 scope.content()
             }
         }
