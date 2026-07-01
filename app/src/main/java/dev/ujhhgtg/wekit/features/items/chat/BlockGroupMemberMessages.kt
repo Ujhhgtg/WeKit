@@ -58,10 +58,7 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
         )
     }
 
-    // ── 缓存被隐藏的消息 View（供解除屏蔽时恢复） ──
     private val hiddenSendersCache = mutableMapOf<String, MutableMap<String, MutableList<View>>>()
-
-    // ── 被关键词屏蔽的 View 缓存（不持久化，只是临时隐藏） ──
     private val keywordHiddenViews = mutableMapOf<String, MutableList<View>>()
 
     override fun onEnable() {
@@ -75,13 +72,13 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
                     val sender = msgInfo.sender
                     if (sender.isEmpty() || sender == "system") return
 
-                    // 【功能1：屏蔽成员】手动屏蔽的发送者，隐藏其所有消息
+                    // 功能1：屏蔽成员
                     if (sender in getBlockedSet(groupId)) {
                         cacheAndHide(view, groupId, sender)
                         return
                     }
 
-                    // 【功能2：屏蔽消息】关键词过滤，只隐藏单条消息，不屏蔽发送者
+                    // 功能2：关键词过滤（只隐藏消息，不屏蔽人）
                     if (getKeywordFilterEnabled(groupId)) {
                         val keywords = getFilterKeywords(groupId)
                         val targets = getFilterTargets(groupId)
@@ -94,17 +91,15 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
                                 rawContent.takeIf { it.isNotBlank() },
                                 strippedContent.takeIf { it.isNotBlank() }
                             ).distinct()
-
                             for (text in textsToCheck) {
                                 for (kw in keywords) {
                                     if (text.contains(kw, ignoreCase = true)) {
-                                        WeLogger.i(TAG, "keyword filter: hiding msg from $sender, kw='$kw'")
-                                        // 只隐藏这条消息，不修改 blocked set
+                                        WeLogger.i(TAG, "keyword filter hide msg from $sender kw='$kw'")
                                         synchronized(keywordHiddenViews) {
                                             keywordHiddenViews.getOrPut(groupId) { mutableListOf() }.add(view)
                                         }
+                                        // 只设 GONE，不改 layoutParams，恢复时 VISIBLE 即可正确显示
                                         view.visibility = View.GONE
-                                        view.layoutParams = android.view.ViewGroup.LayoutParams(0, 0)
                                         return
                                     }
                                 }
@@ -132,12 +127,10 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
 
     // ── Pref 读写 ──
 
-    // 功能1：屏蔽成员
     private fun blockedPrefKey(g: String) = "blocked_members_$g"
     private fun getBlockedSet(g: String): Set<String> = WePrefs.getStringSetOrDef(blockedPrefKey(g), emptySet())
     private fun saveBlockedSet(g: String, s: Set<String>) = WePrefs.putStringSet(blockedPrefKey(g), s)
 
-    // 功能2：屏蔽消息（关键词过滤）
     private fun filterKwPrefKey(g: String) = "filter_keywords_$g"
     private fun filterTgtPrefKey(g: String) = "filter_targets_$g"
     private fun filterEnabledPrefKey(g: String) = "filter_enabled_$g"
@@ -149,17 +142,19 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
     private fun getKeywordFilterEnabled(g: String): Boolean = WePrefs.getBoolOrDef(filterEnabledPrefKey(g), false)
     private fun setKeywordFilterEnabled(g: String, v: Boolean) {
         WePrefs.putBool(filterEnabledPrefKey(g), v)
-        // 关闭过滤时恢复所有被关键词隐藏的 View
         if (!v) {
+            // 关闭时恢复所有被关键词隐藏的 View，并清空缓存
             synchronized(keywordHiddenViews) {
-                keywordHiddenViews.remove(g)?.forEach { view ->
-                    try { view.visibility = View.VISIBLE } catch (_: Exception) { }
+                val views = keywordHiddenViews.remove(g)
+                if (views != null) {
+                    for (view in views) {
+                        try { view.visibility = View.VISIBLE } catch (_: Exception) { }
+                    }
                 }
             }
         }
     }
 
-    // ── 解除屏蔽成员 ──
     private fun unblockMember(g: String, wx: String) {
         val set = getBlockedSet(g).toMutableSet(); set.remove(wx); saveBlockedSet(g, set)
         synchronized(hiddenSendersCache) {
@@ -175,8 +170,6 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
             }
         }
     }
-
-    // ── 主管理界面 ──
 
     fun showBlockManager(context: Context, groupId: String) {
         showComposeDialog(context) {
@@ -199,9 +192,9 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
         }
     }
 
-    // ═══════════════════════════════════════════════
-    // 功能1：屏蔽成员（手动选择屏蔽某人全部消息）
-    // ═══════════════════════════════════════════════
+    // ═══════════════════════
+    // 功能1：屏蔽成员
+    // ═══════════════════════
 
     @Composable
     private fun BlockMemberTab(context: Context, groupId: String) {
@@ -280,9 +273,9 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
         }
     }
 
-    // ═══════════════════════════════════════════════
-    // 功能2：屏蔽消息（关键词过滤，只隐藏消息不屏蔽人）
-    // ═══════════════════════════════════════════════
+    // ═══════════════════════
+    // 功能2：屏蔽消息（关键词过滤）
+    // ═══════════════════════
 
     @Composable
     private fun KeywordFilterTab(context: Context, groupId: String) {
@@ -294,12 +287,13 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
             val filterTargets = remember { mutableStateOf(getFilterTargets(groupId)) }
             var loaded by remember { mutableStateOf(false) }
             var searchQuery by remember { mutableStateOf("") }
-            val selectedTargets = remember { mutableStateListOf<String>() }
+            // 【修复】从 pref 中加载已保存的监控对象
+            val selectedTargets = remember { mutableStateListOf<String>().also { it.addAll(getFilterTargets(groupId)) } }
             var newKeyword by remember { mutableStateOf("") }
 
             LaunchedEffect(Unit) {
-                members.value = try { WeDatabaseApi.getGroupMembers(groupId) } catch (_: Exception) { emptyList() }
-                loaded = true
+                val m = try { WeDatabaseApi.getGroupMembers(groupId) } catch (_: Exception) { emptyList() }
+                members.value = m; loaded = true
             }
 
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
@@ -320,7 +314,7 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
                         })
                     }
                     Spacer(Modifier.height(4.dp))
-                    Text("提示：匹配关键词的消息会被隐藏，但发送者不会被屏蔽", fontSize = 10.sp, color = CColor.Gray)
+                    Text("匹配关键词的消息会被隐藏，发送者不会被屏蔽", fontSize = 10.sp, color = CColor.Gray)
                     Spacer(Modifier.height(4.dp))
                     if (keywords.value.isEmpty()) { Text("暂无关键词", modifier = Modifier.padding(16.dp), color = CColor.Gray) }
                     else {
@@ -354,15 +348,15 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
                         }) { Text("添加", fontSize = 13.sp) }
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text("提示：消息内容包含关键词就会被隐藏，不区分大小写", fontSize = 10.sp, color = CColor.Gray)
+                    Text("消息内容包含关键词就会被隐藏，不区分大小写", fontSize = 10.sp, color = CColor.Gray)
                 }
 
-                // ── 选择监控对象 ──
+                // ── 监控对象 ──
                 2 -> {
                     if (!loaded) { Text("加载成员中...", modifier = Modifier.padding(16.dp)) }
                     else if (members.value.isEmpty()) { Text("无法获取群成员列表", modifier = Modifier.padding(16.dp), color = CColor.Gray) }
                     else {
-                        Text("选择要监控的成员（不选则监控全部）", fontSize = 12.sp, color = CColor.Gray)
+                        Text("选择要监控的成员（不选 = 监控全部成员）", fontSize = 12.sp, color = CColor.Gray)
                         Spacer(Modifier.height(4.dp))
                         OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("搜索成员") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.height(4.dp))
