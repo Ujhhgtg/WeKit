@@ -147,7 +147,17 @@ object BlockGroupMemberMessages : SwitchFeature(), WeConversationContextMenuApi.
     private fun getFilterTargets(g: String): Set<String> = WePrefs.getStringSetOrDef(filterTgtPrefKey(g), emptySet())
     private fun saveFilterTargets(g: String, s: Set<String>) = WePrefs.putStringSet(filterTgtPrefKey(g), s)
     private fun getKeywordFilterEnabled(g: String): Boolean = WePrefs.getBoolOrDef(filterEnabledPrefKey(g), false)
-    private fun setKeywordFilterEnabled(g: String, v: Boolean) = WePrefs.putBool(filterEnabledPrefKey(g), v)
+    private fun setKeywordFilterEnabled(g: String, v: Boolean) {
+        WePrefs.putBool(filterEnabledPrefKey(g), v)
+        // 关闭过滤时恢复所有被关键词隐藏的 View
+        if (!v) {
+            synchronized(keywordHiddenViews) {
+                keywordHiddenViews.remove(g)?.forEach { view ->
+                    try { view.visibility = View.VISIBLE } catch (_: Exception) { }
+                }
+            }
+        }
+    }
 
     // ── 解除屏蔽成员 ──
     private fun unblockMember(g: String, wx: String) {
