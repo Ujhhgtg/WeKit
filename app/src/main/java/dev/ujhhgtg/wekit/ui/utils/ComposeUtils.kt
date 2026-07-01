@@ -7,33 +7,24 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.view.View
 import android.view.Window
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as CColor
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.rememberCanvasBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -41,6 +32,8 @@ import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 
@@ -114,41 +107,53 @@ private fun LiquidGlassBox(
         drawImage(imageBitmap)
     }
 
-    Box(Modifier.fillMaxSize()) {
-        // 1. 截屏作为背景源
-        Image(
-            bitmap = imageBitmap,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
-        )
-
-        // 2. 明显暗色遮罩，突出玻璃效果
-        Box(Modifier.fillMaxSize().background(CColor.Black.copy(alpha = 0.45f)))
-
-        // 3. 全屏液态玻璃层（更明显的效果）
-        Box(
-            modifier = Modifier.fillMaxSize().drawBackdrop(
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .drawBackdrop(
                 backdrop = backdrop,
                 shape = { RoundedCornerShape(28.dp) },
                 effects = {
+                    // 1. 基础高斯模糊 — 磨砂效果
+                    blur(24f)
+                    // 2. 镜头折射 — 模拟水滴凸透镜效应
+                    lens(22f, 44f, depthEffect = true, chromaticAberration = true)
+                    // 3. 辉光增艳 — 对应 LGGC 的 saturate(160%)
                     vibrancy()
-                    colorControls(brightness = 0.3f, saturation = 1.8f)
-                    blur(32f)
-                    lens(28f, 56f, depthEffect = true, chromaticAberration = true)
+                    // 4. 色彩控制 — 提亮+高饱和，让玻璃更通透
+                    colorControls(brightness = 0.18f, saturation = 1.6f)
                 },
+                // 5. 边缘高光 — 对应 LGGC 的 inset white box-shadow（水滴感核心）
                 highlight = { Highlight.Plain },
+                // 6. 底部投影 — 悬浮感
+                shadow = {
+                    Shadow(
+                        radius = 42.dp,
+                        color = CColor.Black.copy(alpha = 0.18f),
+                        alpha = 1f
+                    )
+                },
+                // 7. 内阴影 — 内部深度感
+                innerShadow = {
+                    InnerShadow(
+                        radius = 8.dp,
+                        color = CColor.Black.copy(alpha = 0.06f),
+                        alpha = 1f
+                    )
+                },
                 onDrawSurface = {
-                    drawRect(CColor.White.copy(alpha = 0.3f))
+                    // 极浅底色，让玻璃保持通透（LGGC 的 --lggc-bg: rgba(255,255,255,0.08)）
+                    drawRect(CColor.White.copy(alpha = 0.12f))
                 }
             )
+    ) {
+        // 内容直接叠加在玻璃层上
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .wrapContentSize(Alignment.Center)
         ) {
-            // 4. 内部内容
-            Box(
-                modifier = Modifier.fillMaxSize().wrapContentSize(Alignment.Center)
-            ) {
-                scope.content()
-            }
+            scope.content()
         }
     }
 }
