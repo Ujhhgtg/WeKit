@@ -253,7 +253,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex {
 
             val editText = thisObject.reflekt().firstField {
                 type { it.name == "MMEditText" }
-            }.get()!!
+            }.get()!! as android.widget.EditText
 
             WeLogger.d(TAG, "modified chatfooter")
 
