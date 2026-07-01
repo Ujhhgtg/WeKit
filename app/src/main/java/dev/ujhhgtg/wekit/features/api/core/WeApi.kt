@@ -45,6 +45,13 @@ object WeApi {
         }
     }
 
+    fun openMoments(context: Context, wxId: String) {
+        context.startActivity(Intent {
+            setClassName(context.packageName, "${PackageNames.WECHAT}.plugin.sns.ui.SnsUserUI")
+            putExtra("sns_userName", wxId)
+        })
+    }
+
     enum class OpenContactDestination {
         HOMEPAGE,
         SETTINGS,
