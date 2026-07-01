@@ -25,7 +25,7 @@ hidden-api-bypass = "6.1"
 runtime = "1.11.3"
 # noinspection GradleDependency
 compose-material3 = "1.5.0-alpha19" # DO NOT UPDATE. RIPPLE EFFECT BROKE AGAIN
-libsu = "5.2.2"
+libsu = "6.0.0"
 libxposed = "102.0.0"
 aboutlibraries = "15.0.3"
 kotlinpoet = "2.3.0"
