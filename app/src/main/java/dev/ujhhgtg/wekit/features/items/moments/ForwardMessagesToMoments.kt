@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.CameraIcon
-import dev.ujhhgtg.wekit.utils.strings.stripWxId
 
 @Suppress("DEPRECATION")
 @Feature(name = "消息转圈", categories = ["朋友圈"], description = "将一些简单的消息转发到朋友圈")
@@ -39,14 +38,7 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
                         }
 
                         MessageType.QUOTE -> {
-                            val quoteMsg = msgInfo.toQuoteMessage() ?: return@MenuItem
-
-                            var text = quoteMsg.title
-                            if (msgInfo.isInGroupChat) {
-                                text = text.stripWxId()
-                            }
-
-                            WeMomentsApi.sendTextInUi(activity, text)
+                            WeMomentsApi.sendTextInUi(activity, msgInfo.quoteMsgActualContent!!)
                         }
 
                         MessageType.IMAGE -> {

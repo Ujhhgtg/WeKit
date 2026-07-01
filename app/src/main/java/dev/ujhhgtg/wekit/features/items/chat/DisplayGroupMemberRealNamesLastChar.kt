@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
-import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.DisplayGroupMemberRealNamesLastChar.actualFetchRealName
@@ -229,12 +228,10 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
     // ── IContactInfoProvider ──────────────────────────────────────────────────
 
     /**
-     * Exposes a contact-detail entry only for group members: requires the current conversation
-     * to be a group chat and the opened contact to be an individual (not the group itself).
+     * Exposes a contact-detail entry only for group members: requires the opened contact to be an individual (not the group itself).
      * Shows the cached real name as the summary when available.
      */
     override fun getContactInfoItem(activity: Activity): List<PreferenceItem> {
-        if (!WeCurrentConversationApi.value.isGroupChatWxId) return emptyList()
         val memberId = activity.currentWxId ?: return emptyList()
         if (memberId.isGroupChatWxId) return emptyList()
 
@@ -251,25 +248,30 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
     override fun onItemClick(activity: Activity, key: String): Boolean {
         if (key != PREF_KEY) return false
 
-        val memberId = activity.currentWxId ?: return true
-        val groupId = WeCurrentConversationApi.value.takeIf { it.isGroupChatWxId }
+        activity.run {
+            val memberId = intent.getStringExtra("Contact_User")!!
+            val groupId = intent.getStringExtra("room_name")
+                ?: intent.getStringExtra("Contact_ChatRoomId")
 
-        val cached = realNames[memberId]
-        if (cached != null) {
-            showToast(activity, "实名: $cached")
-            return true
-        }
+            WeLogger.i(TAG, "fetching last char for $memberId $groupId")
 
-        showToast(activity, "正在获取...")
-        actualFetchRealName(memberId, groupId) { result ->
-            mainHandler.post {
-                when (result) {
-                    is FetchResult.Found -> showToast(activity, "实名: ${result.realName}")
-                    FetchResult.NoRealName -> showToast(activity, "获取失败: 可能被删除/被拉黑/对方账号异常")
-                    is FetchResult.Failure -> showToast(activity, "获取失败: ${result.errMsg ?: result.errCode}")
+            val cached = realNames[memberId]
+            if (cached != null) {
+                showToast(activity, "实名: $cached")
+                return true
+            }
+
+            showToast(activity, "正在获取...")
+            actualFetchRealName(memberId, groupId) { result ->
+                mainHandler.post {
+                    when (result) {
+                        is FetchResult.Found -> showToast(activity, "实名: ${result.realName}")
+                        FetchResult.NoRealName -> showToast(activity, "获取失败: 可能被删除/被拉黑/对方账号异常!")
+                        is FetchResult.Failure -> showToast(activity, "获取失败: ${result.errMsg ?: result.errCode}!")
+                    }
                 }
             }
+            return true
         }
-        return true
     }
 }

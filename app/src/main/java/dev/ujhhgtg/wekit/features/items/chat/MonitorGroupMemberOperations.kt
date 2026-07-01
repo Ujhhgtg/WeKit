@@ -100,8 +100,8 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
         val leavers = origMembers - newMembers
 
         leavers.forEach { wxId ->
-            val displayName = origDisplayNames[wxId]?.takeIf { it.isNotEmpty() }
-            val displayString = if (displayName != null) "$displayName ($wxId)" else wxId
+            val displayName = (origDisplayNames[wxId] ?: "").ifEmpty { WeDatabaseApi.getDisplayName(wxId) }
+            val displayString = if (displayName.isNotEmpty()) "$displayName ($wxId)" else wxId
 
             val href = "weixin://weixinhongbao/wekit/chatroom_userinfo/$wxId"
             val content = """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> 退出了群组"""
@@ -125,11 +125,14 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
             val oldName = origDisplayNames[wxId] ?: return@forEach // 新成员，非昵称修改
             if (oldName == newName) return@forEach
 
+            val displayName = WeDatabaseApi.getDisplayName(wxId)
+            val displayString = if (displayName.isNotEmpty()) "$displayName ($wxId)" else wxId
+
             val oldShow = oldName.ifEmpty { "(无)" }
             val newShow = newName.ifEmpty { "(无)" }
 
             val href = "weixin://weixinhongbao/wekit/chatroom_userinfo/$wxId"
-            val content = """<_wc_custom_link_ color="#28C445" href="$href">$wxId</_wc_custom_link_> 修改群昵称：$oldShow → $newShow"""
+            val content = """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> 修改群昵称：$oldShow → $newShow"""
 
             WeMessageApi.createSimpleMsgInfoAndInsert(
                 type = MessageType.SYSTEM.code,

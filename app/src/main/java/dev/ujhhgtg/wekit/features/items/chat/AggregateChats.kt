@@ -46,11 +46,13 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
+import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.BaseContactSelector
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -61,9 +63,12 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.invokeOriginal
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
 import java.lang.reflect.Proxy
+import java.text.Collator
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.div
 import kotlin.io.path.exists
@@ -117,6 +122,19 @@ object AggregateChats : ClickableFeature(),
             )
             paramTypes("int", "java.util.List", "java.lang.String", "int")
             returnType("android.database.Cursor")
+        }
+    }
+
+    // SelectConversationUI#doClickUser(username) — the single entry point for all conversation
+    // taps in the "share to conversation" picker. WeChat only intercepts known virtual usernames
+    // ("conversationboxservice", "opencustomerservicemsg") before forwarding to its share logic.
+    // Our folder rows (wekit_folder_XXX) pass those guards and reach the share machinery, which
+    // tries to open a chat thread for a non-existent contact → crash.
+    private val methodSelectConversationDoClickUser by dexMethod(allowFailure = true) {
+        matcher {
+            usingEqStrings("MicroMsg.SelectConversationUI", "doClickUser=%s")
+            paramTypes("java.lang.String")
+            returnType("void")
         }
     }
 
@@ -177,6 +195,7 @@ object AggregateChats : ClickableFeature(),
         hookOpenFolder()
         hookConversationPages()
         hookFolderContextMenu()
+        hookSelectConversationUi()
         hookSqliteWrapperQuery()
         hookConversationStorageParentQuery()
 
@@ -307,6 +326,12 @@ object AggregateChats : ClickableFeature(),
                 folders.forEach { folder ->
                     val members = getFolderMembers(folder).filterNot(::isFolderId).distinct()
                     if (members.isEmpty()) return@forEach
+                    // WeChat's REPLACE INTO on new-message receipt can recreate the member row
+                    // without parentRef (REPLACE = DELETE + INSERT, and WeChat's INSERT omits
+                    // parentRef).  Re-anchor any member whose parentRef was cleared before
+                    // reading the summary so the folder container query still finds them and
+                    // ORDER BY flag DESC, conversationTime DESC puts the new-message member first.
+                    reanchorFolderMembers(folder.id, members)
                     writeFolderSummaryRow(folder.id, readFolderSummary(members))
                 }
             }
@@ -314,6 +339,26 @@ object AggregateChats : ClickableFeature(),
         }.onFailure {
             WeLogger.e(TAG, "failed to refresh folder summaries", it)
         }
+    }
+
+    /**
+     * Restores [ConversationTable.PARENT_REF] = [folderId] for any member whose row was
+     * replaced by WeChat's own conversation update without a parentRef. Only rows where
+     * parentRef is currently NULL or '' are touched — rows already mapped to this folder
+     * (or to another folder) are left unchanged.
+     */
+    private fun reanchorFolderMembers(folderId: String, members: List<String>) {
+        if (members.isEmpty()) return
+        val placeholders = members.joinToString(",") { "?" }
+        WeDatabaseApi.execStatement(
+            """
+            UPDATE ${ConversationTable.NAME}
+            SET ${ConversationTable.PARENT_REF}=?
+            WHERE ${ConversationTable.USERNAME} IN ($placeholders)
+              AND (${ConversationTable.PARENT_REF} IS NULL OR ${ConversationTable.PARENT_REF}='')
+            """.trimIndent(),
+            arrayOf(folderId, *members.toTypedArray())
+        )
     }
 
     private fun startRefreshThread() {
@@ -457,6 +502,99 @@ object AggregateChats : ClickableFeature(),
                 method.invoke(originalSelect, *params)
             }
         }
+    }
+
+    // Intercepts the "share to conversation" picker (SelectConversationUI) before WeChat's share
+    // machinery runs. Our folder rows appear in that list because their parentRef is '' (root-level),
+    // but they have no real chat thread — forwarding to one crashes. We cancel the call, show a
+    // picker scoped to that folder's members, then re-invoke doClickUser with the chosen member so
+    // the original share flow proceeds normally.
+    private fun hookSelectConversationUi() {
+        if (methodSelectConversationDoClickUser.isPlaceholder) return
+        methodSelectConversationDoClickUser.hookBefore {
+            val username = args.firstOrNull() as? String ?: return@hookBefore
+            if (!isFolderId(username)) return@hookBefore
+
+            val folder = folderById(username) ?: return@hookBefore
+            val context = thisObject as? Context ?: return@hookBefore
+            val members = getFolderMembers(folder).filterNot(::isFolderId).distinct()
+
+            // Cancel forwarding to the folder row itself — it has no real chat thread.
+            result = null
+
+            if (members.isEmpty()) {
+                showToast("文件夹中没有对话")
+                return@hookBefore
+            }
+
+            val membersSet = members.toHashSet()
+            val contacts = runCatching {
+                withQueryRewriteSuppressed {
+                    WeDatabaseApi.getContacts().filter { it.wxId in membersSet }
+                }
+            }.getOrDefault(emptyList())
+
+            // Capture the hook param so the dialog callback can re-run the ORIGINAL doClickUser
+            // (bypassing this hook, so no recursion) with the chosen member's username.
+            val param = this
+
+            showComposeDialog(context) {
+                FolderShareTargetSelector(
+                    contacts = contacts,
+                    onDismiss = onDismiss,
+                    onSelect = { selectedWxId ->
+                        onDismiss()
+                        runCatching {
+                            param.invokeOriginal(args = arrayOf(selectedWxId))
+                        }.onFailure {
+                            WeLogger.e(TAG, "failed to forward share to member $selectedWxId", it)
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    // A member picker for the "share to conversation" folder interception. Mirrors the
+    // CustomLocalFriendAvatars pattern: no confirm button, each row carries a "选择" trailing
+    // button that fires the forward immediately (onItemclick does the same for convenience).
+    @Composable
+    private fun FolderShareTargetSelector(
+        contacts: List<IWeContact>,
+        onDismiss: () -> Unit,
+        onSelect: (String) -> Unit
+    ) {
+        var searchQuery by remember { mutableStateOf("") }
+        val chinaCollator = remember { Collator.getInstance(Locale.CHINA) }
+
+        val filteredContacts = remember(searchQuery, contacts, chinaCollator) {
+            contacts.filter {
+                it.displayName.contains(searchQuery, ignoreCase = true) ||
+                        it.wxId.contains(searchQuery, ignoreCase = true)
+            }.sortedWith(
+                compareBy<IWeContact> { it.displayName.isBlank() }
+                    .thenComparator { c1, c2 -> chinaCollator.compare(c1.displayName, c2.displayName) }
+            )
+        }
+
+        BaseContactSelector(
+            title = "选择文件夹里的转发对象",
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
+            filteredContacts = filteredContacts,
+            confirmButtonText = "",
+            confirmButtonEnabled = false,
+            showConfirmButton = false,
+            dismissButtonText = "取消",
+            onDismiss = onDismiss,
+            onConfirm = {},
+            selectionKey = Unit,
+            isSelected = { false },
+            trailingControl = { contact ->
+                TextButton(onClick = { onSelect(contact.wxId) }) { Text("选择") }
+            },
+            onItemClick = { contact -> onSelect(contact.wxId) }
+        )
     }
 
     // Resolves the long-pressed conversation's username from the menu-create listener WeChat passes

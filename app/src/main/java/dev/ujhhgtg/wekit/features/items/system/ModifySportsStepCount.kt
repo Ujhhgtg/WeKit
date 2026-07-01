@@ -12,7 +12,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -37,36 +37,36 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
 
     override fun onEnable() {
         methodGetSteps.hookBefore {
-            val count = WePrefs.getLongOrDef(KEY_STEP_COUNT, -1L)
-            if (count == -1L) return@hookBefore
+            val count = stepCount
+            if (count < 0) return@hookBefore
             result = count
         }
     }
 
-    private const val KEY_STEP_COUNT = "step_count"
+    private var stepCount by prefOption("step_count", -1L)
 
     override fun onClick(context: Context) {
         showComposeDialog(context) {
-            var stepCount by remember { mutableStateOf("") }
+            var stepCountInput by remember { mutableStateOf(stepCount.toString()) }
 
             AlertDialogContent(
                 title = { Text(text = "修改运动步数") },
                 text = {
                     TextField(
-                        value = stepCount,
+                        value = stepCountInput,
                         onValueChange = {
-                            stepCount = it.filter { c -> c.isDigit() }.trim()
+                            stepCountInput = it.filter { c -> c.isDigit() }.trim()
                         },
                         label = { Text("步数") }
                     )
                 },
                 confirmButton = {
                     Button(onClick = {
-                        val count = stepCount.toLongOrNull() ?: run {
+                        val count = stepCountInput.toLongOrNull() ?: run {
                             showToast("格式不正确!")
                             return@Button
                         }
-                        WePrefs.putLong(KEY_STEP_COUNT, count)
+                        stepCount = count
                         onDismiss()
                     }) {
                         Text("保存")
@@ -78,7 +78,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                     }
 
                     TextButton(onClick = {
-                        val count = stepCount.toLongOrNull() ?: run {
+                        val count = stepCountInput.toLongOrNull() ?: run {
                             showToast("格式不正确!")
                             return@TextButton
                         }

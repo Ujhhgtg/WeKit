@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
-import androidx.core.widget.doAfterTextChanged
 import com.tencent.mm.plugin.setting.ui.setting.SettingsUI
 import com.tencent.mm.plugin.setting.ui.setting_new.base.BaseSettingPrefUI
 import com.tencent.mm.plugin.setting.ui.setting_new.base.BaseSettingUI
@@ -36,21 +35,13 @@ import dev.ujhhgtg.wekit.utils.reflection.int
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.StringMatchType
 import java.lang.reflect.Modifier
-
 @Feature(name = "设置模块入口", categories = ["API"])
-object WeSettingsInjector : ApiFeature(), IResolveDex {
+object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener {
 
     private val methodSetKey by dexMethod()
     private val methodSetTitle by dexMethod()
     private val methodGetKey by dexMethod()
     private val methodAddPref by dexMethod()
-
-    private val methodChatFooterBindEditText by dexMethod {
-        matcher {
-            declaredClass ="com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
-            usingEqStrings("MicroMsg.ChatFooter", "transVoiceBlurMode: %s.")
-        }
-    }
 
     // method 2
     private val classSettingItemClassesProvider by dexClass(allowFailure = true) {
@@ -238,7 +229,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex {
     override fun onEnable() {
         hookLauncherUi()
 
-        hookChatInputBar()
+        WeChatInputBarApi.addListener(this)
 
         injectLegacy()
 
@@ -247,22 +238,14 @@ object WeSettingsInjector : ApiFeature(), IResolveDex {
         // injectModernMethod3()
     }
 
-    private fun hookChatInputBar() {
-        methodChatFooterBindEditText.hookBefore {
-            val chatFooter = thisObject as ChatFooter
+    override fun onDisable() {
+        WeChatInputBarApi.removeListener(this)
+    }
 
-            val editText = thisObject.reflekt().firstField {
-                type { it.name == "MMEditText" }
-            }.get()!! as android.widget.EditText
-
-            WeLogger.d(TAG, "modified chatfooter")
-
-            editText.doAfterTextChanged { _ ->
-                WeLogger.d(TAG, chatFooter.lastText)
-                if (chatFooter.lastText != "#wekit") return@doAfterTextChanged
-                openSettingsDialog(chatFooter.context)
-            }
-        }
+    override fun onTextChanged(chatFooter: ChatFooter, text: String) {
+        if (text != "#wekit") return
+        chatFooter.lastText = ""
+        openSettingsDialog(chatFooter.context)
     }
 
     private fun injectLegacy() {

@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.app.Activity
 import android.view.View
 import androidx.compose.material3.Text
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -31,8 +32,7 @@ object ForwardFavoriteVoices : SwitchFeature() {
 
     @OptIn(ExperimentalSerializationApi::class)
     override fun onEnable() {
-        "com.tencent.mm.plugin.fav.ui.FavSelectUI".toClass().reflekt().firstMethod { name = "onItemClick" }
-        .hookBefore {
+        "com.tencent.mm.plugin.fav.ui.FavSelectUI".toClass().reflekt().firstMethod { name = "onItemClick" }.hookBefore {
             val view = args[1] as View
 
             val tag = view.tag

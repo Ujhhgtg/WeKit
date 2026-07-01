@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.utils.strings
 
+import dev.ujhhgtg.wekit.constants.Preferences
+
 
 private val MAP_REGEX = Regex("\\[[^]]+]")
 
@@ -138,12 +140,10 @@ fun String.replaceEmojis(): String {
 }
 
 private val WXID_PREFIX_REGEX = Regex("""^wxid_[^:]+:\n(.*)$""", setOf(RegexOption.DOT_MATCHES_ALL))
+private val GENERIC_PREFIX_REGEX = Regex("""^[^:]+:\n(.*)$""", setOf(RegexOption.DOT_MATCHES_ALL))
 
 fun String.stripWxId(): String {
-    val match = WXID_PREFIX_REGEX.find(this)
+    val regex = if (Preferences.matchGenericWxIdExp) GENERIC_PREFIX_REGEX else WXID_PREFIX_REGEX
+    val match = regex.find(this)
     return match?.groupValues?.get(1) ?: this
 }
-
-// 旧名称别名，保持兼容
-@Suppress("unused")
-fun String.removeWxIdPrefix(): String = this.stripWxId()

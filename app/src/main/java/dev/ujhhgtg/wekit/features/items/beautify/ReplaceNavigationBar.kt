@@ -89,6 +89,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
     private var useFloating by prefOption("nav_bar_use_floating", false)
     private var useBackdrop by prefOption("nav_bar_use_backdrop", false)
+    private var showFinderBadge by prefOption("nav_bar_show_finder_badge", true)
 
     override fun onEnable() {
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
@@ -135,6 +136,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
             val useFloating = useFloating
             val useBackdrop = useBackdrop
+            val showFinderBadge = showFinderBadge
 
             val composeView = ComposeView(activity).apply {
                 setLifecycleOwner(lifecycleOwner)
@@ -143,6 +145,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         AppTheme {
                             var selectedIndex by selectedPageIndexState
                             val unreadCount by unreadCountState
+                            val finderUnreadCount by finderUnreadCountState
+                            val showFinderDot by showFinderDotState
 
                             val backgroundColor = if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
                             val activeColor = MaterialTheme.colorScheme.primary
@@ -191,6 +195,17 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                                     if (unreadCount <= 99) unreadCount.toString() else "99+",
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
+                                                            }
+                                                        } else if (index == 2 && showFinderBadge) {
+                                                            if (finderUnreadCount > 0) {
+                                                                Badge(containerColor = Color(0xFFFF3B30)) {
+                                                                    Text(
+                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else "99+",
+                                                                        color = Color.White, fontSize = 10.sp
+                                                                    )
+                                                                }
+                                                            } else if (showFinderDot) {
+                                                                Badge(containerColor = Color(0xFFFF3B30))
                                                             }
                                                         }
                                                     }
@@ -253,6 +268,17 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
                                                             }
+                                                        } else if (index == 2 && showFinderBadge) {
+                                                            if (finderUnreadCount > 0) {
+                                                                Badge(containerColor = Color(0xFFFF3B30)) {
+                                                                    Text(
+                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else "99+",
+                                                                        color = Color.White, fontSize = 10.sp
+                                                                    )
+                                                                }
+                                                            } else if (showFinderDot) {
+                                                                Badge(containerColor = Color(0xFFFF3B30))
+                                                            }
                                                         }
                                                     }
                                                 ) {
@@ -305,9 +331,23 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             unreadCountState.intValue = count
             result = null
         }
+
+        methodUpdateFriendTabUnread.hookBefore {
+            val count = args[0] as Int
+            finderUnreadCountState.intValue = count
+            result = null
+        }
+
+        methodShowFriendPoint.hookBefore {
+            val show = args[0] as Boolean
+            showFinderDotState.value = show
+            result = null
+        }
     }
 
     private val unreadCountState = mutableIntStateOf(0)
+    private val finderUnreadCountState = mutableIntStateOf(0)
+    private val showFinderDotState = mutableStateOf(false)
 
     private fun lerpColor(start: Color, stop: Color, fraction: Float): Color {
         val f = fraction.coerceIn(0f, 1f)
@@ -323,6 +363,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         showComposeDialog(context) {
             var useFloatingInput by remember { mutableStateOf(useFloating) }
             var useBackdropInput by remember { mutableStateOf(useBackdrop) }
+            var showFinderBadgeInput by remember { mutableStateOf(showFinderBadge) }
 
             AlertDialogContent(
                 title = { Text("美化首页底部导航栏") },
@@ -345,6 +386,15 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     { useBackdropInput = it })
                             }
                         )
+                        ListItem(
+                            headlineContent = { Text("显示「发现」标签角标") },
+                            supportingContent = { Text("包含朋友圈新通知数量等") },
+                            trailingContent = {
+                                Switch(
+                                    showFinderBadgeInput,
+                                    { showFinderBadgeInput = it })
+                            }
+                        )
                     }
                 },
                 dismissButton = { TextButton(onDismiss) { Text("取消") } },
@@ -352,6 +402,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     Button(onClick = {
                         useFloating = useFloatingInput
                         useBackdrop = useBackdropInput
+                        showFinderBadge = showFinderBadgeInput
                         onDismiss()
                     }) { Text("确定") }
                 }
@@ -363,6 +414,20 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         matcher {
             declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
             usingEqStrings("MicroMsg.LauncherUITabView", "updateMainTabUnread %d")
+        }
+    }
+
+    private val methodUpdateFriendTabUnread by dexMethod {
+        matcher {
+            declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+            usingEqStrings("[updateFriendTabUnread] unread : ")
+        }
+    }
+
+    private val methodShowFriendPoint by dexMethod {
+        matcher {
+            declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+            usingEqStrings("[showFriendPoint] show : ")
         }
     }
 }

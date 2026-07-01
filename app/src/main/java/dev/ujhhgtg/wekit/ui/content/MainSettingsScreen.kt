@@ -62,6 +62,7 @@ import com.composables.icons.materialsymbols.outlined.Newspaper
 import com.composables.icons.materialsymbols.outlined.Notifications
 import com.composables.icons.materialsymbols.outlined.Package_2
 import com.composables.icons.materialsymbols.outlined.Payments
+import com.composables.icons.materialsymbols.outlined.Rule_settings
 import com.composables.icons.materialsymbols.outlined.Search
 import com.composables.icons.materialsymbols.outlined.Terminal
 import com.composables.icons.materialsymbols.outlined.Update
@@ -171,7 +172,7 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
         addSwitchPreference(
             key = Preferences.USE_ACTIVITY_INSTEAD_OF_DIALOG,
             title = "使用全屏配置 UI",
-            summary = "使用 Activity 而非 Dialog 作为模块 UI 容器",
+            summary = "使用 Activity 而非 Dialog 作为模块 UI 容器 (实验性)",
             icon = MaterialSymbols.Outlined.Fullscreen
         )
 
@@ -187,6 +188,12 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
             title = "显示加载完成 Toast",
             summary = "全部功能加载完成后显示 Toast 提示",
             icon = MaterialSymbols.Outlined.Notifications
+        )
+        addSwitchPreference(
+            key = Preferences.MATCH_GENERIC_WXID_EXP,
+            title = "清理消息内容前置微信 ID 时允许传统 ID",
+            summary = "允许处理不带 'wxid_' 前缀的微信 ID, 可能导致误伤消息原始内容 (实验性)",
+            icon = MaterialSymbols.Outlined.Rule_settings
         )
 
         addCategory("兼容")

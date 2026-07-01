@@ -28,6 +28,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import dev.ujhhgtg.wekit.utils.strings.stripWxId
 
 @Feature(name = "防撤回", categories = ["聊天"], description = "阻止撤回消息")
@@ -36,7 +37,7 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
     private val TAG = This.Class.simpleName
 
     private var recallOutgoing by prefOption("recall_outgoing", false)
-    private var pattern by prefOption("recall_pattern", $$"$sender 尝试撤回上一条消息 (已阻止)")
+    private var pattern by prefOption("recall_pattern", $$"「$sender」尝试撤回上一条消息 (已阻止)")
     private var timeFormat by prefOption("recall_time_format", "yyyy/MM/dd HH:mm:ss")
 
     private val NAME_REGEX = Regex("([\"「])(.*?)([」\"])")
@@ -76,7 +77,7 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
             result[typeKey] = null
 
             val cursor = WeDatabaseApi.rawQuery(
-                "SELECT content,createTime FROM message WHERE msgSvrId = ?",
+                "SELECT content,createTime,talker FROM message WHERE msgSvrId = ?",
                 arrayOf(msgSvrId)
             )
 
@@ -86,13 +87,15 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                         cursor.getLong(cursor.getColumnIndexOrThrow("createTime"))
                     val content =
                         cursor.getString(cursor.getColumnIndexOrThrow("content"))
+                    val talker =
+                        cursor.getString(cursor.getColumnIndexOrThrow("talker"))
                     val match = NAME_REGEX.find(replaceMsg)
                     val senderName = match?.groupValues?.get(2) ?: "未知"
                     val interceptNotice = pattern
                         .replace($$"$sender", senderName)
                         .replace($$"$sendTime", formatEpoch(createTime, timeFormat))
                         .replace($$"$recallTime", formatEpoch(System.currentTimeMillis(), timeFormat))
-                        .replace($$"$content", content.stripWxId())
+                        .replace($$"$content", if (talker.isGroupChatWxId) content.stripWxId() else content)
                     WeMessageApi.createSimpleMsgInfoAndInsert(
                         MessageType.SYSTEM.code,
                         talker,

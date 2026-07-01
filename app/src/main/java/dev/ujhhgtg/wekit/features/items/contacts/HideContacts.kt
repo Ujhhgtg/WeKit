@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.tencent.mm.plugin.voip.widget.VoipForegroundService
+import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.chatting.ChattingUI
 import com.tencent.wcdb.database.SQLiteDatabase
@@ -33,6 +34,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
+import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -61,7 +63,7 @@ import kotlin.math.sqrt
 4. 锁屏自动关闭聊天界面
 5. 摇一摇设备关闭聊天界面"""
 )
-object HideContacts : ClickableFeature(), IResolveDex {
+object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener {
 
     private val TAG = This.Class.simpleName
 
@@ -83,7 +85,7 @@ object HideContacts : ClickableFeature(), IResolveDex {
             if (chattingUi == null) return
 
             val wxId = chattingUi!!.intent.getStringExtra("Chat_User")
-            if (wxId !in hiddenContacts) return
+            if (temporarilyShown || wxId !in hiddenContacts) return
 
             exitToMainActivity()
         }
@@ -181,7 +183,7 @@ object HideContacts : ClickableFeature(), IResolveDex {
                 chattingUi = activity
 
                 val wxId = activity.intent.getStringExtra("Chat_User")
-                if (wxId !in hiddenContacts) return@hookAfter
+                if (temporarilyShown || wxId !in hiddenContacts) return@hookAfter
 
                 ShakeDetector.start(activity)
             }
@@ -195,6 +197,8 @@ object HideContacts : ClickableFeature(), IResolveDex {
         // --- friends & groups list ---
 
         methodAddressMvvmListPreprocessList.hookBefore {
+            if (temporarilyShown) return@hookBefore
+
             val contacts = args[0] as MutableList<*>
 
             if (!::contactInfoField.isInitialized) {
@@ -218,6 +222,8 @@ object HideContacts : ClickableFeature(), IResolveDex {
         }
 
         methodChatroomContactAdapterInitCursor.hookAfter {
+            if (temporarilyShown) return@hookAfter
+
             val cursor = thisObject.reflekt()
                 .firstMethod {
                     parameterCount = 0
@@ -266,6 +272,8 @@ object HideContacts : ClickableFeature(), IResolveDex {
             name = "rawQueryWithFactory"
             parameters(SQLiteDatabase.CursorFactory::class, BString, Array<Any>::class, BString)
         }.hookBefore {
+            if (temporarilyShown) return@hookBefore
+
             val sql = args[1] as String
             if (FTS_SQL_REGEX.containsMatchIn(sql) || sql.startsWith(SQL_SELECT_MESSAGE) || sql.startsWith(SQL_SELECT_MESSAGES_BY_KEYWORD)) {
                 val hideValueText = hiddenContacts.joinToString(",") { "\"$it\"" }
@@ -284,7 +292,7 @@ object HideContacts : ClickableFeature(), IResolveDex {
 
         methodVoipLaunchIncomingCardAsync.hookBefore {
             val wxId = String(args[5] as ByteArray)
-            if (wxId in hiddenContacts) {
+            if (!temporarilyShown && wxId in hiddenContacts) {
                 pendingVoipUser = wxId
                 result = null
             }
@@ -294,7 +302,7 @@ object HideContacts : ClickableFeature(), IResolveDex {
             methodVoipAcceptIncomingCall, methodVoipStartAcceptVoip
         ).forEach { it.hookBefore {
             val callerWxId = args[0].reflekt().firstField { type = BString }.get()!! as String
-            if (callerWxId in hiddenContacts) {
+            if (!temporarilyShown && callerWxId in hiddenContacts) {
                 pendingVoipUser = callerWxId
                 result = null
             }
@@ -302,7 +310,7 @@ object HideContacts : ClickableFeature(), IResolveDex {
 
         methodVoipShowFloatingCard.hookBefore {
             val wxId = args[5] as? String? ?: return@hookBefore
-            if (wxId in hiddenContacts) {
+            if (!temporarilyShown && wxId in hiddenContacts) {
                 pendingVoipUser = wxId
                 result = null
             }
@@ -310,7 +318,7 @@ object HideContacts : ClickableFeature(), IResolveDex {
 
         methodVoipServiceExSetInviteContent.hookBefore {
             val wxId = args[0].reflekt().firstField { type = BString }.get()!! as String
-            if (wxId in hiddenContacts) {
+            if (!temporarilyShown && wxId in hiddenContacts) {
                 pendingVoipUser = wxId
                 if (autoRejectVoip) {
                     WeLogger.i(TAG, "rejecting call")
@@ -322,7 +330,7 @@ object HideContacts : ClickableFeature(), IResolveDex {
 
         methodVoipBubbleHelperInsertMsg.hookBefore {
             val wxId = args[0] as String
-            if (wxId in hiddenContacts) {
+            if (!temporarilyShown && wxId in hiddenContacts) {
                 result = null
             }
         }
@@ -331,7 +339,7 @@ object HideContacts : ClickableFeature(), IResolveDex {
             val self = thisObject as VoipForegroundService
             val intent = args[0] as? Intent? ?: return@hookBefore
             val wxId = intent.getStringExtra("Voip_User") ?: return@hookBefore
-            if (wxId in hiddenContacts) {
+            if (!temporarilyShown && wxId in hiddenContacts) {
                 pendingVoipUser = wxId
                 self.stopSelf()
                 result = Service.START_NOT_STICKY
@@ -344,13 +352,42 @@ object HideContacts : ClickableFeature(), IResolveDex {
                 result = null
             }
         }
+
+        WeChatInputBarApi.addListener(this)
     }
 
     override fun onDisable() {
         runCatching { HostInfo.application.unregisterReceiver(ScreenOffReceiver) }
-        chattingUi = null
         ShakeDetector.stop()
+        chattingUi = null
+        WeChatInputBarApi.removeListener(this)
+        temporarilyShown = false
     }
+
+    override fun onTextChanged(chatFooter: ChatFooter, text: String) {
+        when (text) {
+            "#show" -> {
+                chatFooter.lastText = ""
+                if (temporarilyShown) {
+                    showToast(chatFooter.context, "已经是临时显示状态")
+                    return
+                }
+                temporarilyShown = true
+                showToast(chatFooter.context, "已临时显示所有隐藏的联系人, 输入 #hide 恢复隐藏")
+            }
+            "#hide" -> {
+                chatFooter.lastText = ""
+                if (!temporarilyShown) {
+                    showToast(chatFooter.context, "没有需要恢复的隐藏联系人")
+                    return
+                }
+                temporarilyShown = false
+                showToast(chatFooter.context, "已恢复隐藏联系人")
+            }
+        }
+    }
+
+    private var temporarilyShown = false
 
     private var pendingVoipUser: String? = null
 
@@ -433,11 +470,11 @@ object HideContacts : ClickableFeature(), IResolveDex {
             }
         }
     }
-    private val methodVoipLaunchNotify by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.VoIPMP.CoreV2", "launchNotify")
-        }
-    }
+//    private val methodVoipLaunchNotify by dexMethod {
+//        matcher {
+//            usingEqStrings("MicroMsg.VoIPMP.CoreV2", "launchNotify")
+//        }
+//    }
     private val methodVoipLaunchIncomingCardAsync by dexMethod {
         matcher {
             // 8.0.76 changed from "launchInComingCardAsync: " to "[volume report] launchInComingCardAsync: "
