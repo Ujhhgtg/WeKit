@@ -93,9 +93,6 @@ object QrCodeRecord : ClickableFeature(), IResolveDex {
     }
 
     override fun onClick(context: Context) {
-//        records.clear()
-//        saveRecords()
-//        return
         if (!loaded) {
             loadRecords()
             loaded = true

@@ -14,12 +14,6 @@ import dev.ujhhgtg.wekit.utils.TargetProcesses
 @Feature(name = "模块设置", categories = ["系统与隐私", "首页右上角菜单"], description = "在首页右上角菜单添加「WeKit」选项")
 object ModuleSettings : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProvider {
 
-    override fun startup() {
-        if (!TargetProcesses.isInMain) return
-        _isEnabled = WePrefs.getBoolOrDef(name, true)
-        if (_isEnabled) enable()
-    }
-
     override fun onEnable() {
         WeHomeScreenPopupMenuApi.addProvider(this)
     }

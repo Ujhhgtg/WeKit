@@ -159,8 +159,6 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
         Notification.Builder::class.reflekt()
             .firstMethod { name = "build" }
             .hookBefore {
-                WeLogger.d(TAG, WeLogger.currentStackTrace)
-
                 val context = HostInfo.application
 
                 val builder = thisObject as Notification.Builder

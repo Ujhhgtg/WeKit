@@ -79,6 +79,8 @@ object LinkExternalAppJump : SwitchFeature(),
     ) {
         // prevent loop
         if (intent.getBooleanExtra("skip_link_hook", false)) return
+//        val src = param.thisObject as Context
+//        WeLogger.d(TAG, "$src, ${src.javaClass.name}")
 
         val context = if (intent.extras?.run {
                 containsKey("key_scan_qr_code_get_a8key_resp") ||

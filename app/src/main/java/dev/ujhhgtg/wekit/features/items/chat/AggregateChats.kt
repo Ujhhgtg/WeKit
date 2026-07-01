@@ -8,6 +8,8 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import android.view.MenuItem
+import android.view.View
+import android.widget.AdapterView
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +40,7 @@ import com.tencent.mm.ui.conversation.MainUI
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -60,6 +63,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
+import java.lang.reflect.Proxy
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.div
 import kotlin.io.path.exists
@@ -78,6 +82,9 @@ object AggregateChats : ClickableFeature(),
     private val TAG = This.Class.simpleName
     private const val FOLDER_PREFIX = "wekit_folder_"
     private const val FOLDER_CONFIG_MENU_ID = 0x0721C0DE
+    private const val REMOVE_FROM_FOLDER_MENU_ID = 777020
+    // Order pushes our item to the end of the container's context menu (its own items use 0).
+    private const val REMOVE_FROM_FOLDER_MENU_ORDER = 1000
 
     // rconversation.flag packing (see WeChat xg3.b.c): high 8 bits = pin / move-up state
     // owned by WeChat (setPlacedTop / unSetPlacedTop), low 56 bits = conversationTime.
@@ -110,6 +117,22 @@ object AggregateChats : ClickableFeature(),
             )
             paramTypes("int", "java.util.List", "java.lang.String", "int")
             returnType("android.database.Cursor")
+        }
+    }
+
+    // com.tencent.mm.ui.widget.menu.MMPopupMenu#showMenu(view, pos, id, onCreateListener, selectCb, x, y)
+    // The shared long-press popup used by both the homepage list and the folder container. We hook
+    // it (gated on activeFolderId) to inject a "remove from folder" item only inside our folders.
+    private val methodShowPopupMenu by dexMethod(allowFailure = true) {
+        matcher {
+            declaredClass {
+                usingStrings("MicroMsg.MMPopupMenu")
+            }
+            paramTypes(
+                "android.view.View", "int", "long",
+                $$"android.view.View$OnCreateContextMenuListener", null, "int", "int"
+            )
+            returnType("void")
         }
     }
 
@@ -153,6 +176,7 @@ object AggregateChats : ClickableFeature(),
         hookMainUiRefresh()
         hookOpenFolder()
         hookConversationPages()
+        hookFolderContextMenu()
         hookSqliteWrapperQuery()
         hookConversationStorageParentQuery()
 
@@ -174,6 +198,69 @@ object AggregateChats : ClickableFeature(),
 
     override fun onClick(context: Context) {
         showManagerDialog(context)
+    }
+
+    /** Whether [username] is one of our materialized folder rows (vs. a real conversation). */
+    fun isAggregationFolderId(username: String): Boolean = isFolderId(username)
+
+    /** A folder choice exposed to other features (e.g. the "add to folder" conversation menu). */
+    data class FolderChoice(val id: String, val name: String, val isAuto: Boolean)
+
+    /** Public snapshot of the configured folders, for features that let the user pick one. */
+    fun aggregationFolders(): List<FolderChoice> =
+        loadFolders().map { FolderChoice(it.id, it.name, it.type != FolderType.MANUAL) }
+
+    /**
+     * Adds [talker] to the manual folder [folderId] and opens the existing edit dialog so the
+     * user can review and save. Returns false without acting when the folder is missing or in an
+     * auto mode (members are computed, not hand-picked); callers surface that to the user.
+     */
+    fun showAddToFolderDialog(context: Context, folderId: String, talker: String): Boolean {
+        val folder = folderById(folderId) ?: return false
+        if (folder.type != FolderType.MANUAL) return false
+        val updated = folder.copy(members = (folder.members + talker).distinct().sorted())
+        showEditFolderDialog(
+            context = context,
+            folder = updated,
+            onFolderUpdated = { syncFoldersToDatabase() },
+            onFolderDeleted = { syncFoldersToDatabase() }
+        )
+        return true
+    }
+
+    /**
+     * Adds [talker] to the manual folder [folderId] and persists immediately (no dialog),
+     * rebuilding the index so the row appears in the folder. Returns false without acting when the
+     * folder is missing or in an auto mode (members are computed, not hand-picked).
+     */
+    fun addToFolder(folderId: String, talker: String): Boolean {
+        val folder = folderById(folderId) ?: return false
+        if (folder.type != FolderType.MANUAL) return false
+        if (talker !in folder.members) {
+            val updated = folder.copy(members = (folder.members + talker).distinct().sorted())
+            saveFolders(loadFolders().map { if (it.id == updated.id) updated else it })
+            syncFoldersToDatabase()
+            WeConversationApi.reloadConversations()
+        }
+        return true
+    }
+
+    /**
+     * Removes [talker] from the manual folder [folderId], persists, and rebuilds the index so the
+     * row disappears from the folder immediately. No-op for missing / auto folders, or when the
+     * talker isn't actually a member.
+     */
+    private fun removeMemberFromFolder(folderId: String, talker: String) {
+        val folder = folderById(folderId) ?: return
+        if (folder.type != FolderType.MANUAL || talker !in folder.members) {
+            showToast("该对话不在此手动文件夹中!")
+            return
+        }
+        val updated = folder.copy(members = folder.members.filterNot { it == talker })
+        saveFolders(loadFolders().map { if (it.id == updated.id) updated else it })
+        syncFoldersToDatabase()
+        WeConversationApi.reloadConversations()
+        showToast("已移出「${folder.name}」")
     }
 
     // Called by WeDatabaseListenerApi when WeChat inserts a conversation row
@@ -317,6 +404,84 @@ object AggregateChats : ClickableFeature(),
                 activeFolderId = null
             }
         }
+    }
+
+    // The folder container (ConvBoxServiceConversationUI) does NOT use the homepage's
+    // ConversationLongClickListener that WeConversationContextMenuApi hooks; it builds its long-press
+    // menu through the shared MMPopupMenu.showMenu(...). We hook that chokepoint, gated on
+    // activeFolderId (null on the homepage, so that path is untouched), and inject a "remove from
+    // folder" item by wrapping the menu-create listener and the (obfuscated) select callback.
+    private fun hookFolderContextMenu() {
+        if (methodShowPopupMenu.isPlaceholder) return
+
+        // The 5th parameter's declared type is the obfuscated select-callback interface (db5.t4,
+        // with the single method onMMMenuItemSelected). We proxy it to intercept our own item.
+        val selectCallbackInterface = methodShowPopupMenu.method.parameterTypes[4]
+
+        methodShowPopupMenu.hookBefore {
+            val folderId = activeFolderId ?: return@hookBefore
+            val folder = folderById(folderId) ?: return@hookBefore
+            if (folder.type != FolderType.MANUAL) return@hookBefore
+
+            val createListener = args[3] as? View.OnCreateContextMenuListener ?: return@hookBefore
+            val originalSelect = args[4] ?: return@hookBefore
+            val position = args[1] as? Int ?: return@hookBefore
+
+            val talker = runCatching { extractFolderTalker(createListener, position) }
+                .onFailure { WeLogger.w(TAG, "failed to resolve long-pressed conversation", it) }
+                .getOrNull() ?: return@hookBefore
+
+            // Only offer removal on a row that is actually a member of this manual folder.
+            if (talker !in folder.members) return@hookBefore
+
+            args[3] = View.OnCreateContextMenuListener { menu, view, menuInfo ->
+                createListener.onCreateContextMenu(menu, view, menuInfo)
+                runCatching {
+                    menu.add(0, REMOVE_FROM_FOLDER_MENU_ID, REMOVE_FROM_FOLDER_MENU_ORDER, "移出文件夹")
+                }.onFailure { WeLogger.e(TAG, "failed to add folder menu item", it) }
+            }
+
+            args[4] = Proxy.newProxyInstance(
+                selectCallbackInterface.classLoader,
+                arrayOf(selectCallbackInterface)
+            ) { _, method, methodArgs ->
+                val params = methodArgs ?: emptyArray()
+                if (method.name == "onMMMenuItemSelected") {
+                    val menuItem = params.getOrNull(0) as? MenuItem
+                    if (menuItem?.itemId == REMOVE_FROM_FOLDER_MENU_ID) {
+                        runCatching { removeMemberFromFolder(folderId, talker) }
+                            .onFailure { WeLogger.e(TAG, "failed to remove from folder", it) }
+                        return@newProxyInstance null
+                    }
+                }
+                method.invoke(originalSelect, *params)
+            }
+        }
+    }
+
+    // Resolves the long-pressed conversation's username from the menu-create listener WeChat passes
+    // into MMPopupMenu.showMenu. Chain: createListener -> its OnItemLongClickListener -> the
+    // container fragment -> its list adapter -> adapter.getItem(position) (an rconversation row) ->
+    // its field_username (kept unobfuscated by WeChat's auto-DB ORM).
+    private fun extractFolderTalker(createListener: Any, position: Int): String? {
+        val longClickListener = createListener.reflekt()
+            .firstFieldOrNull { type { it isSubclassOf AdapterView.OnItemLongClickListener::class } }
+            ?.get() ?: return null
+
+        val fragment = longClickListener.reflekt()
+            .firstFieldOrNull { type { it.name.endsWith("ConvBoxServiceConversationFmUI") } }
+            ?.get() ?: return null
+
+        val adapter = fragment.reflekt()
+            .firstFieldOrNull { type { it isSubclassOf android.widget.Adapter::class } }
+            ?.get() as? android.widget.Adapter ?: return null
+
+        if (position < 0 || position >= adapter.count) return null
+        val conversation = adapter.getItem(position) ?: return null
+
+        return conversation.reflekt()
+            .firstFieldOrNull { name = "field_username"; superclass() }
+            ?.get() as? String
     }
 
     private fun hookSqliteWrapperQuery() {
@@ -526,7 +691,7 @@ object AggregateChats : ClickableFeature(),
         val placeholders = members.joinToString(",") { "?" }
         val cursor = WeDatabaseApi.rawQuery(
             """
-            SELECT ${ConversationTable.DIGEST}, ${ConversationTable.DIGEST_USER}, ${ConversationTable.IS_SEND}, ${ConversationTable.STATUS}, ${ConversationTable.CONVERSATION_TIME},
+            SELECT ${ConversationTable.USERNAME}, ${ConversationTable.DIGEST}, ${ConversationTable.DIGEST_USER}, ${ConversationTable.IS_SEND}, ${ConversationTable.STATUS}, ${ConversationTable.CONVERSATION_TIME},
                    ${ConversationTable.FLAG}, ${ConversationTable.UNREAD_COUNT}, ${ConversationTable.UNREAD_MUTE_COUNT}, ${ConversationTable.CONTENT}, ${ConversationTable.MSG_TYPE}, ${ConversationTable.CHAT_MODE}
             FROM ${ConversationTable.NAME}
             WHERE ${ConversationTable.USERNAME} IN ($placeholders)
@@ -542,7 +707,10 @@ object AggregateChats : ClickableFeature(),
         // write sites compose the final flag via composeFolderFlag(), preserving those bits.
         val latest = cursor.use { cursor ->
             if (!cursor.moveToFirst()) null else FolderSummary(
-                digest = cursor.getStringOrEmpty(ConversationTable.DIGEST),
+                digest = prefixWithConversationName(
+                    cursor.getStringOrEmpty(ConversationTable.USERNAME),
+                    cursor.getStringOrEmpty(ConversationTable.DIGEST)
+                ),
                 digestUser = cursor.getStringOrEmpty(ConversationTable.DIGEST_USER),
                 isSend = cursor.getIntOrZero(ConversationTable.IS_SEND),
                 status = cursor.getIntOrZero(ConversationTable.STATUS),
@@ -560,6 +728,21 @@ object AggregateChats : ClickableFeature(),
             unreadCount = unreadCountForMembers(members),
             unreadMuteCount = unreadMuteCountForMembers(members)
         )
+    }
+
+    /**
+     * Prefixes the folder digest with the originating conversation's display name, so the
+     * homepage folder row reads like "群聊名: 最新一条消息" instead of a bare message whose
+     * source is ambiguous once several chats are aggregated. Returns the digest untouched
+     * when it is blank or the name can't be resolved, to avoid a dangling "name: " prefix.
+     */
+    private fun prefixWithConversationName(username: String, digest: String): String {
+        if (digest.isBlank() || username.isBlank()) return digest
+        val name = runCatching { WeDatabaseApi.getDisplayName(username) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() && it != username }
+            ?: return digest
+        return "$name: $digest"
     }
 
     /**
@@ -1184,8 +1367,40 @@ object AggregateChats : ClickableFeature(),
 
     private fun getFallbackAvatarMember(folderId: String): String? {
         val folder = folderById(folderId) ?: return null
-        val members = getFolderMembers(folder).filterNot(::isFolderId)
-        return members.firstOrNull()
+        val members = getFolderMembers(folder).filterNot(::isFolderId).distinct()
+        if (members.isEmpty()) return null
+        // Prefer the member whose conversation most recently saw activity: WeChat bumps
+        // rconversation.conversationTime on every sent or received message, so the folder
+        // borrows the avatar of the chat that last lit up rather than an arbitrary first
+        // member. Falls back to the first member when none of them has any message yet.
+        return latestActiveMember(members) ?: members.firstOrNull()
+    }
+
+    /** Member with the newest conversationTime (latest sent/received message), or null. */
+    private fun latestActiveMember(members: List<String>): String? {
+        if (members.isEmpty() || !WeDatabaseApi.isReady) return null
+        return runCatching {
+            // Suppress query rewrite: these members' parentRef is the folder id, which
+            // appendParentRefFilter would otherwise filter out, hiding every row.
+            withQueryRewriteSuppressed {
+                val placeholders = members.joinToString(",") { "?" }
+                val cursor = WeDatabaseApi.rawQuery(
+                    """
+                    SELECT ${ConversationTable.USERNAME}
+                    FROM ${ConversationTable.NAME}
+                    WHERE ${ConversationTable.USERNAME} IN ($placeholders) AND ${ConversationTable.CONVERSATION_TIME} > 0
+                    ORDER BY ${ConversationTable.CONVERSATION_TIME} DESC
+                    LIMIT 1
+                    """.trimIndent(),
+                    arrayOf(*members.toTypedArray())
+                )
+                cursor.use { c ->
+                    if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else null
+                }
+            }
+        }.onFailure {
+            WeLogger.w(TAG, "failed to resolve latest active member", it)
+        }.getOrNull()
     }
 
     private fun loadFolders(): List<ChatFolder> {

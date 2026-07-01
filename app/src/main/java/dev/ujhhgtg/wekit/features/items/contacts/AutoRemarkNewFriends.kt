@@ -35,9 +35,7 @@ import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import dev.ujhhgtg.wekit.utils.formatEpoch
 
 @Feature(
     name = "添加自动备注",
@@ -62,9 +60,7 @@ object AutoRemarkNewFriends : ClickableFeature() {
             if (nickname.isNotEmpty()) {
                 val formatText = textFormat
                 val formatTime = timeFormat
-                val formattedTime = runCatching {
-                    SimpleDateFormat(formatTime, Locale.getDefault()).format(Date())
-                }.getOrDefault("")
+                val formattedTime = formatEpoch(System.currentTimeMillis(), formatTime)
 
                 val remark = formatText
                     .replace($$"$nickname", nickname)
@@ -97,7 +93,7 @@ object AutoRemarkNewFriends : ClickableFeature() {
             }
 
             AlertDialogContent(
-                title = { Text("添加自动备注设置") },
+                title = { Text("添加自动备注") },
                 text = {
                     DefaultColumn {
                         TextField(

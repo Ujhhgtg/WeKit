@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.system.servers
 
+import android.content.ContentValues
 import android.content.Context
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -8,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -17,18 +19,15 @@ import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
+import dev.ujhhgtg.wekit.utils.strings.stripWxId
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
-import io.ktor.server.request.contentType
-import io.ktor.server.request.receiveMultipart
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import kotlin.io.path.div
-import java.io.File
-import io.ktor.utils.io.jvm.javaio.toInputStream
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
@@ -42,8 +41,10 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.request.contentType
 import io.ktor.server.request.header
 import io.ktor.server.request.receive
+import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
@@ -54,6 +55,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE
 import io.ktor.server.sse.sse
 import io.ktor.util.collections.ConcurrentMap
+import io.ktor.utils.io.jvm.javaio.toInputStream
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
 import io.modelcontextprotocol.kotlin.sdk.server.StreamableHttpServerTransport
@@ -63,6 +65,8 @@ import io.modelcontextprotocol.kotlin.sdk.types.McpJson
 import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
@@ -71,8 +75,11 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import java.io.File
 import java.net.Inet4Address
 import java.net.NetworkInterface
+import kotlin.io.path.div
+import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(name = "API + MCP 服务器", categories = ["系统与隐私"], description = "启用 REST API 与 MCP 服务器, 让人类与 AI 能够访问微信能力")
 object ApiServer : ClickableFeature() {
@@ -1174,6 +1181,57 @@ object ApiServer : ClickableFeature() {
             val args = req.arguments ?: return@addTool textRes("Arguments are empty", true)
             val appId = args["app-id"]?.jsonPrimitive?.content ?: return@addTool textRes("Invalid app-id", true)
             WeChatService.jsLogin(appId).toCallToolResult { textRes(it) }
+        }
+
+        addTool(
+            name = "wait-for-new-message",
+            description = "Block until a new incoming message arrives, then return it. " +
+                    "If conv-id is given, only messages from that conversation are awaited; " +
+                    "otherwise the first incoming message from any conversation is returned. " +
+                    "Self-sent messages are ignored. Returns nothing if no message arrives before the timeout.",
+            inputSchema = ToolSchema(
+                properties = buildJsonObject {
+                    addField("conv-id", "Optional conversation ID to wait on; waits on any conversation if omitted")
+                    addField("timeout-ms", "Optional max time to wait in milliseconds; defaults to 60000", "integer")
+                },
+                required = emptyList()
+            )
+        ) { req ->
+            val args = req.arguments
+            val convId = args?.get("conv-id")?.jsonPrimitive?.content
+            val timeoutMs = args?.get("timeout-ms")?.jsonPrimitive?.intOrNull?.toLong() ?: 60_000L
+
+            val deferred = CompletableDeferred<ContentValues>()
+            val listener = WeDatabaseListenerApi.IInsertListener { table, values ->
+                if (deferred.isCompleted) return@IInsertListener
+                if (table != "message") return@IInsertListener
+                // ignore self-sent messages
+                if (values.getAsInteger("isSend") ?: 0 == 1) return@IInsertListener
+                val talker = values.getAsString("talker") ?: return@IInsertListener
+                if (convId != null && talker != convId) return@IInsertListener
+                deferred.complete(values)
+            }
+
+            WeDatabaseListenerApi.addListener(listener)
+            val values = try {
+                withTimeoutOrNull(timeoutMs.milliseconds) { deferred.await() }
+            } finally {
+                WeDatabaseListenerApi.removeListener(listener)
+            } ?: return@addTool textRes("No new message arrived within ${timeoutMs}ms")
+
+            val talker = values.getAsString("talker") ?: ""
+            val type = values.getAsInteger("type") ?: 0
+            val rawContent = values.getAsString("content") ?: ""
+            val sender: String
+            val content: String
+            if (talker.isGroupChatWxId) {
+                sender = rawContent.substringBefore(':', "").ifEmpty { talker }
+                content = rawContent.stripWxId()
+            } else {
+                sender = talker
+                content = rawContent
+            }
+            textRes("ConvId='$talker',Sender='$sender',Type=$type,Content='$content'")
         }
     }
 

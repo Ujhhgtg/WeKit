@@ -73,7 +73,6 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.text.Collator
 import java.util.Collections
-import java.util.LinkedList
 import java.util.Locale
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
@@ -96,18 +95,10 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     private val TAG = This.Class.simpleName
     private val avatarMapFile = KnownPaths.moduleData / "custom_avatars_map.json"
 
-    // ji1.s
-    private val classAvatarGetContactServiceHelper by dexClass(allowFailure = true) {
-        matcher {
-            usingEqStrings("MicroMsg.AvatarGetContactServiceHelper", "put stack into pool: ")
-        }
-    }
-
     // ji1.s.og, most of com.tencent.mm.feature.avatar.w calls this,
     // e.g. Cg, ig, cg, og, rg
     private val methodMvvmLoadAvatar1 by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classAvatarGetContactServiceHelper.clazz)
             paramTypes(
                 "android.widget.ImageView",
                 "java.lang.String",
@@ -122,7 +113,10 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     // ji1.s.pg: another exception
     private val methodMvvmLoadAvatar2 by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classAvatarGetContactServiceHelper.clazz)
+            declaredClass {
+                usingEqStrings("MicroMsg.AvatarGetContactServiceHelper", "put stack into pool: ")
+            }
+
             usingEqStrings("imageView")
             paramTypes(
                 "android.widget.ImageView",

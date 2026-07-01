@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import android.app.Activity
 import android.os.Handler
 import android.os.Looper
 import android.text.SpannableStringBuilder
@@ -10,14 +11,22 @@ import android.widget.TextView
 import androidx.core.view.isGone
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.This
+import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
+import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
+import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
+import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
+import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.items.chat.DisplayGroupMemberRealNamesLastChar.actualFetchRealName
 import dev.ujhhgtg.wekit.features.items.chat.DisplayGroupMemberRealNamesLastChar.cacheFile
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.currentWxId
+import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,7 +45,7 @@ import kotlin.io.path.writeText
     categories = ["聊天"],
     description = "通过转账接口获取并显示群成员的实名尾字"
 )
-object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewApi.ICreateViewListener {
+object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewApi.ICreateViewListener, IContactInfoProvider {
 
     private val TAG = This.Class.simpleName
 
@@ -46,6 +55,8 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
      * Placed in the 0x7E… range to avoid collisions with Android-generated R.id values (0x7F…).
      */
     private const val VIEW_TAG_SENDER = 0x7E000001
+
+    private const val PREF_KEY = "real_name_last_char"
 
     private val cacheFile by lazy { KnownPaths.moduleData / "real_names.json" }
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
@@ -68,10 +79,12 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
     override fun onEnable() {
         loadCache()
         WeChatMessageViewApi.addListener(this)
+        WeContactPrefsScreenApi.addProvider(this)
     }
 
     override fun onDisable() {
         WeChatMessageViewApi.removeListener(this)
+        WeContactPrefsScreenApi.removeProvider(this)
     }
 
     // ── Cache I/O ─────────────────────────────────────────────────────────────
@@ -123,16 +136,28 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
 
     // ── Network fetch ─────────────────────────────────────────────────────────
 
+    /** Outcome of a [actualFetchRealName] call, reported on the CGI callback thread. */
+    private sealed interface FetchResult {
+        data class Found(val realName: String) : FetchResult
+        /** Server responded but field "4" was absent → contact deleted/blocked us, or abnormal account. */
+        data object NoRealName : FetchResult
+        data class Failure(val errType: Int, val errCode: Int, val errMsg: String?) : FetchResult
+    }
+
     /**
      * Reuses the same `/cgi-bin/mmpay-bin/beforetransfer` CGI as [dev.ujhhgtg.wekit.features.items.contacts.DetectDeletedFriends].
      * Field `"4"` in the response carries the real nickname; its absence means the contact
      * deleted/blocked us or the account is abnormal — no disk entry is written in that case.
+     *
+     * On [FetchResult.Found] the name is cached and persisted before [onResult] runs. [onResult]
+     * is invoked on the CGI callback thread; callers that touch UI must hop to the main thread.
      */
-    private fun fetchRealName(senderId: String, groupId: String, textView: TextView) {
+    private fun actualFetchRealName(senderId: String, groupId: String?, onResult: (FetchResult) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
+            val payload = if (groupId != null) """{"2":"$senderId", "4":"$groupId"}""" else """{"2":"$senderId"}"""
             WePacketHelper.sendCgi(
                 "/cgi-bin/mmpay-bin/beforetransfer", 2783, 0, 0,
-                """{"2":"$senderId", "4":"$groupId"}"""
+                payload
             ) {
                 onSuccess { json, _ ->
                     val realName = runCatching {
@@ -142,22 +167,34 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
                     if (realName != null) {
                         realNames[senderId] = realName
                         saveCache()
-                        mainHandler.post {
-                            // Only apply if the view still belongs to this sender
-                            if (textView.getTag(VIEW_TAG_SENDER) == senderId) {
-                                applyRealName(textView, realName)
-                            }
-                        }
+                        onResult(FetchResult.Found(realName))
+                    } else {
+                        onResult(FetchResult.NoRealName)
                     }
-                    // realName == null → deleted/blocked. wxId remains in pendingOrQueried
-                    // to suppress retries for the rest of this session.
                 }
 
                 onFailure { errType, errCode, errMsg ->
                     WeLogger.w(TAG, "fetch failed for $senderId: errType=$errType errCode=$errCode errMsg=$errMsg")
-                    // Evict so the next view-bind for this sender can retry
-                    pendingOrQueried.remove(senderId)
+                    onResult(FetchResult.Failure(errType, errCode, errMsg))
                 }
+            }
+        }
+    }
+
+    /** View-bind path: fetch then patch the username [TextView] if it still belongs to [senderId]. */
+    private fun fetchRealName(senderId: String, groupId: String, textView: TextView) {
+        actualFetchRealName(senderId, groupId) { result ->
+            when (result) {
+                is FetchResult.Found -> mainHandler.post {
+                    // Only apply if the view still belongs to this sender
+                    if (textView.getTag(VIEW_TAG_SENDER) == senderId) {
+                        applyRealName(textView, result.realName)
+                    }
+                }
+                // wxId remains in pendingOrQueried to suppress retries for the rest of this session.
+                FetchResult.NoRealName -> {}
+                // Evict so the next view-bind for this sender can retry
+                is FetchResult.Failure -> pendingOrQueried.remove(senderId)
             }
         }
     }
@@ -187,5 +224,52 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
         )
 
         textView.text = sb
+    }
+
+    // ── IContactInfoProvider ──────────────────────────────────────────────────
+
+    /**
+     * Exposes a contact-detail entry only for group members: requires the current conversation
+     * to be a group chat and the opened contact to be an individual (not the group itself).
+     * Shows the cached real name as the summary when available.
+     */
+    override fun getContactInfoItem(activity: Activity): List<PreferenceItem> {
+        if (!WeCurrentConversationApi.value.isGroupChatWxId) return emptyList()
+        val memberId = activity.currentWxId ?: return emptyList()
+        if (memberId.isGroupChatWxId) return emptyList()
+
+        return listOf(
+            PreferenceItem(
+                key = PREF_KEY,
+                title = "获取实名尾字",
+                summary = realNames[memberId]?.let { "实名: $it" } ?: "点击获取",
+                position = 1
+            )
+        )
+    }
+
+    override fun onItemClick(activity: Activity, key: String): Boolean {
+        if (key != PREF_KEY) return false
+
+        val memberId = activity.currentWxId ?: return true
+        val groupId = WeCurrentConversationApi.value.takeIf { it.isGroupChatWxId }
+
+        val cached = realNames[memberId]
+        if (cached != null) {
+            showToast(activity, "实名: $cached")
+            return true
+        }
+
+        showToast(activity, "正在获取...")
+        actualFetchRealName(memberId, groupId) { result ->
+            mainHandler.post {
+                when (result) {
+                    is FetchResult.Found -> showToast(activity, "实名: ${result.realName}")
+                    FetchResult.NoRealName -> showToast(activity, "获取失败: 可能被删除/被拉黑/对方账号异常")
+                    is FetchResult.Failure -> showToast(activity, "获取失败: ${result.errMsg ?: result.errCode}")
+                }
+            }
+        }
+        return true
     }
 }
