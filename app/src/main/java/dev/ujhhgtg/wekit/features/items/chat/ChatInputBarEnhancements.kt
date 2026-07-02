@@ -172,9 +172,7 @@ object ChatInputBarEnhancements : SwitchFeature(), IResolveDex {
                                                     put("4", System.currentTimeMillis() / 1000)
                                                     put("5", -388413336)
                                                     put(
-                                                        "6", """
-                                                                    <msgsource><atuserlist><![CDATA[${contacts.joinToString(",") { c -> c.wxId }}]]></atuserlist><pua>1</pua><alnode><cf>5</cf><inlenlist>73</inlenlist></alnode><eggIncluded>1</eggIncluded></msgsource>
-                                                                """.trimIndent()
+                                                        "6", """<msgsource><atuserlist><![CDATA[${contacts.joinToString(",") { c -> c.wxId }}]]></atuserlist><pua>1</pua><alnode><cf>5</cf><inlenlist>73</inlenlist></alnode><eggIncluded>1</eggIncluded></msgsource>"""
                                                     )
                                                 }
                                             }
@@ -186,7 +184,7 @@ object ChatInputBarEnhancements : SwitchFeature(), IResolveDex {
                                                 0,
                                                 reqBody.toString()
                                             ) {
-                                                onSuccess { _, _ ->
+                                                onSuccess { _ ->
                                                     showToast("已发送 (自己无法看到该消息)")
                                                 }
                                             }

@@ -32,6 +32,18 @@ object WeConversationApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s")
         }
     }
+    // ConversationStorage.k(String) aka `delChatContact`: deletes the rconversation row through the
+    // cache-aware storage wrapper and notifies list observers, which is the core of WeChat's native
+    // "不显示该聊天" for a normal contact.
+    private val methodDelChatContact by dexMethod {
+        matcher {
+            declaredClass(classConversationStorage.clazz)
+            usingStrings("MicroMsg.ConversationStorage", "delChatContact username:")
+            paramCount = 1
+            paramTypes(String::class.java)
+            returnType(Void.TYPE)
+        }
+    }
 //    private val methodClearConvRedHintsOnMarkRead by dexMethod(allowFailure = true) {
 //        matcher {
 //            modifiers = Modifier.PUBLIC or Modifier.STATIC or Modifier.FINAL
@@ -189,6 +201,27 @@ object WeConversationApi : ApiFeature(), IResolveDex {
             WeLogger.d(TAG, "marked $talker as read")
         } catch (ex: Exception) {
             WeLogger.w(TAG, "exception while updating unread count for $talker", ex)
+        }
+    }
+
+    /**
+     * Remove a conversation from the home-screen list, the way WeChat's native "不显示该聊天" does:
+     * this deletes the `rconversation` row through the host's cache-aware storage wrapper and
+     * notifies the conversation-list observers, so the change is reflected immediately without a
+     * restart. Chat messages are NOT touched.
+     *
+     * The observer notification is dispatched synchronously on the calling thread and mutates the
+     * list adapters, so this MUST be called on the main thread (see [reloadConversations]).
+     *
+     * @return true if the native delete was invoked without throwing.
+     */
+    fun deleteConversation(talker: String): Boolean {
+        return try {
+            methodDelChatContact.method.invoke(conversationStorage, talker)
+            true
+        } catch (ex: Exception) {
+            WeLogger.w(TAG, "exception while deleting conversation for $talker", ex)
+            false
         }
     }
 

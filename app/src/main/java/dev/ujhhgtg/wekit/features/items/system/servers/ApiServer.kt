@@ -76,8 +76,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import java.io.File
-import java.net.Inet4Address
-import java.net.NetworkInterface
 import kotlin.io.path.div
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -1938,29 +1936,14 @@ object ApiServer : ClickableFeature() {
         }
     }
 
-    private fun getLanAddress(): String {
-        val addr = NetworkInterface.getNetworkInterfaces()
-            .asSequence()
-            .flatMap { it.inetAddresses.asSequence() }
-            .firstOrNull { addr ->
-                !addr.isLoopbackAddress &&
-                        !addr.isLinkLocalAddress &&
-                        addr is Inet4Address
-            }
-            ?.hostAddress
-            ?: "0.0.0.0"
-        return addr
-    }
-
     private lateinit var netServer: EmbeddedServer<*, *>
 
     override fun onEnable() {
-        val addr = getLanAddress()
-        netServer = embeddedServer(CIO, host = addr, port = serverPort) {
+        netServer = embeddedServer(CIO, host = "0.0.0.0", port = serverPort) {
             configureServer()
         }.start(wait = false)
-        showToast("MCP 服务器启动于 http://$addr:$serverPort/mcp")
-        showToast("REST API 服务器启动于 http://$addr:$serverPort/api")
+        showToast("MCP 服务器启动于 http://0.0.0.0:$serverPort/mcp")
+        showToast("REST API 服务器启动于 http://0.0.0.0:$serverPort/api")
     }
 
     override fun onDisable() {

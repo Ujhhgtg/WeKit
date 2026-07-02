@@ -12,6 +12,7 @@ unsafe extern "C" {
 }
 
 pub const ANDROID_LOG_INFO: c_int = 4;
+pub const ANDROID_LOG_WARN: c_int = 5;
 pub const ANDROID_LOG_ERROR: c_int = 6;
 
 static LOG_TAG: &std::ffi::CStr = c"WeKit";
@@ -31,6 +32,11 @@ pub fn android_log(prio: c_int, msg: &str) {
 #[macro_export]
 macro_rules! logi {
     ($($t:tt)*) => { $crate::logging::android_log($crate::logging::ANDROID_LOG_INFO, &format!($($t)*)) };
+}
+
+#[macro_export]
+macro_rules! logw {
+    ($($t:tt)*) => { $crate::logging::android_log($crate::logging::ANDROID_LOG_WARN, &format!($($t)*)) };
 }
 
 #[macro_export]

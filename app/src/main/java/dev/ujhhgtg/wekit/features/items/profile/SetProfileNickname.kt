@@ -9,6 +9,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLogRespProto
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.SetNicknameProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -37,21 +40,22 @@ object SetProfileNickname : ClickableFeature() {
                 dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
                 confirmButton = {
                     Button(onClick = {
-                        val payload = """{"1":{"1":1,"2":{"1":64,"2":{"1":16,"2":{"1":1,"2":"${
-                            escapeJsonString(nickname)
-                        }"}}}}}"""
+                        val reqBytes = OpLog.encodeSingle(
+                            OpLog.CMD_SET_NICKNAME, SetNicknameProto(nickname = nickname)
+                        )
 
-                        WePacketHelper.sendCgi(
+                        WePacketHelper.sendCgiRaw(
                             "/cgi-bin/micromsg-bin/oplog",
                             681, 0, 0,
-                            jsonPayload = payload
+                            reqBytes = reqBytes
                         ) {
-                            onSuccess { json, _ ->
-                                WeLogger.i(TAG, "success: $json")
+                            onSuccess { bytes ->
+                                val resp = bytes?.let { OpLogRespProto.decode(it) }
+                                WeLogger.i(TAG, "success: ret=${resp?.ret}")
                                 showComposeDialog(context) {
                                     AlertDialogContent(
-                                        title = { Text("发送成功, 响应结果:") },
-                                        text = { Text(json) },
+                                        title = { Text("发送成功") },
+                                        text = { Text("服务器返回码: ${resp?.ret ?: "未知"}") },
                                         confirmButton = {
                                             TextButton(onClick = onDismiss) { Text("关闭") }
                                         }
@@ -75,10 +79,6 @@ object SetProfileNickname : ClickableFeature() {
                     }) { Text("确定") }
                 })
         }
-    }
-
-    private fun escapeJsonString(input: String): String {
-        return input.replace("\"", "\\\"")
     }
 
     override val noSwitchWidget: Boolean

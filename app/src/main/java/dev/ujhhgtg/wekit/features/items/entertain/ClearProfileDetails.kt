@@ -4,6 +4,11 @@ import android.content.Context
 import androidx.compose.material3.Text
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ClearProfileListProto
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ClearProfileOpProto
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ClearProfileReqProto
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLogRespProto
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.WeProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -25,20 +30,26 @@ object ClearProfileDetails : ClickableFeature() {
                 dismissButton = { TextButton(onDismiss) { Text("取消") } },
                 confirmButton = {
                     Button(onClick = {
-                        val payload =
-                            """{"1":{"1":1,"2":{"1":1,"2":{"1":91,"2":{"1":128,"2":{"1":""},"3":{"1":""},"4":0,"5":{"1":""},"6":{"1":""},"7":0,"8":0,"9":"","10":0,"11":"","12":"","13":"","14":1,"16":0,"17":0,"19":0,"20":0,"21":0,"22":0,"23":0,"24":"","25":0,"27":"","28":"","29":0,"30":0,"31":0,"33":0,"34":0,"36":0,"38":""}}}}}"""
+                        // cmd 91 embeds the profile proto directly; all fields default to their
+                        // cleared value, so an all-defaults ModProfileProto reproduces the native packet.
+                        val reqBytes = WeProto.encodeWithDefaults(
+                            ClearProfileReqProto(
+                                ClearProfileListProto(operations = listOf(ClearProfileOpProto()))
+                            )
+                        )
 
-                        WePacketHelper.sendCgi(
+                        WePacketHelper.sendCgiRaw(
                             "/cgi-bin/micromsg-bin/oplog",
                             681, 0, 0,
-                            payload
+                            reqBytes = reqBytes
                         ) {
-                            onSuccess { json, _ ->
-                                WeLogger.i(TAG, "success: $json")
+                            onSuccess { bytes ->
+                                val resp = bytes?.let { OpLogRespProto.decode(it) }
+                                WeLogger.i(TAG, "success: ret=${resp?.ret}")
                                 showComposeDialog(context) {
                                     AlertDialogContent(
                                         title = { Text("发送成功") },
-                                        text = { Text(json) },
+                                        text = { Text("服务器返回码: ${resp?.ret ?: "未知"}") },
                                         confirmButton = {
                                             TextButton(onClick = onDismiss) { Text("关闭") }
                                         }

@@ -107,6 +107,17 @@ impl tracing_subscriber::fmt::time::FormatTime for LocalTimer {
 
 static PRINTER: OnceLock<Mutex<Option<Box<dyn ExternalPrinter + Send + Sync>>>> = OnceLock::new();
 
+/// The TCP port the server bound to, published so the REPL commands can render
+/// correct URLs. Set once at startup from `main`.
+static PORT: OnceLock<u16> = OnceLock::new();
+
+/// Base URL the operator uses to reach the server locally. The bind host may be
+/// `0.0.0.0`, which isn't a usable target, so we always print `localhost` and
+/// only fold in the configured port.
+fn base_url() -> String {
+    format!("http://localhost:{}", PORT.get().copied().unwrap_or(8080))
+}
+
 struct ReplWriter;
 
 impl std::io::Write for ReplWriter {
@@ -122,14 +133,12 @@ impl std::io::Write for ReplWriter {
 }
 
 fn write_log(msg: &str) {
-    if let Some(mutex) = PRINTER.get() {
-        if let Ok(mut opt) = mutex.lock() {
-            if let Some(p) = opt.as_mut() {
+    if let Some(mutex) = PRINTER.get()
+        && let Ok(mut opt) = mutex.lock()
+            && let Some(p) = opt.as_mut() {
                 let _ = p.print(msg.to_string());
                 return;
             }
-        }
-    }
     
     let mut stdout = std::io::stdout();
     let _ = write!(stdout, "{}", msg);
@@ -428,7 +437,7 @@ async fn handle_status_command(conn: &libsql::Connection) -> Result<(), Box<dyn 
     };
 
     println!("\x1b[1;36m--- Server Status ---\x1b[0m");
-    println!("Server address:        \x1b[1;32mhttp://localhost:8080\x1b[0m");
+    println!("Server address:        \x1b[1;32m{}\x1b[0m", base_url());
     println!("Tracked messages:      \x1b[1;33m{}\x1b[0m", total_messages);
     println!("Unique senders:        \x1b[1;33m{}\x1b[0m", unique_senders);
     println!("Total reads:           \x1b[1;33m{}\x1b[0m", total_reads);
@@ -459,7 +468,7 @@ async fn handle_url_command(conn: &libsql::Connection, args: &str) -> Result<(),
     )
     .await?;
 
-    let url = format!("http://localhost:8080/pixel?wxId={}&id={}", wx_id, id);
+    let url = format!("{}/pixel?wxId={}&id={}", base_url(), wx_id, id);
 
     println!("\x1b[1;36mRegistered Tracking Message:\x1b[0m");
     println!("wxId:     \x1b[1;34m{}\x1b[0m", wx_id);
@@ -546,13 +555,14 @@ async fn handle_clear_command(conn: &libsql::Connection) -> Result<(), Box<dyn s
 }
 
 fn handle_open_command() {
-    println!("Opening http://localhost:8080/ in default browser...");
+    let url = format!("{}/", base_url());
+    println!("Opening {url} in default browser...");
     #[cfg(target_os = "linux")]
-    let _ = std::process::Command::new("xdg-open").arg("http://localhost:8080/").spawn();
+    let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
     #[cfg(target_os = "macos")]
-    let _ = std::process::Command::new("open").arg("http://localhost:8080/").spawn();
+    let _ = std::process::Command::new("open").arg(&url).spawn();
     #[cfg(target_os = "windows")]
-    let _ = std::process::Command::new("cmd").args(["/C", "start", "http://localhost:8080/"]).spawn();
+    let _ = std::process::Command::new("cmd").args(["/C", "start", &url]).spawn();
 }
 
 async fn route_command(trimmed: &str, repl_conn: &libsql::Connection) -> Result<bool, Box<dyn std::error::Error>> {
@@ -570,28 +580,20 @@ async fn route_command(trimmed: &str, repl_conn: &libsql::Connection) -> Result<
         }
     } else if trimmed == "/open" {
         handle_open_command();
-    } else if trimmed.starts_with("/sql ") {
-        let sql = trimmed["/sql ".len()..].trim();
-        if let Err(e) = handle_sql_command(repl_conn, sql).await {
+    } else if let Some(sql) = trimmed.strip_prefix("/sql ") {
+        if let Err(e) = handle_sql_command(repl_conn, sql.trim()).await {
             println!("Error executing SQL: {e}");
         }
-    } else if trimmed.starts_with("/url ") {
-        let args = trimmed["/url ".len()..].trim();
-        if let Err(e) = handle_url_command(repl_conn, args).await {
+    } else if let Some(args) = trimmed.strip_prefix("/url ") {
+        if let Err(e) = handle_url_command(repl_conn, args.trim()).await {
             println!("Error registering URL: {e}");
         }
-    } else if trimmed.starts_with("/tail") {
-        let args = if trimmed.len() > "/tail".len() {
-            trimmed["/tail".len()..].trim()
-        } else {
-            ""
-        };
-        if let Err(e) = handle_tail_command(repl_conn, args).await {
+    } else if let Some(args) = trimmed.strip_prefix("/tail") {
+        if let Err(e) = handle_tail_command(repl_conn, args.trim()).await {
             println!("Error tailing hits: {e}");
         }
-    } else if trimmed.starts_with("/query ") {
-        let wx_id = trimmed["/query ".len()..].trim();
-        if let Err(e) = handle_query_command(repl_conn, wx_id).await {
+    } else if let Some(wx_id) = trimmed.strip_prefix("/query ") {
+        if let Err(e) = handle_query_command(repl_conn, wx_id.trim()).await {
             println!("Error querying sender: {e}");
         }
     } else {
@@ -680,7 +682,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/reads/{id}", get(list_reads_for_message))
         .with_state(Arc::new(AppState { db: conn }));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    // Bind host/port are configurable via env vars, falling back to 0.0.0.0:8080.
+    // BIND_ADDR must parse as an IP address; PORT as a u16.
+    let bind_host: std::net::IpAddr = std::env::var("BIND_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0".to_string())
+        .parse()
+        .map_err(|e| format!("invalid BIND_ADDR: {e}"))?;
+    let bind_port: u16 = match std::env::var("PORT") {
+        Ok(p) => p.parse().map_err(|e| format!("invalid PORT: {e}"))?,
+        Err(_) => 8080,
+    };
+    let _ = PORT.set(bind_port);
+
+    let addr = SocketAddr::from((bind_host, bind_port));
     info!("server launching on http://{addr}");
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -742,22 +756,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if run_fallback {
-        // Fallback simple REPL loop
-        let mut input = String::new();
-        loop {
-            print!(">> ");
-            let _ = std::io::stdout().flush();
-            input.clear();
-            if std::io::stdin().read_line(&mut input)? == 0 {
-                break;
+        // No interactive terminal (e.g. running under systemd). There is no
+        // usable stdin to drive the REPL, so instead of reading stdin — which
+        // would hit EOF immediately and tear the server down — we park here
+        // until the process receives a shutdown signal.
+        #[cfg(unix)]
+        {
+            use tokio::signal::unix::{signal, SignalKind};
+            let mut sigterm = signal(SignalKind::terminate())?;
+            let mut sigint = signal(SignalKind::interrupt())?;
+            tokio::select! {
+                _ = sigterm.recv() => info!("received SIGTERM"),
+                _ = sigint.recv() => info!("received SIGINT"),
             }
-            let trimmed = input.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-            if route_command(trimmed, &repl_conn).await? {
-                break;
-            }
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = tokio::signal::ctrl_c().await;
+            info!("received ctrl-c");
         }
     }
 

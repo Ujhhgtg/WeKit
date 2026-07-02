@@ -2,7 +2,9 @@ package dev.ujhhgtg.wekit.features.items.beautify
 
 import android.app.Activity
 import android.content.Context
+import android.os.SystemClock
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -39,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,6 +93,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     private var useFloating by prefOption("nav_bar_use_floating", false)
     private var useBackdrop by prefOption("nav_bar_use_backdrop", false)
     private var showFinderBadge by prefOption("nav_bar_show_finder_badge", true)
+    private var hideLabels by prefOption("nav_bar_hide_labels", false)
+
+    // Matches the double-tap threshold WeChat's own tab listener (f8/r8) uses.
+    private const val DOUBLE_TAP_WINDOW_MS = 300L
 
     override fun onEnable() {
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
@@ -118,6 +125,37 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             val viewParent = viewPager.parent as ViewGroup
             val bottomTabViewGroup = viewParent.getChildAt(1) as ViewGroup
 
+            // WeChat's original bottom tab (LauncherUIBottomTabView) is kept alive — we only
+            // clear its children below — so its own OnClickListener (an `f8`/`r8` instance)
+            // survives with its double-tap state machine and the LiveData event it fires.
+            // Double-tapping the Chat tab makes that listener fire WeChat's "scroll to next
+            // unread conversation" event, which MainUI already observes. We capture the
+            // listener and replay two rapid clicks to reproduce that behaviour, so we don't
+            // have to resolve the fully-obfuscated event class ourselves.
+            val bottomTabClickListener = runCatching {
+                bottomTabViewGroup.reflekt()
+                    .firstField { type = View.OnClickListener::class }
+                    .get() as? View.OnClickListener
+            }.getOrNull()
+            val doubleTapProbeView = View(activity).apply { tag = 0 }
+
+            var lastHomeTapUptime = 0L
+            val onTabClicked = { index: Int ->
+                if (index == 0 && bottomTabClickListener != null &&
+                    SystemClock.uptimeMillis() - lastHomeTapUptime <= DOUBLE_TAP_WINDOW_MS
+                ) {
+                    // Second tap on the Chat tab within the double-tap window: drive WeChat's
+                    // own listener twice so its internal timing check trips and fires the
+                    // scroll-to-next-unread event.
+                    bottomTabClickListener.onClick(doubleTapProbeView)
+                    bottomTabClickListener.onClick(doubleTapProbeView)
+                    lastHomeTapUptime = SystemClock.uptimeMillis()
+                } else {
+                    navigateToTab(index)
+                    lastHomeTapUptime = if (index == 0) SystemClock.uptimeMillis() else 0L
+                }
+            }
+
             val lifecycleOwner = LifecycleOwnerProvider.lifecycleOwner
             bottomTabViewGroup.setLifecycleOwner(lifecycleOwner)
 
@@ -137,12 +175,14 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             val useFloating = useFloating
             val useBackdrop = useBackdrop
             val showFinderBadge = showFinderBadge
+            val hideLabels = hideLabels
 
             val composeView = ComposeView(activity).apply {
                 setLifecycleOwner(lifecycleOwner)
 
                 setContent {
                         AppTheme {
+                            val view = LocalView.current
                             var selectedIndex by selectedPageIndexState
                             val unreadCount by unreadCountState
                             val finderUnreadCount by finderUnreadCountState
@@ -185,7 +225,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
                                         NavigationBarItem(
                                             selected = isSelected && offset < 0.5f,
-                                            onClick = { navigateToTab(index) },
+                                            onClick = {
+                                                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                                onTabClicked(index)
+                                            },
                                             icon = {
                                                 BadgedBox(
                                                     badge = {
@@ -256,7 +299,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             val currentIcon = if (isSelected) item.filled else item.outlined
 
                                             FloatingBottomBarItem(
-                                                onClick = { navigateToTab(index) },
+                                                onClick = {
+                                                    view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                                    onTabClicked(index)
+                                                },
                                                 modifier = Modifier.defaultMinSize(minWidth = 76.dp)
                                             ) {
                                                 BadgedBox(
@@ -287,14 +333,16 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                         contentDescription = item.label
                                                     )
                                                 }
-                                                Text(
-                                                    text = item.label,
-                                                    fontSize = 11.sp,
-                                                    lineHeight = 14.sp,
-                                                    maxLines = 1,
-                                                    softWrap = false,
-                                                    overflow = TextOverflow.Visible
-                                                )
+                                                if (!hideLabels) {
+                                                    Text(
+                                                        text = item.label,
+                                                        fontSize = 11.sp,
+                                                        lineHeight = 14.sp,
+                                                        maxLines = 1,
+                                                        softWrap = false,
+                                                        overflow = TextOverflow.Visible
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -306,7 +354,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
             if (useFloating) {
                 // In floating mode, hide the original tab bar container so that WeChat's
-                // FrostedContentView reads its height as 0 and doesn't draw a frosted gray
+                // FrostedContentView reads its height as 0 and doesn't draw a frosted grey
                 // overlay behind it. Instead, attach the ComposeView directly to the parent
                 // FrameLayout as an overlay on top of the content.
                 bottomTabViewGroup.removeAllViews()
@@ -364,6 +412,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             var useFloatingInput by remember { mutableStateOf(useFloating) }
             var useBackdropInput by remember { mutableStateOf(useBackdrop) }
             var showFinderBadgeInput by remember { mutableStateOf(showFinderBadge) }
+            var hideLabelsInput by remember { mutableStateOf(hideLabels) }
 
             AlertDialogContent(
                 title = { Text("美化首页底部导航栏") },
@@ -387,6 +436,15 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                             }
                         )
                         ListItem(
+                            headlineContent = { Text("隐藏标签文本") },
+                            supportingContent = { Text("需启用「使用悬浮底栏」") },
+                            trailingContent = {
+                                Switch(
+                                    hideLabelsInput,
+                                    { hideLabelsInput = it })
+                            }
+                        )
+                        ListItem(
                             headlineContent = { Text("显示「发现」标签角标") },
                             supportingContent = { Text("包含朋友圈新通知数量等") },
                             trailingContent = {
@@ -402,6 +460,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     Button(onClick = {
                         useFloating = useFloatingInput
                         useBackdrop = useBackdropInput
+                        hideLabels = hideLabelsInput
                         showFinderBadge = showFinderBadgeInput
                         onDismiss()
                     }) { Text("确定") }

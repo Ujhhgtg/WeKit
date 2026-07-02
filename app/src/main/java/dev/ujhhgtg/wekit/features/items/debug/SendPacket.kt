@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
+import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -80,7 +81,10 @@ object SendPacket : ClickableFeature() {
                             routeId,
                             payload
                         ) {
-                            onSuccess { json, byteArray ->
+                            onSuccess { byteArray ->
+                                val json = byteArray
+                                    ?.let { WeProtoData.fromBytes(it).toJsonObject().toString() }
+                                    ?: "{}"
                                 WeLogger.i(TAG, "success: $json")
                                 showComposeDialog(context) {
                                     AlertDialogContent(

@@ -183,7 +183,8 @@ object MessageTimeEnhancements : ClickableFeature(),
 
         val lp = time.layoutParams as? RelativeLayout.LayoutParams
         if (lp != null) {
-            if (isAlwaysCentered) {
+            // System messages are always centered, regardless of user config or sender
+            if (isAlwaysCentered || msgInfo.type?.isSystem == true) {
                 lp.addRule(RelativeLayout.CENTER_HORIZONTAL)
                 lp.removeRule(RelativeLayout.ALIGN_PARENT_START)
                 lp.removeRule(RelativeLayout.ALIGN_PARENT_END)

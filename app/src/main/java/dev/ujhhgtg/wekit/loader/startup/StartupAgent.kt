@@ -1,15 +1,16 @@
 package dev.ujhhgtg.wekit.loader.startup
 
 import android.annotation.SuppressLint
-import android.app.ActivityThread
 import android.app.Application
 import android.os.Build
-import com.tencent.tinker.loader.app.TinkerApplication
 import dev.ujhhgtg.comptime.This
+import dev.ujhhgtg.reflekt.utils.ReflectionClassLoader
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
+import dev.ujhhgtg.wekit.loader.utils.HybridClassLoader
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.SignatureVerifier
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import java.io.File
@@ -27,25 +28,28 @@ object StartupAgent {
     fun startup(
         loaderService: ILoaderService,
         hookBridge: IHookBridge?,
-        modulePath: String
+        modulePath: String,
+        application: Application,
+        realClassLoader: ClassLoader
     ) {
         if (initialized) return
         initialized = true
 
+        HybridClassLoader.hostClassLoader = realClassLoader
+        ReflectionClassLoader.value = realClassLoader
         StartupInfo.loaderService = loaderService
         StartupInfo.hookBridge = hookBridge
 
         ensureHiddenApiAccess()
         checkWriteXorExecuteForModulePath(modulePath)
 
-        val ctx = getBaseApplication()
-        HostInfo.init(ctx)
-//        SignatureVerifier.verify(ctx)
-        NativeLoader.init(ctx)
-        WeLauncher.init(ctx)
+        HostInfo.init(application)
+        NativeLoader.init(application)
+        SignatureVerifier.verify(application)
+        WeLauncher.init(application)
 
         runCatching {
-            ctx.dataDir.toPath().resolve("app_qqprotect").deleteRecursively()
+            application.dataDir.toPath().resolve("app_qqprotect").deleteRecursively()
         }.onFailure { WeLogger.e(TAG, "failed to delete app_qqprotect", it) }
     }
 
@@ -54,18 +58,6 @@ object StartupAgent {
         if (moduleFile.canWrite()) {
             WeLogger.w(TAG, "module path is writable: $modulePath\nThis may cause issues on Android 15+, please check your Xposed framework")
         }
-    }
-
-    fun getBaseApplication(): Application {
-        runCatching {
-            return TinkerApplication.getInstance()
-        }.onFailure { WeLogger.e(TAG, "getBaseApplication: failed to call TinkerApplication.getInstance()", it) }
-
-        runCatching {
-            return ActivityThread.currentApplication()!!
-        }.onFailure { WeLogger.e(TAG, "getBaseApplication: failed to call ActivityThread.currentApplication()", it) }
-
-        error("failed to retrieve Application instance")
     }
 
     private fun ensureHiddenApiAccess() {

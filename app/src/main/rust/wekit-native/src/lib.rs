@@ -1,6 +1,7 @@
 //! JNI entry points
 
 #![allow(clippy::not_unsafe_ptr_arg_deref, clippy::missing_safety_doc)]
+#![feature(abort_immediate)]
 
 mod audio_utils;
 mod crash_handler;
@@ -8,9 +9,10 @@ mod crash_triggerer;
 mod logging;
 mod native_hook;
 mod preferences_db;
+mod signature_verifier;
 mod utils;
 
-use std::ffi::CString;
+use std::{ffi::CString, process::abort_immediate};
 
 use crash_handler::{install_crash_handler, uninstall_crash_handler};
 use crash_triggerer::trigger_test_crash;
@@ -607,6 +609,34 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_preferences_TursoPrefsImpl_nativeGetTyp
     with_jstring(env, key, |key_str| {
         preferences_db::get_type(key_str) as jint
     })
+}
+
+/// Verify the module's signing certificate natively.
+///
+/// Java signature: `(Landroid/content/Context;Ljava/lang/String;)Z`
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_utils_SignatureVerifier_nativeVerify(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    context: jobject,
+    package_name: jstring,
+) -> jboolean {
+    let ok = with_jstring(env, package_name, |pkg| {
+        let mut unowned = unsafe { jni::EnvUnowned::from_raw(env) };
+        let mut result = false;
+        let _ = unowned.with_env(|jni_env| {
+            let ctx = unsafe { JObject::from_raw(jni_env, context) };
+            result = signature_verifier::verify(jni_env, &ctx, pkg);
+            Ok::<(), jni::errors::Error>(())
+        });
+        result
+    });
+
+    if ok {
+        JNI_TRUE
+    } else {
+        abort_immediate();
+    }
 }
 
 /// Required JNI library entry point — returns the JNI version we target.

@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.items.chat.AggregateChats
 import dev.ujhhgtg.wekit.ui.utils.CameraIcon
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
@@ -29,7 +30,8 @@ object QuickOpenMoments : SwitchFeature(), WeConversationContextMenuApi.IMenuIte
                     talker.isNotEmpty() &&
                         !talker.isGroupChatWxId &&
                         !talker.startsWith("gh_") &&
-                        !talker.endsWith("@app")
+                        !talker.endsWith("@app") &&
+                        !talker.startsWith(AggregateChats.FOLDER_PREFIX)
                 },
             ) { context ->
                 WeApi.openMoments(context.activity, context.talker)

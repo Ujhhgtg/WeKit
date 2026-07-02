@@ -9,6 +9,7 @@ import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
+import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
@@ -211,11 +212,54 @@ object JsApiExposer {
         ScriptableObject.putProperty(scope, "http", httpObj)
     }
 
-    private fun performDownload(url: String, destFile: Path): Boolean {
+    /**
+     * Runs blocking network I/O off the main thread and blocks the caller until it finishes.
+     *
+     * The JS `http` API is synchronous, but the JS hooks (e.g. onMessage via the DB insert
+     * listener) may be invoked on the main thread. Performing socket I/O there throws
+     * [android.os.NetworkOnMainThreadException]. Executing the I/O on a worker thread and joining
+     * avoids the exception while preserving the synchronous contract. When already off the main
+     * thread (e.g. packet interceptor threads), the block runs inline.
+     */
+    private fun <T> runOffMainThread(block: () -> T): T {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            return block()
+        }
+
+        var result: Result<T>? = null
+        val worker = thread(name = "JsHttpThread") {
+            result = runCatching(block)
+        }
+        worker.join()
+        return result!!.getOrThrow()
+    }
+
+    /** Plain holder for response data read off the main thread; converted to JS on the JS thread. */
+    private class RawHttpResponse(
+        val statusCode: Int,
+        val body: String,
+        val contentType: String,
+        val isSuccessful: Boolean,
+        val headers: List<Pair<String, String>>,
+    )
+
+    private fun executeRequest(request: Request): RawHttpResponse = runOffMainThread {
+        httpClient.newCall(request).execute().use { response ->
+            RawHttpResponse(
+                statusCode = response.code,
+                body = response.body.string(),
+                contentType = response.header("Content-Type") ?: "",
+                isSuccessful = response.isSuccessful,
+                headers = response.headers.names().map { it to (response.header(it) ?: "") },
+            )
+        }
+    }
+
+    private fun performDownload(url: String, destFile: Path): Boolean = runOffMainThread {
         val request = Request.Builder().url(url).build()
 
         httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return false
+            if (!response.isSuccessful) return@runOffMainThread false
 
             @Suppress("UNNECESSARY_SAFE_CALL")
             response.body?.byteStream()?.use { input ->
@@ -224,7 +268,7 @@ object JsApiExposer {
                 }
             }
         }
-        return true
+        true
     }
 
     private fun httpGet(
@@ -249,8 +293,7 @@ object JsApiExposer {
         // Add headers
         headers?.let { applyHeaders(requestBuilder, it) }
 
-        val response = httpClient.newCall(requestBuilder.build()).execute()
-        return createHttpResponse(response)
+        return createHttpResponse(executeRequest(requestBuilder.build()))
     }
 
     private fun httpPost(
@@ -286,8 +329,7 @@ object JsApiExposer {
         // Add headers
         headers?.let { applyHeaders(requestBuilder, it) }
 
-        val response = httpClient.newCall(requestBuilder.build()).execute()
-        return createHttpResponse(response)
+        return createHttpResponse(executeRequest(requestBuilder.build()))
     }
 
     private fun applyHeaders(requestBuilder: Request.Builder, headers: NativeObject) {
@@ -332,21 +374,19 @@ object JsApiExposer {
         }
     }
 
-    private fun createHttpResponse(response: okhttp3.Response): NativeObject {
+    private fun createHttpResponse(response: RawHttpResponse): NativeObject {
         val cx = Context.getCurrentContext()!!
         val scope = cx.initStandardObjects()
 
-        val statusCode = response.code
-        val body = response.body.string()
+        val body = response.body
 
         val responseObj = NativeObject()
-        responseObj.put("status", responseObj, statusCode)
+        responseObj.put("status", responseObj, response.statusCode)
         responseObj.put("body", responseObj, body)
         responseObj.put("ok", responseObj, response.isSuccessful)
 
         // Try to parse as JSON if content-type indicates JSON
-        val contentType = response.header("Content-Type") ?: ""
-        if (contentType.contains("application/json", ignoreCase = true) && body.isNotEmpty()) {
+        if (response.contentType.contains("application/json", ignoreCase = true) && body.isNotEmpty()) {
             try {
                 val jsonObj = cx.evaluateString(scope, "($body)", "response", 1, null)
                 responseObj.put("json", responseObj, jsonObj)
@@ -358,12 +398,11 @@ object JsApiExposer {
 
         // Convert headers to JS object
         val headersObj = NativeObject()
-        response.headers.names().forEach { name ->
-            headersObj.put(name, headersObj, response.header(name))
+        response.headers.forEach { (name, value) ->
+            headersObj.put(name, headersObj, value)
         }
         responseObj.put("headers", responseObj, headersObj)
 
-        response.close()
         return responseObj
     }
 
@@ -849,7 +888,8 @@ object JsApiExposer {
                     WePacketHelper.sendCgi(
                         uri, cgiId, funcId, routeId, jsonPayload
                     ) {
-                        onSuccess { json, _ ->
+                        onSuccess { bytes ->
+                            val json = bytes?.let { WeProtoData.fromBytes(it).toJsonObject().toString() } ?: "{}"
                             onSuccess.call(cx, scope, thisObj, arrayOf(json))
                         }
                         onFailure { _, _, errMsg ->

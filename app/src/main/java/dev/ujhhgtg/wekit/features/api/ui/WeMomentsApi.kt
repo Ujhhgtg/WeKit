@@ -14,8 +14,11 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.Intent
+import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.long
@@ -27,6 +30,10 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import java.util.LinkedList
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.copyTo
+import kotlin.io.path.div
 
 @Feature(
     name = "朋友圈服务",
@@ -329,7 +336,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    fun sendText(content: String, sdkId: String? = null, sdkAppName: String? = null): Boolean {
+    fun postText(content: String, sdkId: String? = null, sdkAppName: String? = null): Boolean {
         return try {
             val helper = ctorUploadPackHelper.constructor.newInstance(2, null)
             methodSetContentDes.method.invoke(helper, content)
@@ -339,27 +346,46 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             if (!sdkAppName.isNullOrEmpty()) {
                 methodSetSdkAppName.method.invoke(helper, sdkAppName)
             }
-            methodCommit.method.invoke(helper)
-            true
+            val localId = methodCommit.method.invoke(helper) as Int
+            localId > 0
         } catch (e: Exception) {
-            WeLogger.e(TAG, "uploadText failed", e)
+            WeLogger.e(TAG, "sendText failed", e)
             false
         }
     }
 
-    fun sendTextAndPicList(content: String, picPaths: List<String>, sdkId: String? = null, sdkAppName: String? = null): Boolean {
+    fun postTextAndImages(text: String, imagePaths: List<String>, sdkId: String? = null, sdkAppName: String? = null): Boolean {
         return try {
             val helper = ctorUploadPackHelper.constructor.newInstance(1, null)
-            methodSetContentDes.method.invoke(helper, content)
+            methodSetContentDes.method.invoke(helper, text)
+            imagePaths.forEach { path ->
+                methodAddImageMediaObjByPath.method.invoke(helper, path, "")
+            }
+            if (!sdkId.isNullOrEmpty()) {
+                methodSetSdkId.method.invoke(helper, sdkId)
+            }
+            if (!sdkAppName.isNullOrEmpty()) {
+                methodSetSdkAppName.method.invoke(helper, sdkAppName)
+            }
+            val localId = methodCommit.method.invoke(helper) as Int
+            localId > 0
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "sendTextAndImages failed", e)
+            false
+        }
+    }
+
+    fun postTextAndImages2(text: String, images: List<String>, sdkId: String? = null, sdkAppName: String? = null): Boolean {
+        return try {
+            val helper = ctorUploadPackHelper.constructor.newInstance(1, null)
+            methodSetContentDes.method.invoke(helper, text)
 
             val mediaList = ArrayList<Any>()
-            for (picPath in picPaths) {
-                val mediaObj = classSnsMediaObj.clazz.createInstance(picPath, 2)
+            images.forEach { image ->
+                val mediaObj = classSnsMediaObj.clazz.createInstance(images, 2)
                 mediaList.add(mediaObj)
             }
-
             methodSetUploadList.method.invoke(helper, mediaList)
-
             if (!sdkId.isNullOrEmpty()) {
                 methodSetSdkId.method.invoke(helper, sdkId)
             }
@@ -369,7 +395,37 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             methodCommit.method.invoke(helper)
             true
         } catch (e: Exception) {
-            WeLogger.e(TAG, "uploadTextAndPicList failed", e)
+            WeLogger.e(TAG, "sendTextAndImages2 failed", e)
+            false
+        }
+    }
+
+    fun postTextAndVideo(context: Context, text: String, videoPath: String, thumbPath: String, sdkId: String? = null, sdkAppName: String? = null): Boolean {
+        return try {
+            val tempVideo = context.externalCacheDir!!.asPath / "wekit_moments_temp_${System.currentTimeMillis()}.mp4"
+            val tempVideoPath = tempVideo.absolutePathString()
+
+            val tempThumb = context.externalCacheDir!!.asPath / "wekit_moments_temp_${System.currentTimeMillis()}.png"
+            val tempThumbPath = tempThumb.absolutePathString()
+            thumbPath.asPath.copyTo(tempThumb)
+
+            if (copyVfsFile(videoPath, tempVideoPath)) {
+                val helper = ctorUploadPackHelper.constructor.newInstance(15, null)
+                methodSetContentDes.method.invoke(helper, text)
+                methodAddSightObjectByPath.method.invoke(helper, tempVideoPath, tempThumbPath, "", "")
+                if (!sdkId.isNullOrEmpty()) {
+                    methodSetSdkId.method.invoke(helper, sdkId)
+                }
+                if (!sdkAppName.isNullOrEmpty()) {
+                    methodSetSdkAppName.method.invoke(helper, sdkAppName)
+                }
+                val localId = methodCommit.method.invoke(helper) as Int
+                localId > 0
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "sendTextAndVideo failed", e)
             false
         }
     }
@@ -485,6 +541,68 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private const val TIMELINE_OBJECT_CLASS = "com.tencent.mm.protocal.protobuf.TimeLineObject"
+
+    private val timelineObjectClass: Class<*> by lazy { TIMELINE_OBJECT_CLASS.toClass() }
+
+    /**
+     * 从 [snsInfo] 反射解析出原生 TimeLineObject（长按菜单场景外，例如后台扫描时使用）。
+     */
+    fun getNativeTimeline(snsInfo: Any?): Any? {
+        val normalized = normalizeSnsInfo(snsInfo) ?: return null
+        return runCatching {
+            normalized.reflekt().firstMethodOrNull {
+                parameters()
+                superclass()
+                returnType { timelineObjectClass.isAssignableFrom(it) }
+            }?.invoke()
+        }.getOrElse { error ->
+            WeLogger.e(TAG, "failed to resolve native TimeLineObject", error)
+            null
+        }
+    }
+
+    /**
+     * 从原生 TimeLineObject 中取出原生 MediaObj 列表（图片/视频路径解析需要）。
+     */
+    fun getNativeMediaList(nativeTimeline: Any): LinkedList<*>? {
+        return runCatching {
+            val nativeContentObj = nativeTimeline.reflekt().getField("ContentObj")!!
+            nativeContentObj.reflekt().firstField {
+                // single-char field name in 'a'..'r'
+                name { it.length == 1 && it[0] >= 'a' && it[0] <= 'r' }
+                type = LinkedList::class
+            }.get() as? LinkedList<*>
+        }.getOrElse { error ->
+            WeLogger.e(TAG, "failed to resolve native media list", error)
+            null
+        }
+    }
+
+    data class MomentContent(
+        val contentText: String,
+        val type: Int,
+        val mediaList: List<TimelineObjectProto.MediaObjProto>,
+        val nativeMediaList: LinkedList<*>
+    )
+
+    /**
+     * 综合 proto 与原生对象, 提取转发所需的朋友圈内容。
+     * [nativeTimeline] 可显式传入（长按菜单已有），否则从 [snsInfo] 反射解析。
+     */
+    fun getMomentContent(snsInfo: Any?, nativeTimeline: Any? = null): MomentContent? {
+        val proto = getTimelineProto(snsInfo) ?: return null
+        val contentObj = proto.contentObj ?: return null
+        val native = nativeTimeline ?: getNativeTimeline(snsInfo) ?: return null
+        val nativeMediaList = getNativeMediaList(native) ?: return null
+        return MomentContent(
+            contentText = proto.contentDesc ?: "",
+            type = contentObj.type,
+            mediaList = contentObj.mediaList,
+            nativeMediaList = nativeMediaList
+        )
+    }
+
     private const val MOMENTS_CLASS = "${PackageNames.WECHAT}.plugin.sns.ui.SnsUploadUI"
 
     fun sendTextInUi(context: Context, text: String) {
@@ -511,6 +629,118 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             putExtra("KSightThumbPath", videoPath)
             putExtra("Kdescription", text ?: "")
         })
+    }
+
+    /**
+     * 解析单张图片的本地缓存路径（优先原图, 否则回退缩略图）。
+     * [warnOnThumb] 为 true 时回退到缩略图会弹出提示（前台交互场景使用）。
+     */
+    fun getCachedImagePath(
+        media: TimelineObjectProto.MediaObjProto,
+        nativeMedia: Any,
+        warnOnThumb: Boolean = false
+    ): String? {
+        return try {
+            val pg = methodGetAccSnsPath.method.invoke(null) as String
+            val mediaId = media.id ?: return null
+            val dir = methodGetMediaFilePath.method.invoke(null, pg, mediaId) as String
+
+            val bigName = methodGetSnsBigName.method.invoke(null, nativeMedia) as String
+            val bigPath = dir + bigName
+
+            if (vfsFileExists(bigPath)) {
+                bigPath
+            } else {
+                if (warnOnThumb) showToast("警告: 正在使用缩略图, 建议先查看一次图片以下载原图!")
+                val thumbName = methodGetSnsThumbName.method.invoke(null, nativeMedia) as String
+                val thumbPath = dir + thumbName
+                if (vfsFileExists(thumbPath)) thumbPath else null
+            }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "failed to get cached image path", e)
+            null
+        }
+    }
+
+    /**
+     * 解析朋友圈中全部图片的本地缓存路径, 任一缺失则返回 null。
+     */
+    fun prepareImagePaths(
+        mediaList: List<TimelineObjectProto.MediaObjProto>,
+        nativeMediaList: LinkedList<*>,
+        warnOnThumb: Boolean = false
+    ): ArrayList<String>? {
+        if (mediaList.isEmpty()) return null
+        val paths = ArrayList<String>()
+        for (index in mediaList.indices) {
+            val nativeMedia = nativeMediaList.getOrNull(index) ?: return null
+            val cachedPath = getCachedImagePath(mediaList[index], nativeMedia, warnOnThumb) ?: return null
+            paths.add(cachedPath)
+        }
+        return paths
+    }
+
+    fun fetchVideoPath(nativeMediaList: LinkedList<*>): String? {
+        val nativeMediaObj = nativeMediaList.firstOrNull() ?: return null
+        return runCatching {
+            methodGetSnsVideoPath.method.invoke(null, nativeMediaObj) as? String
+        }.getOrElse {
+            WeLogger.e(TAG, "failed to get moment video path", it)
+            null
+        }
+    }
+
+    fun fetchVideoThumbPath(nativeMediaList: LinkedList<*>): String? {
+        val nativeMediaObj = nativeMediaList.firstOrNull() ?: return null
+        return runCatching {
+            methodGetSnsVideoThumbImagePath.method.invoke(null, nativeMediaObj) as? String
+        }.getOrElse {
+            WeLogger.e(TAG, "failed to get moment video thumb path", it)
+            null
+        }
+    }
+
+    /**
+     * 一键（后台）转发指定朋友圈, 直接加入发送队列, 不经过编辑界面。
+     * [nativeTimeline] 可显式传入, 否则从 [snsInfo] 反射解析。
+     */
+    fun quickForward(snsInfo: Any?, nativeTimeline: Any? = null): ActionResult {
+        val content = getMomentContent(snsInfo, nativeTimeline)
+            ?: return ActionResult(success = false, sent = false, message = "无法解析朋友圈内容")
+        return quickForward(content)
+    }
+
+    fun quickForward(content: MomentContent): ActionResult {
+        val text = content.contentText
+        return try {
+            val ok = when (content.type) {
+                1, 54 -> { // 图片
+                    val paths = prepareImagePaths(content.mediaList, content.nativeMediaList)
+                        ?: return ActionResult(success = false, sent = false, message = "未找到本地缓存的图片")
+                    postTextAndImages(text, paths)
+                }
+
+                15, 5 -> { // 视频
+                    val videoPath = fetchVideoPath(content.nativeMediaList)
+                    val thumbPath = fetchVideoThumbPath(content.nativeMediaList)
+                    if (videoPath == null || thumbPath == null) {
+                        return ActionResult(success = false, sent = false, message = "未找到本地缓存的视频, 请播放一次后再转发")
+                    }
+                    postTextAndVideo(HostInfo.application, text, videoPath, thumbPath)
+                }
+
+                else -> postText(text) // 文字
+            }
+
+            if (ok) {
+                ActionResult(success = true, sent = true, message = "已加入发送队列")
+            } else {
+                ActionResult(success = false, sent = false, message = "转发失败")
+            }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "quickForward failed", e)
+            ActionResult(success = false, sent = false, message = e.message ?: "转发出现异常", error = e)
+        }
     }
 
     private fun sendLike(

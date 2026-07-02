@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.utils.fs
 
 import android.os.Environment
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.utils.HostInfo
 import java.nio.file.Path
 import kotlin.io.path.div
@@ -13,8 +14,9 @@ object KnownPaths {
     }
 
     val moduleData by lazy {
-        (internalStorage / "Android" / "data" / HostInfo.packageName / BuildConfig.TAG)
-            .createDirsSafe()
+        (internalStorage / "Android" / "data" /
+                runCatching { HostInfo.packageName }.getOrDefault(PackageNames.WECHAT) /
+                BuildConfig.TAG).createDirsSafe()
     }
 
     val codeCacheDir: Path by lazy {
@@ -22,8 +24,9 @@ object KnownPaths {
     }
 
     val moduleCache by lazy {
-        (internalStorage / "Android" / "data" / HostInfo.packageName / "cache" / BuildConfig.TAG)
-            .createDirsSafe()
+        (internalStorage / "Android" / "data" /
+                runCatching { HostInfo.packageName }.getOrDefault(PackageNames.WECHAT)
+                / "cache" / BuildConfig.TAG).createDirsSafe()
     }
 
     val moduleAssets by lazy {

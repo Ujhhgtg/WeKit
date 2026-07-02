@@ -13,10 +13,13 @@ import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferProto
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
+import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.DisplayGroupMemberRealNamesLastChar.actualFetchRealName
@@ -30,9 +33,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.div
 import kotlin.io.path.exists
@@ -153,15 +153,15 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
      */
     private fun actualFetchRealName(senderId: String, groupId: String?, onResult: (FetchResult) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
-            val payload = if (groupId != null) """{"2":"$senderId", "4":"$groupId"}""" else """{"2":"$senderId"}"""
-            WePacketHelper.sendCgi(
+            val reqBytes = BeforeTransferReqProto(userName = senderId, groupId = groupId).encode()
+            WePacketHelper.sendCgiRaw(
                 "/cgi-bin/mmpay-bin/beforetransfer", 2783, 0, 0,
-                payload
+                reqBytes
             ) {
-                onSuccess { json, _ ->
-                    val realName = runCatching {
-                        Json.parseToJsonElement(json).jsonObject["4"]?.jsonPrimitive?.contentOrNull
-                    }.getOrNull()
+                onSuccess { bytes ->
+                    val realName = bytes
+                        ?.let { runCatching { BeforeTransferProto.decode(it) }.getOrNull() }
+                        ?.maskedRealName
 
                     if (realName != null) {
                         realNames[senderId] = realName
@@ -173,8 +173,13 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
                 }
 
                 onFailure { errType, errCode, errMsg ->
-                    WeLogger.w(TAG, "fetch failed for $senderId: errType=$errType errCode=$errCode errMsg=$errMsg")
-                    onResult(FetchResult.Failure(errType, errCode, errMsg))
+                    WeLogger.w(TAG, "fetch failed for $senderId (groupId=$groupId): errType=$errType errCode=$errCode errMsg=$errMsg")
+
+                    if (groupId != null) {
+                        actualFetchRealName(senderId, null, onResult)
+                    } else {
+                        onResult(FetchResult.Failure(errType, errCode, errMsg))
+                    }
                 }
             }
         }
@@ -249,9 +254,8 @@ object DisplayGroupMemberRealNamesLastChar : SwitchFeature(), WeChatMessageViewA
         if (key != PREF_KEY) return false
 
         activity.run {
-            val memberId = intent.getStringExtra("Contact_User")!!
-            val groupId = intent.getStringExtra("room_name")
-                ?: intent.getStringExtra("Contact_ChatRoomId")
+            val memberId = activity.currentWxId ?: return true
+            val groupId = WeCurrentConversationApi.value.takeIf { it.isGroupChatWxId }
 
             WeLogger.i(TAG, "fetching last char for $memberId $groupId")
 

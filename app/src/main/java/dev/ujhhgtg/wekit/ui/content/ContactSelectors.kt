@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -40,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -52,6 +54,8 @@ import com.composables.icons.materialsymbols.outlined.Tag
 import com.composables.icons.materialsymbols.outlined.Select_all
 import com.composables.icons.materialsymbols.outlined.Deselect
 import com.composables.icons.materialsymbols.outlined.Compare_arrows
+import com.composables.icons.materialsymbols.outlined.Sort_by_alpha
+import com.composables.icons.materialsymbols.outlined.Schedule
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -72,6 +76,11 @@ enum class FilterType(val displayName: String) {
     GROUPS("群聊"),
     OFFICIAL_ACCOUNTS("公众号"),
     OTHERS("其他")
+}
+
+enum class SortMode(val displayName: String, val icon: ImageVector) {
+    ALPHABETICAL("A-Z", MaterialSymbols.Outlined.Sort_by_alpha),
+    LAST_MESSAGE_TIME("最近消息", MaterialSymbols.Outlined.Schedule)
 }
 
 @Composable
@@ -155,6 +164,36 @@ fun BaseContactSelector(
     var selectedType by remember { mutableStateOf(FilterType.ALL) }
     var selectedLabelName by remember { mutableStateOf<String?>(null) }
 
+    var sortMode by remember { mutableStateOf(SortMode.ALPHABETICAL) }
+    var lastMessageTimes by remember { mutableStateOf<Map<String, Long>?>(null) }
+    var isSortLoading by remember { mutableStateOf(false) }
+
+    fun switchSortMode(target: SortMode) {
+        if (target == sortMode || isSortLoading) return
+        if (target == SortMode.ALPHABETICAL) {
+            sortMode = SortMode.ALPHABETICAL
+            return
+        }
+        // 切换到按最近消息时间排序
+        if (lastMessageTimes != null) {
+            sortMode = SortMode.LAST_MESSAGE_TIME
+            return
+        }
+        isSortLoading = true
+        coroutineScope.launch {
+            val times = withContext(Dispatchers.IO) {
+                if (WeDatabaseApi.isReady) WeDatabaseApi.getLastMessageTimes() else null
+            }
+            if (times == null) {
+                showToast("数据库尚未初始化, 无法按时间排序!")
+            } else {
+                lastMessageTimes = times
+                sortMode = SortMode.LAST_MESSAGE_TIME
+            }
+            isSortLoading = false
+        }
+    }
+
     val typeCounts = remember(filteredContacts, friendWxIds, groupWxIds, officialAccountWxIds) {
         var friends = 0
         var groups = 0
@@ -225,33 +264,43 @@ fun BaseContactSelector(
         }
     }
 
-    val groupedContacts = remember(displayedContacts, transliterator, selectionKey) {
-        displayedContacts.groupBy { contact ->
-            if (isSelected(contact)) {
-                "已选"
-            } else {
-                val name = contact.displayName.trim()
-                if (name.isEmpty()) return@groupBy "#"
-
-                val firstChar = name.first()
-                if (firstChar.uppercaseChar() in 'A'..'Z') {
-                    firstChar.uppercaseChar().toString()
-                } else if (transliterator != null) {
-                    val pinyin = transliterator.transliterate(firstChar.toString())
-                    val initial = pinyin.firstOrNull()?.uppercaseChar() ?: '#'
-                    if (initial in 'A'..'Z') initial.toString() else "#"
-                } else {
-                    "#"
-                }
+    val groupedContacts = remember(displayedContacts, transliterator, selectionKey, sortMode, lastMessageTimes) {
+        if (sortMode == SortMode.LAST_MESSAGE_TIME) {
+            val times = lastMessageTimes ?: emptyMap()
+            val sorted = displayedContacts.sortedByDescending { times[it.wxId] ?: Long.MIN_VALUE }
+            val (selected, rest) = sorted.partition { isSelected(it) }
+            linkedMapOf<String, List<IWeContact>>().apply {
+                if (selected.isNotEmpty()) put("已选", selected)
+                if (rest.isNotEmpty()) put("最近消息", rest)
             }
-        }.toSortedMap { c1, c2 ->
-            when {
-                c1 == c2 -> 0
-                c1 == "已选" -> -1
-                c2 == "已选" -> 1
-                c1 == "#" -> 1
-                c2 == "#" -> -1
-                else -> c1.compareTo(c2)
+        } else {
+            displayedContacts.groupBy { contact ->
+                if (isSelected(contact)) {
+                    "已选"
+                } else {
+                    val name = contact.displayName.trim()
+                    if (name.isEmpty()) return@groupBy "#"
+
+                    val firstChar = name.first()
+                    if (firstChar.uppercaseChar() in 'A'..'Z') {
+                        firstChar.uppercaseChar().toString()
+                    } else if (transliterator != null) {
+                        val pinyin = transliterator.transliterate(firstChar.toString())
+                        val initial = pinyin.firstOrNull()?.uppercaseChar() ?: '#'
+                        if (initial in 'A'..'Z') initial.toString() else "#"
+                    } else {
+                        "#"
+                    }
+                }
+            }.toSortedMap { c1, c2 ->
+                when {
+                    c1 == c2 -> 0
+                    c1 == "已选" -> -1
+                    c2 == "已选" -> 1
+                    c1 == "#" -> 1
+                    c2 == "#" -> -1
+                    else -> c1.compareTo(c2)
+                }
             }
         }
     }
@@ -279,7 +328,7 @@ fun BaseContactSelector(
                     onValueChange = onSearchQueryChange,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
+                        .padding(bottom = 4.dp),
                     placeholder = { Text("搜索昵称或微信号") },
                     leadingIcon = { Icon(MaterialSymbols.Outlined.Search, contentDescription = "Search") },
                     singleLine = true
@@ -288,7 +337,7 @@ fun BaseContactSelector(
                 if (showTypeFilterRow) {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 4.dp),
@@ -322,10 +371,10 @@ fun BaseContactSelector(
                 if (showLabelFilterRow) {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 6.dp),
+                            .padding(bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         item {
@@ -358,12 +407,44 @@ fun BaseContactSelector(
                     }
                 }
 
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
+                        .padding(bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SortMode.entries.forEach { mode ->
+                        FilterChip(
+                            selected = sortMode == mode,
+                            enabled = !isSortLoading,
+                            onClick = { switchSortMode(mode) },
+                            label = { Text(mode.displayName) },
+                            leadingIcon = {
+                                if (isSortLoading && mode == SortMode.LAST_MESSAGE_TIME) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = mode.icon,
+                                        contentDescription = mode.displayName,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+
                 if (onSelectAll != null || onDeselectAll != null || onInvertSelection != null) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                            .padding(horizontal = 4.dp)
                             .padding(bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -412,9 +493,7 @@ fun BaseContactSelector(
                     }
                 }
 
-                if (showTypeFilterRow || showLabelFilterRow || onSelectAll != null || onDeselectAll != null || onInvertSelection != null) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
                 if (displayedContacts.isEmpty()) {
                     Box(
@@ -511,7 +590,7 @@ fun BaseContactSelector(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            alphabet.forEach { letter ->
+                            if (sortMode == SortMode.ALPHABETICAL) alphabet.forEach { letter ->
                                 val isAvailable = groupedContacts.containsKey(letter)
                                 Text(
                                     text = if (letter == "已选") "✓" else letter,

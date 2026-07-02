@@ -33,7 +33,7 @@ object MsgIdPreviewer {
             str2 = str3 + md5Hex.take(7)
         }
         val suffixHex = String.format("%04x", j16 % 65535)
-        val suffixNum = (j16 % 7) + 100
+        val suffixNum = j16 % 7 + 100
         return str2 + suffixHex + suffixNum
     }
 

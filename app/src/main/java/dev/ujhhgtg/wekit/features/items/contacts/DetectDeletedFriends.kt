@@ -29,6 +29,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.WeContact
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferProto
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -46,8 +48,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 import kotlin.time.Duration.Companion.seconds
 
 @Feature(name = "检测单向删除好友", categories = ["联系人与群组"], description = "批量扫描全部好友, 检测是否被对方单向删除")
@@ -120,14 +120,14 @@ object DetectDeletedFriends : ClickableFeature() {
                                 break
                             }
 
-                            WePacketHelper.sendCgi(
+                            WePacketHelper.sendCgiRaw(
                                 "/cgi-bin/mmpay-bin/beforetransfer", 2783, 0, 0,
-                                """{"2":"${friend.wxId}"}"""
+                                BeforeTransferReqProto(userName = friend.wxId).encode()
                             ) {
-                                onSuccess { json, _ ->
-                                    val jsonObj = Json.parseToJsonElement(json).jsonObject
-                                    WeLogger.d(TAG, jsonObj.toString())
-                                    val realName = jsonObj["4"]
+                                onSuccess { bytes ->
+                                    val realName = bytes
+                                        ?.let { BeforeTransferProto.decode(it) }
+                                        ?.maskedRealName
                                     WeLogger.d(TAG, "realName=$realName")
                                     if (realName == null) {
                                         synchronized(abnormalFriends) {

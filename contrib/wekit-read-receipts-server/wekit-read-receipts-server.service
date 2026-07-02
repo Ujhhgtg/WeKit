@@ -1,0 +1,39 @@
+[Unit]
+Description=WeKit read-receipts tracking server
+Documentation=https://github.com/WeKit
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ujhhgtg
+Group=ujhhgtg
+WorkingDirectory=/home/ujhhgtg/coding/WeKit/contrib/wekit-read-receipts-server
+ExecStart=/home/ujhhgtg/coding/WeKit/contrib/wekit-read-receipts-server/target/release/wekit-read-receipts-server
+
+Environment=RUST_LOG=info
+Environment=BIND_ADDR=0.0.0.0
+Environment=PORT=8080
+# Optional remote Turso DB instead of the local file:read_receipts.db:
+# Environment=TURSO_DATABASE_URL=libsql://...
+# Environment=TURSO_AUTH_TOKEN=...
+
+Restart=on-failure
+RestartSec=2
+
+# --- Hardening ---
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+# read_receipts.db is written in WorkingDirectory, so allow writes there:
+ReadWritePaths=/home/ujhhgtg/coding/WeKit/contrib/wekit-read-receipts-server
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

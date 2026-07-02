@@ -323,11 +323,11 @@ object WeChatService {
     }
 
     fun postMomentText(content: String, sdkId: String?, sdkAppName: String?): Result<Unit> =
-        if (WeMomentsApi.sendText(content, sdkId, sdkAppName)) Result.Success(Unit)
+        if (WeMomentsApi.postText(content, sdkId, sdkAppName)) Result.Success(Unit)
         else Result.Error("Failed to post moment text")
 
     fun postMomentPics(content: String, picPaths: List<String>, sdkId: String?, sdkAppName: String?): Result<Unit> =
-        if (WeMomentsApi.sendTextAndPicList(content, picPaths, sdkId, sdkAppName)) Result.Success(Unit)
+        if (WeMomentsApi.postTextAndImages2(content, picPaths, sdkId, sdkAppName)) Result.Success(Unit)
         else Result.Error("Failed to post moment pictures")
 
     fun confirmTransfer(convId: String, transId: String, transSpanId: String, invalidTime: Int): Result<Unit> =

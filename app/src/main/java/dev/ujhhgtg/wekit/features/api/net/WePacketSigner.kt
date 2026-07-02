@@ -13,7 +13,7 @@ import org.json.JSONObject
  * 消息发送签名器 (CGI 522)
  */
 object NewSendMsgSigner : ISigner {
-    override fun match(cgiId: Int) = (cgiId == 522)
+    override fun match(cgiId: Int) = cgiId == 522
 
     override fun sign(cl: ClassLoader, json: JSONObject): SignResult {
         fun applySign(item: JSONObject) {

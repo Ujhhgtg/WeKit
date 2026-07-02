@@ -4,10 +4,10 @@ import dev.ujhhgtg.wekit.features.api.net.abc.WeRequestCallback
 
 class WeRequestDsl : WeRequestCallback {
 
-    private var successHandler: ((String, ByteArray?) -> Unit)? = null
+    private var successHandler: ((ByteArray?) -> Unit)? = null
     private var failHandler: ((Int, Int, String) -> Unit)? = null
 
-    fun onSuccess(handler: (json: String, bytes: ByteArray?) -> Unit) {
+    fun onSuccess(handler: (bytes: ByteArray?) -> Unit) {
         successHandler = handler
     }
 
@@ -15,8 +15,8 @@ class WeRequestDsl : WeRequestCallback {
         failHandler = handler
     }
 
-    override fun onSuccess(json: String, bytes: ByteArray?) {
-        successHandler?.invoke(json, bytes)
+    override fun onSuccess(bytes: ByteArray?) {
+        successHandler?.invoke(bytes)
     }
 
     override fun onFailure(errType: Int, errCode: Int, errMsg: String) {

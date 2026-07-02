@@ -45,6 +45,7 @@ import com.composables.icons.materialsymbols.outlined.Build_circle
 import com.composables.icons.materialsymbols.outlined.Call
 import com.composables.icons.materialsymbols.outlined.Camera
 import com.composables.icons.materialsymbols.outlined.Chat
+import com.composables.icons.materialsymbols.outlined.Checklist
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Comedy_mask
 import com.composables.icons.materialsymbols.outlined.Contact_page
@@ -156,6 +157,7 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
             "脚本 (JS)" to MaterialSymbols.Outlined.Terminal,
             "脚本 (Java)" to MaterialSymbols.Outlined.Terminal,
             "娱乐" to MaterialSymbols.Outlined.Comedy_mask,
+            "批量操作" to MaterialSymbols.Outlined.Checklist,
             "首页右上角菜单" to MaterialSymbols.Outlined.Add_circle,
             "联系人详情页面" to MaterialSymbols.Outlined.Contact_page
         )
@@ -191,7 +193,7 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
         )
         addSwitchPreference(
             key = Preferences.MATCH_GENERIC_WXID_EXP,
-            title = "清理消息内容前置微信 ID 时允许传统 ID",
+            title = "清理消息内容微信 ID 前缀时允许非标准 ID",
             summary = "允许处理不带 'wxid_' 前缀的微信 ID, 可能导致误伤消息原始内容 (实验性)",
             icon = MaterialSymbols.Outlined.Rule_settings
         )

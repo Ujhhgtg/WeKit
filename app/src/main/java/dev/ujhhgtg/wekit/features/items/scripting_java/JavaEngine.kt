@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import bsh.BshMethod
 import bsh.NameSpace
+import dalvik.system.InMemoryDexClassLoader
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
@@ -51,11 +52,10 @@ import me.hd.wauxv.data.bean.info.FriendInfo
 import me.hd.wauxv.data.bean.info.GroupInfo
 import org.json.JSONArray
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.io.InputStream
 import java.lang.reflect.Member
 import java.lang.reflect.Proxy
+import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.util.Properties
 import java.util.function.Consumer
@@ -537,8 +537,8 @@ object JavaEngine {
                     plugin.dir.resolve(path).toFile().canonicalPath
                 }
                 val dexBytes = Files.readAllBytes(File(resolved).toPath())
-                val loader = dalvik.system.InMemoryDexClassLoader(
-                    java.nio.ByteBuffer.wrap(dexBytes), ClassLoaders.MODULE
+                val loader = InMemoryDexClassLoader(
+                    ByteBuffer.wrap(dexBytes), ClassLoaders.MODULE
                 )
                 plugin.interpreter.classManager.addClassLoader(loader)
             })
@@ -1560,33 +1560,33 @@ object JavaEngine {
 
             // === SNS Moments ===
             setMethod(BshMethod("uploadText", arrayOf(BString)) {
-                return@BshMethod WeMomentsApi.sendText(it[0] as String)
+                return@BshMethod WeMomentsApi.postText(it[0] as String)
             })
             setMethod(BshMethod("uploadText", arrayOf(BString, BString, BString)) {
-                return@BshMethod WeMomentsApi.sendText(it[0] as String, it[1] as String, it[2] as String)
+                return@BshMethod WeMomentsApi.postText(it[0] as String, it[1] as String, it[2] as String)
             })
             setMethod(BshMethod("uploadText", arrayOf(org.json.JSONObject::class.java)) {
                 val jo = it[0] as org.json.JSONObject
                 @Suppress("TYPE_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-                return@BshMethod WeMomentsApi.sendText(
+                return@BshMethod WeMomentsApi.postText(
                     jo.optString("content", ""),
                     jo.optString("sdkId", null),
                     jo.optString("sdkAppName", null)
                 )
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(BString, BString)) {
-                return@BshMethod WeMomentsApi.sendTextAndPicList(it[0] as String, listOf(it[1] as String))
+                return@BshMethod WeMomentsApi.postTextAndImages2(it[0] as String, listOf(it[1] as String))
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(BString, BString, BString, BString)) {
-                return@BshMethod WeMomentsApi.sendTextAndPicList(it[0] as String, listOf(it[1] as String), it[2] as String, it[3] as String)
+                return@BshMethod WeMomentsApi.postTextAndImages2(it[0] as String, listOf(it[1] as String), it[2] as String, it[3] as String)
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(BString, List::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return@BshMethod WeMomentsApi.sendTextAndPicList(it[0] as String, it[1] as List<String>)
+                return@BshMethod WeMomentsApi.postTextAndImages2(it[0] as String, it[1] as List<String>)
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(BString, List::class.java, BString, BString)) {
                 @Suppress("UNCHECKED_CAST")
-                return@BshMethod WeMomentsApi.sendTextAndPicList(it[0] as String, it[1] as List<String>, it[2] as String, it[3] as String)
+                return@BshMethod WeMomentsApi.postTextAndImages2(it[0] as String, it[1] as List<String>, it[2] as String, it[3] as String)
             })
             setMethod(BshMethod("uploadTextAndPicList", arrayOf(org.json.JSONObject::class.java)) {
                 val jo = it[0] as org.json.JSONObject
@@ -1598,7 +1598,7 @@ object JavaEngine {
                     }
                 }
                 @Suppress("TYPE_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-                return@BshMethod WeMomentsApi.sendTextAndPicList(
+                return@BshMethod WeMomentsApi.postTextAndImages2(
                     jo.optString("content", ""),
                     picList,
                     jo.optString("sdkId", null),

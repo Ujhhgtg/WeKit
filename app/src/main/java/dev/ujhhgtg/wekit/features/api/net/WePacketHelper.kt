@@ -355,6 +355,44 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         sendCgi(uri, cgiId, funcId, routeId, jsonPayload, dsl)
     }
 
+    /**
+     * Send a CGI with a pre-built protobuf request body.
+     *
+     * Use this when the request proto is complex enough that the JSON->protobuf shortcut
+     * ([ProtoJsonBuilder]) can't express it (e.g. nested length-prefixed byte buffers such
+     * as the oplog operations). The bytes are dispatched through the generic request path;
+     * signer-based CGIs are not supported here.
+     */
+    fun sendCgiRaw(
+        uri: String,
+        cgiId: Int,
+        funcId: Int,
+        routeId: Int,
+        reqBytes: ByteArray,
+        dslBlock: WeRequestDsl.() -> Unit
+    ) {
+        val dsl = WeRequestDsl().apply(dslBlock)
+        sendCgiRaw(uri, cgiId, funcId, routeId, reqBytes, dsl)
+    }
+
+    fun sendCgiRaw(
+        uri: String,
+        cgiId: Int,
+        funcId: Int,
+        routeId: Int,
+        reqBytes: ByteArray,
+        callback: WeRequestCallback? = null
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                sendGenericCgi(uri, cgiId, funcId, routeId, reqBytes, callback, null)
+            } catch (e: Throwable) {
+                WeLogger.e(TAG, "[$cgiId] failed to send cgi", e)
+                Handler(Looper.getMainLooper()).post { callback?.onFailure(-1, -1, e.message ?: "") }
+            }
+        }
+    }
+
     fun sendCgi(
         uri: String,
         cgiId: Int,
@@ -427,57 +465,72 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 } else {
                     // 通用发包模式
                     val bytes = ProtoJsonBuilder.makeBytes(jsonObj)
-
-                    val finalReqObject: Any
-
-                    val specificReqCls = cgiReqClassMap[cgiId]
-
-                    if (specificReqCls != null) {
-                        finalReqObject = specificReqCls.createInstance()
-                        finalReqObject.reflekt().invokeMethod("parseFrom", bytes, superclass = true)
-                        WeLogger.i(TAG, "[$cgiId] using specific class: ${specificReqCls.name}")
-                    } else {
-                        val rawCls = classRawReq.clazz
-                        finalReqObject = rawCls.createInstance(bytes)
-                        WeLogger.i(TAG, "[$cgiId] using generic class: ${rawCls.name}")
-                    }
-
-                    val builder = classConfigBuilder.clazz.createInstance()
-
-                    builder.reflekt().apply {
-                        setField("a", finalReqObject)
-                        setField("b", classGenericResp.clazz.createInstance())
-                        setField("c", uri)
-                        setField("d", cgiId)
-                        setField("e", funcId)
-                        setField("f", routeId)
-                        setField("l", 1)
-                        setField("n", bytes)
-                    }
-
-                    val rr = builder.reflekt().invokeMethod("a", superclass = true)
-                    val cbProxy = Proxy.newProxyInstance(
-                        cl,
-                        arrayOf(classCallbackIface.clazz),
-                        ResponseHandler(callback, successAction)
-                    )
-
-                    WeLogger.i(TAG, "[$cgiId] sending cgi...")
-
-                    classNetDispatcher.reflekt().firstMethod {
-                        name = "d"
-                        parameters(
-                            classReqResp.clazz,
-                            classCallbackIface.clazz,
-                            bool
-                        )
-                    }.invoke(null, rr, cbProxy, false)
+                    sendGenericCgi(uri, cgiId, funcId, routeId, bytes, callback, successAction)
                 }
             } catch (e: Throwable) {
                 WeLogger.e(TAG, "[$cgiId] failed to send cgi", e)
                 Handler(Looper.getMainLooper()).post { callback?.onFailure(-1, -1, e.message ?: "") }
             }
         }
+    }
+
+    /**
+     * Dispatch a request through the generic (non-native) request path using raw protobuf bytes.
+     */
+    private fun sendGenericCgi(
+        uri: String,
+        cgiId: Int,
+        funcId: Int,
+        routeId: Int,
+        bytes: ByteArray,
+        callback: WeRequestCallback?,
+        successAction: (() -> Unit)?
+    ) {
+        val cl = ClassLoaders.HOST
+        val finalReqObject: Any
+
+        val specificReqCls = cgiReqClassMap[cgiId]
+
+        if (specificReqCls != null) {
+            finalReqObject = specificReqCls.createInstance()
+            finalReqObject.reflekt().invokeMethod("parseFrom", bytes, superclass = true)
+            WeLogger.i(TAG, "[$cgiId] using specific class: ${specificReqCls.name}")
+        } else {
+            val rawCls = classRawReq.clazz
+            finalReqObject = rawCls.createInstance(bytes)
+            WeLogger.i(TAG, "[$cgiId] using generic class: ${rawCls.name}")
+        }
+
+        val builder = classConfigBuilder.clazz.createInstance()
+
+        builder.reflekt().apply {
+            setField("a", finalReqObject)
+            setField("b", classGenericResp.clazz.createInstance())
+            setField("c", uri)
+            setField("d", cgiId)
+            setField("e", funcId)
+            setField("f", routeId)
+            setField("l", 1)
+            setField("n", bytes)
+        }
+
+        val rr = builder.reflekt().invokeMethod("a", superclass = true)
+        val cbProxy = Proxy.newProxyInstance(
+            cl,
+            arrayOf(classCallbackIface.clazz),
+            ResponseHandler(callback, successAction)
+        )
+
+        WeLogger.i(TAG, "[$cgiId] sending cgi...")
+
+        classNetDispatcher.reflekt().firstMethod {
+            name = "d"
+            parameters(
+                classReqResp.clazz,
+                classCallbackIface.clazz,
+                bool
+            )
+        }.invoke(null, rr, cbProxy, false)
     }
 
     // 处理原生 NetScene 的回调
@@ -500,7 +553,6 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                         successAction?.invoke()
 
                         var bytes: ByteArray? = null
-                        var json = "{}"
 
                         try {
                             val v0Class = v0::class.java
@@ -518,15 +570,12 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                                 val respWrapper = rrObj.reflekt().getField("b", superclass = true)!!
                                 val protoObj = respWrapper.reflekt().getField("a", superclass = true)!!
                                 bytes = protoObj.reflekt().firstMethod { name ="toByteArray"; superclass() }.invoke() as? ByteArray
-                                if (bytes != null) {
-                                    json = WeProtoData.fromBytes(bytes).toJsonObject().toString()
-                                }
                             }
                         } catch (e: Throwable) {
                             WeLogger.w(nameOf(NativeResponseHandler::class), "failed to extract response bytes", e)
                         }
 
-                        userCallback?.onSuccess(json, bytes)
+                        userCallback?.onSuccess(bytes)
                     } else {
                         userCallback?.onFailure(errType, errCode, errMsg)
                     }
@@ -555,11 +604,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                         val bytes = runCatching {
                             yd.reflekt().invokeMethod("initialProtobufBytes", superclass = true) as? ByteArray
                         }.getOrElse { yd.reflekt().invokeMethod("toByteArray", superclass = true) as? ByteArray }
-                        val json =
-                            if (bytes != null) WeProtoData.fromBytes(bytes)
-                                .toJsonObject()
-                                .toString() else "{}"
-                        userCallback?.onSuccess(json, bytes)
+                        userCallback?.onSuccess(bytes)
                     } else {
                         userCallback?.onFailure(
                             errType,

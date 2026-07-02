@@ -40,6 +40,7 @@ import com.tencent.mm.ui.conversation.MainUI
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -64,9 +65,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.invokeOriginal
+import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import kotlinx.serialization.Serializable
 import java.lang.reflect.Proxy
+import java.nio.ByteBuffer
 import java.text.Collator
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -85,7 +89,7 @@ object AggregateChats : ClickableFeature(),
     IResolveDex {
 
     private val TAG = This.Class.simpleName
-    private const val FOLDER_PREFIX = "wekit_folder_"
+    const val FOLDER_PREFIX = "wekit_folder_"
     private const val FOLDER_CONFIG_MENU_ID = 0x0721C0DE
     private const val REMOVE_FROM_FOLDER_MENU_ID = 777020
     // Order pushes our item to the end of the container's context menu (its own items use 0).
@@ -134,6 +138,25 @@ object AggregateChats : ClickableFeature(),
         matcher {
             usingEqStrings("MicroMsg.SelectConversationUI", "doClickUser=%s")
             paramTypes("java.lang.String")
+            returnType("void")
+        }
+    }
+
+    // The MVVM "select contact" picker (com.tencent.mm.ui.mvvm.MvvmContactListUI) used for in-app
+    // forwarding routes every row tap through its list item-click listener cj5.g2#g(View, item, int)
+    // (interface in5.u). A tap on a normal conversation dispatches wi5.c0(listOf(username)) to the
+    // state center, which sets the "Select_Conv_User" result extra and finishes. Our folder rows
+    // (wekit_folder_XXX) reach that same path with a non-existent username → crash downstream.
+    // We match the two concrete listeners (main list + search results) by their unique log tags.
+    private val methodMvvmMainListItemClick by dexMethod {
+        matcher {
+            usingEqStrings("MicroMsg.SelectContactMainRecycleViewUIC", "onItemClickListener data.type=")
+        }
+    }
+    private val methodMvvmSearchItemClick by dexMethod {
+        matcher {
+            usingStrings("MicroMsg.SelectContactSearchMvvmListUIC", "onItemClick: isAlwaysCheck=")
+            paramTypes("android.view.View", null, "int")
             returnType("void")
         }
     }
@@ -196,6 +219,7 @@ object AggregateChats : ClickableFeature(),
         hookConversationPages()
         hookFolderContextMenu()
         hookSelectConversationUi()
+        hookMvvmContactListItemClick()
         hookSqliteWrapperQuery()
         hookConversationStorageParentQuery()
 
@@ -517,41 +541,97 @@ object AggregateChats : ClickableFeature(),
 
             val folder = folderById(username) ?: return@hookBefore
             val context = thisObject as? Context ?: return@hookBefore
-            val members = getFolderMembers(folder).filterNot(::isFolderId).distinct()
 
             // Cancel forwarding to the folder row itself — it has no real chat thread.
             result = null
 
-            if (members.isEmpty()) {
-                showToast("文件夹中没有对话")
-                return@hookBefore
-            }
-
-            val membersSet = members.toHashSet()
-            val contacts = runCatching {
-                withQueryRewriteSuppressed {
-                    WeDatabaseApi.getContacts().filter { it.wxId in membersSet }
-                }
-            }.getOrDefault(emptyList())
-
             // Capture the hook param so the dialog callback can re-run the ORIGINAL doClickUser
             // (bypassing this hook, so no recursion) with the chosen member's username.
             val param = this
-
-            showComposeDialog(context) {
-                FolderShareTargetSelector(
-                    contacts = contacts,
-                    onDismiss = onDismiss,
-                    onSelect = { selectedWxId ->
-                        onDismiss()
-                        runCatching {
-                            param.invokeOriginal(args = arrayOf(selectedWxId))
-                        }.onFailure {
-                            WeLogger.e(TAG, "failed to forward share to member $selectedWxId", it)
-                        }
-                    }
-                )
+            showFolderMemberPicker(context, folder) { selectedWxId ->
+                runCatching {
+                    param.invokeOriginal(args = arrayOf(selectedWxId))
+                }.onFailure {
+                    WeLogger.e(TAG, "failed to forward share to member $selectedWxId", it)
+                }
             }
+        }
+    }
+
+    // Same folder-row problem as SelectConversationUI, but for the MVVM contact picker
+    // (com.tencent.mm.ui.mvvm.MvvmContactListUI) used by in-app forwarding. Every row tap goes
+    // through a list item-click listener (cj5.g2#g for the main list, cj5.e4#g for search) whose
+    // 2nd arg is the tapped item model (ri5.j). A normal conversation is forwarded by dispatching
+    // wi5.c0(listOf(username)); our folder rows reach that path with a non-existent username →
+    // crash. We cancel the tap and re-run the ORIGINAL listener with the model's username rewritten
+    // to the chosen member so WeChat's own forward flow proceeds.
+    private fun hookMvvmContactListItemClick() {
+        listOf(
+            methodMvvmMainListItemClick,
+            methodMvvmSearchItemClick
+        ).forEach { method ->
+            if (method.isPlaceholder) return@forEach
+            method.hookBefore { handleMvvmFolderTap(this) }
+        }
+    }
+
+    private fun handleMvvmFolderTap(param: XC_MethodHook.MethodHookParam) {
+        val itemView = param.args[0] as View
+        val data = param.args[1]
+
+        val folderField = data.reflekt().fields {
+            type = BString
+            modifiers(Modifiers.FINAL)
+        }[1]
+        val folderId = folderField.get()!! as String
+
+        val folder = folderById(folderId) ?: return
+
+        // Cancel the tap on the folder row itself — it has no real chat thread.
+        param.result = null
+
+        showFolderMemberPicker(itemView.context, folder) { selectedWxId ->
+            runCatching {
+                folderField.set(selectedWxId)
+                // Re-run the ORIGINAL listener (bypasses this hook → no recursion) so WeChat
+                // forwards to the real member exactly as if that row had been tapped.
+                param.invokeOriginal()
+                folderField.set(folderId)
+            }.onFailure {
+                WeLogger.e(TAG, "failed to forward folder tap to member $selectedWxId", it)
+            }
+        }
+    }
+
+    // Shows a picker scoped to a folder's members and invokes onMemberSelected with the chosen
+    // member's wxid. Shared by both the SelectConversationUI and MvvmContactListUI interceptions.
+    private fun showFolderMemberPicker(
+        context: Context,
+        folder: ChatFolder,
+        onMemberSelected: (String) -> Unit
+    ) {
+        val members = getFolderMembers(folder).filterNot(::isFolderId).distinct()
+        if (members.isEmpty()) {
+            showToast("文件夹中没有对话")
+            return
+        }
+
+        val membersSet = members.toHashSet()
+        val contacts = runCatching {
+            withQueryRewriteSuppressed {
+                WeDatabaseApi.getContacts().filter { it.wxId in membersSet }
+            }
+        }.getOrDefault(emptyList())
+
+        showComposeDialog(context) {
+            FolderShareTargetSelector(
+                contacts = contacts,
+                onDismiss = onDismiss,
+                onSelect = { selectedWxId ->
+                    onDismiss()
+                    onMemberSelected(selectedWxId)
+                }
+            )
         }
     }
 
@@ -839,6 +919,8 @@ object AggregateChats : ClickableFeature(),
             arrayOf(*members.toTypedArray())
         )
         val fallbackTime = System.currentTimeMillis()
+        // Split unread once (a single pass over the member rows) and reuse for both buckets.
+        val (normalUnread, mutedUnread) = unreadSplitForMembers(members)
         // NOTE: flag is intentionally NOT derived from member rows. The folder row's high
         // 8 bits hold the pin / move-up state that WeChat writes directly via setPlacedTop.
         // Deriving it from members would clobber the user's pin choice on every sync. The
@@ -854,8 +936,8 @@ object AggregateChats : ClickableFeature(),
                 status = cursor.getIntOrZero(ConversationTable.STATUS),
                 conversationTime = cursor.getLongOrZero(ConversationTable.CONVERSATION_TIME).takeIf { it > 0L }
                     ?: fallbackTime,
-                unreadCount = unreadCountForMembers(members),
-                unreadMuteCount = unreadMuteCountForMembers(members),
+                unreadCount = normalUnread,
+                unreadMuteCount = mutedUnread,
                 content = cursor.getStringOrEmpty(ConversationTable.CONTENT),
                 msgType = cursor.getStringOrEmpty(ConversationTable.MSG_TYPE),
                 chatMode = cursor.getIntOrZero(ConversationTable.CHAT_MODE)
@@ -863,8 +945,8 @@ object AggregateChats : ClickableFeature(),
         }
         return latest ?: FolderSummary(
             conversationTime = fallbackTime,
-            unreadCount = unreadCountForMembers(members),
-            unreadMuteCount = unreadMuteCountForMembers(members)
+            unreadCount = normalUnread,
+            unreadMuteCount = mutedUnread
         )
     }
 
@@ -909,54 +991,96 @@ object AggregateChats : ClickableFeature(),
     }
 
     /**
-     * Unread of NON-muted members only. WeChat stores every child's unread in unReadCount
-     * regardless of mute (sv/g.java); the conversation box then splits it: non-muted children
-     * feed the box's unReadCount (number badge), muted children feed unReadMuteCount (dot).
-     * Mute status comes from rcontact.type & 512 (c01.e2.P), so we join against rcontact.
+     * Splits the members' unread into (nonMutedUnread, mutedUnread).
+     *
+     * WeChat stores every child's unread in unReadCount regardless of mute (member rows never
+     * populate unReadMuteCount themselves); the homepage badge classifier then re-decides
+     * dot-vs-number per row with a LIVE mute check. Our synthetic folder row can't trigger that
+     * live check, so we pre-split the members' unread into a number bucket (non-muted) and a dot
+     * bucket (muted) ourselves — the folder's attrflag mute bit then renders a dot when the whole
+     * folder only has muted unread.
+     *
+     * Mute is NOT a single column: friends/biz use rcontact.type & 512 (c01.e2.P), but a group's
+     * mute lives in the ChatRoomNotify flag (z3.T) packed inside the rcontact.lvbuff blob with no
+     * column of its own (WeChat's w3.b tests `R4(username) && z3.T == 0`). So we read the members'
+     * rows once, join their contact type + lvbuff, and classify each in Kotlin.
      */
-    private fun unreadCountForMembers(members: List<String>): Int =
-        unreadSumForMembers(members, muted = false)
-
-    /** Unread of MUTED members only (drives the small-dot badge on the folder row). */
-    private fun unreadMuteCountForMembers(members: List<String>): Int =
-        unreadSumForMembers(members, muted = true)
-
-    private fun unreadSumForMembers(members: List<String>, muted: Boolean): Int {
-        if (members.isEmpty()) return 0
+    private fun unreadSplitForMembers(members: List<String>): Pair<Int, Int> {
+        if (members.isEmpty()) return 0 to 0
         val placeholders = members.joinToString(",") { "?" }
-        val muteTest = if (muted) {
-            "(IFNULL(c.${ContactTable.TYPE}, 0) & $CONTACT_TYPE_MUTE_BIT) != 0"
-        } else {
-            "(IFNULL(c.${ContactTable.TYPE}, 0) & $CONTACT_TYPE_MUTE_BIT) = 0"
-        }
-        val sumCursor = WeDatabaseApi.rawQuery(
+        val cursor = WeDatabaseApi.rawQuery(
             """
-            SELECT SUM(r.${ConversationTable.UNREAD_COUNT})
+            SELECT r.${ConversationTable.USERNAME}, r.${ConversationTable.UNREAD_COUNT},
+                   IFNULL(c.${ContactTable.TYPE}, 0) AS ctype, c.${ContactTable.LVBUFF} AS lvbuff
             FROM ${ConversationTable.NAME} r
             LEFT JOIN ${ContactTable.NAME} c ON c.${ContactTable.USERNAME} = r.${ConversationTable.USERNAME}
-            WHERE r.${ConversationTable.USERNAME} IN ($placeholders) AND $muteTest
+            WHERE r.${ConversationTable.USERNAME} IN ($placeholders)
             """.trimIndent(),
             arrayOf(*members.toTypedArray())
         )
-        val sum = sumCursor.use { cursor ->
-            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getInt(0) else 0
+        var normal = 0
+        var muted = 0
+        cursor.use { c ->
+            val userIdx = c.getColumnIndex(ConversationTable.USERNAME)
+            val unreadIdx = c.getColumnIndex(ConversationTable.UNREAD_COUNT)
+            val typeIdx = c.getColumnIndex("ctype")
+            val lvbuffIdx = c.getColumnIndex("lvbuff")
+            while (c.moveToNext()) {
+                val unread = if (unreadIdx >= 0 && !c.isNull(unreadIdx)) c.getInt(unreadIdx) else 0
+                if (unread <= 0) continue
+                val username = if (userIdx >= 0) c.getString(userIdx) ?: "" else ""
+                val type = if (typeIdx >= 0 && !c.isNull(typeIdx)) c.getInt(typeIdx) else 0
+                val lvbuff = if (lvbuffIdx >= 0 && !c.isNull(lvbuffIdx)) c.getBlob(lvbuffIdx) else null
+                if (isMemberMuted(username, type, lvbuff)) muted += unread else normal += unread
+            }
         }
-        if (sum > 0) return sum
-
-        // Fallback: if SUM returned 0 (or null), count members with unReadCount>0 in this bucket
-        val countCursor = WeDatabaseApi.rawQuery(
-            """
-            SELECT COUNT(1)
-            FROM ${ConversationTable.NAME} r
-            LEFT JOIN ${ContactTable.NAME} c ON c.${ContactTable.USERNAME} = r.${ConversationTable.USERNAME}
-            WHERE r.${ConversationTable.USERNAME} IN ($placeholders) AND r.${ConversationTable.UNREAD_COUNT}>0 AND $muteTest
-            """.trimIndent(),
-            arrayOf(*members.toTypedArray())
-        )
-        return countCursor.use { cursor ->
-            if (cursor.moveToFirst()) cursor.getInt(0) else 0
-        }
+        return normal to muted
     }
+
+    /**
+     * Mirrors WeChat's per-conversation mute decision (w3.b / c01.e2): a chatroom is muted when
+     * its ChatRoomNotify flag (z3.T) is 0; any other contact is muted when rcontact.type has bit
+     * 512 set. The group flag is parsed from the lvbuff blob because it has no column.
+     */
+    private fun isMemberMuted(username: String, type: Int, lvbuff: ByteArray?): Boolean {
+        if (username.isGroupChatWxId) {
+            // T == 0 means muted; absent/unparseable blob defaults to notify-on (not muted).
+            return parseChatRoomNotify(lvbuff) == 0
+        }
+        return type and CONTACT_TYPE_MUTE_BIT != 0
+    }
+
+    /**
+     * Extracts the ChatRoomNotify flag (field z3.T) from an rcontact lvbuff blob. The blob is
+     * WeChat's LV format (com.tencent.mm.sdk.platformtools.e2): a 0x7B header byte, then a fixed
+     * sequence of length-value fields — int, int, str, long, int, str, str, int, int, str, str,
+     * int(T)... Strings are big-endian short-length prefixed. T is the 12th field. Returns the
+     * flag, or null when the blob is missing / malformed (caller treats null as notify-on).
+     */
+    private fun parseChatRoomNotify(lvbuff: ByteArray?): Int? {
+        if (lvbuff == null || lvbuff.size < 2 || lvbuff[0].toInt() != 0x7B) return null
+        return runCatching {
+            val buf = ByteBuffer.wrap(lvbuff).order(java.nio.ByteOrder.BIG_ENDIAN)
+            buf.position(1) // skip 0x7B header
+            fun skipStr() {
+                val len = buf.short.toInt() and 0xFFFF
+                buf.position(buf.position() + len)
+            }
+            buf.int          // H
+            buf.int          // I
+            skipStr()        // J
+            buf.long         // K
+            buf.int          // L
+            skipStr()        // M
+            skipStr()        // N
+            buf.int          // P
+            buf.int          // Q
+            skipStr()        // R
+            skipStr()        // S
+            buf.int          // T (ChatRoomNotify)
+        }.getOrNull()
+    }
+
 
 
     private fun isFolderSchemaReady(): Boolean {
@@ -1436,6 +1560,7 @@ object AggregateChats : ClickableFeature(),
                             whereClause = whereClause.trim()
                         )
                         onSave(next)
+                        showToast("已保存")
                     }
                 ) { Text("确定") }
             }
@@ -1659,6 +1784,8 @@ object AggregateChats : ClickableFeature(),
         const val NICKNAME = "nickname"
         const val TYPE = "type"
         const val VERIFY_FLAG = "verifyFlag"
+        // LV-encoded contact blob; holds the group ChatRoomNotify flag that has no column.
+        const val LVBUFF = "lvbuff"
 
         val REQUIRED_COLUMNS = setOf(
             USERNAME,

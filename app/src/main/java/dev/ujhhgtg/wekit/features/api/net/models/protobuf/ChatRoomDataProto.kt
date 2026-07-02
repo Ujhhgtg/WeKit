@@ -16,4 +16,6 @@ data class ChatRoomDataProto(
 data class ChatRoomMemberProto(
     @ProtoNumber(1) val wxId: String = "",
     @ProtoNumber(2) val displayName: String = "",
+    /** wxId of the member who invited this member into the group. Empty for the group owner. */
+    @ProtoNumber(4) val inviterWxId: String = "",
 )
