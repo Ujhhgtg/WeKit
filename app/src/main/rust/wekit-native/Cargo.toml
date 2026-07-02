@@ -19,7 +19,7 @@ symphonia = { version = "0.6", features = [
 mp3lame-encoder = "0.2"
 anyhow = "1"
 sha2 = { version = "0.10", default-features = false }
-libsql = { version = "0.6.0", default-features = false, features = ["core"] }
+libsql = { version = "0.9.30", default-features = false, features = ["core"] }
 tokio = { version = "1", default-features = false, features = ["rt", "sync"] }
 
 [build-dependencies]
