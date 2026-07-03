@@ -75,7 +75,6 @@ import com.kyant.backdrop.shadow.Shadow
 import dev.ujhhgtg.wekit.ui.content.animation.DampedDragAnimation
 import dev.ujhhgtg.wekit.ui.content.animation.InteractiveHighlight
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.sign
@@ -218,8 +217,12 @@ fun FloatingBottomBar(
             onDragStarted = {},
             onDragStopped = {
                 val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
-                currentIndex = targetIndex
+                val previousIndex = currentIndex
                 animateToValue(targetIndex.toFloat())
+                if (targetIndex != previousIndex) {
+                    currentIndex = targetIndex
+                    onSelected(targetIndex)
+                }
                 animationScope.launch {
                     offsetAnimation.animateTo(0f, spring(1f, 300f, 0.5f))
                 }
@@ -239,12 +242,9 @@ fun FloatingBottomBar(
     }
 
     LaunchedEffect(selectedIndex) {
-        snapshotFlow { selectedIndex() }.collectLatest { currentIndex = it }
-    }
-    LaunchedEffect(dampedDragAnimation) {
-        snapshotFlow { currentIndex }.drop(1).collectLatest { index ->
+        snapshotFlow { selectedIndex() }.collectLatest { index ->
+            currentIndex = index
             dampedDragAnimation.animateToValue(index.toFloat())
-            onSelected(index)
         }
     }
 
