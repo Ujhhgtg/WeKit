@@ -8,10 +8,10 @@ branches.
 
 Both values are computed at build time in `app/build.gradle.kts`.
 
-| Field | Source | Example |
-|---|---|---|
-| `versionCode` | `git rev-list --count HEAD` — total number of commits in the current branch | `592` |
-| `versionName` | `"git+"` + `git rev-parse --short HEAD` — short commit hash | `git+8920253` |
+| Field         | Source                                                                      | Example       |
+|---------------|-----------------------------------------------------------------------------|---------------|
+| `versionCode` | `git rev-list --count HEAD` — total number of commits in the current branch | `592`         |
+| `versionName` | `"git+"` + `git rev-parse --short HEAD` — short commit hash                 | `git+8920253` |
 
 - `versionCode` monotonically increases with every commit.
 - `versionName` uniquely identifies the exact build commit.
@@ -19,7 +19,7 @@ Both values are computed at build time in `app/build.gradle.kts`.
 
 The APK also embeds these in `BuildConfig`:
 
-- `BuildConfig.GIT_HASH` — short commit hash
+- `BuildConfig.COMMIT_HASH` — short commit hash
 - `BuildConfig.TAG` — always `"WeKit"`
 - `BuildConfig.BUILD_TIMESTAMP` — `System.currentTimeMillis()` at build time
 
@@ -32,10 +32,10 @@ There are **no stable releases**. The project uses a continuous delivery approac
 - `stable-ci-N` tags (e.g., `stable-ci-6`) are occasional manual checkpoints, not regularly
   maintained.
 
-| Artifact | Channel | Update Frequency |
-|---|---|---|
+| Artifact                  | Channel                  | Update Frequency       |
+|---------------------------|--------------------------|------------------------|
 | APK (per-ABI + universal) | GitHub Actions, Telegram | Every push to `master` |
-| `update.json` | GitHub CI Release | Every push to `master` |
+| `update.json`             | GitHub CI Release        | Every push to `master` |
 
 ### update.json
 

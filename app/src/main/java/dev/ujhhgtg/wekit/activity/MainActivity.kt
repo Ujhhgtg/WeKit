@@ -305,10 +305,10 @@ class MainActivity : ComponentActivity() {
                         }
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        InfoItem("构建 Git 哈希", BuildConfig.GIT_HASH)
+                        InfoItem("构建提交哈希", BuildConfig.COMMIT_HASH)
                         Spacer(modifier = Modifier.height(8.dp))
                         InfoItem(
-                            "构建时间",
+                            "构建提交时间",
                             formatEpoch(BuildConfig.BUILD_TIMESTAMP, true)
                         )
                     }

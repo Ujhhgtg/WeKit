@@ -249,6 +249,7 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
                                                 @Suppress("UNCHECKED_CAST")
                                                 (value as Set<String>).forEach { add(it) }
                                             })
+
                                             null -> put(key, JsonNull)
                                         }
                                     }
@@ -301,15 +302,19 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
                                             element.isString -> WePrefs.default.putString(key, element.content)
                                             element.booleanOrNull != null && (element.content == "true" || element.content == "false") ->
                                                 WePrefs.putBool(key, element.boolean)
+
                                             element.longOrNull != null && element.intOrNull == null ->
                                                 WePrefs.putLong(key, element.long)
+
                                             element.intOrNull != null -> WePrefs.putInt(key, element.int)
                                             element.floatOrNull != null -> WePrefs.putFloat(key, element.float)
                                         }
+
                                         is JsonArray -> WePrefs.default.putStringSet(
                                             key,
                                             element.mapTo(HashSet()) { it.jsonPrimitive.content }
                                         )
+
                                         else -> Unit
                                     }
                                 }
@@ -383,6 +388,7 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
                                 )
                             }
                         }
+
                         is UpdateResult.Error -> {
                             WeLogger.e("AppUpdater", "failed to check for updates", result.cause)
                             showComposeDialog(it) {
@@ -405,7 +411,7 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
             icon = MaterialSymbols.Outlined.Label,
         )
         addPreference(
-            "构建时间",
+            "构建提交时间",
             formatEpoch(BuildConfig.BUILD_TIMESTAMP, true),
             icon = MaterialSymbols.Outlined.Build_circle
         )
@@ -572,6 +578,7 @@ private fun showSearchDialog(context: Context) {
                                         }
                                     )
                                 }
+
                                 is SwitchFeature -> {
                                     HookSwitchRow(
                                         title = item.name,

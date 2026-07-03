@@ -178,7 +178,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     fun markAllAsRead() {
-        val cursor = WeDatabaseApi.rawQuery("SELECT username FROM rconversation WHERE unReadCount>0 OR unReadMuteCount>0")
+        val cursor = WeDatabaseApi.rawQuery("SELECT username FROM rconversation WHERE unReadCount>0 OR unReadMuteCount>0 OR atCount>0")
         while (cursor.moveToNext()) {
             val talker = cursor.getString(0)
             try {
