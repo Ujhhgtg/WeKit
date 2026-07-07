@@ -7,6 +7,9 @@ import dev.ujhhgtg.wekit.agent.data.entity.MessageRole
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.ToolMode
+import dev.ujhhgtg.wekit.agent.trigger.ScheduleKind
+import dev.ujhhgtg.wekit.agent.trigger.TriggerScope
+import dev.ujhhgtg.wekit.agent.trigger.TriggerType
 import java.time.Instant
 
 /**
@@ -35,4 +38,13 @@ class WeAgentConverters {
 
     @TypeConverter fun modelProviderTypeToString(v: ModelProviderType?): String? = v?.name
     @TypeConverter fun stringToModelProviderType(v: String?): ModelProviderType? = v?.let(ModelProviderType::valueOf)
+
+    @TypeConverter fun triggerTypeToString(v: TriggerType?): String? = v?.name
+    @TypeConverter fun stringToTriggerType(v: String?): TriggerType? = v?.let(TriggerType::valueOf)
+
+    @TypeConverter fun triggerScopeToString(v: TriggerScope?): String? = v?.name
+    @TypeConverter fun stringToTriggerScope(v: String?): TriggerScope? = v?.let(TriggerScope::valueOf)
+
+    @TypeConverter fun scheduleKindToString(v: ScheduleKind?): String? = v?.name
+    @TypeConverter fun stringToScheduleKind(v: String?): ScheduleKind? = v?.let(ScheduleKind::valueOf)
 }

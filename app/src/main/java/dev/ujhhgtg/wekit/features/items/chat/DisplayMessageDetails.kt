@@ -37,7 +37,9 @@ object DisplayMessageDetails : SwitchFeature(),
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777005, "查看详情",
-                ChatInfoIcon, MaterialSymbols.Outlined.Info, { _ -> true })
+                ChatInfoIcon, MaterialSymbols.Outlined.Info, { _ -> true },
+                // per-message detail dialog; has no meaning for a batch selection
+                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Unsupported)
             { view, _, msgInfo ->
                 val displayItems = mutableListOf<Pair<String, String>>()
                 displayItems += "类型" to msgInfo.typeCode.toString()

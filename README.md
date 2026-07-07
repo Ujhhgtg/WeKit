@@ -16,7 +16,7 @@
 
 ## 联系
 
-[Telegram 超级群组](https://t.me/+4XsfR-SWAtk1NGRl)
+[Telegram 超级群组](https://t.me/+7j5dJ6g16B43OWVl)
 
 [爱发电](https://ifdian.net/a/ujhhgtg)
 

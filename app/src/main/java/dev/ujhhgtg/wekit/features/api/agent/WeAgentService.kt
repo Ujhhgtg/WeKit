@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus
 import dev.ujhhgtg.wekit.agent.data.entity.MessageRole
 import dev.ujhhgtg.wekit.agent.engine.AgentEvent
+import dev.ujhhgtg.wekit.agent.engine.AgentSessionContext
 import dev.ujhhgtg.wekit.agent.engine.AgentSessionEngine
 import dev.ujhhgtg.wekit.agent.engine.ApprovalGateway
 import dev.ujhhgtg.wekit.agent.engine.ManualApprovalHandler
@@ -36,6 +37,7 @@ import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiSessions
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -53,7 +55,7 @@ import kotlinx.coroutines.withContext
  * [ballState]/[pendingApproval] and calls [sendMessage]/[newSession]/[switchSession]/… — all heavy
  * logic lives here.
  */
-object WeAgentService {
+object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHost {
 
     private const val TAG = "WeAgentService"
 
@@ -61,6 +63,9 @@ object WeAgentService {
 
     // Permission resolution + persistence are unified in the repository.
     private val registry = ToolRegistry(permissions = WeAgentRepository, providers = BuiltinToolProvider.all)
+
+    /** Trigger runtime (schedule + message/SQL event triggers). Started in [init]. */
+    val triggerManager = dev.ujhhgtg.wekit.agent.trigger.TriggerManager(scope, this)
 
     // --- UI state (Compose snapshot) ---
 
@@ -76,8 +81,21 @@ object WeAgentService {
     /** Messages of the current session, oldest first. Streaming deltas mutate the last row. */
     val uiMessages: SnapshotStateList<ChatRow> = mutableStateListOf()
 
-    /** Non-null while a manual-approval card is awaiting the user's decision. */
+    /**
+     * The manual-approval card shown for the CURRENT (foreground) session only. Mirrors
+     * [pendingApprovals] for `currentSessionId`; kept as a separate state so the UI can observe one
+     * value. A background session's pending approval sits in [pendingApprovals] and only surfaces here
+     * once the user switches to that session.
+     */
     val pendingApproval = mutableStateOf<PendingApprovalUi?>(null)
+
+    /**
+     * Per-session pending manual approvals (§ per-session approval). Keyed by session id. A background
+     * session that hits a MANUAL_APPROVAL tool parks its request here and waits indefinitely; its card
+     * is only rendered while that session is foreground. Accessed from both the engine coroutine (IO)
+     * and the UI sync (Main), hence concurrent.
+     */
+    private val pendingApprovals = java.util.concurrent.ConcurrentHashMap<String, PendingApprovalUi>()
 
     /** Current session's bound model / system-prompt ids, for the input-bar + menu. */
     val currentModelId = mutableStateOf<String?>(null)
@@ -122,7 +140,7 @@ object WeAgentService {
     data class PresetOption(val id: String, val title: String, val content: String)
     data class WorkspaceOption(val id: String, val name: String)
 
-    data class SessionRow(val id: String, val title: String)
+    data class SessionRow(val id: String, val title: String, val favorite: Boolean = false)
     data class ChatRow(
         val id: String,
         val role: Role,
@@ -140,7 +158,15 @@ object WeAgentService {
     )
 
     @Volatile private var initialized = false
-    @Volatile private var runningTurn: Job? = null
+
+    /**
+     * Running turns keyed by sessionId. Multiple sessions can run concurrently (a foreground chat and
+     * one or more background trigger-fired turns). The queued-message / steer mechanics remain scoped
+     * to the currently-displayed session.
+     */
+    private val runningTurns = java.util.concurrent.ConcurrentHashMap<String, Job>()
+
+    private fun isRunning(sessionId: String): Boolean = runningTurns[sessionId]?.isActive == true
 
     // -----------------------------------------------------------------------------------------
     // Lifecycle
@@ -169,7 +195,7 @@ object WeAgentService {
                     WeAgentRepository.observeSessions().collectLatest { rows ->
                         withContext(Dispatchers.Main) {
                             uiSessions.clear()
-                            uiSessions.addAll(rows.map { SessionRow(it.id, it.title) })
+                            uiSessions.addAll(rows.map { SessionRow(it.id, it.title, it.favorite) })
                         }
                     }
                 }
@@ -221,6 +247,10 @@ object WeAgentService {
                     memoryEnabled.value = WeAgentSettings.memoryEnabled()
                     sendWhileRunningMode.value = WeAgentSettings.sendWhileRunningMode()
                 }
+
+                // Start the trigger runtime (schedule + message/SQL event triggers).
+                triggerManager.start()
+
                 WeLogger.i(TAG, "WeAgentService initialized")
             }.onFailure { WeLogger.e(TAG, "init failed", it) }
         }
@@ -239,20 +269,39 @@ object WeAgentService {
      * immediately without racing session selection.
      */
     private suspend fun createAndSwitchSession(): String? {
-        val modelId = WeAgentSettings.defaultModelId() ?: firstAvailableModelId()
-        if (modelId == null) {
+        // Guard: refuse to create when no model exists at all, so the user gets a clear message.
+        if ((WeAgentSettings.defaultModelId() ?: firstAvailableModelId()) == null) {
             WeLogger.w(TAG, "cannot create session: no model configured")
             return null
         }
+        // Leave model / system prompt / workspace all unbound (null = "默认"): each resolves to the
+        // settings default at turn time, so changing a default takes effect on existing sessions too.
         val id = WeAgentRepository.createSession(
-            modelId = modelId,
-            systemPromptId = WeAgentSettings.defaultSystemPromptId(),
-            // Leave the workspace unbound ("默认"): it resolves to the settings default
-            // workspace at turn time, so changing the default takes effect on old sessions too.
+            modelId = null,
+            systemPromptId = null,
             workspaceId = null,
         )
         switchSessionInternal(id)
         return id
+    }
+
+    /**
+     * Creates a fresh session using the new-session defaults but does NOT switch the foreground to it
+     * — used by GLOBAL triggers, which always run in a brand-new background session. Returns the id,
+     * or null if no model is configured. [TriggerManager.TriggerHost] impl.
+     */
+    override suspend fun createBackgroundSession(): String? {
+        // Guard: refuse when no model exists at all (the fire is skipped upstream).
+        if ((WeAgentSettings.defaultModelId() ?: firstAvailableModelId()) == null) {
+            WeLogger.w(TAG, "cannot create background session: no model configured")
+            return null
+        }
+        // Unbound model / system prompt / workspace (null = "默认"), resolved at turn time.
+        return WeAgentRepository.createSession(
+            modelId = null,
+            systemPromptId = null,
+            workspaceId = null,
+        )
     }
 
     fun switchSession(id: String) = scope.launch { switchSessionInternal(id) }
@@ -266,11 +315,45 @@ object WeAgentService {
             currentWorkspaceId.value = session?.workspaceId
             // Usage is per-request and not persisted; clear it when switching away.
             currentUsage.value = null
+            syncForeground(id)
         }
         reloadMessages(id)
     }
 
+    /**
+     * Reconciles the foreground-facing state ([pendingApproval] card + [ballState]) with the newly
+     * shown session [id]: surfaces that session's parked approval (if any), and reflects whether the
+     * session is still running / awaiting approval / idle. Must run on Main.
+     */
+    private fun syncForeground(id: String) {
+        val parked = pendingApprovals[id]
+        pendingApproval.value = parked
+        ballState.value = when {
+            parked != null -> BallState.PENDING_APPROVAL
+            runningTurns[id]?.isActive == true -> BallState.RUNNING
+            else -> BallState.IDLE
+        }
+    }
+
+    /** Toggles a session's favorite (starred) flag. Favorited sessions pin to the top and can't be deleted. */
+    fun toggleFavorite(id: String) = scope.launch {
+        val session = WeAgentRepository.getSession(id) ?: return@launch
+        WeAgentRepository.setFavorite(id, !session.favorite)
+    }
+
     fun deleteSession(id: String) = scope.launch {
+        // Favorited sessions are delete-protected (guards trigger-owning sessions). The UI hides the
+        // delete affordance for them, but guard here too so no caller can bypass it.
+        if (WeAgentRepository.getSession(id)?.favorite == true) {
+            WeLogger.w(TAG, "refusing to delete favorited session $id")
+            return@launch
+        }
+        // Cancel any in-flight turn for this session (foreground or background trigger-fired).
+        runningTurns.remove(id)?.cancel()
+        // Reject any parked approval belonging to the deleted session (foreground or background).
+        pendingApprovals.remove(id)?.let { p ->
+            if (!p.deferred.isCompleted) p.deferred.complete(ManualApprovalResult.Rejected("会话已删除"))
+        }
         WeAgentRepository.deleteSession(id)
         if (currentSessionId.value == id) {
             currentSessionId.value = null
@@ -280,13 +363,8 @@ object WeAgentService {
                 currentModelId.value = null
                 currentSystemPromptId.value = null
                 currentWorkspaceId.value = null
+                pendingApproval.value = null
             }
-            // Clear any stale approval from the deleted session.
-            val p = pendingApproval.value
-            if (p != null && !p.deferred.isCompleted) {
-                p.deferred.complete(ManualApprovalResult.Rejected("会话已删除"))
-            }
-            pendingApproval.value = null
             // Clear the queued message — it belongs to the deleted session.
             queuedMessage.value = null
         }
@@ -296,7 +374,8 @@ object WeAgentService {
         WeAgentRepository.renameSession(id, title)
     }
 
-    fun setSessionModel(modelId: String) = scope.launch {
+    /** Binds (or clears, modelId=null → "默认") the current session's model. */
+    fun setSessionModel(modelId: String?) = scope.launch {
         currentSessionId.value?.let { WeAgentRepository.updateSessionModel(it, modelId) }
         withContext(Dispatchers.Main) { currentModelId.value = modelId }
     }
@@ -320,18 +399,33 @@ object WeAgentService {
     }
 
     private suspend fun reloadMessages(sessionId: String) {
-        val rows = WeAgentRepository.getMessages(sessionId).mapNotNull { m ->
+        val rows = mutableListOf<ChatRow>()
+        for (m in WeAgentRepository.getMessages(sessionId)) {
             when (m.role) {
-                MessageRole.USER ->
-                    ChatRow(m.id, ChatRow.Role.USER, m.content)
+                MessageRole.USER -> rows += ChatRow(m.id, ChatRow.Role.USER, m.content)
                 MessageRole.ASSISTANT ->
-                    ChatRow(m.id, ChatRow.Role.ASSISTANT, m.content)
+                    // Restore the persisted reasoning ("思考过程") so it survives a reload, matching
+                    // the live view built from ReasoningDelta events.
+                    rows += ChatRow(m.id, ChatRow.Role.ASSISTANT, m.content, reasoning = m.reasoning)
                 MessageRole.TOOL -> {
-                    val idx = m.content.indexOf(' ')
-                    val payload = if (idx >= 0) m.content.substring(idx + 1) else m.content
-                    ChatRow(m.id, ChatRow.Role.TOOL, payload)
+                    // The TOOL message id is "tool_<callId>" (assigned at write time — reliable, unlike
+                    // parsing the content). Look the tool_calls row up by that callId to recover the
+                    // tool NAME + approval status, so the card shows "get-contacts · AUTO_ALLOWED"
+                    // after a restart instead of degrading to a bare "tool".
+                    val callId = m.id.removePrefix("tool_")
+                    val tc = WeAgentRepository.getToolCall(callId)
+                    // Prefer the persisted result from tool_calls; fall back to the message content
+                    // (format "<callId> <resultText>") for rows written before that was stored.
+                    val payload = tc?.resultJson ?: m.content.substringAfter(' ', m.content)
+                    rows += ChatRow(
+                        id = m.id,
+                        role = ChatRow.Role.TOOL,
+                        text = payload,
+                        toolName = tc?.toolName,
+                        toolStatus = tc?.approvalStatus,
+                    )
                 }
-                MessageRole.SYSTEM -> null
+                MessageRole.SYSTEM -> Unit
             }
         }
         withContext(Dispatchers.Main) {
@@ -344,18 +438,21 @@ object WeAgentService {
     // Sending a message / running a turn
     // -----------------------------------------------------------------------------------------
 
-    /** Resolves the user just approved/rejected a pending tool call. */
+    /** Resolves the manual-approval card currently shown (which always belongs to the foreground session). */
     fun resolveApproval(result: ManualApprovalResult) {
-        val p = pendingApproval.value ?: return
+        val sid = currentSessionId.value ?: return
+        val p = pendingApprovals.remove(sid) ?: pendingApproval.value ?: return
         p.deferred.complete(result)
         pendingApproval.value = null
-        if (ballState.value == BallState.PENDING_APPROVAL) ballState.value = BallState.RUNNING
+        if (ballState.value == BallState.PENDING_APPROVAL) {
+            ballState.value = if (runningTurns[sid]?.isActive == true) BallState.RUNNING else BallState.IDLE
+        }
     }
 
-    /** Cancels the in-flight turn (if any) and clears any queued message. */
+    /** Cancels the current session's in-flight turn (if any) and clears any queued message. */
     fun cancelTurn() {
-        runningTurn?.cancel()
-        runningTurn = null
+        val sid = currentSessionId.value
+        if (sid != null) runningTurns.remove(sid)?.cancel()
         ballState.value = BallState.IDLE
         queuedMessage.value = null
     }
@@ -368,8 +465,10 @@ object WeAgentService {
     fun sendMessage(userText: String) {
         if (userText.isBlank()) return
 
-        // If a turn is already running and there's no queued message yet, queue according to mode.
-        if (runningTurn?.isActive == true && queuedMessage.value == null) {
+        // If the CURRENT session's turn is already running and there's no queued message yet, queue
+        // according to mode. (Other sessions may run concurrently — the queue is a foreground concept.)
+        val activeSid = currentSessionId.value
+        if (activeSid != null && runningTurns[activeSid]?.isActive == true && queuedMessage.value == null) {
             queuedMessage.value = userText
             return
         }
@@ -389,16 +488,10 @@ object WeAgentService {
     }
 
     private suspend fun runTurn(sessionId: String, userText: String) {
-        val config = resolveTurnConfig(sessionId)
-        if (config == null) {
-            appendSystemNote("未配置可用的模型，请先在设置中添加模型提供方与模型。")
-            return
-        }
+        // Interactive send. The send path already queues when this session is busy, but guard anyway.
+        if (runningTurns[sessionId]?.isActive == true) return
 
-        val session = WeAgentRepository.getSession(sessionId) ?: return
-        val priorHistory = WeAgentRepository.loadHistory(sessionId)
-
-        // Optimistically render the user message.
+        // Optimistically render the user message (this session is the foreground one on a send).
         appendUiRow(ChatRow(id = "u_${System.nanoTime()}", role = ChatRow.Role.USER, text = userText))
 
         // Wire the steer-hook so that a queued message in QUEUE_AS_STEER mode is injected before
@@ -416,21 +509,65 @@ object WeAgentService {
             msg
         }) else null
 
+        launchTurn(sessionId, userText, onFetchSteer, interactive = true)
+    }
+
+    /**
+     * Runs a turn fired by a trigger (§ triggers). [injectedText] is the serialized event timeline +
+     * the trigger's prompt template. Unlike [runTurn] it is NOT tied to the foreground: UI state is
+     * only mutated when [sessionId] happens to be the session the user is currently viewing (handled
+     * inside [handleEvent] / the append helpers). Skipped if that session already has a running turn,
+     * so a burst of trigger fires can't stack turns on one session.
+     */
+    override suspend fun runTriggeredTurn(sessionId: String, injectedText: String) {
+        if (runningTurns[sessionId]?.isActive == true) {
+            WeLogger.i(TAG, "triggered turn skipped: session $sessionId already running")
+            return
+        }
+        launchTurn(sessionId, injectedText, onFetchSteer = null, interactive = false)
+    }
+
+    /**
+     * Shared turn launcher for both interactive sends and triggered runs. Builds the engine + VFS for
+     * [sessionId], installs the per-turn coroutine contexts (VFS / image sink / session id), collects
+     * the engine's event stream, and tracks the job in [runningTurns] keyed by session so multiple
+     * sessions can run concurrently. [interactive] gates title generation + queued-message dequeue
+     * (only meaningful for foreground sends).
+     */
+    private suspend fun launchTurn(
+        sessionId: String,
+        userText: String,
+        onFetchSteer: (() -> String?)?,
+        interactive: Boolean,
+    ) {
+        val config = resolveTurnConfig(sessionId)
+        if (config == null) {
+            if (interactive || sessionId == currentSessionId.value) {
+                appendSystemNote("未配置可用的模型，请先在设置中添加模型提供方与模型。")
+            }
+            return
+        }
+        val session = WeAgentRepository.getSession(sessionId) ?: return
+        val priorHistory = WeAgentRepository.loadHistory(sessionId)
         val engine = buildEngine(sessionId)
-        // A null session workspace means "默认": resolve to the settings default workspace so
-        // changing the default applies to existing sessions too.
-        val effectiveWorkspaceId = session.workspaceId ?: WeAgentSettings.defaultWorkspaceId()
+        // workspaceId semantics: null = "默认" (resolve to the settings default so changing it applies
+        // to existing sessions too), "" = "无" (explicitly no workspace), any other value = that workspace.
+        val effectiveWorkspaceId = when (val ws = session.workspaceId) {
+            null -> WeAgentSettings.defaultWorkspaceId()
+            "" -> null
+            else -> ws
+        }
         val vfs = WorkspaceStore.buildVfs(
             workspaceName = effectiveWorkspaceId?.let { WeAgentRepository.getWorkspaceName(it) },
             memoryEnabled = WeAgentSettings.memoryEnabled(),
         )
 
-        ballState.value = BallState.RUNNING
-        runningTurn = scope.launch {
+        if (sessionId == currentSessionId.value) ballState.value = BallState.RUNNING
+        val job = scope.launch {
             try {
-                // Install the VFS context so fs @AgentTools resolve the right roots this turn.
-                // Install UiImageSink so ui-screenshot can stage images for injection after tool calls.
-                withContext(VfsContext(vfs) + UiImageSink()) {
+                // Install VFS (fs tools), UiImageSink (ui-screenshot), and AgentSessionContext (so the
+                // trigger tools know which session "this session" refers to for SESSION-scoped triggers).
+                withContext(VfsContext(vfs) + UiImageSink() + AgentSessionContext(sessionId)) {
                     engine.runTurn(
                         TurnConfig(
                             client = config.client,
@@ -446,20 +583,32 @@ object WeAgentService {
                             onFetchSteerMessage = onFetchSteer,
                         ), priorHistory, userText
                     )
-                        .collect { ev -> handleEvent(ev) }
+                        .collect { ev -> handleEvent(sessionId, ev) }
                 }
-                maybeGenerateTitle(sessionId, userText)
-                // QUEUE_AFTER_TURN: auto-send a queued message after the turn completes.
-                maybeDequeueAfterTurn(sessionId)
+                if (interactive) {
+                    maybeGenerateTitle(sessionId, userText)
+                    // QUEUE_AFTER_TURN: auto-send a queued message after the turn completes.
+                    maybeDequeueAfterTurn(sessionId)
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                WeLogger.e(TAG, "turn crashed", e)
-                ballState.value = BallState.ERROR
+                WeLogger.e(TAG, "turn crashed (session=$sessionId)", e)
+                if (sessionId == currentSessionId.value) ballState.value = BallState.ERROR
             } finally {
-                if (ballState.value == BallState.RUNNING) ballState.value = BallState.IDLE
-                runningTurn = null
+                runningTurns.remove(sessionId)
+                refreshBallStateForForeground()
             }
+        }
+        runningTurns[sessionId] = job
+    }
+
+    /** Re-derives the ball state after a turn ends: RUNNING if the foreground session is still busy. */
+    private fun refreshBallStateForForeground() {
+        val fg = currentSessionId.value
+        if (ballState.value == BallState.RUNNING || ballState.value == BallState.PENDING_APPROVAL) {
+            ballState.value = if (fg != null && runningTurns[fg]?.isActive == true) BallState.RUNNING
+            else BallState.IDLE
         }
     }
 
@@ -471,24 +620,33 @@ object WeAgentService {
         runTurn(sessionId, msg)
     }
 
-    private suspend fun handleEvent(ev: AgentEvent) = withContext(Dispatchers.Main) {
+    /**
+     * Applies an engine event to UI state. Chat-content mutations (bubbles, tool rows, usage) only
+     * apply when [sessionId] is the session currently shown in the panel — background triggered turns
+     * on other sessions still persist to Room via the HistorySink, but don't disturb the foreground
+     * view. Ball state reflects only the foreground session.
+     */
+    private suspend fun handleEvent(sessionId: String, ev: AgentEvent) = withContext(Dispatchers.Main) {
+        val foreground = sessionId == currentSessionId.value
         when (ev) {
             is AgentEvent.RequestStarted -> {
                 // Start a fresh assistant bubble for this round.
-                appendUiRow(ChatRow(id = "a_${System.nanoTime()}", role = ChatRow.Role.ASSISTANT, text = ""))
+                if (foreground) appendUiRow(ChatRow(id = "a_${System.nanoTime()}", role = ChatRow.Role.ASSISTANT, text = ""))
             }
-            is AgentEvent.TextDelta -> appendToLastAssistant(text = ev.text)
-            is AgentEvent.ReasoningDelta -> appendToLastAssistant(reasoning = ev.text)
+            is AgentEvent.TextDelta -> if (foreground) appendToLastAssistant(text = ev.text)
+            is AgentEvent.ReasoningDelta -> if (foreground) appendToLastAssistant(reasoning = ev.text)
             is AgentEvent.ToolCallStarted ->
-                appendUiRow(ChatRow(id = "t_${ev.callId}", role = ChatRow.Role.TOOL, text = ev.argumentsJson, toolName = ev.toolName))
-            is AgentEvent.ToolAwaitingApproval -> ballState.value = BallState.PENDING_APPROVAL
-            is AgentEvent.ToolCallFinished -> updateToolRow(ev.callId, ev.status, ev.resultText)
-            is AgentEvent.UsageUpdated -> currentUsage.value = ev.usage
-            is AgentEvent.TurnCompleted -> ballState.value = BallState.IDLE
-            is AgentEvent.MaxRequestsReached -> appendSystemNote("已达到最大调用次数（${ev.cap}）。")
+                if (foreground) appendUiRow(ChatRow(id = "t_${ev.callId}", role = ChatRow.Role.TOOL, text = ev.argumentsJson, toolName = ev.toolName))
+            is AgentEvent.ToolAwaitingApproval -> if (foreground) ballState.value = BallState.PENDING_APPROVAL
+            is AgentEvent.ToolCallFinished -> if (foreground) updateToolRow(ev.callId, ev.status, ev.resultText)
+            is AgentEvent.UsageUpdated -> if (foreground) currentUsage.value = ev.usage
+            is AgentEvent.TurnCompleted -> if (foreground) refreshBallStateForForeground()
+            is AgentEvent.MaxRequestsReached -> if (foreground) appendSystemNote("已达到最大调用次数（${ev.cap}）。")
             is AgentEvent.TurnFailed -> {
-                appendSystemNote("出错：${ev.error.message ?: ev.error.javaClass.simpleName}")
-                ballState.value = BallState.ERROR
+                if (foreground) {
+                    appendSystemNote("出错：${ev.error.message ?: ev.error.javaClass.simpleName}")
+                    ballState.value = BallState.ERROR
+                }
             }
         }
     }
@@ -513,22 +671,51 @@ object WeAgentService {
         return AgentSessionEngine(registry, approval, composer, sink)
     }
 
-    /** Suspends the loop and surfaces a card to the overlay; resolved by [resolveApproval]. */
+    /**
+     * Parks a manual-approval request for the tool's session and suspends until it's resolved. The
+     * request is keyed by the session id (read from [AgentSessionContext] installed around the turn),
+     * so a background session waits indefinitely without blocking or disturbing the foreground —
+     * its card only appears once the user switches to that session ([syncForeground]). If for some
+     * reason the session id is missing, we fall back to the current session so the card still shows.
+     */
     private val manualApprovalHandler = ManualApprovalHandler { pending ->
+        val sessionId = currentCoroutineContext()[AgentSessionContext]?.sessionId
+            ?: currentSessionId.value
+            ?: return@ManualApprovalHandler ManualApprovalResult.Rejected("无法确定审批所属会话")
         val deferred = CompletableDeferred<ManualApprovalResult>()
+        val ui = PendingApprovalUi(pending, deferred)
+        pendingApprovals[sessionId] = ui
         withContext(Dispatchers.Main) {
-            pendingApproval.value = PendingApprovalUi(pending, deferred)
-            ballState.value = BallState.PENDING_APPROVAL
+            // Only surface the card + flip the ball if this session is the one on screen.
+            if (sessionId == currentSessionId.value) {
+                pendingApproval.value = ui
+                ballState.value = BallState.PENDING_APPROVAL
+            }
         }
-        deferred.await()
+        try {
+            deferred.await()
+        } finally {
+            // Whether resolved by the user, session switch cleanup, or cancellation — drop it.
+            pendingApprovals.remove(sessionId, ui)
+        }
     }
 
     private suspend fun resolveTurnConfig(sessionId: String): TurnConfig? {
         val session = WeAgentRepository.getSession(sessionId) ?: return null
-        val model = WeAgentRepository.getModel(session.modelId) ?: return null
+        // null model / system prompt mean "默认": resolve to the live settings default at turn time
+        // (same semantics as the workspace), so changing a default applies to existing sessions too.
+        val effectiveModelId = session.modelId ?: WeAgentSettings.defaultModelId() ?: firstAvailableModelId()
+        val model = effectiveModelId?.let { WeAgentRepository.getModel(it) } ?: return null
         val provider = WeAgentRepository.getDecryptedModelProvider(model.providerId) ?: return null
         val client = runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
-        val systemPromptContent = WeAgentRepository.getSystemPromptContent(session.systemPromptId)
+        // systemPromptId semantics: null = "默认" (follow settings default), "" = "无" (explicitly none),
+        // any other value = that specific prompt.
+        val effectiveSystemPromptId = when (val sp = session.systemPromptId) {
+            null -> WeAgentSettings.defaultSystemPromptId()
+            "" -> null
+            else -> sp
+        }
+        val systemPromptContent = WeAgentRepository.getSystemPromptContent(effectiveSystemPromptId)
         val perTurn = WeAgentRepository.getEnabledPerTurnPrompts().map { it.content }
         val conditionals = WeAgentRepository.getEnabledConditionalPrompts()
         val req = ModelProviderManager.buildRequest(model, emptyList(), emptyList())
@@ -556,6 +743,8 @@ object WeAgentService {
     private suspend fun resolveSmallModel(sessionId: String): SmallModelRef? {
         val modelId = WeAgentSettings.smallModelId()
             ?: WeAgentRepository.getSession(sessionId)?.modelId
+            ?: WeAgentSettings.defaultModelId()
+            ?: firstAvailableModelId()
             ?: return null
         val model = WeAgentRepository.getModel(modelId) ?: return null
         val provider = WeAgentRepository.getDecryptedModelProvider(model.providerId) ?: return null
@@ -586,7 +775,7 @@ object WeAgentService {
             WeAgentRepository.appendUserMessage(sessionId, content)
         }
         override suspend fun onAssistantMessage(content: String?, reasoning: String?, toolCalls: List<LlmToolCall>) {
-            WeAgentRepository.appendAssistantMessage(sessionId, content, toolCalls)
+            WeAgentRepository.appendAssistantMessage(sessionId, content, reasoning, toolCalls)
         }
         override suspend fun onToolResult(callId: String, toolName: String, providerId: String, argumentsJson: String, resultText: String, status: ApprovalStatus) {
             WeAgentRepository.appendToolResult(sessionId, callId, toolName, providerId, argumentsJson, resultText, status)

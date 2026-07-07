@@ -59,7 +59,7 @@ body:
   - type: input
     attributes:
       label: 模块版本 / Module Version
-      description: 不要使用“最新版”一类描述。给出详细版本号，否则 Issue 将被关闭。在 https://t.me/+4XsfR-SWAtk1NGRl 获取最新 CI 版本。 / Do not use "latest". Specify the exact version number, otherwise your issue will be closed. Get the latest CI version from https://t.me/wekit_ci.
+      description: 不要使用“最新版”一类描述。给出详细版本号，否则 Issue 将被关闭。在 https://t.me/+7j5dJ6g16B43OWVl 获取最新 CI 版本。 / Do not use "latest". Specify the exact version number, otherwise your issue will be closed. Get the latest CI version from https://t.me/wekit_ci.
     validations:
       required: true
   - type: checkboxes

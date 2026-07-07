@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package dev.ujhhgtg.wekit.features.api.ui
 
 import android.app.Activity
@@ -5,6 +7,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.os.Bundle
+import android.os.SystemClock
 import dev.ujhhgtg.reflekt.Reflect
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
@@ -44,6 +47,7 @@ import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
+import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
     name = "朋友圈服务",
@@ -354,6 +358,43 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
+    // 朋友圈图片下载服务 (DownloadManager), 相当于视频的 SnsVideoService。
+    // 点击查看大图时微信正是走这里从 CDN 拉取大图到本地 image2/。
+    val classSnsDownloadManager by dexClass {
+        searchPackages("com.tencent.mm.plugin.sns.model")
+        matcher {
+            usingEqStrings("MicroMsg.DownloadManager", "addBatchDownloadSns do not need download.")
+        }
+    }
+
+    // SnsCore.getSnsDownManager(): 取 DownloadManager 单例, 与 getSnsVideoService 同构。
+    val methodGetSnsDownManager by dexMethod {
+        matcher {
+            declaredClass(classSnsCore.clazz)
+            modifiers = Modifier.STATIC
+            paramCount(0)
+            usingStrings("getSnsDownManager", "com.tencent.mm.plugin.sns.model.SnsCore")
+        }
+    }
+
+    // DownloadManager.addDownLoadSns(mediaObj, downType, decodeElement, sourceScene) 的 4 参便捷重载。
+    val methodAddDownLoadSns by dexMethod {
+        searchPackages("com.tencent.mm.plugin.sns.model")
+        matcher {
+            declaredClass(classSnsDownloadManager.clazz)
+            paramCount(4)
+            returnType(bool)
+            usingEqStrings("addDownLoadSns", "com.tencent.mm.plugin.sns.model.DownloadManager")
+        }
+    }
+
+    // 图片来源场景枚举 (com.tencent.mm.storage.t6): 朋友圈图片用 "timeline" 实例。
+    val classSnsSourceScene by dexClass {
+        matcher {
+            usingEqStrings("timeline", "album_friend", "album_self", "album_stranger", "comment_detail")
+        }
+    }
+
     private val methodExportVideoToAlbum by dexMethod {
         matcher {
             modifiers = Modifier.STATIC
@@ -434,6 +475,22 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             modifiers(Modifiers.STATIC)
             parameters(String::class)
             returnType = Boolean::class
+        }
+    }
+
+    // "timeline" 场景静态实例 (com.tencent.mm.storage.t6 的静态字段之一)。
+    private val timelineSourceScene: Any by lazy {
+        val sceneClass = classSnsSourceScene.clazz
+        val nameField = sceneClass.reflekt().firstField {
+            type = String::class
+            modifiers { !it.contains(Modifiers.STATIC) }
+        }
+        sceneClass.reflekt().fields {
+            type = sceneClass
+            modifiers(Modifiers.STATIC)
+        }.firstNotNullOf { field ->
+            val instance = field.getStatic() ?: return@firstNotNullOf null
+            if (nameField.self.get(instance) == "timeline") instance else null
         }
     }
 
@@ -535,10 +592,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     fun postTextAndImages(text: String, imagePaths: List<String>, sdkId: String? = null, sdkAppName: String? = null): Boolean {
         return try {
+            WeLogger.i(TAG, "IMG-DBG postTextAndImages: ${imagePaths.joinToString { p -> "$p(size=${runCatching { java.io.File(p).length() }.getOrDefault(-1L)}, isFile=${java.io.File(p).isFile})" }}")
             val helper = ctorUploadPackHelper.constructor.newInstance(1, null)
             methodSetContentDes.method.invoke(helper, text)
             imagePaths.forEach { path ->
-                methodAddImageMediaObjByPath.method.invoke(helper, path, "")
+                val added = methodAddImageMediaObjByPath.method.invoke(helper, path, "")
+                WeLogger.i(TAG, "IMG-DBG addImageMediaObjByPath($path) -> $added")
             }
             if (!sdkId.isNullOrEmpty()) {
                 methodSetSdkId.method.invoke(helper, sdkId)
@@ -547,6 +606,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 methodSetSdkAppName.method.invoke(helper, sdkAppName)
             }
             val localId = methodCommit.method.invoke(helper) as Int
+            WeLogger.i(TAG, "IMG-DBG postTextAndImages commit localId=$localId")
             localId > 0
         } catch (e: Exception) {
             WeLogger.e(TAG, "sendTextAndImages failed", e)
@@ -860,8 +920,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             val mediaId = getNativeMediaId(nativeMedia)?.takeIf { it.isNotBlank() } ?: return@runCatching false
             val localId = snsTableId?.takeIf { it.isNotBlank() } ?: mediaId
             val videoType = 1
-            val mediaKey = mediaId
-            val result = methodDownloadVideo.method.invoke(manager, nativeMedia, videoType, localId, false, true, 31, mediaKey) as? Boolean == true
+            val result = methodDownloadVideo.method.invoke(manager, nativeMedia, videoType, localId, false, true, 31, mediaId) as? Boolean == true
             WeLogger.i(TAG, "trigger Moments video download: sns=$localId, media=$mediaId, type=$videoType, result=$result")
             result
         }.getOrElse {
@@ -875,10 +934,10 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         intervalMs: Long = 500,
         resolve: () -> String?
     ): String? {
-        val start = android.os.SystemClock.elapsedRealtime()
-        while (android.os.SystemClock.elapsedRealtime() - start < timeoutMs) {
+        val start = SystemClock.elapsedRealtime()
+        while (SystemClock.elapsedRealtime() - start < timeoutMs) {
             resolve()?.takeIf { vfsFileExists(it) || java.io.File(it).isFile }?.let { return it }
-            delay(intervalMs)
+            delay(intervalMs.milliseconds)
         }
         return resolve()?.takeIf { vfsFileExists(it) || java.io.File(it).isFile }
     }
@@ -923,7 +982,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             val retriever = MediaMetadataRetriever()
             try {
                 retriever.setDataSource(sourcePath)
-                val bitmap = retriever.getFrameAtTime() ?: return null
+                val bitmap = retriever.frameAtTime ?: return null
                 FileOutputStream(thumbFile).use { output ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 90, output)
                 }
@@ -1192,6 +1251,88 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         openAlbumForMomentPublish(context, text, 1, 3)
     }
 
+    /** 普通文件系统文件大小; 非普通 FS 文件 (可能走 VFS) 返回 -1。 */
+    private fun regularFileSize(path: String): Long {
+        val f = java.io.File(path)
+        return if (f.isFile) f.length() else -1L
+    }
+
+    // VFS 文件大小方法 w6.l(String): 与 w6.m(String)(mtime) 同签名, 用探针区分 —
+    // 大小落在 [1, 1e12) 而 mtime 是 ~1.7e12 的毫秒时间戳。
+    @Volatile private var resolvedVfsSizeMethod: Method? = null
+    @Volatile private var vfsSizeResolveTried = false
+
+    /** 解析并缓存 VFS size 方法, 用一个已知存在的路径 [probePath] 做探针区分 size vs mtime。 */
+    private fun resolveVfsSizeMethod(probePath: String?): Method? {
+        resolvedVfsSizeMethod?.let { return it }
+        if (vfsSizeResolveTried && probePath == null) return null
+
+        val methods = classVfs.clazz.declaredMethods.filter {
+            Modifier.isStatic(it.modifiers) && it.parameterCount == 1 &&
+                it.parameterTypes[0] == String::class.java && it.returnType == Long::class.javaPrimitiveType
+        }.onEach { it.isAccessible = true }
+
+        if (methods.size == 1) {
+            resolvedVfsSizeMethod = methods[0]; vfsSizeResolveTried = true
+            return resolvedVfsSizeMethod
+        }
+        if (probePath == null) return null
+
+        // 探针: size 应为合理正数且远小于毫秒时间戳 (1e12)。取满足条件者。
+        for (m in methods) {
+            val v = runCatching { m.invoke(null, probePath) as? Long }.getOrNull() ?: continue
+            if (v in 1 until 1_000_000_000_000L) {
+                resolvedVfsSizeMethod = m; vfsSizeResolveTried = true
+                WeLogger.i(TAG, "IMG-DBG resolved VFS size method: ${m.name} -> probe=$v")
+                return m
+            }
+        }
+        vfsSizeResolveTried = true
+        WeLogger.w(TAG, "IMG-DBG could not disambiguate VFS size method (candidates=${methods.map { it.name }})")
+        return null
+    }
+
+    /** VFS 文件大小; 无法解析时返回 -1。 */
+    private fun vfsFileSize(path: String, probePath: String? = path): Long {
+        val m = resolveVfsSizeMethod(probePath) ?: return -1L
+        return runCatching { m.invoke(null, path) as? Long ?: -1L }.getOrElse { -1L }
+    }
+
+    /**
+     * 图片文件是否可用于转发: 必须存在且内容非空。
+     * 微信在真正写入大图字节前可能先创建 0 字节 (或未下载的) snsb_ 占位, 仅凭 vfsFileExists 会误判 (转发后空白)。
+     * 与聊天图片的 resolveExistingImageFile (fileSize>0) 判定一致。
+     */
+    private fun imageFileUsable(path: String?): Boolean {
+        if (path == null) return false
+        val fsSize = regularFileSize(path)
+        if (fsSize > 0L) return true
+        if (fsSize == 0L) return false
+        // 非普通 FS 文件: 走 VFS, 要求存在且大小 > 0
+        if (!vfsFileExists(path)) return false
+        val vfsSize = vfsFileSize(path)
+        // 无法解析大小方法时退回存在性 (保持旧行为, 避免误伤)
+        return if (vfsSize < 0L) true else vfsSize > 0L
+    }
+
+    /** 该媒体的大图 (原图) 理论落地路径, 与磁盘是否存在无关。 */
+    private fun resolveBigImagePath(media: TimelineObjectProto.MediaObjProto, nativeMedia: Any): String? {
+        val pg = methodGetAccSnsPath.method.invoke(null) as String
+        val mediaId = media.id ?: return null
+        val dir = methodGetMediaFilePath.method.invoke(null, pg, mediaId) as String
+        val bigName = methodGetSnsBigName.method.invoke(null, nativeMedia) as String
+        return dir + bigName
+    }
+
+    /** 该媒体的缩略图理论落地路径。 */
+    private fun resolveThumbImagePath(media: TimelineObjectProto.MediaObjProto, nativeMedia: Any): String? {
+        val pg = methodGetAccSnsPath.method.invoke(null) as String
+        val mediaId = media.id ?: return null
+        val dir = methodGetMediaFilePath.method.invoke(null, pg, mediaId) as String
+        val thumbName = methodGetSnsThumbName.method.invoke(null, nativeMedia) as String
+        return dir + thumbName
+    }
+
     /**
      * 解析单张图片的本地缓存路径（优先原图, 否则回退缩略图）。
      * [warnOnThumb] 为 true 时回退到缩略图会弹出提示（前台交互场景使用）。
@@ -1202,25 +1343,188 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         warnOnThumb: Boolean = false
     ): String? {
         return try {
-            val pg = methodGetAccSnsPath.method.invoke(null) as String
-            val mediaId = media.id ?: return null
-            val dir = methodGetMediaFilePath.method.invoke(null, pg, mediaId) as String
-
-            val bigName = methodGetSnsBigName.method.invoke(null, nativeMedia) as String
-            val bigPath = dir + bigName
-
-            if (vfsFileExists(bigPath)) {
+            val bigPath = resolveBigImagePath(media, nativeMedia)
+            if (bigPath != null && vfsFileExists(bigPath)) {
                 bigPath
             } else {
                 if (warnOnThumb) showToast("警告: 正在使用缩略图, 建议先查看一次图片以下载原图!")
-                val thumbName = methodGetSnsThumbName.method.invoke(null, nativeMedia) as String
-                val thumbPath = dir + thumbName
-                if (vfsFileExists(thumbPath)) thumbPath else null
+                val thumbPath = resolveThumbImagePath(media, nativeMedia)
+                if (thumbPath != null && vfsFileExists(thumbPath)) thumbPath else null
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "failed to get cached image path", e)
             null
         }
+    }
+
+    /** [DEBUG] 打印一次图片下载相关 dexkit 解析结果, 便于排查空指针/解析失败。 */
+    private fun logImageDownloadResolution() {
+        runCatching {
+            WeLogger.i(TAG, "IMG-DBG resolution: " +
+                "downloadManagerClass=${runCatching { classSnsDownloadManager.clazz.name }.getOrElse { "ERR:$it" }}, " +
+                "getSnsDownManager=${runCatching { methodGetSnsDownManager.method.toString() }.getOrElse { "ERR:$it" }}, " +
+                "addDownLoadSns=${runCatching { methodAddDownLoadSns.method.toString() }.getOrElse { "ERR:$it" }}, " +
+                "sceneClass=${runCatching { classSnsSourceScene.clazz.name }.getOrElse { "ERR:$it" }}, " +
+                "timelineScene=${runCatching { timelineSourceScene.toString() }.getOrElse { "ERR:$it" }}")
+        }
+    }
+
+    /**
+     * 触发微信从 CDN 下载该朋友圈图片的大图 (相当于点击查看大图), 复用微信自己的 DownloadManager。
+     * 与视频的 triggerVideoDownload 同构。
+     */
+    private fun triggerImageDownload(nativeMedia: Any): Boolean {
+        return runCatching {
+            val manager = methodGetSnsDownManager.method.invoke(null)
+            WeLogger.i(TAG, "IMG-DBG trigger start: managerNull=${manager == null}, looper=${android.os.Looper.myLooper()}")
+
+            // 复刻查看大图时的调用: DownloadManager.addDownLoadSns(mediaObj, 2, null, timelineScene)。
+            // downType=2 才会选中原图 url (bd4.g, .../0) 并落地 snsb_; downType=1 选的是缩略图 url。
+            // decodeElement 传 null (查看大图路径 tryGetSnsBm 亦传 null), 仅需文件落地, 无需解码回调。
+            val result = methodAddDownLoadSns.method.invoke(manager, nativeMedia, 2, null, timelineSourceScene) as? Boolean == true
+            WeLogger.i(TAG, "IMG-DBG trigger Moments image download (downType=2): result=$result")
+            result
+        }.getOrElse {
+            WeLogger.e(TAG, "IMG-DBG failed to trigger Moments image download", it)
+            false
+        }
+    }
+
+    /**
+     * 确保单张图片的大图已缓存到微信内部 image2/。若未缓存则触发 CDN 下载并轮询等待。
+     * @return 落地的大图路径; 超时后退回缩略图 (仍缺失则 null)。
+     */
+    /** [DEBUG] 列出目标目录里已落地的文件名, 便于确认下载究竟写到哪个文件名下。 */
+    private fun dumpImageDir(bigPath: String?) {
+        runCatching {
+            if (bigPath == null) return
+            val dir = java.io.File(bigPath).parent ?: return
+            val entries = java.io.File(dir).listFiles()?.joinToString { "${it.name}(${it.length()})" } ?: "<dir missing or not a regular FS dir>"
+            WeLogger.i(TAG, "IMG-DBG dir=$dir contents=[$entries]")
+        }
+    }
+
+    suspend fun ensureImageCached(
+        media: TimelineObjectProto.MediaObjProto,
+        nativeMedia: Any,
+        timeoutMs: Long = 60_000,
+        intervalMs: Long = 500
+    ): String? {
+        val bigPath = resolveBigImagePath(media, nativeMedia)
+        val thumbPathInit = runCatching { resolveThumbImagePath(media, nativeMedia) }.getOrNull()
+        WeLogger.i(TAG, "IMG-DBG ensureImageCached: protoId=${media.id}, " +
+            "bigPath=$bigPath, bigExists=${bigPath?.let { vfsFileExists(it) }}, bigFsSize=${bigPath?.let { regularFileSize(it) }}, bigVfsSize=${bigPath?.let { vfsFileSize(it, thumbPathInit ?: it) }}, bigUsable=${imageFileUsable(bigPath)}, " +
+            "thumbPath=$thumbPathInit, thumbVfsSize=${thumbPathInit?.let { vfsFileSize(it) }}")
+        logImageDownloadResolution()
+
+        // 只有大图确实有内容才算已缓存 (排除 0 字节占位)
+        if (imageFileUsable(bigPath)) return bigPath
+
+        val triggered = triggerImageDownload(nativeMedia)
+        WeLogger.i(TAG, "IMG-DBG triggerImageDownload returned=$triggered")
+        dumpImageDir(bigPath)
+
+        if (bigPath != null) {
+            val start = SystemClock.elapsedRealtime()
+            var ticks = 0
+            while (SystemClock.elapsedRealtime() - start < timeoutMs) {
+                if (imageFileUsable(bigPath)) {
+                    WeLogger.i(TAG, "IMG-DBG big image usable after ${SystemClock.elapsedRealtime() - start}ms: $bigPath (vfsSize=${vfsFileSize(bigPath)})")
+                    return bigPath
+                }
+                if (++ticks % 6 == 0) { // every ~3s
+                    WeLogger.i(TAG, "IMG-DBG still waiting (${SystemClock.elapsedRealtime() - start}ms) bigVfsSize=${vfsFileSize(bigPath)}...")
+                    dumpImageDir(bigPath)
+                }
+                delay(intervalMs.milliseconds)
+            }
+            WeLogger.w(TAG, "IMG-DBG timed out waiting for big image after ${timeoutMs}ms: $bigPath (vfsSize=${vfsFileSize(bigPath)})")
+            dumpImageDir(bigPath)
+        }
+        // 超时: 尽量退回可用的缩略图, 避免完全空白
+        val thumbPath = resolveThumbImagePath(media, nativeMedia)
+        return when {
+            imageFileUsable(bigPath) -> bigPath
+            imageFileUsable(thumbPath) -> { WeLogger.w(TAG, "IMG-DBG falling back to thumb: $thumbPath"); thumbPath }
+            else -> { WeLogger.e(TAG, "IMG-DBG neither big nor thumb usable; repost will be blank"); null }
+        }
+    }
+
+    /**
+     * 确保朋友圈中全部图片的大图已缓存, 任一彻底缺失 (含缩略图) 则返回 null。
+     * 先并发触发所有未缓存图片的下载, 再逐张等待落地, 缩短总耗时。
+     */
+    suspend fun ensureImagePathsCached(
+        mediaList: List<TimelineObjectProto.MediaObjProto>,
+        nativeMediaList: LinkedList<*>,
+        timeoutMs: Long = 60_000
+    ): ArrayList<String>? {
+        if (mediaList.isEmpty()) return null
+
+        // 先对所有未落地 (或仅有空占位) 的大图触发下载
+        for (index in mediaList.indices) {
+            val nativeMedia = nativeMediaList.getOrNull(index) ?: return null
+            val bigPath = runCatching { resolveBigImagePath(mediaList[index], nativeMedia) }.getOrNull()
+            if (!imageFileUsable(bigPath)) {
+                triggerImageDownload(nativeMedia)
+            }
+        }
+
+        // 再逐张等待
+        val paths = ArrayList<String>()
+        for (index in mediaList.indices) {
+            val nativeMedia = nativeMediaList.getOrNull(index) ?: return null
+            val path = ensureImageCached(mediaList[index], nativeMedia, timeoutMs) ?: return null
+            paths.add(path)
+        }
+        WeLogger.i(TAG, "IMG-DBG ensureImagePathsCached resolved ${paths.size} paths: ${paths.joinToString { "${java.io.File(it).name}(fs=${regularFileSize(it)},vfs=${vfsFileSize(it)})" }}")
+        return paths
+    }
+
+    /**
+     * 把 (可能位于 VFS 内的) 缓存图片实体化为真实文件, 供编辑界面 (SnsUploadUI) 读取。
+     * 编辑界面通过标准文件 IO / MediaStore 读图, 无法解析微信 VFS 逻辑路径 (会显示黑图),
+     * 因此必须先拷出到真实文件 —— 与视频转发先导出到相册文件同理。
+     */
+    private fun materializeImageToTemp(context: Context, srcPath: String, index: Int): String? {
+        return runCatching {
+            // 已是可读的真实文件则直接用
+            if (regularFileSize(srcPath) > 0L) return srcPath
+
+            val cacheDir = context.externalCacheDir ?: context.cacheDir
+            val dest = cacheDir.asPath / "wekit_moments_img_${System.currentTimeMillis()}_$index.jpg"
+            val destPath = dest.absolutePathString()
+            if (!copyExistingFile(srcPath, destPath)) {
+                WeLogger.e(TAG, "IMG-DBG materialize failed (copy): $srcPath")
+                return null
+            }
+            val size = regularFileSize(destPath)
+            WeLogger.i(TAG, "IMG-DBG materialized $srcPath -> $destPath (size=$size)")
+            if (size <= 0L) null else destPath
+        }.getOrElse {
+            WeLogger.e(TAG, "IMG-DBG materializeImageToTemp failed: $srcPath", it)
+            null
+        }
+    }
+
+    /**
+     * 编辑界面用: 确保图片已缓存 (必要时下载) 并实体化为真实文件路径。
+     * 任一图片无法得到可用真实文件则返回 null。
+     */
+    suspend fun ensureImagePathsForEditor(
+        context: Context,
+        mediaList: List<TimelineObjectProto.MediaObjProto>,
+        nativeMediaList: LinkedList<*>,
+        timeoutMs: Long = 60_000
+    ): ArrayList<String>? {
+        val cached = ensureImagePathsCached(mediaList, nativeMediaList, timeoutMs) ?: return null
+        val real = ArrayList<String>()
+        for ((index, path) in cached.withIndex()) {
+            val materialized = materializeImageToTemp(context, path, index) ?: return null
+            real.add(materialized)
+        }
+        WeLogger.i(TAG, "IMG-DBG ensureImagePathsForEditor: ${real.joinToString { "${java.io.File(it).name}(${regularFileSize(it)})" }}")
+        return real
     }
 
     /**
@@ -1309,10 +1613,10 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         timeoutMs: Long = 90_000,
         intervalMs: Long = 500
     ): String? {
-        val start = android.os.SystemClock.elapsedRealtime()
-        while (android.os.SystemClock.elapsedRealtime() - start < timeoutMs) {
+        val start = SystemClock.elapsedRealtime()
+        while (SystemClock.elapsedRealtime() - start < timeoutMs) {
             fetchFinishedVideoPath(snsTableId, nativeMediaList)?.let { return it }
-            delay(intervalMs)
+            delay(intervalMs.milliseconds)
         }
         return fetchFinishedVideoPath(snsTableId, nativeMediaList)
     }
@@ -1324,17 +1628,17 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         timeoutMs: Long = 90_000,
         intervalMs: Long = 500
     ): String? {
-        val start = android.os.SystemClock.elapsedRealtime()
+        val start = SystemClock.elapsedRealtime()
         var nextProbeAt = start
-        while (android.os.SystemClock.elapsedRealtime() - start < timeoutMs) {
+        while (SystemClock.elapsedRealtime() - start < timeoutMs) {
             fetchFullVideoPath(snsTableId, nativeMediaList)?.let { return it }
             fetchFinishedVideoPath(snsTableId, nativeMediaList)?.let { return it }
-            val now = android.os.SystemClock.elapsedRealtime()
+            val now = SystemClock.elapsedRealtime()
             if (now >= nextProbeAt) {
                 fetchUsableCachedVideoPath(context, nativeMediaList)?.let { return it }
                 nextProbeAt = now + 2_500
             }
-            delay(intervalMs)
+            delay(intervalMs.milliseconds)
         }
         return fetchFullVideoPath(snsTableId, nativeMediaList)
             ?: fetchFinishedVideoPath(snsTableId, nativeMediaList)
@@ -1361,19 +1665,43 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         return quickForward(content)
     }
 
-    suspend fun quickForwardEnsuringCached(content: MomentContent): ActionResult {
-        if (content.type != 15 && content.type != 5) return quickForward(content)
+    /**
+     * 一键转发, 但在转发前先强制把图片/视频从 CDN 缓存到本地 (相当于自动点开一次), 避免转发后空白。
+     * [nativeTimeline] 可显式传入, 否则从 [snsInfo] 反射解析。
+     */
+    suspend fun quickForwardEnsuringCached(snsInfo: Any?, nativeTimeline: Any? = null): ActionResult {
+        val content = getMomentContent(snsInfo, nativeTimeline)
+            ?: return ActionResult(success = false, sent = false, message = "无法解析朋友圈内容")
+        return quickForwardEnsuringCached(content)
+    }
 
+    suspend fun quickForwardEnsuringCached(content: MomentContent): ActionResult {
         val text = content.contentText
         return try {
-            val video = ensureVideoPaths(HostInfo.application, content)
-                ?: return ActionResult(success = false, sent = false, message = "视频下载失败或超时")
-            val ok = postTextAndVideo(HostInfo.application, text, video.videoPath, video.thumbPath)
+            when (content.type) {
+                15, 5 -> { // 视频
+                    val video = ensureVideoPaths(HostInfo.application, content)
+                        ?: return ActionResult(success = false, sent = false, message = "视频下载失败或超时")
+                    val ok = postTextAndVideo(HostInfo.application, text, video.videoPath, video.thumbPath)
+                    if (ok) ActionResult(success = true, sent = true, message = "已加入发送队列")
+                    else ActionResult(success = false, sent = false, message = "转发失败")
+                }
 
-            if (ok) {
-                ActionResult(success = true, sent = true, message = "已加入发送队列")
-            } else {
-                ActionResult(success = false, sent = false, message = "转发失败")
+                1, 54 -> { // 图片 / 实况相册: 先确保图片缓存到位, 再转发
+                    if (content.hasLivePhoto) {
+                        // 实况相册: 先把静态封面图缓存到位 (实况视频缺失时会自动退化为静态图)
+                        ensureImagePathsCached(content.mediaList, content.nativeMediaList)
+                            ?: return ActionResult(success = false, sent = false, message = "图片下载失败或超时")
+                        return quickForward(content)
+                    }
+                    val paths = ensureImagePathsCached(content.mediaList, content.nativeMediaList)
+                        ?: return ActionResult(success = false, sent = false, message = "图片下载失败或超时")
+                    val ok = postTextAndImages(text, paths)
+                    if (ok) ActionResult(success = true, sent = true, message = "已加入发送队列")
+                    else ActionResult(success = false, sent = false, message = "转发失败")
+                }
+
+                else -> quickForward(content)
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "quickForwardEnsuringCached failed", e)

@@ -36,7 +36,9 @@ object ModifyTextMessageDisplay : SwitchFeature(),
                 "修改内容",
                 EditIcon,
                 MaterialSymbols.Outlined.Edit,
-                { msgInfo -> msgInfo.type?.isText ?: false }
+                { msgInfo -> msgInfo.type?.isText ?: false },
+                // operates on the single message's own View; can't apply to a batch
+                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Unsupported
             ) { view, _, _ ->
                 showComposeDialog(view.context) {
                     var input by remember {

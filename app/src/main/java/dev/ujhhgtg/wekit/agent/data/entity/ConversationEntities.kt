@@ -17,9 +17,19 @@ data class SessionEntity(
     val title: String,
     val systemPromptId: String?,
     val workspaceId: String?,
-    val modelId: String,
+    /**
+     * Bound model id, or null for "默认" — meaning follow [WeAgentSettings.defaultModelId] resolved
+     * at turn time (like [systemPromptId]/[workspaceId]). Null lets changing the global default apply
+     * to existing sessions instead of snapshotting the model at creation.
+     */
+    val modelId: String?,
     val createdAt: Instant,
     val updatedAt: Instant,
+    /**
+     * Favorited (starred) sessions sort to the top of the drawer and cannot be deleted until
+     * un-starred — this guards sessions that own triggers from accidental deletion.
+     */
+    val favorite: Boolean = false,
 )
 
 enum class MessageRole { USER, ASSISTANT, TOOL, SYSTEM }
@@ -34,6 +44,8 @@ data class MessageEntity(
     val role: MessageRole,
     val content: String,
     val createdAt: Instant,
+    /** Assistant reasoning ("思考过程"), if the model produced any. Null for non-assistant rows. */
+    val reasoning: String? = null,
 )
 
 enum class ApprovalStatus { AUTO_ALLOWED, USER_APPROVED, USER_REJECTED, AI_APPROVED, AI_REJECTED }

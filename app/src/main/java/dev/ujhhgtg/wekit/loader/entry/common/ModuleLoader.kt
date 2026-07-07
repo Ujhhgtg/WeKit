@@ -34,6 +34,8 @@ object ModuleLoader {
         if (isInitialized) return
         isInitialized = true
 
+//        ClassLoaderRegistry.hookConstructors()
+
         WeLogger.i(TAG, "loading in entry point ${loaderService.entryPointName}")
         runCatching {
             UnifiedEntryPoint.entry(loaderService, hookBridge, initialClassLoader, modulePath)

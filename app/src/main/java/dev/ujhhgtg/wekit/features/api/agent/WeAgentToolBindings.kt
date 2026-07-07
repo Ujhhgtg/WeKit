@@ -130,6 +130,8 @@ object WeAgentToolBindings {
         @AgentToolParam("A single SELECT statement") sql: String,
     ): String {
         if (!WeDatabaseApi.isReady) return "Error: database not ready"
+        // Anti-loop: suppress SQL-event triggers briefly so the agent's own query doesn't fire them.
+        WeAgentService.triggerManager.suppressSqlBriefly()
         return runCatching {
             val rows = WeDatabaseApi.executeQuery(sql)
             if (rows.isEmpty()) "0 rows." else buildString {
@@ -259,6 +261,8 @@ object WeAgentToolBindings {
         @AgentToolParam("A single non-query SQL statement") sql: String,
     ): String {
         if (!WeDatabaseApi.isReady) return "Error: database not ready"
+        // Anti-loop: suppress SQL-event triggers around the agent's own write so it can't self-trigger.
+        WeAgentService.triggerManager.suppressSqlBriefly()
         return runCatching {
             WeDatabaseApi.execStatement(sql)
             "Statement executed."

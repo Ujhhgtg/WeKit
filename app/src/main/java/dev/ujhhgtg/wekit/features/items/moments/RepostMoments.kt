@@ -18,10 +18,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(name = "转发 & 一键转发", categories = ["朋友圈"], description = "转发他人的朋友圈, 支持实况图片\n如果图片/视频/实况转发后是空白, 请点击查看/播放后重试")
-object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
+@Feature(name = "转发 & 一键转发", categories = ["朋友圈"], description = "转发他人的朋友圈, 支持实况图片\n图片/视频会在转发前自动缓存, 无需先点开; 实况视频如转发后空白请先播放一次")
+object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 
-    private const val TAG = "ReMoment"
+    private const val TAG = "RepostMoments"
 
     override fun onEnable() {
         WeMomentsContextMenuApi.addProvider(this)
@@ -82,32 +82,34 @@ object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
                     return
                 }
 
-                val tempPaths = WeMomentsApi.prepareImagePaths(data.mediaList, data.nativeMediaList, warnOnThumb = true)
-                if (tempPaths == null) {
-                    showToast(activity, "未找到本地缓存的图片!")
-                    return
+                showToast(activity, "正在准备图片...")
+                CoroutineScope(Dispatchers.Main).launch {
+                    val tempPaths = WeMomentsApi.ensureImagePathsForEditor(activity, data.mediaList, data.nativeMediaList)
+                    if (tempPaths == null) {
+                        showToastSuspend(activity, "图片下载失败或超时!")
+                        return@launch
+                    }
+                    WeMomentsApi.sendImagesInUi(activity, tempPaths, contentText)
                 }
-
-                WeMomentsApi.sendImagesInUi(activity, tempPaths, contentText)
             }
             15, 5 -> { // 视频
                 showToast(activity, "正在准备视频...")
                 CoroutineScope(Dispatchers.Main).launch {
                     val video = WeMomentsApi.ensureVideoPaths(activity, data)
                     if (video == null) {
-                        showToastSuspend(activity, "视频下载失败或超时")
+                        showToastSuspend(activity, "视频下载失败或超时!")
                         return@launch
                     }
 
                     WeLogger.i(TAG, "forward video to editor: video=${video.videoPath}, thumb=${video.thumbPath}")
                     val albumVideoPath = WeMomentsApi.saveVideoToAlbumPath(activity, video.videoPath)
                     if (albumVideoPath == null) {
-                        showToastSuspend(activity, "视频保存到相册失败")
+                        showToastSuspend(activity, "视频保存到相册失败!")
                         return@launch
                     }
                     WeLogger.i(TAG, "dispatch video album result: video=$albumVideoPath")
                     if (!WeMomentsApi.openMomentVideoEditorFromAlbumResult(activity, contentText, albumVideoPath, context.source)) {
-                        showToastSuspend(activity, "视频自动选择失败")
+                        showToastSuspend(activity, "视频自动选择失败!")
                     }
                 }
             }
@@ -140,12 +142,15 @@ object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
                 dismissButton = {
                     TextButton(onClick = {
                         onDismiss()
-                        val tempPaths = WeMomentsApi.prepareImagePaths(data.mediaList, data.nativeMediaList, warnOnThumb = true)
-                        if (tempPaths == null) {
-                            showToast(activity, "未找到本地缓存的图片!")
-                            return@TextButton
+                        showToast(activity, "正在准备图片...")
+                        CoroutineScope(Dispatchers.Main).launch {
+                            val tempPaths = WeMomentsApi.ensureImagePathsForEditor(activity, data.mediaList, data.nativeMediaList)
+                            if (tempPaths == null) {
+                                showToastSuspend(activity, "图片下载失败或超时!")
+                                return@launch
+                            }
+                            WeMomentsApi.sendImagesInUi(activity, tempPaths, data.contentText)
                         }
-                        WeMomentsApi.sendImagesInUi(activity, tempPaths, data.contentText)
                     }) { Text("降级为静态图编辑") }
                 }
             )
@@ -161,18 +166,14 @@ object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
                 "failed to resolve Moments content for quick repost: activity=${activity.javaClass.name}, " +
                     "snsInfo=${context.snsInfo?.javaClass?.name}, timeline=${context.timelineObject?.javaClass?.name}"
             )
-            showToast(activity, "无法解析这条朋友圈内容")
+            showToast(activity, "朋友圈内容解析失败!")
             return
         }
 
         showToast(activity, "正在一键转发...")
 
         CoroutineScope(Dispatchers.Main).launch {
-            val result = if (data.type == 15 || data.type == 5) {
-                WeMomentsApi.quickForwardEnsuringCached(data)
-            } else {
-                WeMomentsApi.quickForward(data)
-            }
+            val result = WeMomentsApi.quickForwardEnsuringCached(data)
             showToastSuspend(activity, result.message)
         }
     }

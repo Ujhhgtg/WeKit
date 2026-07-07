@@ -2510,7 +2510,7 @@ close #1
 
 - **GitHub Issues**: [提交 Bug 或功能请求](https://github.com/cwuom/wekit/issues)
 - **GitHub Discussions**: [参与讨论](https://github.com/cwuom/wekit/discussions)
-- **Telegram**: [加入 Telegram 超级群组](https://t.me/+4XsfR-SWAtk1NGRl)
+- **Telegram**: [加入 Telegram 超级群组](https://t.me/+7j5dJ6g16B43OWVl)
 
 ### Git 与协作
 

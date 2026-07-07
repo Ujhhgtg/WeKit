@@ -600,7 +600,7 @@ class MainActivity : ComponentActivity() {
                     icon = TelegramIcon,
                     title = "Telegram",
                     subtitle = "Telegram 超级群组",
-                    onClick = { onUrlClick("https://t.me/+4XsfR-SWAtk1NGRl") }
+                    onClick = { onUrlClick("https://t.me/+7j5dJ6g16B43OWVl") }
                 )
             }
 

@@ -48,47 +48,66 @@ object ForwardMessages : SwitchFeature(),
                 "转发",
                 ForwardIcon,
                 MaterialSymbols.Outlined.Forward,
-                shouldShow = { true }
-            ) { view, _, msgInfo ->
-                CoroutineScope(Dispatchers.IO).launch {
-                    val contacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
-
-                    withContext(Dispatchers.Main) {
-                        showComposeDialog(view.context) {
-                            ContactsSelector(
-                                title = "选择转发对象",
-                                contacts = contacts,
-                                initialSelectedWxIds = emptySet(),
-                                onDismiss = onDismiss,
-                                onConfirm = { selectedWxIds ->
-                                    if (selectedWxIds.isEmpty()) {
-                                        showToast("请选择至少一个联系人")
-                                        return@ContactsSelector
-                                    }
-
-                                    onDismiss()
-                                    forwardMessage(msgInfo, selectedWxIds)
-                                }
-                            )
+                isSupported = { true },
+                // forward every selected message to every chosen contact
+                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
+                    isSupported = { true },
+                    onClick = { view, _, msgInfos ->
+                        showForwardDialog(view) { selectedWxIds ->
+                            forwardMessages(msgInfos, selectedWxIds)
                         }
                     }
+                )
+            ) { view, _, msgInfo ->
+                showForwardDialog(view) { selectedWxIds ->
+                    forwardMessages(listOf(msgInfo), selectedWxIds)
                 }
             }
         )
     }
 
-    private fun forwardMessage(msgInfo: MessageInfo, wxIds: Set<String>) {
+    // shows the contacts picker once; invokes onConfirm with the chosen wxIds (non-empty)
+    private fun showForwardDialog(view: android.view.View, onConfirm: (Set<String>) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
-            showToastSuspend("正在转发到 ${wxIds.size} 个对象...")
+            val contacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
+
+            withContext(Dispatchers.Main) {
+                showComposeDialog(view.context) {
+                    ContactsSelector(
+                        title = "选择转发对象",
+                        contacts = contacts,
+                        initialSelectedWxIds = emptySet(),
+                        onDismiss = onDismiss,
+                        onConfirm = { selectedWxIds ->
+                            if (selectedWxIds.isEmpty()) {
+                                showToast("请选择至少一个联系人")
+                                return@ContactsSelector
+                            }
+
+                            onDismiss()
+                            onConfirm(selectedWxIds)
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    private fun forwardMessages(msgInfos: List<MessageInfo>, wxIds: Set<String>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val total = msgInfos.size * wxIds.size
+            showToastSuspend("正在转发 ${msgInfos.size} 条消息到 ${wxIds.size} 个对象...")
 
             var success = 0
             wxIds.forEach { wxId ->
-                if (sendTo(wxId, msgInfo)) success++
+                msgInfos.forEach { msgInfo ->
+                    if (sendTo(wxId, msgInfo)) success++
+                }
             }
 
             showToastSuspend(
-                if (success == wxIds.size) "已转发到 ${wxIds.size} 个对象"
-                else "已转发到 $success/${wxIds.size} 个对象"
+                if (success == total) "已转发到 ${wxIds.size} 个对象"
+                else "已转发 $success/$total 条 (部分失败)"
             )
         }
     }

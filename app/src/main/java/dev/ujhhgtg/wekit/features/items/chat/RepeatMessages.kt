@@ -40,7 +40,7 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777008, "复读", ExposurePlus1Icon, MaterialSymbols.Outlined.Exposure_plus_1,
-                shouldShow = { it.type in SUPPORTED_MSG_TYPES },
+                isSupported = { it.type in SUPPORTED_MSG_TYPES },
                 onClick = { view, _, msgInfo ->
                     val context = view.context
 

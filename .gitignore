@@ -25,6 +25,8 @@ local.properties
 /app/nul
 /.idea/deploymentTargetSelector.xml
 /app/src/main/jniLibs/*/libwekit_native.so
+# just for testing my code in Experiments.kt
+/app/src/main/jniLibs/*/libnuke_native.so.bak
 /build-logic/convention/build/
 
 /decrypted_wechat.db

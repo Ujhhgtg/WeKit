@@ -282,7 +282,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                     title = "Telegram",
                     summary = "Telegram 超级群组",
                     icon = TelegramIcon,
-                    onClick = { "https://t.me/+4XsfR-SWAtk1NGRl".toUri().openInSystem(context, true) })
+                    onClick = { "https://t.me/+7j5dJ6g16B43OWVl".toUri().openInSystem(context, true) })
             }
         }
 

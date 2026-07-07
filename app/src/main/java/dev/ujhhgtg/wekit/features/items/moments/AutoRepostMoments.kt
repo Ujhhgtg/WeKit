@@ -54,6 +54,7 @@ import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import kotlinx.coroutines.runBlocking
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
@@ -64,12 +65,12 @@ import kotlin.concurrent.thread
     categories = ["朋友圈"],
     description = "浏览或同步朋友圈时, 自动转发指定目标的朋友圈到自己的朋友圈"
 )
-object AutoForwardMoments : ClickableFeature(),
+object AutoRepostMoments : ClickableFeature(),
     IResolveDex,
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener {
 
-    private const val TAG = "AutoForwardMoments"
+    private const val TAG = "AutoRepostMoments"
 
     private const val MODE_WHEN_SEEN = 0
     private const val MODE_ALL_LOADED = 1
@@ -84,9 +85,6 @@ object AutoForwardMoments : ClickableFeature(),
 
     @Volatile
     private var lastActionSentAt = 0L
-
-    @Volatile
-    private var timelineHooksInstalled = false
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
@@ -215,8 +213,6 @@ object AutoForwardMoments : ClickableFeature(),
     }
 
     private fun installTimelineHooks() {
-        if (timelineHooksInstalled) return
-        timelineHooksInstalled = true
         listOf(
             ImproveSnsTimelineUI::class.java,
             SnsUserUI::class.java
@@ -371,7 +367,9 @@ object AutoForwardMoments : ClickableFeature(),
                 isAlreadyForwarded(snsTableId) ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "already forwarded")
 
-                else -> WeMomentsApi.quickForward(snsInfo)
+                // 转发前先把图片/视频从 CDN 强制缓存到本地, 避免未点开时转发空白。
+                // 已在后台线程内, 用 runBlocking 桥接 suspend 缓存逻辑。
+                else -> runBlocking { WeMomentsApi.quickForwardEnsuringCached(snsInfo) }
             }
         }
 

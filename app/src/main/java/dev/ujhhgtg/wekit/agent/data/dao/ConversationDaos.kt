@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SessionDao {
-    @Query("SELECT * FROM sessions ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM sessions ORDER BY favorite DESC, updatedAt DESC")
     fun observeAll(): Flow<List<SessionEntity>>
 
     @Query("SELECT * FROM sessions WHERE id = :id")
@@ -26,6 +26,9 @@ interface SessionDao {
 
     @Query("UPDATE sessions SET title = :title, updatedAt = :updatedAt WHERE id = :id")
     suspend fun rename(id: String, title: String, updatedAt: java.time.Instant)
+
+    @Query("UPDATE sessions SET favorite = :favorite WHERE id = :id")
+    suspend fun setFavorite(id: String, favorite: Boolean)
 
     @Delete
     suspend fun delete(session: SessionEntity)

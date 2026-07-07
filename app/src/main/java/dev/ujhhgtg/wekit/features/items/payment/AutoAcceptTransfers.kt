@@ -46,7 +46,6 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
     private const val TAG = "AutoAcceptTransfers"
 
     private var transferNotif by WePrefs.prefOption("transfer_notification", false)
-    private var transferSelf by WePrefs.prefOption("transfer_self", false)
     private var transferUseWhitelist by WePrefs.prefOption("transfer_use_whitelist", false)
     private var transferWhitelist by WePrefs.prefOption("transfer_whitelist", emptySet())
     private var transferBlacklist by WePrefs.prefOption("transfer_blacklist", emptySet())
@@ -85,8 +84,6 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
     }
 
     private fun handleTransfer(values: ContentValues) {
-        if (values.getAsInteger("isSend") == 1 && !transferSelf) return
-
         val talker = values.getAsString("talker") ?: ""
 
         if (transferUseWhitelist) {
@@ -173,7 +170,6 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var notification by remember { mutableStateOf(transferNotif) }
-            var self by remember { mutableStateOf(transferSelf) }
             var delayInput by remember { mutableStateOf(transferDelayCustom) }
             var useWhitelist by remember { mutableStateOf(transferUseWhitelist) }
             var randomRangeInput by remember { mutableStateOf(transferDelayRandomRange) }
@@ -220,12 +216,6 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
                             trailingContent = { Switch(checked = notification, onCheckedChange = { notification = it }) },
                             modifier = Modifier.clickable { notification = !notification }
                         )
-                        ListItem(
-                            headlineContent = { Text("接收自己的转账") },
-                            supportingContent = { Text("默认情况下不接收自己发出的转账") },
-                            trailingContent = { Switch(checked = self, onCheckedChange = { self = it }) },
-                            modifier = Modifier.clickable { self = !self }
-                        )
                         TextField(
                             value = delayInput,
                             onValueChange = { delayInput = it.filter { c -> c.isDigit() }.take(5) },
@@ -253,7 +243,6 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
                 confirmButton = {
                     Button(onClick = {
                         transferNotif = notification
-                        transferSelf = self
                         transferDelayCustom = delayInput.ifBlank { "500" }
                         transferUseWhitelist = useWhitelist
                         transferDelayRandomRange = randomRangeInput.ifBlank { "300" }

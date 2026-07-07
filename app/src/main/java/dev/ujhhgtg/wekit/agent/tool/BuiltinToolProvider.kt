@@ -63,6 +63,7 @@ class BuiltinToolProvider(
         const val JVM_ID = AgentTool.BUILTIN_JVM
         const val UI_ID = AgentTool.BUILTIN_UI
         const val WEBVIEW_ID = AgentTool.BUILTIN_WEBVIEW
+        const val TRIGGER_ID = AgentTool.BUILTIN_TRIGGER
 
         private val DISPLAY_NAMES = mapOf(
             WECHAT_ID to "微信操作",
@@ -71,6 +72,7 @@ class BuiltinToolProvider(
             JVM_ID to "JVM 反射",
             UI_ID to "界面工具",
             WEBVIEW_ID to "WebView",
+            TRIGGER_ID to "触发器",
         )
 
         /**

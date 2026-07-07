@@ -71,4 +71,4 @@
 | 捐赠 | 打开微信收款二维码, 支持项目开发。提示: 模块开源免费, 捐赠无任何特权                    |
 | 开放源代码许可 | 查看本项目使用的开源库许可证信息                                         |
 | GitHub | 跳转到 [GitHub 仓库](https://github.com/Ujhhgtg/WeKit)        |
-| Telegram | 跳转到 [Telegram 超级群组](https://t.me/+4XsfR-SWAtk1NGRl) |
+| Telegram | 跳转到 [Telegram 超级群组](https://t.me/+7j5dJ6g16B43OWVl) |

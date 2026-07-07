@@ -29,10 +29,12 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777016, "编辑", EditIcon, MaterialSymbols.Outlined.Edit,
-                shouldShow = {
+                isSupported = {
                     @Suppress("DEPRECATION")
                     it.type == MessageType.TEXT
-                }
+                },
+                // revokes then loads one message's text into the input box; single-message only
+                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Unsupported
             ) { view, _, msgInfo ->
                 val chatFooter = WeCurrentConversationApi.chatFooter ?: return@MenuItem
                 WeMessageApi.revokeMsg(msgInfo)

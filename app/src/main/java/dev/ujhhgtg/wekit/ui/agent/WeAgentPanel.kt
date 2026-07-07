@@ -1,13 +1,18 @@
 package dev.ujhhgtg.wekit.ui.agent
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +36,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -45,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,9 +64,13 @@ import com.composables.icons.materialsymbols.outlined.Menu
 import com.composables.icons.materialsymbols.outlined.Menu_open
 import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Settings
+import com.composables.icons.materialsymbols.outlined.Star
 import com.composables.icons.materialsymbols.outlined.Stop
+import com.composables.icons.materialsymbols.outlinedfilled.Star
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ChatRow
+import dev.ujhhgtg.wekit.utils.android.copyToClipboard
+import dev.ujhhgtg.wekit.utils.android.showToast
 
 /**
  * The expanded agent panel (§1.3), intentionally lean: a collapsible session sidebar (hidden by
@@ -109,34 +120,41 @@ fun WeAgentPanel(onDismiss: () -> Unit) {
  */
 @Composable
 private fun SessionSidebar(open: Boolean, onClose: () -> Unit) {
-    AnimatedVisibility(
-        visible = open,
-        enter = fadeIn(tween(150)),
-        exit = fadeOut(tween(150)),
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            // Scrim over the chat; tapping it closes the sidebar.
+    // The wrapper Box is ALWAYS composed (it's a sibling of the chat pane), so both child
+    // AnimatedVisibility nodes stay in composition across open/close. That's what lets the panel
+    // play its slide-IN on open — previously the panel's AnimatedVisibility was nested inside the
+    // scrim's, so it first entered composition already-visible and skipped its enter transition
+    // (only the outer fade showed). When closed, both children collapse to nothing and the empty
+    // transparent Box has no pointer modifiers, so touches pass through to the chat beneath.
+    Box(Modifier.fillMaxSize()) {
+        // Scrim over the chat; tapping it closes the sidebar. Fades in/out.
+        AnimatedVisibility(
+            visible = open,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150)),
+        ) {
             Box(
                 Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.32f))
                     .clickable(onClick = onClose),
             )
-            AnimatedVisibility(
-                visible = open,
-                enter = slideInHorizontally(tween(220)) { -it },
-                exit = slideOutHorizontally(tween(220)) { -it },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                SessionDrawerContent(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(0.62f)
-                        // Swallow taps so they don't fall through to the scrim.
-                        .clickable(enabled = false) {},
-                    onClose = onClose,
-                )
-            }
+        }
+        // Drawer panel: slides in from the left on open and back out on close (now symmetric).
+        AnimatedVisibility(
+            visible = open,
+            enter = slideInHorizontally(tween(220)) { -it },
+            exit = slideOutHorizontally(tween(220)) { -it },
+            modifier = Modifier.align(Alignment.CenterStart),
+        ) {
+            SessionDrawerContent(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.62f)
+                    // Swallow taps so they don't fall through to the scrim.
+                    .clickable(enabled = false) {},
+                onClose = onClose,
+            )
         }
     }
 }
@@ -178,8 +196,20 @@ private fun SessionDrawerContent(modifier: Modifier, onClose: () -> Unit) {
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
-                            IconButton(onClick = { WeAgentService.deleteSession(s.id) }, modifier = Modifier.width(28.dp)) {
-                                Icon(MaterialSymbols.Outlined.Delete, contentDescription = "删除", modifier = Modifier.width(16.dp))
+                            // Star toggles favorite (pins to top + delete-protects). Delete only shows
+                            // for non-favorited sessions — a favorite must be un-starred before deleting.
+                            IconButton(onClick = { WeAgentService.toggleFavorite(s.id) }, modifier = Modifier.width(28.dp)) {
+                                Icon(
+                                    if (s.favorite) MaterialSymbols.OutlinedFilled.Star else MaterialSymbols.Outlined.Star,
+                                    contentDescription = if (s.favorite) "取消收藏" else "收藏",
+                                    tint = if (s.favorite) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                    modifier = Modifier.width(16.dp),
+                                )
+                            }
+                            if (!s.favorite) {
+                                IconButton(onClick = { WeAgentService.deleteSession(s.id) }, modifier = Modifier.width(28.dp)) {
+                                    Icon(MaterialSymbols.Outlined.Delete, contentDescription = "删除", modifier = Modifier.width(16.dp))
+                                }
                             }
                         }
                     }
@@ -413,11 +443,21 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
     val currentWorkspaceId by WeAgentService.currentWorkspaceId
     val memoryOn by WeAgentService.memoryEnabled
 
-    val modelLabel = models.firstOrNull { it.id == currentModelId }?.label ?: "未选择"
+    // A null model id means "默认": the session follows the settings default model, resolved at turn
+    // time (mirrors workspace/systemPrompt). Show "默认" for null rather than "未选择".
+    val modelLabel = if (currentModelId == null) "默认"
+    else models.firstOrNull { it.id == currentModelId }?.label ?: "未选择"
     // A null workspace means "默认": the session follows the settings default workspace, resolved
     // dynamically at turn time (see WeAgentService.runTurn).
-    val workspaceLabel = workspaces.firstOrNull { it.id == currentWorkspaceId }?.name ?: "默认"
-    val systemPromptLabel = systemPrompts.firstOrNull { it.id == currentSystemPromptId }?.name ?: "默认"
+    // id semantics: null = "默认" (follow settings default), "" = "无" (explicitly none), else the item.
+    val workspaceLabel = when (currentWorkspaceId) {
+        null -> "默认"; "" -> "无"
+        else -> workspaces.firstOrNull { it.id == currentWorkspaceId }?.name ?: "默认"
+    }
+    val systemPromptLabel = when (currentSystemPromptId) {
+        null -> "默认"; "" -> "无"
+        else -> systemPrompts.firstOrNull { it.id == currentSystemPromptId }?.name ?: "默认"
+    }
 
     fun close() { expanded = false; submenu = PlusSubmenu.NONE }
 
@@ -457,6 +497,10 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
 
                 PlusSubmenu.MODEL -> {
                     SubmenuHeader("模型") { submenu = PlusSubmenu.NONE }
+                    DropdownMenuItem(
+                        text = { Text("默认" + if (currentModelId == null) "  ✓" else "") },
+                        onClick = { WeAgentService.setSessionModel(null); close() },
+                    )
                     if (models.isEmpty()) DropdownMenuItem(text = { Text("请先在设置中添加模型") }, onClick = ::close)
                     models.forEach { m ->
                         DropdownMenuItem(
@@ -472,6 +516,11 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                         text = { Text("默认" + if (currentWorkspaceId == null) "  ✓" else "") },
                         onClick = { WeAgentService.setSessionWorkspace(null); close() },
                     )
+                    // "无" = explicitly no workspace (sentinel ""), distinct from "默认" (follow default).
+                    DropdownMenuItem(
+                        text = { Text("无" + if (currentWorkspaceId == "") "  ✓" else "") },
+                        onClick = { WeAgentService.setSessionWorkspace(""); close() },
+                    )
                     workspaces.forEach { w ->
                         DropdownMenuItem(
                             text = { Text(w.name + if (w.id == currentWorkspaceId) "  ✓" else "") },
@@ -485,6 +534,11 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                     DropdownMenuItem(
                         text = { Text("默认" + if (currentSystemPromptId == null) "  ✓" else "") },
                         onClick = { WeAgentService.setSessionSystemPrompt(null); close() },
+                    )
+                    // "无" = explicitly no system prompt (sentinel ""), distinct from "默认" (follow default).
+                    DropdownMenuItem(
+                        text = { Text("无" + if (currentSystemPromptId == "") "  ✓" else "") },
+                        onClick = { WeAgentService.setSessionSystemPrompt(""); close() },
                     )
                     systemPrompts.forEach { sp ->
                         DropdownMenuItem(
@@ -550,6 +604,7 @@ private fun MessageList(modifier: Modifier) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(row: ChatRow) {
     when (row.role) {
@@ -560,26 +615,58 @@ private fun MessageBubble(row: ChatRow) {
                 ChatRow.Role.SYSTEM_NOTE -> MaterialTheme.colorScheme.errorContainer to Alignment.CenterHorizontally
                 else -> MaterialTheme.colorScheme.surfaceVariant to Alignment.Start
             }
+            // The text card renders when there's text, or when there's no reasoning at all (so an
+            // empty assistant turn still shows a placeholder). When reasoning exists but the turn
+            // only made tool calls (no text), the text card is skipped.
+            val showTextCard = row.text.isNotEmpty() || row.reasoning.isNullOrBlank()
             Column(Modifier.fillMaxWidth(), horizontalAlignment = align) {
                 // Reasoning is its own separate, collapsible card above the message text.
                 row.reasoning?.takeIf { it.isNotBlank() }?.let {
                     CollapsibleCard(title = "💭 思考过程", body = it)
-                    Spacer(Modifier.height(6.dp))
+                    // Only separate from the text card when it actually follows; otherwise the outer
+                    // LazyColumn's spacing already provides the gap to the next row (avoids a double gap).
+                    if (showTextCard) Spacer(Modifier.height(6.dp))
                 }
-                if (row.text.isNotEmpty() || row.reasoning.isNullOrBlank()) {
-                    Card(colors = CardDefaults.cardColors(containerColor = bg), shape = RoundedCornerShape(12.dp)) {
-                        // Assistant replies are rendered as Markdown; user/system text stays verbatim.
-                        if (row.role == ChatRow.Role.ASSISTANT && row.text.isNotEmpty()) {
-                            MarkdownText(
-                                markdown = row.text,
-                                modifier = Modifier.padding(10.dp),
-                            )
-                        } else {
-                            Text(
-                                row.text.ifEmpty { "…" },
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(10.dp),
-                            )
+                if (showTextCard) {
+                    // Long-pressing an assistant message opens a context menu to copy its raw text.
+                    var menuOpen by remember(row.id) { mutableStateOf(false) }
+                    val longPressable = row.role == ChatRow.Role.ASSISTANT && row.text.isNotEmpty()
+                    Box {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = bg),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = if (longPressable) {
+                                Modifier.combinedClickable(
+                                    onClick = {},
+                                    onLongClick = { menuOpen = true },
+                                )
+                            } else Modifier,
+                        ) {
+                            // Assistant replies are rendered as Markdown; user/system text stays verbatim.
+                            if (row.role == ChatRow.Role.ASSISTANT && row.text.isNotEmpty()) {
+                                MarkdownText(
+                                    markdown = row.text,
+                                    modifier = Modifier.padding(10.dp),
+                                )
+                            } else {
+                                Text(
+                                    row.text.ifEmpty { "…" },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(10.dp),
+                                )
+                            }
+                        }
+                        if (longPressable) {
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("复制原始文本") },
+                                    onClick = {
+                                        copyToClipboard(row.text)
+                                        showToast("已复制")
+                                        menuOpen = false
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -609,6 +696,9 @@ private fun CollapsibleCard(
     containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // Rotate a single caret (▼ at 0°, ▲ at 180°) instead of swapping glyphs, so the indicator
+    // animates smoothly in step with the body expand/collapse.
+    val caretRotation by animateFloatAsState(if (expanded) 180f else 0f, tween(220), label = "caret")
     Card(
         colors = CardDefaults.cardColors(containerColor = containerColor),
         shape = RoundedCornerShape(12.dp),
@@ -626,9 +716,23 @@ private fun CollapsibleCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(if (expanded) "收起 ▲" else "展开 ▼", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    (if (expanded) "收起 " else "展开 "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    "▼",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.rotate(caretRotation),
+                )
             }
-            if (expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+                exit = shrinkVertically(tween(220)) + fadeOut(tween(220)),
+            ) {
                 Text(
                     body,
                     style = MaterialTheme.typography.bodySmall,
