@@ -194,6 +194,19 @@ class MessageInfo(val instance: Any) {
         val md5 by lazy { xml.getByPath("msg.appmsg.md5")!!.asString }
         val url by lazy { xml.getByPath("msg.appmsg.appattach.cdnattachurl")!!.asString }
         val key by lazy { xml.getByPath("msg.appmsg.appattach.aeskey")!!.asString }
+
+        /**
+         * appmsg 内层 `<type>`:
+         * - 6 / 130: 文件已就绪, 可以下载
+         * - 74 / 131: 对方仍在上传中, 此时触发下载必然失败
+         */
+        val appMsgType by lazy { xml.getByPath("msg.appmsg.type")?.asInt }
+
+        /** 对方是否仍在上传 (气泡显示"对方上传中")。 */
+        val isSenderUploading get() = appMsgType == 74 || appMsgType == 131
+
+        /** 文件是否已就绪、可下载。 */
+        val isDownloadable get() = appMsgType == 6 || appMsgType == 130
     }
 
     class ImageMessage(xmlStr: String) {

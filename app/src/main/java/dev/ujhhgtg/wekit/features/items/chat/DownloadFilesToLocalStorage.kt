@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,8 +37,9 @@ object DownloadFilesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuAp
                 MaterialSymbols.Outlined.Download,
                 { msgInfo -> msgInfo.type == MessageType.FILE }
             ) { _, _, msgInfo ->
+                showToast("正在缓存并下载...")
                 CoroutineScope(Dispatchers.IO).launch {
-                    val path = WeMessageApi.downloadFile(msgInfo.serverId) ?: run {
+                    val path = WeMessageApi.downloadFile(msgInfo.instance) ?: run {
                         WeLogger.e(TAG, "failed to cache & download file")
                         showToastSuspend("文件下载失败! 查看日志以了解错误详情")
                         return@launch

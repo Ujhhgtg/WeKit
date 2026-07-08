@@ -1788,21 +1788,30 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * 缓存文件: 让微信把文件附件下载到它自己的存储目录 (相当于在聊天里点击文件气泡下载)。
+     * 缓存文件 (直接使用已有的 msgInfo 实例)。
+     *
+     * 优先走此重载: 聊天里长按弹出的菜单已经持有微信正在渲染的、字段完整的 msgInfo 实例,
+     * 直接复用即可, 无需按 msgSvrId 重新查库重建 —— 重建出的实例可能字段缺失或压根查不到行,
+     * 导致微信内部 [op0.q.u]/parse msg 返回 null 后被解引用而抛 NPE。
+     *
      * 缓存与下载分离 —— 此方法只负责把文件缓存到微信内部, 不拷贝到 Download/WeKit/。
      * @return 缓存后文件在微信内部的绝对路径, 失败返回 null
      */
-    fun cacheFile(msgSvrId: Long): String? {
+    fun cacheFile(msgInfoInstance: Any): String? {
         return try {
-            val msgInfoInstance = getMsgInfoInstanceByMsgSvrId(
-                msgSvrId, arrayOf("type", "msgSvrId", "talker", "content", "createTime")
-            )
             val mi = MessageInfo(msgInfoInstance)
             val talker = mi.talker
 
             // 已缓存则直接返回
             queryAppAttach(mi.id, talker)?.let { info ->
                 if (info.isComplete && !info.fileFullPath.isNullOrEmpty()) return info.fileFullPath
+            }
+
+            // 内容为空时微信的下载逻辑会解析 appmsg XML 失败并对 null 解引用抛 NPE,
+            // 在此提前拦截, 给出可读的错误而不是把崩溃丢进微信内部。
+            if (mi.content.isBlank()) {
+                WeLogger.e(TAG, "cacheFile: msgInfo content is empty (msgSvrId=${mi.serverId}), cannot trigger download")
+                return null
             }
 
             if (!triggerFileDownload(msgInfoInstance)) return null
@@ -1814,13 +1823,32 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * 下载文件: 先确保文件已缓存到微信内部, 再把它拷贝到 Download/WeKit/。
+     * 缓存文件 (按 msgSvrId 重新查库重建 msgInfo 实例)。
+     *
+     * 仅供无法拿到现成 msgInfo 实例的调用方 (如远程 API / WeAgent) 使用;
+     * 能拿到实例时请改用 [cacheFile] 的实例重载。
+     * @return 缓存后文件在微信内部的绝对路径, 失败返回 null
+     */
+    fun cacheFile(msgSvrId: Long): String? {
+        return try {
+            val msgInfoInstance = getMsgInfoInstanceByMsgSvrId(
+                msgSvrId, arrayOf("type", "msgSvrId", "talker", "content", "createTime")
+            )
+            cacheFile(msgInfoInstance)
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "cacheFile failed", e)
+            null
+        }
+    }
+
+    /**
+     * 下载文件 (直接使用已有的 msgInfo 实例): 先确保文件已缓存到微信内部, 再拷贝到 Download/WeKit/。
      * @return 拷贝到 Download/WeKit/ 后的绝对路径, 失败返回 null
      */
-    fun downloadFile(msgSvrId: Long): String? {
+    fun downloadFile(msgInfoInstance: Any): String? {
         return try {
-            val cachedPath = cacheFile(msgSvrId) ?: run {
-                WeLogger.e(TAG, "downloadFile: failed to cache file for msgSvrId=$msgSvrId")
+            val cachedPath = cacheFile(msgInfoInstance) ?: run {
+                WeLogger.e(TAG, "downloadFile: failed to cache file")
                 return null
             }
             val srcPath = cachedPath.asPath
@@ -1829,6 +1857,23 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             srcPath.copyTo(destPath, overwrite = true)
             WeLogger.i(TAG, "downloaded file: $destPath")
             destPath.absolutePathString()
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "downloadFile failed", e)
+            null
+        }
+    }
+
+    /**
+     * 下载文件 (按 msgSvrId 重新查库重建 msgInfo 实例)。
+     * 能拿到实例时请改用 [downloadFile] 的实例重载。
+     * @return 拷贝到 Download/WeKit/ 后的绝对路径, 失败返回 null
+     */
+    fun downloadFile(msgSvrId: Long): String? {
+        return try {
+            val msgInfoInstance = getMsgInfoInstanceByMsgSvrId(
+                msgSvrId, arrayOf("type", "msgSvrId", "talker", "content", "createTime")
+            )
+            downloadFile(msgInfoInstance)
         } catch (e: Exception) {
             WeLogger.e(TAG, "downloadFile failed", e)
             null

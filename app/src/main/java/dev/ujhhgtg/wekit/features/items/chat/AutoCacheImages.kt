@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,6 +38,7 @@ object AutoCacheImages : SwitchFeature(), WeDatabaseListenerApi.IInsertListener 
         if (msgSvrId == 0L) return
 
         WeLogger.i(TAG, "detected image message; msgSvrId=$msgSvrId, auto caching")
+        showToast("正在自动缓存图片...")
         CoroutineScope(Dispatchers.IO).launch {
             val path = WeMessageApi.cacheImage(msgSvrId)
             if (path != null) {
