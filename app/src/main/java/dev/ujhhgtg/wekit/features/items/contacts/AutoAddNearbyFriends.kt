@@ -8,10 +8,11 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.NearbyFriendProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.WeProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
+import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.util.LinkedList
 
-//@Feature(name = "自动添加附近的人", categories = ["联系人与群组"], description = "在附近的人菜单中添加菜单项, 可全自动向附近的人按模板发送消息")
+@Feature(name = "自动添加附近的人", categories = ["联系人与群组"], description = "在附近的人菜单中添加菜单项, 可全自动向附近的人按模板发送消息 (没写完)")
 object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
 
     private val methodCreateMenu by dexMethod {
@@ -46,8 +47,6 @@ object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
 
             val friendProtos = friends.map { WeProto.decode<NearbyFriendProto>(
                 it.reflekt().invokeMethod("toByteArray", superclass = true) as ByteArray) }
-
-            // TODO
 
             result = null
         }

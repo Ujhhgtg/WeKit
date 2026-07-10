@@ -118,12 +118,14 @@ object WeAgentToolBindings {
     @AgentTool(name = "cache-file", description = "Cache a file message into WeChat's own storage by its server id (equivalent to tapping the file bubble to download). Does NOT copy it to Download/WeKit/. Returns the internal WeChat file path. May take a while for large files.", sideEffect = false)
     fun cacheFile(
         @AgentToolParam("Server id (msgSvrId) of the file message to cache") msgSvrId: Long,
-    ): String = WeChatService.cacheFile(msgSvrId).render { "path=$it" }
+        @AgentToolParam("Conversation ID (wxId / talker) of the conversation the message belongs to; can be empty, if empty, the module tries to auto-detect the convId.") convId: String,
+    ): String = WeChatService.cacheFile(msgSvrId, convId.ifEmpty { null }).render { "path=$it" }
 
     @AgentTool(name = "download-file", description = "Download a file message by its server id: cache it into WeChat's storage if needed, then copy it to Download/WeKit/. Returns the saved local file path. May take a while for large files.", sideEffect = false)
     fun downloadFile(
         @AgentToolParam("Server id (msgSvrId) of the file message to download") msgSvrId: Long,
-    ): String = WeChatService.downloadFile(msgSvrId).render { "path=$it" }
+        @AgentToolParam("Conversation ID (wxId / talker) of the conversation the message belongs to; can be empty, if empty, the module tries to auto-detect the convId.") convId: String,
+    ): String = WeChatService.downloadFile(msgSvrId, convId.ifEmpty { null }).render { "path=$it" }
 
     @AgentTool(name = "query-database", description = "Run a read-only SQL SELECT against WeChat's decrypted database. Returns rows as JSON-ish text. Use with care.", sideEffect = false, group = AgentTool.BUILTIN_WECHAT_SQL)
     fun queryDatabase(

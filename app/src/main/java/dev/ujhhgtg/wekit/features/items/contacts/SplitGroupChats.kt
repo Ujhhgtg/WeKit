@@ -11,7 +11,7 @@ import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(name = "分裂群组", categories = ["联系人与群组", "娱乐"], description = "让群聊一分为二; 在假群聊中发送的红包即为假红包")
+@Feature(name = "分裂群组", categories = ["娱乐"], description = "让群聊一分为二; 在假群聊中发送的红包即为假红包")
 object SplitGroupChats : ClickableFeature() {
 
     private const val TAG = "SplitGroupChats"

@@ -157,6 +157,10 @@ fun FloatingBottomBar(
     // item's own onClick never fires for a reselection; this forwards that tap instead.
     // Defaults to routing through onSelected so callers that don't care keep old behaviour.
     onTabReselected: (index: Int) -> Unit = onSelected,
+    // Called when the already-selected tab is long-pressed. Same pill-occlusion problem as
+    // onTabReselected: the glass pill eats the long-press, so the tab item's own modifier
+    // never fires. Defaults to no-op so callers that don't need it are unaffected.
+    onTabReselectedLongPress: (index: Int) -> Unit = {},
     // Optional continuous position driver (e.g. a pager's fractional scroll offset,
     // 0f..tabsCount-1). When null the indicator springs between whole tabs as before.
     progress: (() -> Float)? = null,
@@ -210,6 +214,7 @@ fun FloatingBottomBar(
     // Kept fresh so the pill's onTap (captured once in the remembered animation) always
     // calls the latest callback.
     val onTabReselectedState = rememberUpdatedState(onTabReselected)
+    val onTabReselectedLongPressState = rememberUpdatedState(onTabReselectedLongPress)
 
     // Late-bound reference to the animation so canDrag can read its live value.
     class DampedDragAnimationHolder {
@@ -272,6 +277,10 @@ fun FloatingBottomBar(
             onTap = {
                 val index = value.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
                 onTabReselectedState.value(index)
+            },
+            onLongPress = {
+                val index = value.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
+                onTabReselectedLongPressState.value(index)
             }
         ).also { holder.instance = it }
     }

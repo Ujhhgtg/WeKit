@@ -197,7 +197,7 @@ object WeChatService {
         else Result.Error("Failed to send XML message")
 
     fun sendQuoteMessage(toUser: String, msgSvrId: Long, content: String): Result<Unit> =
-        if (WeMessageApi.sendQuoteMsg(toUser, msgSvrId, content)) Result.Success(Unit)
+        if (WeMessageApi.sendQuoteMsgByMsgId(toUser, msgSvrId, content)) Result.Success(Unit)
         else Result.Error("Failed to send quote message")
 
     fun sendCipherMessage(toUser: String, title: String, content: String): Result<Unit> {
@@ -239,13 +239,13 @@ object WeChatService {
             ?.let { Result.Success(it) }
             ?: Result.Error("Failed to download voice")
 
-    fun cacheFile(msgSvrId: Long): Result<String> =
-        WeMessageApi.cacheFile(msgSvrId)
+    fun cacheFile(msgSvrId: Long, talker: String?): Result<String> =
+        WeMessageApi.cacheFile(msgSvrId, talker)
             ?.let { Result.Success(it) }
             ?: Result.Error("Failed to cache file")
 
-    fun downloadFile(msgSvrId: Long): Result<String> =
-        WeMessageApi.downloadFile(msgSvrId)
+    fun downloadFile(msgSvrId: Long, talker: String?): Result<String> =
+        WeMessageApi.downloadFile(msgSvrId, talker)
             ?.let { Result.Success(it) }
             ?: Result.Error("Failed to download file")
 
@@ -261,7 +261,7 @@ object WeChatService {
 
     fun revokeMessage(msgId: Long): Result<Unit> =
         runCatching {
-            if (WeMessageApi.revokeMsg(msgId)) Result.Success(Unit)
+            if (WeMessageApi.revokeMsgByMsgId(msgId)) Result.Success(Unit)
             else Result.Error("Failed to revoke message")
         }.getOrElse { Result.Error(it.message ?: "Failed to revoke message") }
 

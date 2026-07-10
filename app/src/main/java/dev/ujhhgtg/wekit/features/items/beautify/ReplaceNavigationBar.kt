@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify
 
 import android.app.Activity
+import android.content.Intent
 import android.os.SystemClock
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -11,6 +12,9 @@ import androidx.activity.ComponentActivity
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -43,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
@@ -238,6 +243,18 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                 setContent {
                     InjectedUiTheme {
                         val view = LocalView.current
+
+                        // Long-press "发现" tab to jump straight into the improved timeline.
+                        val openImproveSnsTimeline = {
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            activity.startActivity(
+                                Intent().setClassName(
+                                    "com.tencent.mm",
+                                    "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI"
+                                )
+                            )
+                        }
+
                         var selectedIndex by selectedPageIndexState
                         val settledIndex by settledPageIndexState
                         val targetIndex by targetPageIndexState
@@ -285,6 +302,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                             onTabClicked(index)
                                         },
+                                        modifier = if (index == 2) Modifier.onLongPress(openImproveSnsTimeline) else Modifier,
                                         icon = {
                                             BadgedBox(
                                                 badge = {
@@ -369,6 +387,12 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                         onTabClicked(index)
                                     },
+                                    // Long-pressing the "发现" tab while it is already selected:
+                                    // the pill sits on top and eats the event, so the item's
+                                    // onLongPress modifier never fires — forward it here instead.
+                                    onTabReselectedLongPress = { index ->
+                                        if (index == 2) openImproveSnsTimeline()
+                                    },
                                     // Sample WeChat's real content (native ViewPager) into the
                                     // glass. rememberLayerBackdrop would only capture Compose
                                     // pixels, of which there are none behind this overlay bar.
@@ -391,7 +415,9 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                 view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                                 onTabClicked(index)
                                             },
-                                            modifier = Modifier.defaultMinSize(minWidth = 76.dp)
+                                            modifier = Modifier
+                                                .then(if (index == 2) Modifier.onLongPress(openImproveSnsTimeline) else Modifier)
+                                                .defaultMinSize(minWidth = 76.dp)
                                         ) {
                                             BadgedBox(
                                                 badge = {
@@ -500,6 +526,18 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     private val unreadCountState = mutableIntStateOf(0)
     private val finderUnreadCountState = mutableIntStateOf(0)
     private val showFinderDotState = mutableStateOf(false)
+
+    /**
+     * Non-consuming long-press modifier. Fires [block] when the pointer is held down long enough,
+     * but does **not** consume the down/up events, so the item's own tap ripple and onClick still work.
+     */
+    private fun Modifier.onLongPress(block: () -> Unit): Modifier = pointerInput(block) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+            block()
+        }
+    }
 
     private fun lerpColor(start: Color, stop: Color, fraction: Float): Color {
         val f = fraction.coerceIn(0f, 1f)

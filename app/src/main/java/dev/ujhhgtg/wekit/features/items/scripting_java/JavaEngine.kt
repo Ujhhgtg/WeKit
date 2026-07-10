@@ -910,17 +910,33 @@ object JavaEngine {
                 }
             })
 
-            // revokeMsg(msgSvrId) → revoke a sent message
             setMethod(BshMethod(
                 "revokeMsg", arrayOf(java.lang.Long.TYPE)
             ) {
                 val msgId = it[0] as Long
                 return@BshMethod runCatchingBsh("revokeMsg") {
-                    WeMessageApi.revokeMsg(msgId)
+                    WeMessageApi.revokeMsgByMsgId(msgId)
                 }.getOrDefault(false)
             })
 
-            // sendQuoteMsg(talker, msgSvrId, content) → send a quote-reply message
+            setMethod(BshMethod(
+                "revokeMsgByMsgId", arrayOf(java.lang.Long.TYPE)
+            ) {
+                val msgId = it[0] as Long
+                return@BshMethod runCatchingBsh("revokeMsgByMsgId") {
+                    WeMessageApi.revokeMsgByMsgId(msgId)
+                }.getOrDefault(false)
+            })
+
+            setMethod(BshMethod(
+                "revokeMsgByMsgSvrId", arrayOf(java.lang.Long.TYPE)
+            ) {
+                val msgSvrId = it[0] as Long
+                return@BshMethod runCatchingBsh("revokeMsgByMsgSvrId") {
+                    WeMessageApi.revokeMsgByMsgSvrId(msgSvrId)
+                }.getOrDefault(false)
+            })
+
             setMethod(BshMethod(
                 "sendQuoteMsg", arrayOf(BString, java.lang.Long.TYPE, BString)
             ) {
@@ -928,7 +944,7 @@ object JavaEngine {
                 val content = it[1] as String
                 val msgId = it[2] as Long
                 return@BshMethod runCatchingBsh("sendQuoteMsg") {
-                    WeMessageApi.sendQuoteMsg(talker, msgId, content)
+                    WeMessageApi.sendQuoteMsgByMsgId(talker, msgId, content)
                 }.getOrDefault(false)
             })
 

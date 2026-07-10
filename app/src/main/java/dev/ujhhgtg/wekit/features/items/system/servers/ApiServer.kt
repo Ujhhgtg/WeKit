@@ -20,6 +20,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.serialization.asStringOrNull
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import dev.ujhhgtg.wekit.utils.strings.stripWxId
 import io.ktor.http.ContentType
@@ -441,13 +442,15 @@ object ApiServer : ClickableFeature() {
             inputSchema = ToolSchema(
                 properties = buildJsonObject {
                     addField("msg-svr-id", "Server ID (msgSvrId) of the file message to cache", "integer")
+                    addField("conv-id", "Conversation ID (wxId / talker) of the conversation the message belongs to; can be empty, if empty, the module tries to auto-detect the convId.")
                 },
-                required = listOf("msg-svr-id")
+                required = listOf("conv-id", "msg-svr-id")
             )
         ) { req ->
-            val msgSvrId = req.arguments?.get("msg-svr-id")?.jsonPrimitive?.longOrNull
+            val msgSvrId = req.arguments?.get("conv-id")?.jsonPrimitive?.longOrNull
                 ?: return@addTool textRes("Invalid msg-svr-id", true)
-            WeChatService.cacheFile(msgSvrId).toCallToolResult { textRes(it) }
+            val convId = req.arguments?.get("conv-id")?.jsonPrimitive?.asStringOrNull
+            WeChatService.cacheFile(msgSvrId, convId?.ifEmpty { null }).toCallToolResult { textRes(it) }
         }
 
         addTool(
@@ -457,13 +460,15 @@ object ApiServer : ClickableFeature() {
             inputSchema = ToolSchema(
                 properties = buildJsonObject {
                     addField("msg-svr-id", "Server ID (msgSvrId) of the file message to download", "integer")
+                    addField("conv-id", "Conversation ID (wxId / talker) of the conversation the message belongs to; can be empty, if empty, the module tries to auto-detect the convId.")
                 },
-                required = listOf("msg-svr-id")
+                required = listOf("conv-id", "msg-svr-id")
             )
         ) { req ->
             val msgSvrId = req.arguments?.get("msg-svr-id")?.jsonPrimitive?.longOrNull
                 ?: return@addTool textRes("Invalid msg-svr-id", true)
-            WeChatService.downloadFile(msgSvrId).toCallToolResult { textRes(it) }
+            val convId = req.arguments?.get("conv-id")?.jsonPrimitive?.asStringOrNull
+            WeChatService.downloadFile(msgSvrId, convId?.ifEmpty { null }).toCallToolResult { textRes(it) }
         }
 
         addTool(
@@ -1970,20 +1975,22 @@ object ApiServer : ClickableFeature() {
                 }
             }
 
-            // POST /api/messages/{msgSvrId}/file/cache — cache into WeChat's own storage only
+            // POST /api/messages/{msgSvrId}/file/cache?talker=... — cache into WeChat's own storage only
             post("messages/{msgSvrId}/file/cache") {
                 val msgSvrId = call.parameters["msgSvrId"]?.toLongOrNull()
                     ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid msgSvrId"))
-                call.respondResult(WeChatService.cacheFile(msgSvrId)) { path ->
+                val talker = call.request.queryParameters["talker"]
+                call.respondResult(WeChatService.cacheFile(msgSvrId, talker?.ifEmpty { null })) { path ->
                     respond(HttpStatusCode.OK, PathResponse(path))
                 }
             }
 
-            // GET /api/messages/{msgSvrId}/file — cache if needed, then copy to Download/WeKit/
+            // GET /api/messages/{msgSvrId}/file?talker=... — cache if needed, then copy to Download/WeKit/
             get("messages/{msgSvrId}/file") {
                 val msgSvrId = call.parameters["msgSvrId"]?.toLongOrNull()
                     ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid msgSvrId"))
-                call.respondResult(WeChatService.downloadFile(msgSvrId)) { path ->
+                val talker = call.request.queryParameters["talker"]
+                call.respondResult(WeChatService.downloadFile(msgSvrId, talker?.ifEmpty { null })) { path ->
                     respond(HttpStatusCode.OK, PathResponse(path))
                 }
             }

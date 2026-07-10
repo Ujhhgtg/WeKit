@@ -44,6 +44,7 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.StrArr
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
+import dev.ujhhgtg.wekit.utils.reflection.long
 import dev.ujhhgtg.wekit.utils.reflection.void
 import dev.ujhhgtg.wekit.utils.serialization.JsonToXmlConverter
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
@@ -551,8 +552,12 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    fun revokeMsg(msgId: Long): Boolean {
-        return revokeMsg(MessageInfo(getMsgInfoInstanceByMsgId(msgId, arrayOf("createTime", "type"))))
+    fun revokeMsgByMsgId(msgId: Long): Boolean {
+        return revokeMsg(MessageInfo(getMsgInfoInstanceByMsgSvrId(getMsgSvrIdByMsgId(msgId) ?: return false, null)))
+    }
+
+    fun revokeMsgByMsgSvrId(msgSvrId: Long): Boolean {
+        return revokeMsg(MessageInfo(getMsgInfoInstanceByMsgSvrId(msgSvrId, null)))
     }
 
     private val classSqliteWrapper by dexClass {
@@ -570,25 +575,51 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         return convertMsgInfoInstanceFromCursor(cursor)
     }
 
-    fun getMsgInfoInstanceByMsgId(msgId: Long, columnNames: Array<String>): Any {
-        return getMsgInfoInstanceBySql("msgId=?", arrayOf(msgId.toString()), columnNames)
+    private val methodGetMsgInfoByTalkerAndSvrId by dexMethod {
+        matcher {
+            declaredClass {
+                usingEqStrings("MicroMsg.MsgInfoStorage", "build new index last %d")
+            }
+            paramTypes(BString, long)
+            returnType(classMsgInfo.clazz)
+            usingEqStrings("msgSvrId=?")
+        }
     }
 
-    fun getMsgInfoInstanceByMsgSvrId(msgSvrId: Long, columnNames: Array<String>): Any {
-        return getMsgInfoInstanceBySql("msgSvrId=?", arrayOf(msgSvrId.toString()), columnNames)
+    /** 通过本地 msgId 解析 msgSvrId；找不到或 msgSvrId 为 0 时返回 null。 */
+    fun getMsgSvrIdByMsgId(msgId: Long): Long? {
+        return try {
+            WeDatabaseApi.rawQuery("SELECT msgSvrId FROM message WHERE msgId=?", arrayOf(msgId))
+                .use { if (it.moveToFirst()) it.getLong(0).takeIf { v -> v != 0L } else null }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "getMsgSvrIdByMsgId failed", e)
+            null
+        }
     }
 
-//    /** Resolve a local [msgId] (message.msgId primary key) to its server id (message.msgSvrId). */
-//    fun msgIdToMsgSvrId(msgId: Long): Long {
-//        val msgInfo = getMsgInfoInstanceBySql("msgId=?", arrayOf(msgId.toString()), arrayOf("msgSvrId"))
-//        return MessageInfo(msgInfo).serverId
-//    }
-//
-//    /** Resolve a server id (message.msgSvrId) to its local [msgId] (message.msgId primary key). */
-//    fun msgSvrIdToMsgId(msgSvrId: Long): Long {
-//        val msgInfo = getMsgInfoInstanceBySql("msgSvrId=?", arrayOf(msgSvrId.toString()), arrayOf("msgId"))
-//        return MessageInfo(msgInfo).id
-//    }
+    /**
+     * 通过 msgSvrId 反查 talker。仅查 message 表 (C2C/群聊); 企业微信、小程序消息等不在此表中会返回 null。
+     */
+    fun getTalkerByMsgSvrId(msgSvrId: Long): String? {
+        return try {
+            WeDatabaseApi.rawQuery("SELECT talker FROM message WHERE msgSvrId=?", arrayOf(msgSvrId))
+                .use { if (it.moveToFirst()) it.getString(0) else null }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "getTalkerByMsgSvrId failed", e)
+            null
+        }
+    }
+
+    /**
+     * @param talker 会话 username; 传 null 时自动从 message 表反查 (仅覆盖 C2C/群聊)。
+     */
+    fun getMsgInfoInstanceByMsgSvrId(msgSvrId: Long, talker: String? = null): Any {
+        val resolvedTalker = talker ?: getTalkerByMsgSvrId(msgSvrId)
+            ?: error("failed to resolve talker for msgSvrId=$msgSvrId")
+        return methodGetMsgInfoByTalkerAndSvrId.method.invoke(
+            WeServiceApi.msgInfoStorage, resolvedTalker, msgSvrId
+        )!!
+    }
 
     fun convertMsgInfoInstanceFromCursor(cursor: Cursor): Any {
         val msgInfo = classMsgInfo.clazz.createInstance()
@@ -600,21 +631,25 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         return msgInfo
     }
 
-    fun sendQuoteMsg(talker: String, msgId: Long, content: String): Boolean {
-        return sendQuoteMsg(talker, msgId, content, null)
+    fun sendQuoteMsgByMsgId(talker: String, msgId: Long, content: String): Boolean {
+        return sendQuoteMsgByMsgSvrId(talker, getMsgSvrIdByMsgId(msgId) ?: return false, content, null)
     }
 
-    fun sendQuoteMsg(talker: String, msgId: Long, content: String, referContent: String?): Boolean {
+    fun sendQuoteMsgByMsgSvrId(talker: String, msgSvrId: Long, content: String): Boolean {
+        return sendQuoteMsgByMsgSvrId(talker, msgSvrId, content, null)
+    }
+
+    fun sendQuoteMsgByMsgSvrId(talker: String, msgSvrId: Long, content: String, referContent: String?): Boolean {
         return try {
             WeLogger.i(TAG, "sending quote message to $talker")
-            val f8 = getMsgInfoInstanceByMsgId(msgId, arrayOf("type", "msgSvrId", "talker", "content", "createTime"))
+            val f8 = getMsgInfoInstanceByMsgSvrId(msgSvrId, talker)
             val mi = MessageInfo(f8)
             val appmsg = JSONObject()
             appmsg.put("type", 57)
             appmsg.put("title", content)
             val refermsg = JSONObject()
             refermsg.put("type", mi.typeCode)
-            refermsg.put("svrid", msgId)
+            refermsg.put("svrid", msgSvrId)
             refermsg.put("fromusr", mi.talker)
             refermsg.put("chatusr", mi.talker)
             refermsg.put("displayname", WeDatabaseApi.getDisplayName(mi.talker))
@@ -1830,13 +1865,12 @@ object WeMessageApi : ApiFeature(), IResolveDex {
      *
      * 仅供无法拿到现成 msgInfo 实例的调用方 (如远程 API / WeAgent) 使用;
      * 能拿到实例时请改用 [cacheFile] 的实例重载。
+     * @param talker 会话 username; 传 null 时自动从 message 表反查 (仅覆盖 C2C/群聊)。
      * @return 缓存后文件在微信内部的绝对路径, 失败返回 null
      */
-    fun cacheFile(msgSvrId: Long): String? {
+    fun cacheFile(msgSvrId: Long, talker: String? = null): String? {
         return try {
-            val msgInfoInstance = getMsgInfoInstanceByMsgSvrId(
-                msgSvrId, arrayOf("type", "msgSvrId", "talker", "content", "createTime")
-            )
+            val msgInfoInstance = getMsgInfoInstanceByMsgSvrId(msgSvrId, talker)
             cacheFile(msgInfoInstance)
         } catch (e: Exception) {
             WeLogger.e(TAG, "cacheFile failed", e)
@@ -1869,13 +1903,12 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     /**
      * 下载文件 (按 msgSvrId 重新查库重建 msgInfo 实例)。
      * 能拿到实例时请改用 [downloadFile] 的实例重载。
+     * @param talker 会话 username; 传 null 时自动从 message 表反查 (仅覆盖 C2C/群聊)。
      * @return 拷贝到 Download/WeKit/ 后的绝对路径, 失败返回 null
      */
-    fun downloadFile(msgSvrId: Long): String? {
+    fun downloadFile(msgSvrId: Long, talker: String? = null): String? {
         return try {
-            val msgInfoInstance = getMsgInfoInstanceByMsgSvrId(
-                msgSvrId, arrayOf("type", "msgSvrId", "talker", "content", "createTime")
-            )
+            val msgInfoInstance = getMsgInfoInstanceByMsgSvrId(msgSvrId, talker)
             downloadFile(msgInfoInstance)
         } catch (e: Exception) {
             WeLogger.e(TAG, "downloadFile failed", e)
@@ -1883,13 +1916,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    fun setReferringMessage(chatFooter: ChatFooter, instance: Any) {
+    fun setReferringMessage(chatFooter: ChatFooter, msgInfoInstance: Any) {
         val quoteMethod = chatFooter.reflekt()
             .firstMethod {
                 parameters { args -> args[0] == classMsgInfo.clazz }
                 returnType = Boolean::class
             }.self
-        if (quoteMethod.parameterCount == 1) quoteMethod.invoke(chatFooter, instance)
-        else quoteMethod.invoke(chatFooter, instance, null)
+        if (quoteMethod.parameterCount == 1) quoteMethod.invoke(chatFooter, msgInfoInstance)
+        else quoteMethod.invoke(chatFooter, msgInfoInstance, null)
     }
 }

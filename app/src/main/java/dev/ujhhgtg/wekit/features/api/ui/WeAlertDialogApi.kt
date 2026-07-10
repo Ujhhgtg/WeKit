@@ -17,6 +17,9 @@ object WeAlertDialogApi : ApiFeature(), IResolveDex {
         }
     }
 
+    /**
+     * NEVER use this API except for the TrollBan feature.
+     */
     fun showAlertDialog(
         context: Context,
         content: String,

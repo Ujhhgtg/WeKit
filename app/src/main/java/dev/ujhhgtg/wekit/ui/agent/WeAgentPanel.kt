@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.ui.agent
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -81,6 +82,7 @@ import com.composables.icons.materialsymbols.outlined.Settings
 import com.composables.icons.materialsymbols.outlined.Star
 import com.composables.icons.materialsymbols.outlined.Stop
 import com.composables.icons.materialsymbols.outlinedfilled.Star
+import dev.ujhhgtg.wekit.activity.agent.WeAgentSettingsActivity
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ChatRow
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -248,8 +250,8 @@ private fun ChatPane(modifier: Modifier, onDismiss: () -> Unit, onOpenSidebar: (
             IconButton(onClick = {
                 val ctx = dev.ujhhgtg.wekit.utils.HostInfo.application
                 ctx.startActivity(
-                    android.content.Intent(ctx, dev.ujhhgtg.wekit.activity.agent.WeAgentSettingsActivity::class.java)
-                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    Intent(ctx, WeAgentSettingsActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 )
                 onDismiss()
             }) {

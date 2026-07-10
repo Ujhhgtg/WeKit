@@ -19,7 +19,9 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.unit.IntSize
 import dev.ujhhgtg.wekit.ui.content.inspectDragGestures
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.android.awaitFrame
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -40,6 +42,10 @@ class DampedDragAnimation(
     // how a tap on the already-selected tab is surfaced — that tap lands on the pill, not the
     // tab item beneath it, so the item's own onClick never runs.
     val onTap: DampedDragAnimation.() -> Unit = {},
+    // Fired when the pointer is held on the pill past the long-press threshold without dragging.
+    // Same occlusion problem as onTap: the pill eats the event so the tab item's own long-press
+    // modifier never fires for the currently-selected tab.
+    val onLongPress: DampedDragAnimation.() -> Unit = {},
 ) {
 
     private val valueAnimationSpec =
@@ -83,26 +89,43 @@ class DampedDragAnimation(
 
     val modifier: Modifier = Modifier.pointerInput(Unit) {
         val tapSlop = viewConfiguration.touchSlop
+        val longPressTimeoutMs = viewConfiguration.longPressTimeoutMillis
         var accumulatedDrag = 0f
+        var longPressJob: Job? = null
+        var longPressFired = false
         inspectDragGestures(
             onDragStart = { down ->
                 isDragging = true
                 accumulatedDrag = 0f
+                longPressFired = false
                 onDragStarted(down.position)
                 press()
+                // Race a long-press timer alongside the drag detection. Cancelled if the
+                // finger moves past slop before the timeout — same semantics as the platform.
+                longPressJob = animationScope.launch {
+                    delay(longPressTimeoutMs)
+                    longPressFired = true
+                    onLongPress()
+                }
             },
             onDragEnd = {
                 isDragging = false
+                longPressJob?.cancel()
+                longPressJob = null
                 onDragStopped()
                 release()
                 // A gesture that never moved past touch slop is a tap on the pill, not a
                 // drag. Forward it so a tap on the selected tab still triggers an action.
-                if (accumulatedDrag <= tapSlop) {
+                // Skip if a long press already fired for this gesture.
+                if (!longPressFired && accumulatedDrag <= tapSlop) {
                     onTap()
                 }
             },
             onDragCancel = {
                 isDragging = false
+                longPressJob?.cancel()
+                longPressJob = null
+                longPressFired = false
                 onDragStopped()
                 release()
             }
@@ -116,6 +139,11 @@ class DampedDragAnimation(
             if (isInside && wasInside) {
                 accumulatedDrag += abs(dragAmount.x) + abs(dragAmount.y)
                 onDrag(size, dragAmount)
+                // Cancel the long-press timer as soon as the finger clearly drags.
+                if (accumulatedDrag > tapSlop) {
+                    longPressJob?.cancel()
+                    longPressJob = null
+                }
             }
         }
     }

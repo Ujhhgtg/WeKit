@@ -20,7 +20,7 @@ object WeChatForegroundTracker {
     var isForeground = false
         private set
 
-    /** Invoked on every foreground↔background transition with the new state. */
+    /** Invoked on every foreground ↔ background transition with the new state. */
     var onChanged: ((Boolean) -> Unit)? = null
 
     private var startedCount = 0

@@ -1,11 +1,13 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import android.content.Context
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
+import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
@@ -35,32 +37,33 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
                 // revokes then loads one message's text into the input box; single-message only
                 multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Unsupported
             ) { view, _, msgInfo ->
-                val chatFooter = WeCurrentConversationApi.chatFooter ?: return@MenuItem
-                WeMessageApi.revokeMsg(msgInfo)
-                if (msgInfo.type == MessageType.QUOTE) {
-                    chatFooter.lastText = msgInfo.quoteMsgActualContent ?: ""
-                        // FIXME: doesn't work
-//                    WeMessageApi.setReferringMessage(chatFooter,
-//                        WeMessageApi.getMsgInfoInstanceByMsgSvrId(msgInfo.toQuoteMessage()!!.svrid,
-//                            arrayOf("talker", "content")))
-                } else {
-                    chatFooter.lastText = msgInfo.actualContent
-                }
-
-                chatFooter.setMode(1)
-                val toSendEt = chatFooter.reflekt().invokeMethod("getToSendEt")!!
-
-                val etView = toSendEt.reflekt().firstMethod {
-                    returnType = View::class
-                }.invoke()!! as View
-
-                etView.requestFocus()
-                val context = view.context
-                val im = context.getSystemService<InputMethodManager>()
-                etView.post {
-                    im.showSoftInput(etView, 0)
-                }
+                quickRevokeAndEdit(view.context, msgInfo)
             }
         )
+    }
+
+    fun quickRevokeAndEdit(context: Context, msgInfo: MessageInfo) {
+        val chatFooter = WeCurrentConversationApi.chatFooter ?: return
+        WeMessageApi.revokeMsg(msgInfo)
+        if (msgInfo.type == MessageType.QUOTE) {
+            chatFooter.lastText = msgInfo.quoteMsgActualContent ?: ""
+            WeMessageApi.setReferringMessage(chatFooter,
+                WeMessageApi.getMsgInfoInstanceByMsgSvrId(msgInfo.toQuoteMessage()!!.svrid, msgInfo.talker))
+        } else {
+            chatFooter.lastText = msgInfo.actualContent
+        }
+
+        chatFooter.setMode(1)
+        val toSendEt = chatFooter.reflekt().invokeMethod("getToSendEt")!!
+
+        val etView = toSendEt.reflekt().firstMethod {
+            returnType = View::class
+        }.invoke()!! as View
+
+        etView.requestFocus()
+        val im = context.getSystemService<InputMethodManager>()
+        etView.post {
+            im.showSoftInput(etView, 0)
+        }
     }
 }
