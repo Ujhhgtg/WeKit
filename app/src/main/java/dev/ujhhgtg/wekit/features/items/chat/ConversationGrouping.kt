@@ -17,6 +17,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,8 +27,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -55,9 +55,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Check
@@ -105,7 +106,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
     // edited or deleted, and selecting it applies no filter (null predicate). It's stored as an
     // ordinary ChatGroup entry (identified solely by this id) so the list order is enough to
     // remember where it sits.
-    private val ALL_TAB_ID = "${GROUP_PREFIX}all"
+    private const val ALL_TAB_ID = "${GROUP_PREFIX}all"
 
     private fun isAllTab(id: String?): Boolean = id == ALL_TAB_ID
 
@@ -807,7 +808,6 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
         val groupId = remember(group) { group?.id ?: newGroupId() }
         var name by remember(group) { mutableStateOf(group?.name ?: "") }
         var members by remember(group) { mutableStateOf(group?.members?.toSet().orEmpty()) }
-        var selectingMembers by remember { mutableStateOf(false) }
 
         var type by remember(group) { mutableStateOf(group?.type ?: GroupType.MANUAL) }
         var selectFields by remember(group) { mutableStateOf(group?.selectFields ?: "r.username") }
@@ -823,20 +823,6 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                 whereClause = whereClause
             )
             getGroupMembers(temp).size
-        }
-
-        if (selectingMembers) {
-            ContactsSelector(
-                title = "选择对话",
-                contacts = remember { WeDatabaseApi.getContacts() },
-                initialSelectedWxIds = members,
-                onDismiss = { selectingMembers = false },
-                onConfirm = {
-                    members = it
-                    selectingMembers = false
-                }
-            )
-            return
         }
 
         AlertDialogContent(
@@ -919,9 +905,22 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                     when (type) {
                         GroupType.MANUAL -> {
                             Text("已选择 $matchedCount 个对话")
+                            val context = LocalContext.current
                             Button(
                                 modifier = Modifier.fillMaxWidth(),
-                                onClick = { selectingMembers = true }
+                                onClick = {
+                                    showComposeDialog(context) {
+                                        ContactsSelector(
+                                            title = "选择对话",
+                                            contacts = remember { WeDatabaseApi.getContacts() },
+                                            initialSelectedWxIds = members,
+                                            onDismiss = onDismiss,
+                                            onConfirm = {
+                                                members = it
+                                            }
+                                        )
+                                    }
+                                }
                             ) {
                                 Text("选择对话")
                             }

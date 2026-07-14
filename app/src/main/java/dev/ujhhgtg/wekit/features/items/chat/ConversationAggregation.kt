@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.conversation.BaseConversationUI
@@ -1330,7 +1331,6 @@ object ConversationAggregation : ClickableFeature(),
         val folderId = remember(folder) { folder?.id ?: newFolderId() }
         var name by remember(folder) { mutableStateOf(folder?.name ?: "") }
         var members by remember(folder) { mutableStateOf(folder?.members?.toSet().orEmpty()) }
-        var selectingMembers by remember { mutableStateOf(false) }
 
         var type by remember(folder) { mutableStateOf(folder?.type ?: FolderType.MANUAL) }
         var selectFields by remember(folder) { mutableStateOf(folder?.selectFields ?: "r.username") }
@@ -1350,20 +1350,6 @@ object ConversationAggregation : ClickableFeature(),
 
         var hasAvatar by remember(folderId) {
             mutableStateOf(CustomLocalFriendAvatars.avatarMap.containsKey(folderId))
-        }
-
-        if (selectingMembers) {
-            ContactsSelector(
-                title = "选择对话",
-                contacts = remember { WeDatabaseApi.getContacts() },
-                initialSelectedWxIds = members,
-                onDismiss = { selectingMembers = false },
-                onConfirm = {
-                    members = it
-                    selectingMembers = false
-                }
-            )
-            return
         }
 
         AlertDialogContent(
@@ -1442,9 +1428,22 @@ object ConversationAggregation : ClickableFeature(),
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                val context = LocalContext.current
                                 Button(
                                     modifier = Modifier.weight(1f),
-                                    onClick = { selectingMembers = true }
+                                    onClick = {
+                                        showComposeDialog(context) {
+                                            ContactsSelector(
+                                                title = "选择对话",
+                                                contacts = remember { WeDatabaseApi.getContacts() },
+                                                initialSelectedWxIds = members,
+                                                onDismiss = onDismiss,
+                                                onConfirm = {
+                                                    members = it
+                                                }
+                                            )
+                                        }
+                                    }
                                 ) {
                                     Text("选择对话")
                                 }

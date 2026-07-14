@@ -168,9 +168,6 @@ object ModelProviderManager {
 
     /**
      * Fixed id for the built-in WeKit Router provider row in the Room database.
-     * This id is intercepted by [dev.ujhhgtg.wekit.agent.data.WeAgentRepository.getDecryptedModelProvider]
-     * to inject the live [dev.ujhhgtg.wekit.features.api.net.WekitProAccount.userToken] as the
-     * API key at call-time rather than reading the (intentionally blank) DB column.
      */
     const val WEKIT_ROUTER_BUILTIN_ID = "wekit_router_builtin"
 
@@ -181,9 +178,4 @@ object ModelProviderManager {
      */
     const val WEKIT_ROUTER_BASE_URL = "https://api.wekit.pro/v1"
 
-    /**
-     * Root URL for the WeKit Pro management API (no trailing `/v1`).
-     * [dev.ujhhgtg.wekit.features.api.net.WekitProClient] appends `/v1/admin/...` to this.
-     */
-    const val WEKIT_PRO_MGMT_ROOT = "https://api.wekit.pro"
 }

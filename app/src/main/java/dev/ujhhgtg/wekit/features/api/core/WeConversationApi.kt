@@ -31,7 +31,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //    private const val ATTR_FLAG_8071_8072_RED_PACKET_BITS = 33280
 //    private const val TABLE_RCONVERSATION = "rconversation"
 //    private const val TABLE_ECS_CONVERSATION_RECORD = "EcsConversationRecord"
-    private val classConversationStorage by dexClass {
+    internal val classConversationStorage by dexClass {
         searchPackages("com.tencent.mm.storage")
         matcher {
             usingEqStrings("rconversation", "PRAGMA table_info( rconversation)")
@@ -170,7 +170,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
             )
         }
     }
-    private val methodNotifyConversationChanged by dexMethod(allowFailure = true) {
+    val methodNotifyConversationChanged by dexMethod(allowFailure = true) {
         matcher {
             declaredClass(classConversationStorage.clazz.superclass!!)
             paramCount = 3
@@ -281,6 +281,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //            WeLogger.w(TAG, "exception while updating unread count for $talker", ex)
 //        }
 //    }
+
     fun markAsRead(talker: String) {
         try {
             methodUpdateUnreadByTalker.method.invoke(conversationStorage, talker)

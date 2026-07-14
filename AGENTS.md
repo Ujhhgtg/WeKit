@@ -3,8 +3,9 @@
 ## Build
 
 ```bash
-./gradlew :app:assembleDebug   # debug (uses same signing as release)
-./gradlew :app:assembleRelease # release (with optimization on)
+./x build           # debug (uses same signing as release)
+./x build --release # release (with optimization on)
+# (./x is alias to `cargo xtask` which orchestrates the build process)
 ```
 
 - JDK 21

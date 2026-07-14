@@ -42,7 +42,6 @@ import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.reflection.BBool
 import dev.ujhhgtg.wekit.utils.reflection.BInt
 import dev.ujhhgtg.wekit.utils.reflection.BString
-import dev.ujhhgtg.wekit.utils.reflection.StrArr
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.long
@@ -559,21 +558,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     fun revokeMsgByMsgSvrId(msgSvrId: Long): Boolean {
         return revokeMsg(MessageInfo(getMsgInfoInstanceByMsgSvrId(msgSvrId, null)))
-    }
-
-    private val classSqliteWrapper by dexClass {
-        matcher {
-            usingEqStrings("DB IS CLOSED ! {%s}", "beginTransaction Error :")
-        }
-    }
-
-    fun getMsgInfoInstanceBySql(whereClause: String, whereArgs: Array<String>, columnNames: Array<String>): Any {
-        val msgInfoStorage = WeServiceApi.msgInfoStorage
-        val sqliteWrapper = msgInfoStorage.reflekt().firstField { type = classSqliteWrapper.clazz.interfaces[0] }.get()!!
-        val cursor = sqliteWrapper.reflekt().firstMethod {
-            parameters(BString, StrArr, BString, StrArr, BString, BString, BString, int)
-        }.invoke("message", columnNames + arrayOf("msgId", "lvbuffer"), whereClause, whereArgs, null, null, null, 2) as Cursor
-        return convertMsgInfoInstanceFromCursor(cursor)
     }
 
     private val methodGetMsgInfoByTalkerAndSvrId by dexMethod {

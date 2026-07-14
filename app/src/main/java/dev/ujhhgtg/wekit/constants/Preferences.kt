@@ -19,11 +19,6 @@ object Preferences {
     const val THEME_SEED_COLOR = "settings_theme_seed_color"
     const val THEME_APPLY_TO_WECHAT = "settings_theme_apply_to_wechat"
 
-    // WeKit Pro account (token, tier, subscription end)
-    const val WEKIT_PRO_TOKEN = "wekit_pro_token"
-    const val WEKIT_PRO_TIER = "wekit_pro_tier"
-    const val WEKIT_PRO_PERIOD_END = "wekit_pro_period_end"
-
     var verboseLog by prefOption(VERBOSE_LOG, false)
     var noDexResolve by prefOption(NO_DEX_RESOLVE, false)
     var showStartupToast by prefOption(SHOW_STARTUP_TOAST, false)

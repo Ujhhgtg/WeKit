@@ -176,7 +176,7 @@ fun <T : Any> MiuixStackNavigator(
                     isTop && depth > 1 -> Modifier
                         .fillMaxSize()
                         .graphicsLayer { translationX = size.width * pv }
-                        .squircleClip(cornerRadius)
+                        .squircleClip(cornerRadius * pv)
                         .background(MiuixTheme.colorScheme.background)
                         .clickable(
                             interactionSource = tapBlocker,

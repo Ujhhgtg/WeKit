@@ -12,13 +12,6 @@ object NativeLoader {
     init {
         System.loadLibrary("dexkit")
         System.loadLibrary("wekit_native")
-//        runCatching {
-//            System.loadLibrary("nuke_native")
-//        }.onFailure {
-//            WeLogger.e("NativeLoader", "failed to load nuke native", it)
-//        }.onSuccess {
-//            WeLogger.i("NativeLoader", "loaded nuke native")
-//        }
     }
 
     fun init(hostCtx: Context) {

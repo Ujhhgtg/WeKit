@@ -11,6 +11,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.collection.mutableIntSetOf
 import androidx.compose.foundation.clickable
@@ -49,9 +50,12 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.now
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import java.lang.reflect.Field
 import kotlin.math.sqrt
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 import java.lang.reflect.Modifier as JavaModifier
 
 
@@ -64,7 +68,8 @@ import java.lang.reflect.Modifier as JavaModifier
 3. 首页搜索界面
 4. 锁屏自动关闭聊天界面
 5. 摇一摇设备关闭聊天界面
-6. 朋友圈信息流"""
+6. 朋友圈信息流
+7. 原生联系人选择页面（转发、建群等）"""
 )
 object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener,
     WeDatabaseListenerApi.IQueryListener {
@@ -167,13 +172,16 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     override fun onEnable() {
         // --- home screen conversation list ---
 
-        // Hide conversations at query time instead of writing parentRef='hidden_conv_parent'
-        // (WeConversationApi.setConversationsVisibility). WeChat resets parentRef to '' whenever a
-        // new message arrives, so a one-shot parentRef write can't keep a chat hidden — the row pops
-        // back into the list. Injecting a `username NOT IN (...)` predicate into WeChat's own
-        // conversation-list query (the same chokepoint ConversationGrouping/AggregateChats use)
-        // filters hidden chats on every read, so no incoming message can resurface them.
+        // Hide conversations at query time: inject `username NOT IN (...)` into WeChat's
+        // conversation-list query so hidden contacts are filtered on every full read.
         hookConversationListQuery()
+
+        // Block the per-row live-update notification that WeChat fires (type 3) when a new
+        // message arrives. Without this the native ConversationStorage dispatcher pushes the
+        // hidden contact's row directly to the list adapter — bypassing the SQL hook above —
+        // and the contact reappears until the next full query. Cancelling the notification at
+        // source means the adapter never sees the row, so there is no flash at all.
+        hookNewMessageNotification()
 
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
             migrateLegacyHiddenParentRef()
@@ -187,6 +195,22 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
             }
             context.registerReceiver(ScreenOffReceiver, filter)
             WeLogger.d(TAG, "registered screen off receiver")
+
+            // Triple-click on the main-screen title to toggle temporary show/hide.
+            val titleView = context.window?.decorView
+                ?.findViewById<TextView>(android.R.id.text1) ?: return@hookAfter
+            var clickCount = 0
+            var lastClickTime = Instant.DISTANT_PAST
+            titleView.setOnClickListener {
+                if (!tripleClickTitle) return@setOnClickListener
+                val now = now()
+                if (now - lastClickTime > TRIPLE_TAP_WINDOW) clickCount = 1 else clickCount++
+                lastClickTime = now
+                if (clickCount >= 3) {
+                    clickCount = 0
+                    toggleTemporarilyShown(context)
+                }
+            }
         }
 
         // --- shake to leave ---
@@ -333,15 +357,34 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
             }
         }
 
+        // VoipServiceEx.reject() requires status==3 and roomId!=0, both of which are written
+        // by setInviteContent. When NOT auto-rejecting we cancel setInviteContent in hookBefore
+        // so no state is established and no network packet fires. When auto-rejecting we let
+        // setInviteContent run (hookBefore does not cancel it), then call reject() in hookAfter
+        // once status==3 and roomId are in place so the rejection actually reaches the caller.
         methodVoipServiceExSetInviteContent.hookBefore {
+            if (temporarilyShown) return@hookBefore
             val wxId = args[0].reflekt().firstField { type = BString }.get()!! as String
-            if (!temporarilyShown && wxId in hiddenContacts) {
-                pendingVoipUser = wxId
-                if (autoRejectVoip) {
-                    WeLogger.i(TAG, "rejecting call")
-                    methodVoipServiceExReject.method.invoke(thisObject)
-                }
-                result = null
+            if (wxId !in hiddenContacts) return@hookBefore
+            pendingVoipUser = wxId
+            if (!autoRejectVoip) {
+                result = null  // hide only — cancel before state is set up
+            }
+            // autoRejectVoip=true: let the method run so status → 3 and roomId are written
+        }
+
+        methodVoipServiceExSetInviteContent.hookAfter {
+            if (!autoRejectVoip) return@hookAfter
+            if (temporarilyShown) return@hookAfter
+            val wxId = runCatching {
+                args[0].reflekt().firstField { type = BString }.get()!! as String
+            }.getOrNull() ?: return@hookAfter
+            if (wxId !in hiddenContacts) return@hookAfter
+            WeLogger.i(TAG, "auto-rejecting call from $wxId")
+            runCatching {
+                methodVoipServiceExReject.method.invoke(thisObject)
+            }.onFailure {
+                WeLogger.w(TAG, "failed to auto-reject call from $wxId", it)
             }
         }
 
@@ -384,6 +427,21 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
         WeChatInputBarApi.removeListener(this)
         WeDatabaseListenerApi.removeListener(this)
         temporarilyShown = false
+    }
+
+    /**
+     * Toggles the temporary-show state. Mirrors the `#show` / `#hide` input-bar commands for
+     * use by gesture-based triggers (e.g. triple-clicking the main-screen title).
+     */
+    internal fun toggleTemporarilyShown(context: Context) {
+        if (temporarilyShown) {
+            temporarilyShown = false
+            showToast(context, "已恢复隐藏联系人")
+        } else {
+            temporarilyShown = true
+            showToast(context, "已临时显示所有隐藏的联系人")
+        }
+        WeConversationApi.reloadConversations()
     }
 
     override fun onTextChanged(chatFooter: ChatFooter, text: String) {
@@ -445,20 +503,23 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
         return rewritten
     }
 
-    // The homepage conversation-list cursor does NOT flow through the SQLiteDatabase.rawQuery path
-    // that WeDatabaseListenerApi (onQuery) hooks; WeChat builds it through its own SQLite wrapper
-    // (d95.b0.f(sql, args, int)). We hook that wrapper directly — the same chokepoint
-    // ConversationGrouping/AggregateChats use — and append a `username NOT IN (...)` predicate so
-    // hidden chats are filtered on every read. Unlike the one-shot parentRef write, no incoming
-    // message can undo this, so a hidden chat never resurfaces when it receives a new message.
+    // The homepage conversation-list cursor and the native contact-selector list (SelectContactUI /
+    // AlphabetContactAdapter) both flow through WeChat's SQLite wrapper d95.b0.f(sql, args, int)
+    // rather than the standard SQLiteDatabase.rawQuery path that WeDatabaseListenerApi hooks.
+    // We hook that wrapper once and chain two rewriters:
+    //   • rewriteConversationListSql — appends `rconversation.username NOT IN (...)` for the
+    //     homepage list (same chokepoint as ConversationGrouping/AggregateChats)
+    //   • rewriteContactSelectorSql — appends `username NOT IN (...)` for rcontact list queries
+    //     from the contact selector (forward/group-create/etc.) so hidden contacts don't appear there
     private fun hookConversationListQuery() {
         if (methodSqliteWrapperRawQuery.isPlaceholder) {
-            WeLogger.w(TAG, "SQLite wrapper query method not resolved; conversation-list hiding disabled")
+            WeLogger.w(TAG, "SQLite wrapper query method not resolved; conversation-list and contact-selector hiding disabled")
             return
         }
         methodSqliteWrapperRawQuery.hookBefore {
             val sql = args.firstOrNull() as? String ?: return@hookBefore
-            rewriteConversationListSql(sql)?.let { args[0] = it }
+            (rewriteConversationListSql(sql) ?: rewriteContactSelectorSql(sql))
+                ?.let { args[0] = it }
         }
     }
 
@@ -488,6 +549,35 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
         return lower.contains("conversationtime") &&
                 lower.contains("unreadcount") &&
                 lower.contains("digestuser")
+    }
+
+    // Rewrites contact-selector rcontact queries to exclude hidden contacts.
+    //
+    // The native contact selector (SelectContactUI / AlphabetContactAdapter) builds its list
+    // via ContactStorage.k4.B(sql, null) → d95.b0.f(sql, args, 0), the same WeChat SQLite
+    // wrapper already hooked by methodSqliteWrapperRawQuery. We only need to recognize the
+    // query shape and inject a `username NOT IN (...)` predicate.
+    private fun rewriteContactSelectorSql(sql: String): String? {
+        if (temporarilyShown) return null
+
+        val hidden = hiddenContacts
+        if (hidden.isEmpty()) return null
+
+        if (!looksLikeContactSelectorQuery(sql)) return null
+
+        val condition = "username NOT IN (" +
+                hidden.joinToString(",") { "'${it.replace("'", "''")}'" } + ")"
+        return injectCondition(sql, condition)
+    }
+
+    // Recognises full contact-list queries (contact selector, search results) by the presence of
+    // pyinitial / quanpin — columns only selected in list-building queries that need alphabetical
+    // sorting, never in single-row lookups or profile fetches. The table must be rcontact.
+    private fun looksLikeContactSelectorQuery(sql: String): Boolean {
+        val lower = sql.lowercase()
+        if (!lower.contains("select")) return false
+        if (!lower.contains("from rcontact")) return false
+        return lower.contains("pyinitial") || lower.contains("quanpin")
     }
 
     // Insert an extra WHERE predicate before any ORDER BY / GROUP BY / LIMIT tail, joining with the
@@ -554,6 +644,41 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private val hiddenPositions = mutableIntSetOf()
 
     private var autoRejectVoip by prefOption("hide_auto_reject", false)
+    private var tripleClickTitle by prefOption("hide_triple_click_title", false)
+
+    // Three taps within this window on the main-screen title register as a triple-click.
+    // Matches WeChat's own double-tap detection threshold (f8/r8 tab listener, 300 ms),
+    // with a slightly wider window so the gesture stays comfortable.
+    private val TRIPLE_TAP_WINDOW = 500L.milliseconds
+
+    // Hooks the ConversationStorage notify dispatcher to cancel per-row update events (type 3)
+    // for hidden contacts before they reach list adapters. WeChat fires b(3, storage, talker)
+    // synchronously after every new message, pin, or unread-state change; without this hook the
+    // adapter sees the row immediately — before any SQL query runs — so the contact reappears
+    // regardless of the query-rewrite filter. Cancelling the notification at source is
+    // race-free: the hidden contact never reaches the adapter at all.
+    //
+    // Event type 5 (global reload) is not suppressed — that is the path reloadConversations() uses to
+    // trigger a full re-query (which our SQL hook then filters correctly). The empty-talker check
+    // additionally guards the "" sentinel used by reloadConversations().
+    private fun hookNewMessageNotification() {
+        val method = WeConversationApi.methodNotifyConversationChanged
+        if (method.isPlaceholder) {
+            WeLogger.w(TAG, "conversation notify method not resolved; new-message suppression unavailable")
+            return
+        }
+
+        method.hookBefore {
+            val eventType = args[0] as? Int ?: return@hookBefore
+            if (eventType != 3) return@hookBefore
+            if (temporarilyShown) return@hookBefore
+            val talker = args[2] as? String ?: return@hookBefore
+            if (talker.isEmpty()) return@hookBefore
+            if (talker !in hiddenContacts) return@hookBefore
+            WeConversationApi.markAsRead(talker)
+            result = null
+        }
+    }
 
     override fun onClick(context: ComponentActivity) {
         val regularContacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
@@ -564,6 +689,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                 text = {
                     DefaultColumn {
                         var autoRejectVoipInput by remember { mutableStateOf(autoRejectVoip) }
+                        var tripleClickTitleInput by remember { mutableStateOf(tripleClickTitle) }
 
                         ListItem(
                             modifier = Modifier.clickable {
@@ -594,6 +720,18 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                             },
                             supportingContent = { Text("不保证有效") },
                             headlineContent = { Text("自动拒绝音视频通话") },
+                        )
+
+                        ListItem(
+                            modifier = Modifier.clickable {
+                                tripleClickTitleInput = !tripleClickTitleInput
+                                tripleClickTitle = tripleClickTitleInput
+                            },
+                            trailingContent = {
+                                Switch(checked = tripleClickTitleInput, onCheckedChange = null)
+                            },
+                            supportingContent = { Text("连续三击主页顶部标题栏, 可临时显示或恢复隐藏联系人") },
+                            headlineContent = { Text("三击标题切换显隐") },
                         )
                     }
                 })
