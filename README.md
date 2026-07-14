@@ -2,6 +2,10 @@
 
 适用于微信的 Xposed 模块
 
+<img src="https://lipoly.ink/assets/badges/humanity.svg" alt="This project was built by human" width="300">
+
+*~~算是吧...~~*
+
 [![CI 状态](https://github.com/Ujhhgtg/WeKit/actions/workflows/ci.yml/badge.svg)](https://github.com/Ujhhgtg/WeKit/actions/workflows/ci.yml)
 
 ## 文档
