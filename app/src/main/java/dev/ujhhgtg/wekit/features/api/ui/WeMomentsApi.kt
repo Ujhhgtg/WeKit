@@ -59,6 +59,9 @@ import kotlin.time.Duration.Companion.milliseconds
 object WeMomentsApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeMomentsApi"
+    private const val SNS_VIDEO_SCENE_TIMELINE_OFFLINE = 31
+    private const val SNS_VIDEO_SCENE_FINISH_REMAINING = 36
+    private const val FALLBACK_VIDEO_CREATE_TIME = 1
 
     data class ActionResult(
         val success: Boolean,
@@ -287,6 +290,17 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         matcher {
             declaredClass(classSnsVideoLogic.clazz)
             usingEqStrings("getSnsVideoPath")
+        }
+    }
+
+    val methodGenCdnMediaId by dexMethod(allowFailure = true) {
+        matcher {
+            declaredClass(classSnsVideoLogic.clazz)
+            modifiers = Modifier.STATIC
+            paramCount(2)
+            paramTypes("int", null)
+            returnType(String::class.java)
+            usingEqStrings("genCdnMediaId")
         }
     }
 
@@ -520,12 +534,19 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         val size: Int
     )
 
-    private val galleryImageMediaItemClass: Class<*> by lazy {
-        classGalleryEntryUi.clazz.classLoader!!.loadClass("com.tencent.mm.plugin.gallery.model.GalleryItem\$ImageMediaItem")
+    private val classGalleryLivePhotoMediaItem by dexClass {
+        matcher {
+            className = "com.tencent.mm.plugin.gallery.model.GalleryItem\$LivePhotoMediaItem"
+        }
     }
 
     private val galleryLivePhotoMediaItemClass: Class<*> by lazy {
-        classGalleryEntryUi.clazz.classLoader!!.loadClass("com.tencent.mm.plugin.gallery.model.GalleryItem\$LivePhotoMediaItem")
+        classGalleryLivePhotoMediaItem.clazz
+    }
+
+    private val galleryImageMediaItemClass: Class<*> by lazy {
+        galleryLivePhotoMediaItemClass.superclass
+            ?: error("Gallery live-photo item superclass missing")
     }
 
     private val galleryImageMediaItemCtor by lazy {
@@ -546,21 +567,17 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         ).apply { isAccessible = true }
     }
 
-    private val livePhotoIntFields: List<Field> by lazy {
-        galleryLivePhotoMediaItemClass.declaredFields
-            .filter { !Modifier.isStatic(it.modifiers) && it.type == Int::class.javaPrimitiveType }
-            .onEach { it.isAccessible = true }
-    }
+    private data class LivePhotoFieldAccessors(
+        val duration: Field?,
+        val width: Field?,
+        val height: Field?,
+        val size: Field?,
+        val parsed: Field?,
+        val valid: Field?
+    )
 
-    private val livePhotoIntFieldsByName: Map<String, Field> by lazy {
-        livePhotoIntFields.associateBy { it.name }
-    }
-
-    private val livePhotoCoverTimestampField: Field by lazy {
-        (runCatching { galleryLivePhotoMediaItemClass.getDeclaredField("F") }.getOrNull()
-            ?: galleryLivePhotoMediaItemClass.declaredFields
-                .first { !Modifier.isStatic(it.modifiers) && it.type == Long::class.javaPrimitiveType })
-            .apply { isAccessible = true }
+    private val livePhotoFieldAccessors: LivePhotoFieldAccessors by lazy {
+        resolveLivePhotoFieldAccessors()
     }
 
     private val albumRepostDescriptionInjector = WeStartActivityApi.IStartActivityListener { _, intent ->
@@ -891,7 +908,8 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         val type: Int,
         val mediaList: List<TimelineObjectProto.MediaObjProto>,
         val nativeMediaList: LinkedList<*>,
-        val snsTableId: String?
+        val snsTableId: String?,
+        val createTime: Int
     ) {
         /** 该朋友圈是否包含至少一张实况图片。 */
         val hasLivePhoto: Boolean
@@ -912,7 +930,8 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             type = contentObj.type,
             mediaList = contentObj.mediaList,
             nativeMediaList = nativeMediaList,
-            snsTableId = getSnsTableId(snsInfo)
+            snsTableId = getSnsTableId(snsInfo),
+            createTime = proto.createTime
         )
     }
 
@@ -966,7 +985,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     fun getLivePhotoVideoPath(nativeVideoObj: Any): String? {
         return runCatching {
             val path = methodGetSnsVideoPath.method.invoke(null, nativeVideoObj) as? String
-            if (path.isNullOrEmpty() || !vfsFileExists(path)) null else path
+            if (path.isNullOrEmpty() || !(vfsFileExists(path) || java.io.File(path).isFile)) null else path
         }.getOrElse {
             WeLogger.e(TAG, "failed to get live photo video path", it)
             null
@@ -981,18 +1000,113 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     ?.takeIf { it.isNotBlank() && !it.startsWith("http") }
             }
 
-    private fun triggerVideoDownload(nativeMedia: Any, snsTableId: String?): Boolean {
+    private fun getNativeCdnMediaId(nativeMedia: Any, createTime: Int): String? {
+        return runCatching {
+            methodGenCdnMediaId.method.invoke(null, createTime, nativeMedia) as? String
+        }.getOrElse {
+            WeLogger.e(TAG, "failed to generate Moments video cdn media id", it)
+            null
+        }?.takeIf { it.isNotBlank() }
+    }
+
+    private fun triggerVideoDownload(
+        nativeMedia: Any,
+        snsTableId: String?,
+        createTime: Int? = null,
+        scene: Int = SNS_VIDEO_SCENE_TIMELINE_OFFLINE
+    ): Boolean {
         return runCatching {
             val manager = methodGetSnsVideoService.method.invoke(null)
-            val mediaId = getNativeMediaId(nativeMedia)?.takeIf { it.isNotBlank() } ?: return@runCatching false
-            val localId = snsTableId?.takeIf { it.isNotBlank() } ?: mediaId
-            val videoType = 1
-            val result = methodDownloadVideo.method.invoke(manager, nativeMedia, videoType, localId, false, true, 31, mediaId) as? Boolean == true
-            WeLogger.i(TAG, "trigger Moments video download: sns=$localId, media=$mediaId, type=$videoType, result=$result")
+            val fallbackMediaId = getNativeMediaId(nativeMedia)?.takeIf { it.isNotBlank() }
+            val effectiveCreateTime = createTime?.takeIf { it > 0 }
+            val mediaId = effectiveCreateTime?.let { getNativeCdnMediaId(nativeMedia, it) }
+                ?: fallbackMediaId
+                ?: return@runCatching false
+            val localId = snsTableId?.takeIf { it.isNotBlank() } ?: fallbackMediaId ?: mediaId
+            val videoCreateTime = effectiveCreateTime ?: FALLBACK_VIDEO_CREATE_TIME
+            val result = methodDownloadVideo.method.invoke(manager, nativeMedia, videoCreateTime, localId, false, true, scene, mediaId) as? Boolean == true
+            WeLogger.i(TAG, "trigger Moments video download: sns=$localId, media=$mediaId, createTime=$videoCreateTime, scene=$scene, result=$result")
             result
         }.getOrElse {
             WeLogger.e(TAG, "failed to trigger Moments video download", it)
             false
+        }
+    }
+
+    private fun videoFileSize(path: String): Long {
+        val fsSize = regularFileSize(path)
+        if (fsSize >= 0L) return fsSize
+        if (!vfsFileExists(path)) return -1L
+        return vfsFileSize(path)
+    }
+
+    private fun isUsableLivePhotoVideoPath(path: String?): Boolean {
+        if (path.isNullOrEmpty()) return false
+        if (!(vfsFileExists(path) || java.io.File(path).isFile)) return false
+        val size = videoFileSize(path)
+        if (size <= 0L) return false
+        val metadata = probeVideoMetadata(path)
+        val usable = metadata.durationMs > 0 && metadata.width > 0 && metadata.height > 0
+        if (!usable) {
+            WeLogger.w(TAG, "live photo video not ready: path=$path, size=$size, duration=${metadata.durationMs}, dimensions=${metadata.width}x${metadata.height}")
+        }
+        return usable
+    }
+
+    private suspend fun ensureLivePhotoVideosCached(
+        content: MomentContent,
+        timeoutMs: Long = 90_000,
+        intervalMs: Long = 500
+    ): Boolean {
+        if (!content.hasLivePhoto) return true
+
+        for (index in content.mediaList.indices) {
+            if (content.mediaList[index].livePhotoVideo == null) continue
+            val nativeMedia = content.nativeMediaList.getOrNull(index) ?: return false
+            val nativeVideo = getNativeLivePhotoVideo(nativeMedia)
+            if (nativeVideo == null) {
+                WeLogger.w(TAG, "live photo video sub-object missing: index=$index")
+                return false
+            }
+            ensureLivePhotoVideoCached(content, index, nativeVideo, timeoutMs, intervalMs)
+                ?: return false
+        }
+        return true
+    }
+
+    private suspend fun ensureLivePhotoVideoCached(
+        content: MomentContent,
+        index: Int,
+        nativeVideo: Any,
+        timeoutMs: Long,
+        intervalMs: Long
+    ): String? {
+        getLivePhotoVideoPath(nativeVideo)?.takeIf { isUsableLivePhotoVideoPath(it) }?.let { path ->
+            WeLogger.i(TAG, "live photo video already cached: index=$index, path=$path, size=${videoFileSize(path)}")
+            return path
+        }
+
+        triggerVideoDownload(nativeVideo, content.snsTableId, content.createTime.takeIf { it > 0 }, SNS_VIDEO_SCENE_TIMELINE_OFFLINE)
+        val start = SystemClock.elapsedRealtime()
+        var retriggeredFinish = false
+        while (SystemClock.elapsedRealtime() - start < timeoutMs) {
+            getLivePhotoVideoPath(nativeVideo)?.takeIf { isUsableLivePhotoVideoPath(it) }?.let { path ->
+                WeLogger.i(TAG, "live photo video cached after ${SystemClock.elapsedRealtime() - start}ms: index=$index, path=$path, size=${videoFileSize(path)}")
+                return path
+            }
+            val elapsed = SystemClock.elapsedRealtime() - start
+            if (!retriggeredFinish && elapsed >= 15_000) {
+                // Retry with the scene used by FlexibleVideoView finishRemaining; this helps complete partial live-photo downloads.
+                triggerVideoDownload(nativeVideo, content.snsTableId, content.createTime.takeIf { it > 0 }, SNS_VIDEO_SCENE_FINISH_REMAINING)
+                retriggeredFinish = true
+            }
+            delay(intervalMs.milliseconds)
+        }
+
+        return getLivePhotoVideoPath(nativeVideo)?.takeIf { isUsableLivePhotoVideoPath(it) }.also { path ->
+            if (path == null) {
+                WeLogger.w(TAG, "live photo video download timed out: index=$index, timeout=${timeoutMs}ms")
+            }
         }
     }
 
@@ -1019,7 +1133,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 ?: fetchFinishedVideoPath(content.snsTableId, content.nativeMediaList)
                 ?: fetchUsableCachedVideoPath(context, content.nativeMediaList)
                 ?: run {
-                    triggerVideoDownload(nativeMedia, content.snsTableId)
+                    triggerVideoDownload(nativeMedia, content.snsTableId, content.createTime)
                     waitForVideoPath(context, content.snsTableId, content.nativeMediaList)
                 }
         }?.let { videoPath ->
@@ -1115,7 +1229,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             var videoPath: String? = null
             if (mediaList[index].livePhotoVideo != null) {
                 val nativeVideo = getNativeLivePhotoVideo(nativeMedia)
-                videoPath = nativeVideo?.let { getLivePhotoVideoPath(it) }
+                videoPath = nativeVideo?.let { getLivePhotoVideoPath(it)?.takeIf { path -> isUsableLivePhotoVideoPath(path) } }
                 if (videoPath == null) degraded = true
             }
             items.add(ResolvedMedia(imagePath, videoPath))
@@ -1233,6 +1347,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
             ensureImagePathsCached(content.mediaList, content.nativeMediaList)
                 ?: return ActionResult(success = false, sent = false, message = "图片下载失败或超时")
+            if (!ensureLivePhotoVideosCached(content)) {
+                return ActionResult(success = false, sent = false, message = "实况视频下载失败或超时，请稍后重试")
+            }
 
             val resolved = resolveMediaItems(content)
                 ?: return ActionResult(success = false, sent = false, message = "未找到本地缓存的图片")
@@ -1288,18 +1405,15 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         val item = galleryLivePhotoMediaItemCtor.newInstance(mediaId, videoPath, coverPath, "image/jpeg")
         val metadata = probeVideoMetadata(videoPath)
 
-        // GalleryItem$LivePhotoMediaItem semantics are based on WeChat 8.0.74.
-        // Prefer obfuscated field names; fallback to the old declared-field order.
-        setLivePhotoIntField(item, "f155668z", 6, 0) // type = live photo
-        setLivePhotoIntField(item, "A", 1, 1) // state = parsed/ready
-        setLivePhotoIntField(item, "B", metadata.durationMs, 2)
-        setLivePhotoIntField(item, "C", metadata.width, 3)
-        setLivePhotoIntField(item, "D", metadata.height, 4)
-        setLivePhotoIntField(item, "E", metadata.size, 5)
-        setLivePhotoIntField(item, "G", 1, 6) // isParsedVideo
-        setLivePhotoIntField(item, "H", 1, 7) // isValid
-        setLivePhotoIntField(item, "I", 1, 8) // enabled
-        livePhotoCoverTimestampField.setLong(item, 0L)
+        // 只按 LivePhotoMediaItem.toString() 暴露的语义标签定位字段，不读取 8069/8074 的混淆字段名。
+        val fields = livePhotoFieldAccessors
+        fields.duration?.setInt(item, metadata.durationMs)
+        fields.width?.setInt(item, metadata.width)
+        fields.height?.setInt(item, metadata.height)
+        fields.size?.setInt(item, metadata.size)
+        fields.valid?.getInt(item)?.takeIf { it != 0 }?.let { readyValue ->
+            fields.parsed?.setInt(item, readyValue)
+        }
         WeLogger.i(
             TAG,
             "prepared gallery live photo item: cover=$coverPath(${regularFileSize(coverPath)}), " +
@@ -1309,19 +1423,76 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         return item
     }
 
-    private fun setLivePhotoIntField(item: Any, name: String, value: Int, fallbackIndex: Int) {
-        val field = livePhotoIntFieldsByName[name] ?: livePhotoIntFields.getOrNull(fallbackIndex) ?: return
-        field.setInt(item, value)
+    private fun resolveLivePhotoFieldAccessors(): LivePhotoFieldAccessors {
+        val probe = galleryLivePhotoMediaItemCtor.newInstance(
+            -1L,
+            "wekit_live_probe_video",
+            "wekit_live_probe_cover",
+            "image/jpeg"
+        )
+        val intRoles = mutableMapOf<String, Field>()
+        val intFields = galleryLivePhotoMediaItemClass.declaredFields
+            .filter { !Modifier.isStatic(it.modifiers) && it.type == Int::class.javaPrimitiveType }
+            .onEach { it.isAccessible = true }
+
+        intFields.forEachIndexed { index, field ->
+            val original = field.getInt(probe)
+            val marker = livePhotoProbeMarker(index)
+            field.setInt(probe, marker)
+            val text = probe.toString()
+            when {
+                hasLivePhotoMetric(text, "videoDuration", marker) -> intRoles["duration"] = field
+                hasLivePhotoMetric(text, "videoWidth", marker) -> intRoles["width"] = field
+                hasLivePhotoMetric(text, "videoHeight", marker) -> intRoles["height"] = field
+                hasLivePhotoMetric(text, "videoSize", marker) -> intRoles["size"] = field
+                hasLivePhotoMetric(text, "isParsedVideo", marker) -> intRoles["parsed"] = field
+                hasLivePhotoMetric(text, "isValid", marker) -> intRoles["valid"] = field
+            }
+            field.setInt(probe, original)
+        }
+
+        return LivePhotoFieldAccessors(
+            duration = intRoles["duration"],
+            width = intRoles["width"],
+            height = intRoles["height"],
+            size = intRoles["size"],
+            parsed = intRoles["parsed"],
+            valid = intRoles["valid"]
+        ).also { fields ->
+            WeLogger.i(
+                TAG,
+                "resolved Gallery live-photo fields semantically: " +
+                    "duration=${fields.duration != null}, width=${fields.width != null}, " +
+                    "height=${fields.height != null}, size=${fields.size != null}, " +
+                    "parsed=${fields.parsed != null}, valid=${fields.valid != null}"
+            )
+        }
     }
+
+    private fun livePhotoProbeMarker(index: Int): Int =
+        "WeKitLivePhotoFieldProbe".hashCode() xor index
+
+    private fun hasLivePhotoMetric(text: String, label: String, value: Number): Boolean =
+        text.contains("$label=$value")
 
     private fun probeVideoMetadata(videoPath: String): VideoMetadata {
         var durationMs = 0
         var width = 0
         var height = 0
+        var tempVideo: java.io.File? = null
         runCatching {
+            val sourcePath = if (java.io.File(videoPath).isFile) {
+                videoPath
+            } else {
+                val cacheDir = HostInfo.application.externalCacheDir ?: HostInfo.application.cacheDir
+                val temp = java.io.File(cacheDir, "wekit_moments_probe_live_${System.currentTimeMillis()}.mp4")
+                if (!copyExistingFile(videoPath, temp.absolutePath)) return@runCatching
+                tempVideo = temp
+                temp.absolutePath
+            }
             val retriever = MediaMetadataRetriever()
             try {
-                retriever.setDataSource(videoPath)
+                retriever.setDataSource(sourcePath)
                 durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toIntOrNull() ?: 0
                 width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
                 height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
@@ -1331,7 +1502,8 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }.onFailure {
             WeLogger.e(TAG, "failed to probe live photo video metadata: $videoPath", it)
         }
-        return VideoMetadata(durationMs, width, height, regularFileSize(videoPath).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
+        tempVideo?.delete()
+        return VideoMetadata(durationMs, width, height, videoFileSize(videoPath).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
     }
 
     fun openMomentVideoEditorFromAlbumResult(activity: Activity, text: String, videoPath: String, source: Any? = null): Boolean {
