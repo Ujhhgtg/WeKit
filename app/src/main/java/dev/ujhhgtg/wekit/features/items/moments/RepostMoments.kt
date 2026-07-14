@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.SendIcon
 import dev.ujhhgtg.wekit.ui.utils.ShareIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -18,7 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(name = "转发 & 一键转发", categories = ["朋友圈"], description = "转发他人的朋友圈, 支持实况图片\n图片/视频会在转发前自动缓存, 无需先点开; 实况视频如转发后空白请先播放一次")
+@Feature(name = "转发", categories = ["朋友圈"], description = "转发他人的朋友圈到编辑界面, 支持实况图片\n图片/视频会在转发前自动缓存, 无需先点开")
 object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 
     private const val TAG = "RepostMoments"
@@ -43,18 +42,6 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     repostMoment(moment)
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "forward failed", e)
-                }
-            },
-            WeMomentsContextMenuApi.MenuItem(
-                777014,
-                "一键转发",
-                SendIcon,
-                { _, _ -> true },
-            ) { moment ->
-                try {
-                    quickRepostMoment(moment)
-                } catch (e: Throwable) {
-                    WeLogger.e(TAG, "quick forward failed", e)
                 }
             }
         )
@@ -131,12 +118,12 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         showComposeDialog(activity) {
             AlertDialogContent(
                 title = { Text("实况图片") },
-                text = { Text("此朋友圈包含实况图片。\n可编辑实况转发，或降级为静态图后编辑。") },
+                text = { Text("此朋友圈包含实况图片。\n可编辑实况转发，或静态图编辑。") },
                 confirmButton = {
                     Button(onClick = {
                         onDismiss()
                         editLivePhotoRepost(context, data)
-                    }) { Text("编辑实况转发") }
+                    }) { Text("实况编辑转发") }
                 },
                 dismissButton = {
                     TextButton(onClick = {
@@ -150,7 +137,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                             }
                             WeMomentsApi.sendImagesInUi(activity, tempPaths, data.contentText)
                         }
-                    }) { Text("降级为静态图编辑") }
+                    }) { Text("静态编辑转发") }
                 }
             )
         }
@@ -175,24 +162,4 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         }
     }
 
-    private fun quickRepostMoment(context: WeMomentsContextMenuApi.MomentsContext) {
-        val activity = context.activity
-        val data = WeMomentsApi.getMomentContent(context.snsInfo, context.timelineObject)
-        if (data == null) {
-            WeLogger.w(
-                TAG,
-                "failed to resolve Moments content for quick repost: activity=${activity.javaClass.name}, " +
-                    "snsInfo=${context.snsInfo?.javaClass?.name}, timeline=${context.timelineObject?.javaClass?.name}"
-            )
-            showToast(activity, "朋友圈内容解析失败!")
-            return
-        }
-
-        showToast(activity, "正在一键转发...")
-
-        CoroutineScope(Dispatchers.Main).launch {
-            val result = WeMomentsApi.quickForwardEnsuringCached(data)
-            showToastSuspend(activity, result.message)
-        }
-    }
 }
