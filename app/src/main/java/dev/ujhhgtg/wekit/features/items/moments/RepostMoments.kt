@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 
     private const val TAG = "RepostMoments"
+    private const val PREPARING_IMAGE_TOAST = "正在准备图片..."
+    private const val IMAGE_DOWNLOAD_FAILED_TOAST = "图片下载失败或超时!"
 
     override fun onEnable() {
         WeMomentsContextMenuApi.addProvider(this)
@@ -69,11 +71,11 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     return
                 }
 
-                showToast(activity, "正在准备图片...")
+                showToast(activity, PREPARING_IMAGE_TOAST)
                 CoroutineScope(Dispatchers.Main).launch {
                     val tempPaths = WeMomentsApi.ensureImagePathsForEditor(activity, data.mediaList, data.nativeMediaList)
                     if (tempPaths == null) {
-                        showToastSuspend(activity, "图片下载失败或超时!")
+                        showToastSuspend(activity, IMAGE_DOWNLOAD_FAILED_TOAST)
                         return@launch
                     }
                     WeMomentsApi.sendImagesInUi(activity, tempPaths, contentText)
@@ -128,11 +130,11 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 dismissButton = {
                     TextButton(onClick = {
                         onDismiss()
-                        showToast(activity, "正在准备图片...")
+                        showToast(activity, PREPARING_IMAGE_TOAST)
                         CoroutineScope(Dispatchers.Main).launch {
                             val tempPaths = WeMomentsApi.ensureImagePathsForEditor(activity, data.mediaList, data.nativeMediaList)
                             if (tempPaths == null) {
-                                showToastSuspend(activity, "图片下载失败或超时!")
+                                showToastSuspend(activity, IMAGE_DOWNLOAD_FAILED_TOAST)
                                 return@launch
                             }
                             WeMomentsApi.sendImagesInUi(activity, tempPaths, data.contentText)

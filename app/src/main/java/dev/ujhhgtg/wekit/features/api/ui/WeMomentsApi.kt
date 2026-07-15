@@ -62,6 +62,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     private const val SNS_VIDEO_SCENE_TIMELINE_OFFLINE = 31
     private const val SNS_VIDEO_SCENE_FINISH_REMAINING = 36
     private const val FALLBACK_VIDEO_CREATE_TIME = 1
+    private const val MIME_IMAGE_JPEG = "image/jpeg"
+    private const val MESSAGE_IMAGE_DOWNLOAD_FAILED = "图片下载失败或超时"
+    private const val MESSAGE_CACHED_IMAGE_NOT_FOUND = "未找到本地缓存的图片"
 
     data class ActionResult(
         val success: Boolean,
@@ -1203,10 +1206,10 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 usable
             } finally {
                 retriever.release()
-                localVideo?.delete()
+                deleteTempFile(localVideo, "Moments video probe temp file")
             }
         }.getOrElse {
-            localVideo?.delete()
+            deleteTempFile(localVideo, "Moments video probe temp file")
             WeLogger.e(TAG, "failed to probe Moments cached video: $path", it)
             false
         }
@@ -1325,6 +1328,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
+
+    private fun deleteTempFile(file: java.io.File?, description: String) {
+        if (file != null && file.exists() && !file.delete()) {
+            WeLogger.w(TAG, "failed to delete $description: ${file.absolutePath}")
+        }
+    }
+
     fun saveImageToAlbumPath(context: Context, path: String): String? {
         return runCatching {
             methodExportImageToAlbum.method.invoke(null, context, path, null) as? String
@@ -1346,13 +1356,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             }
 
             ensureImagePathsCached(content.mediaList, content.nativeMediaList)
-                ?: return ActionResult(success = false, sent = false, message = "图片下载失败或超时")
+                ?: return ActionResult(success = false, sent = false, message = MESSAGE_IMAGE_DOWNLOAD_FAILED)
             if (!ensureLivePhotoVideosCached(content)) {
                 return ActionResult(success = false, sent = false, message = "实况视频下载失败或超时，请稍后重试")
             }
 
             val resolved = resolveMediaItems(content)
-                ?: return ActionResult(success = false, sent = false, message = "未找到本地缓存的图片")
+                ?: return ActionResult(success = false, sent = false, message = MESSAGE_CACHED_IMAGE_NOT_FOUND)
             if (resolved.degradedLivePhotos) {
                 return ActionResult(success = false, sent = false, message = "实况视频未缓存，请先播放一次后再试")
             }
@@ -1397,12 +1407,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     private fun createGalleryImageMediaItem(index: Int, imagePath: String): Any {
         val mediaId = System.currentTimeMillis() + index
-        return galleryImageMediaItemCtor.newInstance(mediaId, imagePath, imagePath, "image/jpeg")
+        return galleryImageMediaItemCtor.newInstance(mediaId, imagePath, imagePath, MIME_IMAGE_JPEG)
     }
 
     private fun createGalleryLivePhotoMediaItem(index: Int, videoPath: String, coverPath: String): Any {
         val mediaId = System.currentTimeMillis() + index
-        val item = galleryLivePhotoMediaItemCtor.newInstance(mediaId, videoPath, coverPath, "image/jpeg")
+        val item = galleryLivePhotoMediaItemCtor.newInstance(mediaId, videoPath, coverPath, MIME_IMAGE_JPEG)
         val metadata = probeVideoMetadata(videoPath)
 
         // 只按 LivePhotoMediaItem.toString() 暴露的语义标签定位字段，不读取 8069/8074 的混淆字段名。
@@ -1428,7 +1438,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             -1L,
             "wekit_live_probe_video",
             "wekit_live_probe_cover",
-            "image/jpeg"
+            MIME_IMAGE_JPEG
         )
         val intRoles = mutableMapOf<String, Field>()
         val intFields = galleryLivePhotoMediaItemClass.declaredFields
@@ -1502,7 +1512,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }.onFailure {
             WeLogger.e(TAG, "failed to probe live photo video metadata: $videoPath", it)
         }
-        tempVideo?.delete()
+        deleteTempFile(tempVideo, "live-photo video probe temp file")
         return VideoMetadata(durationMs, width, height, videoFileSize(videoPath).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
     }
 
@@ -2108,11 +2118,11 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     if (content.hasLivePhoto) {
                         // 实况相册: 先把静态封面图缓存到位 (实况视频缺失时会自动退化为静态图)
                         ensureImagePathsCached(content.mediaList, content.nativeMediaList)
-                            ?: return ActionResult(success = false, sent = false, message = "图片下载失败或超时")
+                            ?: return ActionResult(success = false, sent = false, message = MESSAGE_IMAGE_DOWNLOAD_FAILED)
                         return quickForward(content)
                     }
                     val paths = ensureImagePathsCached(content.mediaList, content.nativeMediaList)
-                        ?: return ActionResult(success = false, sent = false, message = "图片下载失败或超时")
+                        ?: return ActionResult(success = false, sent = false, message = MESSAGE_IMAGE_DOWNLOAD_FAILED)
                     val ok = postTextAndImages(text, paths)
                     if (ok) ActionResult(success = true, sent = true, message = "已加入发送队列")
                     else ActionResult(success = false, sent = false, message = "转发失败")
@@ -2133,7 +2143,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 1, 54 -> { // 图片 / 实况相册 (可混合静态图与实况图片)
                     if (content.hasLivePhoto) {
                         val resolved = resolveMediaItems(content)
-                            ?: return ActionResult(success = false, sent = false, message = "未找到本地缓存的图片")
+                            ?: return ActionResult(success = false, sent = false, message = MESSAGE_CACHED_IMAGE_NOT_FOUND)
                         val sent = postTextAndMixedMedia(text, resolved.items)
                         if (sent && resolved.degradedLivePhotos) {
                             return ActionResult(success = true, sent = true, message = "已加入发送队列 (部分实况视频未下载, 已按静态图转发)")
@@ -2141,7 +2151,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                         sent
                     } else {
                         val paths = prepareImagePaths(content.mediaList, content.nativeMediaList)
-                            ?: return ActionResult(success = false, sent = false, message = "未找到本地缓存的图片")
+                            ?: return ActionResult(success = false, sent = false, message = MESSAGE_CACHED_IMAGE_NOT_FOUND)
                         postTextAndImages(text, paths)
                     }
                 }
