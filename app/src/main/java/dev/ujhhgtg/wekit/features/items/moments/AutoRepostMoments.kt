@@ -377,7 +377,7 @@ object AutoRepostMoments : ClickableFeature(),
 
                 // 转发前先把图片/视频从 CDN 强制缓存到本地, 避免未点开时转发空白。
                 // 已在后台线程内, 用 runBlocking 桥接 suspend 缓存逻辑。
-                else -> runBlocking { WeMomentsApi.quickForwardEnsuringCached(snsInfo) }
+                else -> runBlocking { WeMomentsApi.quickRepostEnsuringCached(snsInfo) }
             }
         }
 

@@ -914,9 +914,10 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                             title = "选择对话",
                                             contacts = remember { WeDatabaseApi.getContacts() },
                                             initialSelectedWxIds = members,
-                                            onDismiss = onDismiss,
+                                            onDismiss = this.onDismiss,
                                             onConfirm = {
                                                 members = it
+                                                this.onDismiss()
                                             }
                                         )
                                     }

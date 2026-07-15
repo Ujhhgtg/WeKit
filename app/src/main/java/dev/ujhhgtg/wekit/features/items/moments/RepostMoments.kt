@@ -87,7 +87,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                         showToastSuspend(activity, "图片下载失败或超时!")
                         return@launch
                     }
-                    WeMomentsApi.sendImagesInUi(activity, tempPaths, contentText)
+                    WeMomentsApi.postImagesInUi(activity, tempPaths, contentText)
                 }
             }
 
@@ -113,9 +113,17 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 }
             }
 
+            in WeMomentsApi.CARD_CONTENT_TYPES -> { // 链接 / 音乐 / 视频号短视频等卡片
+                WeLogger.i(TAG, "reposting card type ${data.type}")
+                if (!WeMomentsApi.openCardEditor(activity, data)) {
+                    WeLogger.i(TAG, "card type ${data.type} not editor-capable")
+                    showToast(activity, "该类型卡片不支持编辑转发!")
+                }
+            }
+
             else -> { // 文字
                 WeLogger.i(TAG, "reposting type ${data.type}")
-                WeMomentsApi.sendTextInUi(activity, contentText)
+                WeMomentsApi.postTextInUi(activity, contentText)
             }
         }
     }
@@ -133,7 +141,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 content = data,
                 source = context.source
             )
-            if (!result.success || result.message.isNotBlank()) {
+            if (!result.success && result.message.isNotBlank()) {
                 showToastSuspend(activity, result.message)
             }
         }
@@ -155,7 +163,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         showToast(activity, "正在一键转发...")
 
         CoroutineScope(Dispatchers.Main).launch {
-            val result = WeMomentsApi.quickForwardEnsuringCached(data)
+            val result = WeMomentsApi.quickRepostEnsuringCached(data)
             showToastSuspend(activity, result.message)
         }
     }

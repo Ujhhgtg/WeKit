@@ -4,7 +4,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Handler
 import android.os.Looper
+import bsh.BshHook
 import bsh.BshMethod
+import bsh.Interpreter
+import bsh.LocalMethodHookParam
 import bsh.NameSpace
 import dalvik.system.InMemoryDexClassLoader
 import de.robv.android.xposed.XC_MethodHook
@@ -38,9 +41,11 @@ import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.DexKit
+import dev.ujhhgtg.wekit.utils.reflection.any
 import dev.ujhhgtg.wekit.utils.reflection.asClass
 import dev.ujhhgtg.wekit.utils.reflection.asConstructor
 import dev.ujhhgtg.wekit.utils.reflection.asMethod
+import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.long
@@ -69,10 +74,30 @@ object JavaEngine {
 
     private const val TAG = "JavaEngine"
     private const val WA_MODULE_VER = 1418
-    private const val WA_API = 127
 
     fun executeAllOnLoad(scripts: Map<String, JavaPlugin>) {
         scripts.values.forEach { plugin ->
+            if (BypassScriptsDrm.isEnabled) {
+                val hook = object : BshHook {
+                    override fun beforeLocalMethod(param: LocalMethodHookParam) {
+                        when (param.methodName) {
+                            "isUsingVPN", "isUsingProxy", "hasSuspiciousCertificates", "isSSLValidationBypassed",
+                            "detectPacketCapture", "showAntiCaptureDialog", "fetchBlackListFromNetwork", "checkBlackListSync",
+                            "showBlackToast" -> {
+                                param.isIntercepted = true; param.returnValue = false
+                            }
+                            "getBlackFriends" -> {
+                                param.isIntercepted = true; param.returnValue = arrayListOf<Any>()
+                            }
+                            "checkAuthorization" -> {
+                                param.isIntercepted = true; param.returnValue = true
+                            }
+                        }
+                    }
+                }
+                Interpreter.bshHookManager.addHook(hook)
+            }
+
             try {
                 initPlugin(plugin)
                 plugin.interpreter.eval(plugin.content)
@@ -224,6 +249,8 @@ object JavaEngine {
             setVariable("hostVerName", HostInfo.versionName)
             setVariable("hostVerCode", HostInfo.versionCode.toInt())
             setVariable("hostVerClient", com.tencent.mm.boot.BuildConfig.CLIENT_VERSION_ARM64)
+            setVariable("hostLoader", ClassLoaders.HOST)
+            setVariable("myWxId", WeApi.selfWxId)
 
             // ===== Compat Info =====
 
@@ -235,6 +262,7 @@ object JavaEngine {
 
             // ===== Plugin Info =====
 
+            setVariable("pluginPath", plugin.dir.absolutePathString())
             setVariable("pluginDir", plugin.dir.toFile())
             setVariable("pluginId", plugin.name)
             setVariable("pluginName", plugin.info.name)
@@ -247,7 +275,6 @@ object JavaEngine {
             setVariable("engineId", BuildConfig.TAG)
             setVariable("engineVerCode", BuildConfig.VERSION_CODE)
             setVariable("engineVerName", BuildConfig.VERSION_NAME)
-            setVariable("engineSupportedLatestApi", WA_API)
 
             // ===== Audio Utils =====
 
@@ -841,6 +868,18 @@ object JavaEngine {
                 }.getOrDefault(false)
             })
 
+            // sendImage(toUser, imgPath, isRaw) → Boolean
+            setMethod(BshMethod(
+                "sendImage", arrayOf(BString, BString, bool)
+            ) {
+                val toUser = it[0] as String
+                val imgPath = it[1] as String
+                // args[2] ignored
+                return@BshMethod runCatchingBsh("sendImage") {
+                    WeMessageApi.sendImage(toUser, imgPath)
+                }.getOrDefault(false)
+            })
+
             // sendImage(toUser, imgPath, msgId) → Boolean
             setMethod(BshMethod(
                 "sendImage", arrayOf(BString, BString, java.lang.Long.TYPE)
@@ -890,6 +929,24 @@ object JavaEngine {
             // sendXmlAppMsg(toUser, xmlContent) → Boolean
             setMethod(BshMethod(
                 "sendXmlAppMsg", arrayOf(BString, BString)
+            ) {
+                val toUser = it[0] as String
+                val xmlContent = it[1] as String
+                return@BshMethod runCatchingBsh("sendXmlAppMsg") {
+                    WeMessageApi.sendXmlAppMsg(toUser, xmlContent)
+                }.getOrDefault(false)
+            })
+            setMethod(BshMethod(
+                "sendXml", arrayOf(BString, BString, int)
+            ) {
+                val toUser = it[0] as String
+                val xmlContent = it[1] as String
+                return@BshMethod runCatchingBsh("sendXmlAppMsg") {
+                    WeMessageApi.sendXmlAppMsg(toUser, xmlContent)
+                }.getOrDefault(false)
+            })
+            setMethod(BshMethod(
+                "sendCard", arrayOf(BString, BString)
             ) {
                 val toUser = it[0] as String
                 val xmlContent = it[1] as String
@@ -1627,7 +1684,11 @@ object JavaEngine {
             })
 
             // === Network Queue and XML Messages ===
-            setMethod(BshMethod("addToQueue", arrayOf(Any::class.java)) {
+            setMethod(BshMethod("addToQueue", arrayOf(any)) {
+                WeNetSceneApi.sendNetScene(it[0])
+                return@BshMethod null
+            })
+            setMethod(BshMethod("sendNetScene", arrayOf(Any::class.java)) {
                 WeNetSceneApi.sendNetScene(it[0])
                 return@BshMethod null
             })

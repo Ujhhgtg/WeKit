@@ -67,15 +67,15 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
         when {
             video != null -> {
                 val mp4Path = WeServiceApi.getVideoMp4PathFromMsgInfo(video)
-                WeMomentsApi.sendVideoInUi(activity, mp4Path, mp4Path, text)
+                WeMomentsApi.postVideoInUi(activity, mp4Path, mp4Path, text)
             }
 
             imageMd5s.isNotEmpty() -> {
-                WeMomentsApi.sendImagesInUi(activity, imageMd5s, text)
+                WeMomentsApi.postImagesInUi(activity, imageMd5s, text)
             }
 
             else -> {
-                WeMomentsApi.sendTextInUi(activity, text ?: "")
+                WeMomentsApi.postTextInUi(activity, text ?: "")
             }
         }
     }
@@ -99,20 +99,20 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
 
                     when (msgInfo.type) {
                         MessageType.TEXT -> {
-                            WeMomentsApi.sendTextInUi(activity, msgInfo.actualContent)
+                            WeMomentsApi.postTextInUi(activity, msgInfo.actualContent)
                         }
 
                         MessageType.QUOTE -> {
-                            WeMomentsApi.sendTextInUi(activity, msgInfo.quoteMsgActualContent!!)
+                            WeMomentsApi.postTextInUi(activity, msgInfo.quoteMsgActualContent!!)
                         }
 
                         MessageType.IMAGE -> {
-                            WeMomentsApi.sendImagesInUi(activity, listOf(WeServiceApi.getImageMd5FromMsgInfo(msgInfo)))
+                            WeMomentsApi.postImagesInUi(activity, listOf(WeServiceApi.getImageMd5FromMsgInfo(msgInfo)))
                         }
 
                         MessageType.VIDEO -> {
                             val mp4Path = WeServiceApi.getVideoMp4PathFromMsgInfo(msgInfo)
-                            WeMomentsApi.sendVideoInUi(activity, mp4Path, mp4Path)
+                            WeMomentsApi.postVideoInUi(activity, mp4Path, mp4Path)
                         }
 
                         else -> {}
