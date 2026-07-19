@@ -5,16 +5,16 @@ import dev.ujhhgtg.wekit.agent.jvm.JvmValueBridge
 import dev.ujhhgtg.wekit.agent.model.LlmImage
 import dev.ujhhgtg.wekit.agent.ui.UiAutomator
 import dev.ujhhgtg.wekit.agent.ui.UiImageSink
-import dev.ujhhgtg.wekit.features.core.AgentTool
-import dev.ujhhgtg.wekit.features.core.AgentTool.Companion.BUILTIN_UI
-import dev.ujhhgtg.wekit.features.core.AgentToolParam
+import dev.ujhhgtg.wekit.features.core.WeKitOperation
+import dev.ujhhgtg.wekit.features.core.WeKitOperation.Companion.BUILTIN_UI
+import dev.ujhhgtg.wekit.features.core.Param
 import java.io.ByteArrayOutputStream
 import java.util.Base64
 import kotlin.coroutines.coroutineContext
 
 /**
  * The `builtin-ui` automation tools for WeAgent. Every function is discovered by the KSP scanner
- * via `@AgentTool(group = BUILTIN_UI)`. All read/query tools are `sideEffect = false` (ENABLED);
+ * via `@WeKitOperation(group = BUILTIN_UI)`. All read/query tools are `sideEffect = false` (ENABLED);
  * all action tools are `sideEffect = true` (MANUAL_APPROVAL).
  *
  * ## Perception
@@ -42,7 +42,7 @@ object WeUiAutomationToolBindings {
 
     // ------------------------------------------------------------------ perception (read-only)
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-dump-tree",
         description = "Dump the current WeChat window's view hierarchy as an indented text tree. " +
                 "Each node is stored as a handle (#N) with its class, resource-id, on-screen bounds " +
@@ -57,10 +57,10 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiDumpTree(
-        @AgentToolParam("Handle to Activity/Window/View root; null = current top activity") windowRef: String?,
-        @AgentToolParam("Max recursion depth (0 = unlimited)") maxDepth: Int?,
-        @AgentToolParam("Only show clickable/focusable/editable views") onlyInteractive: Boolean?,
-        @AgentToolParam("Include INVISIBLE and GONE nodes") includeInvisible: Boolean?,
+        @Param("Handle to Activity/Window/View root; null = current top activity") windowRef: String?,
+        @Param("Max recursion depth (0 = unlimited)") maxDepth: Int?,
+        @Param("Only show clickable/focusable/editable views") onlyInteractive: Boolean?,
+        @Param("Include INVISIBLE and GONE nodes") includeInvisible: Boolean?,
     ): String = guard {
         JvmValueBridge.onMain {
             val decor = UiAutomator.resolveDecor(windowRef)
@@ -73,7 +73,7 @@ object WeUiAutomationToolBindings {
         }
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-find-views",
         description = "Search the view tree for nodes matching all given filters " +
                 "(substring match, case-insensitive). All filters are optional — if none given, " +
@@ -85,11 +85,11 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiFindViews(
-        @AgentToolParam("Handle to root view/activity; null = top activity") windowRef: String?,
-        @AgentToolParam("Substring to match in view text or content-description") text: String?,
-        @AgentToolParam("Substring to match in resource-id entry name") id: String?,
-        @AgentToolParam("Substring to match in simple class name") className: String?,
-        @AgentToolParam("Only return clickable/focusable/editable views") onlyInteractive: Boolean?,
+        @Param("Handle to root view/activity; null = top activity") windowRef: String?,
+        @Param("Substring to match in view text or content-description") text: String?,
+        @Param("Substring to match in resource-id entry name") id: String?,
+        @Param("Substring to match in simple class name") className: String?,
+        @Param("Only return clickable/focusable/editable views") onlyInteractive: Boolean?,
     ): String = guard {
         JvmValueBridge.onMain {
             val decor = UiAutomator.resolveDecor(windowRef)
@@ -103,7 +103,7 @@ object WeUiAutomationToolBindings {
         }
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-describe-view",
         description = "Return a full attribute description (class, id, bounds, visibility, flags, " +
                 "text, tag, child-count) for a single view. `ref` is a #N handle from ui-dump-tree or " +
@@ -112,14 +112,14 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiDescribeView(
-        @AgentToolParam("Handle #N of the view to describe") ref: String,
+        @Param("Handle #N of the view to describe") ref: String,
     ): String = guard {
         JvmValueBridge.onMain {
             UiAutomator.describeView(UiAutomator.resolveView(ref))
         }
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-screenshot",
         description = "Capture the current WeChat screen (or a view subtree) as a PNG image and " +
                 "inject it into the conversation so you can see it. " +
@@ -132,8 +132,8 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     suspend fun uiScreenshot(
-        @AgentToolParam("Handle #N to capture a subtree; null = whole window") viewRef: String?,
-        @AgentToolParam("Max width/height after downscaling (default 1024)") maxDimension: Int?,
+        @Param("Handle #N to capture a subtree; null = whole window") viewRef: String?,
+        @Param("Max width/height after downscaling (default 1024)") maxDimension: Int?,
     ): String {
         val sink = coroutineContext[UiImageSink]
             ?: return "Error: UiImageSink not installed — this tool must be called from the agent engine."
@@ -154,7 +154,7 @@ object WeUiAutomationToolBindings {
 
     // ------------------------------------------------------------------ view-level actions
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-click-view",
         description = "Call View.performClick() on a view handle. Triggers click listeners just " +
                 "as a real finger tap would. `ref` is a #N handle from ui-dump-tree / ui-find-views.",
@@ -162,26 +162,26 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiClickView(
-        @AgentToolParam("Handle #N of the view to click") ref: String,
+        @Param("Handle #N of the view to click") ref: String,
     ): String = guard {
         JvmValueBridge.onMain { UiAutomator.clickView(UiAutomator.resolveView(ref)) }
         "Clicked $ref."
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-long-click-view",
         description = "Call View.performLongClick() on a view handle.",
         sideEffect = true,
         group = BUILTIN_UI,
     )
     fun uiLongClickView(
-        @AgentToolParam("Handle #N of the view to long-click") ref: String,
+        @Param("Handle #N of the view to long-click") ref: String,
     ): String = guard {
         JvmValueBridge.onMain { UiAutomator.longClickView(UiAutomator.resolveView(ref)) }
         "Long-clicked $ref."
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-set-text",
         description = "Set text on a TextView or EditText view handle. Replaces all existing " +
                 "content and moves the cursor to the end, triggering TextWatcher callbacks.",
@@ -189,14 +189,14 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiSetText(
-        @AgentToolParam("Handle #N of the TextView/EditText") ref: String,
-        @AgentToolParam("Text to set") text: String,
+        @Param("Handle #N of the TextView/EditText") ref: String,
+        @Param("Text to set") text: String,
     ): String = guard {
         JvmValueBridge.onMain { UiAutomator.setText(UiAutomator.resolveView(ref), text) }
         "Text set on $ref."
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-input-text",
         description = "Set text on whichever view currently has focus in the top activity " +
                 "(typically the chat input bar). Equivalent to ui-set-text on the focused view.",
@@ -204,7 +204,7 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiInputText(
-        @AgentToolParam("Text to type into the focused view") text: String,
+        @Param("Text to type into the focused view") text: String,
     ): String = guard {
         JvmValueBridge.onMain {
             val act = dev.ujhhgtg.wekit.utils.android.getTopMostActivity()
@@ -218,7 +218,7 @@ object WeUiAutomationToolBindings {
 
     // ------------------------------------------------------------------ coordinate actions
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-tap",
         description = "Synthesise a DOWN+UP tap at absolute screen coordinates (pixels). " +
                 "Use ui-dump-tree to discover bounds first. `windowRef` optionally scopes the " +
@@ -227,9 +227,9 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiTap(
-        @AgentToolParam("Screen X coordinate (pixels from left)") x: Double,
-        @AgentToolParam("Screen Y coordinate (pixels from top)") y: Double,
-        @AgentToolParam("Handle to target window/activity; null = top activity") windowRef: String?,
+        @Param("Screen X coordinate (pixels from left)") x: Double,
+        @Param("Screen Y coordinate (pixels from top)") y: Double,
+        @Param("Handle to target window/activity; null = top activity") windowRef: String?,
     ): String = guard {
         JvmValueBridge.onMain {
             val decor = UiAutomator.resolveDecor(windowRef)
@@ -238,7 +238,7 @@ object WeUiAutomationToolBindings {
         "Tapped ($x, $y)."
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-multi-tap",
         description = "Tap the same screen coordinate multiple times (连点 / double-tap). " +
                 "`count` is the number of taps; `intervalMs` is the pause between taps (default 80ms).",
@@ -246,11 +246,11 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiMultiTap(
-        @AgentToolParam("Screen X coordinate") x: Double,
-        @AgentToolParam("Screen Y coordinate") y: Double,
-        @AgentToolParam("Number of taps (e.g. 2 for double-tap)") count: Int?,
-        @AgentToolParam("Interval between taps in ms (default 80)") intervalMs: Long?,
-        @AgentToolParam("Handle to target window; null = top activity") windowRef: String?,
+        @Param("Screen X coordinate") x: Double,
+        @Param("Screen Y coordinate") y: Double,
+        @Param("Number of taps (e.g. 2 for double-tap)") count: Int?,
+        @Param("Interval between taps in ms (default 80)") intervalMs: Long?,
+        @Param("Handle to target window; null = top activity") windowRef: String?,
     ): String = guard {
         val n = (count ?: 2).coerceAtLeast(1)
         JvmValueBridge.onMain {
@@ -260,7 +260,7 @@ object WeUiAutomationToolBindings {
         "Tapped ($x, $y) × $n."
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-long-press",
         description = "Hold a press at screen coordinates for `durationMs` ms then release. " +
                 "Default duration is 600ms (threshold for long-press context menus).",
@@ -268,10 +268,10 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiLongPress(
-        @AgentToolParam("Screen X coordinate") x: Double,
-        @AgentToolParam("Screen Y coordinate") y: Double,
-        @AgentToolParam("Hold duration in ms (default 600)") durationMs: Long?,
-        @AgentToolParam("Handle to target window; null = top activity") windowRef: String?,
+        @Param("Screen X coordinate") x: Double,
+        @Param("Screen Y coordinate") y: Double,
+        @Param("Hold duration in ms (default 600)") durationMs: Long?,
+        @Param("Handle to target window; null = top activity") windowRef: String?,
     ): String = guard {
         val dur = (durationMs ?: 600L).coerceAtLeast(100L)
         JvmValueBridge.onMain {
@@ -281,7 +281,7 @@ object WeUiAutomationToolBindings {
         "Long-pressed ($x, $y) for ${dur}ms."
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-swipe",
         description = "Swipe from (x1, y1) to (x2, y2) over `durationMs` ms. Emits smooth " +
                 "MOVE events (`steps`, default ≈60fps) so velocity-based gestures work correctly. " +
@@ -290,13 +290,13 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiSwipe(
-        @AgentToolParam("Start screen X (pixels)") x1: Double,
-        @AgentToolParam("Start screen Y (pixels)") y1: Double,
-        @AgentToolParam("End screen X (pixels)") x2: Double,
-        @AgentToolParam("End screen Y (pixels)") y2: Double,
-        @AgentToolParam("Swipe duration in ms (default 300)") durationMs: Long?,
-        @AgentToolParam("Number of intermediate MOVE events (default max(10, durationMs/16))") steps: Int?,
-        @AgentToolParam("Handle to target window; null = top activity") windowRef: String?,
+        @Param("Start screen X (pixels)") x1: Double,
+        @Param("Start screen Y (pixels)") y1: Double,
+        @Param("End screen X (pixels)") x2: Double,
+        @Param("End screen Y (pixels)") y2: Double,
+        @Param("Swipe duration in ms (default 300)") durationMs: Long?,
+        @Param("Number of intermediate MOVE events (default max(10, durationMs/16))") steps: Int?,
+        @Param("Handle to target window; null = top activity") windowRef: String?,
     ): String = guard {
         val dur = (durationMs ?: 300L).coerceAtLeast(20L)
         val n = (steps ?: maxOf(10, (dur / 16).toInt())).coerceAtLeast(2)
@@ -307,7 +307,7 @@ object WeUiAutomationToolBindings {
         "Swiped ($x1,$y1)→($x2,$y2) in ${dur}ms with $n steps."
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-touch-down",
         description = "Start a held touch gesture (ACTION_DOWN) at screen coordinates. " +
                 "Follow with ui-touch-move and ui-touch-up to compose multi-step gestures. " +
@@ -316,9 +316,9 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiTouchDown(
-        @AgentToolParam("Screen X coordinate") x: Double,
-        @AgentToolParam("Screen Y coordinate") y: Double,
-        @AgentToolParam("Handle to target window; null = top activity") windowRef: String?,
+        @Param("Screen X coordinate") x: Double,
+        @Param("Screen Y coordinate") y: Double,
+        @Param("Handle to target window; null = top activity") windowRef: String?,
     ): String = guard {
         JvmValueBridge.onMain {
             val decor = UiAutomator.resolveDecor(windowRef)
@@ -327,7 +327,7 @@ object WeUiAutomationToolBindings {
         "Gesture started at ($x, $y)."
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-touch-move",
         description = "Move a held touch gesture to screen coordinates (ACTION_MOVE). " +
                 "Must follow ui-touch-down.",
@@ -335,13 +335,13 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiTouchMove(
-        @AgentToolParam("Target screen X coordinate") x: Double,
-        @AgentToolParam("Target screen Y coordinate") y: Double,
+        @Param("Target screen X coordinate") x: Double,
+        @Param("Target screen Y coordinate") y: Double,
     ): String = guard {
         JvmValueBridge.onMain { UiAutomator.touchMove(x.toFloat(), y.toFloat()) }
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-touch-up",
         description = "Release a held touch gesture (ACTION_UP) at screen coordinates. " +
                 "Must follow ui-touch-down. Coordinates may differ from the last move.",
@@ -349,13 +349,13 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiTouchUp(
-        @AgentToolParam("Release screen X coordinate") x: Double,
-        @AgentToolParam("Release screen Y coordinate") y: Double,
+        @Param("Release screen X coordinate") x: Double,
+        @Param("Release screen Y coordinate") y: Double,
     ): String = guard {
         JvmValueBridge.onMain { UiAutomator.touchUp(x.toFloat(), y.toFloat()) }
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "ui-press-key",
         description = "Send a KEY_DOWN + KEY_UP event to the top WeChat activity. Common key " +
                 "codes: BACK=4, ENTER=66, DEL=67, HOME=3, VOLUME_UP=24, VOLUME_DOWN=25. Pass the " +
@@ -364,7 +364,7 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiPressKey(
-        @AgentToolParam("Android KeyEvent key code integer (e.g. 66 for ENTER, 4 for BACK)") keyCode: Int,
+        @Param("Android KeyEvent key code integer (e.g. 66 for ENTER, 4 for BACK)") keyCode: Int,
     ): String = guard {
         JvmValueBridge.onMain { UiAutomator.pressKey(keyCode) }
         "Key $keyCode dispatched."

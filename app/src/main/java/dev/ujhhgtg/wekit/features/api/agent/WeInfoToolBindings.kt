@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.features.api.agent
 
-import dev.ujhhgtg.wekit.features.core.AgentTool
-import dev.ujhhgtg.wekit.features.core.AgentToolParam
+import dev.ujhhgtg.wekit.features.core.Param
+import dev.ujhhgtg.wekit.features.core.WeKitOperation
 import dev.ujhhgtg.wekit.utils.HostInfo
 import java.time.Instant
 import java.time.ZoneId
@@ -22,16 +22,16 @@ import java.util.TimeZone
  */
 object WeInfoToolBindings {
 
-    private const val GROUP = AgentTool.BUILTIN_INFO
+    private const val GROUP = WeKitOperation.BUILTIN_INFO
 
-    @AgentTool(
+    @WeKitOperation(
         name = "get-current-time",
         description = "Get the REAL current date and time (the system prompt's time is only the session-creation time and does not advance). Returns the local time, timezone, UTC time, epoch milliseconds, and the day of week. Optionally pass a Java time-zone id (e.g. 'UTC', 'America/New_York') to format the local part in that zone instead of the device's.",
         sideEffect = false,
         group = GROUP,
     )
     fun getCurrentTime(
-        @AgentToolParam("Optional IANA/Java time-zone id to format in (default: device zone)") timeZoneId: String?,
+        @Param("Optional IANA/Java time-zone id to format in (default: device zone)") timeZoneId: String?,
     ): String {
         val now = Instant.now()
         val zone = timeZoneId?.takeIf { it.isNotBlank() }?.let {
@@ -50,7 +50,7 @@ object WeInfoToolBindings {
         }
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "get-environment-info",
         description = "Get static information about the runtime environment WeAgent is running in: the host app (usually WeChat) package name, version name and version code, the Android OS version and SDK level, the device model, the device's default locale, and the device's default time-zone id. Read-only.",
         sideEffect = false,

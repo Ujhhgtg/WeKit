@@ -7,8 +7,8 @@ import dev.ujhhgtg.wekit.agent.workspace.WorkspaceVfs
 import dev.ujhhgtg.wekit.features.api.agent.WeNetToolBindings.SPILL_THRESHOLD_CHARS
 import dev.ujhhgtg.wekit.features.api.agent.WeNetToolBindings.braveSearch
 import dev.ujhhgtg.wekit.features.api.agent.WeNetToolBindings.exaSearch
-import dev.ujhhgtg.wekit.features.core.AgentTool
-import dev.ujhhgtg.wekit.features.core.AgentToolParam
+import dev.ujhhgtg.wekit.features.core.Param
+import dev.ujhhgtg.wekit.features.core.WeKitOperation
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.add
@@ -81,17 +81,17 @@ object WeNetToolBindings {
     // fetch-text
     // -----------------------------------------------------------------------------------------
 
-    @AgentTool(
+    @WeKitOperation(
         name = "fetch-text",
         description = "Fetch a web page and return its main text content (HTML tags stripped by Jsoup). " +
                 "If the page text exceeds the inline size cap, the full content is saved to a /cache/ file " +
                 "and a truncation notice with the path is returned; use read_file to page through it.",
         sideEffect = false,
-        group = AgentTool.BUILTIN_NET,
+        group = WeKitOperation.BUILTIN_NET,
     )
     suspend fun fetchText(
-        @AgentToolParam("URL to fetch") url: String,
-        @AgentToolParam("Request timeout in seconds (default 15, max 120)") timeoutSeconds: Int?,
+        @Param("URL to fetch") url: String,
+        @Param("Request timeout in seconds (default 15, max 120)") timeoutSeconds: Int?,
     ): String {
         val timeout = (timeoutSeconds ?: 15).coerceIn(1, 120).toLong()
         return runCatching {
@@ -119,23 +119,23 @@ object WeNetToolBindings {
     // http-request
     // -----------------------------------------------------------------------------------------
 
-    @AgentTool(
+    @WeKitOperation(
         name = "http-request",
         description = "Execute an arbitrary HTTP request and return a JSON object with statusCode, headers, and body. " +
                 "If the response body exceeds the inline size cap it is saved to /cache/ and a truncation notice is returned.",
         sideEffect = true,
-        group = AgentTool.BUILTIN_NET,
+        group = WeKitOperation.BUILTIN_NET,
     )
     suspend fun httpRequest(
-        @AgentToolParam("Target URL") url: String,
-        @AgentToolParam("HTTP method: GET, POST, PUT, PATCH, DELETE, HEAD") method: String,
-        @AgentToolParam(
+        @Param("Target URL") url: String,
+        @Param("HTTP method: GET, POST, PUT, PATCH, DELETE, HEAD") method: String,
+        @Param(
             "Request headers as a JSON object, " +
                     "e.g. {\"Authorization\":\"Bearer …\",\"Content-Type\":\"application/json\"}"
         ) headersJson: String?,
-        @AgentToolParam("Request body string (for JSON also set Content-Type in headers)") body: String?,
-        @AgentToolParam("Request timeout in seconds (default 30, max 300)") timeoutSeconds: Int?,
-        @AgentToolParam("Follow HTTP redirects automatically (default true)") followRedirects: Boolean?,
+        @Param("Request body string (for JSON also set Content-Type in headers)") body: String?,
+        @Param("Request timeout in seconds (default 30, max 300)") timeoutSeconds: Int?,
+        @Param("Follow HTTP redirects automatically (default true)") followRedirects: Boolean?,
     ): String {
         val timeout = (timeoutSeconds ?: DEFAULT_TIMEOUT_SEC).coerceIn(1, 300).toLong()
         val follow = followRedirects ?: true
@@ -188,20 +188,20 @@ object WeNetToolBindings {
     // exa-search
     // -----------------------------------------------------------------------------------------
 
-    @AgentTool(
+    @WeKitOperation(
         name = "exa-search",
         description = "Search the web with Exa AI (requires an Exa API key in External Services settings). " +
                 "Returns a JSON list of results: title, url, publishedDate, snippet.",
         sideEffect = false,
-        group = AgentTool.BUILTIN_NET,
+        group = WeKitOperation.BUILTIN_NET,
     )
     suspend fun exaSearch(
-        @AgentToolParam("Search query") query: String,
-        @AgentToolParam("Number of results, 1–10 (default 5)") numResults: Int?,
-        @AgentToolParam("Search type: \"neural\" (semantic, default) or \"keyword\"") type: String?,
-        @AgentToolParam("Comma-separated domain allowlist, e.g. \"github.com,stackoverflow.com\"") includeDomains: String?,
-        @AgentToolParam("Comma-separated domain blocklist") excludeDomains: String?,
-        @AgentToolParam("Include a text snippet in each result (default true)") includeText: Boolean?,
+        @Param("Search query") query: String,
+        @Param("Number of results, 1–10 (default 5)") numResults: Int?,
+        @Param("Search type: \"neural\" (semantic, default) or \"keyword\"") type: String?,
+        @Param("Comma-separated domain allowlist, e.g. \"github.com,stackoverflow.com\"") includeDomains: String?,
+        @Param("Comma-separated domain blocklist") excludeDomains: String?,
+        @Param("Include a text snippet in each result (default true)") includeText: Boolean?,
     ): String {
         val apiKey = WeAgentRepository.getExternalServiceKey(ExternalServiceId.EXA)
             ?: return "Exa API key not configured — add it in WeAgent Settings → 外部服务."
@@ -263,19 +263,19 @@ object WeNetToolBindings {
     // brave-search
     // -----------------------------------------------------------------------------------------
 
-    @AgentTool(
+    @WeKitOperation(
         name = "brave-search",
         description = "Search the web with Brave Search (requires a Brave Search API key in External Services settings). " +
                 "Returns a JSON list of results: title, url, description.",
         sideEffect = false,
-        group = AgentTool.BUILTIN_NET,
+        group = WeKitOperation.BUILTIN_NET,
     )
     suspend fun braveSearch(
-        @AgentToolParam("Search query") query: String,
-        @AgentToolParam("Number of results, 1–20 (default 10)") count: Int?,
-        @AgentToolParam("Result offset for pagination (default 0)") offset: Int?,
-        @AgentToolParam("Country code, e.g. \"US\", \"CN\"") country: String?,
-        @AgentToolParam("Result freshness: \"pd\" (24 h), \"pw\" (week), \"pm\" (month), \"py\" (year)") freshness: String?,
+        @Param("Search query") query: String,
+        @Param("Number of results, 1–20 (default 10)") count: Int?,
+        @Param("Result offset for pagination (default 0)") offset: Int?,
+        @Param("Country code, e.g. \"US\", \"CN\"") country: String?,
+        @Param("Result freshness: \"pd\" (24 h), \"pw\" (week), \"pm\" (month), \"py\" (year)") freshness: String?,
     ): String {
         val apiKey = WeAgentRepository.getExternalServiceKey(ExternalServiceId.BRAVE)
             ?: return "Brave Search API key not configured — add it in WeAgent Settings → 外部服务."

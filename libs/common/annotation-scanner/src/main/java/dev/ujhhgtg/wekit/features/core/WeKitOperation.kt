@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.features.core
 
 /**
- * Marks a function as a WeAgent built-in tool. The [dev.ujhhgtg.wekit.features.AgentToolScanner] KSP processor
+ * Marks a function as a WeKit built-in operation. The [dev.ujhhgtg.wekit.features.AgentToolScanner] KSP processor
  * discovers every annotated function at compile time and generates an `AgentToolsProvider`
  * registry (name, description, JSON-schema-derived parameter specs, and a direct invoker),
  * so no hand-written mapping table is needed and new [dev.ujhhgtg.wekit] APIs are picked up
@@ -13,13 +13,9 @@ package dev.ujhhgtg.wekit.features.core
  * optional in the generated schema; a non-null parameter is treated as required. The function
  * should return a human/model-readable [String] describing the outcome.
  */
-@Deprecated(
-    message = "Use WeKitOperation instead.",
-    replaceWith = ReplaceWith("WeKitOperation", "dev.ujhhgtg.wekit.features.core.WeKitOperation"),
-)
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.SOURCE)
-annotation class AgentTool(
+annotation class WeKitOperation(
     val name: String,
     val description: String,
     /**
@@ -30,10 +26,10 @@ annotation class AgentTool(
      */
     val sideEffect: Boolean,
     /**
-     * Which built-in provider this tool belongs to. Tools are grouped into separate providers in
-     * the settings UI and for permission storage. Defaults to [BUILTIN_WECHAT]. Known groups:
-     * `builtin-wechat` (WeChat operations), `builtin-wechat-sql` (raw DB SQL), `builtin-fs`
-     * (workspace/memory file tools + skill loading).
+     * Which built-in provider this operation belongs to. Operations are grouped into separate
+     * providers in the settings UI and for permission storage. Defaults to [BUILTIN_WECHAT].
+     * Known groups: `builtin-wechat` (WeChat operations), `builtin-wechat-sql` (raw DB SQL),
+     * `builtin-fs` (workspace/memory file tools + skill loading).
      */
     val group: String = BUILTIN_WECHAT,
 ) {
@@ -44,7 +40,6 @@ annotation class AgentTool(
         const val BUILTIN_JVM = "builtin-jvm"
         const val BUILTIN_UI = "builtin-ui"
         const val BUILTIN_WEBVIEW = "builtin-webview"
-        const val BUILTIN_TRIGGER = "builtin-trigger"
         const val BUILTIN_INFO = "builtin-info"
         /** Network tools: HTTP requests, page fetch, and external search APIs (Exa, Brave, …). */
         const val BUILTIN_NET = "builtin-net"
@@ -54,15 +49,11 @@ annotation class AgentTool(
 }
 
 /**
- * Optional per-parameter description used to enrich the generated JSON schema for a tool
- * parameter. When absent, the parameter name is used as its own description.
+ * Optional per-parameter description used to enrich the generated JSON schema for a
+ * [WeKitOperation] parameter. When absent, the parameter name is used as its own description.
  */
-@Deprecated(
-    message = "Use Param instead.",
-    replaceWith = ReplaceWith("Param", "dev.ujhhgtg.wekit.features.core.Param"),
-)
 @Target(AnnotationTarget.VALUE_PARAMETER)
 @Retention(AnnotationRetention.SOURCE)
-annotation class AgentToolParam(
+annotation class Param(
     val description: String,
 )

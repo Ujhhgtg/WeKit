@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonObject
 
 /**
  * A source of tools for the agent. Either the fixed "builtin" provider (backed by the
- * `@AgentTool` registry) or one MCP server (§3.4). Both are structurally identical to the model.
+ * `@WeKitOperation` registry) or one MCP server (§3.4). Both are structurally identical to the model.
  */
 interface ToolProvider {
     /** Stable id used as the `providerId` in the Room permission table. */

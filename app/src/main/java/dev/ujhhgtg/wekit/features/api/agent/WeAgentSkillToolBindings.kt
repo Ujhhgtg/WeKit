@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.features.api.agent
 
 import dev.ujhhgtg.wekit.agent.skill.SkillStore
-import dev.ujhhgtg.wekit.features.core.AgentTool
-import dev.ujhhgtg.wekit.features.core.AgentToolParam
+import dev.ujhhgtg.wekit.features.core.Param
+import dev.ujhhgtg.wekit.features.core.WeKitOperation
 
 /**
  * The `load_skill` `@AgentTool` (§ Skills). Skills use the dynamic-discovery model: only enabled
@@ -15,17 +15,17 @@ import dev.ujhhgtg.wekit.features.core.AgentToolParam
  */
 object WeAgentSkillToolBindings {
 
-    @AgentTool(
+    @WeKitOperation(
         name = "load_skill",
         description = "Load an available skill's full instructions by name (see the skills catalog in the " +
                 "system prompt). Optionally pass 'resource' to read a bundled file from the skill's folder " +
                 "instead of the instructions. Returns the content as text.",
         sideEffect = false,
-        group = AgentTool.BUILTIN_FS,
+        group = WeKitOperation.BUILTIN_FS,
     )
     suspend fun loadSkill(
-        @AgentToolParam("The skill name from the catalog, e.g. pdf-forms") name: String,
-        @AgentToolParam("Optional: a bundled resource file path relative to the skill folder to read instead of SKILL.md")
+        @Param("The skill name from the catalog, e.g. pdf-forms") name: String,
+        @Param("Optional: a bundled resource file path relative to the skill folder to read instead of SKILL.md")
         resource: String?,
     ): String {
         val skill = SkillStore.get(name)

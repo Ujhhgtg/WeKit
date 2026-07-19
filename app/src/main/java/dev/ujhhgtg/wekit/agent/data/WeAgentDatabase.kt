@@ -20,8 +20,9 @@ import dev.ujhhgtg.wekit.agent.data.dao.SettingDao
 import dev.ujhhgtg.wekit.agent.data.dao.SystemPromptDao
 import dev.ujhhgtg.wekit.agent.data.dao.ToolCallDao
 import dev.ujhhgtg.wekit.agent.data.dao.ToolPermissionDao
-import dev.ujhhgtg.wekit.agent.data.dao.TriggerDao
 import dev.ujhhgtg.wekit.agent.data.dao.WorkspaceDao
+import dev.ujhhgtg.wekit.workflow.data.WorkflowDao
+import dev.ujhhgtg.wekit.workflow.data.WorkflowEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ExternalServiceEntity
 import dev.ujhhgtg.wekit.agent.data.entity.MessageEntity
@@ -35,7 +36,6 @@ import dev.ujhhgtg.wekit.agent.data.entity.SettingEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ToolCallEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ToolPermissionEntity
-import dev.ujhhgtg.wekit.agent.data.entity.TriggerEntity
 import dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
@@ -56,13 +56,13 @@ import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
         PresetPromptEntity::class,
         WorkspaceEntity::class,
         SettingEntity::class,
-        TriggerEntity::class,
         ExternalServiceEntity::class,
+        WorkflowEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
     autoMigrations = [
-        AutoMigration(from = 9, to = 10), // adds external_services table
+        AutoMigration(from = 9, to = 10),  // adds external_services table
         AutoMigration(from = 10, to = 11), // adds messages.reasoningSignature, tool_calls.providerSignature
     ],
 )
@@ -81,8 +81,8 @@ abstract class WeAgentDatabase : RoomDatabase() {
     abstract fun presetPromptDao(): PresetPromptDao
     abstract fun workspaceDao(): WorkspaceDao
     abstract fun settingDao(): SettingDao
-    abstract fun triggerDao(): TriggerDao
     abstract fun externalServiceDao(): ExternalServiceDao
+    abstract fun workflowDao(): WorkflowDao
 
     companion object {
         @Volatile
@@ -94,17 +94,38 @@ abstract class WeAgentDatabase : RoomDatabase() {
             }
 
         // 11 → 12: WEKIT_ROUTER enum value removed from ModelProviderType.
-        // Any stored provider row with that type is now unreadable; delete them so the
-        // converter no longer encounters an unknown enum name on startup.
         private val MIGRATION_11_12 = object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Remove models that referenced the now-deleted provider first to avoid
-                // dangling providerId foreign keys, then drop the providers themselves.
                 db.execSQL(
                     "DELETE FROM models WHERE providerId IN " +
                             "(SELECT id FROM model_providers WHERE type = 'WEKIT_ROUTER')"
                 )
                 db.execSQL("DELETE FROM model_providers WHERE type = 'WEKIT_ROUTER'")
+            }
+        }
+
+        // 12 → 13: Trigger system replaced by the Workflow system.
+        //   - DROP triggers table (users must recreate via the new Workflow UI)
+        //   - CREATE workflows table
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS triggers")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS workflows (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        workflowJson TEXT NOT NULL,
+                        triggerType TEXT,
+                        enabled INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_workflows_triggerType ON workflows (triggerType)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_workflows_enabled ON workflows (enabled)")
             }
         }
 
@@ -121,7 +142,7 @@ abstract class WeAgentDatabase : RoomDatabase() {
                 // WAL uses mmap'd -shm/-wal sidecars that misbehave on FUSE-emulated
                 // external storage (moduleData lives on /sdcard); TRUNCATE is safe there.
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(MIGRATION_11_12)
+                .addMigrations(MIGRATION_11_12, MIGRATION_12_13)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
         }

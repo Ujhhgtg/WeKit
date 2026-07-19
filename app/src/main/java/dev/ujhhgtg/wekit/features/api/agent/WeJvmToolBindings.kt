@@ -4,9 +4,9 @@ import dev.ujhhgtg.wekit.agent.jvm.JvmEvalEngine
 import dev.ujhhgtg.wekit.agent.jvm.JvmObjectRegistry
 import dev.ujhhgtg.wekit.agent.jvm.JvmReflector
 import dev.ujhhgtg.wekit.agent.jvm.JvmValueBridge
-import dev.ujhhgtg.wekit.features.core.AgentTool
-import dev.ujhhgtg.wekit.features.core.AgentTool.Companion.BUILTIN_JVM
-import dev.ujhhgtg.wekit.features.core.AgentToolParam
+import dev.ujhhgtg.wekit.features.core.Param
+import dev.ujhhgtg.wekit.features.core.WeKitOperation
+import dev.ujhhgtg.wekit.features.core.WeKitOperation.Companion.BUILTIN_JVM
 
 /**
  * The `builtin-jvm` tool provider: direct JVM reflection over WeChat's (and Android's) runtime, plus
@@ -40,7 +40,7 @@ object WeJvmToolBindings {
     // Read-only introspection (sideEffect = false)
     // ---------------------------------------------------------------------
 
-    @AgentTool(
+    @WeKitOperation(
         name = "jvm-list-members",
         description = "List fields, methods and/or constructors of a class or object. `target` is a " +
                 "fully-qualified class name (e.g. android.app.Activity) or a handle (ref:#12). " +
@@ -50,15 +50,15 @@ object WeJvmToolBindings {
         group = BUILTIN_JVM,
     )
     fun jvmListMembers(
-        @AgentToolParam("Fully-qualified class name, or a handle like ref:#12") target: String,
-        @AgentToolParam("all | fields | methods | constructors (defaults to all)") filter: String?,
-        @AgentToolParam("If true, only members declared on this class, not inherited (defaults false)") declaredOnly: Boolean?,
+        @Param("Fully-qualified class name, or a handle like ref:#12") target: String,
+        @Param("all | fields | methods | constructors (defaults to all)") filter: String?,
+        @Param("If true, only members declared on this class, not inherited (defaults false)") declaredOnly: Boolean?,
     ): String = guard {
         val t = JvmReflector.resolveTarget(target)
         JvmReflector.listMembers(t.clazz, filter ?: "all", declaredOnly ?: false)
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "jvm-get-field",
         description = "Read a static or instance field. `target` is a class name (static) or a handle " +
                 "(ref:#12, instance). Walks superclasses. Returns the value (inline for primitives/" +
@@ -67,14 +67,14 @@ object WeJvmToolBindings {
         group = BUILTIN_JVM,
     )
     fun jvmGetField(
-        @AgentToolParam("Fully-qualified class name, or a handle like ref:#12") target: String,
-        @AgentToolParam("Field name") name: String,
+        @Param("Fully-qualified class name, or a handle like ref:#12") target: String,
+        @Param("Field name") name: String,
     ): String = guard {
         val t = JvmReflector.resolveTarget(target)
         JvmValueBridge.render(JvmReflector.getField(t, name))
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "jvm-inspect",
         description = "Describe a live handle (its runtime class and toString) or a class. `target` is " +
                 "a handle (ref:#12) or a fully-qualified class name.",
@@ -82,7 +82,7 @@ object WeJvmToolBindings {
         group = BUILTIN_JVM,
     )
     fun jvmInspect(
-        @AgentToolParam("A handle like ref:#12, or a fully-qualified class name") target: String,
+        @Param("A handle like ref:#12, or a fully-qualified class name") target: String,
     ): String = guard {
         val t = JvmReflector.resolveTarget(target)
         if (t.instance != null) {
@@ -99,7 +99,7 @@ object WeJvmToolBindings {
         }
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "jvm-list-handles",
         description = "List every live object handle currently held (id, type, preview). Handles are " +
                 "produced by other jvm tools when they return objects.",
@@ -112,7 +112,7 @@ object WeJvmToolBindings {
     // Mutating / code-executing (sideEffect = true)
     // ---------------------------------------------------------------------
 
-    @AgentTool(
+    @WeKitOperation(
         name = "jvm-set-field",
         description = "Write a static or instance field. `target` is a class name (static) or handle " +
                 "(ref:#12). `value` is a value token (e.g. str:hello, int:42, ref:#3, null).",
@@ -120,16 +120,16 @@ object WeJvmToolBindings {
         group = BUILTIN_JVM,
     )
     fun jvmSetField(
-        @AgentToolParam("Fully-qualified class name, or a handle like ref:#12") target: String,
-        @AgentToolParam("Field name") name: String,
-        @AgentToolParam("Value token: null | str: | int: | long: | dbl: | bool: | char: | class: | ref:#N | enum:") value: String,
+        @Param("Fully-qualified class name, or a handle like ref:#12") target: String,
+        @Param("Field name") name: String,
+        @Param("Value token: null | str: | int: | long: | dbl: | bool: | char: | class: | ref:#N | enum:") value: String,
     ): String = guard {
         val t = JvmReflector.resolveTarget(target)
         JvmReflector.setField(t, name, JvmValueBridge.parseValue(value))
         "OK — set ${t.clazz.simpleName}.$name"
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "jvm-invoke-method",
         description = "Invoke a static or instance method with overload resolution. `target` is a class " +
                 "name (static) or handle (ref:#12, instance). `args` is a list of value tokens. Optional " +
@@ -139,11 +139,11 @@ object WeJvmToolBindings {
         group = BUILTIN_JVM,
     )
     fun jvmInvokeMethod(
-        @AgentToolParam("Fully-qualified class name, or a handle like ref:#12") target: String,
-        @AgentToolParam("Method name") name: String,
-        @AgentToolParam("Argument value tokens, in order (empty if none)") args: List<String>?,
-        @AgentToolParam("Optional exact parameter types (FQCNs) to disambiguate overloads") paramTypes: List<String>?,
-        @AgentToolParam("Run on the WeChat main/UI thread (defaults false)") onMainThread: Boolean?,
+        @Param("Fully-qualified class name, or a handle like ref:#12") target: String,
+        @Param("Method name") name: String,
+        @Param("Argument value tokens, in order (empty if none)") args: List<String>?,
+        @Param("Optional exact parameter types (FQCNs) to disambiguate overloads") paramTypes: List<String>?,
+        @Param("Run on the WeChat main/UI thread (defaults false)") onMainThread: Boolean?,
     ): String = guard {
         val t = JvmReflector.resolveTarget(target)
         val parsed = JvmValueBridge.parseArgs(args)
@@ -151,7 +151,7 @@ object WeJvmToolBindings {
         JvmValueBridge.render(result)
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "jvm-new-instance",
         description = "Construct a new instance via a constructor with overload resolution. `className` " +
                 "is fully-qualified. `args` is a list of value tokens. Optional `paramTypes` forces an " +
@@ -160,10 +160,10 @@ object WeJvmToolBindings {
         group = BUILTIN_JVM,
     )
     fun jvmNewInstance(
-        @AgentToolParam("Fully-qualified class name to instantiate") className: String,
-        @AgentToolParam("Constructor argument value tokens, in order (empty if none)") args: List<String>?,
-        @AgentToolParam("Optional exact parameter types (FQCNs) to disambiguate constructors") paramTypes: List<String>?,
-        @AgentToolParam("Run on the WeChat main/UI thread (defaults false)") onMainThread: Boolean?,
+        @Param("Fully-qualified class name to instantiate") className: String,
+        @Param("Constructor argument value tokens, in order (empty if none)") args: List<String>?,
+        @Param("Optional exact parameter types (FQCNs) to disambiguate constructors") paramTypes: List<String>?,
+        @Param("Run on the WeChat main/UI thread (defaults false)") onMainThread: Boolean?,
     ): String = guard {
         val clazz = JvmValueBridge.resolveClass(className)
         val parsed = JvmValueBridge.parseArgs(args)
@@ -171,7 +171,7 @@ object WeJvmToolBindings {
         JvmValueBridge.render(result)
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "jvm-eval",
         description = "Evaluate a Java/BeanShell expression or statements and return the result. The " +
                 "interpreter is persistent (variables defined in one call survive to the next) and can " +
@@ -181,14 +181,14 @@ object WeJvmToolBindings {
         group = BUILTIN_JVM,
     )
     fun jvmEval(
-        @AgentToolParam("Java/BeanShell source. Last expression's value is returned.") code: String,
-        @AgentToolParam("Run on the WeChat main/UI thread (defaults false)") onMainThread: Boolean?,
+        @Param("Java/BeanShell source. Last expression's value is returned.") code: String,
+        @Param("Run on the WeChat main/UI thread (defaults false)") onMainThread: Boolean?,
     ): String = guard {
         val result = maybeOnMain(onMainThread) { JvmEvalEngine.eval(code) }
         JvmValueBridge.render(result)
     }
 
-    @AgentTool(
+    @WeKitOperation(
         name = "jvm-clear-handles",
         description = "Release every live object handle to free memory. Existing #ids become invalid.",
         sideEffect = true,

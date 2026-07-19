@@ -191,11 +191,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
                     summary = "任务操作手册, 可被 LLM 动态发现并按需加载",
                     onClick = { onOpen(AgentSettingsScreen.Skills) },
                 )
-                ArrowPreference(
-                    title = "触发器",
-                    summary = "定时 / 新消息 / 数据库事件自动唤起 AI, 支持会话级与全局触发器",
-                    onClick = { onOpen(AgentSettingsScreen.Triggers) },
-                )
+                // 触发器已迁移到「工作流」系统
             }
         }
 

@@ -15,13 +15,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -35,12 +35,16 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.workflow.data.WorkflowRepository
+import dev.ujhhgtg.wekit.workflow.engine.TriggerContext
+import dev.ujhhgtg.wekit.workflow.engine.WorkflowEngine
+import dev.ujhhgtg.wekit.workflow.model.Workflow
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
@@ -58,8 +62,6 @@ object AutoLikeMoments : AutoMomentsBase(),
 
     private const val MODE_WHEN_SEEN = 0
     private const val MODE_ALL_LOADED = 1
-    private const val ACTION_LIKE = 0
-    private const val ACTION_UNLIKE = 1
     private const val RETRY_INTERVAL_MS = 30_000L
     private const val MAX_ACTION_DELAY_MS = 300_000L
 
@@ -96,69 +98,61 @@ object AutoLikeMoments : AutoMomentsBase(),
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var mode by remember { mutableIntStateOf(currentMode) }
-            var action by remember { mutableIntStateOf(currentAction) }
             var delayInput by remember { mutableStateOf(actionDelayMs.toString()) }
-            var useWhitelist by remember { mutableStateOf(momentsUseWhitelist) }
+            var selectedId by remember { mutableStateOf(selectedWorkflowId) }
+            val workflows by produceState<List<Workflow>>(emptyList()) {
+                value = runCatching { WorkflowRepository.getAll() }.getOrDefault(emptyList())
+            }
 
             AlertDialogContent(
                 title = { Text("自动点赞") },
                 text = {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        ListItem(
-                            modifier = Modifier.clickable { useWhitelist = !useWhitelist },
-                            trailingContent = { Switch(checked = useWhitelist, onCheckedChange = null) },
-                            supportingContent = { Text(if (useWhitelist) "仅对选中联系人点赞" else "对选中联系人跳过点赞") },
-                            headlineContent = { Text(if (useWhitelist) "黑名单 [> 白名单 <]" else "[> 黑名单 <] 白名单") },
-                        )
+                        val boundName = workflows.find { it.id == selectedId }?.name
+                            ?: selectedId?.let { "未知工作流 ($it)" }
+                            ?: "未绑定"
 
                         ListItem(
                             modifier = Modifier.clickable {
-                                val regularContacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
-                                val currentList = if (useWhitelist) momentsWhitelist else momentsBlacklist
-
                                 showComposeDialog(context) {
-                                    ContactsSelector(
-                                        title = if (useWhitelist) "选择白名单" else "选择黑名单",
-                                        contacts = regularContacts,
-                                        initialSelectedWxIds = currentList,
-                                        onDismiss = onDismiss
-                                    ) { selectedIds ->
-                                        if (useWhitelist) {
-                                            momentsWhitelist = selectedIds
-                                        } else {
-                                            momentsBlacklist = selectedIds
-                                        }
-                                        showToast("已保存 ${selectedIds.size} 个联系人, 重启微信以使更改生效")
-                                        onDismiss()
-                                    }
+                                    AlertDialogContent(
+                                        title = { Text("选择工作流") },
+                                        text = {
+                                            Column(
+                                                Modifier
+                                                    .selectableGroup()
+                                                    .verticalScroll(rememberScrollState())
+                                            ) {
+                                                ModeRow(
+                                                    title = "不绑定",
+                                                    summary = "禁用自动点赞",
+                                                    checked = selectedId == null,
+                                                    onClick = { selectedId = null; onDismiss() }
+                                                )
+                                                if (workflows.isEmpty()) {
+                                                    ListItem(
+                                                        headlineContent = { Text("暂无工作流") },
+                                                        supportingContent = { Text("请先在工作流页面创建工作流") }
+                                                    )
+                                                }
+                                                workflows.forEach { workflow ->
+                                                    ModeRow(
+                                                        title = workflow.name,
+                                                        summary = workflow.description.takeIf { it.isNotBlank() } ?: workflow.id,
+                                                        checked = selectedId == workflow.id,
+                                                        onClick = { selectedId = workflow.id; onDismiss() }
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                                        confirmButton = {}
+                                    )
                                 }
                             },
-                            supportingContent = { Text("点击选择联系人") },
-                            headlineContent = { Text(if (useWhitelist) "配置白名单" else "配置黑名单") },
+                            supportingContent = { Text(boundName) },
+                            headlineContent = { Text("绑定工作流") },
                         )
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                        Text(
-                            text = "操作类型",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                        )
-                        Column(Modifier.selectableGroup()) {
-                            ModeRow(
-                                title = "自动点赞模式",
-                                summary = "浏览或同步朋友圈时, 自动给指定目标点赞",
-                                checked = action == ACTION_LIKE,
-                                onClick = { action = ACTION_LIKE }
-                            )
-                            ModeRow(
-                                title = "取消点赞模式",
-                                summary = "浏览或同步朋友圈时, 自动取消你已点过的赞",
-                                checked = action == ACTION_UNLIKE,
-                                onClick = { action = ACTION_UNLIKE }
-                            )
-                        }
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -171,13 +165,13 @@ object AutoLikeMoments : AutoMomentsBase(),
                         Column(Modifier.selectableGroup()) {
                             ModeRow(
                                 title = "刷到时即时处理",
-                                summary = "仅在滚动浏览朋友圈、视图可见时触发对应操作",
+                                summary = "仅在滚动浏览朋友圈、视图可见时触发工作流",
                                 checked = mode == MODE_WHEN_SEEN,
                                 onClick = { mode = MODE_WHEN_SEEN }
                             )
                             ModeRow(
                                 title = "本地缓存全量处理",
-                                summary = "自动扫描本地已缓存和后续收到的所有目标朋友圈\n需启用「朋友圈/自动刷新」",
+                                summary = "自动扫描本地已缓存和后续收到的所有朋友圈\n需启用「朋友圈/自动刷新」",
                                 checked = mode == MODE_ALL_LOADED,
                                 onClick = { mode = MODE_ALL_LOADED }
                             )
@@ -189,7 +183,7 @@ object AutoLikeMoments : AutoMomentsBase(),
                             value = delayInput,
                             onValueChange = { delayInput = it.filter { c -> c.isDigit() }.take(6) },
                             label = { Text("操作间隔 (毫秒)") },
-                            supportingText = { Text("在实际发送点赞/取消点赞请求之间等待") },
+                            supportingText = { Text("在相邻两次工作流触发之间等待") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
@@ -202,9 +196,8 @@ object AutoLikeMoments : AutoMomentsBase(),
                 confirmButton = {
                     Button(
                         onClick = {
-                            momentsUseWhitelist = useWhitelist
+                            selectedWorkflowId = selectedId
                             currentMode = mode
-                            currentAction = action
                             actionDelayMs = (delayInput.toLongOrNull() ?: 0L).coerceIn(0L, MAX_ACTION_DELAY_MS)
                             handledSnsIds.clear()
                             lastAttemptAt.clear()
@@ -231,9 +224,7 @@ object AutoLikeMoments : AutoMomentsBase(),
     }
 
     override fun processVisibleItems(list: ViewGroup) {
-        // In whitelist mode, bail if the list is empty. In blacklist mode, an empty blacklist means
-        // "process everyone" so we must not bail.
-        if (momentsUseWhitelist && momentsWhitelist.isEmpty()) return
+        if (selectedWorkflowId == null) return
         for (i in 0 until list.childCount) {
             runCatching {
                 locateSnsInfo(list.getChildAt(i))?.let { processSnsInfoAsync(it, "visible") }
@@ -246,18 +237,11 @@ object AutoLikeMoments : AutoMomentsBase(),
     private fun processSnsInfoValues(table: String, values: ContentValues) {
         if (table != "SnsInfo") return
         if (currentMode != MODE_ALL_LOADED) return
-
-        val owner = values.getAsString("userName")?.trim().orEmpty()
-        if (!isTarget(owner)) return
+        if (selectedWorkflowId == null) return
 
         // Skip deleted/recalled moments (sourceType != 0)
         val sourceType = values.getAsInteger("sourceType") ?: 0
         if (sourceType != 0) return
-
-        val action = currentAction
-        val likeFlag = values.getAsInteger("likeFlag") ?: 0
-        if (action == ACTION_LIKE && likeFlag != 0) return
-        if (action == ACTION_UNLIKE && likeFlag == 0) return
 
         val snsId = values.getAsLong("snsId") ?: return
         val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: return
@@ -265,13 +249,13 @@ object AutoLikeMoments : AutoMomentsBase(),
     }
 
     private fun scanCachedTargetMoments() {
-        if (momentsUseWhitelist && momentsWhitelist.isEmpty()) return
+        if (selectedWorkflowId == null) return
         thread(name = "ScanMomentsToAutoLikeThread") {
-            WeLogger.d(TAG, "scanCachedTargetMoments: scanning (useWhitelist=$momentsUseWhitelist)")
+            WeLogger.d(TAG, "scanCachedTargetMoments: scanning")
             val snsIds = runCatching {
-                queryCachedTargetSnsIds()
+                queryCachedSnsIds()
             }.onFailure {
-                WeLogger.w(TAG, "failed to query cached target moments", it)
+                WeLogger.w(TAG, "failed to query cached moments", it)
             }.getOrDefault(emptyList())
 
             WeLogger.d(TAG, "scanCachedTargetMoments: found ${snsIds.size} cached moments")
@@ -280,65 +264,34 @@ object AutoLikeMoments : AutoMomentsBase(),
                     WeLogger.w(TAG, "scanCachedTargetMoments: failed to get snsInfo for snsId=$snsId")
                     continue
                 }
-                WeLogger.d(TAG, "scanCachedTargetMoments: processing snsId=$snsId")
                 processSnsInfo(snsInfo, "cached")
             }
         }
     }
 
-    private fun queryCachedTargetSnsIds(): List<Long> {
+    private fun queryCachedSnsIds(): List<Long> {
         if (!WeDatabaseApi.isReady) return emptyList()
-
-        val likePredicate = if (currentAction == ACTION_UNLIKE) {
-            "IFNULL(likeFlag, 0) != 0"
-        } else {
-            "IFNULL(likeFlag, 0) = 0"
-        }
-
-        val (userFilter, args) = if (momentsUseWhitelist) {
-            val whitelist = momentsWhitelist
-            if (whitelist.isEmpty()) return emptyList()
-            val placeholders = whitelist.joinToString(",") { "?" }
-            "AND userName IN ($placeholders)" to whitelist.map { it as Any }.toTypedArray()
-        } else {
-            val blacklist = momentsBlacklist
-            if (blacklist.isEmpty()) {
-                "" to emptyArray()
-            } else {
-                val placeholders = blacklist.joinToString(",") { "?" }
-                "AND userName NOT IN ($placeholders)" to blacklist.map { it as Any }.toTypedArray()
-            }
-        }
 
         val sql = """
             SELECT snsId
             FROM SnsInfo
-            WHERE $likePredicate
-              AND snsId != 0
+            WHERE snsId != 0
               AND (sourceType = 0)
-              $userFilter
             ORDER BY createTime DESC
         """.trimIndent()
 
-        WeLogger.d(TAG, "queryCachedTargetSnsIds: sql=$sql, args=${args.joinToString(",")}")
-
         val result = mutableListOf<Long>()
-        WeDatabaseApi.rawQuery(sql, args).use { cursor ->
-            WeLogger.d(TAG, "queryCachedTargetSnsIds: cursor count=${cursor.count}")
+        WeDatabaseApi.rawQuery(sql, emptyArray()).use { cursor ->
             while (cursor.moveToNext()) {
-                val snsId = cursor.getLong(0)
-                WeLogger.d(TAG, "queryCachedTargetSnsIds: found snsId=$snsId")
-                result += snsId
+                result += cursor.getLong(0)
             }
         }
-        WeLogger.d(TAG, "queryCachedTargetSnsIds: returning ${result.size} results")
         return result
     }
 
     private fun processSnsInfo(snsInfo: Any, source: String) {
+        val workflowId = selectedWorkflowId ?: return
         val owner = WeMomentsApi.getOwnerWxId(snsInfo)?.trim().orEmpty()
-        WeLogger.d(TAG, "processSnsInfo: source=$source, owner=$owner, isTarget=${isTarget(owner)}")
-        if (!isTarget(owner)) return
         if (owner == WeApi.selfWxId) return
 
         if (WeMomentsApi.isDeleted(snsInfo)) {
@@ -356,48 +309,49 @@ object AutoLikeMoments : AutoMomentsBase(),
             return
         }
 
-        WeLogger.d(TAG, "processSnsInfo: processing snsTableId=$snsTableId, owner=$owner, source=$source")
-
         if (snsTableId in handledSnsIds) return
-        val action = currentAction
-        val liked = WeMomentsApi.isLiked(snsInfo)
-        if (action == ACTION_LIKE && liked) {
-            handledSnsIds.add(snsTableId)
-            return
-        }
-        if (action == ACTION_UNLIKE && !liked) {
-            handledSnsIds.add(snsTableId)
-            return
-        }
         if (!canAttempt(snsTableId)) return
 
+        val momentContent = WeMomentsApi.getMomentContent(snsInfo)
+        val contentText = momentContent?.contentText.orEmpty()
+
         val result = sendWithDelay {
+            val workflow = runBlocking { WorkflowRepository.getById(workflowId) }
+                ?: return@sendWithDelay WeMomentsApi.ActionResult(
+                    success = true, sent = false, message = "workflow not found: $workflowId"
+                )
+
             val latestOwner = WeMomentsApi.getOwnerWxId(snsInfo)?.trim().orEmpty()
-            if (!isTarget(latestOwner) || latestOwner == WeApi.selfWxId) {
-                WeMomentsApi.ActionResult(success = true, sent = false, message = "target skipped")
-            } else if (WeMomentsApi.isDeleted(snsInfo)) {
-                WeMomentsApi.ActionResult(success = true, sent = false, message = "deleted/recalled")
-            } else {
-                val latestLiked = WeMomentsApi.isLiked(snsInfo)
-                when (action) {
-                    ACTION_LIKE if latestLiked ->
-                        WeMomentsApi.ActionResult(success = true, sent = false, message = "already liked")
+            if (latestOwner == WeApi.selfWxId) {
+                return@sendWithDelay WeMomentsApi.ActionResult(success = true, sent = false, message = "own moment, skipped")
+            }
+            if (WeMomentsApi.isDeleted(snsInfo)) {
+                return@sendWithDelay WeMomentsApi.ActionResult(success = true, sent = false, message = "deleted/recalled")
+            }
 
-                    ACTION_UNLIKE if !latestLiked ->
-                        WeMomentsApi.ActionResult(success = true, sent = false, message = "already unliked")
-
-                    ACTION_UNLIKE ->
-                        WeMomentsApi.unlike(snsInfo)
-
-                    else -> WeMomentsApi.like(snsInfo)
+            val ctx = TriggerContext.newMoment(
+                sender = owner,
+                content = contentText,
+                snsId = snsTableId,
+                type = 0,
+            )
+            runBlocking { WorkflowEngine.execute(workflow, ctx) }.let { engineResult ->
+                when (engineResult) {
+                    is WorkflowEngine.ExecutionResult.Completed ->
+                        WeMomentsApi.ActionResult(success = true, sent = true, message = "workflow completed")
+                    is WorkflowEngine.ExecutionResult.Stopped ->
+                        WeMomentsApi.ActionResult(success = true, sent = false, message = "workflow stopped: ${engineResult.reason}")
+                    is WorkflowEngine.ExecutionResult.Error ->
+                        WeMomentsApi.ActionResult(success = false, sent = false, message = engineResult.message, error = engineResult.cause)
                 }
             }
         }
+
         if (result.success) {
             handledSnsIds.add(snsTableId)
-            WeLogger.i(TAG, "auto-${actionLabel(action)} $source sent=${result.sent}, owner=$owner, sns=$snsTableId")
+            WeLogger.i(TAG, "auto-like $source sent=${result.sent}, owner=$owner, sns=$snsTableId")
         } else {
-            val message = "auto-${actionLabel(action)} $source failed, owner=$owner, sns=$snsTableId, message=${result.message}"
+            val message = "auto-like $source failed, owner=$owner, sns=$snsTableId, message=${result.message}"
             result.error?.let { WeLogger.w(TAG, message, it) } ?: WeLogger.w(TAG, message)
         }
     }
@@ -414,7 +368,8 @@ object AutoLikeMoments : AutoMomentsBase(),
 
     private fun processSnsInfoAsync(snsInfo: Any, source: String) {
         thread(name = "AutoLikeMomentThread") {
-            processSnsInfo(snsInfo, source)
+            runCatching { processSnsInfo(snsInfo, source) }
+                .onFailure { WeLogger.w(TAG, "auto-like processing failed", it) }
         }
     }
 
@@ -433,21 +388,9 @@ object AutoLikeMoments : AutoMomentsBase(),
             result
         }
 
-    private fun actionLabel(action: Int): String =
-        if (action == ACTION_UNLIKE) "unlike" else "like"
-
-    private fun isTarget(wxId: String): Boolean {
-        if (wxId.isBlank()) return false
-        return if (momentsUseWhitelist) wxId in momentsWhitelist else wxId !in momentsBlacklist
-    }
-
     private var currentMode by WePrefs.prefOption("moments_auto_like_mode", MODE_WHEN_SEEN)
-    private var currentAction by WePrefs.prefOption("moments_auto_like_action", ACTION_LIKE)
     private var actionDelayMs by WePrefs.prefOption("moments_auto_like_action_delay_ms", 0L)
-
-    private var momentsUseWhitelist by WePrefs.prefOption("moments_use_whitelist", true)
-    private var momentsWhitelist by WePrefs.prefOption("moments_whitelist", emptySet())
-    private var momentsBlacklist by WePrefs.prefOption("moments_blacklist", emptySet())
+    var selectedWorkflowId: String? by WePrefs.prefOption("auto_like_workflow_id", null as String?)
 }
 
 @Composable

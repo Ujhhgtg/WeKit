@@ -64,7 +64,7 @@ import kotlinx.coroutines.withContext
  * [ballState]/[pendingApproval] and calls [sendMessage]/[newSession]/[switchSession]/… — all heavy
  * logic lives here.
  */
-object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHost {
+object WeAgentService {
 
     private const val TAG = "WeAgentService"
 
@@ -72,9 +72,6 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
 
     // Permission resolution + persistence are unified in the repository.
     private val registry = ToolRegistry(permissions = WeAgentRepository, providers = BuiltinToolProvider.all)
-
-    /** Trigger runtime (schedule + message/SQL event triggers). Started in [init]. */
-    val triggerManager = dev.ujhhgtg.wekit.agent.trigger.TriggerManager(scope, this)
 
     // --- UI state (Compose snapshot) ---
 
@@ -300,10 +297,9 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                     }
                 }
 
-                // Start the trigger runtime (schedule + message/SQL event triggers).
-                triggerManager.start()
-
                 WeLogger.i(TAG, "WeAgentService initialized")
+                // Start the workflow trigger runtime (message/schedule event triggers).
+                dev.ujhhgtg.wekit.workflow.trigger.WorkflowRuntime.start()
             }.onFailure { WeLogger.e(TAG, "init failed", it) }
         }
     }
@@ -342,7 +338,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
      * — used by GLOBAL triggers, which always run in a brand-new background session. Returns the id,
      * or null if no model is configured. [dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHost] impl.
      */
-    override suspend fun createBackgroundSession(): String? {
+    suspend fun createBackgroundSession(): String? {
         // Guard: refuse when no model exists at all (the fire is skipped upstream).
         if (WeAgentSettings.defaultModelId() ?: firstAvailableModelId() == null) {
             WeLogger.w(TAG, "cannot create background session: no model configured")
@@ -606,13 +602,13 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     }
 
     /**
-     * Runs a turn fired by a trigger (§ triggers). [injectedText] is the serialized event timeline +
+     * Runs a turn fired by a workflow (§ workflow). [injectedText] is the serialized event timeline +
      * the trigger's prompt template. Unlike [runTurn] it is NOT tied to the foreground: UI state is
      * only mutated when [sessionId] happens to be the session the user is currently viewing (handled
      * inside [handleEvent] / the append helpers). Skipped if that session already has a running turn,
      * so a burst of trigger fires can't stack turns on one session.
      */
-    override suspend fun runTriggeredTurn(sessionId: String, injectedText: String) {
+    suspend fun runTriggeredTurn(sessionId: String, injectedText: String) {
         if (runningTurns[sessionId]?.isActive == true) {
             WeLogger.i(TAG, "triggered turn skipped: session $sessionId already running")
             return

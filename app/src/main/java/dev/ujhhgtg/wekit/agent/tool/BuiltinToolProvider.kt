@@ -8,7 +8,7 @@ import dev.ujhhgtg.wekit.features.core.AgentTool
 import kotlinx.serialization.json.JsonObject
 
 /**
- * The built-in tool providers (§3.4), split by the `@AgentTool(group=…)` tag into three fixed
+ * The built-in tool providers (§3.4), split by the `@WeKitOperation(group=…)` tag into three fixed
  * providers so the settings UI can present them separately and permissions are stored per provider:
  *
  *  - `builtin-wechat`      — WeChat operations (send/read/group/moments/…)
@@ -73,9 +73,10 @@ class BuiltinToolProvider(
         const val JVM_ID = AgentTool.BUILTIN_JVM
         const val UI_ID = AgentTool.BUILTIN_UI
         const val WEBVIEW_ID = AgentTool.BUILTIN_WEBVIEW
-        const val TRIGGER_ID = AgentTool.BUILTIN_TRIGGER
+        const val TRIGGER_ID = "builtin-trigger"
         const val INFO_ID = AgentTool.BUILTIN_INFO
         const val NET_ID = AgentTool.BUILTIN_NET
+        const val WORKFLOW_ID = AgentTool.BUILTIN_WORKFLOW
 
         private val DISPLAY_NAMES = mapOf(
             WECHAT_ID to "微信操作",
@@ -87,6 +88,7 @@ class BuiltinToolProvider(
             TRIGGER_ID to "触发器",
             INFO_ID to "环境信息",
             NET_ID to "网络",
+            WORKFLOW_ID to "工作流",
         )
 
         /**
@@ -154,7 +156,7 @@ class BuiltinToolProvider(
             },
         )
 
-        /** All built-in providers, one per `@AgentTool` group present in the generated registry. */
+        /** All built-in providers, one per `@WeKitOperation` group present in the generated registry. */
         val all: List<BuiltinToolProvider> by lazy {
             AgentToolsProvider.ALL_TOOLS
                 .groupBy { it.group }

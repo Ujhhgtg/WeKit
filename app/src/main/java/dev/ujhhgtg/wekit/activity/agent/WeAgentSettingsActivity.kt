@@ -19,7 +19,6 @@ import dev.ujhhgtg.wekit.ui.agent.settings.ModelProvidersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.PromptsScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.SkillsScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ToolPermissionListScreen
-import dev.ujhhgtg.wekit.ui.agent.settings.TriggersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WeAgentHomeScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WorkspacesScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderTools
@@ -69,7 +68,6 @@ sealed interface AgentSettingsScreen {
     data object Workspaces : AgentSettingsScreen
     data object Memory : AgentSettingsScreen
     data object Skills : AgentSettingsScreen
-    data object Triggers : AgentSettingsScreen
     data object ExternalServices : AgentSettingsScreen
 }
 
@@ -123,7 +121,6 @@ private fun RenderScreen(
         AgentSettingsScreen.Workspaces -> WorkspacesScreen(onBack = pop)
         AgentSettingsScreen.Memory -> MemoryScreen(onBack = pop)
         AgentSettingsScreen.Skills -> SkillsScreen(onBack = pop)
-        AgentSettingsScreen.Triggers -> TriggersScreen(onBack = pop)
         AgentSettingsScreen.ExternalServices -> ExternalServicesScreen(onBack = pop)
     }
 }
