@@ -39,6 +39,8 @@
 
 *^^^ 如果你需要一些我尚未从 WAuxiliary ~~抄袭~~提取的功能, 你可以自行从此处移植; 欢迎 PR!*
 
+[FunBox](https://github.com/Ujhhgtg/funbox_deobf)
+
 ---
 
 <p align="center">
