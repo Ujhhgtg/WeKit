@@ -4,6 +4,5 @@
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/common/bsh" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/common/reflekt" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/libs/external/comptime-kt" vcs="Git" />
   </component>
 </project>
