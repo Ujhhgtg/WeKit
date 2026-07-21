@@ -5,11 +5,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,12 +32,14 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -53,7 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -93,7 +92,6 @@ import dev.ujhhgtg.wekit.ui.content.GlobalImageLoader
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
@@ -292,8 +290,6 @@ private fun StickerPanelContent(
                 uniqueItems.forEach { item ->
                     ensureActive()
                     val result = actions.saveOnlineSticker(packId, item)
-                    // A lower layer may represent cancellation as Result.failure. Re-check the
-                    // parent job before counting it as a completed item and continuing.
                     ensureActive()
                     if (result.isSuccess) completed++ else failed++
                     onlineSaveProgress = PanelSaveProgress(title, uniqueItems.size, completed, failed)
@@ -827,62 +823,65 @@ private fun StickerGridOrEmpty(
     val gestureScope = rememberCoroutineScope()
     val dragModifier = if (selectable && onSelectRange != null) {
         Modifier.pointerInput(stickers, gridState) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                val start = gridState.itemIndexAt(down.position) ?: return@awaitEachGesture
-                var current = start
-                var lastPosition = down.position
+            var start = -1
+            var current = -1
+            var lastPosition: Offset
+            var scrollJob: Job? = null
 
-                // Require a press-and-hold on a sticker before starting quick range
-                // selection, so a normal tap still toggles a single sticker and vertical
-                // scrolling is left alone. If the finger lifts or the gesture is claimed
-                // elsewhere (e.g. the grid starts scrolling) before the long-press timeout
-                // elapses, this isn't a long press and the gesture is abandoned.
-                val longPressStarted = try {
-                    withTimeout(viewConfiguration.longPressTimeoutMillis) {
-                        waitForUpOrCancellation()
-                    }
-                    false
-                } catch (_: TimeoutCancellationException) {
-                    true
-                }
-                if (!longPressStarted) return@awaitEachGesture
+            detectDragGesturesAfterLongPress(
+                onDragStart = { offset ->
+                    gridState.itemIndexAt(offset)?.let { startIndex ->
+                        start = startIndex
+                        current = startIndex
+                        lastPosition = offset
+                        onRangeStart?.invoke()
+                        onSelectRange(start, current)
 
-                onRangeStart?.invoke()
-                onSelectRange(start, current)
-                val viewportHeight = size.height.toFloat().coerceAtLeast(1f)
-                val scrollJob = gestureScope.launch {
-                    while (isActive) {
-                        val amount = when {
-                            lastPosition.y < viewportHeight * 0.2f -> -18f
-                            lastPosition.y > viewportHeight * 0.8f -> 18f
-                            else -> 0f
-                        }
-                        if (amount != 0f) {
-                            gridState.scrollBy(amount)
-                            gridState.itemIndexAt(lastPosition)?.let {
-                                current = it
-                                onSelectRange(start, current)
+                        scrollJob?.cancel()
+                        scrollJob = gestureScope.launch {
+                            while (isActive) {
+                                val viewportHeight = size.height.toFloat().coerceAtLeast(1f)
+                                val amount = when {
+                                    lastPosition.y < viewportHeight * 0.2f -> -18f
+                                    lastPosition.y > viewportHeight * 0.8f -> 18f
+                                    else -> 0f
+                                }
+                                if (amount != 0f) {
+                                    gridState.scrollBy(amount)
+                                    gridState.itemIndexAt(lastPosition)?.let { index ->
+                                        if (index != current) {
+                                            current = index
+                                            onSelectRange(start, current)
+                                        }
+                                    }
+                                }
+                                delay(16.milliseconds)
                             }
                         }
-                        delay(16.milliseconds)
                     }
-                }
-                try {
-                    drag(down.id) { change ->
-                        change.consume()
-                        lastPosition = change.position
-                        gridState.itemIndexAt(change.position)?.let {
-                            current = it
+                },
+                onDrag = { change, _ ->
+                    change.consume()
+                    lastPosition = change.position
+                    gridState.itemIndexAt(change.position)?.let { index ->
+                        if (index != current) {
+                            current = index
                             onSelectRange(start, current)
                         }
                     }
-                } finally {
-                    scrollJob.cancel()
-                }
-            }
+                },
+                onDragEnd = {
+                    scrollJob?.cancel()
+                    scrollJob = null
+                },
+                onDragCancel = {
+                    scrollJob?.cancel()
+                    scrollJob = null
+                },
+            )
         }
     } else Modifier
+
     LazyVerticalGrid(
         columns = GridCells.Fixed(PanelSettings.stickerColumnCount.coerceIn(1, 15)),
         state = gridState,
@@ -920,11 +919,15 @@ private fun StickerGridOrEmpty(
                     modifier = Modifier.fillMaxSize(),
                 )
                 if (selectable) {
-                    Checkbox(
-                        checked = stickerSelectionKey(sticker) in selectedKeys,
-                        onCheckedChange = { onToggleSelection?.invoke(sticker) },
-                        modifier = Modifier.align(Alignment.TopEnd),
-                    )
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                        Checkbox(
+                            checked = stickerSelectionKey(sticker) in selectedKeys,
+                            onCheckedChange = { onToggleSelection?.invoke(sticker) },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(2.dp),
+                        )
+                    }
                 }
                 SendCountBadge(
                     count = sticker.sendCount,
@@ -1120,10 +1123,6 @@ private fun StickerAsyncImage(
     contentScale: ContentScale,
     modifier: Modifier = Modifier,
 ) {
-    // AsyncImage (not SubcomposeAsyncImage) on purpose: SubcomposeAsyncImage subcomposes to
-    // pick its loading/success/error slot, which is too slow inside a LazyVerticalGrid.
-    // AsyncImage draws a plain Painter, so state-dependent UI is layered on top as a normal
-    // (non-subcomposed) overlay instead, tracked via onState.
     var state by remember(request) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
     Box(modifier) {
         AsyncImage(
@@ -1182,7 +1181,7 @@ private fun StickerPreviewOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.52f))
+            .background(Color.Black.copy(alpha = 0.52f))
             .clickable(indication = null, interactionSource = null, onClick = onDismiss)
             .padding(20.dp),
         contentAlignment = Alignment.Center,
