@@ -282,6 +282,7 @@ private fun VoicePanelContent(
     var sharedPacksRequest by remember { mutableIntStateOf(0) }
     var selectedSharedPack by remember { mutableStateOf<VoicePack?>(null) }
     var sharedQuery by remember { mutableStateOf("") }
+    var sharedSearchExpanded by remember { mutableStateOf(false) }
     var sharedItemsState by remember { mutableStateOf<PanelUiState<List<VoiceItem>>>(PanelUiState.Empty("选择一个语音包")) }
     var sharedItemsRequest by remember { mutableIntStateOf(0) }
     var cloneSharedPack by remember { mutableStateOf<VoicePack?>(null) }
@@ -308,6 +309,8 @@ private fun VoicePanelContent(
     val onlineSearchChildListState = rememberLazyListState()
     val localPackListState = rememberLazyListState()
     val localItemListState = rememberLazyListState()
+    val sharedPackListState = rememberLazyListState()
+    val sharedItemListState = rememberLazyListState()
 
     DisposableEffect(convertedTts) {
         val generated = convertedTts
@@ -403,6 +406,28 @@ private fun VoicePanelContent(
         }
     }
 
+    fun selectSharedPack(pack: VoicePack, resetFilter: Boolean) {
+        selectedSharedPack = pack
+        if (resetFilter) {
+            sharedQuery = ""
+            sharedSearchExpanded = false
+        }
+        val request = ++sharedItemsRequest
+        sharedItemsState = PanelUiState.Loading
+        scope.launch {
+            val result = actions.loadSharedPack(pack.id)
+            if (request != sharedItemsRequest || selectedSharedPack?.id != pack.id) return@launch
+            sharedItemsState = result.fold(
+                {
+                    val uniqueItems = it.distinctBy(::voiceSelectionKey)
+                    if (uniqueItems.isEmpty()) PanelUiState.Empty("语音包中还没有语音")
+                    else PanelUiState.Content(uniqueItems)
+                },
+                { PanelUiState.Error(it.message ?: "语音包加载失败") },
+            )
+        }
+    }
+
     fun loadMySharedPacks() {
         val request = ++sharedPacksRequest
         sharedPacksState = PanelUiState.Loading
@@ -410,7 +435,30 @@ private fun VoicePanelContent(
             val result = actions.loadMySharedPacks()
             if (request != sharedPacksRequest) return@launch
             sharedPacksState = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty("还没有创建共享语音包") else PanelUiState.Content(it) },
+                { packs ->
+                    if (packs.isEmpty()) {
+                        selectedSharedPack = null
+                        sharedItemsRequest++
+                        sharedItemsState = PanelUiState.Empty("选择一个语音包")
+                        PanelUiState.Empty("还没有创建共享语音包")
+                    } else {
+                        val current = packs.firstOrNull { it.id == selectedSharedPack?.id }
+                        when {
+                            localPackLayout == VoicePackLayout.TABS -> {
+                                selectSharedPack(current ?: packs.first(), resetFilter = false)
+                            }
+
+                            current != null -> selectSharedPack(current, resetFilter = false)
+
+                            selectedSharedPack != null -> {
+                                selectedSharedPack = null
+                                sharedItemsRequest++
+                                sharedItemsState = PanelUiState.Empty("选择一个语音包")
+                            }
+                        }
+                        PanelUiState.Content(packs)
+                    }
+                },
                 { PanelUiState.Error(it.message ?: "共享语音包加载失败") },
             )
         }
@@ -668,6 +716,7 @@ private fun VoicePanelContent(
     else editableLocalPacks.firstOrNull { it.id == localPackDetailId }
     val selectedLocal = if (localPackLayout == VoicePackLayout.TABS) selectedLocalTab else localDetailPack
     val localCatalogVisible = localPackLayout == VoicePackLayout.LIST && localDetailPack == null
+    val sharedCatalogVisible = localPackLayout == VoicePackLayout.LIST && selectedSharedPack == null
     val localFilterActive = localPackFilterQuery.trim().isNotEmpty()
     val visibleLocalPacks = remember(localPacks, localPackFilterQuery, localCatalogVisible) {
         if (!localCatalogVisible || localPackFilterQuery.isBlank()) editableLocalPacks
@@ -708,7 +757,8 @@ private fun VoicePanelContent(
         VoiceDestination.TTS -> "文字转语音"
         VoiceDestination.ONLINE -> "在线语音包"
         VoiceDestination.ONLINE_SEARCH -> "在线搜索"
-        VoiceDestination.SHARED -> selectedSharedPack?.title ?: "我的共享语音包"
+        VoiceDestination.SHARED -> if (sharedCatalogVisible) "我的共享语音包"
+        else selectedSharedPack?.title ?: "我的共享语音包"
         VoiceDestination.SETTINGS -> "设置"
     }
 
@@ -1014,10 +1064,11 @@ private fun VoicePanelContent(
         }
 
         VoiceDestination.SHARED -> buildList {
-            if (selectedSharedPack != null) {
+            if (localPackLayout == VoicePackLayout.LIST && selectedSharedPack != null) {
                 add(PanelAction(MaterialSymbols.Outlined.Arrow_back, "返回共享语音包") {
                     selectedSharedPack = null
                     sharedQuery = ""
+                    sharedSearchExpanded = false
                     sharedItemsRequest++
                     sharedItemsState = PanelUiState.Empty("选择一个语音包")
                 })
@@ -1029,24 +1080,24 @@ private fun VoicePanelContent(
                 })
             }
             add(PanelAction(MaterialSymbols.Outlined.Add, "新建语音包") { prompt = VoicePrompt.CreateSharedPack })
-            add(PanelAction(MaterialSymbols.Outlined.Edit, "重命名", selectedSharedPack != null) {
-                selectedSharedPack?.let { prompt = VoicePrompt.RenameSharedPack(it) }
-            })
-            add(PanelAction(MaterialSymbols.Outlined.Delete, "删除", selectedSharedPack != null) {
-                selectedSharedPack?.let { prompt = VoicePrompt.DeleteSharedPack(it) }
-            })
-            add(PanelAction(MaterialSymbols.Outlined.Check_circle, "确认提交审核", selectedSharedPack != null) {
-                selectedSharedPack?.let { prompt = VoicePrompt.ConfirmSharedPack(it) }
-            })
-            add(PanelAction(MaterialSymbols.Outlined.Upload_file, "上传语音", selectedSharedPack != null) {
-                selectedSharedPack?.let { pack ->
+            selectedSharedPack?.let { pack ->
+                add(PanelAction(MaterialSymbols.Outlined.Edit, "重命名") {
+                    prompt = VoicePrompt.RenameSharedPack(pack)
+                })
+                add(PanelAction(MaterialSymbols.Outlined.Delete, "删除") {
+                    prompt = VoicePrompt.DeleteSharedPack(pack)
+                })
+                add(PanelAction(MaterialSymbols.Outlined.Check_circle, "确认提交审核") {
+                    prompt = VoicePrompt.ConfirmSharedPack(pack)
+                })
+                add(PanelAction(MaterialSymbols.Outlined.Upload_file, "上传语音") {
                     actions.uploadSharedVoice(pack.id, { progressMessage = "正在上传语音..." }) { result ->
                         progressMessage = null
                         operationMessage = result.fold({ it }, { it.message ?: "上传失败" })
                         if (result.isSuccess) loadMySharedPacks()
                     }
-                }
-            })
+                })
+            }
             add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::loadMySharedPacks))
         }
 
@@ -1070,6 +1121,15 @@ private fun VoicePanelContent(
             label = if (providerParent == null) "筛选当前语音包" else "筛选当前语音",
             onValueChange = { providerFilterQuery = it },
             onExpandedChange = { providerSearchExpanded = it },
+        )
+
+        destination == VoiceDestination.SHARED -> PanelActionSearch(
+            expanded = sharedSearchExpanded,
+            value = sharedQuery,
+            label = if (sharedCatalogVisible) "筛选共享语音包" else "筛选当前共享语音包",
+            actionIndex = (panelActions.size - 1).coerceAtLeast(0),
+            onValueChange = { sharedQuery = it },
+            onExpandedChange = { sharedSearchExpanded = it },
         )
 
         else -> null
@@ -1118,9 +1178,11 @@ private fun VoicePanelContent(
                         onlineSearchRootSnapshot = null
                     }
 
-                    destination == VoiceDestination.SHARED && selectedSharedPack != null -> {
+                    destination == VoiceDestination.SHARED &&
+                            localPackLayout == VoicePackLayout.LIST && selectedSharedPack != null -> {
                         selectedSharedPack = null
                         sharedQuery = ""
+                        sharedSearchExpanded = false
                         sharedItemsRequest++
                         sharedItemsState = PanelUiState.Empty("选择一个语音包")
                     }
@@ -1391,11 +1453,13 @@ private fun VoicePanelContent(
 
                     VoiceDestination.SHARED -> SharedVoiceContent(
                         packsState = sharedPacksState,
+                        layout = localPackLayout,
                         selectedPack = selectedSharedPack,
                         itemsState = sharedItemsState,
                         query = sharedQuery,
-                        onQueryChange = { sharedQuery = it },
                         playingId = playingId,
+                        packListState = sharedPackListState,
+                        itemListState = sharedItemListState,
                         selectable = batchMode,
                         selectedIds = selectedDownloadIds,
                         onToggleSelection = { item ->
@@ -1405,26 +1469,17 @@ private fun VoicePanelContent(
                             }
                         },
                         onSelectPack = { pack ->
-                            selectedSharedPack = pack
-                            sharedQuery = ""
-                            val request = ++sharedItemsRequest
-                            sharedItemsState = PanelUiState.Loading
-                            scope.launch {
-                                val result = actions.loadSharedPack(pack.id)
-                                if (request != sharedItemsRequest || selectedSharedPack?.id != pack.id) return@launch
-                                sharedItemsState = result.fold(
-                                    {
-                                        val uniqueItems = it.distinctBy(::voiceSelectionKey)
-                                        if (uniqueItems.isEmpty()) PanelUiState.Empty("语音包中还没有语音")
-                                        else PanelUiState.Content(uniqueItems)
-                                    },
-                                    { PanelUiState.Error(it.message ?: "语音包加载失败") },
-                                )
-                            }
+                            selectSharedPack(pack, resetFilter = localPackLayout == VoicePackLayout.LIST)
+                            scope.launch { sharedItemListState.scrollToItem(0) }
                         },
                         onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
                         onSend = ::send,
-                        onRetry = ::loadMySharedPacks,
+                        onRetryPacks = ::loadMySharedPacks,
+                        onRetryItems = {
+                            selectedSharedPack?.let {
+                                selectSharedPack(it, resetFilter = false)
+                            }
+                        },
                     )
 
                     VoiceDestination.SETTINGS -> VoiceSettingsContent(
@@ -1433,6 +1488,18 @@ private fun VoicePanelContent(
                         onLocalPackLayoutChange = {
                             localPackLayout = it
                             localPackDetailId = null
+                            sharedQuery = ""
+                            sharedSearchExpanded = false
+                            if (it == VoicePackLayout.TABS) {
+                                val packs = (sharedPacksState as? PanelUiState.Content)?.value.orEmpty()
+                                val target = packs.firstOrNull { pack -> pack.id == selectedSharedPack?.id }
+                                    ?: packs.firstOrNull()
+                                target?.let { pack -> selectSharedPack(pack, resetFilter = false) }
+                            } else {
+                                selectedSharedPack = null
+                                sharedItemsRequest++
+                                sharedItemsState = PanelUiState.Empty("选择一个语音包")
+                            }
                             PanelSettings.localVoicePackLayout = it
                         },
                         onWrapActionsChange = {
@@ -1802,25 +1869,7 @@ private fun LocalVoiceContent(
             if (filterActive) PanelEmptyAction("没有找到本地语音包")
             else PanelEmptyAction("暂无本地语音包", "请先新建语音包")
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = packListState,
-            ) {
-                items(packs, key = VoicePack::id) { pack ->
-                    Column(Modifier.animateItem()) {
-                        ListItem(
-                            modifier = Modifier.clickable { onSelectPack(pack) },
-                            colors = panelListItemColors(),
-                            headlineContent = {
-                                Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            },
-                            supportingContent = { Text("${pack.itemCount} 条语音") },
-                            leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
-                        )
-                        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                    }
-                }
-            }
+            VoicePackList(packs, packListState, onSelectPack)
         }
     } else if (selected.items.isEmpty()) {
         if (filterActive) PanelEmptyAction("当前语音包没有匹配的语音")
@@ -1836,6 +1885,33 @@ private fun LocalVoiceContent(
             selectedIds = selectedIds,
             onToggleSelection = onToggleSelection,
         )
+    }
+}
+
+@Composable
+private fun VoicePackList(
+    packs: List<VoicePack>,
+    listState: LazyListState,
+    onSelectPack: (VoicePack) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        state = listState,
+    ) {
+        items(packs, key = VoicePack::id) { pack ->
+            Column(Modifier.animateItem()) {
+                ListItem(
+                    modifier = Modifier.clickable { onSelectPack(pack) },
+                    colors = panelListItemColors(),
+                    headlineContent = {
+                        Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    },
+                    supportingContent = { Text("${pack.itemCount} 条语音") },
+                    leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
+                )
+                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+            }
+        }
     }
 }
 
@@ -2197,65 +2273,106 @@ private fun OnlineVoiceResults(
 @Composable
 private fun SharedVoiceContent(
     packsState: PanelUiState<List<VoicePack>>,
+    layout: VoicePackLayout,
     selectedPack: VoicePack?,
     itemsState: PanelUiState<List<VoiceItem>>,
     query: String,
-    onQueryChange: (String) -> Unit,
     playingId: String?,
+    packListState: LazyListState,
+    itemListState: LazyListState,
     onSelectPack: (VoicePack) -> Unit,
     onPreview: (VoiceItem) -> Unit,
     onSend: (VoiceItem) -> Unit,
-    onRetry: () -> Unit,
+    onRetryPacks: () -> Unit,
+    onRetryItems: () -> Unit,
     selectable: Boolean = false,
     selectedIds: Set<String> = emptySet(),
     onToggleSelection: ((VoiceItem) -> Unit)? = null,
 ) {
-    Column(Modifier.fillMaxSize()) {
-        PanelSearchField(
-            value = query,
-            onValueChange = onQueryChange,
-            label = if (selectedPack == null) "搜索共享语音包" else "搜索共享语音",
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-        )
-        PanelStateContent(packsState, onRetry) { packs ->
-            val visiblePacks = packs.filter {
-                query.isBlank() || it.title.contains(query, ignoreCase = true) ||
-                        it.badge?.contains(query, ignoreCase = true) == true
-            }
-            if (selectedPack == null) {
-                if (visiblePacks.isEmpty()) PanelEmptyAction("没有找到共享语音包")
-                else PanelPackChips(
-                    packs = visiblePacks,
-                    selectedId = null,
+    PanelStateContent(packsState, onRetryPacks) { packs ->
+        if (layout == VoicePackLayout.TABS) {
+            Column(Modifier.fillMaxSize()) {
+                PanelPackChips(
+                    packs = packs,
+                    selectedId = selectedPack?.id,
                     id = VoicePack::id,
                     title = VoicePack::title,
                     onSelect = onSelectPack,
                 )
-            }
-        }
-        Box(Modifier.weight(1f)) {
-            if (selectedPack == null) {
-                PanelEmptyAction("选择一个共享语音包")
-            } else {
-                PanelStateContent(itemsState) { voices ->
-                    val visibleVoices = voices.filter {
-                        query.isBlank() || it.title.contains(query, ignoreCase = true)
-                    }
-                    if (visibleVoices.isEmpty()) PanelEmptyAction("没有找到共享语音")
-                    else VoiceList(
-                        voices = visibleVoices,
+                Box(Modifier.weight(1f)) {
+                    SharedVoiceItems(
+                        selectedPack = selectedPack,
+                        itemsState = itemsState,
+                        query = query,
                         playingId = playingId,
+                        listState = itemListState,
                         onPreview = onPreview,
                         onSend = onSend,
+                        onRetry = onRetryItems,
                         selectable = selectable,
                         selectedIds = selectedIds,
                         onToggleSelection = onToggleSelection,
                     )
                 }
             }
+        } else if (selectedPack == null) {
+            val visiblePacks = packs.filter {
+                query.isBlank() || it.title.contains(query, ignoreCase = true) ||
+                        it.badge?.contains(query, ignoreCase = true) == true
+            }
+            if (visiblePacks.isEmpty()) PanelEmptyAction("没有找到共享语音包")
+            else VoicePackList(visiblePacks, packListState, onSelectPack)
+        } else {
+            SharedVoiceItems(
+                selectedPack = selectedPack,
+                itemsState = itemsState,
+                query = query,
+                playingId = playingId,
+                listState = itemListState,
+                onPreview = onPreview,
+                onSend = onSend,
+                onRetry = onRetryItems,
+                selectable = selectable,
+                selectedIds = selectedIds,
+                onToggleSelection = onToggleSelection,
+            )
         }
+    }
+}
+
+@Composable
+private fun SharedVoiceItems(
+    selectedPack: VoicePack?,
+    itemsState: PanelUiState<List<VoiceItem>>,
+    query: String,
+    playingId: String?,
+    listState: LazyListState,
+    onPreview: (VoiceItem) -> Unit,
+    onSend: (VoiceItem) -> Unit,
+    onRetry: () -> Unit,
+    selectable: Boolean,
+    selectedIds: Set<String>,
+    onToggleSelection: ((VoiceItem) -> Unit)?,
+) {
+    if (selectedPack == null) {
+        PanelEmptyAction("选择一个共享语音包")
+        return
+    }
+    PanelStateContent(itemsState, onRetry) { voices ->
+        val visibleVoices = voices.filter {
+            query.isBlank() || it.title.contains(query, ignoreCase = true)
+        }
+        if (visibleVoices.isEmpty()) PanelEmptyAction("没有找到共享语音")
+        else VoiceList(
+            voices = visibleVoices,
+            playingId = playingId,
+            onPreview = onPreview,
+            onSend = onSend,
+            listState = listState,
+            selectable = selectable,
+            selectedIds = selectedIds,
+            onToggleSelection = onToggleSelection,
+        )
     }
 }
 
@@ -2275,7 +2392,7 @@ private fun VoiceSettingsContent(
             item { PanelFunBoxApiClientIdSetting { clientIdPrompt = true } }
             item {
                 PanelDropdownSetting(
-                    title = "本地语音包一级界面",
+                    title = "本地及共享语音包一级界面",
                     selected = localPackLayout,
                     options = listOf(
                         VoicePackLayout.TABS to "Tab 栏",
