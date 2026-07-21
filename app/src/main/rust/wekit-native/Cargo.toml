@@ -12,13 +12,7 @@ jni = { version = "0.22", default-features = false }
 libc = "0.2"
 markdown = "1"
 silk-v3-sys = { git = "https://github.com/Ujhhgtg/silk-v3-sys.git" }
-symphonia = { version = "0.6", features = [
-    "mp3",
-    "aac",
-    "isomp4",
-    "pcm",
-    "wav",
-], default-features = false }
+symphonia = { version = "0.6", features = ["aac", "flac", "isomp4", "mkv", "mp3", "ogg", "opt-simd", "pcm", "wav"], default-features = false }
 mp3lame-encoder = "0.2"
 anyhow = "1"
 sha2 = { version = "0.11", default-features = false }
