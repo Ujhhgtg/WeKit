@@ -1,7 +1,10 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.sticker
 
+import dev.ujhhgtg.wekit.features.items.chat.panel.PANEL_BULK_CONVERSION_CONCURRENCY
+import dev.ujhhgtg.wekit.features.items.chat.panel.PANEL_BULK_DOWNLOAD_CONCURRENCY
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
+import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
 import dev.ujhhgtg.wekit.utils.TelegramStickerConverter
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
@@ -14,9 +17,12 @@ import kotlinx.serialization.Serializable
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
+import kotlin.io.path.fileSize
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
@@ -83,146 +89,165 @@ object TelegramStickerPackRepository {
                 ?: createTelegramPack(stickerSet.title)
             StickerPanelRepository.ensurePack(packName).getOrThrow()
 
-            val entries = oldManifest?.entries.orEmpty().toMutableMap()
+            val entries = ConcurrentHashMap(oldManifest?.entries.orEmpty())
             writeManifest(
                 manifestFile,
                 TelegramStickerManifest(
                     setName = stickerSet.name,
                     title = stickerSet.title,
                     localPackName = packName,
-                    entries = entries,
+                    entries = entries.toMap(),
                 ),
             )
-            val failures = linkedMapOf<String, String>()
-            var downloaded = 0
-            var imported = 0
-            var unchanged = 0
-            onProgress(TelegramStickerImportProgress(TelegramStickerImportPhase.DOWNLOAD, 0, stickers.size))
+            val failures = ConcurrentHashMap<String, String>()
+            val downloaded = AtomicInteger()
+            val imported = AtomicInteger()
+            val unchanged = AtomicInteger()
 
-            stickers.forEachIndexed { index, sticker ->
-                currentCoroutineContext().ensureActive()
-                val sourceFormat = sticker.sourceFormat()
-                val identity = safePathSegment(sticker.fileUniqueId)
-                val rawPath = rawDir / "$identity.${sourceFormat.extension}"
-                val existingLocal = StickerPanelRepository.hasTelegramSticker(packName, sticker.fileUniqueId)
-                if (existingLocal) {
-                    unchanged++
-                    entries[sticker.fileUniqueId] = TelegramStickerManifestEntry(
-                        fileId = sticker.fileId,
-                        sourceFormat = sourceFormat.name,
-                        imported = true,
-                    )
-                } else if (!rawPath.isRegularFile() || Files.size(rawPath) == 0L) {
-                    try {
-                        val remoteFile = TelegramStickerApiClient.getFile(token, sticker.fileId)
-                        require(remoteFile.fileUniqueId == sticker.fileUniqueId) {
-                            "Telegram 文件标识不一致"
-                        }
-                        TelegramStickerApiClient.downloadFile(
-                            token,
-                            remoteFile.filePath,
-                            rawPath,
-                            remoteFile.fileSize,
-                        )
-                        downloaded++
-                        entries[sticker.fileUniqueId] = TelegramStickerManifestEntry(
-                            fileId = sticker.fileId,
-                            sourceFormat = sourceFormat.name,
-                        )
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (error: Throwable) {
-                        failures[sticker.fileUniqueId] = error.userMessage()
-                        WeLogger.w(TAG, "download failed item=$index type=${sourceFormat.name}: ${error.javaClass.simpleName}")
-                    }
-                }
+            fun persistManifest() {
                 writeManifest(
                     manifestFile,
                     TelegramStickerManifest(
                         setName = stickerSet.name,
                         title = stickerSet.title,
                         localPackName = packName,
-                        entries = entries,
-                    ),
-                )
-                onProgress(
-                    TelegramStickerImportProgress(
-                        TelegramStickerImportPhase.DOWNLOAD,
-                        index + 1,
-                        stickers.size,
-                        sticker.emoji,
+                        entries = entries.toMap(),
                     ),
                 )
             }
 
-            onProgress(TelegramStickerImportProgress(TelegramStickerImportPhase.CONVERSION, 0, stickers.size))
-            stickers.forEachIndexed { index, sticker ->
-                currentCoroutineContext().ensureActive()
-                if (StickerPanelRepository.hasTelegramSticker(packName, sticker.fileUniqueId)) {
-                    onProgress(
-                        TelegramStickerImportProgress(
-                            TelegramStickerImportPhase.CONVERSION,
-                            index + 1,
-                            stickers.size,
-                            sticker.emoji,
-                        ),
+            WeLogger.i(
+                TAG,
+                "starting set=${stickerSet.name} total=${stickers.size} " +
+                        "downloadConcurrency=$PANEL_BULK_DOWNLOAD_CONCURRENCY " +
+                        "conversionConcurrency=$PANEL_BULK_CONVERSION_CONCURRENCY",
+            )
+            onProgress(TelegramStickerImportProgress(TelegramStickerImportPhase.DOWNLOAD, 0, stickers.size))
+
+            stickers.withIndex().parallelForEachWithProgress(
+                maxConcurrency = PANEL_BULK_DOWNLOAD_CONCURRENCY,
+                transform = { (index, sticker) ->
+                    currentCoroutineContext().ensureActive()
+                    val sourceFormat = sticker.sourceFormat()
+                    val identity = safePathSegment(sticker.fileUniqueId)
+                    val rawPath = rawDir / "$identity.${sourceFormat.extension}"
+                    val existingLocal = StickerPanelRepository.hasTelegramSticker(
+                        packName,
+                        sticker.fileUniqueId,
                     )
-                    return@forEachIndexed
-                }
-                val sourceFormat = sticker.sourceFormat()
-                val identity = safePathSegment(sticker.fileUniqueId)
-                val rawPath = rawDir / "$identity.${sourceFormat.extension}"
-                if (sticker.fileUniqueId !in failures) {
-                    try {
-                        require(rawPath.isRegularFile() && Files.size(rawPath) > 0L) {
-                            "Telegram 表情文件不可读"
-                        }
-                        val importPath = when (sourceFormat) {
-                            TelegramStickerSourceFormat.WEBP -> rawPath
-                            TelegramStickerSourceFormat.TGS,
-                            TelegramStickerSourceFormat.WEBM,
-                                -> convertSticker(sourceFormat, rawPath, convertedDir / "$identity.gif")
-                        }
-                        Files.newInputStream(importPath).use { input ->
-                            StickerPanelRepository.importTelegramSticker(
-                                packName,
-                                sticker.fileUniqueId,
-                                input,
-                            ).getOrThrow()
-                        }
-                        imported++
+                    if (existingLocal) {
+                        unchanged.incrementAndGet()
                         entries[sticker.fileUniqueId] = TelegramStickerManifestEntry(
                             fileId = sticker.fileId,
                             sourceFormat = sourceFormat.name,
                             imported = true,
                         )
-                        rawPath.deleteIfExists()
-                        if (importPath != rawPath) importPath.deleteIfExists()
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (error: Throwable) {
-                        failures[sticker.fileUniqueId] = error.userMessage()
-                        WeLogger.w(TAG, "conversion failed item=$index type=${sourceFormat.name}: ${error.javaClass.simpleName}")
+                    } else if (!rawPath.isRegularFile() || Files.size(rawPath) == 0L) {
+                        try {
+                            val remoteFile = TelegramStickerApiClient.getFile(token, sticker.fileId)
+                            require(remoteFile.fileUniqueId == sticker.fileUniqueId) {
+                                "Telegram 文件标识不一致"
+                            }
+                            TelegramStickerApiClient.downloadFile(
+                                token,
+                                remoteFile.filePath,
+                                rawPath,
+                                remoteFile.fileSize,
+                            )
+                            downloaded.incrementAndGet()
+                            entries[sticker.fileUniqueId] = TelegramStickerManifestEntry(
+                                fileId = sticker.fileId,
+                                sourceFormat = sourceFormat.name,
+                            )
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Throwable) {
+                            failures[sticker.fileUniqueId] = error.userMessage()
+                            WeLogger.w(
+                                TAG,
+                                "download failed item=$index type=${sourceFormat.name}: " +
+                                        error.javaClass.simpleName,
+                            )
+                        }
                     }
-                    writeManifest(
-                        manifestFile,
-                        TelegramStickerManifest(
-                            setName = stickerSet.name,
-                            title = stickerSet.title,
-                            localPackName = packName,
-                            entries = entries,
+                },
+                onItemComplete = { completed, total, indexedSticker, _ ->
+                    persistManifest()
+                    onProgress(
+                        TelegramStickerImportProgress(
+                            TelegramStickerImportPhase.DOWNLOAD,
+                            completed,
+                            total,
+                            indexedSticker.value.emoji,
                         ),
                     )
-                }
-                onProgress(
-                    TelegramStickerImportProgress(
-                        TelegramStickerImportPhase.CONVERSION,
-                        index + 1,
-                        stickers.size,
-                        sticker.emoji,
-                    ),
-                )
-            }
+                },
+            )
+
+            onProgress(TelegramStickerImportProgress(TelegramStickerImportPhase.CONVERSION, 0, stickers.size))
+            stickers.withIndex().parallelForEachWithProgress(
+                maxConcurrency = PANEL_BULK_CONVERSION_CONCURRENCY,
+                transform = { (index, sticker) ->
+                    currentCoroutineContext().ensureActive()
+                    if (!StickerPanelRepository.hasTelegramSticker(packName, sticker.fileUniqueId)) {
+                        val sourceFormat = sticker.sourceFormat()
+                        val identity = safePathSegment(sticker.fileUniqueId)
+                        val rawPath = rawDir / "$identity.${sourceFormat.extension}"
+                        if (!failures.containsKey(sticker.fileUniqueId)) {
+                            try {
+                                require(rawPath.isRegularFile() && Files.size(rawPath) > 0L) {
+                                    "Telegram 表情文件不可读"
+                                }
+                                val importPath = when (sourceFormat) {
+                                    TelegramStickerSourceFormat.WEBP -> rawPath
+                                    TelegramStickerSourceFormat.TGS,
+                                    TelegramStickerSourceFormat.WEBM,
+                                        -> convertSticker(
+                                            sourceFormat,
+                                            rawPath,
+                                            convertedDir / "$identity.gif",
+                                        )
+                                }
+                                Files.newInputStream(importPath).use { input ->
+                                    StickerPanelRepository.importTelegramSticker(
+                                        packName,
+                                        sticker.fileUniqueId,
+                                        input,
+                                    ).getOrThrow()
+                                }
+                                imported.incrementAndGet()
+                                entries[sticker.fileUniqueId] = TelegramStickerManifestEntry(
+                                    fileId = sticker.fileId,
+                                    sourceFormat = sourceFormat.name,
+                                    imported = true,
+                                )
+                                rawPath.deleteIfExists()
+                                if (importPath != rawPath) importPath.deleteIfExists()
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (error: Throwable) {
+                                failures[sticker.fileUniqueId] = error.userMessage()
+                                WeLogger.w(
+                                    TAG,
+                                    "conversion failed item=$index type=${sourceFormat.name}",
+                                    error,
+                                )
+                            }
+                        }
+                    }
+                },
+                onItemComplete = { completed, total, indexedSticker, _ ->
+                    persistManifest()
+                    onProgress(
+                        TelegramStickerImportProgress(
+                            TelegramStickerImportPhase.CONVERSION,
+                            completed,
+                            total,
+                            indexedSticker.value.emoji,
+                        ),
+                    )
+                },
+            )
 
             val currentIds = stickers.mapTo(hashSetOf(), TelegramSticker::fileUniqueId)
             if (failures.isEmpty()) {
@@ -233,7 +258,7 @@ object TelegramStickerPackRepository {
             val reconciledEntries = if (failures.isEmpty()) {
                 entries.filterKeys { it in currentIds }
             } else {
-                entries
+                entries.toMap()
             }
             writeManifest(
                 manifestFile,
@@ -245,12 +270,15 @@ object TelegramStickerPackRepository {
                 ),
             )
             if (failures.isEmpty()) cleanupStaleStaging(rawDir, convertedDir, stickers)
+            val downloadedCount = downloaded.get()
+            val importedCount = imported.get()
+            val unchangedCount = unchanged.get()
             WeLogger.i(
                 TAG,
-                "completed set=${stickerSet.name} total=${stickers.size} downloaded=$downloaded " +
-                        "imported=$imported unchanged=$unchanged failed=${failures.size}",
+                "completed set=${stickerSet.name} total=${stickers.size} downloaded=$downloadedCount " +
+                        "imported=$importedCount unchanged=$unchangedCount failed=${failures.size}",
             )
-            if (imported + unchanged == 0) {
+            if (importedCount + unchangedCount == 0) {
                 val first = failures.values.firstOrNull() ?: "没有可导入的 Telegram 表情"
                 throw IllegalStateException("Telegram 表情包导入失败：$first")
             }
@@ -258,8 +286,8 @@ object TelegramStickerPackRepository {
                 TelegramStickerImportResult(
                     packName = packName,
                     total = stickers.size,
-                    imported = imported,
-                    unchanged = unchanged,
+                    imported = importedCount,
+                    unchanged = unchangedCount,
                     failed = failures.size,
                 ),
             )
@@ -276,7 +304,9 @@ object TelegramStickerPackRepository {
         source: Path,
         destination: Path,
     ): Path {
-        if (destination.isRegularFile() && Files.size(destination) > 0L) return destination
+        if (destination.isRegularFile() && withContext(Dispatchers.IO) {
+                destination.fileSize()
+            } > 0L) return destination
         val partial = destination.resolveSibling("${destination.fileName}.part")
         partial.deleteIfExists()
         val result = when (format) {
@@ -361,7 +391,7 @@ object TelegramStickerPackRepository {
         value.replace(Regex("[^A-Za-z0-9_-]"), "_").ifBlank { "sticker_set" }.take(96)
 
     private fun Throwable.userMessage(): String = message
-        ?.replace(Regex("https://api\\.telegram\\.org/[^\\s]+"), "Telegram API")
+        ?.replace(Regex("https://api\\.telegram\\.org/\\S+"), "Telegram API")
         ?.take(240)
         ?: javaClass.simpleName
 }

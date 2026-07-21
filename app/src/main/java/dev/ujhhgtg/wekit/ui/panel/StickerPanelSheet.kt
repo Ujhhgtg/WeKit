@@ -83,6 +83,7 @@ import com.composables.icons.materialsymbols.outlined.Settings
 import com.composables.icons.materialsymbols.outlined.Sort
 import com.composables.icons.materialsymbols.outlined.Upload
 import com.composables.icons.materialsymbols.outlined.Upload_file
+import dev.ujhhgtg.wekit.features.items.chat.panel.PANEL_BULK_DOWNLOAD_CONCURRENCY
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSource
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
@@ -91,6 +92,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.StickerDestination
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPack
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPackLayout
+import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerImportPhase
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerImportProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerImportResult
@@ -101,7 +103,6 @@ import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -312,22 +313,27 @@ private fun StickerPanelContent(
         selectedOnlineStickerKeys = emptySet()
         onlineSaveProgress = PanelSaveProgress(title, uniqueItems.size)
         onlineSaveJob = scope.launch {
-            var completed = 0
+            var succeeded = 0
             var failed = 0
             try {
-                uniqueItems.forEach { item ->
-                    ensureActive()
-                    val result = actions.saveOnlineSticker(packId, item)
-                    ensureActive()
-                    if (result.isSuccess) completed++ else failed++
-                    onlineSaveProgress = PanelSaveProgress(title, uniqueItems.size, completed, failed)
-                }
+                uniqueItems.parallelForEachWithProgress(
+                    maxConcurrency = PANEL_BULK_DOWNLOAD_CONCURRENCY,
+                    transform = { item -> actions.saveOnlineSticker(packId, item) },
+                    onItemComplete = { _, total, _, result ->
+                        if (result.isSuccess) succeeded++ else failed++
+                        onlineSaveProgress = PanelSaveProgress(title, total, succeeded, failed)
+                    },
+                )
             } finally {
                 onlineSaveProgress = null
                 onlineSaveJob = null
             }
             refreshLocal()
-            operationMessage = if (failed == 0) "已保存 $completed 个表情" else "保存完成：成功 $completed 个，失败 $failed 个"
+            operationMessage = if (failed == 0) {
+                "已保存 $succeeded 个表情"
+            } else {
+                "保存完成：成功 $succeeded 个，失败 $failed 个"
+            }
         }
     }
 

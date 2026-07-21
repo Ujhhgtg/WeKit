@@ -19,7 +19,10 @@ sha2 = { version = "0.11", default-features = false }
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 rasterlottie = { version = "0.2", default-features = false, features = ["images", "text"] }
 gif = "0.14"
-image = { version = "0.25", default-features = false, features = ["png"] }
+webm-iterable = "0.6"
 
 [build-dependencies]
 bindgen = "0.72"
+cc = "1"
+pkg-config = "0.3"
+sha2 = { version = "0.11", default-features = false }

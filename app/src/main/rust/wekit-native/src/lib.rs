@@ -215,16 +215,15 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_utils_TelegramStickerConverter_tgsToGif
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_utils_TelegramStickerConverter_pngFramesToGifNative(
+pub extern "C" fn Java_dev_ujhhgtg_wekit_utils_TelegramStickerConverter_webmToGifNative(
     env: *mut RawJNIEnv,
     _thiz: jobject,
-    frames_dir: jstring,
+    input_path: jstring,
     output_path: jstring,
-    delay_ms: jint,
 ) -> jstring {
-    let result = with_jstring(env, frames_dir, |frames| {
+    let result = with_jstring(env, input_path, |input| {
         with_jstring(env, output_path, |output| {
-            telegram_sticker::png_frames_to_gif(frames, output, delay_ms.max(1) as u32)
+            telegram_sticker::webm_to_gif(input, output)
         })
     });
     native_error_string(env, result)

@@ -73,6 +73,7 @@ import com.composables.icons.materialsymbols.outlined.Text_to_speech
 import com.composables.icons.materialsymbols.outlined.Upload_file
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
+import dev.ujhhgtg.wekit.features.items.chat.panel.PANEL_BULK_DOWNLOAD_CONCURRENCY
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
 import dev.ujhhgtg.wekit.features.items.chat.panel.RECENT_PACK_ID
@@ -82,6 +83,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePack
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePackLayout
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePreview
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceProviderPage
+import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProvider
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProviderRegistry
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -639,27 +641,26 @@ private fun VoicePanelContent(
         selectedDownloadIds = emptySet()
         onlineSaveProgress = PanelSaveProgress(title, uniqueItems.size)
         onlineSaveJob = scope.launch {
-            var completed = 0
+            var succeeded = 0
             var failed = 0
             try {
-                uniqueItems.forEach { item ->
-                    ensureActive()
-                    val result = actions.addToLocal(packId, item)
-                    // Some provider/repository layers use Result.failure for transport errors.
-                    // Never let a cancellation represented that way turn into another download.
-                    ensureActive()
-                    if (result.isSuccess) completed++ else failed++
-                    onlineSaveProgress = PanelSaveProgress(title, uniqueItems.size, completed, failed)
-                }
+                uniqueItems.parallelForEachWithProgress(
+                    maxConcurrency = PANEL_BULK_DOWNLOAD_CONCURRENCY,
+                    transform = { item -> actions.addToLocal(packId, item) },
+                    onItemComplete = { _, total, _, result ->
+                        if (result.isSuccess) succeeded++ else failed++
+                        onlineSaveProgress = PanelSaveProgress(title, total, succeeded, failed)
+                    },
+                )
             } finally {
                 onlineSaveProgress = null
                 onlineSaveJob = null
             }
             refreshLocal()
             operationMessage = if (failed == 0) {
-                "已保存 $completed 条语音"
+                "已保存 $succeeded 条语音"
             } else {
-                "保存完成：成功 $completed 条，失败 $failed 条"
+                "保存完成：成功 $succeeded 条，失败 $failed 条"
             }
         }
     }
