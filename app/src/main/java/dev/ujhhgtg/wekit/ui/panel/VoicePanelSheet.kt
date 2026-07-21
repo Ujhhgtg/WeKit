@@ -983,7 +983,7 @@ private fun VoicePanelContent(
                         },
                         onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
                         onSend = ::send,
-                        onAdd = null,
+                        onAdd = { item -> showVoicePackPicker(listOf(item)) },
                         selectable = batchMode,
                         selectedIds = selectedDownloadIds,
                         onToggleSelection = { item ->
@@ -1464,8 +1464,8 @@ private fun VoiceList(
                     }
                 },
                 headlineContent = { Text(voice.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                supportingContent = if (durationMs > 0 || voice.packId.isNotBlank()) ({
-                    Text(if (durationMs > 0) formatDuration(durationMs) else voice.packId)
+                supportingContent = if (durationMs > 0) ({
+                    Text(formatDuration(durationMs))
                 }) else null,
                 trailingContent = if (voice.isContainer || selectable) null else ({
                     Row(verticalAlignment = Alignment.CenterVertically) {
