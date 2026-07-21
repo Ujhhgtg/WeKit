@@ -101,13 +101,13 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     }
 
                     WeLogger.i(TAG, "forward video to editor: video=${video.videoPath}, thumb=${video.thumbPath}")
-                    val albumVideoPath = WeMomentsApi.saveVideo(activity, video.videoPath)
-                    if (albumVideoPath == null) {
-                        showToastSuspend(activity, "视频保存到相册失败!")
+                    val cacheVideoPath = WeMomentsApi.materializeVideoToTemp(activity, video.videoPath)
+                    if (cacheVideoPath == null) {
+                        showToastSuspend(activity, "视频缓存失败!")
                         return@launch
                     }
-                    WeLogger.i(TAG, "dispatch video album result: video=$albumVideoPath")
-                    if (!WeMomentsApi.openMomentVideoEditorFromAlbumResult(activity, contentText, albumVideoPath, context.source)) {
+                    WeLogger.i(TAG, "dispatch video cache result: video=$cacheVideoPath")
+                    if (!WeMomentsApi.openMomentVideoEditorFromAlbumResult(activity, contentText, cacheVideoPath, context.source)) {
                         showToastSuspend(activity, "视频自动选择失败!")
                     }
                 }
