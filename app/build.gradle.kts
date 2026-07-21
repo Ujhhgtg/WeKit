@@ -260,6 +260,7 @@ dependencies {
     implementation(libs.materialkolor)
     implementation(libs.coil)
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
     implementation(libs.coil.network.okhttp)
 
     implementation(libs.composablehorizons.material.symbols.filled)

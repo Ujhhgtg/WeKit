@@ -32,7 +32,7 @@ kotlinpoet = "2.3.0"
 biometric = "1.2.0-alpha05"
 browser = "1.10.0"
 miuix = "0.9.3"
-materialkolor = "5.0.0" # material-color-utilities 4.1.1, matches miuix's transitive version
+materialkolor = "5.0.0"
 markwon = "4.6.2"
 annotation = "1.10.0"
 mcp-server = "0.14.0"
@@ -84,6 +84,7 @@ miuix-shader = { module = "top.yukonga.miuix.kmp:miuix-shader-android", version.
 materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
 coil = { module = "io.coil-kt.coil3:coil", version.ref = "coil" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-gif = { module = "io.coil-kt.coil3:coil-gif", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }

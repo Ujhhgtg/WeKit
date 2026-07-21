@@ -7,9 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,14 +55,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.SubcomposeAsyncImage
-import coil3.compose.SubcomposeAsyncImageContent
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
@@ -94,11 +93,14 @@ import dev.ujhhgtg.wekit.ui.content.GlobalImageLoader
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToLong
+import kotlin.time.Duration.Companion.milliseconds
 
 data class StickerPanelActions(
     val reloadLocal: suspend () -> List<StickerPack> = { emptyList() },
@@ -830,11 +832,22 @@ private fun StickerGridOrEmpty(
                 val start = gridState.itemIndexAt(down.position) ?: return@awaitEachGesture
                 var current = start
                 var lastPosition = down.position
-                val slopChange = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ ->
-                    if (kotlin.math.abs(change.positionChange().x) > kotlin.math.abs(change.positionChange().y)) {
-                        change.consume()
+
+                // Require a press-and-hold on a sticker before starting quick range
+                // selection, so a normal tap still toggles a single sticker and vertical
+                // scrolling is left alone. If the finger lifts or the gesture is claimed
+                // elsewhere (e.g. the grid starts scrolling) before the long-press timeout
+                // elapses, this isn't a long press and the gesture is abandoned.
+                val longPressStarted = try {
+                    withTimeout(viewConfiguration.longPressTimeoutMillis) {
+                        waitForUpOrCancellation()
                     }
-                } ?: return@awaitEachGesture
+                    false
+                } catch (_: TimeoutCancellationException) {
+                    true
+                }
+                if (!longPressStarted) return@awaitEachGesture
+
                 onRangeStart?.invoke()
                 onSelectRange(start, current)
                 val viewportHeight = size.height.toFloat().coerceAtLeast(1f)
@@ -852,11 +865,11 @@ private fun StickerGridOrEmpty(
                                 onSelectRange(start, current)
                             }
                         }
-                        kotlinx.coroutines.delay(16)
+                        delay(16.milliseconds)
                     }
                 }
                 try {
-                    drag(slopChange.id) { change ->
+                    drag(down.id) { change ->
                         change.consume()
                         lastPosition = change.position
                         gridState.itemIndexAt(change.position)?.let {
@@ -1107,39 +1120,51 @@ private fun StickerAsyncImage(
     contentScale: ContentScale,
     modifier: Modifier = Modifier,
 ) {
-    SubcomposeAsyncImage(
-        model = request,
-        contentDescription = contentDescription,
-        imageLoader = GlobalImageLoader,
-        modifier = modifier,
-        contentScale = contentScale,
-        loading = {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+    // AsyncImage (not SubcomposeAsyncImage) on purpose: SubcomposeAsyncImage subcomposes to
+    // pick its loading/success/error slot, which is too slow inside a LazyVerticalGrid.
+    // AsyncImage draws a plain Painter, so state-dependent UI is layered on top as a normal
+    // (non-subcomposed) overlay instead, tracked via onState.
+    var state by remember(request) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
+    Box(modifier) {
+        AsyncImage(
+            model = request,
+            contentDescription = contentDescription,
+            imageLoader = GlobalImageLoader,
+            contentScale = contentScale,
+            onState = { state = it },
+            modifier = Modifier.fillMaxSize(),
+        )
+        when (state) {
+            is AsyncImagePainter.State.Loading, AsyncImagePainter.State.Empty -> {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                }
             }
-        },
-        error = {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    MaterialSymbols.Outlined.Close,
-                    contentDescription = "缩略图加载失败",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(30.dp),
-                )
+
+            is AsyncImagePainter.State.Error -> {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        MaterialSymbols.Outlined.Close,
+                        contentDescription = "缩略图加载失败",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
             }
-        },
-        success = { SubcomposeAsyncImageContent() },
-    )
+
+            is AsyncImagePainter.State.Success -> Unit
+        }
+    }
 }
 
 @Composable

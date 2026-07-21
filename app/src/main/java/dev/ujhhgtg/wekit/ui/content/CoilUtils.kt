@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.ui.content
 
 import coil3.ImageLoader
+import coil3.gif.AnimatedImageDecoder
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.CachePolicy
 import dev.ujhhgtg.wekit.features.items.chat.panel.service.FunBoxCrypto
@@ -40,6 +41,7 @@ val GlobalImageLoader by lazy {
     ImageLoader.Builder(HostInfo.application)
         .components {
             add(OkHttpNetworkFetcherFactory(imageHttpClient))
+            add(AnimatedImageDecoder.Factory())
         }
         .memoryCachePolicy(CachePolicy.ENABLED)
         .diskCachePolicy(CachePolicy.ENABLED)
