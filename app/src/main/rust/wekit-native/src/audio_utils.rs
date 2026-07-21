@@ -413,30 +413,36 @@ pub fn pcm_to_mp3(
 }
 
 pub fn get_audio_duration_ms(path: &str) -> Result<i64> {
-    let file_path = Path::new(path);
-
-    let extension = file_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_lowercase());
-
-    match extension.as_deref() {
-        Some("mp3") => get_mp3_duration_ms(path),
-        Some("amr" | "silk") => get_silk_duration_ms(path),
-        Some(ext) => bail!("Unsupported file extension: .{}", ext),
-        None => bail!("File has no extension: {}", path),
+    if is_silk_header(path)? {
+        get_silk_duration_ms(path)
+    } else {
+        get_symphonia_duration_ms(path)
     }
 }
 
-fn get_mp3_duration_ms(path: &str) -> Result<i64> {
+fn is_silk_header(path: &str) -> Result<bool> {
+    let mut file = File::open(path)?;
+    let mut header = [0u8; 10];
+    let n = file.read(&mut header)?;
+
+    if n >= SILK_MAGIC.len() && &header[..SILK_MAGIC.len()] == SILK_MAGIC {
+        return Ok(true);
+    }
+    if n >= 1 + SILK_MAGIC.len()
+        && header[0] == 0x02
+        && &header[1..1 + SILK_MAGIC.len()] == SILK_MAGIC
+    {
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+fn get_symphonia_duration_ms(path: &str) -> Result<i64> {
     let file = File::open(path)?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
-    // Don't force "mp3": the file may be a misnamed MP4/AAC container.
-    let mut hint = Hint::new();
-    if let Some(ext) = Path::new(path).extension().and_then(|e| e.to_str()) {
-        hint.with_extension(ext);
-    }
+    let hint = Hint::new();
 
     let format = symphonia::default::get_probe().probe(
         &hint,
@@ -445,12 +451,10 @@ fn get_mp3_duration_ms(path: &str) -> Result<i64> {
         MetadataOptions::default(),
     )?;
 
-    // Try to get duration from the default audio track
     let track = format
         .default_track(TrackType::Audio)
         .ok_or_else(|| anyhow!("No default audio track found in: {}", path))?;
 
-    // n_frames and time_base are now on Track directly
     let n_frames = track
         .num_frames
         .ok_or_else(|| anyhow!("Could not determine frame count for: {}", path))?;
@@ -459,7 +463,6 @@ fn get_mp3_duration_ms(path: &str) -> Result<i64> {
         .time_base
         .ok_or_else(|| anyhow!("Could not determine time base for: {}", path))?;
 
-    // calc_time now takes Timestamp and returns Option<Time>
     let duration = time_base
         .calc_time(symphonia::core::units::Timestamp::from(n_frames as i64))
         .ok_or_else(|| anyhow!("Could not calculate duration for: {}", path))?;

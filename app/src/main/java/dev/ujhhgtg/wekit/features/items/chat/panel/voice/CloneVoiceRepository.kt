@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
 import java.io.InputStream
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
@@ -16,6 +17,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.extension
+import kotlin.io.path.fileSize
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.name
 import kotlin.io.path.notExists
@@ -139,7 +141,7 @@ object CloneVoiceRepository {
         targetPath.deleteIfExists()
     }
 
-    fun voicePath(voice: CloneVoice): java.nio.file.Path {
+    fun voicePath(voice: CloneVoice): Path {
         val fileName = voice.fileName
         require(fileName.isNotBlank() && fileName.asPath.fileName.toString() == fileName) {
             "音色文件名无效"
@@ -207,12 +209,12 @@ object CloneVoiceRepository {
         }
     }
 
-    private fun isReadableVoice(path: java.nio.file.Path): Boolean {
-        if (!path.isRegularFile() || Files.size(path) <= 0) return false
-        return hasSilkHeader(path) || AudioUtils.getDurationMs(path.absolutePathString()) > 0
+    private fun isReadableVoice(path: Path): Boolean {
+        if (!path.isRegularFile() || path.fileSize() <= 0) return false
+        return AudioUtils.getDurationMs(path.absolutePathString()) > 0
     }
 
-    private fun hasSilkHeader(path: java.nio.file.Path): Boolean = runCatching {
+    private fun hasSilkHeader(path: Path): Boolean = runCatching {
         Files.newInputStream(path).use { input ->
             val header = ByteArray(8)
             input.read(header) == header.size && header.contentEquals(byteArrayOf(2, 35, 33, 83, 73, 76, 75, 95))
