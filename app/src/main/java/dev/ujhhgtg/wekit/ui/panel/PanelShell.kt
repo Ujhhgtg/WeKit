@@ -15,10 +15,17 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -95,7 +102,9 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Arrow_back
 import com.composables.icons.materialsymbols.outlined.Close
+import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Search
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
 import dev.ujhhgtg.wekit.ui.utils.CommonContextWrapper
@@ -126,6 +135,47 @@ data class PanelActionSearch(
     val onValueChange: (String) -> Unit,
     val onExpandedChange: (Boolean) -> Unit,
 )
+
+@Composable
+private fun PanelHeaderAction(
+    action: PanelAction?,
+    edge: Alignment.Horizontal,
+    animationLabel: String,
+) {
+    val direction = if (edge == Alignment.Start) -1 else 1
+    AnimatedContent(
+        targetState = action,
+        contentKey = { it != null },
+        contentAlignment = if (edge == Alignment.Start) Alignment.CenterStart else Alignment.CenterEnd,
+        transitionSpec = {
+            val enter = fadeIn(tween(180, delayMillis = 40)) +
+                    scaleIn(tween(240, easing = FastOutSlowInEasing), initialScale = 0.78f) +
+                    slideInHorizontally(tween(240, easing = FastOutSlowInEasing)) {
+                        direction * it / 3
+                    }
+            val exit = fadeOut(tween(150)) +
+                    scaleOut(tween(220, easing = FastOutSlowInEasing), targetScale = 0.78f) +
+                    slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) {
+                        direction * it / 3
+                    }
+            (enter togetherWith exit).using(
+                SizeTransform(
+                    clip = false,
+                    sizeAnimationSpec = { _, _ -> tween(260, easing = FastOutSlowInEasing) },
+                ),
+            )
+        },
+        label = animationLabel,
+    ) { currentAction ->
+        if (currentAction == null) {
+            Box(Modifier)
+        } else {
+            IconButton(onClick = currentAction.onClick, enabled = currentAction.enabled) {
+                Icon(currentAction.icon, currentAction.label)
+            }
+        }
+    }
+}
 
 internal data class PanelImportOption<T>(
     val mode: T,
@@ -258,6 +308,26 @@ fun <T> PanelShell(
     titleContent: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
+    fun PanelAction.isHeaderAction(): Boolean =
+        icon == MaterialSymbols.Outlined.Arrow_back || icon == MaterialSymbols.Outlined.Refresh
+
+    val backAction = actions.firstOrNull { it.icon == MaterialSymbols.Outlined.Arrow_back }
+    val refreshAction = actions.firstOrNull { it.icon == MaterialSymbols.Outlined.Refresh }
+    val stripActions = actions.filterNot { it.isHeaderAction() }
+    val stripActionSearch = actionSearch?.let { search ->
+        if (search.actionIndex == Int.MAX_VALUE) search
+        else {
+            val originalIndex = search.actionIndex.coerceIn(0, actions.size)
+            val removedBeforeSearch = actions.take(originalIndex).count { it.isHeaderAction() }
+            search.copy(actionIndex = (originalIndex - removedBeforeSearch).coerceAtLeast(0))
+        }
+    }
+    val titleStartPadding by animateDpAsState(
+        targetValue = if (backAction == null) 12.dp else 48.dp,
+        animationSpec = tween(260, easing = FastOutSlowInEasing),
+        label = "panel-title-start-padding",
+    )
+
     fun closeActionSearch() {
         actionSearch?.onValueChange?.invoke("")
         actionSearch?.onExpandedChange?.invoke(false)
@@ -343,32 +413,82 @@ fun <T> PanelShell(
             }
 
             Column(Modifier.fillMaxSize()) {
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .padding(start = 12.dp, end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .height(48.dp),
                 ) {
-                    if (titleContent == null) {
-                        Text(
-                            text = title,
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    } else {
-                        titleContent()
-                        Box(Modifier.weight(1f))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = titleStartPadding, end = 100.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (titleContent == null) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                contentAlignment = Alignment.CenterStart,
+                            ) {
+                                AnimatedContent(
+                                    targetState = title,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentAlignment = Alignment.CenterStart,
+                                    transitionSpec = {
+                                        val enter = fadeIn(tween(180, delayMillis = 50)) +
+                                                slideInVertically(
+                                                    tween(220, easing = FastOutSlowInEasing),
+                                                ) { it / 4 }
+                                        val exit = fadeOut(tween(130)) +
+                                                slideOutVertically(
+                                                    tween(180, easing = FastOutSlowInEasing),
+                                                ) { -it / 4 }
+                                        (enter togetherWith exit).using(SizeTransform(clip = false))
+                                    },
+                                    label = "panel-title",
+                                ) { animatedTitle ->
+                                    Text(
+                                        text = animatedTitle,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        } else {
+                            titleContent()
+                            Box(Modifier.weight(1f))
+                        }
                     }
-                    IconButton(onClick = onDismiss) {
-                        Icon(MaterialSymbols.Outlined.Close, "关闭")
+
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .align(Alignment.CenterStart),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        PanelHeaderAction(backAction, Alignment.Start, "panel-header-back")
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(48.dp), contentAlignment = Alignment.CenterEnd) {
+                            PanelHeaderAction(refreshAction, Alignment.End, "panel-header-refresh")
+                        }
+                        IconButton(onClick = onDismiss) {
+                            Icon(MaterialSymbols.Outlined.Close, "关闭")
+                        }
                     }
                 }
                 HorizontalDivider()
-                if (actions.isNotEmpty() || actionSearch != null) {
-                    PanelActionStrip(actions, wrapActions, actionSearch)
+                if (stripActions.isNotEmpty() || stripActionSearch != null) {
+                    PanelActionStrip(stripActions, wrapActions, stripActionSearch)
                     HorizontalDivider()
                 }
                 Box(Modifier.fillMaxSize()) { content() }
