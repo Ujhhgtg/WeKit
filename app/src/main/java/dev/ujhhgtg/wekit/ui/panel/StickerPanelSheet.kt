@@ -547,7 +547,7 @@ private fun StickerPanelContent(
     val title = when (destination) {
         StickerDestination.RECENT -> "最近使用"
         StickerDestination.SEARCH -> "本地搜索"
-        StickerDestination.PACKS -> "本地表情包"
+        StickerDestination.PACKS -> localDetailPack?.title ?: "本地表情包"
         StickerDestination.ONLINE -> selectedOnlinePack?.title
             ?: if (showingMyUploads) "我的上传" else "在线表情包"
 

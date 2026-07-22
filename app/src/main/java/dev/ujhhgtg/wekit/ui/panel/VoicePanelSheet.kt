@@ -753,7 +753,7 @@ private fun VoicePanelContent(
     val title = when (destination) {
         VoiceDestination.RECENT -> "最近使用"
         VoiceDestination.SEARCH -> "本地搜索"
-        VoiceDestination.LOCAL -> "本地语音包"
+        VoiceDestination.LOCAL -> localDetailPack?.title ?: "本地语音包"
         VoiceDestination.TTS -> "文字转语音"
         VoiceDestination.ONLINE -> "在线语音包"
         VoiceDestination.ONLINE_SEARCH -> "在线搜索"
