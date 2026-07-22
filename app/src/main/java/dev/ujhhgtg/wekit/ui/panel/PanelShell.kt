@@ -142,26 +142,30 @@ private fun PanelHeaderAction(
     edge: Alignment.Horizontal,
     animationLabel: String,
 ) {
-    val direction = if (edge == Alignment.Start) -1 else 1
+    val isBackAction = edge == Alignment.Start
+    val direction = if (isBackAction) -1 else 1
+    val enterDuration = if (isBackAction) 205 else 240
+    val exitDuration = if (isBackAction) 185 else 220
+    val sizeDuration = if (isBackAction) 225 else 260
     AnimatedContent(
         targetState = action,
         contentKey = { it != null },
         contentAlignment = if (edge == Alignment.Start) Alignment.CenterStart else Alignment.CenterEnd,
         transitionSpec = {
-            val enter = fadeIn(tween(180, delayMillis = 40)) +
-                    scaleIn(tween(240, easing = FastOutSlowInEasing), initialScale = 0.78f) +
-                    slideInHorizontally(tween(240, easing = FastOutSlowInEasing)) {
+            val enter = fadeIn(tween(if (isBackAction) 155 else 180, delayMillis = 30)) +
+                    scaleIn(tween(enterDuration, easing = FastOutSlowInEasing), initialScale = 0.78f) +
+                    slideInHorizontally(tween(enterDuration, easing = FastOutSlowInEasing)) {
                         direction * it / 3
                     }
-            val exit = fadeOut(tween(150)) +
-                    scaleOut(tween(220, easing = FastOutSlowInEasing), targetScale = 0.78f) +
-                    slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) {
+            val exit = fadeOut(tween(if (isBackAction) 130 else 150)) +
+                    scaleOut(tween(exitDuration, easing = FastOutSlowInEasing), targetScale = 0.78f) +
+                    slideOutHorizontally(tween(exitDuration, easing = FastOutSlowInEasing)) {
                         direction * it / 3
                     }
             (enter togetherWith exit).using(
                 SizeTransform(
                     clip = false,
-                    sizeAnimationSpec = { _, _ -> tween(260, easing = FastOutSlowInEasing) },
+                    sizeAnimationSpec = { _, _ -> tween(sizeDuration, easing = FastOutSlowInEasing) },
                 ),
             )
         },
@@ -324,7 +328,7 @@ fun <T> PanelShell(
     }
     val titleStartPadding by animateDpAsState(
         targetValue = if (backAction == null) 12.dp else 48.dp,
-        animationSpec = tween(260, easing = FastOutSlowInEasing),
+        animationSpec = tween(225, easing = FastOutSlowInEasing),
         label = "panel-title-start-padding",
     )
 
