@@ -3,11 +3,11 @@ package dev.ujhhgtg.wekit.features.items.contacts
 import android.text.SpannableStringBuilder
 import android.view.View
 import android.widget.TextView
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.utils.HookParam
 
 @Feature(
     name = "移除群成员昵称控制字符",
@@ -25,7 +25,7 @@ object RemoveGroupMemberNicknameControlCharacters : SwitchFeature(),
         WeChatMessageViewApi.removeListener(this)
     }
 
-    override fun onCreateView(param: XC_MethodHook.MethodHookParam, view: View) {
+    override fun onCreateView(param: HookParam, view: View) {
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
         if (!msgInfo.isInGroupChat) return
         if (msgInfo.isSend != 0) return

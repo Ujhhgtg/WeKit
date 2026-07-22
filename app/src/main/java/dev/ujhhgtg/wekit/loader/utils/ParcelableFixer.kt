@@ -2,8 +2,9 @@ package dev.ujhhgtg.wekit.loader.utils
 
 import android.content.Intent
 import android.os.Bundle
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.utils.HookCallback
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookDirectly
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -43,12 +44,12 @@ object ParcelableFixer {
     }
 
     private fun hookIntentMethods() {
-        val hook = object : XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam) {
+        val hook = object : HookCallback() {
+            override fun beforeHookedMethod(param: HookParam) {
                 (param.thisObject as? Intent)?.let { fixIntentExtrasClassLoader(it) }
             }
 
-            override fun afterHookedMethod(param: MethodHookParam) {
+            override fun afterHookedMethod(param: HookParam) {
                 val intent = param.thisObject as? Intent ?: return
                 if (!isTargetIntent(intent)) return
                 val cl = hybridClassLoader

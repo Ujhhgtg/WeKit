@@ -70,7 +70,7 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
 
     override fun onEnable() {
         methodSnsUploadUIInitView.hookAfter {
-            val controller = thisObject.reflekt().getField("mController", true)!!
+            val controller = thisObject!!.reflekt().getField("mController", true)!!
             val elements = controller.reflekt().firstField { type = LinkedList::class; superclass() }.get()!! as LinkedList<*>
             elements.last().reflekt().firstField { type = View.OnLongClickListener::class }.set(View.OnLongClickListener { view ->
                 showConfigDialog(view.context)

@@ -195,7 +195,7 @@ object AddMainScreenFab : ClickableFeature() {
 
     override fun onEnable() {
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
-            val activity = thisObject.reflekt()
+            val activity = thisObject!!.reflekt()
                 .firstField {
                     type = "com.tencent.mm.ui.MMFragmentActivity"
                 }

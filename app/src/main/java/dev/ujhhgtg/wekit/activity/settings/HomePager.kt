@@ -34,6 +34,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Check_circle
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
+import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -230,7 +231,16 @@ private fun SystemInfoCard() {
             InfoText("模块版本", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
             InfoText("构建时间", formatEpoch(BuildConfig.BUILD_TIMESTAMP, true))
             InfoText("设备型号", "${Build.MANUFACTURER} ${Build.MODEL}")
-            InfoText("Android 版本", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})", bottomPadding = 0.dp)
+            InfoText("Android 版本", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+            InfoText(
+                title = "加载环境",
+                content = buildString {
+                    append("当前加载器：${StartupInfo.loaderService.loaderName}")
+                    append("\n当前 Hook 桥接：")
+                    append(StartupInfo.hookBridge?.hookBridgeName ?: "未提供")
+                },
+                bottomPadding = 0.dp,
+            )
         }
     }
 }

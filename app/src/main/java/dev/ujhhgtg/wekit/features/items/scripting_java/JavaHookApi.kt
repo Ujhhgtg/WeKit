@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.scripting_java
 
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
@@ -19,7 +19,7 @@ object JavaHookApi : ApiFeature() {
 
     private val hooks = mutableListOf<HookHandle>()
 
-    fun hookBefore(member: Member, consumer: Consumer<XC_MethodHook.MethodHookParam>): HookHandle {
+    fun hookBefore(member: Member, consumer: Consumer<HookParam>): HookHandle {
         val unhook = (member as Executable).hookBeforeDirectly {
             runCatching {
                 result = consumer.accept(this)
@@ -30,7 +30,7 @@ object JavaHookApi : ApiFeature() {
         return handle
     }
 
-    fun hookAfter(member: Member, consumer: Consumer<XC_MethodHook.MethodHookParam>): HookHandle {
+    fun hookAfter(member: Member, consumer: Consumer<HookParam>): HookHandle {
         val unhook = (member as Executable).hookAfterDirectly {
             runCatching {
                 consumer.accept(this)
@@ -41,7 +41,7 @@ object JavaHookApi : ApiFeature() {
         return handle
     }
 
-    fun hookReplace(member: Member, function: Function<XC_MethodHook.MethodHookParam, Any?>): HookHandle {
+    fun hookReplace(member: Member, function: Function<HookParam, Any?>): HookHandle {
         val unhook = (member as Executable).hookBeforeDirectly {
             runCatching {
                 result = function.apply(this)

@@ -32,7 +32,7 @@ object QuickRemoveQuote : SwitchFeature(), IResolveDex {
             val event = args[2] as KeyEvent
             if (event.action != KeyEvent.ACTION_DOWN || event.keyCode != KeyEvent.KEYCODE_DEL) return@hookBefore
 
-            val chatFooterHelper = thisObject.reflekt()
+            val chatFooterHelper = thisObject!!.reflekt()
                 .firstField {
                     type { clazz -> clazz.name.startsWith("com.tencent.mm.pluginsdk.ui.chat.") }
                 }.get()!!

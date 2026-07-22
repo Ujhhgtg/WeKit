@@ -47,7 +47,7 @@ object RemoveChatMessageContextMenuItems : ClickableFeature(), IResolveDex {
             if (removedNames.isEmpty()) return@hookAfter
 
             // args[0] is the menu (db5.g4); its single List field is the backing ArrayList of items
-            val list = args[0].reflekt()
+            val list = args[0]!!.reflekt()
                 .firstField { type = List::class }
                 .get() as? MutableList<*> ?: return@hookAfter
 

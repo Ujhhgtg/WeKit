@@ -22,6 +22,8 @@ object LxpHookImpl : IHookBridge, ILoaderService {
 
     override var classLoaderHelper: IClassLoaderHelper? = null
 
+    override val loaderName: String get() = "libxposed API ${self.apiVersion}"
+    override val hookBridgeName: String get() = loaderName
     override val apiLevel: Int get() = self.apiVersion
     override val frameworkName: String get() = self.frameworkName
     override val frameworkVersion: String get() = self.frameworkVersion
@@ -43,8 +45,8 @@ object LxpHookImpl : IHookBridge, ILoaderService {
 
     override val isDeoptimizationSupported: Boolean = true
 
-    override fun deoptimize(member: Member): Boolean {
-        return self.deoptimize(member as Executable)
+    override fun deoptimize(executable: Executable): Boolean {
+        return self.deoptimize(executable)
     }
 
     override fun invokeOriginalMethod(method: Method, thisObject: Any?, args: Array<Any?>): Any? {

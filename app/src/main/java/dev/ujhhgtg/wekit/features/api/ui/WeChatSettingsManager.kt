@@ -4,11 +4,11 @@ import android.app.Activity
 import android.content.Context
 import androidx.annotation.Keep
 import com.android.dx.stock.ProxyBuilder
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.loader.utils.ParcelableFixer
+import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.buildClass
@@ -43,8 +43,8 @@ class WeChatSettingsManager(
     private var dynamicResIdCounter = -2000
     private var itemIndexCounter = 0
 
-    private var contextGetStringUnhook: XC_MethodHook.Unhook? = null
-    private var resourcesGetStringUnhook: XC_MethodHook.Unhook? = null
+    private var contextGetStringUnhook: HookHandle? = null
+    private var resourcesGetStringUnhook: HookHandle? = null
 
     // 依靠 Marker 接口隔离 Proxy 类缓存
     interface M0; interface M1; interface M2; interface M3; interface M4; interface M5; interface M6; interface M7; interface M8; interface M9; interface M10
@@ -179,7 +179,7 @@ class WeChatSettingsManager(
         classBaseSettingPrefUI.reflekt()
             .firstMethod { name = "superImportUIComponents" }
             .hookAfterDirectly {
-                val currentUiName = thisObject.javaClass.name
+                val currentUiName = thisObject!!.javaClass.name
                 if (!currentUiName.endsWith("MainSettingsUI") && !currentUiName.endsWith("CommonSettingsUI")) return@hookAfterDirectly
 
                 @Suppress("UNCHECKED_CAST")
@@ -203,7 +203,7 @@ class WeChatSettingsManager(
         classBaseSettingUI.reflekt()
             .firstMethod { name = "onDestroy" }
             .hookAfterDirectly {
-                val currentUiName = thisObject.javaClass.name
+                val currentUiName = thisObject!!.javaClass.name
                 if (!currentUiName.endsWith("MainSettingsUI") && !currentUiName.endsWith("CommonSettingsUI")) return@hookAfterDirectly
 
                 contextGetStringUnhook?.unhook(); contextGetStringUnhook = null

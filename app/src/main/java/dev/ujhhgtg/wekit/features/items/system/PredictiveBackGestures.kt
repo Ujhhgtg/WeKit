@@ -10,6 +10,8 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.items.system.PredictiveBackGestures.PRIVATE_FLAG_ENABLE_ON_BACK_INVOKED_CALLBACK
+import dev.ujhhgtg.wekit.features.items.system.PredictiveBackGestures.dispatching
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -94,7 +96,7 @@ object PredictiveBackGestures : ClickableFeature() {
         ActivityThread::class.reflekt()
             .firstMethod { name = "handleLaunchActivity" }
             .hookBefore {
-                val record = args[0]
+                val record = args[0]!!
                 val infoField =
                     record.reflekt().firstField { name = "activityInfo" }
                 val info = infoField.get() as ActivityInfo

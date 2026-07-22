@@ -13,6 +13,7 @@ object FridaStartupImpl : ILoaderService {
     private lateinit var mHostDataDir: File
     private var mXblService: Map<String, Method>? = null
     override var classLoaderHelper: IClassLoaderHelper? = null
+    override val loaderName: String = "Frida 注入加载器"
 
     internal fun setModulePath(modulePath: File) {
         mModulePath = modulePath

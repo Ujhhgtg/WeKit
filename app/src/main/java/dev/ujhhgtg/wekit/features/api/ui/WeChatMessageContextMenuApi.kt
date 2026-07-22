@@ -207,7 +207,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
 
     override fun onEnable() {
         methodCreateMenu.hookBefore {
-            val menu = args[0]
+            val menu = args[0]!!
 
             val curView = args[1] as View
             val tag = curView.tag
@@ -253,7 +253,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
 
             val menuItem = args[0] as android.view.MenuItem
             val msgInfoWrapper = MessageInfo(msgInfo)
-            val context = getChattingContextFromOnSelectHandler(thisObject)
+            val context = getChattingContextFromOnSelectHandler(thisObject!!)
             try {
                 if (menuItem.itemId == MERGED_MENU_ITEM_ID) {
                     val applicableItems = menuItems.values.flatten()
@@ -280,7 +280,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         }
 
         methodMultiCreateMenu.hookBefore {
-            val menu = args[0]
+            val menu = args[0]!!
 
             try {
                 // nothing to offer if no provider supports multi-select
@@ -311,9 +311,9 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
             if (menuItem.itemId != MERGED_MENU_ITEM_ID) return@hookBefore
 
             try {
-                val msgInfos = getSelectedMsgInfos(thisObject)
-                val chattingContext = resolveChattingContextByWalk(thisObject)
-                val view = getViewFromMultiSelectHandler(thisObject)
+                val msgInfos = getSelectedMsgInfos(thisObject!!)
+                val chattingContext = resolveChattingContextByWalk(thisObject!!)
+                val view = getViewFromMultiSelectHandler(thisObject!!)
 
                 showMultiSelectMenuDialog(view, chattingContext, msgInfos)
                 result = null

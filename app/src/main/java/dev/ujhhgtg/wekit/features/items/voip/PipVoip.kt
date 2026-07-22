@@ -389,7 +389,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     override fun onEnable() {
         methodVoipActivityProxyDealContentView.hookBefore {
-            WeLogger.d(TAG, "dealContentView: ${args[0].javaClass}")
+            WeLogger.d(TAG, "dealContentView: ${args[0]!!.javaClass}")
         }
 
         ActivityInfo::class.reflekt()
@@ -411,11 +411,11 @@ object PipVoip : SwitchFeature(), IResolveDex {
             }
 
         methodFlutterVoipAttachedToActivity.hookAfter {
-            registerSingleSession(thisObject)
+            registerSingleSession(thisObject!!)
         }
 
         methodFlutterVoipReattachedToActivity.hookAfter {
-            registerSingleSession(thisObject)
+            registerSingleSession(thisObject!!)
         }
 
         methodFlutterVoipMinimize.hookBefore {

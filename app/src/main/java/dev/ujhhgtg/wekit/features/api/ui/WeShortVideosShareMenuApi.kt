@@ -2,12 +2,12 @@ package dev.ujhhgtg.wekit.features.api.ui
 
 import android.graphics.drawable.Drawable
 import android.view.ContextMenu
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.utils.HookParam
 import org.json.JSONObject
 import java.util.LinkedList
 
@@ -21,7 +21,7 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
     data class MenuItem(
         val id: Int,
         val text: String, val drawable: Drawable,
-        val onClick: (XC_MethodHook.MethodHookParam, Int, List<JSONObject>) -> Unit
+        val onClick: (HookParam, Int, List<JSONObject>) -> Unit
     )
 
     private val menuItems = mutableMapOf<String, List<MenuItem>>()
@@ -87,7 +87,7 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
 
         methodOnSelectMenuItem1.hookBefore {
             val menuItem = args[0] as android.view.MenuItem
-            val baseFinderFeed = thisObject.reflekt()
+            val baseFinderFeed = thisObject!!.reflekt()
                 .firstField {
                     type = "com.tencent.mm.plugin.finder.model.BaseFinderFeed"
                 }
@@ -102,7 +102,7 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
 
         methodOnSelectMenuItem2.hookBefore {
             val menuItem = args[1] as android.view.MenuItem
-            val baseFinderFeed = args[0]
+            val baseFinderFeed = args[0]!!
             handleOnSelectMenuItem(this, menuItem, baseFinderFeed)
         }
 
@@ -113,7 +113,7 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
 
         methodOnSelectMenuItem3.hookBefore {
             val menuItem = args[0] as android.view.MenuItem
-            val baseFinderFeed = thisObject.reflekt()
+            val baseFinderFeed = thisObject!!.reflekt()
                 .firstField {
                     type = "com.tencent.mm.plugin.finder.model.BaseFinderFeed"
                 }
@@ -135,7 +135,7 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
     }
 
     private fun handleOnSelectMenuItem(
-        param: XC_MethodHook.MethodHookParam,
+        param: HookParam,
         menuItem: android.view.MenuItem,
         baseFinderFeed: Any
     ) {

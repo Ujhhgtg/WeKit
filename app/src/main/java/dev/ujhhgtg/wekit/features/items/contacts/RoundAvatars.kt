@@ -8,7 +8,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -19,6 +18,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.HookParam
 import org.luckypray.dexkit.DexKitBridge
 
 @Feature(
@@ -120,7 +120,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
         }
     }
 
-    private fun XC_MethodHook.MethodHookParam.setFloatArg(index: Int, value: Float) {
+    private fun HookParam.setFloatArg(index: Int, value: Float) {
         if (index in args.indices) args[index] = value
     }
 

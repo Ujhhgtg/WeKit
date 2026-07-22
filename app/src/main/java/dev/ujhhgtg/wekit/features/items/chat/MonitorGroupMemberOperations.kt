@@ -28,7 +28,7 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
         WeDatabaseListenerApi.addListener(this)
 
         methodHandleSpanClick.hookBefore {
-            val url = args[1].reflekt().firstField {
+            val url = args[1]!!.reflekt().firstField {
                 type = BString
                 modifiers(Modifiers.FINAL)
             }.get()!! as String

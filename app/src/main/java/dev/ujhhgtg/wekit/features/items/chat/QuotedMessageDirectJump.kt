@@ -62,7 +62,7 @@ object QuotedMessageDirectJump : SwitchFeature(), IResolveDex {
             val longValue = args[3]
             val stringValue = args[4]
             val msgQuoteItem = args[5]
-            val chattingItemHolder = args[7]
+            val chattingItemHolder = args[7]!!
             val chattingItem = chattingItemHolder.reflekt()
                 .firstField { type { it != String::class.java } }.get()!!
             val mGetQuoteMessageInfo = methodGetQuoteMessageInfo.method

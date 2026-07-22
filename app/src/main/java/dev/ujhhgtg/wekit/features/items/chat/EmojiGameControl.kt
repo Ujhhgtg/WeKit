@@ -35,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tencent.mm.api.IEmojiInfo
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -48,11 +47,14 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.OriginalMethodInvoker
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.invokeOriginal
+import dev.ujhhgtg.wekit.utils.captureOriginalMethod
+import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
 import dev.ujhhgtg.wekit.utils.reflection.int
 import org.luckypray.dexkit.query.enums.MatchType
 import kotlin.math.abs
@@ -246,7 +248,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 else MorraType.entries[value].chineseName
                 showToast(activity, "${if (isDice) "骰子" else "猜拳"}: $name")
 
-                invokeOriginal()
+                invokeOriginalMethod()
             } else {
                 showSelectDialog(this, isDice, activity)
             }
@@ -284,7 +286,8 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         }
     }
 
-    private fun showSelectDialog(param: XC_MethodHook.MethodHookParam, isDice: Boolean, activity: Activity) {
+    private fun showSelectDialog(param: HookParam, isDice: Boolean, activity: Activity) {
+        val originalMethod = param.captureOriginalMethod()
         param.result = null
 
         showComposeDialog(activity) {
@@ -293,14 +296,14 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 onSend = { isSingle, inputText ->
                     try {
                         if (isSingle) {
-                            param.invokeOriginal()
+                            originalMethod()
                         } else {
                             val values = parseMultipleInput(inputText, isDice)
                             if (values.isEmpty()) {
                                 showToast(activity, "输入格式错误!")
                                 return@EmojiGameDialogContent
                             }
-                            sendMultiple(param, values, isDice, activity)
+                            sendMultiple(originalMethod, values, isDice, activity)
                         }
                     } catch (e: Throwable) {
                         WeLogger.e(TAG, "failed to send", e)
@@ -312,13 +315,13 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         if (isSingle) {
                             if (isDice) valDice = Random.nextInt(0, 6)
                             else valMorra = Random.nextInt(0, 3)
-                            param.invokeOriginal()
+                            originalMethod()
                         } else {
                             val count = if (isDice) Random.nextInt(3, 10) else Random.nextInt(3, 8)
                             val values = List(count) {
                                 if (isDice) Random.nextInt(0, 6) else Random.nextInt(0, 3)
                             }
-                            sendMultiple(param, values, isDice, activity)
+                            sendMultiple(originalMethod, values, isDice, activity)
                         }
                     } catch (e: Throwable) {
                         WeLogger.e(TAG, "failed to send random", e)
@@ -445,7 +448,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
     }
 
     private fun sendMultiple(
-        param: XC_MethodHook.MethodHookParam,
+        originalMethod: OriginalMethodInvoker,
         values: List<Int>,
         isDice: Boolean,
         activity: Activity
@@ -459,7 +462,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         valMorra = value
                     }
 
-                    param.invokeOriginal()
+                    originalMethod()
 
                     // Add delay between sends (except for the last one)
                     if (index < values.size - 1) {

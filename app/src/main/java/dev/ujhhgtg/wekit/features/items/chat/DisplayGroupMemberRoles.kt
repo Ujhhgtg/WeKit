@@ -22,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.graphics.toColorInt
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -36,6 +35,7 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.collections.LruCache
 import dev.ujhhgtg.wekit.utils.unreachable
 import kotlin.math.roundToInt
@@ -163,7 +163,7 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
     }
 
     override fun onCreateView(
-        param: XC_MethodHook.MethodHookParam,
+        param: HookParam,
         view: View
     ) {
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)

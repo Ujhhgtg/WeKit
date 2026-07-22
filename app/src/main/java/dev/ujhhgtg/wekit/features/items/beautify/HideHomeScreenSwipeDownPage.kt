@@ -7,7 +7,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
-import dev.ujhhgtg.wekit.utils.invokeOriginal
+import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
 
 @Feature(name = "隐藏主页下滑「最近」页", categories = ["界面美化"], description = "禁用主页下滑功能")
 object HideHomeScreenSwipeDownPage : SwitchFeature() {
@@ -19,7 +19,7 @@ object HideHomeScreenSwipeDownPage : SwitchFeature() {
                 parameterCount = 3
             }
             .hookBefore {
-                if (thisObject.javaClass.simpleName != "ConversationListView") return@hookBefore
+                if (thisObject!!.javaClass.simpleName != "ConversationListView") return@hookBefore
                 val view = args[0] as View
                 val className = view.javaClass.simpleName
                 if (className == "TaskBarContainer") {
@@ -28,7 +28,7 @@ object HideHomeScreenSwipeDownPage : SwitchFeature() {
                     val spacer = View(view.context).apply {
                         layoutParams = AbsListView.LayoutParams(AbsListView.LayoutParams.MATCH_PARENT, heightPx)
                     }
-                    invokeOriginal(args = arrayOf(spacer, null, true))
+                    invokeOriginalMethod(args = arrayOf(spacer, null, true))
                     result = null
                 }
             }

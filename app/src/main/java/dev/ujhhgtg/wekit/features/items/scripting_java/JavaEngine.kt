@@ -10,7 +10,6 @@ import bsh.Interpreter
 import bsh.LocalMethodHookParam
 import bsh.NameSpace
 import dalvik.system.InMemoryDexClassLoader
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
@@ -31,6 +30,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.BshSnapshotDecompiler
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
@@ -151,7 +151,7 @@ object JavaEngine {
 
     fun executeAllOnClickSendBtn(
         scripts: Map<String, JavaPlugin>,
-        param: XC_MethodHook.MethodHookParam,
+        param: HookParam,
         text: String
     ) {
         scripts.values.forEach { plugin ->
@@ -1430,7 +1430,7 @@ object JavaEngine {
                     val member = it[0] as Member
 
                     @Suppress("UNCHECKED_CAST")
-                    val consumer = it[1] as Consumer<XC_MethodHook.MethodHookParam>
+                    val consumer = it[1] as Consumer<HookParam>
                     return@BshMethod JavaHookApi.hookBefore(member, consumer)
                 })
 
@@ -1442,7 +1442,7 @@ object JavaEngine {
                     val member = it[0] as Member
 
                     @Suppress("UNCHECKED_CAST")
-                    val consumer = it[1] as Consumer<XC_MethodHook.MethodHookParam>
+                    val consumer = it[1] as Consumer<HookParam>
                     return@BshMethod JavaHookApi.hookAfter(member, consumer)
                 })
 
@@ -1454,7 +1454,7 @@ object JavaEngine {
                     val member = it[0] as Member
 
                     @Suppress("UNCHECKED_CAST")
-                    val function = it[1] as Function<XC_MethodHook.MethodHookParam, Any?>
+                    val function = it[1] as Function<HookParam, Any?>
                     return@BshMethod JavaHookApi.hookReplace(member, function)
                 })
 

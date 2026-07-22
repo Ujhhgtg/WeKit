@@ -30,7 +30,7 @@ object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
 
     override fun onEnable() {
         methodCreateMenu.hookBefore {
-            args[0].reflekt().firstMethod {
+            args[0]!!.reflekt().firstMethod {
                 parameters(int, CharSequence::class)
             }.invoke(6, "自动加好友")
         }
@@ -40,7 +40,7 @@ object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
             val itemId = menuItem.itemId
             if (itemId != 6) return@hookBefore
 
-            val controller = thisObject.reflekt().firstField().get()!!
+            val controller = thisObject!!.reflekt().firstField().get()!!
             val friends = controller.reflekt().firstField {
                 type = List::class
             }.get()!! as LinkedList<*>

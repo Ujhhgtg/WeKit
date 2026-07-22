@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.scripting_js
 
 import android.os.Handler
 import android.os.Looper
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.reflekt.utils.toClass
@@ -10,6 +9,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
+import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
@@ -1301,7 +1301,7 @@ object JsApiExposer {
         return obj
     }
 
-    private fun createHookHandle(unhook: XC_MethodHook.Unhook): NativeObject {
+    private fun createHookHandle(unhook: HookHandle): NativeObject {
         val handle = NativeObject()
         ScriptableObject.putProperty(handle, "unhook", object : BaseFunction() {
             override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any {

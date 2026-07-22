@@ -12,7 +12,7 @@ object UseLegacyWalletViewInMePage : SwitchFeature(), IResolveDex {
 
     override fun onEnable() {
         methodGetOrderAndCardEntranceInfo.hookAfter {
-            result.reflekt()
+            result!!.reflekt()
                 .firstField {
                     type = Int::class.java
                 }.set(1)

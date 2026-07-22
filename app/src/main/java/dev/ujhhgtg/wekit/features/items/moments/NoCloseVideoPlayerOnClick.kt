@@ -30,7 +30,7 @@ object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
             val event = args[1] as MotionEvent
             if ((event.action and 0xFF) == MotionEvent.ACTION_UP) {
                 if (!::activityField.isInitialized) {
-                    activityField = thisObject.reflekt()
+                    activityField = thisObject!!.reflekt()
                         .firstField { type { it isSubclassOf Activity::class } }
                         .self
                 }

@@ -21,6 +21,8 @@ object UnifiedEntryPoint {
         initialClassLoader: ClassLoader,
         modulePath: String
     ) {
+        StartupInfo.hookBridge = hookBridge
+
         val self = ClassLoaders.MODULE
         val selfParent = self.parent
         HybridClassLoader.moduleParentClassLoader = selfParent

@@ -39,7 +39,6 @@ import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.conversation.BaseConversationUI
 import com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI
 import com.tencent.mm.ui.conversation.MainUI
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
@@ -64,11 +63,12 @@ import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import dev.ujhhgtg.wekit.utils.invokeOriginal
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
@@ -469,7 +469,7 @@ object ConversationAggregation : ClickableFeature(),
         return appendParentRefFilter(sql)
     }
 
-    override fun onStartActivity(param: XC_MethodHook.MethodHookParam, intent: Intent) {
+    override fun onStartActivity(param: HookParam, intent: Intent) {
         val folderId = readFolderIdFromIntent(intent) ?: return
         val componentName = intent.component?.className
         if (componentName != CONTAINER_UI_NAME) {
@@ -595,16 +595,14 @@ object ConversationAggregation : ClickableFeature(),
 
             val folder = folderById(username) ?: return@hookBefore
             val context = thisObject as? Context ?: return@hookBefore
+            val originalMethod = captureOriginalMethod()
 
             // Cancel forwarding to the folder row itself — it has no real chat thread.
             result = null
 
-            // Capture the hook param so the dialog callback can re-run the ORIGINAL doClickUser
-            // (bypassing this hook, so no recursion) with the chosen member's username.
-            val param = this
             showFolderMemberPicker(context, folder) { selectedWxId ->
                 runCatching {
-                    param.invokeOriginal(args = arrayOf(selectedWxId))
+                    originalMethod(arrayOf(selectedWxId))
                 }.onFailure {
                     WeLogger.e(TAG, "failed to forward share to member $selectedWxId", it)
                 }
@@ -629,9 +627,9 @@ object ConversationAggregation : ClickableFeature(),
         }
     }
 
-    private fun handleMvvmFolderTap(param: XC_MethodHook.MethodHookParam) {
+    private fun handleMvvmFolderTap(param: HookParam) {
         val itemView = param.args[0] as View
-        val data = param.args[1]
+        val data = param.args[1]!!
 
         val folderField = data.reflekt().fields {
             type = BString
@@ -640,6 +638,7 @@ object ConversationAggregation : ClickableFeature(),
         val folderId = folderField.get()!! as String
 
         val folder = folderById(folderId) ?: return
+        val originalMethod = param.captureOriginalMethod()
 
         // Cancel the tap on the folder row itself — it has no real chat thread.
         param.result = null
@@ -647,10 +646,13 @@ object ConversationAggregation : ClickableFeature(),
         showFolderMemberPicker(itemView.context, folder) { selectedWxId ->
             runCatching {
                 folderField.set(selectedWxId)
-                // Re-run the ORIGINAL listener (bypasses this hook → no recursion) so WeChat
-                // forwards to the real member exactly as if that row had been tapped.
-                param.invokeOriginal()
-                folderField.set(folderId)
+                try {
+                    // Re-run the ORIGINAL listener (bypasses this hook → no recursion) so WeChat
+                    // forwards to the real member exactly as if that row had been tapped.
+                    originalMethod()
+                } finally {
+                    folderField.set(folderId)
+                }
             }.onFailure {
                 WeLogger.e(TAG, "failed to forward folder tap to member $selectedWxId", it)
             }

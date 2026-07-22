@@ -192,7 +192,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
             migrateLegacyHiddenParentRef()
 
-            val context = thisObject.reflekt()
+            val context = thisObject!!.reflekt()
                 .firstField { type { it isSubclassOf Activity::class } }
                 .get()!! as Activity
             val filter = IntentFilter().apply {
@@ -268,7 +268,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
         methodChatroomContactAdapterInitCursor.hookAfter {
             if (temporarilyShown) return@hookAfter
 
-            val cursor = thisObject.reflekt()
+            val cursor = thisObject!!.reflekt()
                 .firstMethod {
                     parameterCount = 0
                     returnType = Cursor::class
@@ -346,7 +346,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
             methodVoipAcceptIncomingCall, methodVoipStartAcceptVoip
         ).forEach {
             it.hookBefore {
-                val callerWxId = args[0].reflekt().firstField { type = BString }.get()!! as String
+                val callerWxId = args[0]!!.reflekt().firstField { type = BString }.get()!! as String
                 if (!temporarilyShown && callerWxId in hiddenContacts) {
                     pendingVoipUser = callerWxId
                     result = null
@@ -369,7 +369,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
         // once status==3 and roomId are in place so the rejection actually reaches the caller.
         methodVoipServiceExSetInviteContent.hookBefore {
             if (temporarilyShown) return@hookBefore
-            val wxId = args[0].reflekt().firstField { type = BString }.get()!! as String
+            val wxId = args[0]!!.reflekt().firstField { type = BString }.get()!! as String
             if (wxId !in hiddenContacts) return@hookBefore
             pendingVoipUser = wxId
             if (!autoRejectVoip) {
@@ -382,7 +382,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
             if (!autoRejectVoip) return@hookAfter
             if (temporarilyShown) return@hookAfter
             val wxId = runCatching {
-                args[0].reflekt().firstField { type = BString }.get()!! as String
+                args[0]!!.reflekt().firstField { type = BString }.get()!! as String
             }.getOrNull() ?: return@hookAfter
             if (wxId !in hiddenContacts) return@hookAfter
             WeLogger.i(TAG, "auto-rejecting call from $wxId")
@@ -428,7 +428,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
 
         // --- notification ---
 
-        methodDealNotify.hookBefore {
+        methodDealNotify.hookBefore(100) {
             val talker = args[1] as? String? ?: return@hookBefore
             if (talker in hiddenContacts) {
                 result = null

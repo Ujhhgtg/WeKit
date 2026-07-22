@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.loader.abc
 
 import androidx.annotation.Keep
 import java.lang.reflect.Constructor
+import java.lang.reflect.Executable
 import java.lang.reflect.Member
 import java.lang.reflect.Method
 
@@ -38,6 +39,8 @@ interface IHookBridge {
         fun unhook()
     }
 
+    val hookBridgeName: String
+
     val apiLevel: Int
 
     val frameworkName: String
@@ -50,7 +53,7 @@ interface IHookBridge {
 
     val isDeoptimizationSupported: Boolean
 
-    fun deoptimize(member: Member): Boolean
+    fun deoptimize(executable: Executable): Boolean
 
     fun invokeOriginalMethod(method: Method, thisObject: Any?, args: Array<Any?>): Any?
 

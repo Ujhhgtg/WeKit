@@ -28,7 +28,7 @@ object AutoApproveDeviceLogin : SwitchFeature() {
         }
 
         targetClass.reflekt().firstMethod { name = "initView" }.hookAfter {
-            val button = thisObject.reflekt()
+            val button = thisObject!!.reflekt()
                 .firstField {
                     type = Button::class
                 }.get()!! as Button

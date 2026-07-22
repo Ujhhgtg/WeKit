@@ -88,7 +88,7 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
             val canSend = args[0] as Boolean
             if (canSend) return@hookAfter
 
-            thisObject.reflekt().invokeMethod(
+            thisObject!!.reflekt().invokeMethod(
                 "setHint", text
                     .replace($$"$totalCount", totC.toString())
                     .replace($$"$textCount", textC.toString())

@@ -6,7 +6,6 @@ import android.widget.BaseAdapter
 import android.widget.ImageView
 import androidx.collection.mutableIntObjectMapOf
 import androidx.core.util.size
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
@@ -15,6 +14,8 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.utils.HookHandle
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.runOnUiThread
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
@@ -27,7 +28,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
 
     interface IMenuItemsProvider {
-        fun getMenuItems(param: XC_MethodHook.MethodHookParam): List<MenuItem>
+        fun getMenuItems(param: HookParam): List<MenuItem>
     }
 
     data class MenuItem(
@@ -94,7 +95,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
     override fun onEnable() {
         // WeChat 8.0.70 moved this to com.tencent.mm.ui.HomeUI
         methodAddItem.hookAfter {
-            var thisObj = thisObject
+            var thisObj = thisObject!!
 
             if (thisObj.javaClass.simpleName == "HomeUI") {
                 thisObj = thisObj.reflekt()
@@ -117,7 +118,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
             baseAdapter.reflekt().firstMethod {
                 name = "getView"
             }.apply {
-                var unhook: XC_MethodHook.Unhook? = null
+                var unhook: HookHandle? = null
 
                 hookBefore {
                     unhook = ImageView::class.reflekt().firstMethod {
@@ -170,7 +171,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
         }
 
         methodHandleItemClick.hookBefore {
-            val thisObj = thisObject
+            val thisObj = thisObject!!
 
             @Suppress("UNCHECKED_CAST")
             val items = thisObj.reflekt()

@@ -32,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
@@ -46,6 +45,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
@@ -417,7 +417,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
         }
     }
 
-    private fun hijackCamera2Session(param: XC_MethodHook.MethodHookParam) {
+    private fun hijackCamera2Session(param: HookParam) {
         param.args.forEachIndexed { index, arg ->
             if (arg == null) return@forEachIndexed
             val hijackedArg = when (arg) {
@@ -430,7 +430,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                 surface = hijackedArg.playbackSurface,
                 ownsSurface = false
             )
-            WeLogger.d(TAG, "Camera2 session argument replaced: ${param.method.name}")
+            WeLogger.d(TAG, "Camera2 session argument replaced: ${param.member.name}")
             return
         }
     }

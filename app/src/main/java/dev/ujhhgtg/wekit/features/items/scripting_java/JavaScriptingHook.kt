@@ -83,7 +83,7 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
         }
 
         ChatInputBarEnhancements.methodSendMessage.hookBefore {
-            val chatFooter = thisObject.reflekt().firstField {
+            val chatFooter = thisObject!!.reflekt().firstField {
                 type = ChatFooter::class
             }.get()!! as ChatFooter
             val text = chatFooter.lastText

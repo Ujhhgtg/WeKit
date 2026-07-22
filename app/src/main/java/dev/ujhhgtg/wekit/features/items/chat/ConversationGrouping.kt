@@ -131,7 +131,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
         hookConversationListQuery()
 
         methodOnTabCreate.hookAfter {
-            val convListView = thisObject.reflekt()
+            val convListView = thisObject!!.reflekt()
                 .firstField {
                     type = "com.tencent.mm.ui.conversation.ConversationListView"
                 }

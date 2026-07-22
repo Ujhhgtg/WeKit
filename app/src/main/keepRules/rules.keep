@@ -20,6 +20,9 @@
     native <methods>;
 }
 
+# libxposed
+-dontwarn io.github.libxposed.annotation.**
+
 # BeanShell
 -keep class bsh.This { *; }
 -keep class bsh.This$* { *; }

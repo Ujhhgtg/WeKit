@@ -16,6 +16,8 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.items.beautify.MonetEngine.DEFAULT_COLOR
+import dev.ujhhgtg.wekit.features.items.beautify.MonetEngine.primaryColor
 import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -59,7 +61,7 @@ object MonetEngine : ApiFeature() {
 
         "com.tencent.mm.ui.widget.MMSwitchBtn".toClass().constructors.forEach {
             it.hookAfter {
-                thisObject.reflekt()
+                thisObject!!.reflekt()
                     .fields {
                         type = Int::class
                         superclass()

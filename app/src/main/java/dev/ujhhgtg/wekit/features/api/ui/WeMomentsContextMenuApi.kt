@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.view.ContextMenu
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -12,6 +11,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import java.lang.reflect.Modifier
@@ -154,9 +154,9 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private fun handleCreateMenu(param: XC_MethodHook.MethodHookParam) {
+    private fun handleCreateMenu(param: HookParam) {
         val menu = param.args.getOrNull(0) as? ContextMenu? ?: return
-        val context = resolveContext(param.thisObject)
+        val context = resolveContext(param.thisObject!!)
 
         for (item in menuItems.values.flatten()) {
             try {
@@ -172,14 +172,14 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private fun handleSelectMenu(param: XC_MethodHook.MethodHookParam) {
+    private fun handleSelectMenu(param: HookParam) {
         val menuItem = param.args.getOrNull(0) as? android.view.MenuItem ?: return
         val clickedId = menuItem.itemId
         if (menuItems.values.flatten().none { it.id == clickedId }) return
 
-        val context = resolveContext(param.thisObject)
+        val context = resolveContext(param.thisObject!!)
         if (context == null) {
-            WeLogger.w(TAG, "failed to resolve Moments context, listener=${param.thisObject.javaClass.name}, item=$clickedId")
+            WeLogger.w(TAG, "failed to resolve Moments context, listener=${param.thisObject!!.javaClass.name}, item=$clickedId")
             return
         }
 

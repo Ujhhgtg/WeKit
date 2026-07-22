@@ -35,7 +35,7 @@ object PreventModuleDataDeletion : SwitchFeature(), IResolveDex {
         methodNativeFileSystemEntryDelete.hookBefore {
             val relPath = args[0] as String
             if (!::basePathField.isInitialized) {
-                basePathField = thisObject.reflekt()
+                basePathField = thisObject!!.reflekt()
                     .firstField {
                         type = String::class
                         modifiers(Modifiers.FINAL)

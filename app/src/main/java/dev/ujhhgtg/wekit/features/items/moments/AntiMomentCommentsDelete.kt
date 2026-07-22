@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.ContentValues
 import android.database.Cursor
-import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.isBuiltin
@@ -13,6 +12,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.moments.AntiMomentCommentsDelete.INTERCEPTED_FLAG
 import dev.ujhhgtg.wekit.features.items.moments.AntiMomentCommentsDelete.INTERCEPT_MARKER
+import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.StrArr
@@ -81,8 +81,8 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
      * Retrieves the l75.k0 DB handle from a SnsCommentStorage instance.
      * w1 (SnsCommentStorage) holds it as the sole non-builtin final instance field.
      */
-    private fun getSnsSqliteDb(param: XC_MethodHook.MethodHookParam): Any {
-        return param.thisObject.reflekt().firstField {
+    private fun getSnsSqliteDb(param: HookParam): Any {
+        return param.thisObject!!.reflekt().firstField {
             type { !it.isBuiltin }
             modifiers(Modifiers.FINAL)
         }.get()!!
@@ -95,7 +95,7 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
      * in older builds, and handles BLOB columns (curActionBuf) natively.
      */
     private fun updateRow(
-        param: XC_MethodHook.MethodHookParam,
+        param: HookParam,
         table: String,
         values: ContentValues,
         whereClause: String,
@@ -109,7 +109,7 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
 
     /** k0.B / y55.i0.j — raw query returning a Cursor */
     private fun rawQuery(
-        param: XC_MethodHook.MethodHookParam,
+        param: HookParam,
         sql: String,
         args: Array<String>,
     ): Cursor {
@@ -146,7 +146,7 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
         // These rows are still in the DB but carry WeChat's delete bit (bit 0) in commentflag.
         // hookAfter ensures all fields are populated from the cursor before we inspect them.
         methodSnsCommentConvertFromCursor.hookAfter {
-            val flagField = thisObject.reflekt().firstField {
+            val flagField = thisObject!!.reflekt().firstField {
                 name = "field_commentflag"
                 superclass()
             }
@@ -161,7 +161,7 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
             flagField.set(flag and 1.inv() or INTERCEPTED_FLAG)
 
             // Inject the visual marker into the comment text in memory.
-            val bufField = thisObject.reflekt().firstField {
+            val bufField = thisObject!!.reflekt().firstField {
                 name = "field_curActionBuf"
                 superclass()
             }
@@ -202,7 +202,7 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
      * independently (important for deleteBySnsId which may match many rows).
      */
     private fun markAndBlockDelete(
-        param: XC_MethodHook.MethodHookParam,
+        param: HookParam,
         whereClause: String,
         whereArgs: Array<String>,
     ) {

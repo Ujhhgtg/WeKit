@@ -50,7 +50,7 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
         }
 
         "com.tencent.mm.plugin.account.ui.LoginHistoryUI".toClass().reflekt().firstMethod("initView").hookAfter {
-            val btn = thisObject.reflekt().firstField {
+            val btn = thisObject!!.reflekt().firstField {
                 type = Button::class
             }.get()!! as Button
             btn.isVisible = true

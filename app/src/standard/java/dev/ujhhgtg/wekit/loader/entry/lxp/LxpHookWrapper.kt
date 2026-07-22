@@ -78,7 +78,7 @@ object LxpHookWrapper {
             val existing = holder.callbacks
             val newCallbacks = arrayOfNulls<CallbackWrapper>(existing.size + 1)
             var i = 0
-            while (i < existing.size && existing[i].priority > priority) {
+            while (i < existing.size && existing[i].priority >= priority) {
                 newCallbacks[i] = existing[i]
                 i++
             }
@@ -128,6 +128,9 @@ object LxpHookWrapper {
         var memberCompat: Member? = null
         var chain: XposedInterface.Chain? = null
 
+        private var resultCompat: Any? = null
+        private var throwableCompat: Throwable? = null
+
         override val member: Member
             get() {
                 checkLifecycle(); return memberCompat!!
@@ -143,20 +146,26 @@ object LxpHookWrapper {
                 checkLifecycle(); return argsCompat!!
             }
 
-        override var result: Any? = null
+        override var result: Any?
             get() {
-                checkLifecycle(); return field
+                checkLifecycle(); return resultCompat
             }
             set(value) {
-                checkLifecycle(); field = value; skipOriginal = true
+                checkLifecycle()
+                resultCompat = value
+                throwableCompat = null
+                skipOriginal = true
             }
 
-        override var throwable: Throwable? = null
+        override var throwable: Throwable?
             get() {
-                checkLifecycle(); return field
+                checkLifecycle(); return throwableCompat
             }
             set(value) {
-                checkLifecycle(); field = value; skipOriginal = true
+                checkLifecycle()
+                throwableCompat = value
+                resultCompat = null
+                skipOriginal = true
             }
 
         override var extra: Any?
@@ -174,6 +183,22 @@ object LxpHookWrapper {
                 val ex = extras ?: arrayOfNulls<Any>(cbs.size).also { extras = it }
                 ex[index] = value
             }
+
+        fun syncOutcome(result: Any?, throwable: Throwable?) {
+            checkLifecycle()
+            if (throwable == null) {
+                resultCompat = result
+                throwableCompat = null
+            } else {
+                resultCompat = null
+                throwableCompat = throwable
+            }
+        }
+
+        fun clearOutcome() {
+            resultCompat = null
+            throwableCompat = null
+        }
 
         private fun checkLifecycle() {
             if (chain == null) error("attempt to access hook param after destroyed")
@@ -209,6 +234,7 @@ object LxpHookWrapper {
             var result: Any? = null
             var throwable: Throwable? = null
 
+            var beforeCount = 0
             for (i in callbacks.indices) {
                 param.index = i
                 try {
@@ -216,6 +242,8 @@ object LxpHookWrapper {
                 } catch (t: Throwable) {
                     LxpHookImpl.log(t)
                 }
+                beforeCount = i + 1
+                if (param.skipOriginal) break
             }
             param.index = -1
 
@@ -231,10 +259,9 @@ object LxpHookWrapper {
             }
 
             param.isAfter = true
-            param.result = result
-            param.throwable = throwable
+            param.syncOutcome(result, throwable)
 
-            for (i in callbacks.indices.reversed()) {
+            for (i in beforeCount - 1 downTo 0) {
                 param.index = i
                 try {
                     callbacks[i].callback.afterHookedMember(param)
@@ -252,8 +279,7 @@ object LxpHookWrapper {
             param.memberCompat = null
             param.thisObjectCompat = null
             param.argsCompat = null
-            param.result = null
-            param.throwable = null
+            param.clearOutcome()
             param.chain = null
 
             if (throwable != null) throw throwable

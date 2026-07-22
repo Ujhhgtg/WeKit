@@ -20,10 +20,6 @@ class LxpHookEntry : XposedModule() {
         if (PackageNames.isWeChat(param.packageName)) {
             if (param.isFirstPackage) {
                 val ai = param.applicationInfo
-//                ModuleLoader.saveInitParams(
-//                    param.classLoader,
-//                    this.moduleApplicationInfo.sourceDir
-//                )
                 ModuleLoader.init(
                     ai.dataDir,
                     param.classLoader,
@@ -35,17 +31,4 @@ class LxpHookEntry : XposedModule() {
             }
         }
     }
-
-//    override fun onHotReloading(param: HotReloadingParam): Boolean {
-//        WeLogger.i("LxpHookEntry", "hot reload requested, allowing...")
-//        return true
-//    }
-//
-//    override fun onHotReloaded(param: HotReloadedParam) {
-//        WeLogger.i("LxpHookEntry", "hot reload completed, re-initializing...")
-//
-//        LxpHookImpl.init(this)
-//        param.oldHookHandles.forEach { it.unhook() }
-//        ModuleLoader.hotReload(LxpHookImpl, LxpHookImpl)
-//    }
 }
