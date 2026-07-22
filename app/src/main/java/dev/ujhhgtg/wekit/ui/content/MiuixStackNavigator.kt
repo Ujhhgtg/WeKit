@@ -83,7 +83,8 @@ internal fun deviceCornerRadiusDp(): Dp {
  * - `p = 0` → the top screen fully covers the screen beneath it.
  * - `p = 1` → the top screen is fully off-screen to the right.
  * - **Background layer** parallaxes from `-width/4` at `p=0` and is dimmed up to 50% black.
- * - **Top layer** slides from `+width` at `p=1`, squircle-corner-clipped at the device radius.
+ * - **Top layer** slides from `+width` at `p=1`, clipped at the device corner radius only while
+ *   a navigation transition is in progress.
  *
  * ## Interactions
  * - **Push** `s`: add to stack → snap `p` to 1 (new screen off-screen) → animate to 0 (slide in).
@@ -109,6 +110,7 @@ fun <T : Any> MiuixStackNavigator(
     val cornerRadius = deviceCornerRadiusDp()
     val p = remember { Animatable(0f) }
     var animating by remember { mutableStateOf(false) }
+    var backGestureInProgress by remember { mutableStateOf(false) }
     val spec = tween<Float>(500, easing = NavAnimationEasing)
 
     fun push(s: T) {
@@ -139,6 +141,7 @@ fun <T : Any> MiuixStackNavigator(
     // Predictive-back: seek p 1:1 while the gesture is live; on commit, animate the
     // slide-out spring before removing (smooth); on cancel, spring p back to 0.
     PredictiveBackHandler(enabled = stack.size > 1 && !animating) { events ->
+        backGestureInProgress = true
         try {
             events.collect { e -> p.snapTo(e.progress) }
             // Gesture committed — complete the spring slide-out, then remove.
@@ -151,10 +154,14 @@ fun <T : Any> MiuixStackNavigator(
             // Gesture cancelled — spring back to fully-covered.
             p.animateTo(0f, spec)
             throw e
+        } finally {
+            backGestureInProgress = false
+            animating = false
         }
     }
 
     val depth = stack.size
+    val navigationInProgress = animating || backGestureInProgress
     Box(modifier = Modifier.fillMaxSize()) {
         // Render the WHOLE stack in a keyed loop, each entry pinned to its index. push()/pop()
         // only add/remove at the end, so an existing screen never changes call site — its
@@ -178,7 +185,7 @@ fun <T : Any> MiuixStackNavigator(
                     isTop && depth > 1 -> Modifier
                         .fillMaxSize()
                         .graphicsLayer { translationX = size.width * pv }
-                        .squircleClip(cornerRadius * pv)
+                        .squircleClip(if (navigationInProgress) cornerRadius else 0.dp)
                         .background(MiuixTheme.colorScheme.background)
                         .clickable(
                             interactionSource = tapBlocker,
