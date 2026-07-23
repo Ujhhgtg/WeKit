@@ -24,7 +24,7 @@ extern "C" {
  *
  * Returns the number of segments successfully remapped, or -1 on fatal error.
  */
-int so_hide_path(const char* needle);
+int so_hide_path(const char *needle);
 
 #ifdef __cplusplus
 }

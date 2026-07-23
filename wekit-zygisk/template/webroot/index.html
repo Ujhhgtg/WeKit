@@ -34,6 +34,15 @@
           <h2>没有注入目标</h2>
         </div>
       </section>
+
+      <details class="diagnostics" id="diagnostics">
+        <summary>运行日志</summary>
+        <div class="diagnostics-toolbar">
+          <code>/data/adb/wekit/webui.log</code>
+          <button class="button button-secondary" id="refresh-log" type="button">重新加载</button>
+        </div>
+        <pre class="log-output" id="device-log" aria-live="polite">尚未加载</pre>
+      </details>
     </main>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

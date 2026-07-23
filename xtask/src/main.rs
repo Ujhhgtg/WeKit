@@ -213,7 +213,7 @@ struct ZygiskConfigArgs {
     #[arg(long)]
     release: bool,
 
-    /// Android NDK version under ANDROID_HOME/ndk/. Defaults to project-config.json.
+    /// Android NDK version under ANDROID_HOME/ndk/. Defaults to gradle/libs.versions.toml.
     #[arg(long, value_name = "VERSION")]
     ndk: Option<String>,
 }
@@ -238,7 +238,7 @@ struct ZygiskBuildArgs {
     #[arg(long)]
     force: bool,
 
-    /// Android NDK version under ANDROID_HOME/ndk/. Defaults to project-config.json.
+    /// Android NDK version under ANDROID_HOME/ndk/. Defaults to gradle/libs.versions.toml.
     #[arg(long, value_name = "VERSION")]
     ndk: Option<String>,
 
@@ -693,8 +693,19 @@ impl ZygiskBuildProfile {
 }
 
 #[derive(Deserialize)]
-struct ZygiskProjectConfig {
-    #[serde(rename = "ndkVer")]
+struct GradleVersionCatalog {
+    versions: GradleVersions,
+}
+
+#[derive(Deserialize)]
+struct GradleVersions {
+    ndk: String,
+    #[serde(rename = "minSdk")]
+    min_sdk: String,
+}
+
+#[derive(Debug)]
+struct ZygiskBuildConfig {
     ndk_version: String,
     platform: String,
 }
@@ -712,15 +723,41 @@ fn task_zygisk(args: ZygiskArgs) -> Result<()> {
     Ok(())
 }
 
-fn zygisk_project_config(root: &Path) -> Result<ZygiskProjectConfig> {
-    let path = zygisk_dir(root).join("project-config.json");
+fn parse_zygisk_build_config(text: &str, path: &Path) -> Result<ZygiskBuildConfig> {
+    let catalog: GradleVersionCatalog =
+        toml::from_str(text).with_context(|| format!("could not parse {}", path.display()))?;
+    let ndk_version = catalog.versions.ndk.trim();
+    if ndk_version.is_empty() {
+        bail!("[versions].ndk in {} must not be empty", path.display());
+    }
+    let min_sdk_text = catalog.versions.min_sdk.trim();
+    let min_sdk = min_sdk_text.parse::<u32>().with_context(|| {
+        format!(
+            "[versions].minSdk in {} must be a positive integer, got {min_sdk_text:?}",
+            path.display()
+        )
+    })?;
+    if min_sdk == 0 {
+        bail!(
+            "[versions].minSdk in {} must be a positive integer, got {min_sdk_text:?}",
+            path.display()
+        );
+    }
+    Ok(ZygiskBuildConfig {
+        ndk_version: ndk_version.to_owned(),
+        platform: format!("android-{min_sdk}"),
+    })
+}
+
+fn zygisk_build_config(root: &Path) -> Result<ZygiskBuildConfig> {
+    let path = root.join("gradle/libs.versions.toml");
     let text =
         fs::read_to_string(&path).with_context(|| format!("could not read {}", path.display()))?;
-    serde_json::from_str(&text).with_context(|| format!("could not parse {}", path.display()))
+    parse_zygisk_build_config(&text, &path)
 }
 
 fn zygisk_ndk_dir(root: &Path, requested_version: Option<&str>) -> Result<(PathBuf, String)> {
-    let config = zygisk_project_config(root)?;
+    let config = zygisk_build_config(root)?;
     let ndk_version = requested_version.unwrap_or(&config.ndk_version);
     if ndk_version.is_empty() {
         bail!("Zygisk NDK version must not be empty");
@@ -1001,6 +1038,71 @@ fn resolve_zygisk_payload_apks(
     Ok(resolved)
 }
 
+fn dex_entry_order(name: &str) -> Option<u32> {
+    if name == "classes.dex" {
+        return Some(1);
+    }
+    let index = name
+        .strip_prefix("classes")?
+        .strip_suffix(".dex")?
+        .parse::<u32>()
+        .ok()?;
+    (index >= 2).then_some(index)
+}
+
+fn export_zygisk_payload(apk: &Path, payload_dir: &Path, abi: &str) -> Result<()> {
+    let abi_dir = payload_dir.join(abi);
+    fs::create_dir_all(&abi_dir)?;
+
+    let apk_destination = abi_dir.join("wekit.apk");
+    fs::copy(apk, &apk_destination).with_context(|| {
+        format!(
+            "could not copy payload {} to {}",
+            apk.display(),
+            apk_destination.display()
+        )
+    })?;
+
+    let input =
+        fs::File::open(apk).with_context(|| format!("could not open APK {}", apk.display()))?;
+    let mut archive = ZipArchive::new(input)
+        .with_context(|| format!("could not inspect APK {}", apk.display()))?;
+    let mut dex_entries = Vec::new();
+    for index in 0..archive.len() {
+        let entry = archive.by_index(index)?;
+        let name = entry.name();
+        if let Some(order) = dex_entry_order(name) {
+            dex_entries.push((order, name.to_owned()));
+        }
+    }
+    dex_entries.sort_by_key(|(order, _)| *order);
+    if dex_entries.is_empty() || dex_entries[0].0 != 1 {
+        bail!("APK {} does not contain classes.dex", apk.display());
+    }
+    for (expected, (actual, _)) in dex_entries.iter().enumerate() {
+        if *actual != (expected as u32 + 1) {
+            bail!(
+                "APK {} has a non-contiguous classes*.dex sequence",
+                apk.display()
+            );
+        }
+    }
+
+    let mut dex_list = String::new();
+    for (_, name) in &dex_entries {
+        let mut entry = archive.by_name(name)?;
+        let destination = abi_dir.join(name);
+        let mut output = fs::File::create(&destination)
+            .with_context(|| format!("could not create {}", destination.display()))?;
+        std::io::copy(&mut entry, &mut output)
+            .with_context(|| format!("could not extract {name} from {}", apk.display()))?;
+        dex_list.push_str(name);
+        dex_list.push('\n');
+    }
+    fs::write(abi_dir.join("dex.list"), dex_list)?;
+    Ok(())
+}
+
 fn copy_tree(source: &Path, destination: &Path) -> Result<()> {
     for entry in WalkDir::new(source).min_depth(1).sort_by_file_name() {
         let entry = entry.with_context(|| format!("could not traverse {}", source.display()))?;
@@ -1208,16 +1310,9 @@ fn package_zygisk_module(
     let payload_dir = module_dir.join("payload");
     fs::create_dir_all(&payload_dir)?;
     for (abi, source) in resolve_zygisk_payload_apks(root, profile, explicit_apks)? {
-        let destination = payload_dir.join(format!("wekit-{abi}.apk"));
-        fs::copy(&source, &destination).with_context(|| {
-            format!(
-                "could not copy payload {} to {}",
-                source.display(),
-                destination.display()
-            )
-        })?;
+        export_zygisk_payload(&source, &payload_dir, abi)?;
         println!(
-            "zygisk(package): embedded {} -> payload/wekit-{abi}.apk",
+            "zygisk(package): embedded {} -> payload/{abi}/wekit.apk + classes*.dex",
             source.display()
         );
     }
@@ -1467,4 +1562,56 @@ fn run_cmd(program: &str, args: &[&str], cwd: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const VERSION_CATALOG_PATH: &str = "gradle/libs.versions.toml";
+
+    #[test]
+    fn parses_zygisk_values_from_gradle_version_catalog() {
+        let config = parse_zygisk_build_config(
+            "[versions]\nndk = \"30.0.14904198\"\nminSdk = \"28\"\n",
+            Path::new(VERSION_CATALOG_PATH),
+        )
+        .unwrap();
+
+        assert_eq!(config.ndk_version, "30.0.14904198");
+        assert_eq!(config.platform, "android-28");
+    }
+
+    #[test]
+    fn rejects_missing_zygisk_values() {
+        for catalog in [
+            "[versions]\nminSdk = \"28\"\n",
+            "[versions]\nndk = \"30.0.14904198\"\n",
+        ] {
+            assert!(parse_zygisk_build_config(catalog, Path::new(VERSION_CATALOG_PATH)).is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_empty_ndk_version() {
+        let error = parse_zygisk_build_config(
+            "[versions]\nndk = \"  \"\nminSdk = \"28\"\n",
+            Path::new(VERSION_CATALOG_PATH),
+        )
+        .err()
+        .unwrap();
+
+        assert!(error.to_string().contains("[versions].ndk"));
+    }
+
+    #[test]
+    fn rejects_invalid_min_sdk() {
+        for min_sdk in ["0", "android-28"] {
+            let catalog = format!("[versions]\nndk = \"30.0.14904198\"\nminSdk = \"{min_sdk}\"\n");
+            let error =
+                parse_zygisk_build_config(&catalog, Path::new(VERSION_CATALOG_PATH)).unwrap_err();
+
+            assert!(error.to_string().contains("[versions].minSdk"));
+        }
+    }
 }

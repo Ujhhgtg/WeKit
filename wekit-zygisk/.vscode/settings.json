@@ -4,5 +4,8 @@
     "lldb.dereferencePointers": true,
     "lldb.consoleMode": "commands",
     "C_Cpp.intelliSenseEngine": "disabled",
-    "clangd.arguments": ["--compile-commands-dir=${workspaceFolder}/my_build/debug/arm64-v8a"]
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/my_build/debug/arm64-v8a"
+    ],
+    "cmake.sourceDirectory": "/home/ujhhgtg/coding/WeKit/wekit-zygisk/native"
 }

@@ -72,6 +72,8 @@ h2 { margin-bottom: 0; font-size: 17px; line-height: 24px; font-weight: 700; let
 
 .button-primary { border-color: #146c45; background: #146c45; color: #ffffff; }
 .button-primary:active { background: #0d5635; }
+.button-secondary { border-color: #aeb9c3; background: transparent; color: #334453; }
+.button-secondary:active { background: #e5eaee; }
 
 .targets { min-width: 0; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 4px 10px; }
@@ -123,6 +125,30 @@ h2 { margin-bottom: 0; font-size: 17px; line-height: 24px; font-weight: 700; let
 .empty-state { border: 1px dashed #bcc7d1; border-radius: 6px; }
 .empty-state h2 { margin-bottom: 14px; color: #334453; }
 
+.diagnostics {
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: 1px solid #d5dce4;
+}
+.diagnostics summary { color: #334453; font-size: 14px; font-weight: 700; line-height: 22px; cursor: pointer; }
+.diagnostics-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 8px; }
+.diagnostics-toolbar code { min-width: 0; overflow-wrap: anywhere; color: #5e6c7a; font-size: 11px; line-height: 16px; }
+.log-output {
+  max-height: 320px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid #d5dce4;
+  border-radius: 6px;
+  background: #edf1f4;
+  color: #17212b;
+  font-family: "Roboto Mono", "Noto Sans Mono CJK SC", monospace;
+  font-size: 11px;
+  line-height: 17px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .toast { position: fixed; right: 16px; bottom: max(18px, env(safe-area-inset-bottom)); z-index: 5; max-width: min(calc(100% - 32px), 400px); padding: 10px 12px; border-radius: 5px; background: #17212b; color: #ffffff; font-size: 13px; line-height: 19px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity 120ms ease, transform 120ms ease; }
 .toast.visible { opacity: 1; transform: translateY(0); }
 .toast.error { background: #962c32; }
@@ -132,6 +158,8 @@ h2 { margin-bottom: 0; font-size: 17px; line-height: 24px; font-weight: 700; let
   .topbar { padding-bottom: 16px; }
   .button { padding: 0 8px; }
   .target-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .diagnostics-toolbar { align-items: stretch; flex-direction: column; }
+  .diagnostics-toolbar .button { align-self: flex-end; }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -140,5 +168,11 @@ h2 { margin-bottom: 0; font-size: 17px; line-height: 24px; font-weight: 700; let
   .target-count, .target-row { border-color: #3b4853; background: #20282f; }
   .target-count, .user-name, .loading, .empty-state { color: #b4c0c9; }
   .package-name, .empty-state h2 { color: #e8eef2; }
+  .button-secondary { border-color: #687783; color: #dce5eb; }
+  .button-secondary:active { background: #2a343c; }
+  .diagnostics { border-color: #3b4853; }
+  .diagnostics summary { color: #dce5eb; }
+  .diagnostics-toolbar code { color: #aebbc4; }
+  .log-output { border-color: #3b4853; background: #10161a; color: #dce5eb; }
   .switch-track { border-color: #71808b; background: #47545d; }
 }

@@ -1,27 +1,22 @@
-// WeKit Zygisk — main module entry point
+// WeKit Zygisk -- FunBox-style copied-file bootstrap.
 #include <sys/types.h>
 
-#include "zygisk.hpp"
 #include "art_hook.h"
 #include "so_hider.h"
+#include "zygisk.hpp"
 
 #include <android/log.h>
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <dlfcn.h>
 #include <fcntl.h>
 #include <fstream>
 #include <jni.h>
-#include <limits.h>
 #include <limits>
 #include <sstream>
 #include <string>
-#include <sys/sendfile.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 #include <vector>
 
@@ -30,897 +25,836 @@ using zygisk::AppSpecializeArgs;
 using zygisk::ServerSpecializeArgs;
 
 #define TAG "WekitZygisk"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  TAG, __VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN,  TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
-// ─── Companion protocol ───────────────────────────────────────────────────────
-// Module → companion: request byte 0x02, uid, UTF-8 process-name length and bytes.
-// Companion → module: int64_t APK size (zero = target is disabled/mismatched,
-// negative = error), then fd via SCM_RIGHTS for a positive size.
-
-static constexpr uint8_t COMPANION_REQUEST_APK = 0x02;
+// The companion is deliberately limited to the root-owned WebUI allow-list.
+// Payload files are read through Api::getModuleDir() in preAppSpecialize, like
+// FunBox, and are never sent through the companion socket.
+static constexpr uint8_t COMPANION_REQUEST_ENABLED = 0x01;
+static constexpr uint8_t COMPANION_DISABLED = 0;
+static constexpr uint8_t COMPANION_ENABLED = 1;
+static constexpr uint8_t COMPANION_ERROR = 2;
 static constexpr uint16_t MAX_PROCESS_NAME_BYTES = 255;
 static constexpr int APP_USER_RANGE = 100000;
-static constexpr int64_t COMPANION_DISABLED = 0;
-static constexpr int64_t COMPANION_ERROR = -1;
-static constexpr const char* TARGETS_PATH = "/data/adb/wekit/injection-targets.tsv";
-static constexpr const char* WECHAT_PACKAGE = "com.tencent.mm";
+static constexpr size_t MAX_PAYLOAD_FILE_BYTES = 256 * 1024 * 1024;
+static constexpr size_t MAX_DEX_FILE_BYTES = 64 * 1024 * 1024;
+static constexpr size_t MAX_DEX_LIST_BYTES = 4096;
+static constexpr const char *TARGETS_PATH =
+    "/data/adb/wekit/injection-targets.tsv";
+static constexpr const char *WECHAT_PACKAGE = "com.tencent.mm";
 
-#ifndef MFD_CLOEXEC
-#define MFD_CLOEXEC 0x0001U
-#endif
-#ifndef MFD_ALLOW_SEALING
-#define MFD_ALLOW_SEALING 0x0002U
-#endif
-#ifndef F_ADD_SEALS
-#define F_ADD_SEALS 1033
-#define F_SEAL_SEAL 0x0001
-#define F_SEAL_SHRINK 0x0002
-#define F_SEAL_GROW 0x0004
-#define F_SEAL_WRITE 0x0008
-#endif
+static const char *current_abi_dir();
 
-static const char* current_abi_dir();
-
-static bool send_fd(int sock, int fd) {
-    char dummy = 0;
-    struct iovec iov = { &dummy, 1 };
-    char ctrl_buf[CMSG_SPACE(sizeof(int))] = {};
-    struct msghdr msg = {};
-    msg.msg_iov        = &iov;
-    msg.msg_iovlen     = 1;
-    msg.msg_control    = ctrl_buf;
-    msg.msg_controllen = sizeof(ctrl_buf);
-    struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
-    cmsg->cmsg_level = SOL_SOCKET;
-    cmsg->cmsg_type  = SCM_RIGHTS;
-    cmsg->cmsg_len   = CMSG_LEN(sizeof(int));
-    memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
-    ssize_t rc = -1;
+static bool write_all(int fd, const void *buf, size_t len) {
+  const char *bytes = static_cast<const char *>(buf);
+  size_t written = 0;
+  while (written < len) {
+    ssize_t result;
     do {
-        rc = sendmsg(sock, &msg, MSG_NOSIGNAL);
-    } while (rc < 0 && errno == EINTR);
-    return rc == static_cast<ssize_t>(sizeof(dummy));
+      result = write(fd, bytes + written, len - written);
+    } while (result < 0 && errno == EINTR);
+    if (result <= 0)
+      return false;
+    written += static_cast<size_t>(result);
+  }
+  return true;
 }
 
-static int recv_fd(int sock) {
-    char dummy = 0;
-    struct iovec iov = { &dummy, 1 };
-    // Leave room to observe and close unexpected extra descriptors instead of
-    // leaking the truncated subset into this process.
-    char ctrl_buf[CMSG_SPACE(sizeof(int) * 4)] = {};
-    struct msghdr msg = {};
-    msg.msg_iov        = &iov;
-    msg.msg_iovlen     = 1;
-    msg.msg_control    = ctrl_buf;
-    msg.msg_controllen = sizeof(ctrl_buf);
-    int recv_flags = 0;
-#ifdef MSG_CMSG_CLOEXEC
-    recv_flags |= MSG_CMSG_CLOEXEC;
-#endif
-    ssize_t rc = -1;
+static bool read_all(int fd, void *buf, size_t len) {
+  char *bytes = static_cast<char *>(buf);
+  size_t read_count = 0;
+  while (read_count < len) {
+    ssize_t result;
     do {
-        rc = recvmsg(sock, &msg, recv_flags);
-    } while (rc < 0 && errno == EINTR);
-    if (rc <= 0) return -1;
-
-    bool malformed = rc != static_cast<ssize_t>(sizeof(dummy)) ||
-                     (msg.msg_flags & (MSG_CTRUNC | MSG_TRUNC)) != 0;
-    std::vector<int> received_fds;
-    received_fds.reserve(4);
-
-    const uintptr_t control_begin = reinterpret_cast<uintptr_t>(msg.msg_control);
-    const uintptr_t control_end = control_begin + msg.msg_controllen;
-    for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg); cmsg != nullptr;
-         cmsg = CMSG_NXTHDR(&msg, cmsg)) {
-        const uintptr_t header = reinterpret_cast<uintptr_t>(cmsg);
-        if (header < control_begin || header > control_end ||
-            control_end - header < sizeof(struct cmsghdr) ||
-            cmsg->cmsg_len < CMSG_LEN(0) ||
-            cmsg->cmsg_len > control_end - header) {
-            malformed = true;
-            break;
-        }
-        if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
-            malformed = true;
-            continue;
-        }
-        if (cmsg->cmsg_len < CMSG_LEN(sizeof(int))) {
-            malformed = true;
-            continue;
-        }
-
-        const size_t data_len = cmsg->cmsg_len - CMSG_LEN(0);
-        if (data_len < sizeof(int) || data_len % sizeof(int) != 0) {
-            malformed = true;
-            continue;
-        }
-        for (size_t offset = 0; offset < data_len; offset += sizeof(int)) {
-            int received = -1;
-            memcpy(&received, CMSG_DATA(cmsg) + offset, sizeof(received));
-            if (received < 0) {
-                malformed = true;
-            } else {
-                received_fds.push_back(received);
-            }
-        }
-    }
-
-    if (received_fds.size() != 1) malformed = true;
-    if (malformed) {
-        for (int received : received_fds) close(received);
-        return -1;
-    }
-
-    const int fd = received_fds.front();
-    // MSG_CMSG_CLOEXEC is not exposed by every supported Android header.
-    // Enforce the flag explicitly as both a compatibility fallback and a
-    // postcondition check on platforms that do support it.
-    int fd_flags = -1;
-    do {
-        fd_flags = fcntl(fd, F_GETFD);
-    } while (fd_flags < 0 && errno == EINTR);
-    int set_result = -1;
-    if (fd_flags >= 0) {
-        do {
-            set_result = fcntl(fd, F_SETFD, fd_flags | FD_CLOEXEC);
-        } while (set_result < 0 && errno == EINTR);
-    }
-    if (fd_flags < 0 || set_result < 0) {
-        close(fd);
-        return -1;
-    }
-    return fd;
-}
-
-static bool write_all(int fd, const void* buf, size_t len) {
-    const char* p = static_cast<const char*>(buf);
-    size_t written = 0;
-    while (written < len) {
-        ssize_t r = -1;
-        do {
-            r = send(fd, p + written, len - written, MSG_NOSIGNAL);
-        } while (r < 0 && errno == EINTR);
-        if (r <= 0) return false;
-        written += static_cast<size_t>(r);
-    }
-    return true;
-}
-
-static bool read_all(int fd, void* buf, size_t len) {
-    char* p = static_cast<char*>(buf);
-    size_t got = 0;
-    while (got < len) {
-        ssize_t r = -1;
-        do {
-            r = read(fd, p + got, len - got);
-        } while (r < 0 && errno == EINTR);
-        if (r <= 0) return false;
-        got += static_cast<size_t>(r);
-    }
-    return true;
-}
-
-// The module always reads this field before it expects an fd. Replying on every
-// parse/open/stat failure distinguishes a deliberate companion rejection from
-// an unexpected EOF in the client log.
-static void send_companion_status(int sock, int64_t status) {
-    if (!write_all(sock, &status, sizeof(status))) {
-        LOGW("companion: failed to send status=%lld", static_cast<long long>(status));
-    }
+      result = read(fd, bytes + read_count, len - read_count);
+    } while (result < 0 && errno == EINTR);
+    if (result <= 0)
+      return false;
+    read_count += static_cast<size_t>(result);
+  }
+  return true;
 }
 
 // Mirrors PackageNames.isWeChat(packageName):
 // packageName.startsWith("com.tencent.mm").
-static bool is_wechat_package(const std::string& package_name) {
-    const size_t prefix_length = strlen(WECHAT_PACKAGE);
-    return package_name.size() >= prefix_length &&
-           package_name.compare(0, prefix_length, WECHAT_PACKAGE) == 0;
+static bool is_wechat_package(const std::string &package_name) {
+  const size_t prefix_length = strlen(WECHAT_PACKAGE);
+  return package_name.size() >= prefix_length &&
+         package_name.compare(0, prefix_length, WECHAT_PACKAGE) == 0;
 }
 
-static bool is_process_for_package(const std::string& process_name,
-                                   const std::string& package_name) {
-    if (package_name.empty() || process_name.size() < package_name.size()) return false;
-    if (process_name.compare(0, package_name.size(), package_name) != 0) return false;
-    return process_name.size() == package_name.size() ||
-           process_name[package_name.size()] == ':';
-}
-
-static bool parse_nonnegative_int(const std::string& value, int& out) {
-    if (value.empty()) return false;
-    char* end = nullptr;
-    errno = 0;
-    const long parsed = strtol(value.c_str(), &end, 10);
-    if (errno != 0 || end == value.c_str() || *end != '\0' || parsed < 0 ||
-        parsed > std::numeric_limits<int>::max()) {
-        return false;
-    }
-    out = static_cast<int>(parsed);
-    return true;
-}
-
-// The WebUI stores one tab-separated row per target: userId, packageName,
-// enabled. This parser deliberately ignores malformed rows: an unreadable or
-// malformed allow-list must fail closed rather than inject an unexpected app.
-static bool is_enabled_target(jint uid, const std::string& process_name) {
-    if (uid < 0 || process_name.empty()) return false;
-    const int user_id = uid / APP_USER_RANGE;
-
-    std::ifstream config(TARGETS_PATH);
-    if (!config.is_open()) return false;
-
-    std::string line;
-    while (std::getline(config, line)) {
-        if (line.empty() || line[0] == '#') continue;
-
-        std::istringstream row(line);
-        std::string user_text;
-        std::string package_name;
-        std::string enabled;
-        std::string unexpected_field;
-        if (!std::getline(row, user_text, '\t') ||
-            !std::getline(row, package_name, '\t') ||
-            !std::getline(row, enabled, '\t') ||
-            std::getline(row, unexpected_field, '\t')) {
-            continue;
-        }
-
-        int target_user = -1;
-        if (!parse_nonnegative_int(user_text, target_user) || target_user != user_id ||
-            !is_wechat_package(package_name) || enabled != "1") {
-            continue;
-        }
-        if (is_process_for_package(process_name, package_name)) return true;
-    }
+static bool is_process_for_package(const std::string &process_name,
+                                   const std::string &package_name) {
+  if (package_name.empty() || process_name.size() < package_name.size())
     return false;
+  if (process_name.compare(0, package_name.size(), package_name) != 0)
+    return false;
+  return process_name.size() == package_name.size() ||
+         process_name[package_name.size()] == ':';
 }
 
-// Companion handler — runs in root context.
-static void companion_handler(int sock) {
-    uint8_t request = 0;
-    jint uid = -1;
-    uint16_t process_len = 0;
-    if (!read_all(sock, &request, sizeof(request)) || request != COMPANION_REQUEST_APK ||
-        !read_all(sock, &uid, sizeof(uid)) ||
-        !read_all(sock, &process_len, sizeof(process_len)) || process_len == 0 ||
-        process_len > MAX_PROCESS_NAME_BYTES) {
-        LOGE("companion: invalid request");
-        send_companion_status(sock, COMPANION_ERROR);
-        return;
+static bool parse_nonnegative_int(const std::string &value, int &out) {
+  if (value.empty())
+    return false;
+  char *end = nullptr;
+  errno = 0;
+  const long parsed = strtol(value.c_str(), &end, 10);
+  if (errno != 0 || end == value.c_str() || *end != '\0' || parsed < 0 ||
+      parsed > std::numeric_limits<int>::max()) {
+    return false;
+  }
+  out = static_cast<int>(parsed);
+  return true;
+}
+
+// The WebUI stores userId, packageName, enabled. Malformed state fails closed.
+static bool is_enabled_target(jint uid, const std::string &process_name) {
+  if (uid < 0 || process_name.empty())
+    return false;
+  const int user_id = uid / APP_USER_RANGE;
+
+  std::ifstream config(TARGETS_PATH);
+  if (!config.is_open())
+    return false;
+
+  std::string line;
+  while (std::getline(config, line)) {
+    if (line.empty() || line[0] == '#')
+      continue;
+
+    std::istringstream row(line);
+    std::string user_text;
+    std::string package_name;
+    std::string enabled;
+    std::string unexpected_field;
+    if (!std::getline(row, user_text, '\t') ||
+        !std::getline(row, package_name, '\t') ||
+        !std::getline(row, enabled, '\t') ||
+        std::getline(row, unexpected_field, '\t')) {
+      continue;
     }
 
+    int target_user = -1;
+    if (!parse_nonnegative_int(user_text, target_user) ||
+        target_user != user_id || !is_wechat_package(package_name) ||
+        enabled != "1") {
+      continue;
+    }
+    if (is_process_for_package(process_name, package_name))
+      return true;
+  }
+  return false;
+}
+
+// Runs in the root companion process. It intentionally has no payload-file or
+// descriptor transfer behavior.
+static void companion_handler(int sock) {
+  uint8_t request = 0;
+  jint uid = -1;
+  uint16_t process_len = 0;
+  uint8_t status = COMPANION_ERROR;
+  if (!read_all(sock, &request, sizeof(request)) ||
+      request != COMPANION_REQUEST_ENABLED || !read_all(sock, &uid, sizeof(uid)) ||
+      !read_all(sock, &process_len, sizeof(process_len)) || process_len == 0 ||
+      process_len > MAX_PROCESS_NAME_BYTES) {
+    LOGE("companion: invalid target-status request");
+  } else {
     std::string process_name(process_len, '\0');
     if (!read_all(sock, &process_name[0], process_name.size())) {
-        LOGE("companion: failed to read process name");
-        send_companion_status(sock, COMPANION_ERROR);
-        return;
+      LOGE("companion: failed to read process name");
+    } else {
+      status = is_enabled_target(uid, process_name) ? COMPANION_ENABLED
+                                                    : COMPANION_DISABLED;
     }
-
-    if (!is_enabled_target(uid, process_name)) {
-        // Disabled is a normal result. It is intentionally silent because this
-        // handler is reached for every app process Zygisk specializes.
-        send_companion_status(sock, COMPANION_DISABLED);
-        return;
-    }
-
-    const char* abi = current_abi_dir();
-    if (!abi) {
-        LOGE("companion: unsupported ABI");
-        send_companion_status(sock, COMPANION_ERROR);
-        return;
-    }
-    // Resolve the active module path for every newly specialized process.
-    // A manager that honors MODULE_HOT_INSTALL_REQUEST can therefore promote a
-    // new payload without rebooting; restarting WeChat then obtains this file.
-    const std::string apk_path =
-        std::string("/data/adb/modules/wekit/payload/wekit-") + abi + ".apk";
-    int apk_fd = open(apk_path.c_str(), O_RDONLY | O_CLOEXEC);
-    if (apk_fd < 0) {
-        LOGE("companion: cannot open %s: %s", apk_path.c_str(), strerror(errno));
-        send_companion_status(sock, COMPANION_ERROR);
-        return;
-    }
-
-    struct stat st{};
-    // BUG-7 fix: check fstat return value and reject a corrupt empty payload.
-    if (fstat(apk_fd, &st) != 0) {
-        LOGE("companion: fstat failed: %s", strerror(errno));
-        close(apk_fd);
-        send_companion_status(sock, COMPANION_ERROR);
-        return;
-    }
-    if (!S_ISREG(st.st_mode) || st.st_size <= 0) {
-        LOGE("companion: invalid payload metadata (mode=%o size=%lld)",
-             static_cast<unsigned int>(st.st_mode), static_cast<long long>(st.st_size));
-        close(apk_fd);
-        send_companion_status(sock, COMPANION_ERROR);
-        return;
-    }
-    int64_t size = static_cast<int64_t>(st.st_size);
-
-    // Send size first, then fd via SCM_RIGHTS.
-    if (!write_all(sock, &size, sizeof(size))) {
-        LOGE("companion: failed to send APK size");
-        close(apk_fd);
-        return;
-    }
-    if (!send_fd(sock, apk_fd)) {
-        LOGE("companion: failed to send APK fd");
-    }
-    close(apk_fd);
-    LOGI("companion: sent APK fd (size=%lld)", (long long)size);
+  }
+  if (!write_all(sock, &status, sizeof(status)))
+    LOGW("companion: failed to return target status");
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+static int request_target_status(Api *api, jint uid,
+                                 const std::string &process_name) {
+  const int sock = api->connectCompanion();
+  if (sock < 0) {
+    LOGE("preAppSpecialize: connectCompanion failed");
+    return COMPANION_ERROR;
+  }
 
-static int memfd_create_compat(const char* name, unsigned int flags) {
-    return static_cast<int>(syscall(SYS_memfd_create, name, flags));
+  const uint16_t process_len = static_cast<uint16_t>(process_name.size());
+  const uint8_t request = COMPANION_REQUEST_ENABLED;
+  uint8_t status = COMPANION_ERROR;
+  const bool sent = write_all(sock, &request, sizeof(request)) &&
+                    write_all(sock, &uid, sizeof(uid)) &&
+                    write_all(sock, &process_len, sizeof(process_len)) &&
+                    write_all(sock, process_name.data(), process_name.size());
+  const bool received = sent && read_all(sock, &status, sizeof(status));
+  close(sock);
+  if (!received || status > COMPANION_ERROR) {
+    LOGE("preAppSpecialize: target-status companion exchange failed");
+    return COMPANION_ERROR;
+  }
+  return status;
 }
 
-static std::string fd_path(int fd) {
-    return "/proc/self/fd/" + std::to_string(fd);
-}
-
-// Build a process-private APK after specialization. Isolated UIDs cannot access
-// the package data directory, but they can keep and reopen their own memfd.
-static int copy_apk_to_memfd(int source_fd, int64_t apk_size) {
-    if (source_fd < 0 || apk_size <= 0 ||
-        static_cast<uint64_t>(apk_size) >
-            static_cast<uint64_t>(std::numeric_limits<off_t>::max())) {
-        return -1;
-    }
-
-    int writable_fd = memfd_create_compat("wekit-payload.apk", MFD_CLOEXEC | MFD_ALLOW_SEALING);
-    if (writable_fd < 0) {
-        LOGE("payload memfd_create failed: %s", strerror(errno));
-        return -1;
-    }
-    if (fchmod(writable_fd, 0600) != 0 ||
-        ftruncate(writable_fd, static_cast<off_t>(apk_size)) != 0 ||
-        lseek(source_fd, 0, SEEK_SET) < 0) {
-        LOGE("payload memfd setup failed: %s", strerror(errno));
-        close(writable_fd);
-        return -1;
-    }
-
-    int64_t remaining = apk_size;
-    while (remaining > 0) {
-        const size_t chunk = static_cast<size_t>(remaining < 65536 ? remaining : 65536);
-        const ssize_t copied = sendfile(writable_fd, source_fd, nullptr, chunk);
-        if (copied <= 0) {
-            LOGE("payload memfd copy failed: %s", strerror(errno));
-            close(writable_fd);
-            return -1;
-        }
-        remaining -= copied;
-    }
-
-    const int seals = F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
-    if (fsync(writable_fd) != 0 || fchmod(writable_fd, 0400) != 0 ||
-        fcntl(writable_fd, F_ADD_SEALS, seals) != 0) {
-        LOGE("payload memfd finalize failed: %s", strerror(errno));
-        close(writable_fd);
-        return -1;
-    }
-
-    const std::string writable_path = fd_path(writable_fd);
-    const int readonly_fd = open(writable_path.c_str(), O_RDONLY | O_CLOEXEC);
-    if (readonly_fd < 0) {
-        LOGE("payload memfd reopen failed: %s", strerror(errno));
-        close(writable_fd);
-        return -1;
-    }
-    close(writable_fd);
-    LOGI("payload: prepared sealed memfd=%d size=%lld", readonly_fd,
-         static_cast<long long>(apk_size));
-    return readonly_fd;
-}
-
-static const char* current_abi_dir() {
+static const char *current_abi_dir() {
 #if defined(__aarch64__)
-    return "arm64-v8a";
+  return "arm64-v8a";
 #elif defined(__arm__)
-    return "armeabi-v7a";
+  return "armeabi-v7a";
 #elif defined(__x86_64__)
-    return "x86_64";
+  return "x86_64";
 #elif defined(__i386__)
-    return "x86";
+  return "x86";
 #else
-    return nullptr;
+  return nullptr;
 #endif
 }
 
-// Load the WeKit APK into the JVM via PathClassLoader.
-// The host loader used by ModuleLoader is captured later from
-// LoadedApk.createAppFactory; this bootstrap loader only needs to resolve module
-// and framework classes.
-static bool load_dex_from_apk(JNIEnv* env, const std::string& apk_path,
-                               jobject& out_classloader) {
-    jclass pcl_class = env->FindClass("dalvik/system/PathClassLoader");
-    if (!pcl_class) { env->ExceptionClear(); return false; }
+static std::string string_from_jstring(JNIEnv *env, jstring value) {
+  if (!value)
+    return {};
+  const char *chars = env->GetStringUTFChars(value, nullptr);
+  if (!chars) {
+    env->ExceptionClear();
+    return {};
+  }
+  std::string result(chars);
+  env->ReleaseStringUTFChars(value, chars);
+  return result;
+}
 
-    jmethodID pcl_ctor = env->GetMethodID(pcl_class, "<init>",
-        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/ClassLoader;)V");
-    if (!pcl_ctor) {
-        env->ExceptionClear();
-        env->DeleteLocalRef(pcl_class);
-        return false;
-    }
+static bool read_module_text(int module_dir_fd, const std::string &relative,
+                             std::string &out) {
+  const int fd = openat(module_dir_fd, relative.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+  if (fd < 0) {
+    LOGE("preAppSpecialize: cannot open module payload %s: %s", relative.c_str(),
+         strerror(errno));
+    return false;
+  }
+  struct stat st {};
+  const bool valid = fstat(fd, &st) == 0 && S_ISREG(st.st_mode) &&
+                     st.st_size > 0 &&
+                     static_cast<uintmax_t>(st.st_size) <= MAX_DEX_LIST_BYTES;
+  if (!valid) {
+    LOGE("preAppSpecialize: invalid module text payload %s", relative.c_str());
+    close(fd);
+    return false;
+  }
+  out.resize(static_cast<size_t>(st.st_size));
+  const bool read_ok = read_all(fd, out.data(), out.size());
+  close(fd);
+  if (!read_ok) {
+    LOGE("preAppSpecialize: failed reading module payload %s", relative.c_str());
+    out.clear();
+  }
+  return read_ok;
+}
 
-    // Preserve a context parent when one is already available. The real host
-    // loader is still obtained later from LoadedApk.createAppFactory.
-    jobject parent_cl = nullptr;
-    {
-        jclass thread_class = env->FindClass("java/lang/Thread");
-        if (thread_class) {
-            jmethodID current_mid = env->GetStaticMethodID(thread_class, "currentThread",
-                                                            "()Ljava/lang/Thread;");
-            jmethodID get_cl_mid  = env->GetMethodID(thread_class, "getContextClassLoader",
-                                                      "()Ljava/lang/ClassLoader;");
-            if (current_mid && get_cl_mid) {
-                jobject cur_thread = env->CallStaticObjectMethod(thread_class, current_mid);
-                if (cur_thread && !env->ExceptionCheck()) {
-                    parent_cl = env->CallObjectMethod(cur_thread, get_cl_mid);
-                    if (env->ExceptionCheck()) { env->ExceptionClear(); parent_cl = nullptr; }
-                    env->DeleteLocalRef(cur_thread);
-                } else {
-                    env->ExceptionClear();
-                }
-            } else {
-                env->ExceptionClear();
-            }
-            env->DeleteLocalRef(thread_class);
-        } else {
-            env->ExceptionClear();
-        }
-    }
-
-    // Fallback to system ClassLoader if context CL is unavailable.
-    if (!parent_cl) {
-        LOGW("load_dex: context CL unavailable, falling back to system CL");
-        jclass cl_class = env->FindClass("java/lang/ClassLoader");
-        if (!cl_class) { env->ExceptionClear(); env->DeleteLocalRef(pcl_class); return false; }
-        jmethodID get_sys = env->GetStaticMethodID(cl_class, "getSystemClassLoader",
-                                                    "()Ljava/lang/ClassLoader;");
-        if (get_sys) {
-            parent_cl = env->CallStaticObjectMethod(cl_class, get_sys);
-            if (env->ExceptionCheck()) { env->ExceptionClear(); parent_cl = nullptr; }
-        } else {
-            env->ExceptionClear();
-        }
-        env->DeleteLocalRef(cl_class);
-    }
-
-    const char* abi = current_abi_dir();
-    if (!abi) {
-        LOGE("load_dex: unsupported ABI");
-        if (parent_cl) env->DeleteLocalRef(parent_cl);
-        env->DeleteLocalRef(pcl_class);
-        return false;
-    }
-    const bool used_context_parent = parent_cl != nullptr;
-    std::string library_path = apk_path + "!/lib/" + abi;
-    jstring apk_str = env->NewStringUTF(apk_path.c_str());
-    jstring library_str = env->NewStringUTF(library_path.c_str());
-    jobject pcl = env->NewObject(pcl_class, pcl_ctor, apk_str, library_str, parent_cl);
-
-    env->DeleteLocalRef(apk_str);
-    env->DeleteLocalRef(library_str);
-    if (parent_cl) env->DeleteLocalRef(parent_cl);
-    env->DeleteLocalRef(pcl_class);
-
-    if (env->ExceptionCheck()) {
-        env->ExceptionDescribe();
-        env->ExceptionClear();
-        if (pcl) env->DeleteLocalRef(pcl);
-        return false;
-    }
-    if (!pcl) return false;
-
-    out_classloader = env->NewGlobalRef(pcl);
-    env->DeleteLocalRef(pcl);
-    LOGI("load_dex: loaded APK via PathClassLoader (parent=%s, native=%s)",
-         used_context_parent ? "context CL" : "system CL", library_path.c_str());
+static bool dex_name_order(const std::string &name, unsigned int &order) {
+  if (name == "classes.dex") {
+    order = 1;
     return true;
+  }
+  constexpr const char *prefix = "classes";
+  constexpr const char *suffix = ".dex";
+  const size_t prefix_size = strlen(prefix);
+  const size_t suffix_size = strlen(suffix);
+  if (name.size() <= prefix_size + suffix_size ||
+      name.compare(0, prefix_size, prefix) != 0 ||
+      name.compare(name.size() - suffix_size, suffix_size, suffix) != 0) {
+    return false;
+  }
+  unsigned int value = 0;
+  for (size_t i = prefix_size; i < name.size() - suffix_size; ++i) {
+    const char digit = name[i];
+    if (digit < '0' || digit > '9' ||
+        value > (std::numeric_limits<unsigned int>::max() - 9) / 10) {
+      return false;
+    }
+    value = value * 10 + static_cast<unsigned int>(digit - '0');
+  }
+  if (value < 2)
+    return false;
+  order = value;
+  return true;
 }
 
-static std::string canonicalize_path(const std::string& path) {
-    if (path.empty()) return path;
-    char resolved[PATH_MAX] = {};
-    if (realpath(path.c_str(), resolved) != nullptr) {
-        return resolved;
-    }
-    // A loader may expose an already-unlinked pseudo path. Retain it rather
-    // than manufacturing a different name that would no longer match maps.
-    return path;
+static bool parse_dex_list(const std::string &text,
+                           std::vector<std::string> &dex_names) {
+  std::istringstream input(text);
+  std::string line;
+  unsigned int expected = 1;
+  while (std::getline(input, line)) {
+    unsigned int order = 0;
+    if (!dex_name_order(line, order) || order != expected)
+      return false;
+    dex_names.push_back(line);
+    ++expected;
+  }
+  return !dex_names.empty();
 }
 
-// Get the on-disk path of this SO via dladdr.
-static std::string get_self_so_path() {
-    Dl_info di{};
-    if (dladdr(reinterpret_cast<void*>(&companion_handler), &di) && di.dli_fname) {
-        return canonicalize_path(di.dli_fname);
+static bool copy_module_file(int module_dir_fd, const std::string &relative,
+                             const std::string &destination, jint uid, jint gid,
+                             size_t maximum_size) {
+  const int source = openat(module_dir_fd, relative.c_str(),
+                            O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+  if (source < 0) {
+    LOGE("preAppSpecialize: cannot open module payload %s: %s", relative.c_str(),
+         strerror(errno));
+    return false;
+  }
+  struct stat source_stat {};
+  if (fstat(source, &source_stat) != 0 || !S_ISREG(source_stat.st_mode) ||
+      source_stat.st_size <= 0 ||
+      static_cast<uintmax_t>(source_stat.st_size) > maximum_size) {
+    LOGE("preAppSpecialize: invalid module payload %s", relative.c_str());
+    close(source);
+    return false;
+  }
+
+  const std::string temporary = destination + "." + std::to_string(getpid()) + ".tmp";
+  unlink(temporary.c_str());
+  const int target = open(temporary.c_str(),
+                          O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+                          0600);
+  if (target < 0) {
+    LOGE("preAppSpecialize: cannot create %s: %s", temporary.c_str(), strerror(errno));
+    close(source);
+    return false;
+  }
+
+  bool copied = true;
+  char buffer[65536];
+  while (copied) {
+    ssize_t count;
+    do {
+      count = read(source, buffer, sizeof(buffer));
+    } while (count < 0 && errno == EINTR);
+    if (count == 0)
+      break;
+    if (count < 0) {
+      copied = false;
+      break;
     }
-    const std::string fallback = "/data/adb/modules/wekit/zygisk/" +
-#if defined(__aarch64__)
-        std::string("arm64-v8a.so");
-#elif defined(__arm__)
-        std::string("armeabi-v7a.so");
-#elif defined(__x86_64__)
-        std::string("x86_64.so");
-#elif defined(__i386__)
-        std::string("x86.so");
-#else
-        std::string("arm64-v8a.so");
-#endif
-    return canonicalize_path(fallback);
+    size_t written = 0;
+    while (written < static_cast<size_t>(count)) {
+      ssize_t result;
+      do {
+        result = write(target, buffer + written,
+                       static_cast<size_t>(count) - written);
+      } while (result < 0 && errno == EINTR);
+      if (result <= 0) {
+        copied = false;
+        break;
+      }
+      written += static_cast<size_t>(result);
+    }
+  }
+  if (copied && (fchown(target, uid, gid) != 0 || fsync(target) != 0))
+    copied = false;
+  close(source);
+  close(target);
+  if (!copied || rename(temporary.c_str(), destination.c_str()) != 0) {
+    LOGE("preAppSpecialize: failed to publish %s: %s", destination.c_str(),
+         strerror(errno));
+    unlink(temporary.c_str());
+    return false;
+  }
+  return true;
+}
+
+static bool read_copied_file(const std::string &path,
+                             std::vector<uint8_t> &out) {
+  const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+  if (fd < 0) {
+    LOGE("postAppSpecialize: cannot open copied DEX %s: %s", path.c_str(),
+         strerror(errno));
+    return false;
+  }
+  struct stat st {};
+  if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size <= 0 ||
+      static_cast<uintmax_t>(st.st_size) > MAX_DEX_FILE_BYTES) {
+    LOGE("postAppSpecialize: invalid copied DEX %s", path.c_str());
+    close(fd);
+    return false;
+  }
+  out.resize(static_cast<size_t>(st.st_size));
+  const bool read_ok = read_all(fd, out.data(), out.size());
+  close(fd);
+  if (!read_ok) {
+    LOGE("postAppSpecialize: failed to read copied DEX %s", path.c_str());
+    out.clear();
+  }
+  return read_ok;
+}
+
+static void release_dex_buffers(JNIEnv *env, std::vector<jobject> &buffers) {
+  for (jobject buffer : buffers)
+    env->DeleteGlobalRef(buffer);
+  buffers.clear();
+}
+
+// This is the multidex version of FunBox's InMemoryDexClassLoader path. The
+// backing vectors and ByteBuffer global references are retained for the whole
+// process because ART receives direct ByteBuffer memory from JNI.
+static bool load_copied_dex(JNIEnv *env, const std::vector<std::string> &paths,
+                            jobject &out_classloader,
+                            std::vector<std::vector<uint8_t>> &backing,
+                            std::vector<jobject> &buffer_refs) {
+  std::vector<std::vector<uint8_t>> copied;
+  copied.reserve(paths.size());
+  for (const std::string &path : paths) {
+    std::vector<uint8_t> bytes;
+    if (!read_copied_file(path, bytes))
+      return false;
+    copied.push_back(std::move(bytes));
+  }
+
+  jclass loader_class = env->FindClass("dalvik/system/InMemoryDexClassLoader");
+  if (!loader_class) {
+    env->ExceptionClear();
+    return false;
+  }
+  jmethodID constructor = env->GetMethodID(
+      loader_class, "<init>",
+      "([Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V");
+  if (!constructor) {
+    env->ExceptionClear();
+    env->DeleteLocalRef(loader_class);
+    return false;
+  }
+  jclass buffer_class = env->FindClass("java/nio/ByteBuffer");
+  jclass class_loader_class = env->FindClass("java/lang/ClassLoader");
+  if (!buffer_class || !class_loader_class) {
+    env->ExceptionClear();
+    if (buffer_class)
+      env->DeleteLocalRef(buffer_class);
+    if (class_loader_class)
+      env->DeleteLocalRef(class_loader_class);
+    env->DeleteLocalRef(loader_class);
+    return false;
+  }
+  jmethodID system_loader = env->GetStaticMethodID(
+      class_loader_class, "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
+  if (!system_loader) {
+    env->ExceptionClear();
+    env->DeleteLocalRef(buffer_class);
+    env->DeleteLocalRef(class_loader_class);
+    env->DeleteLocalRef(loader_class);
+    return false;
+  }
+  jobject parent = env->CallStaticObjectMethod(class_loader_class, system_loader);
+  if (env->ExceptionCheck() || !parent) {
+    env->ExceptionClear();
+    env->DeleteLocalRef(buffer_class);
+    env->DeleteLocalRef(class_loader_class);
+    env->DeleteLocalRef(loader_class);
+    return false;
+  }
+  jobjectArray buffers = env->NewObjectArray(
+      static_cast<jsize>(copied.size()), buffer_class, nullptr);
+  if (!buffers) {
+    env->ExceptionClear();
+    env->DeleteLocalRef(parent);
+    env->DeleteLocalRef(buffer_class);
+    env->DeleteLocalRef(class_loader_class);
+    env->DeleteLocalRef(loader_class);
+    return false;
+  }
+
+  backing = std::move(copied);
+  for (jsize index = 0; index < static_cast<jsize>(backing.size()); ++index) {
+    std::vector<uint8_t> &bytes = backing[static_cast<size_t>(index)];
+    jobject buffer = env->NewDirectByteBuffer(bytes.data(),
+                                               static_cast<jlong>(bytes.size()));
+    if (!buffer || env->ExceptionCheck()) {
+      env->ExceptionClear();
+      if (buffer)
+        env->DeleteLocalRef(buffer);
+      release_dex_buffers(env, buffer_refs);
+      backing.clear();
+      env->DeleteLocalRef(buffers);
+      env->DeleteLocalRef(parent);
+      env->DeleteLocalRef(buffer_class);
+      env->DeleteLocalRef(class_loader_class);
+      env->DeleteLocalRef(loader_class);
+      return false;
+    }
+    jobject global_buffer = env->NewGlobalRef(buffer);
+    env->SetObjectArrayElement(buffers, index, buffer);
+    env->DeleteLocalRef(buffer);
+    if (!global_buffer || env->ExceptionCheck()) {
+      env->ExceptionClear();
+      if (global_buffer)
+        env->DeleteGlobalRef(global_buffer);
+      release_dex_buffers(env, buffer_refs);
+      backing.clear();
+      env->DeleteLocalRef(buffers);
+      env->DeleteLocalRef(parent);
+      env->DeleteLocalRef(buffer_class);
+      env->DeleteLocalRef(class_loader_class);
+      env->DeleteLocalRef(loader_class);
+      return false;
+    }
+    buffer_refs.push_back(global_buffer);
+  }
+
+  jobject loader = env->NewObject(loader_class, constructor, buffers, parent);
+  env->DeleteLocalRef(buffers);
+  env->DeleteLocalRef(parent);
+  env->DeleteLocalRef(buffer_class);
+  env->DeleteLocalRef(class_loader_class);
+  env->DeleteLocalRef(loader_class);
+  if (env->ExceptionCheck() || !loader) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+    if (loader)
+      env->DeleteLocalRef(loader);
+    release_dex_buffers(env, buffer_refs);
+    backing.clear();
+    return false;
+  }
+  out_classloader = env->NewGlobalRef(loader);
+  env->DeleteLocalRef(loader);
+  if (!out_classloader) {
+    release_dex_buffers(env, buffer_refs);
+    backing.clear();
+    return false;
+  }
+  return true;
 }
 
 extern "C" {
 JNIEXPORT jlong JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeGetArtMethod(
-    JNIEnv* env, jclass clazz, jobject executable);
+    JNIEnv *env, jclass clazz, jobject executable);
 JNIEXPORT jint JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHookMethod(
-    JNIEnv* env, jclass clazz, jlong target_art, jlong backup_art, jlong bridge_art, jlong hook_id);
+    JNIEnv *env, jclass clazz, jlong target_art, jlong backup_art,
+    jlong bridge_art, jlong hook_id);
 JNIEXPORT jint JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeUnhookMethod(
-    JNIEnv* env, jclass clazz, jlong target_art, jlong backup_art);
+    JNIEnv *env, jclass clazz, jlong target_art, jlong backup_art);
 JNIEXPORT jboolean JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeTrustClassLoader(
-    JNIEnv* env, jclass clazz, jobject class_loader);
+    JNIEnv *env, jclass clazz, jobject class_loader);
 JNIEXPORT jobject JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeAllocateInstance(
-    JNIEnv* env, jclass clazz, jclass target_class);
+    JNIEnv *env, jclass clazz, jclass target_class);
 JNIEXPORT jboolean JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHideLoadedModuleLibraries(
-    JNIEnv* env, jclass clazz);
+    JNIEnv *env, jclass clazz);
 }
-
-// ─── Module class ─────────────────────────────────────────────────────────────
 
 class WekitZygisk : public zygisk::ModuleBase {
 public:
-    void onLoad(Api* _api, JNIEnv* _env) override {
-        api = _api;
-        env = _env;
+  void onLoad(Api *_api, JNIEnv *_env) override {
+    api = _api;
+    env = _env;
+  }
+
+  void preAppSpecialize(AppSpecializeArgs *args) override {
+    process_name = string_from_jstring(env, args->nice_name);
+    data_dir = string_from_jstring(env, args->app_data_dir);
+    if (process_name.empty() || process_name.size() > MAX_PROCESS_NAME_BYTES ||
+        data_dir.empty()) {
+      api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+      return;
     }
 
-    void preAppSpecialize(AppSpecializeArgs* args) override {
-        std::string process_name;
-        if (args->nice_name) {
-            const char* value = env->GetStringUTFChars(args->nice_name, nullptr);
-            if (value) {
-                process_name = value;
-                env->ReleaseStringUTFChars(args->nice_name, value);
-            } else {
-                env->ExceptionClear();
-            }
-        }
-        if (process_name.empty() || process_name.size() > MAX_PROCESS_NAME_BYTES) {
-            api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
-            return;
-        }
-        const size_t process_separator = process_name.find(':');
-        target_package = process_name.substr(0, process_separator);
-        if (target_package.empty()) {
-            api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
-            return;
-        }
-
-        if (args->app_data_dir) {
-            const char* value = env->GetStringUTFChars(args->app_data_dir, nullptr);
-            if (value) {
-                data_dir = value;
-                env->ReleaseStringUTFChars(args->app_data_dir, value);
-            } else {
-                env->ExceptionClear();
-            }
-        }
-        int sock = api->connectCompanion();
-        if (sock < 0) {
-            LOGE("preAppSpecialize: connectCompanion failed");
-            api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
-            return;
-        }
-        const uint8_t request = COMPANION_REQUEST_APK;
-        const uint16_t process_len = static_cast<uint16_t>(process_name.size());
-        if (!write_all(sock, &request, sizeof(request)) ||
-            !write_all(sock, &args->uid, sizeof(args->uid)) ||
-            !write_all(sock, &process_len, sizeof(process_len)) ||
-            !write_all(sock, process_name.data(), process_name.size())) {
-            LOGE("preAppSpecialize: failed to send companion request");
-            close(sock);
-            api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
-            return;
-        }
-        if (!read_all(sock, &apk_size, sizeof(apk_size))) {
-            LOGE("preAppSpecialize: failed to read APK size");
-            close(sock);
-            api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
-            return;
-        }
-        if (apk_size == 0) {
-            // The target is disabled or the process does not belong to an
-            // enabled package. This is the expected default state.
-            close(sock);
-            api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
-            return;
-        }
-        if (apk_size < 0) {
-            LOGE("preAppSpecialize: companion reported error (size=%lld)",
-                 static_cast<long long>(apk_size));
-            close(sock);
-            api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
-            return;
-        }
-        apk_fd = recv_fd(sock);
-        close(sock);
-        if (apk_fd < 0) {
-            LOGE("preAppSpecialize: failed to receive APK fd");
-            api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
-            return;
-        }
-        LOGI("preAppSpecialize: enabled target %s (uid=%d), received APK fd=%d size=%lld",
-             process_name.c_str(), args->uid, apk_fd, static_cast<long long>(apk_size));
+    const int status = request_target_status(api, args->uid, process_name);
+    if (status == COMPANION_DISABLED) {
+      api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+      return;
+    }
+    if (status != COMPANION_ENABLED) {
+      LOGE("preAppSpecialize: allow-list lookup failed for %s", process_name.c_str());
+      api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+      return;
     }
 
-    void postAppSpecialize(const AppSpecializeArgs* /*args*/) override {
-        if (apk_fd < 0) {
-            return;
-        }
-        if (module_classloader) {
-            LOGW("postAppSpecialize: module class loader is already initialized");
-            close(apk_fd);
-            apk_fd = -1;
-            return;
-        }
-
-        LOGI("postAppSpecialize: installing WeKit module");
-
-        // 1. Move the root-opened payload into this process's own read-only
-        // memfd. The retained descriptor keeps PathClassLoader, resources, and
-        // APK native-library lookups valid for the rest of the process.
-        const int payload_fd = copy_apk_to_memfd(apk_fd, apk_size);
-        close(apk_fd);
-        apk_fd = payload_fd;
-        if (apk_fd < 0) {
-            LOGE("postAppSpecialize: failed to prepare APK payload");
-            return;
-        }
-        const std::string apk_path = fd_path(apk_fd);
-
-        // 2. Initialize ART hook subsystem.
-        if (!art_hook_init(env)) {
-            LOGE("postAppSpecialize: art_hook_init failed");
-            close_payload_fd();
-            return;
-        }
-
-        // 3. Load DEX from APK into JVM.
-        jobject classloader = nullptr;
-        if (!load_dex_from_apk(env, apk_path, classloader)) {
-            LOGE("postAppSpecialize: failed to load DEX from APK");
-            close_payload_fd();
-            return;
-        }
-
-        // FunBox trusts its loader DEX before loading any bootstrap classes.
-        // Do the equivalent for every DexFile owned by this PathClassLoader.
-        if (!art_trust_class_loader(env, classloader)) {
-            LOGE("postAppSpecialize: failed to trust module class loader");
-            env->DeleteGlobalRef(classloader);
-            close_payload_fd();
-            return;
-        }
-
-        // The Zygisk SO is already resident in this process. Register its JNI
-        // entry points against the dynamically loaded APK class instead of
-        // calling System.load() from that class loader a second time.
-        if (!register_hook_bridge_natives(env, classloader)) {
-            LOGE("postAppSpecialize: failed to register Zygisk JNI methods");
-            env->DeleteGlobalRef(classloader);
-            close_payload_fd();
-            return;
-        }
-
-        // 4. Find ZygiskEntry in the loaded classloader.
-        jclass ze_class = load_class_from(env, classloader,
-            "dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskEntry");
-        if (!ze_class) {
-            LOGE("postAppSpecialize: ZygiskEntry class not found");
-            // BUG-3/4 fix: always release classloader global ref on early exit.
-            env->DeleteGlobalRef(classloader);
-            close_payload_fd();
-            return;
-        }
-
-        // 5. Call ZygiskEntry.init(apkPath, dataDir, soPath, targetPackage).
-        // Module startup receives the real host ClassLoader later from
-        // createAppFactory, so do not replace the host main thread's context
-        // ClassLoader here.
-        jmethodID init_method = env->GetStaticMethodID(
-            ze_class, "init",
-            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
-        if (!init_method) {
-            env->ExceptionClear();
-            LOGE("postAppSpecialize: ZygiskEntry.init not found");
-            env->DeleteLocalRef(ze_class);
-            env->DeleteGlobalRef(classloader);
-            close_payload_fd();
-            return;
-        }
-
-        std::string so_path = get_self_so_path();
-
-        // I-08 fix: hide SO path BEFORE ZygiskEntry.init so WeChat's native
-        // anti-detection scan (which may run during Application.onCreate) never
-        // sees the module path in /proc/self/maps.
-        so_hide_path(so_path.c_str());
-
-        jstring j_apk  = env->NewStringUTF(apk_path.c_str());
-        jstring j_data = env->NewStringUTF(data_dir.c_str());
-        jstring j_so   = env->NewStringUTF(so_path.c_str());
-        jstring j_target = env->NewStringUTF(target_package.c_str());
-
-        env->CallStaticVoidMethod(ze_class, init_method, j_apk, j_data, j_so, j_target);
-        if (env->ExceptionCheck()) {
-            env->ExceptionDescribe();
-            env->ExceptionClear();
-            LOGE("postAppSpecialize: ZygiskEntry.init threw an exception");
-        } else {
-            LOGI("postAppSpecialize: ZygiskEntry.init completed");
-        }
-
-        env->DeleteLocalRef(j_apk);
-        env->DeleteLocalRef(j_data);
-        env->DeleteLocalRef(j_so);
-        env->DeleteLocalRef(j_target);
-        env->DeleteLocalRef(ze_class);
-
-        // The native trampoline only retains raw ArtMethod pointers. Keep the
-        // PathClassLoader rooted for the whole process so generated bridge
-        // classes and the module DEX cannot be collected underneath it.
-        module_classloader = classloader;
+    const char *abi = current_abi_dir();
+    if (!abi) {
+      LOGE("preAppSpecialize: unsupported ABI");
+      api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+      return;
+    }
+    const int module_dir_fd = api->getModuleDir();
+    if (module_dir_fd < 0) {
+      LOGE("preAppSpecialize: getModuleDir failed");
+      api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+      return;
     }
 
-    void preServerSpecialize(ServerSpecializeArgs* /*args*/) override {
-        api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+    const std::string payload_base = std::string("payload/") + abi + "/";
+    const std::string copy_base = data_dir + "/.wekit-bootstrap-" + abi;
+    const std::string apk_destination = copy_base + ".apk";
+    std::string dex_list_text;
+    std::vector<std::string> dex_names;
+    bool copied = read_module_text(module_dir_fd, payload_base + "dex.list", dex_list_text) &&
+                  parse_dex_list(dex_list_text, dex_names) &&
+                  copy_module_file(module_dir_fd, payload_base + "wekit.apk",
+                                   apk_destination, args->uid, args->gid,
+                                   MAX_PAYLOAD_FILE_BYTES);
+    std::vector<std::string> copied_dex_paths;
+    if (copied) {
+      copied_dex_paths.reserve(dex_names.size());
+      for (const std::string &dex_name : dex_names) {
+        const std::string dex_destination = copy_base + "-" + dex_name;
+        if (!copy_module_file(module_dir_fd, payload_base + dex_name,
+                              dex_destination, args->uid, args->gid,
+                              MAX_DEX_FILE_BYTES)) {
+          copied = false;
+          break;
+        }
+        copied_dex_paths.push_back(dex_destination);
+      }
     }
+    close(module_dir_fd);
+    if (!copied) {
+      LOGE("preAppSpecialize: failed to copy FunBox-style payload for %s",
+           process_name.c_str());
+      api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+      return;
+    }
+
+    apk_path = apk_destination;
+    dex_paths = std::move(copied_dex_paths);
+    enabled = true;
+    LOGI("preAppSpecialize: enabled %s (uid=%d), copied APK + %zu DEX files",
+         process_name.c_str(), args->uid, dex_paths.size());
+  }
+
+  void postAppSpecialize(const AppSpecializeArgs * /*args*/) override {
+    if (!enabled)
+      return;
+    if (module_classloader) {
+      LOGW("postAppSpecialize: module class loader is already initialized");
+      return;
+    }
+    LOGI("postAppSpecialize: loading copied WeKit payload");
+
+    if (!art_hook_init(env)) {
+      LOGE("postAppSpecialize: art_hook_init failed");
+      return;
+    }
+    jobject classloader = nullptr;
+    if (!load_copied_dex(env, dex_paths, classloader, dex_backing, dex_buffers)) {
+      LOGE("postAppSpecialize: InMemoryDexClassLoader creation failed");
+      return;
+    }
+    if (!art_trust_class_loader(env, classloader)) {
+      LOGE("postAppSpecialize: failed to trust module class loader");
+      env->DeleteGlobalRef(classloader);
+      release_dex_buffers(env, dex_buffers);
+      dex_backing.clear();
+      return;
+    }
+    if (!register_hook_bridge_natives(env, classloader)) {
+      LOGE("postAppSpecialize: failed to register Zygisk JNI methods");
+      env->DeleteGlobalRef(classloader);
+      release_dex_buffers(env, dex_buffers);
+      dex_backing.clear();
+      return;
+    }
+
+    jclass entry = load_class_from(
+        env, classloader, "dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskEntry");
+    if (!entry) {
+      LOGE("postAppSpecialize: ZygiskEntry class not found");
+      env->DeleteGlobalRef(classloader);
+      release_dex_buffers(env, dex_buffers);
+      dex_backing.clear();
+      return;
+    }
+    jmethodID init = env->GetStaticMethodID(
+        entry, "init",
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    if (!init) {
+      env->ExceptionClear();
+      LOGE("postAppSpecialize: ZygiskEntry.init(processName,dataDir,apkPath) missing");
+      env->DeleteLocalRef(entry);
+      env->DeleteGlobalRef(classloader);
+      release_dex_buffers(env, dex_buffers);
+      dex_backing.clear();
+      return;
+    }
+
+    jstring process = env->NewStringUTF(process_name.c_str());
+    jstring data = env->NewStringUTF(data_dir.c_str());
+    jstring apk = env->NewStringUTF(apk_path.c_str());
+    if (!process || !data || !apk || env->ExceptionCheck()) {
+      env->ExceptionClear();
+      LOGE("postAppSpecialize: failed to allocate ZygiskEntry.init arguments");
+      if (process)
+        env->DeleteLocalRef(process);
+      if (data)
+        env->DeleteLocalRef(data);
+      if (apk)
+        env->DeleteLocalRef(apk);
+      env->DeleteLocalRef(entry);
+      env->DeleteGlobalRef(classloader);
+      release_dex_buffers(env, dex_buffers);
+      dex_backing.clear();
+      return;
+    }
+    env->CallStaticVoidMethod(entry, init, process, data, apk);
+    const bool failed = env->ExceptionCheck();
+    if (failed) {
+      env->ExceptionDescribe();
+      env->ExceptionClear();
+      LOGE("postAppSpecialize: ZygiskEntry.init failed");
+    } else {
+      LOGI("postAppSpecialize: ZygiskEntry.init completed");
+    }
+    env->DeleteLocalRef(process);
+    env->DeleteLocalRef(data);
+    env->DeleteLocalRef(apk);
+    env->DeleteLocalRef(entry);
+    if (failed) {
+      env->DeleteGlobalRef(classloader);
+      release_dex_buffers(env, dex_buffers);
+      dex_backing.clear();
+      return;
+    }
+
+    // The class loader and the ByteBuffer backing must outlive generated hook
+    // bridge classes and all native ArtMethod references.
+    module_classloader = classloader;
+  }
+
+  void preServerSpecialize(ServerSpecializeArgs * /*args*/) override {
+    api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+  }
 
 private:
-    Api*    api      = nullptr;
-    JNIEnv* env      = nullptr;
-    int     apk_fd   = -1;
-    int64_t apk_size = 0;
-    std::string data_dir;
-    std::string target_package;
-    jobject module_classloader = nullptr;
+  Api *api = nullptr;
+  JNIEnv *env = nullptr;
+  bool enabled = false;
+  std::string process_name;
+  std::string data_dir;
+  std::string apk_path;
+  std::vector<std::string> dex_paths;
+  std::vector<std::vector<uint8_t>> dex_backing;
+  std::vector<jobject> dex_buffers;
+  jobject module_classloader = nullptr;
 
-    void close_payload_fd() {
-        if (apk_fd >= 0) {
-            close(apk_fd);
-            apk_fd = -1;
-        }
+  static jclass load_class_from(JNIEnv *e, jobject classloader,
+                                const char *class_name) {
+    jclass class_loader_class = e->FindClass("java/lang/ClassLoader");
+    if (!class_loader_class) {
+      e->ExceptionClear();
+      return nullptr;
     }
-
-    // BUG-13 fix: guard against null cl_class from FindClass.
-    static jclass load_class_from(JNIEnv* e, jobject cl, const char* class_name) {
-        jclass cl_class = e->FindClass("java/lang/ClassLoader");
-        if (!cl_class) { e->ExceptionClear(); return nullptr; }
-        jmethodID load_class_mid = e->GetMethodID(cl_class, "loadClass",
-            "(Ljava/lang/String;)Ljava/lang/Class;");
-        e->DeleteLocalRef(cl_class);
-        if (!load_class_mid) { e->ExceptionClear(); return nullptr; }
-        jstring name = e->NewStringUTF(class_name);
-        auto cls = static_cast<jclass>(e->CallObjectMethod(cl, load_class_mid, name));
-        e->DeleteLocalRef(name);
-        if (e->ExceptionCheck()) { e->ExceptionClear(); return nullptr; }
-        return cls;
+    jmethodID load_class = e->GetMethodID(
+        class_loader_class, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+    e->DeleteLocalRef(class_loader_class);
+    if (!load_class) {
+      e->ExceptionClear();
+      return nullptr;
     }
-
-    static bool register_hook_bridge_natives(JNIEnv* e, jobject cl) {
-        jclass bridge_class = load_class_from(
-            e, cl, "dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskHookBridge");
-        if (!bridge_class) return false;
-
-        JNINativeMethod methods[] = {
-            {const_cast<char*>("nativeGetArtMethod"),
-             const_cast<char*>("(Ljava/lang/reflect/Executable;)J"),
-             reinterpret_cast<void*>(
-                 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeGetArtMethod)},
-            {const_cast<char*>("nativeHookMethod"), const_cast<char*>("(JJJJ)I"),
-             reinterpret_cast<void*>(
-                 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHookMethod)},
-            {const_cast<char*>("nativeUnhookMethod"), const_cast<char*>("(JJ)I"),
-             reinterpret_cast<void*>(
-                 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeUnhookMethod)},
-            {const_cast<char*>("nativeTrustClassLoader"),
-             const_cast<char*>("(Ljava/lang/ClassLoader;)Z"),
-             reinterpret_cast<void*>(
-                 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeTrustClassLoader)},
-            {const_cast<char*>("nativeAllocateInstance"),
-             const_cast<char*>("(Ljava/lang/Class;)Ljava/lang/Object;"),
-             reinterpret_cast<void*>(
-                 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeAllocateInstance)},
-            {const_cast<char*>("nativeHideLoadedModuleLibraries"), const_cast<char*>("()Z"),
-             reinterpret_cast<void*>(
-                 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHideLoadedModuleLibraries)},
-        };
-        const jint result = e->RegisterNatives(
-            bridge_class, methods, static_cast<jint>(sizeof(methods) / sizeof(methods[0])));
-        if (result != JNI_OK || e->ExceptionCheck()) {
-            e->ExceptionClear();
-            e->DeleteLocalRef(bridge_class);
-            return false;
-        }
-        e->DeleteLocalRef(bridge_class);
-        return true;
+    jstring name = e->NewStringUTF(class_name);
+    jclass result = static_cast<jclass>(
+        e->CallObjectMethod(classloader, load_class, name));
+    e->DeleteLocalRef(name);
+    if (e->ExceptionCheck()) {
+      e->ExceptionClear();
+      return nullptr;
     }
+    return result;
+  }
 
+  static bool register_hook_bridge_natives(JNIEnv *e, jobject classloader) {
+    jclass bridge = load_class_from(
+        e, classloader, "dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskHookBridge");
+    if (!bridge)
+      return false;
+    JNINativeMethod methods[] = {
+        {const_cast<char *>("nativeGetArtMethod"),
+         const_cast<char *>("(Ljava/lang/reflect/Executable;)J"),
+         reinterpret_cast<void *>(
+             Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeGetArtMethod)},
+        {const_cast<char *>("nativeHookMethod"), const_cast<char *>("(JJJJ)I"),
+         reinterpret_cast<void *>(
+             Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHookMethod)},
+        {const_cast<char *>("nativeUnhookMethod"), const_cast<char *>("(JJ)I"),
+         reinterpret_cast<void *>(
+             Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeUnhookMethod)},
+        {const_cast<char *>("nativeTrustClassLoader"),
+         const_cast<char *>("(Ljava/lang/ClassLoader;)Z"),
+         reinterpret_cast<void *>(
+             Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeTrustClassLoader)},
+        {const_cast<char *>("nativeAllocateInstance"),
+         const_cast<char *>("(Ljava/lang/Class;)Ljava/lang/Object;"),
+         reinterpret_cast<void *>(
+             Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeAllocateInstance)},
+        {const_cast<char *>("nativeHideLoadedModuleLibraries"), const_cast<char *>("()Z"),
+         reinterpret_cast<void *>(
+             Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHideLoadedModuleLibraries)},
+    };
+    const jint result = e->RegisterNatives(
+        bridge, methods, static_cast<jint>(sizeof(methods) / sizeof(methods[0])));
+    const bool success = result == JNI_OK && !e->ExceptionCheck();
+    if (!success)
+      e->ExceptionClear();
+    e->DeleteLocalRef(bridge);
+    return success;
+  }
 };
-
-// ─── JNI exports (libwekit.so → ZygiskHookBridge) ────────────────────────────
 
 extern "C" {
 
 JNIEXPORT jlong JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeGetArtMethod(
-    JNIEnv* env, jclass /*clazz*/, jobject executable)
-{
-    return static_cast<jlong>(art_get_art_method(env, executable));
+    JNIEnv *env, jclass /*clazz*/, jobject executable) {
+  return static_cast<jlong>(art_get_art_method(env, executable));
 }
 
 JNIEXPORT jint JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHookMethod(
-    JNIEnv* env, jclass /*clazz*/,
-    jlong target_art, jlong backup_art, jlong bridge_art, jlong /*hook_id*/)
-{
-    if (!art_hook_is_initialized()) {
-        if (!art_hook_init(env)) return -1;
-    }
-    return art_hook_method(env,
-        static_cast<uintptr_t>(target_art),
-        static_cast<uintptr_t>(backup_art),
-        static_cast<uintptr_t>(bridge_art)) ? 0 : -1;
+    JNIEnv *env, jclass /*clazz*/, jlong target_art, jlong backup_art,
+    jlong bridge_art, jlong /*hook_id*/) {
+  if (!art_hook_is_initialized() && !art_hook_init(env))
+    return -1;
+  return art_hook_method(env, static_cast<uintptr_t>(target_art),
+                         static_cast<uintptr_t>(backup_art),
+                         static_cast<uintptr_t>(bridge_art))
+             ? 0
+             : -1;
 }
 
 JNIEXPORT jint JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeUnhookMethod(
-    JNIEnv* env, jclass /*clazz*/,
-    jlong target_art, jlong backup_art)
-{
-    return art_unhook_method(env,
-        static_cast<uintptr_t>(target_art),
-        static_cast<uintptr_t>(backup_art)) ? 0 : -1;
+    JNIEnv *env, jclass /*clazz*/, jlong target_art, jlong backup_art) {
+  return art_unhook_method(env, static_cast<uintptr_t>(target_art),
+                           static_cast<uintptr_t>(backup_art))
+             ? 0
+             : -1;
 }
 
 JNIEXPORT jboolean JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeTrustClassLoader(
-    JNIEnv* env, jclass /*clazz*/, jobject class_loader)
-{
-    if (!art_hook_is_initialized() && !art_hook_init(env)) return JNI_FALSE;
-    return art_trust_class_loader(env, class_loader) ? JNI_TRUE : JNI_FALSE;
+    JNIEnv *env, jclass /*clazz*/, jobject class_loader) {
+  if (!art_hook_is_initialized() && !art_hook_init(env))
+    return JNI_FALSE;
+  return art_trust_class_loader(env, class_loader) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jobject JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeAllocateInstance(
-    JNIEnv* env, jclass /*clazz*/, jclass target_class)
-{
-    return target_class ? env->AllocObject(target_class) : nullptr;
+    JNIEnv *env, jclass /*clazz*/, jclass target_class) {
+  return target_class ? env->AllocObject(target_class) : nullptr;
 }
 
 JNIEXPORT jboolean JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHideLoadedModuleLibraries(
-    JNIEnv* /*env*/, jclass /*clazz*/)
-{
-    // NativeLoader has completed at this point. Hide every module-provided
-    // native library that can have been added after the early loader-SO pass.
-    const int dexkit = so_hide_path("libdexkit.so");
-    const int wekit_native = so_hide_path("libwekit_native.so");
-    const int mmkv = so_hide_path("libmmkv.so");
-    return dexkit >= 0 && wekit_native >= 0 && mmkv >= 0 ? JNI_TRUE : JNI_FALSE;
+    JNIEnv * /*env*/, jclass /*clazz*/) {
+  const int dexkit = so_hide_path("libdexkit.so");
+  const int wekit_native = so_hide_path("libwekit_native.so");
+  const int mmkv = so_hide_path("libmmkv.so");
+  return dexkit >= 0 && wekit_native >= 0 && mmkv >= 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 } // extern "C"

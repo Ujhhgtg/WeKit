@@ -93,15 +93,32 @@ else
   abort "! Unsupported platform: $ARCH"
 fi
 
-# Extract WeKit APK payloads. The companion selects the matching file for the
-# process ABI, so both payloads are retained even on a 64-bit device.
+# Extract the APK and every DEX entry required by the FunBox-style
+# InMemoryDexClassLoader bootstrap. Both ABI payloads are retained on arm64
+# devices because a 32-bit WeChat process can still be specialized there.
 ui_print "- Extracting WeKit payload"
 mkdir -p "$MODPATH/payload"
 for abi in arm64-v8a armeabi-v7a
 do
-  payload="payload/wekit-$abi.apk"
-  extract "$ZIPFILE" "$payload" "$MODPATH"
-  ui_print "  WeKit APK installed to $MODPATH/$payload"
+  payload_dir="payload/$abi"
+  extract "$ZIPFILE" "$payload_dir/wekit.apk" "$MODPATH"
+  extract "$ZIPFILE" "$payload_dir/dex.list" "$MODPATH"
+  while IFS= read -r dex_name || [ -n "$dex_name" ]
+  do
+    case "$dex_name" in
+      classes.dex) ;;
+      classes[0-9]*.dex)
+        dex_index=${dex_name#classes}
+        dex_index=${dex_index%.dex}
+        case "$dex_index" in
+          ''|*[!0-9]*) abort "! Invalid DEX payload entry: $dex_name" ;;
+        esac
+        ;;
+      *) abort "! Invalid DEX payload entry: $dex_name" ;;
+    esac
+    extract "$ZIPFILE" "$payload_dir/$dex_name" "$MODPATH"
+  done < "$MODPATH/$payload_dir/dex.list"
+  ui_print "  WeKit payload installed to $MODPATH/$payload_dir"
 done
 
 ui_print "- Setting permissions"
@@ -112,8 +129,6 @@ set_perm "$MODPATH/post-fs-data.sh" 0 0 0755
 set_perm "$MODPATH/service.sh" 0 0 0755
 set_perm "$MODPATH/config.sh" 0 0 0755
 set_perm "$MODPATH/uninstall.sh" 0 0 0755
-set_perm "$MODPATH/payload/wekit-arm64-v8a.apk" 0 0 0644
-set_perm "$MODPATH/payload/wekit-armeabi-v7a.apk" 0 0 0644
 
 # KernelSU assigns the WebUI directory's mode and SELinux context itself.
 # Do not include $MODPATH/webroot in a recursive set_perm call.

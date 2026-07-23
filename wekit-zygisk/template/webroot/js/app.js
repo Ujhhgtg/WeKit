@@ -6,9 +6,14 @@ const targetLoading = $("#targets-loading");
 const emptyState = $("#empty-state");
 const enabledCount = $("#enabled-count");
 const refreshTargetsButton = $("#refresh-targets");
+const diagnostics = $("#diagnostics");
+const deviceLog = $("#device-log");
+const refreshLogButton = $("#refresh-log");
 const toast = $("#toast");
 
 let toastTimer = 0;
+let deviceLogLoading = false;
+let lastCommandFailure = "";
 
 function configScriptPath() {
   try {
@@ -24,9 +29,29 @@ function configScriptPath() {
 
 async function configCommand(command, ...args) {
   const commandLine = ["sh", shellQuote(configScriptPath()), shellQuote(command), ...args.map(shellQuote)].join(" ");
-  const result = await exec(commandLine);
-  if (result.errno !== 0) {
-    throw new Error(result.stderr.trim() || "Command failed (" + result.errno + ")");
+  let result;
+  try {
+    result = await exec(commandLine);
+  } catch (error) {
+    lastCommandFailure = `$ ${commandLine}\nbridge error: ${error?.stack || error}`;
+    console.error("[WeKit WebUI] command bridge failure", { commandLine, error });
+    throw error;
+  }
+
+  const exitCodeValue = Number(result.errno);
+  const exitCode = Number.isFinite(exitCodeValue) ? exitCodeValue : -1;
+  console.info("[WeKit WebUI] command result", { commandLine, exitCode, stdout: result.stdout, stderr: result.stderr });
+  if (exitCode !== 0) {
+    const stderr = result.stderr.trim();
+    const stdout = result.stdout.trim();
+    const firstDetail = (stderr || stdout).split("\n")[0] || "命令没有返回错误文本";
+    lastCommandFailure = [
+      `$ ${commandLine}`,
+      `exit: ${exitCode}`,
+      `stdout:\n${stdout || "<empty>"}`,
+      `stderr:\n${stderr || "<empty>"}`,
+    ].join("\n");
+    throw new Error(`${command} 失败 (exit ${exitCode}): ${firstDetail}`);
   }
   return result.stdout;
 }
@@ -36,7 +61,39 @@ function showToast(message, isError = false) {
   toast.textContent = message;
   toast.classList.toggle("error", isError);
   toast.classList.add("visible");
-  toastTimer = setTimeout(() => toast.classList.remove("visible"), 2800);
+  toastTimer = setTimeout(() => toast.classList.remove("visible"), isError ? 8000 : 2800);
+}
+
+async function loadDeviceLog() {
+  if (deviceLogLoading) return;
+  deviceLogLoading = true;
+  refreshLogButton.disabled = true;
+  const commandLine = ["sh", shellQuote(configScriptPath()), "log"].join(" ");
+  try {
+    const result = await exec(commandLine);
+    const exitCodeValue = Number(result.errno);
+    const exitCode = Number.isFinite(exitCodeValue) ? exitCodeValue : -1;
+    const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
+    const sections = [];
+    if (lastCommandFailure) sections.push(`=== 最近一次 WebUI 命令 ===\n${lastCommandFailure}`);
+    sections.push(`=== 设备日志 ===\n${output || `<empty; exit ${exitCode}>`}`);
+    deviceLog.textContent = sections.join("\n\n");
+    console.info("[WeKit WebUI] device log result", { commandLine, exitCode, stdout: result.stdout, stderr: result.stderr });
+  } catch (error) {
+    deviceLog.textContent = [lastCommandFailure, `无法读取设备日志: ${error?.stack || error}`].filter(Boolean).join("\n\n");
+    console.error("[WeKit WebUI] cannot read device log", error);
+  } finally {
+    refreshLogButton.disabled = false;
+    deviceLogLoading = false;
+  }
+}
+
+async function showCommandFailure(error, fallback) {
+  const message = error?.message || fallback;
+  showToast(`${message}，详见运行日志`, true);
+  console.error("[WeKit WebUI] operation failed", error);
+  diagnostics.open = true;
+  await loadDeviceLog();
 }
 
 function parseTargets(stdout) {
@@ -87,7 +144,7 @@ function createTargetRow(entry) {
       await loadTargets();
     } catch (error) {
       toggle.checked = !requested;
-      showToast(error.message || "更新失败", true);
+      await showCommandFailure(error, "更新失败");
     } finally {
       toggle.disabled = false;
     }
@@ -113,7 +170,7 @@ async function loadTargets() {
     return true;
   } catch (error) {
     renderTargets([]);
-    showToast(error.message || "无法读取目标", true);
+    await showCommandFailure(error, "无法读取目标");
     return false;
   } finally {
     targetLoading.hidden = true;
@@ -128,13 +185,17 @@ async function refreshTargets() {
       showToast("已重新扫描微信应用");
     }
   } catch (error) {
-    showToast(error.message || "刷新失败", true);
+    await showCommandFailure(error, "刷新失败");
   } finally {
     refreshTargetsButton.disabled = false;
   }
 }
 
 refreshTargetsButton.addEventListener("click", refreshTargets);
+refreshLogButton.addEventListener("click", loadDeviceLog);
+diagnostics.addEventListener("toggle", () => {
+  if (diagnostics.open) loadDeviceLog();
+});
 
 if (!hasKernelSuBridge()) {
   targetLoading.textContent = "请在 KernelSU 管理器中打开此页面";

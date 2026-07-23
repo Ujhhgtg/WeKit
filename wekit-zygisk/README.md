@@ -60,10 +60,10 @@ Run `./x zygisk --help` or `./x zygisk <subcommand> --help` for every option.
 
 ## Development environment
 
-- LLVM clangd  
-- VSCode + Clangd Plugin  
-- Android NDK  
-- CMake  
+- LLVM clangd
+- VSCode + Clangd Plugin
+- Android NDK
+- CMake
 
 ## See also
 
