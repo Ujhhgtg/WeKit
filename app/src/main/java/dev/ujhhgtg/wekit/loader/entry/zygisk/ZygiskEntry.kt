@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object ZygiskEntry {
 
     private const val TAG = "ZygiskEntry"
+    private const val WECHAT_PACKAGE = "com.tencent.mm"
     private val entryLock = Any()
     private val moduleStarted = AtomicBoolean(false)
     private var loaderService: ZygiskLoaderService? = null
@@ -42,21 +43,25 @@ object ZygiskEntry {
         zygiskSoPath: String,
         targetPackage: String,
     ) {
-        runCatching {
-            require(targetPackage.isNotBlank()) { "targetPackage is blank" }
-            Log.i(TAG, "ZygiskEntry.init: apk=$apkPath dataDir=$dataDir target=$targetPackage")
+        if (targetPackage != WECHAT_PACKAGE) {
+            Log.w(TAG, "ignoring unsupported Zygisk target: $targetPackage")
+            return
+        }
+        synchronized(entryLock) {
+            if (hookBridge != null) return
 
-            synchronized(entryLock) {
-                if (hookBridge != null) return@synchronized
-
-                hostDataDir = dataDir
-                modulePath = apkPath
-                loaderService = ZygiskLoaderService(
+            try {
+                Log.i(TAG, "ZygiskEntry.init: apk=$apkPath dataDir=$dataDir target=$targetPackage")
+                val service = ZygiskLoaderService(
                     modulePath = apkPath,
                     versionName = BuildConfig.VERSION_NAME,
                     versionCode = BuildConfig.VERSION_CODE,
                 )
-                hookBridge = ZygiskHookBridge()
+                val bridge = ZygiskHookBridge()
+                hostDataDir = dataDir
+                modulePath = apkPath
+                loaderService = service
+                hookBridge = bridge
 
                 // FunBox waits for LoadedApk.createAppFactory: its ClassLoader
                 // argument is the real host loader, unlike the loader that
@@ -68,7 +73,7 @@ object ZygiskEntry {
                     ClassLoader::class.java,
                 ).apply { isAccessible = true }
 
-                hookBridge!!.hookMethod(createAppFactory, object : dev.ujhhgtg.wekit.loader.abc.IHookBridge.IMemberHookCallback {
+                bridge.hookMethod(createAppFactory, object : dev.ujhhgtg.wekit.loader.abc.IHookBridge.IMemberHookCallback {
                     override fun beforeHookedMember(param: dev.ujhhgtg.wekit.loader.abc.IHookBridge.IMemberHookParam) {
                         val appInfo = param.args.getOrNull(0) as? android.content.pm.ApplicationInfo
                         val hostClassLoader = param.args.getOrNull(1) as? ClassLoader
@@ -79,26 +84,45 @@ object ZygiskEntry {
 
                     override fun afterHookedMember(param: dev.ujhhgtg.wekit.loader.abc.IHookBridge.IMemberHookParam) = Unit
                 }, priority = 10000)
+            } catch (t: Throwable) {
+                // All fields are published before the hook can become reachable;
+                // roll them back when installation itself fails so init can retry.
+                loaderService = null
+                hookBridge = null
+                hostDataDir = ""
+                modulePath = ""
+                moduleStarted.set(false)
+                Log.e(TAG, "ZygiskEntry.init failed", t)
             }
-        }.onFailure { e ->
-            Log.e(TAG, "ZygiskEntry.init failed", e)
         }
     }
 
     private fun startModule(hostClassLoader: ClassLoader) {
         if (!moduleStarted.compareAndSet(false, true)) return
 
-        val service = loaderService ?: error("Zygisk loader service not initialized")
-        val bridge = hookBridge ?: error("Zygisk hook bridge not initialized")
-        ModuleLoader.init(
-            hostDataDir = hostDataDir,
-            initialClassLoader = hostClassLoader,
-            loaderService = service,
-            hookBridge = bridge,
-            modulePath = modulePath,
-            allowDynamicLoad = false,
-        )
-        Log.i(TAG, "WeKit module started with host ClassLoader=$hostClassLoader")
+        val started = try {
+            val service = loaderService ?: error("Zygisk loader service not initialized")
+            val bridge = hookBridge ?: error("Zygisk hook bridge not initialized")
+            ModuleLoader.init(
+                hostDataDir = hostDataDir,
+                initialClassLoader = hostClassLoader,
+                loaderService = service,
+                hookBridge = bridge,
+                modulePath = modulePath,
+                allowDynamicLoad = false,
+            )
+        } catch (t: Throwable) {
+            Log.e(TAG, "failed to start WeKit module", t)
+            false
+        }
+        if (started) {
+            Log.i(TAG, "WeKit module started with host ClassLoader=$hostClassLoader")
+        } else {
+            // ModuleLoader deliberately leaves its guard unset on failure.
+            // Do the same here so a later app lifecycle entry can retry.
+            moduleStarted.set(false)
+            Log.w(TAG, "WeKit module startup failed; retry remains available")
+        }
     }
 
     /**

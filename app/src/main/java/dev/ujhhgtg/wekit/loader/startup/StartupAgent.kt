@@ -7,6 +7,7 @@ import dev.ujhhgtg.reflekt.utils.ReflectionClassLoader
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
+import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskHookBridge
 import dev.ujhhgtg.wekit.loader.utils.HybridClassLoader
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -21,6 +22,9 @@ object StartupAgent {
 
     private const val TAG = "StartupAgent"
 
+    private val startupLock = Any()
+
+    @Volatile
     private var initialized = false
 
     @OptIn(ExperimentalPathApi::class)
@@ -29,9 +33,8 @@ object StartupAgent {
         hookBridge: IHookBridge?,
         modulePath: String,
         application: Application
-    ) {
-        if (initialized) return
-        initialized = true
+    ) = synchronized(startupLock) {
+        if (initialized) return@synchronized
 
         val realClassLoader = application.baseContext.classLoader
         HybridClassLoader.hostClassLoader = realClassLoader
@@ -48,6 +51,13 @@ object StartupAgent {
 
         HostInfo.init(application)
         NativeLoader.init(application)
+        if (hookBridge is ZygiskHookBridge) {
+            runCatching { hookBridge.hideLoadedModuleLibraries() }
+                .onSuccess { hidden ->
+                    if (!hidden) WeLogger.w(TAG, "module native-library hiding was incomplete")
+                }
+                .onFailure { WeLogger.e(TAG, "failed to hide loaded module libraries", it) }
+        }
         // FIXME: some people have hiding on, which causes false positives in signature verifier
 //        SignatureVerifier.verify(application)
         WeLauncher.init(application)
@@ -55,6 +65,10 @@ object StartupAgent {
         runCatching {
             application.dataDir.toPath().resolve("app_qqprotect").deleteRecursively()
         }.onFailure { WeLogger.e(TAG, "failed to delete app_qqprotect", it) }
+
+        // Only commit after every required startup phase completes. The caller
+        // already logs a thrown failure, and a later lifecycle callback can retry.
+        initialized = true
     }
 
     private fun checkWriteXorExecuteForModulePath(modulePath: String) {

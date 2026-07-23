@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.loader.entry.zygisk
 import androidx.annotation.Keep
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Constructor
+import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Member
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
@@ -53,13 +54,21 @@ internal object WekitHookBridgeRuntime {
                 resultValue = value
                 resultSet = true
                 throwableValue = null
+                // Match MethodHookParam.setResult(): setting null is still an
+                // intentional replacement and must skip the original method.
+                earlyReturn = true
             }
 
         override var throwable: Throwable?
             get() = throwableValue
             set(value) {
                 throwableValue = value
-                if (value != null) resultSet = false
+                // Match MethodHookParam.setThrowable(), including its unusual
+                // but documented setThrowable(null) behavior: clear any prior
+                // result and request an early null return.
+                resultValue = null
+                resultSet = false
+                earlyReturn = true
             }
         override var extra: Any? = null
         internal var earlyReturn = false
@@ -132,19 +141,15 @@ internal object WekitHookBridgeRuntime {
         val entry = hooks[hookId] ?: return
         val pc = PrioritizedCallback(callback, priority)
         val list = entry.callbacks
-        // BUG-38 fix: synchronize the read-modify-write so the clear+addAll is atomic
-        // from other readers' perspective.  CopyOnWriteArrayList operations are each
-        // individually atomic, but clear() followed by addAll() is not — a reader
-        // between the two calls would see an empty list.
+        // CopyOnWriteArrayList.add(index, value) publishes one complete new
+        // backing array. Do not rebuild through clear()+addAll(): readers are
+        // intentionally lock-free and could otherwise observe an empty list.
         synchronized(list) {
             val idx = list.indexOfFirst { it.priority < priority }
             if (idx == -1) {
                 list.add(pc)
             } else {
-                val snapshot = list.toMutableList()
-                snapshot.add(idx, pc)
-                list.clear()
-                list.addAll(snapshot)
+                list.add(idx, pc)
             }
         }
     }
@@ -190,9 +195,6 @@ internal object WekitHookBridgeRuntime {
                 param.resetAfterBeforeFailure()
             }
             beforeCount++
-            if (param.throwable != null || param.resultSet) {
-                param.earlyReturn = true
-            }
         }
 
         // ── call original (via backup) ────────────────────────────────────────
@@ -213,7 +215,7 @@ internal object WekitHookBridgeRuntime {
                     else -> error("unsupported member: ${entry.member}")
                 }
                 param.result = result
-            } catch (e: java.lang.reflect.InvocationTargetException) {
+            } catch (e: InvocationTargetException) {
                 param.throwable = e.targetException ?: e
             } catch (e: Throwable) {
                 param.throwable = e
@@ -247,17 +249,21 @@ internal object WekitHookBridgeRuntime {
                 "WekitHookBridgeRuntime: member is not hooked: $member"
             )
         backup.isAccessible = true
-        return when (member) {
-            is Method -> if (java.lang.reflect.Modifier.isStatic(member.modifiers)) {
-                backup.invoke(null, *args)
-            } else {
-                backup.invoke(thisObj, *args)
+        return try {
+            when (member) {
+                is Method -> if (java.lang.reflect.Modifier.isStatic(member.modifiers)) {
+                    backup.invoke(null, *args)
+                } else {
+                    backup.invoke(thisObj, *args)
+                }
+                is Constructor<*> -> {
+                    backup.invoke(thisObj, *args)
+                    null
+                }
+                else -> error("unsupported member: $member")
             }
-            is Constructor<*> -> {
-                backup.invoke(thisObj, *args)
-                null
-            }
-            else -> error("unsupported member: $member")
+        } catch (e: InvocationTargetException) {
+            throw (e.targetException ?: e)
         }
     }
 }

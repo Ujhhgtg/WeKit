@@ -5,6 +5,8 @@
 # the user's per-Android-user choices across upgrades.
 STATE_DIR=/data/adb/wekit
 TARGETS_FILE=$STATE_DIR/injection-targets.tsv
+LOCK_DIR=$STATE_DIR/.injection-targets.lock
+LOCK_RETRIES=10
 TARGET_PACKAGE=com.tencent.mm
 
 # Every temporary replacement file is published with rename(2). Set this before
@@ -15,6 +17,67 @@ ensure_state_dir() {
   umask 077
   mkdir -p "$STATE_DIR" || return 1
   chmod 700 "$STATE_DIR" || return 1
+}
+
+# Android module shells do not consistently ship flock(1). mkdir(2) is atomic,
+# so use a private lock directory to serialize read-modify-publish operations.
+# A killed WebUI command can leave a stale lock; the next command verifies the
+# recorded PID and safely reclaims it.
+release_targets_lock() {
+  [ -r "$LOCK_DIR/pid" ] || return 0
+  IFS= read -r lock_owner < "$LOCK_DIR/pid" || return 0
+  [ "$lock_owner" = "$$" ] || return 0
+  rm -f "$LOCK_DIR/pid"
+  rmdir "$LOCK_DIR" 2>/dev/null || true
+}
+
+acquire_targets_lock() {
+  ensure_state_dir || return 1
+  lock_attempt=0
+  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    if [ -r "$LOCK_DIR/pid" ]; then
+      IFS= read -r lock_owner < "$LOCK_DIR/pid" || lock_owner=
+      case "$lock_owner" in
+        ''|*[!0-9]*)
+          if [ "$lock_attempt" -ge 2 ]; then
+            rm -f "$LOCK_DIR/pid"
+            rmdir "$LOCK_DIR" 2>/dev/null && continue
+          fi
+          ;;
+        *)
+          if ! kill -0 "$lock_owner" 2>/dev/null; then
+            rm -f "$LOCK_DIR/pid"
+            rmdir "$LOCK_DIR" 2>/dev/null || true
+            continue
+          fi
+          ;;
+      esac
+    elif [ "$lock_attempt" -ge 2 ]; then
+      # Do not race the owner between mkdir and pid creation; only reclaim an
+      # empty lock after it has remained incomplete for multiple seconds.
+      rmdir "$LOCK_DIR" 2>/dev/null && continue
+    fi
+
+    lock_attempt=$((lock_attempt + 1))
+    if [ "$lock_attempt" -ge "$LOCK_RETRIES" ]; then
+      echo "timed out waiting for WeKit target configuration lock" >&2
+      return 1
+    fi
+    sleep 1
+  done
+
+  printf '%s\n' "$$" > "$LOCK_DIR/pid" || {
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+    return 1
+  }
+}
+
+run_with_targets_lock() {
+  acquire_targets_lock || return 1
+  "$@"
+  status=$?
+  release_targets_lock
+  return "$status"
 }
 
 list_user_ids() {
@@ -56,7 +119,7 @@ write_default_header() {
   printf '%s\n' '# userId<TAB>packageName<TAB>enabled'
 }
 
-write_scan_result() {
+write_scan_result_locked() {
   ensure_state_dir || return 1
   temp_file=$TARGETS_FILE.tmp.$$
   (
@@ -78,15 +141,19 @@ write_scan_result() {
   mv -f "$temp_file" "$TARGETS_FILE"
 }
 
-ensure_initialized() {
+ensure_initialized_locked() {
   if [ ! -f "$TARGETS_FILE" ]; then
-    write_scan_result
+    write_scan_result_locked
   fi
 }
 
-list_targets() {
-  ensure_initialized || return 1
+list_targets_locked() {
+  ensure_initialized_locked || return 1
   awk -F '\t' 'NF == 3 && $1 ~ /^[0-9]+$/ && $2 != "" && ($3 == "0" || $3 == "1") { print $1 "\t" $2 "\t" $3 }' "$TARGETS_FILE"
+}
+
+list_targets() {
+  run_with_targets_lock list_targets_locked
 }
 
 list_apps() {
@@ -99,11 +166,10 @@ list_apps() {
   done
 }
 
-add_target() {
+add_target_locked() {
   user_id=$1
   package_name=$2
-  is_valid_user_id "$user_id" && is_valid_package "$package_name" || return 2
-  ensure_initialized || return 1
+  ensure_initialized_locked || return 1
   is_installed_for_user "$user_id" "$package_name" || return 3
 
   if awk -F '\t' -v user="$user_id" -v package="$package_name" \
@@ -119,13 +185,22 @@ add_target() {
   chmod 600 "$temp_file" && mv -f "$temp_file" "$TARGETS_FILE"
 }
 
-set_enabled() {
+add_target() {
+  user_id=$1
+  package_name=$2
+  is_valid_user_id "$user_id" && is_valid_package "$package_name" || return 2
+  if [ "$package_name" != "$TARGET_PACKAGE" ]; then
+    echo "WeKit Zygisk currently supports only $TARGET_PACKAGE" >&2
+    return 4
+  fi
+  run_with_targets_lock add_target_locked "$user_id" "$package_name"
+}
+
+set_enabled_locked() {
   user_id=$1
   package_name=$2
   enabled=$3
-  is_valid_user_id "$user_id" && is_valid_package "$package_name" || return 2
-  [ "$enabled" = 0 ] || [ "$enabled" = 1 ] || return 2
-  ensure_initialized || return 1
+  ensure_initialized_locked || return 1
 
   temp_file=$TARGETS_FILE.tmp.$$
   awk -F '\t' -v OFS='\t' -v user="$user_id" -v package="$package_name" -v enabled="$enabled" '
@@ -141,11 +216,23 @@ set_enabled() {
   chmod 600 "$temp_file" && mv -f "$temp_file" "$TARGETS_FILE"
 }
 
-delete_target() {
+set_enabled() {
   user_id=$1
   package_name=$2
+  enabled=$3
   is_valid_user_id "$user_id" && is_valid_package "$package_name" || return 2
-  ensure_initialized || return 1
+  if [ "$package_name" != "$TARGET_PACKAGE" ]; then
+    echo "WeKit Zygisk currently supports only $TARGET_PACKAGE" >&2
+    return 4
+  fi
+  [ "$enabled" = 0 ] || [ "$enabled" = 1 ] || return 2
+  run_with_targets_lock set_enabled_locked "$user_id" "$package_name" "$enabled"
+}
+
+delete_target_locked() {
+  user_id=$1
+  package_name=$2
+  ensure_initialized_locked || return 1
 
   temp_file=$TARGETS_FILE.tmp.$$
   awk -F '\t' -v user="$user_id" -v package="$package_name" '
@@ -161,10 +248,21 @@ delete_target() {
   chmod 600 "$temp_file" && mv -f "$temp_file" "$TARGETS_FILE"
 }
 
+delete_target() {
+  user_id=$1
+  package_name=$2
+  is_valid_user_id "$user_id" && is_valid_package "$package_name" || return 2
+  # Keep legacy non-WeChat rows removable after upgrading from an older module
+  # version, even though they are no longer eligible to be enabled.
+  run_with_targets_lock delete_target_locked "$user_id" "$package_name"
+}
+
+reset_targets_locked() {
+  write_scan_result_locked
+}
+
 reset_targets() {
-  ensure_state_dir || return 1
-  rm -f "$TARGETS_FILE"
-  write_scan_result
+  run_with_targets_lock reset_targets_locked
 }
 
 case "$1" in

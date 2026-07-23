@@ -132,6 +132,9 @@ internal class ZygiskHookBridge : IHookBridge {
 
     override fun deoptimize(executable: Executable): Boolean = false
 
+    /** Called after NativeLoader has loaded every module-provided native library. */
+    internal fun hideLoadedModuleLibraries(): Boolean = nativeHideLoadedModuleLibraries()
+
     // ── Invoke original ───────────────────────────────────────────────────────
 
     override fun invokeOriginalMethod(method: Method, thisObject: Any?, args: Array<Any?>): Any? =
@@ -431,6 +434,7 @@ internal class ZygiskHookBridge : IHookBridge {
         @JvmStatic private external fun nativeUnhookMethod(targetArt: Long, backupArt: Long): Int
         @JvmStatic private external fun nativeTrustClassLoader(classLoader: ClassLoader): Boolean
         @JvmStatic private external fun nativeAllocateInstance(clazz: Class<*>): Any
+        @JvmStatic private external fun nativeHideLoadedModuleLibraries(): Boolean
     }
 
     // ── Unhook handle ─────────────────────────────────────────────────────────

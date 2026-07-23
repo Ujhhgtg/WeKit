@@ -41,6 +41,7 @@ static constexpr uint8_t COMPANION_REQUEST_APK = 0x02;
 static constexpr uint16_t MAX_PROCESS_NAME_BYTES = 255;
 static constexpr int APP_USER_RANGE = 100000;
 static constexpr const char* TARGETS_PATH = "/data/adb/wekit/injection-targets.tsv";
+static constexpr const char* WECHAT_PACKAGE = "com.tencent.mm";
 
 #ifndef MFD_CLOEXEC
 #define MFD_CLOEXEC 0x0001U
@@ -162,7 +163,7 @@ static bool is_enabled_target(jint uid, const std::string& process_name) {
 
         int target_user = -1;
         if (!parse_nonnegative_int(user_text, target_user) || target_user != user_id ||
-            enabled != "1") {
+            package_name != WECHAT_PACKAGE || enabled != "1") {
             continue;
         }
         if (is_process_for_package(process_name, package_name)) return true;
@@ -448,6 +449,9 @@ Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeTrustClassLoad
 JNIEXPORT jobject JNICALL
 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeAllocateInstance(
     JNIEnv* env, jclass clazz, jclass target_class);
+JNIEXPORT jboolean JNICALL
+Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHideLoadedModuleLibraries(
+    JNIEnv* env, jclass clazz);
 }
 
 // ─── Module class ─────────────────────────────────────────────────────────────
@@ -630,7 +634,6 @@ public:
         // anti-detection scan (which may run during Application.onCreate) never
         // sees the module path in /proc/self/maps.
         so_hide_path(so_path.c_str());
-        so_hide_path("wekit");
 
         jstring j_apk  = env->NewStringUTF(apk_path.c_str());
         jstring j_data = env->NewStringUTF(data_dir.c_str());
@@ -717,6 +720,9 @@ private:
              const_cast<char*>("(Ljava/lang/Class;)Ljava/lang/Object;"),
              reinterpret_cast<void*>(
                  Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeAllocateInstance)},
+            {const_cast<char*>("nativeHideLoadedModuleLibraries"), const_cast<char*>("()Z"),
+             reinterpret_cast<void*>(
+                 Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHideLoadedModuleLibraries)},
         };
         const jint result = e->RegisterNatives(
             bridge_class, methods, static_cast<jint>(sizeof(methods) / sizeof(methods[0])));
@@ -779,6 +785,18 @@ Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeAllocateInstan
     JNIEnv* env, jclass /*clazz*/, jclass target_class)
 {
     return target_class ? env->AllocObject(target_class) : nullptr;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_ujhhgtg_wekit_loader_entry_zygisk_ZygiskHookBridge_nativeHideLoadedModuleLibraries(
+    JNIEnv* /*env*/, jclass /*clazz*/)
+{
+    // NativeLoader has completed at this point. Hide every module-provided
+    // native library that can have been added after the early loader-SO pass.
+    const int dexkit = so_hide_path("libdexkit.so");
+    const int wekit_native = so_hide_path("libwekit_native.so");
+    const int mmkv = so_hide_path("libmmkv.so");
+    return dexkit >= 0 && wekit_native >= 0 && mmkv >= 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 } // extern "C"

@@ -8,6 +8,9 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 object ModuleLoader {
 
     private const val TAG = "ModuleLoader"
+    private val initLock = Any()
+
+    @Volatile
     private var isInitialized = false
 
     @Suppress("unused")
@@ -19,13 +22,19 @@ object ModuleLoader {
         hookBridge: IHookBridge?,
         modulePath: String,
         allowDynamicLoad: Boolean
-    ) {
-        if (isInitialized) return
-        isInitialized = true
+    ): Boolean = synchronized(initLock) {
+        if (isInitialized) return@synchronized true
 
-        WeLogger.i(TAG, "loading in entry point ${loaderService.entryPointName}")
-        runCatching {
+        try {
+            WeLogger.i(TAG, "loading in entry point ${loaderService.entryPointName}")
             UnifiedEntryPoint.entry(loaderService, hookBridge, initialClassLoader, modulePath)
-        }.onFailure { WeLogger.e(TAG, "UnifiedEntryPoint failed", it) }
+            isInitialized = true
+            true
+        } catch (t: Throwable) {
+            // Do not poison this process's loader state: a later lifecycle
+            // callback may have a usable host class loader.
+            WeLogger.e(TAG, "UnifiedEntryPoint failed", t)
+            false
+        }
     }
 }

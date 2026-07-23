@@ -1,5 +1,5 @@
 // WeKit Zygisk — SoHider: remap on-disk SO/APK mappings to anonymous memfd
-// Android 11+ (memfd_create available on earlier APIs but /proc remap is the value add).
+// Uses memfd remapping when the running kernel supports it.
 #pragma once
 
 #include <stdbool.h>
@@ -18,8 +18,9 @@ extern "C" {
  * After this call the mappings no longer show a file path in maps/smaps, so
  * WeChat's native module-detection scan sees no on-disk path for our library.
  *
- * Requires Android 11+ (uses SYS_memfd_create; detects at runtime and no-ops
- * gracefully on older releases).
+ * Also clears matching public link_map names used by dl_iterate_phdr, using the
+ * ELF DT_DEBUG/r_debug ABI rather than private linker structure offsets.
+ * SYS_memfd_create is detected at runtime, including on Android 9/10.
  *
  * Returns the number of segments successfully remapped, or -1 on fatal error.
  */

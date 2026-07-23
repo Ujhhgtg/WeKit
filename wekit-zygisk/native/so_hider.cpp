@@ -3,7 +3,6 @@
 // /proc/self/maps no longer shows an on-disk path for the injected library.
 #include "so_hider.h"
 
-#include <android/api-level.h>
 #include <android/log.h>
 #include <cerrno>
 #include <cstdint>
@@ -11,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
+#include <link.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -25,6 +25,53 @@
 
 static int memfd_create_compat(const char* name, unsigned int flags) {
     return static_cast<int>(syscall(SYS_memfd_create, name, flags));
+}
+
+// AOSP linker source (Android 10 through 14) builds dl_iterate_phdr() entries
+// from link_map.l_name. Find the public ELF r_debug list through DT_DEBUG, then
+// replace only that presentation name. This deliberately avoids guessing the
+// private, version-dependent soinfo layout.
+static char kHiddenLinkMapName[] = "";
+
+struct DebugFinder {
+    r_debug* debug = nullptr;
+};
+
+static int find_r_debug_callback(dl_phdr_info* info, size_t /*size*/, void* data) {
+    auto* finder = static_cast<DebugFinder*>(data);
+    if (!info || !info->dlpi_phdr || finder->debug) return 1;
+
+    for (ElfW(Half) i = 0; i < info->dlpi_phnum; ++i) {
+        const ElfW(Phdr)& phdr = info->dlpi_phdr[i];
+        if (phdr.p_type != PT_DYNAMIC) continue;
+        const auto* dynamic = reinterpret_cast<const ElfW(Dyn)*>(
+            info->dlpi_addr + phdr.p_vaddr);
+        for (; dynamic->d_tag != DT_NULL; ++dynamic) {
+            if (dynamic->d_tag == DT_DEBUG && dynamic->d_un.d_ptr != 0) {
+                finder->debug = reinterpret_cast<r_debug*>(dynamic->d_un.d_ptr);
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+static int hide_linker_names(const char* needle) {
+    DebugFinder finder;
+    dl_iterate_phdr(find_r_debug_callback, &finder);
+    if (!finder.debug) {
+        LOGW("so_hide_path: DT_DEBUG/r_debug is unavailable");
+        return 0;
+    }
+
+    int hidden = 0;
+    for (link_map* map = finder.debug->r_map; map != nullptr; map = map->l_next) {
+        if (map->l_name && strstr(map->l_name, needle) != nullptr) {
+            map->l_name = kHiddenLinkMapName;
+            ++hidden;
+        }
+    }
+    return hidden;
 }
 
 // ─── maps line parser ─────────────────────────────────────────────────────────
@@ -189,20 +236,16 @@ static bool remap_segment(const MapEntry* e) {
 int so_hide_path(const char* needle) {
     if (!needle || needle[0] == '\0') return -1;
 
-    // Android 11 check: memfd_create on API < 30 still works (syscall is
-    // available since kernel 3.17), but remapping shared libs in-process
-    // is only reliable on API 30+ due to linker namespace changes.
-    if (android_get_device_api_level() < 30) {
-        LOGI("so_hide_path: disabled below Android 11");
-        return 0;
-    }
+    const int linker_hidden = hide_linker_names(needle);
 
-    // Also perform a runtime probe because vendor kernels may omit memfd_create.
+    // Kernel support, rather than Android API level, determines whether memfd
+    // remapping is available. Android 9/10 devices with a supporting kernel use
+    // the same path; older vendor kernels simply retain their original maps.
     {
         int probe = memfd_create_compat("probe", MFD_CLOEXEC);
         if (probe < 0) {
-            LOGI("so_hide_path: memfd_create unavailable, skipping (device too old)");
-            return 0;
+            LOGI("so_hide_path: memfd_create unavailable; hidden %d linker names", linker_hidden);
+            return linker_hidden;
         }
         close(probe);
     }
@@ -210,7 +253,7 @@ int so_hide_path(const char* needle) {
     FILE* maps = fopen("/proc/self/maps", "r");
     if (!maps) {
         LOGE("so_hide_path: cannot open /proc/self/maps: %s", strerror(errno));
-        return -1;
+        return linker_hidden > 0 ? linker_hidden : -1;
     }
 
     // Collect matching entries first (don't modify maps while reading).
@@ -236,6 +279,7 @@ int so_hide_path(const char* needle) {
         }
     }
 
-    LOGI("so_hide_path: %d/%d segments remapped for needle '%s'", remapped, count, needle);
+    LOGI("so_hide_path: %d/%d maps and %d linker names hidden for needle '%s'",
+         remapped, count, linker_hidden, needle);
     return remapped;
 }
