@@ -78,6 +78,10 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      - name: Install system dependencies
+        run: |
+          sudo apt install -y gcc-multilib
+
       - name: Build native library
         run: |
           cargo xtask configure
