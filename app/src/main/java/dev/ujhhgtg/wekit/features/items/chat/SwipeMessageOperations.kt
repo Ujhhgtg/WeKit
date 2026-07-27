@@ -595,7 +595,6 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
         val context = view.context
         CoroutineScope(Dispatchers.IO).launch {
             val sent = RepeatMessages.repeatMessage(msgInfo)
-            showToastSuspend(context, if (sent) "已复读" else "复读失败! 可能为不支持的消息类型")
         }
     }
 
