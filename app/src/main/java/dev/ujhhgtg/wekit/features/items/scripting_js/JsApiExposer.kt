@@ -20,6 +20,7 @@ import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.asMethod
+import dev.ujhhgtg.wekit.utils.reflection.boxed
 import dev.ujhhgtg.wekit.utils.reflection.withDexKit
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.json.JsonArray
@@ -1094,7 +1095,25 @@ object JsApiExposer {
 
     private data class CoercedValue(val value: Any?, val score: Int)
 
-    private data class InvocationArguments(val values: Array<Any?>, val score: Int)
+    private data class InvocationArguments(val values: Array<Any?>, val score: Int) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as InvocationArguments
+
+            if (score != other.score) return false
+            if (!values.contentEquals(other.values)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = score
+            result = 31 * result + values.contentHashCode()
+            return result
+        }
+    }
 
     private data class MethodInvocation(val method: Method, val arguments: InvocationArguments)
 
@@ -1166,8 +1185,7 @@ object JsApiExposer {
     }
 
     private fun coerceValue(session: Session, value: Any?, type: Class<*>): CoercedValue? {
-        val raw = session.resolve(value)
-        if (raw == null) return if (type.isPrimitive) null else CoercedValue(null, 4)
+        val raw = session.resolve(value) ?: return if (type.isPrimitive) null else CoercedValue(null, 4)
 
         val boxedType = type.boxed()
         if (boxedType.isInstance(raw)) return CoercedValue(raw, typeDistance(raw.javaClass, boxedType))
@@ -1202,18 +1220,6 @@ object JsApiExposer {
             return CoercedValue(array, score)
         }
         return null
-    }
-
-    private fun Class<*>.boxed(): Class<*> = when (this) {
-        Byte::class.javaPrimitiveType -> Byte::class.javaObjectType
-        Short::class.javaPrimitiveType -> Short::class.javaObjectType
-        Int::class.javaPrimitiveType -> Int::class.javaObjectType
-        Long::class.javaPrimitiveType -> Long::class.javaObjectType
-        Float::class.javaPrimitiveType -> Float::class.javaObjectType
-        Double::class.javaPrimitiveType -> Double::class.javaObjectType
-        Boolean::class.javaPrimitiveType -> Boolean::class.javaObjectType
-        Char::class.javaPrimitiveType -> Char::class.javaObjectType
-        else -> this
     }
 
     private fun typeDistance(source: Class<*>, target: Class<*>): Int {
