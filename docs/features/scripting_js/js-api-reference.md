@@ -1,6 +1,6 @@
 # 脚本引擎 API 参考
 
-脚本引擎基于 QuickJS JavaScript 引擎, 提供完整的微信扩展 API。
+脚本引擎基于 Rhino JavaScript 引擎, 提供完整的微信扩展 API。
 
 ## 脚本目录
 
@@ -24,19 +24,19 @@ declare function onMessage(
     content: string,
     type: number,
     isSend: number
-): void;
+): string | MessageResponse | null | void;
 ```
 
-收到新消息时触发。返回值会被忽略；请直接调用 `wechat.reply*` 回复当前会话，或调用
-`wechat.send*` 指定发送目标。
+收到新消息时触发。可通过返回值拦截或修改消息。
 
 **示例:**
 
 ```javascript
 function onMessage(talker, content, type, isSend) {
     if (content === "ping") {
-        wechat.replyText("pong");
+        return "pong";
     }
+    return null;
 }
 ```
 

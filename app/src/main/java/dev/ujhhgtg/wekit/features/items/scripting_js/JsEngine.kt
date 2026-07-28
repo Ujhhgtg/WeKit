@@ -1,129 +1,135 @@
 package dev.ujhhgtg.wekit.features.items.scripting_js
 
-import com.dokar.quickjs.QuickJs
+import dev.ujhhgtg.wekit.features.items.scripting_js.JsEngine.ENTRY_POINTS
+import dev.ujhhgtg.wekit.features.items.scripting_js.JsEngine.anyScriptDefines
 import dev.ujhhgtg.wekit.utils.WeLogger
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import org.json.JSONArray
 import org.json.JSONObject
+import org.mozilla.javascript.Context
+import org.mozilla.javascript.Function
+import org.mozilla.javascript.NativeJSON
+import org.mozilla.javascript.Scriptable
+import org.mozilla.javascript.ScriptableObject
 import java.util.concurrent.ConcurrentHashMap
 
-/** Executes every script in one persistent quickjs-kt runtime. */
 object JsEngine {
+
     private const val TAG = "JsEngine"
-    private val entryPoints = listOf("onLoad", "onMessage", "onRequest", "onResponse")
-    private val slots = ConcurrentHashMap<String, ScriptSlot>()
 
+    /**
+     * A script's live top-level scope.
+     *
+     * The source is compiled and run exactly once into [scope]; every later event only looks up
+     * and calls the entry function. That keeps top-level state (`var seen = {};`) and anything
+     * `onLoad()` did to the globals visible across messages, requests and responses, instead of
+     * being thrown away after each callback — and it keeps the parse plus the API exposure off
+     * WeChat's database and network threads.
+     */
     private class ScriptSlot {
+        /** Source [scope] was built from; a script whose file changed is recompiled. */
         var source: String? = null
-        var runtime: ScriptRuntime? = null
+        var scope: ScriptableObject? = null
 
+        /**
+         * Which of [ENTRY_POINTS] the script currently defines, refreshed after every call.
+         *
+         * Read without holding the slot lock (see [anyScriptDefines]), hence volatile.
+         */
         @Volatile
         var entryPoints: Set<String> = emptySet()
-
-        fun close() {
-            runtime?.close()
-            runtime = null
-            source = null
-            entryPoints = emptySet()
-        }
     }
 
-    /** A QuickJS runtime cannot outlive its script source or the feature enablement. */
-    private class ScriptRuntime {
-        private val quickJs = QuickJs.create(Dispatchers.Default)
-        private val apiSession = JsApiExposer.createSession { id, args ->
-            invokeCallback(id, args)
-        }
+    private val ENTRY_POINTS = listOf("onLoad", "onMessage", "onRequest", "onResponse")
 
-        init {
-            JsApiExposer.exposeApis(quickJs, apiSession)
-            evaluate(JsApiExposer.BOOTSTRAP)
-        }
+    private val slots = ConcurrentHashMap<String, ScriptSlot>()
 
-        fun load(source: String, filename: String) {
-            evaluate(source, filename)
-        }
-
-        fun hasFunction(name: String): Boolean = evaluate(
-            "typeof globalThis[${JSONObject.quote(name)}] === 'function'"
-        ) as? Boolean ?: false
-
-        fun invokeEntry(name: String, args: List<Any?>): Any? = invoke(
-            function = "__wekitInvokeEntry",
-            firstArgument = JSONObject.quote(name),
-            args = args,
-        )
-
-        fun invokeCallback(id: Long, args: List<Any?>): Any? = invoke(
-            function = "__wekitInvokeCallback",
-            firstArgument = id.toString(),
-            args = args,
-        )
-
-        private fun invoke(function: String, firstArgument: String, args: List<Any?>): Any? = synchronized(this) {
-            val invocationId = apiSession.enqueueInvocation(args)
-            try {
-                evaluate("globalThis[${JSONObject.quote(function)}]($firstArgument,$invocationId)", function)
-            } finally {
-                apiSession.discardInvocation(invocationId)
-            }
-        }
-
-        private fun evaluate(source: String, filename: String = "script.js"): Any? = runBlocking {
-            quickJs.evaluate<Any?>(source, filename)
-        }
-
-        fun close() {
-            apiSession.clear()
-            quickJs.close()
-        }
-    }
-
+    /**
+     * Whether any loaded script defines [entry] right now.
+     *
+     * Answered purely from the cached scopes, so the packet interceptor can bail out before
+     * parsing anything — no [Context] is entered and no lock is taken. A script whose scope has
+     * not been built yet counts as "maybe", so nothing is ever skipped by accident.
+     */
     fun anyScriptDefines(entry: String): Boolean = JsScriptingHook.scripts.keys.any { name ->
         val slot = slots[name] ?: return@any true
         entry in slot.entryPoints
     }
 
+    /** Per-script variant of [anyScriptDefines]; same "not built yet means maybe" rule. */
     private fun scriptDefines(name: String, entry: String): Boolean {
         val slot = slots[name] ?: return true
         return entry in slot.entryPoints
     }
 
+    /** Drops every cached scope, e.g. when the feature is disabled and its scripts reloaded. */
     fun invalidateCache() {
-        slots.values.forEach { synchronized(it) { it.close() } }
         slots.clear()
     }
 
-    private fun <T> withScript(name: String, source: String, body: (ScriptRuntime) -> T): T {
+    /**
+     * Runs [body] against the persistent scope of script [name], building it first if this is the
+     * first time the script is seen or its [source] changed on disk.
+     *
+     * These callbacks arrive on WeChat's database and network threads, so the [Context] is entered
+     * and exited per call (Rhino requires that) while the scope stays shared; the slot itself is
+     * locked so a script never runs against its own scope concurrently.
+     */
+    private fun <T> withScript(
+        name: String,
+        source: String,
+        body: (Context, ScriptableObject) -> T,
+    ): T {
         val slot = slots.computeIfAbsent(name) { ScriptSlot() }
-        return synchronized(slot) {
-            val runtime = slot.runtime?.takeIf { slot.source == source } ?: run {
-                slot.close()
-                ScriptRuntime().also {
-                    it.load(source, name)
-                    slot.runtime = it
+        val cx: Context = Context.enter()
+        try {
+            // Android cannot load generated bytecode, so every thread that enters a Context has to
+            // put Rhino into interpreted mode — including the ones reusing an already-built scope,
+            // which never go through Context.init().
+            cx.isInterpretedMode = true
+
+            return synchronized(slot) {
+                val scope = slot.scope?.takeIf { slot.source == source } ?: run {
+                    val fresh = cx.init()
+                    // exec(cx, scope) is deprecated; it delegated to exec(cx, scope, scope), so
+                    // the scope doubles as `this` to keep top-level `this` bound as before.
+                    cx.compileString(source, name, 1, null).exec(cx, fresh, fresh)
                     slot.source = source
+                    slot.scope = fresh
+                    fresh
+                }
+                try {
+                    body(cx, scope)
+                } finally {
+                    // Recorded after the call, not only after the build, so a hook installed from
+                    // inside onLoad() (or any later callback) is picked up too.
+                    slot.entryPoints = ENTRY_POINTS.filterTo(HashSet()) {
+                        scope.get(it, scope) is Function
+                    }
                 }
             }
-            try {
-                body(runtime)
-            } finally {
-                slot.entryPoints = entryPoints.filterTo(HashSet()) { runtime.hasFunction(it) }
-            }
+        } finally {
+            Context.exit()
         }
     }
 
     fun executeAllOnLoad(scripts: Map<String, String>) {
         for ((name, source) in scripts) {
+            WeLogger.d(TAG, "executing onLoad for script name='${name}'")
             try {
-                withScript(name, source) { runtime ->
-                    if (runtime.hasFunction("onLoad")) runtime.invokeEntry("onLoad", emptyList())
-                }
+                executeOnLoad(name, source)
             } catch (e: Exception) {
-                WeLogger.e(TAG, "script name='$name' threw during onLoad", e)
+                WeLogger.e(TAG, "script name='${name}' threw during onLoad", e)
             }
         }
+    }
+
+    private fun executeOnLoad(name: String, source: String) = withScript<Unit>(name, source) { cx, scope ->
+        val fn = scope.get("onLoad", scope)
+        if (fn == ScriptableObject.NOT_FOUND || fn !is Function) {
+            WeLogger.d(TAG, "JS script does not define onLoad()")
+            return@withScript
+        }
+
+        fn.call(cx, scope, scope, arrayOf<Any?>())
     }
 
     fun executeAllOnMessage(
@@ -137,67 +143,132 @@ object JsEngine {
             WeLogger.i(TAG, "message is blank")
             return
         }
+
         for ((name, source) in scripts) {
             if (!scriptDefines(name, "onMessage")) continue
+
+            WeLogger.d(TAG, "evaluating script name='${name}'")
+
             try {
-                withScript(name, source) { runtime ->
-                    if (!runtime.hasFunction("onMessage")) return@withScript
-                    val previous = JsApiExposer.beginMessageContext(talker)
-                    try {
-                        runtime.invokeEntry("onMessage", listOf(talker, content, type, isSend))
-                    } finally {
-                        JsApiExposer.endMessageContext(previous)
-                    }
-                }
+                executeOnMessage(name, source, talker, content, type, isSend)
             } catch (e: Exception) {
-                WeLogger.e(TAG, "script name='$name' threw during onMessage", e)
+                WeLogger.e(TAG, "script name='${name}' threw during onMessage", e)
             }
         }
     }
 
-    fun executeAllOnRequest(uri: String, cgiId: Int, json: JSONObject): JSONObject? =
-        executeAllWithJson("onRequest", uri, cgiId, json)
+    private fun executeOnMessage(
+        name: String,
+        source: String,
+        talker: String,
+        content: String,
+        type: Int,
+        isSend: Int,
+    ) = withScript<Unit>(name, source) { cx, scope ->
+        val fn = scope.get("onMessage", scope)
+        if (fn == ScriptableObject.NOT_FOUND || fn !is Function) {
+            WeLogger.d(TAG, "JS script does not define onMessage()")
+            return@withScript
+        }
 
-    fun executeAllOnResponse(uri: String, cgiId: Int, json: JSONObject): JSONObject? =
-        executeAllWithJson("onResponse", uri, cgiId, json)
+        // wechat.reply*() has no argument for the recipient, so it resolves the message being
+        // handled from a thread-local. The previous value is restored rather than cleared, because
+        // sending a reply can insert a row itself and re-enter this callback on the same thread.
+        val previous = JsApiExposer.beginMessageContext(talker)
+        val result = try {
+            fn.call(cx, scope, scope, arrayOf<Any?>(talker, content, type, isSend))
+        } finally {
+            JsApiExposer.endMessageContext(previous)
+        }
 
-    private fun executeAllWithJson(entry: String, uri: String, cgiId: Int, json: JSONObject): JSONObject? {
-        val original = json.toString()
-        var current = json
-        var serialized = original
+        // `return "pong"` / `return { type: "image", path: ... }` is documented in globals.d.ts;
+        // dispatching it never throws, so a script cannot break WeChat's DB insert path.
+        JsApiExposer.dispatchMessageResponse(talker, result)
+    }
+
+    /** @return the modified body, or `null` if no script actually changed anything. */
+    fun executeAllOnRequest(
+        uri: String,
+        cgiId: Int,
+        json: JSONObject,
+    ): JSONObject? = executeAllWithJson("onRequest", uri, cgiId, json)
+
+    /** @return the modified body, or `null` if no script actually changed anything. */
+    fun executeAllOnResponse(
+        uri: String,
+        cgiId: Int,
+        json: JSONObject,
+    ): JSONObject? = executeAllWithJson("onResponse", uri, cgiId, json)
+
+    /**
+     * Chains every script's [entry] hook, each one seeing what the previous one returned.
+     *
+     * Scripts are expected to `return json` whether or not they touched it, so "a script returned
+     * something" is not a useful signal. The serialized form before and after the chain is
+     * compared instead, and `null` is returned when they match — the caller then leaves the packet
+     * completely alone instead of round-tripping it through the proto serializer for nothing.
+     */
+    private fun executeAllWithJson(
+        entry: String,
+        uri: String,
+        cgiId: Int,
+        json: JSONObject,
+    ): JSONObject? {
+        val originalStr = json.toString()
+
+        var modifiedJson = json
+        var modifiedStr = originalStr
+
         for ((name, source) in JsScriptingHook.scripts) {
             if (!scriptDefines(name, entry)) continue
+
             try {
-                val result = withScript(name, source) { runtime ->
-                    if (!runtime.hasFunction(entry)) return@withScript null
-                    runtime.invokeEntry(entry, listOf(uri, cgiId, JsApiExposer.structuredValue(current.toKotlinValue())))
+                val result = executeWithJson(name, source, entry, uri, cgiId, modifiedJson)
+                if (result != null) {
+                    modifiedJson = result
+                    modifiedStr = result.toString()
                 }
-                val map = result as? Map<*, *> ?: continue
-                val next = JSONObject(map.entries.associate { it.key.toString() to it.value.toJsonCompatible() })
-                current = next
-                serialized = next.toString()
             } catch (e: Exception) {
-                WeLogger.e(TAG, "script name='$name' threw during $entry", e)
+                WeLogger.e(TAG, "script name='${name}' threw during $entry", e)
             }
         }
-        return current.takeIf { serialized != original }
+
+        return if (modifiedStr == originalStr) null else modifiedJson
     }
 
-    private fun Any?.toJsonCompatible(): Any? = when (this) {
-        null -> JSONObject.NULL
-        is Map<*, *> -> JSONObject(entries.associate { it.key.toString() to it.value.toJsonCompatible() })
-        is Iterable<*> -> JSONArray(map { it.toJsonCompatible() })
-        else -> this
-    }
+    private fun executeWithJson(
+        name: String,
+        source: String,
+        entry: String,
+        uri: String,
+        cgiId: Int,
+        json: JSONObject,
+    ): JSONObject? = withScript<JSONObject?>(name, source) { cx, scope ->
+        val fn = scope.get(entry, scope)
+        if (fn == ScriptableObject.NOT_FOUND || fn !is Function) {
+            return@withScript null
+        }
 
-    private fun JSONObject.toKotlinValue(): Map<String, Any?> = keys().asSequence().associateWith { key ->
-        get(key).toKotlinValue()
-    }
+        // JSONObject.toString() is a valid JS object literal, so the parentheses turn it into an
+        // expression rather than a block.
+        val jsonStr = json.toString()
+        val jsonObj = cx.evaluateString(scope, "($jsonStr)", "json", 1, null)
 
-    private fun Any?.toKotlinValue(): Any? = when (this) {
-        is JSONObject -> toKotlinValue()
-        is JSONArray -> (0 until length()).map { get(it).toKotlinValue() }
-        JSONObject.NULL -> null
-        else -> this
+        val result = fn.call(cx, scope, scope, arrayOf<Any?>(uri, cgiId, jsonObj))
+            ?: return@withScript null
+
+        val resultStr: String = when (result) {
+            is CharSequence -> result.toString()
+
+            // The scope's JSON global is a NativeJSON, which is a *sibling* of NativeObject (both
+            // extend ScriptableObject) — casting it to NativeObject always threw. Call the static
+            // stringify instead, which is what that global is backed by anyway.
+            is Scriptable -> (NativeJSON.stringify(cx, scope, result, null, "") as? CharSequence)?.toString()
+                ?: return@withScript null
+
+            else -> return@withScript null
+        }
+
+        JSONObject(resultStr)
     }
 }
