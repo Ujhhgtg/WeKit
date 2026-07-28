@@ -81,10 +81,26 @@ cargo run --release
 |----------------------|-----------------------------------------|-------------------------|
 | `TURSO_DATABASE_URL` | 数据库连接 URL。以 `file:` 开头使用本地, 否则连接远程      | `file:read_receipts.db` |
 | `TURSO_AUTH_TOKEN`   | 远程数据库的认证令牌                              | 空                       |
+| `AUTH_TOKEN`         | 仪表盘和 API 的 Bearer <REDACTED> 认证令牌。未设置时随机生成并打印到日志 | 随机生成 |
 | `RUST_LOG`           | 日志级别 (`debug`, `info`, `warn`, `error`) | `debug`                 |
-| —                    | 绑定地址 (需修改源码中的 `0.0.0.0:8080`)           | `0.0.0.0:8080`          |
+| `BIND_ADDR`          | 绑定地址                                    | `0.0.0.0`               |
+| `PORT`               | 绑定端口                                    | `8080`                  |
 
-如果需要修改端口, 编辑 `src/main.rs` 中的 `SocketAddr::from(([0, 0, 0, 0], 8080))` 然后重新编译。
+### 鉴权说明
+
+服务端支持静态 Bearer <REDACTED> 鉴权。通过环境变量 `AUTH_TOKEN` 配置:
+
+```bash
+AUTH_TOKEN=my-secret-token cargo run
+```
+
+或在 systemd service 文件中添加 `Environment=AUTH_TOKEN=...`。
+
+- 未配置 `AUTH_TOKEN` 时, 服务端会随机生成一个 token 并打印到日志, 所有请求仍然放行(向后兼容)。
+- `/pixel` 端点始终开放(微信内置浏览器无法携带自定义 Header)。
+- 其余所有端点需要 `Authorization: Bearer <token>` Header。
+- 仪表盘页面未认证时会显示登录表单, 输入 token 后存入 localStorage, 后续请求自动携带。
+- 客户端(Android 模块)在设置中填写「认证令牌」后, `/register` 和 `/count` 请求会自动附加 Authorization Header。收到 401 时会在下次进入设置时提示认证失败。
 
 ### REPL 命令
 

@@ -16,3 +16,5 @@ sha2 = "0.11"
 hex = "0.4"
 crossterm = { version = "0.29", features = ["events"] }
 rustyline = "18.0.1"
+tower = { version = "0.5", features = ["util"] }
+cookie = "0.18"

@@ -1,8 +1,9 @@
 use axum::{
-    Json, Router,
+    Form, Json, Router,
     extract::{ConnectInfo, Path, Query, State},
     http::{StatusCode, header},
-    response::{IntoResponse, Response},
+    middleware::{self, Next},
+    response::{IntoResponse, Response, Redirect},
     routing::{get, post},
 };
 use chrono::Utc;
@@ -74,8 +75,12 @@ struct CountResponse {
     count: i64,
 }
 
+#[derive(Clone)]
+struct AuthToken(String);
+
 struct AppState {
     db: Connection,
+    auth_token: AuthToken,
 }
 
 /// One registered message plus its deduped-by-IP read count, for the dashboard.
@@ -715,14 +720,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let db_url =
         std::env::var("TURSO_DATABASE_URL").unwrap_or_else(|_| "file:read_receipts.db".to_string());
-    let auth_token = std::env::var("TURSO_AUTH_TOKEN").unwrap_or_default();
+    let turso_auth_token = std::env::var("TURSO_AUTH_TOKEN").unwrap_or_default();
+
+    let server_auth_token = std::env::var("AUTH_TOKEN").unwrap_or_else(|_| {
+        let token = format!("{:016x}", std::process::id() as u64 ^ Utc::now().timestamp_millis() as u64);
+        warn!("AUTH_TOKEN not set, generated random token: {}", token);
+        token
+    });
+    if server_auth_token.len() < 8 {
+        warn!("AUTH_TOKEN is very short (< 8 chars), consider using a stronger token");
+    }
+    let auth_token = AuthToken(server_auth_token);
 
     let db = if db_url.starts_with("file:") {
         Builder::new_local(db_url.replace("file:", ""))
             .build()
             .await?
     } else {
-        Builder::new_remote(db_url, auth_token).build().await?
+        Builder::new_remote(db_url, turso_auth_token).build().await?
     };
 
     let conn = db.connect()?;
@@ -763,7 +778,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             get(list_messages_for_sender).delete(delete_messages_for_sender),
         )
         .route("/reads/{id}", get(list_reads_for_message))
-        .with_state(Arc::new(AppState { db: conn }));
+        .route("/auth/verify", post(auth_verify))
+        .route("/auth/status", get(auth_status))
+        .route("/favicon.ico", get(serve_favicon))
+        .with_state(Arc::new(AppState { db: conn, auth_token: auth_token.clone() }))
+        .layer(middleware::from_fn_with_state(auth_token, auth_check));
 
     // Bind host/port are configurable via env vars, falling back to 0.0.0.0:8080.
     // BIND_ADDR must parse as an IP address; PORT as a u16.
@@ -867,6 +886,99 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = server_handle.await;
 
     Ok(())
+}
+
+fn extract_auth_token(req: &axum::extract::Request, expected: &AuthToken) -> bool {
+    if expected.0.is_empty() {
+        return true;
+    }
+
+    if let Some(cookie_header) = req.headers().get("cookie")
+        && let Ok(cookie_str) = cookie_header.to_str()
+    {
+        for pair in cookie_str.split(';') {
+            let pair = pair.trim();
+            if let Some(value) = pair.strip_prefix("auth_token=") {
+                if value == expected.0 {
+                    return true;
+                }
+            }
+        }
+    }
+
+    if let Some(auth_header) = req.headers().get("authorization")
+        if let Ok(header_str) = auth_header.to_str()
+        if header_str.strip_prefix("Bearer ") == Some(&expected.0)
+    {
+        return true;
+    }
+
+    false
+}
+
+async fn auth_check(
+    State(expected): State<AuthToken>,
+    req: axum::extract::Request,
+    next: Next,
+) -> Result<impl IntoResponse, StatusCode> {
+    let path = req.uri().path();
+
+    if path == "/pixel" || path == "/auth/verify" || path == "/auth/status" || path == "/favicon.ico" {
+        return Ok(next.run(req).await);
+    }
+
+    if extract_auth_token(&req, &expected) {
+        Ok(next.run(req).await)
+    } else if path == "/" {
+        Ok(serve_login_page().into_response())
+    } else {
+        Err(StatusCode::UNAUTHORIZED)
+    }
+}
+
+fn serve_login_page() -> Response<axum::body::Body> {
+    let html = r#"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Login — Read Receipts</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E📨%3C/text%3E%3C/svg%3E" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:2rem;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+h1{font-size:1.25rem;font-weight:700;margin-bottom:.5rem}
+p{font-size:.85rem;color:#94a3b8;margin-bottom:1.5rem}
+input{width:100%;padding:.6rem .8rem;border:1px solid #475569;border-radius:6px;font-size:.9rem;background:#0f172a;color:#e2e8f0;outline:none;transition:border-color .15s}
+input:focus{border-color:#3b82f6}
+button{width:100%;margin-top:1rem;padding:.6rem;border:none;border-radius:6px;font-size:.9rem;font-weight:600;cursor:pointer;background:#2563eb;color:#fff;transition:background .15s}
+button:hover{background:#1d4ed8}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>🔒 Read Receipts</h1>
+<p>Enter access token to view the dashboard.</p>
+<form method="POST" action="/auth/verify">
+<input type="password" name="token" placeholder="Access Token" autofocus/>
+<button type="submit">Unlock</button>
+</form>
+</div>
+</body>
+</html>"#;
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+        .body(axum::body::Body::from(html))
+        .unwrap()
+}
+
+async fn serve_favicon() -> impl IntoResponse {
+    Response::builder()
+        .status(StatusCode::NO_CONTENT)
+        .body(axum::body::Body::empty())
+        .unwrap()
 }
 
 /// Serves the static index HTML page.
@@ -1165,6 +1277,36 @@ async fn delete_all_messages(
         })?;
 
     Ok(Json(serde_json::json!({"status": "ok"})))
+}
+
+#[derive(Deserialize)]
+struct VerifyTokenRequest {
+    token: String,
+}
+
+#[derive(Serialize)]
+struct AuthStatusResponse {
+    auth_required: bool,
+}
+
+async fn auth_verify(
+    State(state): State<Arc<AppState>>,
+    Form(req): Form<VerifyTokenRequest>,
+) -> Result<impl IntoResponse, StatusCode> {
+    if state.auth_token.0.is_empty() || req.token != state.auth_token.0 {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let cookie = format!("auth_token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000", state.auth_token.0);
+    Ok([(header::SET_COOKIE, cookie)], Redirect::to("/"))
+}
+
+async fn auth_status(
+    State(state): State<Arc<AppState>>,
+) -> Json<AuthStatusResponse> {
+    Json(AuthStatusResponse {
+        auth_required: !state.auth_token.0.is_empty(),
+    })
 }
 
 /// Deletes all messages sent by a specific wxId and their associated reads.

@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.sp
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeApi
@@ -64,7 +65,11 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
     // ── Preferences ─────────────────────────────────────────────────────────
     private var prefix by prefOption("read_receipts_prefix", "#")
     private var server by prefOption("read_receipts_server", "")
+    private var authToken by prefOption("read_receipts_auth_token", "")
     private var pollIntervalSecs by prefOption("read_receipts_poll_interval", 5)
+
+    @Volatile
+    private var lastAuthFail = false
 
     /** Normalized server base URL with any trailing slash removed. */
     private val serverBase: String get() = server.trimEnd('/')
@@ -106,9 +111,18 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                     put("content", content)
                     put("createTime", createTime)
                 }.toString().toRequestBody(jsonMediaType)
-                val request = Request.Builder().url("$serverBase/register").post(body).build()
+                val request = Request.Builder()
+                    .url("$serverBase/register")
+                    .post(body)
+                    .apply { if (authToken.isNotBlank()) addHeader("Authorization", "Bearer $authToken") }
+                    .build()
                 httpClient.newCall(request).execute().use { resp ->
-                    if (!resp.isSuccessful) WeLogger.w(TAG, "register failed: HTTP ${resp.code}")
+                    if (resp.code == 401) {
+                        lastAuthFail = true
+                        WeLogger.w(TAG, "register: authentication failed (401)")
+                    } else if (!resp.isSuccessful) {
+                        WeLogger.w(TAG, "register failed: HTTP ${resp.code}")
+                    }
                 }
             }.onFailure { WeLogger.w(TAG, "register request failed", it) }
         }
@@ -118,8 +132,17 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
     private fun fetchCount(wxId: String, id: String): Int? {
         return runCatching {
             val url = "$serverBase/count?wxId=$wxId&id=$id"
-            val request = Request.Builder().url(url).get().build()
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .apply { if (authToken.isNotBlank()) addHeader("Authorization", "Bearer $authToken") }
+                .build()
             httpClient.newCall(request).execute().use { resp ->
+                if (resp.code == 401) {
+                    lastAuthFail = true
+                    WeLogger.w(TAG, "count: authentication failed (401)")
+                    return null
+                }
                 if (!resp.isSuccessful) return null
                 val text = resp.body.string()
                 DefaultJson.parseToJsonElement(text).jsonObject["count"]?.jsonPrimitive?.content?.toIntOrNull()
@@ -293,6 +316,7 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var serverInput by remember { mutableStateOf(server) }
+            var authTokenInput by remember { mutableStateOf(authToken) }
             var prefixInput by remember { mutableStateOf(prefix) }
             var intervalInput by remember { mutableStateOf(pollIntervalSecs.toString()) }
 
@@ -300,10 +324,24 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                 title = { Text("已读追踪") },
                 text = {
                     DefaultColumn {
+                        if (lastAuthFail) {
+                            Text(
+                                "⚠ 认证失败，请检查认证令牌",
+                                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp,
+                            )
+                        }
                         TextField(
                             value = serverInput,
                             onValueChange = { serverInput = it },
                             label = { Text("服务器") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        TextField(
+                            value = authTokenInput,
+                            onValueChange = { authTokenInput = it },
+                            label = { Text("认证令牌") },
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                             modifier = Modifier.fillMaxWidth()
                         )
                         TextField(
@@ -329,6 +367,8 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                             return@Button
                         }
                         server = serverInput
+                        authToken = authTokenInput
+                        lastAuthFail = false
 
                         if (prefixInput.isEmpty()) {
                             showToast(context, "警告: 「触发前缀」为空, 所有文本消息将启用已读追踪!")

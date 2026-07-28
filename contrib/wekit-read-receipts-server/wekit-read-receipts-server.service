@@ -14,6 +14,9 @@ ExecStart=/home/ujhhgtg/coding/WeKit/contrib/wekit-read-receipts-server/target/r
 Environment=RUST_LOG=info
 Environment=BIND_ADDR=0.0.0.0
 Environment=PORT=8080
+# Set a static access token for dashboard/API authentication. If unset, a random
+# token is generated at startup and printed to logs.
+# Environment=AUTH_TOKEN=your-secret-token
 # Optional remote Turso DB instead of the local file:read_receipts.db:
 # Environment=TURSO_DATABASE_URL=libsql://...
 # Environment=TURSO_AUTH_TOKEN=...
