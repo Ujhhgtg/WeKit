@@ -2,13 +2,16 @@ package dev.ujhhgtg.wekit.features.items.scripting_js
 
 import android.os.Handler
 import android.os.Looper
-import dev.ujhhgtg.reflekt.utils.createInstance
+import com.dokar.quickjs.QuickJs
+import com.dokar.quickjs.binding.define
+import com.dokar.quickjs.binding.toJsObject
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
+import dev.ujhhgtg.wekit.features.items.scripting_js.JsApiExposer.BOOTSTRAP
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -35,23 +38,21 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import org.luckypray.dexkit.result.ClassData
 import org.luckypray.dexkit.result.MethodData
-import org.mozilla.javascript.BaseFunction
-import org.mozilla.javascript.Context
-import org.mozilla.javascript.NativeArray
-import org.mozilla.javascript.NativeObject
-import org.mozilla.javascript.Scriptable
-import org.mozilla.javascript.ScriptableObject
-import org.mozilla.javascript.Undefined
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.absolutePathString
@@ -62,15 +63,21 @@ import kotlin.io.path.fileSize
 import kotlin.io.path.outputStream
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import java.lang.reflect.Array as JavaArray
 
+/**
+ * Installs WeKit's JavaScript API using quickjs-kt bindings.
+ *
+ * Values cross the JNI boundary only as QuickJS-supported primitives, lists and [Map]s. Java
+ * references and JavaScript callbacks are represented by IDs owned by one script runtime, so no
+ * QuickJS value is ever retained or called outside its runtime.
+ */
 object JsApiExposer {
     private const val TAG = "JsApiExposer"
     private const val TAG_LOG_API = "JsApiExposer.LogApi"
     private const val TAG_HTTP_API = "JsApiExposer.HttpApi"
-    private const val TAG_XPOSED_API = "JsApiExposer.XposedApi"
-    private const val TAG_REFLECT_API = "JsApiExposer.ReflectApi"
-    private const val TAG_DEXKIT_API = "JsApiExposer.DexKitApi"
     private const val TAG_WECHAT_API = "JsApiExposer.WeChatApi"
+    private const val MAX_CACHE_SIZE_IN_MIB = 500
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
@@ -80,161 +87,492 @@ object JsApiExposer {
             .build()
     }
 
-    fun exposeApis(scope: ScriptableObject, talker: String? = null) {
-        exposeHttpApis(scope)
-        exposeLogApis(scope)
-        exposeStorageApis(scope)
-        exposeDateTimeApis(scope)
-        exposeXposedApis(scope)
-        exposeReflectApis(scope)
-        exposeDexKitApis(scope)
-        exposeTaskApis(scope)
-        exposeHostInfoApis(scope)
-        exposeWeChatApis(scope, talker)
+    /** Calls a callback registered in the owning persistent QuickJS global scope. */
+    fun interface CallbackInvoker {
+        fun invoke(callbackId: Long, args: List<Any?>): Any?
     }
 
-    private const val MAX_CACHE_SIZE_IN_MIB = 500
+    /** Per-script API state. It must be discarded together with its QuickJS runtime. */
+    class Session internal constructor(
+        private val callbacks: CallbackInvoker,
+    ) {
+        private val nextHandle = AtomicLong(1)
+        private val nextInvocation = AtomicLong(1)
+        private val handles = ConcurrentHashMap<Long, Any>()
+        private val handleIds = Collections.synchronizedMap(IdentityHashMap<Any, Long>())
+        private val invocations = ConcurrentHashMap<Long, List<Any?>>()
 
+        fun retain(value: Any): Long = synchronized(handleIds) {
+            handleIds[value] ?: nextHandle.getAndIncrement().also { id ->
+                handleIds[value] = id
+                handles[id] = value
+            }
+        }
+
+        fun resolve(value: Any?): Any? {
+            val map = value as? Map<*, *> ?: return value
+            if (map[BRIDGE_KEY] != HANDLE_BRIDGE_TYPE) return value
+            val id = (map[HANDLE_KEY] as? Number)?.toLong() ?: return value
+            return handles[id] ?: value
+        }
+
+        fun enqueueInvocation(args: List<Any?>): Long = nextInvocation.getAndIncrement().also { invocations[it] = args }
+
+        fun takeInvocation(id: Long): List<Any?> =
+            invocations.remove(id)?.map { bridgeValue(this, it) } ?: emptyList()
+
+        fun discardInvocation(id: Long) {
+            invocations.remove(id)
+        }
+
+        fun callback(id: Any?, args: List<Any?>): Any? {
+            val callbackId = (id as? Number)?.toLong() ?: return null
+            return callbacks.invoke(callbackId, args)
+        }
+
+        fun clear() {
+            handles.clear()
+            handleIds.clear()
+            invocations.clear()
+        }
+    }
+
+    private const val HANDLE_KEY = "__wekitHandle"
+    private const val BRIDGE_KEY = "__wekitBridge"
+    private const val HANDLE_BRIDGE_TYPE = "javaHandle"
+
+    /** Marks JSON-shaped values that are intentionally transferred as plain JavaScript data. */
+    class StructuredValue internal constructor(internal val value: Any?)
+
+    /** Keeps an API-owned JavaScript array while preserving Java object elements as handles. */
+    class BridgeList internal constructor(internal val values: List<Any?>)
+
+    fun createSession(callbacks: CallbackInvoker): Session = Session(callbacks)
+
+    fun structuredValue(value: Any?): StructuredValue = StructuredValue(value)
+
+    /**
+     * Bind every public namespace with quickjs-kt's DSL. Callback-taking APIs receive a callback
+     * ID after [BOOTSTRAP] wraps their public JavaScript facade.
+     */
     @OptIn(ExperimentalPathApi::class)
-    private fun exposeHttpApis(scope: ScriptableObject) {
-        val httpObj = NativeObject()
+    fun exposeApis(quickJs: QuickJs, session: Session) {
+        exposeBridge(quickJs, session)
 
-        // http.get(url, params?, headers?)
-        ScriptableObject.putProperty(
-            httpObj, "get",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val url = args.getOrNull(0)?.toString() ?: return null
-                    val params = args.getOrNull(1) as? NativeObject
-                    val headers = args.getOrNull(2) as? NativeObject
-
-                    WeLogger.i(
-                        TAG_HTTP_API,
-                        "http.get invoked: url=$url params=$params headers=$headers"
-                    )
-
-                    return try {
-                        httpGet(url, params, headers)
-                    } catch (e: Exception) {
-                        WeLogger.e(TAG_HTTP_API, "http.get failed: $url", e)
-                        createErrorResponse(e)
-                    }
+        quickJs.define("http") {
+            function("get") { args ->
+                val url = args.string(0) ?: return@function errorResponse("Missing URL")
+                try {
+                    httpGet(url, args.map(1), args.map(2))
+                } catch (e: Exception) {
+                    WeLogger.e(TAG_HTTP_API, "http.get failed: $url", e)
+                    errorResponse(e.message ?: "Unknown error")
                 }
             }
-        )
-
-        // http.post(url, form_data_body?, json_body?, headers?)
-        ScriptableObject.putProperty(
-            httpObj, "post",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val url = args.getOrNull(0)?.toString() ?: return null
-                    val formData = args.getOrNull(1) as? NativeObject
-                    val jsonBody = args.getOrNull(2) as? NativeObject
-                    val headers = args.getOrNull(3) as? NativeObject
-
-                    WeLogger.i(
-                        TAG_HTTP_API,
-                        "http.post invoked: url=$url formData=$formData jsonBody=$jsonBody headers=$headers"
-                    )
-
-                    return try {
-                        httpPost(url, formData, jsonBody, headers)
-                    } catch (e: Exception) {
-                        WeLogger.e(TAG_HTTP_API, "http.post failed: $url", e)
-                        createErrorResponse(e)
-                    }
+            function("post") { args ->
+                val url = args.string(0) ?: return@function errorResponse("Missing URL")
+                try {
+                    httpPost(url, args.map(1), args.map(2), args.map(3))
+                } catch (e: Exception) {
+                    WeLogger.e(TAG_HTTP_API, "http.post failed: $url", e)
+                    errorResponse(e.message ?: "Unknown error")
                 }
             }
-        )
-
-        // http.download(url, filename?) -> path: String?
-        ScriptableObject.putProperty(
-            httpObj, "download",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val url = args.getOrNull(0)?.toString() ?: return null
-                    var filename = args.getOrNull(1)?.toString()
-
-                    WeLogger.i(TAG_HTTP_API, "http.download invoked: url=$url filename=$filename")
-
-                    if (filename.isNullOrBlank()) {
-                        filename = "download_${System.currentTimeMillis()}"
-                        WeLogger.i(TAG_HTTP_API, "no filename provided, using default: $filename")
+            function("download") { args ->
+                val url = args.string(0) ?: return@function null
+                val filename = args.string(1).takeUnless { it.isNullOrBlank() }
+                    ?: "download_${System.currentTimeMillis()}"
+                try {
+                    val cacheDir = (KnownPaths.moduleCache / "javascript_http_api").createDirsSafe()
+                    if (directorySize(cacheDir) / 1024 / 1024 >= MAX_CACHE_SIZE_IN_MIB) {
+                        cacheDir.deleteRecursively()
                     }
-
-                    return try {
-                        val cacheDir = (KnownPaths.moduleCache / "javascript_http_api").createDirsSafe()
-
-                        // drop cache if total size of files exceeds limit
-                        val totalBytes = try {
-                            java.nio.file.Files.walk(cacheDir)
-                                .filter { !java.nio.file.Files.isDirectory(it) }
-                                .mapToLong { it.fileSize() }
-                                .sum()
-                        } catch (_: Exception) {
-                            0L
-                        }
-                        if (totalBytes / 1024 / 1024 >= MAX_CACHE_SIZE_IN_MIB) {
-                            WeLogger.w(
-                                TAG,
-                                "http.download cache size too large, dropping cache..."
-                            )
-                            cacheDir.deleteRecursively()
-                        }
-
-                        val destFile = cacheDir.resolve(filename)
-
-                        if (performDownload(url, destFile)) destFile.absolutePathString() else null
-                    } catch (e: Exception) {
-                        WeLogger.e(TAG_HTTP_API, "http.download failed: $url", e)
-                        null
-                    }
+                    val target = cacheDir.resolve(filename)
+                    if (performDownload(url, target)) target.absolutePathString() else null
+                } catch (e: Exception) {
+                    WeLogger.e(TAG_HTTP_API, "http.download failed: $url", e)
+                    null
                 }
             }
-        )
+        }
 
-        ScriptableObject.putProperty(scope, "http", httpObj)
+        quickJs.define("log") {
+            function("d") { args -> WeLogger.d(TAG_LOG_API, args.logMessage(session)) }
+            function("i") { args -> WeLogger.i(TAG_LOG_API, args.logMessage(session)) }
+            function("w") { args -> WeLogger.w(TAG_LOG_API, args.logMessage(session)) }
+            function("e") { args -> WeLogger.e(TAG_LOG_API, args.logMessage(session)) }
+        }
+
+        quickJs.define("storage") {
+            function("get") { args -> storage[args.string(0) ?: return@function null].toJsValue() }
+            function("getOrDefault") { args ->
+                val key = args.string(0) ?: return@function args.getOrNull(1)
+                storage.getOrDefault(key, args.getOrNull(1)).toJsValue()
+            }
+            function("set") { args ->
+                val key = args.string(0) ?: return@function
+                if (args.size < 2 || args[1] == null) storage.remove(key) else storage[key] = args[1].storageValue()
+                saveStorageToDisk()
+            }
+            function("clear") { storage.clear(); saveStorageToDisk() }
+            function("remove") { args ->
+                val key = args.string(0) ?: return@function null
+                storage.remove(key).also { saveStorageToDisk() }.toJsValue()
+            }
+            function("hasKey") { args -> storage.containsKey(args.string(0)) }
+            function("keys") { storage.keys.toList() }
+            function("size") { storage.size }
+            function("isEmpty") { storage.isEmpty() }
+        }
+
+        quickJs.define("datetime") {
+            function("sleepS") { args -> sleep(args.number(0)?.toLong()?.times(1_000) ?: 0) }
+            function("sleepMs") { args -> sleep(args.number(0)?.toLong() ?: 0) }
+            function("getCurrentUnixEpoch") { System.currentTimeMillis() / 1_000L }
+        }
+
+        quickJs.define("hostinfo") {
+            property("application") { getter { bridgeValue(session, HostInfo.application) } }
+            property("packageName") { getter { HostInfo.packageName } }
+            property("versionCode") { getter { HostInfo.versionCode } }
+            property("versionName") { getter { HostInfo.versionName } }
+            property("isHostGooglePlay") { getter { HostInfo.isHostGooglePlay } }
+        }
+
+        quickJs.define("wechat") {
+            function("sendText") { args -> args.sendText() }
+            function("sendImage") { args -> args.sendImage() }
+            function("sendFile") { args -> args.sendFile() }
+            function("sendVoice") { args -> args.sendVoice() }
+            function("sendAppMsg") { args -> args.sendAppMsg() }
+            function("replyText") { args -> replyTarget("replyText")?.let { target -> args.string(0)?.let { WeMessageApi.sendText(target, it) } } }
+            function("replyImage") { args -> replyTarget("replyImage")?.let { target -> args.string(0)?.let { WeMessageApi.sendImage(target, it) } } }
+            function("replyFile") { args -> replyTarget("replyFile")?.let { target ->
+                args.string(0)?.let { path -> WeMessageApi.sendFile(target, path, args.string(1) ?: path.substringAfterLast('/')) }
+            } }
+            function("replyVoice") { args -> replyTarget("replyVoice")?.let { target ->
+                args.string(0)?.let { path -> WeMessageApi.sendVoice(target, path, args.number(1)?.toInt() ?: 0) }
+            } }
+            function("replyAppMsg") { args -> replyTarget("replyAppMsg")?.let { target -> args.string(0)?.let { WeMessageApi.sendXmlAppMsg(target, it) } } }
+            function("getSelfWxId") { _: Array<Any?> -> WeApi.selfWxId }
+            function("getSelfCustomWxId") { _: Array<Any?> -> WeApi.selfCustomWxId }
+            function("sendCgi") { args ->
+                val uri = args.string(0) ?: return@function
+                val cgiId = args.number(1)?.toInt() ?: return@function
+                val funcId = args.number(2)?.toInt() ?: return@function
+                val routeId = args.number(3)?.toInt() ?: return@function
+                val payload = args.string(4) ?: return@function
+                val onSuccess = args.number(5)?.toLong()
+                val onFailure = args.number(6)?.toLong()
+                WePacketHelper.sendCgi(uri, cgiId, funcId, routeId, payload) {
+                    onSuccess { bytes ->
+                        val json = bytes?.let { WeProtoData.fromBytes(it).toJsonObject().toString() } ?: "{}"
+                        onSuccess?.let { session.callback(it, listOf(json)) }
+                    }
+                    onFailure { _, _, message -> onFailure?.let { session.callback(it, listOf(message)) } }
+                }
+            }
+        }
+
+        quickJs.define("task") {
+            function("run") { args ->
+                val callbackId = args.number(0)?.toLong() ?: return@function
+                thread(name = "JsTask") {
+                    runCatching { session.callback(callbackId, emptyList()) }
+                        .onFailure { WeLogger.e(TAG, "task.run callback failed", it) }
+                }
+            }
+        }
+
+        exposeReflectionApis(quickJs, session)
+        exposeXposedApis(quickJs, session)
+        exposeDexKitApis(quickJs, session)
+    }
+
+    private fun exposeBridge(quickJs: QuickJs, session: Session) {
+        quickJs.define("__wekitBridge") {
+            function("takeInvocation") { args -> session.takeInvocation(args.number(0)?.toLong() ?: return@function emptyList<Any>()) }
+            function("member") { args -> bridgeMember(session, args) }
+            function("setMember") { args -> bridgeSetMember(session, args) }
+            function("invokeMember") { args -> bridgeInvokeMember(session, args) }
+            function("length") { args -> bridgeLength(session.resolve(args.getOrNull(0))) }
+            function("indexGet") { args -> bridgeIndexGet(session, args) }
+            function("indexSet") { args -> bridgeIndexSet(session, args) }
+            function("toString") { args -> runCatching { session.resolve(args.getOrNull(0))?.toString() ?: "null" }.getOrDefault("<java object>") }
+        }
     }
 
     /**
-     * Runs blocking network I/O off the main thread and blocks the caller until it finishes.
-     *
-     * The JS `http` API is synchronous, but the JS hooks (e.g. onMessage via the DB insert
-     * listener) may be invoked on the main thread. Performing socket I/O there throws
-     * [android.os.NetworkOnMainThreadException]. Executing the I/O on a worker thread and joining
-     * avoids the exception while preserving the synchronous contract. When already off the main
-     * thread (e.g. packet interceptor threads), the block runs inline.
+     * The public TypeScript API accepts JavaScript callbacks. quickjs-kt deliberately does not
+     * retain arbitrary JS functions on the Kotlin side, so register them in the owning realm and
+     * pass only an ID through the normal DSL bindings.
      */
-    private fun <T> runOffMainThread(block: () -> T): T {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            return block()
-        }
+    const val BOOTSTRAP = """
+        (() => {
+          const callbacks = new Map();
+          const wrappers = new Map();
+          const nativeBridge = __wekitBridge;
+          const bridgeKey = '__wekitBridge';
+          const handleBridgeType = 'javaHandle';
+          let nextCallback = 1;
 
-        var result: Result<T>? = null
-        val worker = thread(name = "JsHttpThread") {
-            result = runCatching(block)
-        }
-        worker.join()
-        return result!!.getOrThrow()
+          function wrap(value) {
+            if (Array.isArray(value)) return value.map(wrap);
+            if (value == null || typeof value !== 'object') return value;
+            if (value[bridgeKey] === handleBridgeType) return wrapper(value);
+            for (const key of Object.keys(value)) value[key] = wrap(value[key]);
+            return value;
+          }
+
+          function javaProxy(target) {
+            return new Proxy(target, {
+              get(target, property, receiver) {
+                if (property === Symbol.toStringTag) return 'JavaObject';
+                if (property === Symbol.toPrimitive || property === 'toString') {
+                  return () => nativeBridge.toString(target);
+                }
+                if (Reflect.has(target, property)) return Reflect.get(target, property, receiver);
+                if (typeof property !== 'string') return undefined;
+                if (/^(0|[1-9]\d*)$/.test(property)) {
+                  const indexed = nativeBridge.indexGet(target, Number(property));
+                  return indexed == null ? undefined : wrap(indexed);
+                }
+                if (property === 'length') {
+                  const length = nativeBridge.length(target);
+                  if (length != null) return length;
+                }
+                const member = nativeBridge.member(target, property);
+                if (member == null) return undefined;
+                if (member.memberType === 'field') return wrap(member.value);
+                if (member.memberType === 'method') {
+                  return (...args) => wrap(nativeBridge.invokeMember(target, property, args));
+                }
+                return undefined;
+              },
+              set(target, property, value, receiver) {
+                if (typeof property !== 'string' || Reflect.has(target, property)) {
+                  return Reflect.set(target, property, value, receiver);
+                }
+                if (/^(0|[1-9]\d*)$/.test(property)) {
+                  return nativeBridge.indexSet(target, Number(property), value);
+                }
+                return nativeBridge.setMember(target, property, value);
+              },
+            });
+          }
+
+          function wrapper(envelope) {
+            const id = envelope.__wekitHandle;
+            const cached = wrappers.get(id);
+            if (cached) return cached;
+
+            const target = {
+              [bridgeKey]: handleBridgeType,
+              __wekitHandle: id,
+              kind: envelope.kind,
+            };
+            const result = javaProxy(target);
+            wrappers.set(id, result);
+
+            for (const key of Object.keys(envelope)) {
+              if (key !== bridgeKey && key !== '__wekitHandle' && key !== 'kind') {
+                target[key] = wrap(envelope[key]);
+              }
+            }
+
+            switch (envelope.kind) {
+              case 'hook':
+                target.unhook = () => nativeUnhook(target);
+                break;
+              case 'class':
+                target.createInstance = (args = []) => wrap(nativeReflect.classCreateInstance(target, args));
+                target.getMethods = () => wrap(nativeReflect.classGetMethods(target));
+                target.getFields = () => wrap(nativeReflect.classGetFields(target));
+                break;
+              case 'field':
+                target.get = (instance) => wrap(nativeReflect.fieldGet(target, instance));
+                target.set = (...args) => nativeReflect.fieldSet(
+                  target,
+                  args.length > 1 ? args[0] : null,
+                  args.length > 1 ? args[1] : args[0],
+                );
+                break;
+              case 'method':
+                target.hookBefore = (callback) => xposed.hookBefore(target, callback);
+                target.hookAfter = (callback) => xposed.hookAfter(target, callback);
+                target.invoke = (instance, args = []) => wrap(nativeReflect.methodInvoke(target, instance, args));
+                break;
+              case 'constructor':
+                target.invoke = (args = []) => wrap(nativeReflect.constructorInvoke(target, args));
+                break;
+            }
+            return result;
+          }
+
+          globalThis.__wekitInvokeEntry = (name, invocationId) =>
+            globalThis[name]?.(...wrap(nativeBridge.takeInvocation(invocationId)));
+          globalThis.__wekitInvokeCallback = (id, invocationId) =>
+            callbacks.get(id)?.(...wrap(nativeBridge.takeInvocation(invocationId)));
+          globalThis.__wekitCallbackExists = (id) => callbacks.has(id);
+          globalThis.__wekitRegisterCallback = (callback) => {
+            if (typeof callback !== 'function') return null;
+            const id = nextCallback++;
+            callbacks.set(id, callback);
+            return id;
+          };
+
+          const nativeWechat = wechat;
+          globalThis.wechat = {
+            sendText: (...args) => nativeWechat.sendText(...args),
+            sendImage: (...args) => nativeWechat.sendImage(...args),
+            sendFile: (...args) => nativeWechat.sendFile(...args),
+            sendVoice: (...args) => nativeWechat.sendVoice(...args),
+            sendAppMsg: (...args) => nativeWechat.sendAppMsg(...args),
+            replyText: (...args) => nativeWechat.replyText(...args),
+            replyImage: (...args) => nativeWechat.replyImage(...args),
+            replyFile: (...args) => nativeWechat.replyFile(...args),
+            replyVoice: (...args) => nativeWechat.replyVoice(...args),
+            replyAppMsg: (...args) => nativeWechat.replyAppMsg(...args),
+            getSelfWxId: () => nativeWechat.getSelfWxId(),
+            getSelfCustomWxId: () => nativeWechat.getSelfCustomWxId(),
+            sendCgi(uri, cgiId, funcId, routeId, payload, onSuccess, onFailure) {
+              return nativeWechat.sendCgi(uri, cgiId, funcId, routeId, payload,
+                __wekitRegisterCallback(onSuccess), __wekitRegisterCallback(onFailure));
+            },
+          };
+
+          const nativeTask = task;
+          globalThis.task = { run: (callback) => nativeTask.run(__wekitRegisterCallback(callback)) };
+
+          const nativeXposed = xposed;
+          const nativeHookBefore = nativeXposed.hookBefore;
+          const nativeHookAfter = nativeXposed.hookAfter;
+          const nativeUnhook = nativeXposed.unhook;
+
+          const nativeReflect = {
+            toClass: reflect.toClass,
+            findFields: reflect.findFields,
+            findMethods: reflect.findMethods,
+            findFirstField: reflect.findFirstField,
+            findFirstMethod: reflect.findFirstMethod,
+            findConstructors: reflect.findConstructors,
+            findFirstConstructor: reflect.findFirstConstructor,
+            classCreateInstance: reflect.classCreateInstance,
+            classGetMethods: reflect.classGetMethods,
+            classGetFields: reflect.classGetFields,
+            fieldGet: reflect.fieldGet,
+            fieldSet: reflect.fieldSet,
+            methodInvoke: reflect.methodInvoke,
+            constructorInvoke: reflect.constructorInvoke,
+          };
+
+          globalThis.xposed = {
+            hookBefore(...args) {
+              args[args.length - 1] = __wekitRegisterCallback(args[args.length - 1]);
+              return wrap(nativeHookBefore(...args));
+            },
+            hookAfter(...args) {
+              args[args.length - 1] = __wekitRegisterCallback(args[args.length - 1]);
+              return wrap(nativeHookAfter(...args));
+            },
+          };
+
+          globalThis.reflect = {
+            toClass: (name) => wrap(nativeReflect.toClass(name)),
+            findFields(name, inherited, condition) {
+              return wrap(nativeReflect.findFields(name, inherited)).filter((field) => condition(field.name, field.type, field.modifiers));
+            },
+            findMethods(name, inherited, condition) {
+              return wrap(nativeReflect.findMethods(name, inherited)).filter((method) => condition(method.name, method.paramTypes, method.returnType, method.modifiers));
+            },
+            findFirstField(name, inherited, condition) {
+              return this.findFields(name, inherited, condition)[0];
+            },
+            findFirstMethod(name, condition) {
+              return this.findMethods(name, false, condition)[0];
+            },
+            findConstructors(name, publicOnly, condition) {
+              return wrap(nativeReflect.findConstructors(name, publicOnly)).filter((constructor) => condition(constructor.name, constructor.paramTypes, constructor.returnType, constructor.modifiers));
+            },
+            findFirstConstructor(name, publicOnly, condition) {
+              return this.findConstructors(name, publicOnly, condition)[0];
+            },
+          };
+
+          const nativeDexkit = dexkit;
+          globalThis.dexkit = {
+            findMethod(searcher) {
+              const result = wrap(nativeDexkit.findMethod(searcher));
+              result.single = () => result.methods.length === 1 ? result.methods[0] : undefined;
+              return result;
+            },
+            findClass(searcher) {
+              const result = wrap(nativeDexkit.findClass(searcher));
+              result.single = () => result.classes.length === 1 ? result.classes[0] : undefined;
+              return result;
+            },
+          };
+
+          const nativeHostinfo = hostinfo;
+          globalThis.hostinfo = {
+            get application() { return wrap(nativeHostinfo.application); },
+            get packageName() { return nativeHostinfo.packageName; },
+            get versionCode() { return nativeHostinfo.versionCode; },
+            get versionName() { return nativeHostinfo.versionName; },
+            get isHostGooglePlay() { return nativeHostinfo.isHostGooglePlay; },
+          };
+        })();
+    """
+
+    private val currentTalker = ThreadLocal<String?>()
+
+    internal fun beginMessageContext(talker: String): String? = currentTalker.get().also { currentTalker.set(talker) }
+
+    internal fun endMessageContext(previous: String?) {
+        if (previous == null) currentTalker.remove() else currentTalker.set(previous)
     }
 
-    /** Plain holder for response data read off the main thread; converted to JS on the JS thread. */
+    private fun replyTarget(api: String): String? = currentTalker.get().also {
+        if (it == null) WeLogger.w(TAG_WECHAT_API, "wechat.$api called outside of onMessage; ignored")
+    }
+
+    private fun Array<Any?>.string(index: Int): String? = getOrNull(index)?.toString()
+    private fun Array<Any?>.number(index: Int): Number? = getOrNull(index) as? Number
+    private fun Array<Any?>.map(index: Int): Map<*, *>? = getOrNull(index) as? Map<*, *>
+    private fun Array<Any?>.logMessage(session: Session): String = joinToString(" ") { value ->
+        session.resolve(value)?.toString() ?: "null"
+    }
+
+    private fun Array<Any?>.sendText() {
+        string(0)?.let { to -> string(1)?.let { WeMessageApi.sendText(to, it) } }
+    }
+
+    private fun Array<Any?>.sendImage() {
+        string(0)?.let { to -> string(1)?.let { WeMessageApi.sendImage(to, it) } }
+    }
+
+    private fun Array<Any?>.sendFile() {
+        string(0)?.let { to -> string(1)?.let { path -> WeMessageApi.sendFile(to, path, string(2) ?: path.substringAfterLast('/')) } }
+    }
+
+    private fun Array<Any?>.sendVoice() {
+        string(0)?.let { to -> string(1)?.let { path -> WeMessageApi.sendVoice(to, path, number(2)?.toInt() ?: 0) } }
+    }
+
+    private fun Array<Any?>.sendAppMsg() {
+        string(0)?.let { to -> string(1)?.let { WeMessageApi.sendXmlAppMsg(to, it) } }
+    }
+
+    private fun sleep(milliseconds: Long) {
+        if (milliseconds <= 0) return
+        try {
+            Thread.sleep(milliseconds)
+        } catch (e: InterruptedException) {
+            WeLogger.w(TAG_LOG_API, "datetime.sleep interrupted", e)
+            Thread.currentThread().interrupt()
+        }
+    }
+
     private class RawHttpResponse(
         val statusCode: Int,
         val body: String,
@@ -243,1766 +581,712 @@ object JsApiExposer {
         val headers: List<Pair<String, String>>,
     )
 
+    private fun <T> runOffMainThread(block: () -> T): T {
+        if (Looper.myLooper() != Looper.getMainLooper()) return block()
+        var result: Result<T>? = null
+        thread(name = "JsHttpThread") { result = runCatching(block) }.join()
+        return result!!.getOrThrow()
+    }
+
     private fun executeRequest(request: Request): RawHttpResponse = runOffMainThread {
         httpClient.newCall(request).execute().use { response ->
             RawHttpResponse(
-                statusCode = response.code,
-                body = response.body.string(),
-                contentType = response.header("Content-Type") ?: "",
-                isSuccessful = response.isSuccessful,
-                headers = response.headers.names().map { it to (response.header(it) ?: "") },
+                response.code,
+                response.body.string(),
+                response.header("Content-Type") ?: "",
+                response.isSuccessful,
+                response.headers.names().map { it to (response.header(it) ?: "") },
             )
         }
     }
 
-    private fun performDownload(url: String, destFile: Path): Boolean = runOffMainThread {
-        val request = Request.Builder().url(url).build()
+    private fun httpGet(url: String, params: Map<*, *>?, headers: Map<*, *>?): Any {
+        val target = if (params == null) url else (url.toHttpUrlOrNull() ?: error("Invalid URL")).newBuilder().apply {
+            params.forEach { (key, value) -> addQueryParameter(key.toString(), value?.toString() ?: "") }
+        }.build().toString()
+        return httpResponse(executeRequest(Request.Builder().url(target).applyHeaders(headers).build()))
+    }
 
-        httpClient.newCall(request).execute().use { response ->
+    private fun httpPost(url: String, form: Map<*, *>?, json: Map<*, *>?, headers: Map<*, *>?): Any {
+        val body = when {
+            json != null -> JSONObject(json.mapKeys { it.key.toString() }).toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+            form != null -> FormBody.Builder().apply { form.forEach { (key, value) -> add(key.toString(), value?.toString() ?: "") } }.build()
+            else -> "".toRequestBody(null)
+        }
+        return httpResponse(executeRequest(Request.Builder().url(url).post(body).applyHeaders(headers).build()))
+    }
+
+    private fun Request.Builder.applyHeaders(headers: Map<*, *>?): Request.Builder = apply {
+        headers?.forEach { (key, value) -> value?.toString()?.let { addHeader(key.toString(), it) } }
+    }
+
+    private fun httpResponse(response: RawHttpResponse): Any {
+        val json = response.body.takeIf { response.contentType.contains("application/json", true) }
+            ?.let { runCatching { JSONObject(it).toKotlinValue() }.getOrNull() }
+        return mapOf(
+            "status" to response.statusCode,
+            "body" to response.body,
+            "ok" to response.isSuccessful,
+            "json" to json,
+            "headers" to response.headers.toMap(),
+        ).toJsObject()
+    }
+
+    private fun errorResponse(message: String): Any = mapOf(
+        "status" to 0,
+        "body" to "",
+        "ok" to false,
+        "error" to message,
+    ).toJsObject()
+
+    @OptIn(ExperimentalPathApi::class)
+    private fun directorySize(path: Path): Long = runCatching {
+        Files.walk(path).use { files -> files.filter { !Files.isDirectory(it) }.mapToLong { it.fileSize() }.sum() }
+    }.getOrDefault(0)
+
+    private fun performDownload(url: String, target: Path): Boolean = runOffMainThread {
+        httpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
             if (!response.isSuccessful) return@runOffMainThread false
-
-            @Suppress("UNNECESSARY_SAFE_CALL")
-            response.body?.byteStream()?.use { input ->
-                destFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
+            response.body.byteStream().use { input -> target.outputStream().use { input.copyTo(it) } }
         }
         true
     }
 
-    private fun httpGet(
-        urlString: String,
-        params: NativeObject?,
-        headers: NativeObject?
-    ): NativeObject {
-        // Build URL with query parameters
-        val finalUrl = if (params != null) {
-            val httpUrl =
-                urlString.toHttpUrlOrNull() ?: throw IllegalArgumentException("Invalid URL")
-            val builder = httpUrl.newBuilder()
-            params.keys.forEach { key ->
-                val value = params[key]?.toString() ?: ""
-                builder.addQueryParameter(key.toString(), value)
-            }
-            builder.build().toString()
-        } else urlString
-
-        val requestBuilder = Request.Builder().url(finalUrl)
-
-        // Add headers
-        headers?.let { applyHeaders(requestBuilder, it) }
-
-        return createHttpResponse(executeRequest(requestBuilder.build()))
-    }
-
-    private fun httpPost(
-        urlString: String,
-        formData: NativeObject?,
-        jsonBody: NativeObject?,
-        headers: NativeObject?
-    ): NativeObject {
-        val requestBuilder = Request.Builder().url(urlString)
-
-        // Build request body
-        val body = when {
-            jsonBody != null -> {
-                val json = nativeObjectToJson(jsonBody)
-                json.toRequestBody("application/json; charset=utf-8".toMediaType())
-            }
-
-            formData != null -> {
-                val formBuilder = FormBody.Builder()
-                formData.keys.forEach { key ->
-                    val value = formData[key]?.toString() ?: ""
-                    formBuilder.add(key.toString(), value)
-                }
-                formBuilder.build()
-            }
-
-            // No body — use empty RequestBody without content-type
-            else -> "".toRequestBody(null)
-        }
-
-        requestBuilder.post(body)
-
-        // Add headers
-        headers?.let { applyHeaders(requestBuilder, it) }
-
-        return createHttpResponse(executeRequest(requestBuilder.build()))
-    }
-
-    private fun applyHeaders(requestBuilder: Request.Builder, headers: NativeObject) {
-        headers.keys.forEach { key ->
-            val value = headers[key]?.toString()
-            if (value != null) {
-                requestBuilder.addHeader(key.toString(), value)
-            }
-        }
-    }
-
-    private fun nativeObjectToJson(obj: NativeObject): String {
-        val jsonObject = JSONObject()
-        obj.keys.forEach { key ->
-            val value = obj[key]
-            jsonObject.put(key.toString(), convertJsValue(value))
-        }
-        return jsonObject.toString()
-    }
-
-    private fun convertJsValue(value: Any?): Any? {
-        return when (value) {
-            is NativeObject -> {
-                val json = JSONObject()
-                value.keys.forEach { key ->
-                    json.put(key.toString(), convertJsValue(value[key]))
-                }
-                json
-            }
-
-            is NativeArray -> {
-                val array = org.json.JSONArray()
-                for (i in 0 until value.length) {
-                    array.put(convertJsValue(value[i]))
-                }
-                array
-            }
-
-            is Number, is String, is Boolean -> value
-            null -> JSONObject.NULL
-            else -> value.toString()
-        }
-    }
-
-    private fun createHttpResponse(response: RawHttpResponse): NativeObject {
-        val cx = Context.getCurrentContext()!!
-        val scope = cx.initStandardObjects()
-
-        val body = response.body
-
-        val responseObj = NativeObject()
-        responseObj.put("status", responseObj, response.statusCode)
-        responseObj.put("body", responseObj, body)
-        responseObj.put("ok", responseObj, response.isSuccessful)
-
-        // Try to parse as JSON if content-type indicates JSON
-        if (response.contentType.contains("application/json", ignoreCase = true) && body.isNotEmpty()) {
-            try {
-                val jsonObj = cx.evaluateString(scope, "($body)", "response", 1, null)
-                responseObj.put("json", responseObj, jsonObj)
-            } catch (e: Exception) {
-                // If parsing fails, json will be undefined
-                WeLogger.w(TAG, "Failed to parse JSON response body", e)
-            }
-        }
-
-        // Convert headers to JS object
-        val headersObj = NativeObject()
-        response.headers.forEach { (name, value) ->
-            headersObj.put(name, headersObj, value)
-        }
-        responseObj.put("headers", responseObj, headersObj)
-
-        return responseObj
-    }
-
-    private fun createErrorResponse(e: Exception): NativeObject {
-        val response = NativeObject()
-        response.put("status", response, 0)
-        response.put("body", response, "")
-        response.put("ok", response, false)
-        response.put("error", response, e.message ?: "Unknown error")
-        return response
-    }
-
-    private fun exposeLogApis(scope: ScriptableObject) {
-        val logObj = NativeObject()
-
-        // log.d(msg)
-        ScriptableObject.putProperty(
-            logObj, "d",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    val msg = args.joinToString(" ") { it?.toString() ?: "null" }
-                    WeLogger.d(TAG_LOG_API, msg)
-                    return Undefined.instance
-                }
-            }
-        )
-
-        // log.i(msg)
-        ScriptableObject.putProperty(
-            logObj, "i",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    val msg = args.joinToString(" ") { it?.toString() ?: "null" }
-                    WeLogger.i(TAG_LOG_API, msg)
-                    return Undefined.instance
-                }
-            }
-        )
-
-        // log.w(msg)
-        ScriptableObject.putProperty(
-            logObj, "w",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    val msg = args.joinToString(" ") { it?.toString() ?: "null" }
-                    WeLogger.w(TAG_LOG_API, msg)
-                    return Undefined.instance
-                }
-            }
-        )
-
-        // log.e(msg)
-        ScriptableObject.putProperty(
-            logObj, "e",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    val msg = args.joinToString(" ") { it?.toString() ?: "null" }
-                    WeLogger.e(TAG_LOG_API, msg)
-                    return Undefined.instance
-                }
-            }
-        )
-
-        ScriptableObject.putProperty(scope, "log", logObj)
-    }
-
-    private fun exposeDateTimeApis(scope: ScriptableObject) {
-        val dtObj = NativeObject()
-
-        ScriptableObject.putProperty(
-            dtObj, "sleepS",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    val seconds = (args.getOrNull(0) as? Number)?.toLong() ?: 0L
-                    if (seconds > 0) {
-                        try {
-                            Thread.sleep(seconds * 1000)
-                        } catch (e: InterruptedException) {
-                            WeLogger.w(TAG_LOG_API, "datetime.sleep interrupted", e)
-                            Thread.currentThread().interrupt()
-                        }
-                    }
-                    return Undefined.instance
-                }
-            }
-        )
-
-        ScriptableObject.putProperty(
-            dtObj, "sleepMs",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    val ms = (args.getOrNull(0) as? Number)?.toLong() ?: 0L
-                    if (ms > 0) {
-                        try {
-                            Thread.sleep(ms)
-                        } catch (e: InterruptedException) {
-                            WeLogger.w(TAG_LOG_API, "datetime.sleep interrupted", e)
-                            Thread.currentThread().interrupt()
-                        }
-                    }
-                    return Undefined.instance
-                }
-            }
-        )
-
-        ScriptableObject.putProperty(
-            dtObj, "getCurrentUnixEpoch",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    return System.currentTimeMillis() / 1000
-                }
-            }
-        )
-
-        ScriptableObject.putProperty(scope, "datetime", dtObj)
-    }
-
     @Suppress("JavaCollectionWithNullableTypeArgument")
     private val storage = ConcurrentHashMap<String, Any?>()
-
-    private val DATA_DIR_PATH by lazy { (KnownPaths.moduleData / "data").createDirsSafe() }
-
-    private val storageFile get() = DATA_DIR_PATH.resolve("javascript_storage_api.json")
-
-    init {
-        loadStorageFromDisk()
-    }
-
+    private val dataDir by lazy { (KnownPaths.moduleData / "data").createDirsSafe() }
+    private val storageFile get() = dataDir.resolve("javascript_storage_api.json")
     private val saveHandler = Handler(Looper.getMainLooper())
     private val saveRunnable = Runnable {
         runCatching {
-            val json = buildJsonObject {
-                storage.forEach { (key, value) ->
-                    storageValueToJson(value)?.let { put(key, it) }
-                }
-            }
-            storageFile.writeText(DefaultJson.encodeToString(json))
-        }.onFailure { WeLogger.e(TAG, "failed to save js storage to disk", it) }
+            val root = buildJsonObject { storage.forEach { (key, value) -> storageToJson(value)?.let { put(key, it) } } }
+            storageFile.writeText(DefaultJson.encodeToString(root))
+        }.onFailure { WeLogger.e(TAG, "failed to save js storage", it) }
     }
 
-    private fun storageValueToJson(value: Any?): JsonElement? = when (value) {
-        null -> JsonNull
-        is String -> JsonPrimitive(value)
-        is Boolean -> JsonPrimitive(value)
-        is Number -> JsonPrimitive(value)
-        is NativeObject -> {
-            buildJsonObject {
-                value.keys.forEach { key ->
-                    val child = storageValueToJson(value[key])
-                    if (child != null) put(key.toString(), child)
-                }
-            }
-        }
+    init { loadStorageFromDisk() }
 
-        is NativeArray -> {
-            buildJsonArray {
-                for (i in 0 until value.length) {
-                    val child = storageValueToJson(value[i])
-                    if (child != null) add(child)
-                }
-            }
-        }
-
-        else -> null // skip functions, wrappers, etc.
-    }
-
-    private fun loadStorageFromDisk() {
-        runCatching {
-            if (!storageFile.exists()) return
-            val root = DefaultJson.decodeFromString<JsonObject>(storageFile.readText())
-            root.forEach { (k, v) ->
-                storage[k] = jsonToStorageValue(v)
-            }
-        }.onFailure { WeLogger.e(TAG, "failed to load js storage from disk", it) }
-    }
-
-    private fun jsonToStorageValue(element: JsonElement): Any? = when (element) {
-        is JsonNull -> null
-
-        is JsonPrimitive -> when {
-            element.isString -> element.content
-            else -> element.booleanOrNull ?: element.longOrNull ?: element.doubleOrNull ?: element.content
-        }
-
-        is JsonObject -> {
-            val map = LinkedHashMap<String, Any?>(element.size)
-            element.forEach { (k, v) -> map[k] = jsonToStorageValue(v) }
-            map
-        }
-
-        is JsonArray -> {
-            val list = ArrayList<Any?>(element.size)
-            element.forEach { list.add(jsonToStorageValue(it)) }
-            list
-        }
-    }
-
-    // prevent blocking js execution if the file grows too large, but that would be a misuse of this API anyway
     private fun saveStorageToDisk() {
         saveHandler.removeCallbacks(saveRunnable)
         saveHandler.postDelayed(saveRunnable, 500)
     }
 
-    private fun exposeStorageApis(scope: ScriptableObject) {
-        val storageObj = NativeObject()
-
-        // storage.get(key) -> object
-        ScriptableObject.putProperty(
-            storageObj, "get",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val key = args.getOrNull(0)?.toString() ?: return null
-                    val value = storage[key]
-
-                    return value?.let { Context.javaToJS(it, scope, cx) } ?: Undefined.instance
+    private fun loadStorageFromDisk() {
+        runCatching {
+            if (storageFile.exists()) {
+                DefaultJson.decodeFromString<JsonObject>(storageFile.readText()).forEach { (key, value) ->
+                    storage[key] = jsonToStorage(value)
                 }
             }
-        )
-
-        // storage.getOrDefault(key, defaultValue) -> object
-        ScriptableObject.putProperty(
-            storageObj, "getOrDefault",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val key = args.getOrNull(0)?.toString() ?: return args.getOrNull(1)
-                    val value = storage.getOrDefault(key, args.getOrNull(1))
-                    return value?.let { Context.javaToJS(it, scope, cx) } ?: Undefined.instance
-                }
-            }
-        )
-
-        // storage.set(key, object)
-        ScriptableObject.putProperty(
-            storageObj, "set",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val key = args.getOrNull(0)?.toString() ?: return null
-                    val value = args.getOrNull(1)
-
-                    if (value is Undefined) {
-                        WeLogger.w(
-                            TAG,
-                            "js tries to set undefined into cache, removing that key instead"
-                        )
-                        storage.remove(key)
-                    } else {
-                        storage[key] = value
-                    }
-
-                    saveStorageToDisk()
-                    return null
-                }
-            }
-        )
-
-        // storage.clear()
-        ScriptableObject.putProperty(
-            storageObj, "clear",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    storage.clear()
-                    saveStorageToDisk()
-                    return Undefined.instance
-                }
-            }
-        )
-
-        // storage.remove(key)
-        ScriptableObject.putProperty(
-            storageObj, "remove",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val key = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                    val removed = storage.remove(key)
-                    saveStorageToDisk()
-                    return removed?.let { Context.javaToJS(it, scope, cx) } ?: Undefined.instance
-                }
-            }
-        )
-
-        // storage.hasKey(key) -> bool
-        ScriptableObject.putProperty(
-            storageObj, "hasKey",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    val key = args.getOrNull(0)?.toString() ?: return false
-                    return storage.containsKey(key)
-                }
-            }
-        )
-
-        // storage.isEmpty() -> bool
-        ScriptableObject.putProperty(
-            storageObj, "isEmpty",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    return storage.isEmpty()
-                }
-            }
-        )
-
-        // storage.keys() -> Array
-        ScriptableObject.putProperty(
-            storageObj, "keys",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    // Converts Kotlin Set to a JS Array
-                    return cx.newArray(scope, storage.keys.toTypedArray<Any>())
-                }
-            }
-        )
-
-        // storage.size() -> int
-        ScriptableObject.putProperty(
-            storageObj, "size",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    return storage.size
-                }
-            }
-        )
-
-        ScriptableObject.putProperty(scope, "storage", storageObj)
+        }.onFailure { WeLogger.e(TAG, "failed to load js storage", it) }
     }
 
-    private fun exposeHostInfoApis(scope: ScriptableObject) {
-        val hostObj = NativeObject()
-
-        ScriptableObject.putProperty(hostObj, "application", HostInfo.application)
-        ScriptableObject.putProperty(hostObj, "packageName", HostInfo.packageName)
-        ScriptableObject.putProperty(hostObj, "versionCode", HostInfo.versionCode)
-        ScriptableObject.putProperty(hostObj, "versionName", HostInfo.versionName)
-        ScriptableObject.putProperty(hostObj, "isHostGooglePlay", HostInfo.isHostGooglePlay)
-
-        ScriptableObject.putProperty(scope, "hostinfo", hostObj)
+    private fun Any?.storageValue(): Any? = when (this) {
+        is Map<*, *> -> entries.associate { it.key.toString() to it.value.storageValue() }
+        is List<*> -> map { it.storageValue() }
+        is String, is Boolean, is Number, null -> this
+        else -> null
     }
 
-    /**
-     * Talker of the `onMessage` callback currently running *on this thread*.
-     *
-     * A script's scope is built once and reused for every event, so the recipient of
-     * `wechat.reply*()` cannot be baked into it. The engine publishes it here for the duration of
-     * each `onMessage` call instead: message callbacks arrive on WeChat's database thread(s) and a
-     * script never runs concurrently with itself, so a thread-local is enough to keep two chats —
-     * or two scripts — from seeing each other's talker.
-     */
-    private val currentTalker = ThreadLocal<String?>()
-
-    /** Publishes [talker] as the reply target of this thread; returns the value it replaced. */
-    internal fun beginMessageContext(talker: String): String? {
-        val previous = currentTalker.get()
-        currentTalker.set(talker)
-        return previous
+    private fun storageToJson(value: Any?): JsonElement? = when (value) {
+        null -> JsonNull
+        is String -> JsonPrimitive(value)
+        is Boolean -> JsonPrimitive(value)
+        is Number -> JsonPrimitive(value)
+        is Map<*, *> -> buildJsonObject { value.forEach { (key, child) -> storageToJson(child)?.let { put(key.toString(), it) } } }
+        is List<*> -> buildJsonArray { value.forEach { storageToJson(it)?.let(::add) } }
+        else -> null
     }
 
-    /** Restores what [beginMessageContext] replaced (sending a reply can re-enter onMessage). */
-    internal fun endMessageContext(previous: String?) {
-        if (previous == null) currentTalker.remove() else currentTalker.set(previous)
+    private fun jsonToStorage(value: JsonElement): Any? = when (value) {
+        is JsonNull -> null
+        is JsonPrimitive -> if (value.isString) value.content else value.booleanOrNull ?: value.longOrNull ?: value.doubleOrNull ?: value.content
+        is JsonObject -> value.mapValues { jsonToStorage(it.value) }
+        is JsonArray -> value.map(::jsonToStorage)
     }
 
-    /**
-     * Sends whatever `onMessage` returned back to [talker], per the `MessageResponse` contract in
-     * `globals.d.ts`: a string is a text reply, an object selects a message kind, anything
-     * else (including `null`/`undefined`) means "no reply".
-     *
-     * Never throws — it runs on WeChat's database insert path, which is not hook-guarded.
-     */
-    internal fun dispatchMessageResponse(talker: String, result: Any?) {
-        try {
+    private fun exposeReflectionApis(quickJs: QuickJs, session: Session) {
+        quickJs.define("reflect") {
+            function("toClass") { args ->
+                args.string(0)?.let { className ->
+                    runCatching { classDescriptor(session, className.toClass()) }
+                        .onFailure { WeLogger.e(TAG, "reflect.toClass failed for $className", it) }
+                        .getOrNull()
+                }
+            }
+            function("findFields") { args ->
+                val className = args.string(0) ?: return@function emptyList<Any>()
+                val inherited = args.getOrNull(1) as? Boolean ?: false
+                runCatching {
+                    val clazz = className.toClass()
+                    (if (inherited) superclassSequence(clazz) { it.declaredFields } else clazz.declaredFields.asSequence())
+                        .map { fieldDescriptor(session, it, clazz) }
+                        .toList()
+                }.onFailure { WeLogger.e(TAG, "reflect.findFields failed for $className", it) }.getOrDefault(emptyList())
+            }
+            function("findMethods") { args ->
+                val className = args.string(0) ?: return@function emptyList<Any>()
+                val inherited = args.getOrNull(1) as? Boolean ?: false
+                runCatching {
+                    val clazz = className.toClass()
+                    (if (inherited) superclassSequence(clazz) { it.declaredMethods } else clazz.declaredMethods.asSequence())
+                        .map { methodDescriptor(session, it, clazz) }
+                        .toList()
+                }.onFailure { WeLogger.e(TAG, "reflect.findMethods failed for $className", it) }.getOrDefault(emptyList())
+            }
+            function("findFirstField") { args ->
+                val className = args.string(0) ?: return@function null
+                val inherited = args.getOrNull(1) as? Boolean ?: false
+                runCatching {
+                    val clazz = className.toClass()
+                    (if (inherited) superclassSequence(clazz) { it.declaredFields } else clazz.declaredFields.asSequence())
+                        .firstOrNull()
+                        ?.let { fieldDescriptor(session, it, clazz) }
+                }.getOrNull()
+            }
+            function("findFirstMethod") { args ->
+                val className = args.string(0) ?: return@function null
+                runCatching {
+                    val clazz = className.toClass()
+                    clazz.declaredMethods.firstOrNull()?.let { methodDescriptor(session, it, clazz) }
+                }.onFailure { WeLogger.e(TAG, "reflect.findFirstMethod failed for $className", it) }.getOrNull()
+            }
+            function("findConstructors") { args ->
+                val className = args.string(0) ?: return@function emptyList<Any>()
+                val publicOnly = args.getOrNull(1) as? Boolean ?: false
+                runCatching {
+                    val clazz = className.toClass()
+                    (if (publicOnly) clazz.constructors.asList() else clazz.declaredConstructors.asList())
+                        .map { constructorDescriptor(session, it, clazz) }
+                }.onFailure { WeLogger.e(TAG, "reflect.findConstructors failed for $className", it) }.getOrDefault(emptyList())
+            }
+            function("findFirstConstructor") { args ->
+                val className = args.string(0) ?: return@function null
+                val publicOnly = args.getOrNull(1) as? Boolean ?: false
+                runCatching {
+                    val clazz = className.toClass()
+                    (if (publicOnly) clazz.constructors.firstOrNull() else clazz.declaredConstructors.firstOrNull())
+                        ?.let { constructorDescriptor(session, it, clazz) }
+                }.getOrNull()
+            }
+            function("classCreateInstance") { args ->
+                val clazz = session.resolve(args.getOrNull(0)) as? Class<*> ?: return@function null
+                val values = args.getOrNull(1) as? List<*> ?: emptyList<Any?>()
+                runCatching {
+                    val invocation = selectConstructor(session, clazz.declaredConstructors.asSequence(), values)
+                        ?: return@runCatching null
+                    invocation.constructor.makeAccessible().newInstance(*invocation.arguments.values)
+                        .let { bridgeValue(session, it) }
+                }.onFailure { WeLogger.e(TAG, "reflect JavaClass.createInstance failed for ${clazz.name}", it) }.getOrNull()
+            }
+            function("classGetMethods") { args ->
+                val clazz = session.resolve(args.getOrNull(0)) as? Class<*> ?: return@function emptyList<Any>()
+                clazz.declaredMethods.map { methodDescriptor(session, it, clazz) }
+            }
+            function("classGetFields") { args ->
+                val clazz = session.resolve(args.getOrNull(0)) as? Class<*> ?: return@function emptyList<Any>()
+                clazz.declaredFields.map { fieldDescriptor(session, it, clazz) }
+            }
+            function("fieldGet") { args ->
+                val field = session.resolve(args.getOrNull(0)) as? Field ?: return@function null
+                runCatching { bridgeValue(session, field.makeAccessible().get(session.resolve(args.getOrNull(1)))) }
+                    .onFailure { WeLogger.e(TAG, "reflect field.get failed on ${field.name}", it) }.getOrNull()
+            }
+            function("fieldSet") { args ->
+                val field = session.resolve(args.getOrNull(0)) as? Field ?: return@function
+                runCatching {
+                    field.makeAccessible().set(
+                        session.resolve(args.getOrNull(1)),
+                        coerce(session, args.getOrNull(2), field.type),
+                    )
+                }.onFailure { WeLogger.e(TAG, "reflect field.set failed on ${field.name}", it) }
+            }
+            function("methodInvoke") { args ->
+                val method = session.resolve(args.getOrNull(0)) as? Method ?: return@function null
+                val instance = session.resolve(args.getOrNull(1))
+                val values = args.getOrNull(2) as? List<*> ?: emptyList<Any?>()
+                val invocation = coerceArguments(session, values, method.parameterTypes, method.isVarArgs)
+                    ?: return@function methodInvocationError(
+                        session,
+                        IllegalArgumentException("Arguments do not match ${method.declaringClass.name}.${method.name}"),
+                    )
+                runCatching {
+                    mapOf(
+                        "value" to bridgeValue(session, method.makeAccessible().invoke(instance, *invocation.values)),
+                        "exception" to false,
+                    ).toJsObject()
+                }.getOrElse { error ->
+                    WeLogger.e(TAG, "reflect method invoke failed on ${method.name}", error)
+                    methodInvocationError(session, error)
+                }
+            }
+            function("constructorInvoke") { args ->
+                val constructor = session.resolve(args.getOrNull(0)) as? Constructor<*> ?: return@function null
+                val values = args.getOrNull(1) as? List<*> ?: emptyList<Any?>()
+                val invocation = coerceArguments(session, values, constructor.parameterTypes, constructor.isVarArgs)
+                    ?: return@function null
+                runCatching {
+                    constructor.makeAccessible().newInstance(*invocation.values)
+                        .let { bridgeValue(session, it) }
+                }.onFailure { WeLogger.e(TAG, "reflect constructor invoke failed", it) }.getOrNull()
+            }
+        }
+    }
+
+    private fun <M> superclassSequence(
+        clazz: Class<*>,
+        provider: (Class<*>) -> Array<M>,
+    ): Sequence<M> = sequence {
+        yieldAll(provider(clazz).asSequence())
+        var current: Class<*>? = clazz.superclass
+        while (current != null && current != Any::class.java) {
+            yieldAll(provider(current).asSequence())
+            current = current.superclass
+        }
+    }
+
+    private data class JavaTarget(
+        val clazz: Class<*>,
+        val instance: Any?,
+        val staticOnly: Boolean,
+    )
+
+    private fun bridgeMember(session: Session, args: Array<Any?>): Any? {
+        val target = session.resolve(args.getOrNull(0))?.asJavaTarget() ?: return null
+        val name = args.string(1) ?: return null
+        val field = target.fields().firstOrNull { it.name == name }
+        if (field != null) {
+            return runCatching {
+                mapOf(
+                    "memberType" to "field",
+                    "value" to bridgeValue(session, field.makeAccessible().get(target.instance)),
+                ).toJsObject()
+            }.onFailure { WeLogger.e(TAG, "java field read failed on ${target.clazz.name}.$name", it) }.getOrNull()
+        }
+        return if (target.methods().any { it.name == name }) mapOf("memberType" to "method").toJsObject() else null
+    }
+
+    private fun bridgeSetMember(session: Session, args: Array<Any?>): Boolean {
+        val target = session.resolve(args.getOrNull(0))?.asJavaTarget() ?: return false
+        val name = args.string(1) ?: return false
+        val field = target.fields().firstOrNull { it.name == name } ?: return false
+        val value = coerceValue(session, args.getOrNull(2), field.type) ?: return false
+        return runCatching {
+            field.makeAccessible().set(target.instance, value.value)
+            true
+        }.onFailure { WeLogger.e(TAG, "java field write failed on ${target.clazz.name}.$name", it) }.getOrDefault(false)
+    }
+
+    private fun bridgeInvokeMember(session: Session, args: Array<Any?>): Any? {
+        val target = session.resolve(args.getOrNull(0))?.asJavaTarget() ?: return null
+        val name = args.string(1) ?: return null
+        val values = args.getOrNull(2) as? List<*> ?: emptyList<Any?>()
+        val invocation = selectMethod(session, target, name, values) ?: return null
+        return runCatching {
+            invocation.method.makeAccessible().invoke(target.instance, *invocation.arguments.values)
+                .let { bridgeValue(session, it) }
+        }.onFailure { WeLogger.e(TAG, "java method invoke failed on ${target.clazz.name}.$name", it) }.getOrNull()
+    }
+
+    private fun bridgeLength(value: Any?): Int? = when {
+        value == null -> null
+        value.javaClass.isArray -> JavaArray.getLength(value)
+        value is List<*> -> value.size
+        else -> null
+    }
+
+    private fun bridgeIndexGet(session: Session, args: Array<Any?>): Any? {
+        val value = session.resolve(args.getOrNull(0)) ?: return null
+        val index = args.number(1)?.toInt() ?: return null
+        return runCatching {
             when {
-                result == null || result is Undefined || result == ScriptableObject.NOT_FOUND -> return
+                value.javaClass.isArray -> JavaArray.get(value, index)
+                value is List<*> -> value[index]
+                else -> return@runCatching null
+            }.let { bridgeValue(session, it) }
+        }.onFailure { WeLogger.e(TAG, "java indexed read failed at $index", it) }.getOrNull()
+    }
 
-                // Rhino string concatenation yields ConsString, not String, hence CharSequence.
-                result is CharSequence -> {
-                    val text = result.toString()
-                    if (text.isNotEmpty()) WeMessageApi.sendText(talker, text)
-                }
-
-                result is Scriptable -> sendMessageResponse(talker, result)
-
-                else -> WeLogger.w(
-                    TAG_WECHAT_API,
-                    "onMessage returned an unsupported value of type ${result.javaClass.name}"
+    @Suppress("UNCHECKED_CAST")
+    private fun bridgeIndexSet(session: Session, args: Array<Any?>): Boolean {
+        val value = session.resolve(args.getOrNull(0)) ?: return false
+        val index = args.number(1)?.toInt() ?: return false
+        return runCatching {
+            when {
+                value.javaClass.isArray -> JavaArray.set(
+                    value,
+                    index,
+                    coerceValue(session, args.getOrNull(2), value.javaClass.componentType!!)?.value
+                        ?: return@runCatching false,
                 )
+                value is MutableList<*> -> (value as MutableList<Any?>)[index] = session.resolve(args.getOrNull(2))
+                else -> return@runCatching false
             }
+            true
+        }.onFailure { WeLogger.e(TAG, "java indexed write failed at $index", it) }.getOrDefault(false)
+    }
+
+    private fun Any.asJavaTarget(): JavaTarget = when (this) {
+        is Class<*> -> JavaTarget(this, null, staticOnly = true)
+        else -> JavaTarget(javaClass, this, staticOnly = false)
+    }
+
+    private fun JavaTarget.fields(): Sequence<Field> = superclassSequence(clazz) { it.declaredFields }
+        .filter { !staticOnly || Modifier.isStatic(it.modifiers) }
+
+    private fun JavaTarget.methods(): Sequence<Method> = sequence {
+        yieldAll(superclassSequence(clazz) { it.declaredMethods })
+        if (!staticOnly) yieldAll(Any::class.java.declaredMethods.asSequence())
+    }.filter { !staticOnly || Modifier.isStatic(it.modifiers) }
+
+    private fun exposeXposedApis(quickJs: QuickJs, session: Session) {
+        quickJs.define("xposed") {
+            function("hookBefore") { args -> installHook(session, before = true, args) }
+            function("hookAfter") { args -> installHook(session, before = false, args) }
+            function("unhook") { args -> (session.resolve(args.getOrNull(0)) as? HookHandle)?.unhook() }
+        }
+    }
+
+    private fun exposeDexKitApis(quickJs: QuickJs, session: Session) {
+        quickJs.define("dexkit") {
+            function("findMethod") { args ->
+                val searcher = args.map(0) ?: return@function dexMethodResult(session, emptyList())
+                runCatching {
+                    withDexKit { dexKit ->
+                        dexMethodResult(session, dexKit.findMethod {
+                            val pkgs = searcher.stringList("searchPackages")
+                            if (pkgs.isNotEmpty()) searchPackages(*pkgs.toTypedArray())
+                            matcher {
+                                searcher.stringOrClass("declaringClass")?.let { declaredClass = it }
+                                searcher.string("name")?.let { name = it }
+                                searcher.stringOrClass("returnType")?.let { returnType = it }
+                                searcher.number("paramCount")?.toInt()?.let { paramCount = it }
+                                searcher.stringOrClassList("paramTypes").takeIf { it.isNotEmpty() }?.let { paramTypes(*it.toTypedArray()) }
+                                searcher.stringList("usingEqStrings").takeIf { it.isNotEmpty() }?.let { usingEqStrings(*it.toTypedArray()) }
+                                searcher.numberList("usingNumbers").takeIf { it.isNotEmpty() }?.let { usingNumbers(*it.toTypedArray()) }
+                            }
+                        }.toList())
+                    }
+                }.onFailure { WeLogger.e(TAG, "dexkit.findMethod failed", it) }.getOrElse { dexMethodResult(session, emptyList()) }
+            }
+            function("findClass") { args ->
+                val searcher = args.map(0) ?: return@function dexClassResult(session, emptyList())
+                runCatching {
+                    withDexKit { dexKit ->
+                        dexClassResult(session, dexKit.findClass {
+                            val pkgs = searcher.stringList("searchPackages")
+                            if (pkgs.isNotEmpty()) searchPackages(*pkgs.toTypedArray())
+                            matcher {
+                                searcher.string("name")?.let { className = it }
+                                searcher.stringOrClass("superclass")?.let { superClass = it }
+                                searcher.stringList("usingEqStrings").takeIf { it.isNotEmpty() }?.let { usingEqStrings(*it.toTypedArray()) }
+                                searcher.stringList("interfaces").forEach { interfaceName -> addInterface { className = interfaceName } }
+                            }
+                        }.toList())
+                    }
+                }.onFailure { WeLogger.e(TAG, "dexkit.findClass failed", it) }.getOrElse { dexClassResult(session, emptyList()) }
+            }
+        }
+    }
+
+    private fun installHook(session: Session, before: Boolean, args: Array<Any?>): Any? {
+        val first = args.getOrNull(0)
+        val method: Method
+        val callbackId: Long
+        if (first is Map<*, *>) {
+            method = session.resolve(first) as? Method ?: return null
+            callbackId = args.number(1)?.toLong() ?: return null
+        } else {
+            val className = first?.toString() ?: return null
+            val methodName = args.string(1) ?: return null
+            callbackId = args.number(2)?.toLong() ?: return null
+            method = runCatching { className.toClass().methods.firstOrNull { it.name == methodName } }
+                .getOrNull() ?: return null
+        }
+        return try {
+            val handle = if (before) {
+                method.makeAccessible().hookBeforeDirectly {
+                    val callbackResult = session.callback(callbackId, listOf(thisObject, BridgeList(args.toList())))
+                    if (callbackResult != null) result = session.resolve(callbackResult)
+                }
+            } else {
+                method.makeAccessible().hookAfterDirectly {
+                    val callbackResult = session.callback(callbackId, listOf(thisObject, BridgeList(args.toList()), result))
+                    if (callbackResult != null) result = session.resolve(callbackResult)
+                }
+            }
+            handleDescriptor(session, handle)
         } catch (e: Exception) {
-            WeLogger.e(TAG_WECHAT_API, "failed to send the value returned by onMessage", e)
+            WeLogger.e(TAG, "xposed.hook${if (before) "Before" else "After"} failed", e)
+            null
         }
     }
 
-    private fun sendMessageResponse(talker: String, response: Scriptable) {
-        fun str(name: String): String? {
-            val value = ScriptableObject.getProperty(response, name)
-            if (value == null || value is Undefined || value == ScriptableObject.NOT_FOUND) return null
-            return value.toString().takeIf { it.isNotEmpty() }
-        }
+    private fun classDescriptor(session: Session, clazz: Class<*>): Any = mapOf(
+        BRIDGE_KEY to HANDLE_BRIDGE_TYPE,
+        HANDLE_KEY to session.retain(clazz),
+        "kind" to "class",
+        "name" to clazz.name,
+    ).toJsObject()
 
-        fun missing(field: String, type: String) =
-            WeLogger.w(TAG_WECHAT_API, "onMessage returned a '$type' response without '$field'")
+    private fun fieldDescriptor(session: Session, field: Field, clazz: Class<*>): Any = mapOf(
+        BRIDGE_KEY to HANDLE_BRIDGE_TYPE,
+        HANDLE_KEY to session.retain(field),
+        "kind" to "field",
+        "name" to field.name,
+        "clazz" to classDescriptor(session, clazz),
+        "type" to classDescriptor(session, field.type),
+        "modifiers" to modifierStrings(field.modifiers).asList(),
+    ).toJsObject()
 
-        when (val type = str("type") ?: "text") {
-            "text" -> {
-                val content = str("content") ?: return missing("content", type)
-                WeMessageApi.sendText(talker, content)
-            }
+    private fun methodDescriptor(session: Session, method: Method, clazz: Class<*>): Any = mapOf(
+        BRIDGE_KEY to HANDLE_BRIDGE_TYPE,
+        HANDLE_KEY to session.retain(method),
+        "kind" to "method",
+        "name" to method.name,
+        "clazz" to classDescriptor(session, clazz),
+        "descriptor" to methodDescriptor(method),
+        "paramTypes" to method.parameterTypes.map { classDescriptor(session, it) },
+        "returnType" to classDescriptor(session, method.returnType),
+        "modifiers" to modifierStrings(method.modifiers).asList(),
+    ).toJsObject()
 
-            "image" -> {
-                val path = str("path") ?: return missing("path", type)
-                WeMessageApi.sendImage(talker, path)
-            }
+    private fun constructorDescriptor(session: Session, constructor: Constructor<*>, clazz: Class<*>): Any = mapOf(
+        BRIDGE_KEY to HANDLE_BRIDGE_TYPE,
+        HANDLE_KEY to session.retain(constructor),
+        "kind" to "constructor",
+        "name" to constructor.name,
+        "clazz" to classDescriptor(session, clazz),
+        "descriptor" to constructorDescriptor(constructor),
+        "paramTypes" to constructor.parameterTypes.map { classDescriptor(session, it) },
+        "returnType" to classDescriptor(session, clazz),
+        "modifiers" to modifierStrings(constructor.modifiers).asList(),
+    ).toJsObject()
 
-            "file" -> {
-                val path = str("path") ?: return missing("path", type)
-                WeMessageApi.sendFile(talker, path, str("title") ?: path.substringAfterLast('/'))
-            }
+    private fun handleDescriptor(session: Session, handle: HookHandle): Any = mapOf(
+        BRIDGE_KEY to HANDLE_BRIDGE_TYPE,
+        HANDLE_KEY to session.retain(handle),
+        "kind" to "hook",
+    ).toJsObject()
 
-            "voice" -> {
-                val path = str("path") ?: return missing("path", type)
-                val duration = ScriptableObject.getProperty(response, "duration") as? Number
-                WeMessageApi.sendVoice(talker, path, duration?.toInt() ?: 0)
-            }
-
-            "appmsg" -> {
-                val content = str("content") ?: return missing("content", type)
-                WeMessageApi.sendXmlAppMsg(talker, content)
-            }
-
-            else -> WeLogger.w(TAG_WECHAT_API, "onMessage returned unknown response type '$type'")
-        }
+    private fun bridgeValue(session: Session, value: Any?): Any? = when (value) {
+        is StructuredValue -> bridgeStructuredValue(value.value)
+        is BridgeList -> value.values.map { bridgeValue(session, it) }
+        null, is String, is Number, is Boolean -> value
+        is Class<*> -> classDescriptor(session, value)
+        is Field -> fieldDescriptor(session, value, value.declaringClass)
+        is Method -> methodDescriptor(session, value, value.declaringClass)
+        is Constructor<*> -> constructorDescriptor(session, value, value.declaringClass)
+        is HookHandle -> handleDescriptor(session, value)
+        else -> mapOf(
+            BRIDGE_KEY to HANDLE_BRIDGE_TYPE,
+            HANDLE_KEY to session.retain(value),
+            "kind" to "java",
+        ).toJsObject()
     }
 
-    /**
-     * @param talker optional fixed reply target; when null (every caller today) `wechat.reply*()`
-     *   resolves the talker of the message being handled on the calling thread instead.
-     */
-    private fun exposeWeChatApis(scope: ScriptableObject, talker: String? = null) {
-        val weObj = NativeObject()
-
-        fun NativeObject.putAction(name: String, action: (Array<Any?>) -> Unit) {
-            ScriptableObject.putProperty(this, name, object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    action(args)
-                    return Undefined.instance
-                }
-            })
-        }
-
-        weObj.putAction("sendText") { args ->
-            val to = args.getOrNull(0)?.toString()
-            val text = args.getOrNull(1)?.toString()
-            if (to != null && text != null) WeMessageApi.sendText(to, text)
-        }
-        weObj.putAction("sendImage") { args ->
-            val to = args.getOrNull(0)?.toString()
-            val path = args.getOrNull(1)?.toString()
-            if (to != null && path != null) WeMessageApi.sendImage(to, path)
-        }
-        weObj.putAction("sendFile") { args ->
-            val to = args.getOrNull(0)?.toString()
-            val path = args.getOrNull(1)?.toString()
-            if (to != null && path != null) {
-                val title = args.getOrNull(2)?.toString() ?: path.substringAfterLast('/')
-                WeMessageApi.sendFile(to, path, title)
-            }
-        }
-        weObj.putAction("sendVoice") { args ->
-            val to = args.getOrNull(0)?.toString()
-            val path = args.getOrNull(1)?.toString()
-            if (to != null && path != null) {
-                val durationMs = (args.getOrNull(2) as? Number)?.toInt() ?: 0
-                WeMessageApi.sendVoice(to, path, durationMs)
-            }
-        }
-        weObj.putAction("sendAppMsg") { args ->
-            val to = args.getOrNull(0)?.toString()
-            val content = args.getOrNull(1)?.toString()
-            if (to != null && content != null) WeMessageApi.sendXmlAppMsg(to, content)
-        }
-        ScriptableObject.putProperty(
-            weObj, "sendCgi",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any? {
-                    val uri = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                    val cgiId = (args.getOrNull(1) as? Number)?.toInt() ?: return Undefined.instance
-                    val funcId = (args.getOrNull(2) as? Number)?.toInt() ?: return Undefined.instance
-                    val routeId = (args.getOrNull(3) as? Number)?.toInt() ?: return Undefined.instance
-                    val jsonPayload = args.getOrNull(4)?.toString() ?: return Undefined.instance
-                    val onSuccess = args.getOrNull(5) as? org.mozilla.javascript.Function ?: return Undefined.instance
-                    val onFailure = args.getOrNull(6) as? org.mozilla.javascript.Function ?: return Undefined.instance
-
-                    WePacketHelper.sendCgi(
-                        uri, cgiId, funcId, routeId, jsonPayload
-                    ) {
-                        onSuccess { bytes ->
-                            val json = bytes?.let { WeProtoData.fromBytes(it).toJsonObject().toString() } ?: "{}"
-                            onSuccess.call(cx, scope, thisObj, arrayOf(json))
-                        }
-                        onFailure { _, _, errMsg ->
-                            onFailure.call(cx, scope, thisObj, arrayOf(errMsg))
-                        }
-                    }
-
-                    return Undefined.instance
-                }
-            }
-        )
-
-        // Always exposed: the scope outlives any single message, so the target is resolved per
-        // call. Returns null (and warns) when called outside of onMessage, e.g. from onLoad, a
-        // packet hook or a task.run() thread.
-        fun replyTarget(api: String): String? {
-            val target = currentTalker.get() ?: talker
-            if (target == null) {
-                WeLogger.w(TAG_WECHAT_API, "wechat.$api called outside of onMessage; ignored")
-            }
-            return target
-        }
-
-        weObj.putAction("replyText") { args ->
-            val text = args.getOrNull(0)?.toString() ?: return@putAction
-            val to = replyTarget("replyText") ?: return@putAction
-            WeMessageApi.sendText(to, text)
-        }
-        weObj.putAction("replyImage") { args ->
-            val path = args.getOrNull(0)?.toString() ?: return@putAction
-            val to = replyTarget("replyImage") ?: return@putAction
-            WeMessageApi.sendImage(to, path)
-        }
-        weObj.putAction("replyFile") { args ->
-            val path = args.getOrNull(0)?.toString() ?: return@putAction
-            val to = replyTarget("replyFile") ?: return@putAction
-            val title = args.getOrNull(1)?.toString() ?: path.substringAfterLast('/')
-            WeMessageApi.sendFile(to, path, title)
-        }
-        weObj.putAction("replyVoice") { args ->
-            val path = args.getOrNull(0)?.toString() ?: return@putAction
-            val to = replyTarget("replyVoice") ?: return@putAction
-            val durationMs = (args.getOrNull(1) as? Number)?.toInt() ?: 0
-            WeMessageApi.sendVoice(to, path, durationMs)
-        }
-        weObj.putAction("replyAppMsg") { args ->
-            val content = args.getOrNull(0)?.toString() ?: return@putAction
-            val to = replyTarget("replyAppMsg") ?: return@putAction
-            WeMessageApi.sendXmlAppMsg(to, content)
-        }
-        ScriptableObject.putProperty(weObj, "getSelfWxId", object : BaseFunction() {
-            override fun call(
-                cx: Context?,
-                scope: Scriptable?,
-                thisObj: Scriptable?,
-                args: Array<Any?>?
-            ): Any {
-                return WeApi.selfWxId
-            }
-        })
-        ScriptableObject.putProperty(weObj, "getSelfCustomWxId", object : BaseFunction() {
-            override fun call(
-                cx: Context?,
-                scope: Scriptable?,
-                thisObj: Scriptable?,
-                args: Array<Any?>?
-            ): Any {
-                return WeApi.selfCustomWxId
-            }
-        })
-
-        ScriptableObject.putProperty(scope, "wechat", weObj)
+    private fun bridgeStructuredValue(value: Any?): Any? = when (value) {
+        null, is String, is Number, is Boolean -> value
+        is Map<*, *> -> value.entries.associate { it.key.toString() to bridgeStructuredValue(it.value) }.toJsObject()
+        is Iterable<*> -> value.map(::bridgeStructuredValue)
+        else -> value
     }
 
-    private fun exposeXposedApis(scope: ScriptableObject) {
-        val xposedObj = NativeObject()
+    private data class CoercedValue(val value: Any?, val score: Int)
 
-        ScriptableObject.putProperty(
-            xposedObj, "hookBefore",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    // Support two overloads:
-                    //   hookBefore(javaMethod: JavaMethod, hookFunc: Function)
-                    //   hookBefore(className: string, methodName: string, hookFunc: Function)
-                    val first = args.getOrNull(0)
-                    if (first is NativeObject) {
-                        val methodProp = try {
-                            Context.jsToJava(
-                                getProperty(first, "__method"),
-                                Method::class.java
-                            ) as? Method
-                        } catch (_: Exception) {
-                            null
-                        }
-                        if (methodProp != null) {
-                            // JavaMethod overload
-                            val hookFunc = args.getOrNull(1) as? org.mozilla.javascript.Function
-                                ?: return Undefined.instance
-                            try {
-                                val unhook = methodProp.makeAccessible().hookBeforeDirectly {
-                                    val cx = Context.enter()
-                                    val scope = cx.init()
-                                    val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                                    val jsArgs = cx.newArray(scope, this.args)
-                                    val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs))
-                                    if (hookResult != null && hookResult !is Undefined) {
-                                        result = hookResult
-                                    }
-                                }
-                                return createHookHandle(unhook)
-                            } catch (e: Exception) {
-                                WeLogger.e(TAG_XPOSED_API, "xposed.hookBefore (JavaMethod) failed", e)
-                            }
-                        }
-                        return Undefined.instance
-                    }
+    private data class InvocationArguments(val values: Array<Any?>, val score: Int)
 
-                    // Original (className, methodName, hookFunc) overload
-                    val className = first?.toString() ?: return Undefined.instance
-                    val methodName = args.getOrNull(1)?.toString() ?: return Undefined.instance
-                    val hookFunc = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return Undefined.instance
+    private data class MethodInvocation(val method: Method, val arguments: InvocationArguments)
 
-                    try {
-                        val clazz = className.toClass()
-                        val method = clazz.methods.firstOrNull { it.name == methodName }
-                        if (method == null) {
-                            WeLogger.e(TAG_XPOSED_API, "xposed.hookBefore: no method named $methodName in $className")
-                            return Undefined.instance
-                        }
-                        val unhook = method.hookBeforeDirectly {
-                            val cx = Context.enter()
-                            val scope = cx.init()
-                            val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                            val jsArgs = cx.newArray(scope, this.args)
-                            val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs))
-                            if (hookResult != null && hookResult !is Undefined) {
-                                result = hookResult
-                            }
-                        }
-                        return createHookHandle(unhook)
-                    } catch (e: Exception) {
-                        WeLogger.e(TAG_XPOSED_API, "xposed.hookBefore failed", e)
-                    }
-                    return Undefined.instance
-                }
-            }
-        )
+    private data class ConstructorInvocation(
+        val constructor: Constructor<*>,
+        val arguments: InvocationArguments,
+    )
 
-        ScriptableObject.putProperty(
-            xposedObj, "hookAfter",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    // Support two overloads:
-                    //   hookBefore(javaMethod: JavaMethod, hookFunc: Function)
-                    //   hookBefore(className: string, methodName: string, hookFunc: Function)
-                    val first = args.getOrNull(0)
-                    if (first is NativeObject) {
-                        val methodProp = try {
-                            Context.jsToJava(
-                                getProperty(first, "__method"),
-                                Method::class.java
-                            ) as? Method
-                        } catch (_: Exception) {
-                            null
-                        }
-                        if (methodProp != null) {
-                            // JavaMethod overload
-                            val hookFunc = args.getOrNull(1) as? org.mozilla.javascript.Function
-                                ?: return Undefined.instance
-                            try {
-                                val unhook = methodProp.makeAccessible().hookAfterDirectly {
-                                    val cx = Context.enter()
-                                    val scope = cx.init()
-                                    val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                                    val jsArgs = cx.newArray(scope, this.args)
-                                    val jsResult = result?.let { Context.javaToJS(it, scope, cx) }
-                                        ?: Undefined.instance
-                                    val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs, jsResult))
-                                    if (hookResult != null && hookResult !is Undefined) {
-                                        result = hookResult
-                                    }
-                                }
-                                return createHookHandle(unhook)
-                            } catch (e: Exception) {
-                                WeLogger.e(TAG_XPOSED_API, "xposed.hookAfter (JavaMethod) failed", e)
-                            }
-                        }
-                        return Undefined.instance
-                    }
+    private fun selectMethod(
+        session: Session,
+        target: JavaTarget,
+        name: String,
+        values: List<*>,
+    ): MethodInvocation? = target.methods()
+        .filter { it.name == name }
+        .mapNotNull { method ->
+            coerceArguments(session, values, method.parameterTypes, method.isVarArgs)
+                ?.let { MethodInvocation(method, it) }
+        }
+        .minWithOrNull(compareBy { it.arguments.score })
 
-                    // Original (className, methodName, hookFunc) overload
-                    val className = first?.toString() ?: return Undefined.instance
-                    val methodName = args.getOrNull(1)?.toString() ?: return Undefined.instance
-                    val hookFunc = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return Undefined.instance
+    private fun selectConstructor(
+        session: Session,
+        constructors: Sequence<Constructor<*>>,
+        values: List<*>,
+    ): ConstructorInvocation? = constructors
+        .mapNotNull { constructor ->
+            coerceArguments(session, values, constructor.parameterTypes, constructor.isVarArgs)
+                ?.let { ConstructorInvocation(constructor, it) }
+        }
+        .minWithOrNull(compareBy { it.arguments.score })
 
-                    try {
-                        val clazz = className.toClass()
-                        val method = clazz.methods.firstOrNull { it.name == methodName }
-                        if (method == null) {
-                            WeLogger.e(TAG_XPOSED_API, "xposed.hookAfter: no method named $methodName in $className")
-                            return Undefined.instance
-                        }
-                        val unhook = method.hookAfterDirectly {
-                            val cx = Context.enter()
-                            val scope = cx.init()
-                            val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                            val jsArgs = cx.newArray(scope, this.args)
-                            val jsResult = result?.let { Context.javaToJS(it, scope, cx) }
-                                ?: Undefined.instance
-                            val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs, jsResult))
-                            if (hookResult != null && hookResult !is Undefined) {
-                                result = hookResult
-                            }
-                        }
-                        return createHookHandle(unhook)
-                    } catch (e: Exception) {
-                        WeLogger.e(TAG_XPOSED_API, "xposed.hookAfter failed", e)
-                    }
-                    return Undefined.instance
-                }
-            }
-        )
+    private fun coerceArguments(
+        session: Session,
+        values: List<*>,
+        parameterTypes: Array<Class<*>>,
+        isVarArgs: Boolean,
+    ): InvocationArguments? {
+        if (!isVarArgs && values.size != parameterTypes.size) return null
+        val fixedCount = if (isVarArgs) parameterTypes.size - 1 else parameterTypes.size
+        if (values.size < fixedCount) return null
 
-        ScriptableObject.putProperty(scope, "xposed", xposedObj)
+        val arguments = arrayOfNulls<Any?>(parameterTypes.size)
+        var score = 0
+        for (index in 0 until fixedCount) {
+            val value = coerceValue(session, values[index], parameterTypes[index]) ?: return null
+            arguments[index] = value.value
+            score += value.score
+        }
+        if (!isVarArgs) return InvocationArguments(arguments, score)
+
+        val varArgsType = parameterTypes.last()
+        val suppliedArray = values.getOrNull(fixedCount)?.let(session::resolve)
+        if (values.size == parameterTypes.size && suppliedArray != null && varArgsType.isInstance(suppliedArray)) {
+            arguments[fixedCount] = suppliedArray
+            return InvocationArguments(arguments, score)
+        }
+
+        val componentType = varArgsType.componentType ?: return null
+        val varArgs = JavaArray.newInstance(componentType, values.size - fixedCount)
+        for (index in fixedCount until values.size) {
+            val value = coerceValue(session, values[index], componentType) ?: return null
+            JavaArray.set(varArgs, index - fixedCount, value.value)
+            score += value.score
+        }
+        arguments[fixedCount] = varArgs
+        // A non-vararg overload with the same conversions should be preferred.
+        return InvocationArguments(arguments, score + 1)
     }
 
-    private fun exposeTaskApis(scope: ScriptableObject) {
-        val taskObj = NativeObject()
+    private fun coerceValue(session: Session, value: Any?, type: Class<*>): CoercedValue? {
+        val raw = session.resolve(value)
+        if (raw == null) return if (type.isPrimitive) null else CoercedValue(null, 4)
 
-        ScriptableObject.putProperty(
-            taskObj, "run",
-            object : BaseFunction() {
-                override fun call(
-                    cx: Context,
-                    scope: Scriptable,
-                    thisObj: Scriptable,
-                    args: Array<Any?>
-                ): Any {
-                    val func = args.getOrNull(0) as? org.mozilla.javascript.Function
-                        ?: return Undefined.instance
-
-                    thread(name = "JsTaskThread") {
-                        val cx = Context.enter()
-                        try {
-                            val scope = cx.init()
-                            func.call(cx, scope, thisObj, emptyArray())
-                        } catch (e: Exception) {
-                            WeLogger.e(TAG, "task.run failed", e)
-                        } finally {
-                            Context.exit()
-                        }
-                    }
-
-                    return Undefined.instance
-                }
+        val boxedType = type.boxed()
+        if (boxedType.isInstance(raw)) return CoercedValue(raw, typeDistance(raw.javaClass, boxedType))
+        if (raw is Number) {
+            when (boxedType) {
+                Byte::class.javaObjectType -> return CoercedValue(raw.toByte(), 2)
+                Short::class.javaObjectType -> return CoercedValue(raw.toShort(), 2)
+                Int::class.javaObjectType -> return CoercedValue(raw.toInt(), 2)
+                Long::class.javaObjectType -> return CoercedValue(raw.toLong(), 1)
+                Float::class.javaObjectType -> return CoercedValue(raw.toFloat(), 2)
+                Double::class.javaObjectType -> return CoercedValue(raw.toDouble(), 1)
+                Char::class.javaObjectType -> return CoercedValue(raw.toInt().toChar(), 2)
             }
-        )
-
-        ScriptableObject.putProperty(scope, "task", taskObj)
+        }
+        if (boxedType == Char::class.javaObjectType && raw is String && raw.length == 1) {
+            return CoercedValue(raw[0], 2)
+        }
+        if (boxedType == String::class.java && raw is Char) return CoercedValue(raw.toString(), 1)
+        if (type.isEnum && raw is String) {
+            val enum = type.enumConstants?.firstOrNull { (it as Enum<*>).name == raw } ?: return null
+            return CoercedValue(enum, 2)
+        }
+        if (type.isArray && raw is List<*>) {
+            val componentType = type.componentType ?: return null
+            val array = JavaArray.newInstance(componentType, raw.size)
+            var score = 2
+            raw.forEachIndexed { index, item ->
+                val converted = coerceValue(session, item, componentType) ?: return null
+                JavaArray.set(array, index, converted.value)
+                score += converted.score
+            }
+            return CoercedValue(array, score)
+        }
+        return null
     }
 
-    // --- Reflection API ---
+    private fun Class<*>.boxed(): Class<*> = when (this) {
+        Byte::class.javaPrimitiveType -> Byte::class.javaObjectType
+        Short::class.javaPrimitiveType -> Short::class.javaObjectType
+        Int::class.javaPrimitiveType -> Int::class.javaObjectType
+        Long::class.javaPrimitiveType -> Long::class.javaObjectType
+        Float::class.javaPrimitiveType -> Float::class.javaObjectType
+        Double::class.javaPrimitiveType -> Double::class.javaObjectType
+        Boolean::class.javaPrimitiveType -> Boolean::class.javaObjectType
+        Char::class.javaPrimitiveType -> Char::class.javaObjectType
+        else -> this
+    }
 
-    private fun getJvmDescriptor(type: Class<*>): String = when {
+    private fun typeDistance(source: Class<*>, target: Class<*>): Int {
+        if (source == target) return 0
+        if (target == Any::class.java) return 8
+        if (target.isInterface) return 2
+        var current: Class<*>? = source
+        var distance = 0
+        while (current != null && current != target) {
+            current = current.superclass
+            distance++
+        }
+        return distance
+    }
+
+    private fun methodInvocationError(session: Session, error: Throwable): Any = mapOf(
+        "value" to bridgeValue(session, error),
+        "exception" to true,
+    ).toJsObject()
+
+    private fun coerce(session: Session, value: Any?, type: Class<*>): Any? =
+        coerceValue(session, value, type)?.value ?: session.resolve(value)
+
+    private fun modifierStrings(modifiers: Int): Array<String> =
+        Modifier.toString(modifiers).takeIf { it.isNotEmpty() }?.split(" ")?.toTypedArray() ?: emptyArray()
+
+    private fun jvmDescriptor(type: Class<*>): String = when {
         type.isPrimitive -> when (type.name) {
-            "void" -> "V"
-            "int" -> "I"
-            "boolean" -> "Z"
-            "byte" -> "B"
-            "short" -> "S"
-            "long" -> "J"
-            "float" -> "F"
-            "double" -> "D"
-            "char" -> "C"
-            else -> error("Unknown primitive: ${type.name}")
+            "void" -> "V"; "int" -> "I"; "boolean" -> "Z"; "byte" -> "B"; "short" -> "S"
+            "long" -> "J"; "float" -> "F"; "double" -> "D"; "char" -> "C"; else -> error("unknown primitive ${type.name}")
         }
-
-        type.isArray -> "[" + getJvmDescriptor(type.componentType!!)
+        type.isArray -> "[${jvmDescriptor(type.componentType!!)}"
         else -> "L${type.name.replace('.', '/')};"
     }
 
-    private fun getMethodDescriptor(method: Method): String {
-        val params = method.parameterTypes.joinToString("") { getJvmDescriptor(it) }
-        return "($params)${getJvmDescriptor(method.returnType)}"
+    private fun methodDescriptor(method: Method): String =
+        "(${method.parameterTypes.joinToString("") { jvmDescriptor(it) }})${jvmDescriptor(method.returnType)}"
+
+    private fun constructorDescriptor(constructor: Constructor<*>): String =
+        "(${constructor.parameterTypes.joinToString("") { jvmDescriptor(it) }})V"
+
+    private fun dexMethodResult(session: Session, results: List<MethodData>): Any = mapOf(
+        "methods" to results.map { methodDescriptor(session, it.asMethod, it.asMethod.declaringClass) },
+    ).toJsObject()
+
+    private fun dexClassResult(session: Session, results: List<ClassData>): Any = mapOf(
+        "classes" to results.mapNotNull { result -> runCatching { classDescriptor(session, result.name.toClass()) }.getOrNull() },
+    ).toJsObject()
+
+    private fun Map<*, *>.string(name: String): String? = this[name]?.toString()?.takeIf { it.isNotEmpty() }
+    private fun Map<*, *>.number(name: String): Number? = this[name] as? Number
+    private fun Map<*, *>.stringOrClass(name: String): String? = when (val value = this[name]) {
+        is Map<*, *> -> value.string("name")
+        else -> value?.toString()
+    }
+    private fun Map<*, *>.stringList(name: String): List<String> = (this[name] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
+    private fun Map<*, *>.stringOrClassList(name: String): List<String> = (this[name] as? List<*>)?.mapNotNull { value ->
+        when (value) { is Map<*, *> -> value.string("name"); else -> value?.toString() }
+    } ?: emptyList()
+    private fun Map<*, *>.numberList(name: String): List<Number> = (this[name] as? List<*>)?.filterIsInstance<Number>() ?: emptyList()
+
+    private fun Any?.toJsValue(): Any? = when (this) {
+        is Map<*, *> -> entries.associate { it.key.toString() to it.value.toJsValue() }.toJsObject()
+        is List<*> -> map { it.toJsValue() }
+        else -> this
     }
 
-    private fun getModifierStrings(mods: Int): Array<Any> =
-        Modifier.toString(mods).split(" ").toTypedArray()
-
-    private fun createJavaClassObject(clazz: Class<*>): NativeObject {
-        val obj = NativeObject()
-
-        ScriptableObject.putProperty(obj, "name", clazz.name)
-
-        ScriptableObject.putProperty(obj, "createInstance", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any {
-                val jsArgs = args.getOrNull(0) as? NativeArray? ?: return Undefined.instance
-                val javaArgs = Array(jsArgs.length.toInt()) { i ->
-                    val jsVal = jsArgs[i]
-                    try {
-                        Context.jsToJava(jsVal, Any::class.java)
-                    } catch (_: Exception) {
-                        jsVal
-                    }
-                }
-                return try {
-                    @Suppress("UNCHECKED_CAST")
-                    val instance = (clazz as Class<Any>).createInstance(*javaArgs)
-                    Context.javaToJS(instance, scope, cx) ?: Undefined.instance
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect JavaClass.createInstance failed for ${clazz.name}", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(obj, "getMethods", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any {
-                val wrappers = clazz.declaredMethods.map {
-                    createJavaMethodObject(it, clazz, cx, scope)
-                }
-                return cx.newArray(scope, wrappers.toTypedArray<Any>())
-            }
-        })
-
-        ScriptableObject.putProperty(obj, "getFields", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any {
-                val wrappers = clazz.declaredFields.map {
-                    createJavaFieldObject(it, clazz, cx, scope)
-                }
-                return cx.newArray(scope, wrappers.toTypedArray<Any>())
-            }
-        })
-
-        return obj
-    }
-
-    private fun createJavaFieldObject(
-        field: Field,
-        clazz: Class<*>,
-        cx: Context,
-        scope: Scriptable
-    ): NativeObject {
-        val obj = NativeObject()
-        ScriptableObject.putProperty(obj, "name", field.name)
-        ScriptableObject.putProperty(obj, "clazz", createJavaClassObject(clazz))
-        ScriptableObject.putProperty(obj, "type", createJavaClassObject(field.type))
-        ScriptableObject.putProperty(
-            obj, "modifiers",
-            cx.newArray(scope, getModifierStrings(field.modifiers))
-        )
-
-        ScriptableObject.putProperty(obj, "get", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                return try {
-                    val instance = args.getOrNull(0)
-                    val value = field.makeAccessible().get(if (instance is Undefined) null else instance)
-                    Context.javaToJS(value, scope, cx) ?: Undefined.instance
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect field.get failed on ${clazz.name}.${field.name}", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(obj, "set", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any {
-                return try {
-                    field.makeAccessible()
-                    if (args.size >= 2) {
-                        val instance = args[0]
-                        val value = Context.jsToJava(args[1], field.type)
-                        field.set(if (instance is Undefined) null else instance, value)
-                    } else {
-                        val value = Context.jsToJava(args.getOrNull(0), field.type)
-                        field.set(null, value)
-                    }
-                    Undefined.instance
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect field.set failed on ${clazz.name}.${field.name}", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        return obj
-    }
-
-    private fun createHookHandle(unhook: HookHandle): NativeObject {
-        val handle = NativeObject()
-        ScriptableObject.putProperty(handle, "unhook", object : BaseFunction() {
-            override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<Any?>): Any {
-                unhook.unhook()
-                return Undefined.instance
-            }
-        })
-        return handle
-    }
-
-    private fun createJavaMethodObject(
-        method: Method,
-        clazz: Class<*>,
-        cx: Context,
-        scope: Scriptable
-    ): NativeObject {
-        val obj = NativeObject()
-        ScriptableObject.putProperty(obj, "name", method.name)
-        ScriptableObject.putProperty(obj, "clazz", createJavaClassObject(clazz))
-        ScriptableObject.putProperty(obj, "descriptor", getMethodDescriptor(method))
-        ScriptableObject.putProperty(
-            obj, "paramTypes",
-            cx.newArray(scope, method.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
-        )
-        ScriptableObject.putProperty(obj, "returnType", createJavaClassObject(method.returnType))
-        ScriptableObject.putProperty(
-            obj, "modifiers",
-            cx.newArray(scope, getModifierStrings(method.modifiers))
-        )
-
-        // Store hidden references for the xposed.* overload that accepts JavaMethod
-        ScriptableObject.putProperty(obj, "__method", method)
-
-        ScriptableObject.putProperty(obj, "hookBefore", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any {
-                val hookFunc = args.getOrNull(0) as? org.mozilla.javascript.Function
-                    ?: return Undefined.instance
-                try {
-                    val unhook = method.makeAccessible().hookBeforeDirectly {
-                        val cx = Context.enter()
-                        val scope = cx.init()
-                        val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                        val jsArgs = cx.newArray(scope, this.args)
-                        val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs))
-                        if (hookResult != null && hookResult !is Undefined) {
-                            result = hookResult
-                        }
-                    }
-                    return createHookHandle(unhook)
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect method hookBefore failed on ${clazz.name}.${method.name}", e)
-                }
-                return Undefined.instance
-            }
-        })
-
-        ScriptableObject.putProperty(obj, "hookAfter", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any {
-                val hookFunc = args.getOrNull(0) as? org.mozilla.javascript.Function
-                    ?: return Undefined.instance
-                try {
-                    val unhook = method.makeAccessible().hookAfterDirectly {
-                        val cx = Context.enter()
-                        val scope = cx.init()
-                        val jsThis = thisObject?.let { Context.javaToJS(it, scope, cx) }
-                        val jsArgs = cx.newArray(scope, this.args)
-                        val jsResult = result?.let { Context.javaToJS(it, scope, cx) }
-                        val hookResult = hookFunc.call(cx, scope, thisObj, arrayOf(jsThis, jsArgs, jsResult))
-                        if (hookResult != null && hookResult !is Undefined) {
-                            result = hookResult
-                        }
-                    }
-                    return createHookHandle(unhook)
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect method hookAfter failed on ${clazz.name}.${method.name}", e)
-                }
-                return Undefined.instance
-            }
-        })
-
-        ScriptableObject.putProperty(obj, "invoke", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any {
-                val instance = args.getOrNull(0)
-                val jsArgs = args.getOrNull(1)
-
-                val paramTypes = method.parameterTypes
-                val javaArgs: Array<Any?> = if (jsArgs is NativeArray) {
-                    Array(paramTypes.size) { i ->
-                        if (i < jsArgs.length.toInt()) {
-                            try {
-                                Context.jsToJava(jsArgs[i], paramTypes[i])
-                            } catch (e: Exception) {
-                                WeLogger.w(
-                                    TAG_REFLECT_API,
-                                    "reflect method invoke arg conversion failed on $className.${method.name} arg[$i]: ${jsArgs[i]}",
-                                    e
-                                )
-                                null
-                            }
-                        } else {
-                            null
-                        }
-                    }
-                } else {
-                    emptyArray()
-                }
-
-                val resultObj = NativeObject()
-
-                try {
-                    val result = method.makeAccessible().invoke(
-                        if (instance is Undefined) null else instance,
-                        *javaArgs
-                    )
-                    resultObj.put("value", resultObj, Context.javaToJS(result, scope, cx) ?: Undefined.instance)
-                    resultObj.put("exception", resultObj, false)
-                } catch (e: Exception) {
-                    WeLogger.e(
-                        TAG_REFLECT_API,
-                        "reflect method invoke failed on ${clazz.name}.${method.name}",
-                        e
-                    )
-                    resultObj.put("value", resultObj, Context.javaToJS(e, scope, cx) ?: Undefined.instance)
-                    resultObj.put("exception", resultObj, true)
-                }
-
-                return resultObj
-            }
-        })
-
-        return obj
-    }
-
-    private fun exposeReflectApis(scope: ScriptableObject) {
-        val reflectObj = NativeObject()
-
-        ScriptableObject.putProperty(reflectObj, "findFields", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return cx.newArray(scope, emptyArray<Any>())
-                val superclassFlag = Context.toBoolean(args.getOrNull(1))
-                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function
-                    ?: return cx.newArray(scope, emptyArray<Any>())
-                return try {
-                    val clazz = className.toClass()
-                    val fields = if (superclassFlag) clazz.fields.toList() else clazz.declaredFields.toList()
-                    val matches = fields.filter { field ->
-                        val modStrs = getModifierStrings(field.modifiers)
-                        val jsModStrs = cx.newArray(scope, modStrs)
-                        val condResult = condition.call(
-                            cx, scope, thisObj,
-                            arrayOf(field.name, createJavaClassObject(field.type), jsModStrs)
-                        )
-                        Context.toBoolean(condResult)
-                    }
-                    val wrappers = matches.map { createJavaFieldObject(it, clazz, cx, scope) }
-                    cx.newArray(scope, wrappers.toTypedArray<Any>())
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.findFields failed for $className", e)
-                    cx.newArray(scope, emptyArray<Any>())
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(reflectObj, "findMethods", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return cx.newArray(scope, emptyArray<Any>())
-                val superclassFlag = Context.toBoolean(args.getOrNull(1))
-                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function
-                    ?: return cx.newArray(scope, emptyArray<Any>())
-                return try {
-                    val clazz = className.toClass()
-                    val methods = if (superclassFlag) clazz.methods.toList() else clazz.declaredMethods.toList()
-                    val matches = methods.filter { method ->
-                        val jsParamTypes = cx.newArray(scope, method.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
-                        val modStrs = getModifierStrings(method.modifiers)
-                        val jsModStrs = cx.newArray(scope, modStrs)
-                        val condResult = condition.call(
-                            cx, scope, thisObj,
-                            arrayOf(method.name, jsParamTypes, createJavaClassObject(method.returnType), jsModStrs)
-                        )
-                        Context.toBoolean(condResult)
-                    }
-                    val wrappers = matches.map { createJavaMethodObject(it, clazz, cx, scope) }
-                    cx.newArray(scope, wrappers.toTypedArray<Any>())
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.findMethods failed for $className", e)
-                    cx.newArray(scope, emptyArray<Any>())
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(reflectObj, "toClass", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                return try {
-                    val clazz = className.toClass()
-                    createJavaClassObject(clazz)
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.toClass failed for $className", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(reflectObj, "findFirstMethod", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                val condition = args.getOrNull(1) as? org.mozilla.javascript.Function ?: return Undefined.instance
-                return try {
-                    val clazz = className.toClass()
-                    for (method in clazz.declaredMethods) {
-                        val jsParamTypes = cx.newArray(scope, method.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
-                        val modStrs = getModifierStrings(method.modifiers)
-                        val jsModStrs = cx.newArray(scope, modStrs)
-                        val condResult = condition.call(
-                            cx, scope, thisObj,
-                            arrayOf(method.name, jsParamTypes, createJavaClassObject(method.returnType), jsModStrs)
-                        )
-                        if (Context.toBoolean(condResult)) {
-                            return createJavaMethodObject(method, clazz, cx, scope)
-                        }
-                    }
-                    Undefined.instance
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.findFirstMethod failed for $className", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(reflectObj, "findFirstField", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                val superclassFlag = Context.toBoolean(args.getOrNull(1))
-                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return Undefined.instance
-                return try {
-                    val clazz = className.toClass()
-                    val fields = if (superclassFlag) clazz.fields.toList() else clazz.declaredFields.toList()
-                    for (field in fields) {
-                        val modStrs = getModifierStrings(field.modifiers)
-                        val jsModStrs = cx.newArray(scope, modStrs)
-                        val condResult = condition.call(
-                            cx, scope, thisObj,
-                            arrayOf(field.name, createJavaClassObject(field.type), jsModStrs)
-                        )
-                        if (Context.toBoolean(condResult)) {
-                            return createJavaFieldObject(field, clazz, cx, scope)
-                        }
-                    }
-                    Undefined.instance
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.findFirstField failed for $className", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(reflectObj, "findConstructors", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return cx.newArray(scope, emptyArray<Any>())
-                val superclassFlag = Context.toBoolean(args.getOrNull(1))
-                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return cx.newArray(scope, emptyArray<Any>())
-                return try {
-                    val clazz = className.toClass()
-                    val constructors = if (superclassFlag) clazz.constructors.toList() else clazz.declaredConstructors.toList()
-                    val matches = constructors.filter { constructor ->
-                        val jsParamTypes = cx.newArray(scope, constructor.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
-                        val modStrs = getModifierStrings(constructor.modifiers)
-                        val jsModStrs = cx.newArray(scope, modStrs)
-                        val condResult = condition.call(
-                            cx, scope, thisObj,
-                            arrayOf(constructor.name, jsParamTypes, createJavaClassObject(clazz), jsModStrs)
-                        )
-                        Context.toBoolean(condResult)
-                    }
-                    val wrappers = matches.map { createJavaConstructorObject(it, clazz, cx, scope) }
-                    cx.newArray(scope, wrappers.toTypedArray<Any>())
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.findConstructors failed for $className", e)
-                    cx.newArray(scope, emptyArray<Any>())
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(reflectObj, "findFirstConstructor", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val className = args.getOrNull(0)?.toString() ?: return Undefined.instance
-                val superclassFlag = Context.toBoolean(args.getOrNull(1))
-                val condition = args.getOrNull(2) as? org.mozilla.javascript.Function ?: return Undefined.instance
-                return try {
-                    val clazz = className.toClass()
-                    val constructors = if (superclassFlag) clazz.constructors.toList() else clazz.declaredConstructors.toList()
-                    for (constructor in constructors) {
-                        val jsParamTypes = cx.newArray(scope, constructor.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
-                        val modStrs = getModifierStrings(constructor.modifiers)
-                        val jsModStrs = cx.newArray(scope, modStrs)
-                        val condResult = condition.call(
-                            cx, scope, thisObj,
-                            arrayOf(constructor.name, jsParamTypes, createJavaClassObject(clazz), jsModStrs)
-                        )
-                        if (Context.toBoolean(condResult)) {
-                            return createJavaConstructorObject(constructor, clazz, cx, scope)
-                        }
-                    }
-                    Undefined.instance
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect.findFirstConstructor failed for $className", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(scope, "reflect", reflectObj)
-    }
-
-    private fun getStringProperty(obj: NativeObject, key: String): String? {
-        return when (val v = ScriptableObject.getProperty(obj, key)) {
-            is String -> v.takeIf { it.isNotEmpty() }
-            is NativeObject -> {
-                val name = ScriptableObject.getProperty(v, "name")
-                (name as? String)?.takeIf { it.isNotEmpty() }
-            }
-
-            else -> null
-        }
-    }
-
-    private fun getStringArrayProperty(obj: NativeObject, key: String): Array<String>? {
-        val v = ScriptableObject.getProperty(obj, key)
-        if (v !is NativeArray || v.length.toInt() == 0) return null
-        return (0 until v.length.toInt()).map { i ->
-            when (val elem = v[i]) {
-                is String -> elem
-                is NativeObject -> {
-                    val name = ScriptableObject.getProperty(elem, "name")
-                    name?.toString() ?: ""
-                }
-
-                else -> elem?.toString() ?: ""
-            }
-        }.toTypedArray()
-    }
-
-    private fun getIntProperty(obj: NativeObject, key: String): Int? {
-        val v = ScriptableObject.getProperty(obj, key)
-        return (v as? Number)?.toInt()
-    }
-
-    private fun getNumberArrayProperty(obj: NativeObject, key: String): Array<Number>? {
-        val v = ScriptableObject.getProperty(obj, key)
-        if (v !is NativeArray || v.length.toInt() == 0) return null
-        val nums = (0 until v.length.toInt()).mapNotNull { v[it] as? Number }
-        if (nums.isEmpty()) return null
-        return nums.toTypedArray()
-    }
-
-    private fun createDexMethodResult(
-        methodDataList: List<MethodData>,
-        cx: Context,
-        scope: Scriptable
-    ): NativeObject {
-        val result = NativeObject()
-        val methods = methodDataList.map { md ->
-            val method = md.asMethod
-            createJavaMethodObject(method, method.declaringClass, cx, scope)
-        }
-        val jsArray = cx.newArray(scope, methods.toTypedArray<Any>())
-        ScriptableObject.putProperty(result, "methods", jsArray)
-
-        ScriptableObject.putProperty(result, "single", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                return when (methods.size) {
-                    1 -> methods[0]
-                    else -> Undefined.instance
-                }
-            }
-        })
-        return result
-    }
-
-    private fun createDexClassResult(
-        classDataList: List<ClassData>,
-        cx: Context,
-        scope: Scriptable
-    ): NativeObject {
-        val result = NativeObject()
-        val classList = classDataList.mapNotNull { cd ->
-            try {
-                createJavaClassObject(cd.name.toClass())
-            } catch (e: Exception) {
-                WeLogger.w(TAG_DEXKIT_API, "failed to load class ${cd.name}", e)
-                null
-            }
-        }
-        val jsArray = cx.newArray(scope, classList.toTypedArray<Any>())
-        ScriptableObject.putProperty(result, "classes", jsArray)
-
-        ScriptableObject.putProperty(result, "single", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                return when (classList.size) {
-                    1 -> classList[0]
-                    else -> Undefined.instance
-                }
-            }
-        })
-        return result
-    }
-
-    private fun getConstructorDescriptor(constructor: Constructor<*>): String {
-        val params = constructor.parameterTypes.joinToString("") { getJvmDescriptor(it) }
-        return "($params)V"
-    }
-
-    private fun createJavaConstructorObject(
-        constructor: Constructor<*>,
-        clazz: Class<*>,
-        cx: Context,
-        scope: Scriptable
-    ): NativeObject {
-        val obj = NativeObject()
-        ScriptableObject.putProperty(obj, "name", constructor.name)
-        ScriptableObject.putProperty(obj, "clazz", createJavaClassObject(clazz))
-        ScriptableObject.putProperty(obj, "descriptor", getConstructorDescriptor(constructor))
-        ScriptableObject.putProperty(
-            obj, "paramTypes",
-            cx.newArray(scope, constructor.parameterTypes.map { createJavaClassObject(it) }.toTypedArray<Any>())
-        )
-        ScriptableObject.putProperty(obj, "returnType", createJavaClassObject(constructor.declaringClass))
-        ScriptableObject.putProperty(
-            obj, "modifiers",
-            cx.newArray(scope, getModifierStrings(constructor.modifiers))
-        )
-
-        ScriptableObject.putProperty(obj, "invoke", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any? {
-                val jsArgs = args.getOrNull(0) as? NativeArray ?: return Undefined.instance
-                val javaArgs = Array(constructor.parameterTypes.size) { i ->
-                    if (i < jsArgs.length.toInt()) {
-                        try {
-                            Context.jsToJava(jsArgs[i], constructor.parameterTypes[i])
-                        } catch (_: Exception) {
-                            jsArgs[i]
-                        }
-                    } else null
-                }
-                return try {
-                    val instance = constructor.makeAccessible().newInstance(*javaArgs)
-                    Context.javaToJS(instance, scope, cx) ?: Undefined.instance
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_REFLECT_API, "reflect constructor invoke failed on ${clazz.name}", e)
-                    Undefined.instance
-                }
-            }
-        })
-
-        return obj
-    }
-
-    private fun exposeDexKitApis(scope: ScriptableObject) {
-        val dexkitObj = NativeObject()
-
-        ScriptableObject.putProperty(dexkitObj, "findMethod", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any {
-                val searcher = args.getOrNull(0) as? NativeObject
-                    ?: return NativeObject()
-                return try {
-                    withDexKit { dexKit ->
-                        val results = dexKit.findMethod {
-                            val pkgs = getStringArrayProperty(searcher, "searchPackages")
-                            if (pkgs != null) searchPackages(*pkgs)
-                            matcher {
-                                getStringProperty(searcher, "declaringClass")?.let { declaredClass = it }
-                                getStringProperty(searcher, "name")?.let { name = it }
-                                getStringProperty(searcher, "returnType")?.let { returnType = it }
-                                getIntProperty(searcher, "paramCount")?.let { paramCount = it }
-                                getStringArrayProperty(searcher, "paramTypes")?.let { paramTypes(*it) }
-                                getStringArrayProperty(searcher, "usingEqStrings")?.let { usingEqStrings(*it) }
-                                getNumberArrayProperty(searcher, "usingNumbers")?.let { usingNumbers(*it) }
-                            }
-                        }
-                        createDexMethodResult(results.toList(), cx, scope)
-                    }
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_DEXKIT_API, "dexkit.findMethod failed", e)
-                    createDexMethodResult(emptyList(), cx, scope)
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(dexkitObj, "findClass", object : BaseFunction() {
-            override fun call(
-                cx: Context,
-                scope: Scriptable,
-                thisObj: Scriptable,
-                args: Array<Any?>
-            ): Any {
-                val searcher = args.getOrNull(0) as? NativeObject
-                    ?: return NativeObject()
-                return try {
-                    withDexKit { dexKit ->
-                        val results = dexKit.findClass {
-                            val pkgs = getStringArrayProperty(searcher, "searchPackages")
-                            if (pkgs != null) searchPackages(*pkgs)
-                            matcher {
-                                getStringProperty(searcher, "name")?.let { className = it }
-                                getStringProperty(searcher, "superclass")?.let { superClass = it }
-                                getStringArrayProperty(searcher, "usingEqStrings")?.let { usingEqStrings(*it) }
-                                getStringArrayProperty(searcher, "interfaces")?.forEach { ifaceName ->
-                                    addInterface { className = ifaceName }
-                                }
-                            }
-                        }
-                        createDexClassResult(results.toList(), cx, scope)
-                    }
-                } catch (e: Exception) {
-                    WeLogger.e(TAG_DEXKIT_API, "dexkit.findClass failed", e)
-                    createDexClassResult(emptyList(), cx, scope)
-                }
-            }
-        })
-
-        ScriptableObject.putProperty(scope, "dexkit", dexkitObj)
+    private fun JSONObject.toKotlinValue(): Any = keys().asSequence().associateWith { get(it).toKotlinValue() }.toJsObject()
+    private fun JSONArray.toKotlinValue(): List<Any?> = (0 until length()).map { get(it).toKotlinValue() }
+    private fun Any?.toKotlinValue(): Any? = when (this) {
+        is JSONObject -> toKotlinValue()
+        is JSONArray -> toKotlinValue()
+        JSONObject.NULL -> null
+        else -> this
     }
 }

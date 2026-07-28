@@ -138,8 +138,7 @@ android {
         )
         resources.merges += listOf(
             "META-INF/io.netty.versions.properties",
-            "META-INF/xposed/*",
-            "org/mozilla/javascript/**"
+            "META-INF/xposed/*"
         )
     }
 
@@ -273,7 +272,7 @@ dependencies {
     implementation(libs.okhttp3.okhttp)
     implementation(libs.jsoup)
 
-    implementation(libs.rhino)
+    implementation(libs.quickjs)
 
     implementation(libs.fastjson2)
 

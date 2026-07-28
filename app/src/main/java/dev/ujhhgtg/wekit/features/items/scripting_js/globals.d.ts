@@ -39,6 +39,18 @@ interface MethodReturnValue {
     readonly exception: boolean;
 }
 
+/**
+ * 由反射 API 返回、或由 Xposed 回调传入的 Java 实例代理。
+ *
+ * 代理保留同一脚本运行时内的 Java 对象身份；可以读取和写入 Java 字段，并直接调用
+ * Java 方法。Java 数组和 List 还支持 `length` 与下标读写。未在此处静态列出的成员由
+ * 对应 Java 类决定，使用 TypeScript 时可按目标类型进行断言。
+ */
+interface JavaObject {
+    toString(): string;
+    readonly [member: string]: unknown;
+}
+
 // --- 日志 API ---
 
 declare namespace log {
@@ -390,12 +402,15 @@ declare namespace task {
 
 declare namespace hostinfo {
     /**
-     * 当前宿主 (WeChat) 的 Application 对象，可作为 Context 使用
+     * 当前宿主 (WeChat) 的 Application Java 对象，可作为 Context 使用
+     *
+     * 它是 JavaObject 代理，可直接调用 Application/Context 的方法，例如
+     * `(hostinfo.application as any).getPackageName()`。
      * @example
      * const ctx = hostinfo.application;
      * android.widget.Toast.makeText(ctx, "Hello", 0).show();
      */
-    const application: unknown;
+    const application: JavaObject;
 
     /**
      * 宿主包名，例如 "com.tencent.mm"
@@ -424,7 +439,8 @@ declare namespace xposed {
     /**
      * 在目标 Java 方法执行前插入钩子（通过 JavaMethod 对象匹配）
      * @param method 通过 reflect.findMethods/findFirstMethod 获取的 JavaMethod 对象
-     * @param hookFunc 钩子回调函数，接收 (thisObj, args)
+     * @param hookFunc 钩子回调函数，接收 (thisObj, args)。其中 Java 实例会以
+     *   JavaObject 代理传入，`args` 本身为普通 JavaScript 数组，可直接替换元素。
      *   若返回非 undefined 的值，将作为方法的返回值
      * @example
      * const m = reflect.findFirstMethod("com.example.Cls", function(name, pt, ret, mods) {
@@ -442,8 +458,8 @@ declare namespace xposed {
      * @param className 目标类的全限定名（例如 "com.tencent.mm.ui.LauncherUI"）
      * @param methodName 目标方法名
      * @param hookFunc 钩子回调函数，接收参数：
-     *   - thisObj: 方法调用的 this 对象（静态方法为 null）
-     *   - args: 方法参数数组
+     *   - thisObj: 方法调用的 this JavaObject 代理（静态方法为 null）
+     *   - args: 方法参数数组；其中 Java 实例为 JavaObject 代理
      *   若返回非 undefined 的值，将作为方法的返回值
      * @example
      * xposed.hookBefore("com.example.TargetClass", "targetMethod", function(thisObj, args) {
@@ -457,7 +473,8 @@ declare namespace xposed {
     /**
      * 在目标 Java 方法执行后插入钩子（通过 JavaMethod 对象匹配）
      * @param method 通过 reflect.findMethods/findFirstMethod 获取的 JavaMethod 对象
-     * @param hookFunc 钩子回调函数，接收 (thisObj, args, originalResult)
+     * @param hookFunc 钩子回调函数，接收 (thisObj, args, originalResult)。其中 Java
+     *   实例与原始返回值会以 JavaObject 代理传入。
      *   若返回非 undefined 的值，将作为方法的新返回值
      */
     function hookAfter(method: JavaMethod, hookFunc: (thisObj: unknown, args: unknown[], originalResult: unknown) => unknown | void): HookHandle;
@@ -468,9 +485,9 @@ declare namespace xposed {
      * @param className 目标类的全限定名（例如 "com.tencent.mm.ui.LauncherUI"）
      * @param methodName 目标方法名
      * @param hookFunc 钩子回调函数，接收参数：
-     *   - thisObj: 方法调用的 this 对象（静态方法为 null）
-     *   - args: 方法参数数组
-     *   - originalResult: 方法的原始返回值
+     *   - thisObj: 方法调用的 this JavaObject 代理（静态方法为 null）
+     *   - args: 方法参数数组；其中 Java 实例为 JavaObject 代理
+     *   - originalResult: 方法的原始返回值；Java 实例为 JavaObject 代理
      *   若返回非 undefined 的值，将作为方法的新返回值
      * @example
      * xposed.hookAfter("com.example.TargetClass", "targetMethod", function(thisObj, args, result) {
@@ -675,7 +692,7 @@ declare namespace reflect {
     /**
      * 查找类中所有符合条件的字段
      * @param className 目标类的全限定名
-     * @param superclass 是否搜索继承的 public 字段（true 时使用 Class.getFields()，会包含父类的 public 字段）
+     * @param superclass 是否逐级搜索父类中声明的字段。启用后会包含父类的 private、protected 和 public 字段（不含 Object）。
      * @param condition 过滤条件，接收 (name, type, modifiers)
      * @returns 匹配的字段数组
      * @example
@@ -705,7 +722,7 @@ declare namespace reflect {
     /**
      * 查找类中所有符合条件的方法
      * @param className 目标类的全限定名
-     * @param superclass 是否搜索继承的 public 方法（true 时使用 Class.getMethods()，会包含父类的 public 方法）
+     * @param superclass 是否逐级搜索父类中声明的方法。启用后会包含父类的 private、protected 和 public 方法（不含 Object）。
      * @param condition 过滤条件，接收 (name, paramTypes, returnType, modifiers)
      * @returns 匹配的方法数组
      * @example
@@ -786,7 +803,7 @@ declare namespace reflect {
     /**
      * 查找类中第一个符合条件的字段
      * @param className 目标类的全限定名
-     * @param superclass 是否搜索继承的 public 字段（true 时使用 Class.getFields()，会包含父类的 public 字段）
+     * @param superclass 是否逐级搜索父类中声明的字段。启用后会包含父类的 private、protected 和 public 字段（不含 Object）。
      * @param condition 过滤条件，接收 (name, type, modifiers)
      * @returns 匹配的 JavaField，未找到返回 undefined
      * @example
@@ -1020,7 +1037,6 @@ declare namespace dexkit {
  *   var seen = {};                              // 仅在脚本加载时初始化一次
  *   function onMessage(talker, content, type, isSend) {
  *     seen[talker] = (seen[talker] || 0) + 1;   // 跨消息累加
- *     return null;
  *   }
  *
  * onLoad() 对全局变量所做的修改，对 onMessage / onRequest / onResponse 同样可见。
@@ -1029,27 +1045,6 @@ declare namespace dexkit {
  * 这些钩子运行在微信的数据库线程与网络线程上：同一个脚本不会并发执行，
  * 但不同脚本之间可能并发，请勿假设脚本之间的执行顺序。
  */
-
-/**
- * onMessage 钩子可以返回的消息对象结构
- *
- * 消息会被发送至“触发本次 onMessage 的会话”（即 talker），等价于对应的 wechat.reply* 调用。
- * 若必填字段缺失或 type 不被识别，则不会发送任何消息，仅输出一条警告日志。
- */
-interface MessageResponse {
-    /** 消息类型
-     * @default "text"
-     */
-    type?: "text" | "image" | "file" | "voice" | "appmsg";
-    /** 消息内容：文本内容 (type 为 "text") 或卡片 XML (type 为 "appmsg") */
-    content?: string;
-    /** 文件、图片或语音的绝对路径 (仅当 type 为 "image"/"file"/"voice" 时有效) */
-    path?: string;
-    /** 文件标题/显示名称 (可选，仅用于 "file"；默认取路径中的文件名) */
-    title?: string;
-    /** 语音时长（毫秒，仅用于 "voice"，默认 0） */
-    duration?: number;
-}
 
 /**
  * 加载钩子 - 当全部脚本加载完成后触发
@@ -1068,45 +1063,27 @@ declare function onLoad(): void;
  *   - 49: 分享/链接消息
  *   - 10000: 系统消息
  * @param isSend 是否为自己发出的消息 (0=接收, 1=发送)
- * @returns 可以返回以下任意类型（发送目标均为本次消息的 talker）：
- *   - string: 直接发送文本消息（空字符串不发送）
- *   - MessageResponse: 发送复杂消息（图片、文件、语音、卡片）
- *   - null/undefined: 不回复
- *
- *   发送失败只会记录日志，不会向微信抛出异常。
+ * @remarks 返回值会被忽略。请直接调用 wechat.reply* 回复当前会话，或调用
+ * wechat.send* 指定发送目标。
  *
  * @example
- * // 简单文本回复
+ * // 回复触发消息的当前会话
  * function onMessage(talker, content, type, isSend) {
  *   const cleanContent = getCleanContent(content);
  *   if (cleanContent === "ping") {
- *     return "pong";
+ *     wechat.replyText("pong");
  *   }
- *   return null;
  * }
- * 
+ *
  * @example
- * // 使用 API 和返回值混合
+ * // 向明确指定的会话发送消息
  * function onMessage(talker, content, type, isSend) {
  *   if (content.includes("天气")) {
  *     const resp = http.get("https://api.weather.com/...");
  *     if (resp.ok) {
- *       return "今日天气: " + resp.json.temp + "°C";
+ *       wechat.sendText(talker, "今日天气: " + resp.json.temp + "°C");
  *     }
  *   }
- *   return null;
- * }
- * 
- * @example
- * // 返回复杂消息
- * function onMessage(talker, content, type, isSend) {
- *   if (content === "发图") {
- *     return {
- *       type: "image",
- *       path: "/sdcard/picture.jpg"
- *     };
- *   }
- *   return null;
  * }
  */
 declare function onMessage(
@@ -1114,7 +1091,7 @@ declare function onMessage(
     content: string, 
     type: number, 
     isSend: number
-): string | MessageResponse | null | void;
+): void;
 
 /**
  * 请求钩子 - 拦截并修改微信发出的网络请求

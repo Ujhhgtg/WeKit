@@ -445,7 +445,8 @@ function onMessage(talker, content, type, isSend) {
     content = getCleanContent(content);
 
     if (content.startsWith("/debug-msg")) {
-        return commandDebugMsg(talker);
+        wechat.replyText(commandDebugMsg(talker));
+        return;
     }
 
     var debugMsgKey = talker + "_debug_msg_enabled";
@@ -470,28 +471,33 @@ function onMessage(talker, content, type, isSend) {
             isSend +
             "\n";
 
-        return message;
+        wechat.replyText(message);
+        return;
     }
 
     if (content.startsWith("/help")) {
-        return commandHelp(content);
+        wechat.replyText(commandHelp(content));
+        return;
     }
 
     if (content.startsWith("/changelog")) {
-        return commmandChangelog();
+        wechat.replyText(commmandChangelog());
+        return;
     }
 
     if (content.startsWith("/weather")) {
-        return commandWeather(content);
+        wechat.replyText(commandWeather(content));
+        return;
     }
 
     if (content.startsWith("/random-pic")) {
         commandRandomPic(content);
-        return null;
+        return;
     }
 
     if (content.startsWith("/hitokoto")) {
-        return commandHitokoto();
+        wechat.replyText(commandHitokoto());
+        return;
     }
 
     if (
@@ -503,12 +509,11 @@ function onMessage(talker, content, type, isSend) {
         content.startsWith("/pardon") ||
         content.startsWith("/time")
     ) {
-        return "bro这不是mc你发mc指令干甚么[骷髅]";
+        wechat.replyText("bro这不是mc你发mc指令干甚么[骷髅]");
+        return;
     }
 
     if (content.startsWith("/")) {
-        return "暂不支持该命令，请等待开发者实现喵";
+        wechat.replyText("暂不支持该命令，请等待开发者实现喵");
     }
-
-    return null;
 }

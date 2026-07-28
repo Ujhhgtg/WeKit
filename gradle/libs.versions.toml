@@ -15,7 +15,7 @@ androidx-core-ktx = "1.19.0"
 mmkv = "2.4.0"
 osmdroid = "6.1.20"
 profileinstaller = "1.4.1"
-rhino = "45f29f6"
+quickjs = "1.0.7"
 serialization = "1.11.0"
 lombok = "1.18.46"
 google-protobuf = "4.35.1"
@@ -117,7 +117,7 @@ libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsu"
 libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed" }
 libxposed-service = { module = "io.github.libxposed:service", version.ref = "libxposed" }
 
-rhino = { module = "com.github.Ujhhgtg.rhino:rhino", version.ref = "rhino" }
+quickjs = { module = "io.github.dokar3:quickjs-kt", version.ref = "quickjs" }
 ksp = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
 kotlinpoet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinpoet" }
 

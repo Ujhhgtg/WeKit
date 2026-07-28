@@ -33,8 +33,9 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
-import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
-import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlTag
+import dev.ujhhgtg.wekit.utils.serialization.NativeXmlParser
+import dev.ujhhgtg.wekit.utils.serialization.asString
+import dev.ujhhgtg.wekit.utils.serialization.getByPath
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -233,14 +234,11 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
             val isSend = values.getAsInteger("isSend") ?: 0
             if (isSend == 0) {
                 val msgContent = values.getAsString("msgContent") ?: ""
-                val fromusername = extractXmlAttr(msgContent, "encryptusername").takeIf { it.isNotEmpty() }
-                    ?: extractXmlAttr(msgContent, "fromusername").takeIf { it.isNotEmpty() }
-                    ?: extractXmlTag(msgContent, "fromusername")
-                val ticket = extractXmlAttr(msgContent, "ticket").takeIf { it.isNotEmpty() }
-                    ?: extractXmlTag(msgContent, "ticket")
-                val sceneStr = extractXmlAttr(msgContent, "scene").takeIf { it.isNotEmpty() }
-                    ?: extractXmlTag(msgContent, "scene")
-                val scene = sceneStr.toIntOrNull() ?: 0
+                val content = NativeXmlParser.toXmlObject(msgContent)
+                val fromusername = content.getByPath("msg.fromusername")!!.asString
+                val ticket = content.getByPath("msg.ticker")!!.asString
+                val sceneStr = content.getByPath("msg.scene")!!.asString
+                val scene = sceneStr.toInt()
 
                 JavaEngine.executeAllOnNewFriend(scripts, fromusername, ticket, scene)
             }

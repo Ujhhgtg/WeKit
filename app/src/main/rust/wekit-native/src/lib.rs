@@ -6,7 +6,9 @@ mod audio_utils;
 mod crash_handler;
 mod crash_triggerer;
 mod logging;
+#[allow(dead_code)]
 mod nuke_client;
+#[allow(dead_code)]
 mod nuke_crypto;
 mod telegram_sticker;
 mod utils;
