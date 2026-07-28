@@ -24,10 +24,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,7 +53,6 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.syncFoldersToDatabase
 import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.BaseContactSelector
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -109,11 +106,6 @@ object ConversationAggregation : ClickableFeature(),
     // badge renders a small dot instead of a number (WeChat w3.b / s2 require this bit set
     // alongside unReadMuteCount > 0 when unReadCount == 0).
     private const val ATTR_FLAG_MUTE_BIT = 2097152
-
-    private var keepMembersInOriginalPosition by prefOption(
-        "conversation_aggregation_keep_members_in_original_position",
-        false
-    )
 
     private val foldersFile by lazy { KnownPaths.moduleData / "chat_folders.json" }
 
@@ -509,15 +501,8 @@ object ConversationAggregation : ClickableFeature(),
     override fun onQuery(sql: String): String? {
         if (suppressQueryRewrite.get()!!) return null
 
-        val folderId = activeFolderId
-        if (folderId != null) {
-            return rewriteContainerSql(sql, folderId).takeIf { it != sql }
-        }
-
-        if (keepMembersInOriginalPosition) {
-            return rewriteHomeSql(sql).takeIf { it != sql }
-        }
-        return null
+        val folderId = activeFolderId ?: return null
+        return rewriteContainerSql(sql, folderId).takeIf { it != sql }
     }
 
     override fun onStartActivity(param: HookParam, intent: Intent) {
@@ -1435,25 +1420,6 @@ object ConversationAggregation : ClickableFeature(),
             .replace(WeChatFolderPlaceholder.MESSAGE_FOLD, folderId)
     }
 
-    /**
-     * Adds our materialized folder members to WeChat's root conversation query. Membership still
-     * lives in `parentRef`, so the folder container continues to query the same rows normally.
-     */
-    private fun rewriteHomeSql(sql: String): String {
-        if (!sql.contains("from ${ConversationTable.NAME}", ignoreCase = true) ||
-            !sql.contains(ConversationTable.PARENT_REF, ignoreCase = true)
-        ) {
-            return sql
-        }
-
-        val replacement = { match: MatchResult ->
-            "(${match.value} OR ${ConversationTable.PARENT_REF} LIKE '$FOLDER_PREFIX%')"
-        }
-        return sql
-            .replace(ROOT_PARENT_REF_OR_EQUALS_CLAUSE, replacement)
-            .replace(ROOT_PARENT_REF_IN_CLAUSE, replacement)
-    }
-
     private fun readFolderIdFromIntent(intent: Intent?): String? {
         if (intent == null) return null
         return WeChatIntentExtra.ALL
@@ -1475,9 +1441,6 @@ object ConversationAggregation : ClickableFeature(),
     private fun showManagerDialog(context: Context) {
         showComposeDialog(context) {
             var folders by remember { mutableStateOf(loadFolders()) }
-            var keepMembersInOriginalPositionInput by remember {
-                mutableStateOf(keepMembersInOriginalPosition)
-            }
 
             AlertDialogContent(
                 modifier = Modifier
@@ -1486,20 +1449,6 @@ object ConversationAggregation : ClickableFeature(),
                 title = { Text("对话归拢") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                keepMembersInOriginalPositionInput = !keepMembersInOriginalPositionInput
-                            },
-                            headlineContent = { Text("归拢后保留在原位") },
-                            supportingContent = { Text("归拢的对话仍显示在标准对话列表中") },
-                            trailingContent = {
-                                Switch(
-                                    checked = keepMembersInOriginalPositionInput,
-                                    onCheckedChange = null
-                                )
-                            }
-                        )
-
                         LazyColumn(
                             modifier = Modifier.heightIn(max = 420.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1536,13 +1485,9 @@ object ConversationAggregation : ClickableFeature(),
                 },
                 confirmButton = {
                     Button(onClick = {
-                        val keepPositionChanged =
-                            keepMembersInOriginalPosition != keepMembersInOriginalPositionInput
-                        keepMembersInOriginalPosition = keepMembersInOriginalPositionInput
                         saveFolders(folders)
                         syncFoldersToDatabase()
-                        if (keepPositionChanged) WeConversationApi.reloadConversations()
-                        showToast(context, "已保存")
+                        showToast(context, "已保存, 重启微信生效")
                         onDismiss()
                     }) { Text("保存") }
                 }
@@ -2030,16 +1975,6 @@ object ConversationAggregation : ClickableFeature(),
     private fun newFolderId(): String = "$FOLDER_PREFIX${System.currentTimeMillis()}"
 
     private fun isFolderId(value: String): Boolean = value.startsWith(FOLDER_PREFIX)
-
-    private val ROOT_PARENT_REF_OR_EQUALS_CLAUSE = Regex(
-        """\(\s*parentRef\s+is\s+null\s+or\s+parentRef\s*=\s*''(?:\s+or\s+parentRef\s*=\s*'[^']*')*\s*\)""",
-        RegexOption.IGNORE_CASE
-    )
-
-    private val ROOT_PARENT_REF_IN_CLAUSE = Regex(
-        """\(\(\s*parentRef\s+is\s+null\s*\)\s+or\s+\(\s*parentRef\s*(?:in\s*\([^)]*\)|=\s*'')\s*\)\s*\)""",
-        RegexOption.IGNORE_CASE
-    )
 
 
     enum class FolderType {
