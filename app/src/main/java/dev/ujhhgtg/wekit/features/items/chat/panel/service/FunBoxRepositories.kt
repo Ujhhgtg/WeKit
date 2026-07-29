@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.service
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSource
@@ -8,15 +9,34 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPack
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePack
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceProviderPage
+import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.asPath
+import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import java.nio.file.Files
 import java.security.MessageDigest
+import java.util.LinkedHashMap
 
 private val funBoxClientWxId: String
     get() = PanelSettings.effectiveFunBoxApiClientWxId
 
 object FunBoxStickerRepository {
+    private val embeddedCatalog by lazy {
+        runCatching {
+            val resources = HostInfo.application.resources
+            ResourcesInjector.injectModuleRes(resources)
+            resources.openRawResource(R.raw.funbox_sticker_catalog_snapshot)
+                .bufferedReader()
+                .use { reader ->
+                    DefaultJson.decodeFromString<List<FunBoxStickerPackSnapshot>>(reader.readText())
+                }
+                .map(FunBoxStickerPackSnapshot::toStickerPack)
+        }
+    }
+
     suspend fun loadCatalog(): Result<List<StickerPack>> {
         WeLogger.d(TAG, "catalog load start")
         val request = FunBoxBinaryWriter().apply { string(funBoxClientWxId) }.build()
@@ -42,6 +62,12 @@ object FunBoxStickerRepository {
                     downloadCount = downloadCount,
                 )
             }
+        }.map { serverCatalog ->
+            val snapshotCatalog = embeddedCatalog.getOrElse { error ->
+                WeLogger.e(TAG, "embedded catalog load failed", error)
+                emptyList()
+            }
+            mergeCatalog(snapshotCatalog, serverCatalog)
         }
         return resolvePackCovers(result).logNetworkResult(TAG, "catalog load") { "packs=${it.size}" }
     }
@@ -221,6 +247,16 @@ object FunBoxStickerRepository {
         )
     }
 
+    private fun mergeCatalog(
+        snapshotCatalog: List<StickerPack>,
+        serverCatalog: List<StickerPack>,
+    ): List<StickerPack> {
+        val mergedById = LinkedHashMap<String, StickerPack>(snapshotCatalog.size + serverCatalog.size)
+        snapshotCatalog.forEach { mergedById[it.id] = it }
+        serverCatalog.forEach { mergedById[it.id] = it }
+        return mergedById.values.toList()
+    }
+
     private suspend fun resolvePackCovers(result: Result<List<StickerPack>>): Result<List<StickerPack>> {
         if (result.isFailure) return result
         return runCatching {
@@ -301,6 +337,30 @@ object FunBoxStickerRepository {
     private const val OP_STICKER_UPLOAD_CONFIRM = 11
     private const val UPLOAD_CHUNK_BYTES = 4 * 1024 * 1024
     private const val TAG = "FunBoxStickerRepository"
+}
+
+@Serializable
+private data class FunBoxStickerPackSnapshot(
+    val id: String,
+    val title: String,
+    @SerialName("thumb_id")
+    val thumbId: String,
+    @SerialName("click_count")
+    val clickCount: Int,
+    @SerialName("download_count")
+    val downloadCount: Int,
+    @SerialName("updated_at")
+    val updatedAt: Long,
+) {
+    fun toStickerPack() = StickerPack(
+        id = id,
+        title = title,
+        cover = thumbId,
+        source = PanelSource.ONLINE,
+        badge = "点击 $clickCount · 下载 $downloadCount",
+        uploadTime = updatedAt,
+        downloadCount = downloadCount,
+    )
 }
 
 object FunBoxVoiceRepository {
