@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -41,15 +42,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -92,7 +94,6 @@ fun NukeTopAppBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = NukeTheme.colors
-    var backButtonCenter by remember { mutableStateOf(Offset.Zero) }
     val containerColor by animateColorAsState(
         targetValue = colors.background,
         animationSpec = tween(160),
@@ -120,84 +121,57 @@ fun NukeTopAppBar(
             .windowInsetsPadding(WindowInsets.statusBars)
             .height(56.dp)
     ) {
-        Row(
-            Modifier
-                .fillMaxSize()
-                .padding(start = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        if (onBack != null) {
             Box(
                 Modifier
-                    .weight(1f),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                if (onBack != null) {
-                    Box(
-                        Modifier
-                            .padding(start = 4.dp)
-                            .onGloballyPositioned { coordinates ->
-                                backButtonCenter = coordinates.localToRoot(
-                                    Offset(
-                                        coordinates.size.width / 2f,
-                                        coordinates.size.height / 2f,
-                                    )
-                                )
-                            }
-                            .nukeJellyClickable(
-                                role = Role.Button,
-                                onClick = { touchOrigin ->
-                                    onBack(
-                                        backButtonCenter.takeUnless { it == Offset.Zero }
-                                            ?: touchOrigin
-                                    )
-                                },
-                            )
-                            .padding(10.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        NukeGlyph(
-                            kind = NukeGlyphKind.Back,
-                            color = colors.textPrimary,
-                            modifier = Modifier
-                                .size(18.dp)
-                                .padding(start = 2.dp),
-                        )
-                    }
-                }
-            }
-            Box(
-                Modifier.weight(1f),
+                    .align(Alignment.CenterStart)
+                    .padding(start = 12.dp)
+                    .nukeJellyClickable(
+                        role = Role.Button,
+                        // The click modifier already gives a root-space coordinate. Keeping that
+                        // actual touch origin lets the reveal exit contract use the back button.
+                        onClick = onBack,
+                    )
+                    .padding(10.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                NukeText(
-                    text = title,
-                    modifier = Modifier.graphicsLayer {
-                        translationY = titleOffset.toPx()
-                        scaleX = titleScale
-                        scaleY = titleScale
-                    },
+                NukeGlyph(
+                    kind = NukeGlyphKind.Back,
                     color = colors.textPrimary,
-                    fontSize = 18,
-                    lineHeight = null,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                )
-            }
-            Box(
-                Modifier.weight(1f),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(end = 8.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                    content = actions,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .padding(start = 2.dp),
                 )
             }
         }
+        NukeText(
+            text = title,
+            modifier = Modifier
+                .align(Alignment.Center)
+                // Keep the title centered in the actual app bar, independent of either side.
+                // This also leaves substantially more display width than the former 1/3 column.
+                .fillMaxWidth()
+                .padding(horizontal = 52.dp)
+                .graphicsLayer {
+                    translationY = titleOffset.toPx()
+                    scaleX = titleScale
+                    scaleY = titleScale
+                },
+            color = colors.textPrimary,
+            fontSize = 18,
+            lineHeight = null,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+        )
+        Row(
+            Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 8.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+            content = actions,
+        )
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -360,6 +334,31 @@ fun NukeCategoryIcon(
             kind = glyph,
             color = color,
             modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+/** Foundation-hosted wrapper for the project's existing Miuix setting icon vectors. */
+@Composable
+fun NukeVectorCategoryIcon(
+    imageVector: ImageVector,
+    modifier: Modifier = Modifier,
+    error: Boolean = false,
+) {
+    val colors = NukeTheme.colors
+    val color = if (error) Color(0xFFDC2626) else colors.accent
+    Box(
+        modifier
+            .size(34.dp)
+            .clip(NukeSquircleShape(11.dp))
+            .background(color.copy(alpha = if (error) 0.13f else 0.12f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            imageVector = imageVector,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            colorFilter = ColorFilter.tint(color),
         )
     }
 }

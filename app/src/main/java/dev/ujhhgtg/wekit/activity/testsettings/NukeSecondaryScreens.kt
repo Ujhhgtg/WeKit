@@ -1,27 +1,24 @@
 package dev.ujhhgtg.wekit.activity.testsettings
 
-import android.graphics.Color as AndroidColor
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -30,587 +27,510 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
+import coil3.compose.AsyncImage
+import com.mikepenz.aboutlibraries.Libs
+import com.mikepenz.aboutlibraries.entity.Library
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Auto_delete
+import com.composables.icons.materialsymbols.outlined.Block
+import com.composables.icons.materialsymbols.outlined.Build_circle
+import com.composables.icons.materialsymbols.outlined.Delete_forever
+import com.composables.icons.materialsymbols.outlined.Download
+import com.composables.icons.materialsymbols.outlined.Frame_bug
+import com.composables.icons.materialsymbols.outlined.Label
+import com.composables.icons.materialsymbols.outlined.License
+import com.composables.icons.materialsymbols.outlined.Notifications
+import com.composables.icons.materialsymbols.outlined.Rule_settings
+import com.composables.icons.materialsymbols.outlined.Update
+import com.composables.icons.materialsymbols.outlined.Upload
+import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.settings.LocalComponentActivity
+import dev.ujhhgtg.wekit.activity.settings.SettingsConfigActions
+import dev.ujhhgtg.wekit.constants.Preferences
+import dev.ujhhgtg.wekit.features.core.BaseFeature
+import dev.ujhhgtg.wekit.features.core.ClickableFeature
+import dev.ujhhgtg.wekit.features.core.FeaturesProvider
+import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeButton
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeAnimatedVisibility
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeColorSwatch
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCountAndChevron
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeDialogSectionTitle
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeDialogSurface
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeDivider
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeEmptyState
+import dev.ujhhgtg.wekit.ui.content.nukex.NukeGlyph
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeGlyphKind
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeHueBar
 import dev.ujhhgtg.wekit.ui.content.nukex.NukePageScaffold
-import dev.ujhhgtg.wekit.ui.content.nukex.NukePopupAnimationMode
 import dev.ujhhgtg.wekit.ui.content.nukex.NukePreferenceRow
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeSaturationValuePalette
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeSelectPreference
+import dev.ujhhgtg.wekit.ui.content.nukex.NukeSearchField
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroup
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSquircleShape
+import dev.ujhhgtg.wekit.ui.content.nukex.NukeStatusPill
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSwitch
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeText
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeTextField
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeTheme
-import dev.ujhhgtg.wekit.ui.content.nukex.parseNukeColor
-import dev.ujhhgtg.wekit.ui.content.nukex.toNukeHex
-import dev.ujhhgtg.wekit.ui.content.nukex.toNukeHsv
-import dev.ujhhgtg.wekit.ui.utils.theme.AppThemeMode
-import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
-import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
-import dev.ujhhgtg.wekit.utils.android.showToastSuspend
+import dev.ujhhgtg.wekit.ui.content.nukex.NukeVectorCategoryIcon
+import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
+import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
+import dev.ujhhgtg.wekit.utils.AppUpdater
+import dev.ujhhgtg.wekit.utils.UpdateResult
+import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.formatEpoch
+import dev.ujhhgtg.wekit.utils.openInSystem
+import dev.ujhhgtg.wekit.utils.restartHost
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-private val nukePresetColors = listOf(
-    Color(0xFFEC4899),
-    Color(0xFFF43F5E),
-    Color(0xFFF97316),
-    Color(0xFFF59E0B),
-    Color(0xFF22C55E),
-    Color(0xFF14B8A6),
-    Color(0xFF0EA5E9),
-    Color(0xFF3B82F6),
-    Color(0xFF6366F1),
-    Color(0xFF8B5CF6),
-    Color(0xFFA855F7),
-    Color(0xFF64748B),
-)
+@Composable
+internal fun NukeDestinationPage(
+    destination: NukeDestination,
+    featureItems: List<SwitchFeature>,
+    onBack: (Offset) -> Unit,
+    onOpenDestination: (NukeDestination, Offset) -> Unit,
+) {
+    when (destination) {
+        is NukeDestination.Category -> NukeFeatureCategoryPage(
+            categoryName = destination.name,
+            featureItems = featureItems,
+            onBack = onBack,
+        )
 
-private data class AboutDeveloper(
-    val name: String,
-    val description: String,
-    val githubUsername: String,
-)
-
-private val aboutDevelopers = listOf(
-    AboutDeveloper("dartcv", "主要开发者", "dartcv"),
-    AboutDeveloper(
-        "Guang233",
-        "参与模块UI设计，后端，管理系统开发",
-        "Guang233",
-    ),
-    AboutDeveloper("Admilkk", "参与后端开发", "Admilkk"),
-    AboutDeveloper(
-        "HdShare",
-        "参与模块前身开发",
-        "HdShare",
-    ),
-    AboutDeveloper("cooolia", "提供部分功能代码", "cooolia"),
-    AboutDeveloper(
-        "？？？",
-        "还有不愿意透露姓名者为我们提供代码",
-        "",
-    ),
-)
+        NukeDestination.ModuleDebug -> NukeModuleDebugPage(onBack)
+        NukeDestination.Update -> NukeUpdatePage(onBack)
+        NukeDestination.GeneralSettings -> NukeGeneralSettingsPage(onBack)
+        NukeDestination.Appearance -> NukeAppearancePage(onBack)
+        NukeDestination.About -> NukeAboutPage(onBack, onOpenDestination)
+        NukeDestination.Licenses -> NukeLicensesPage(onBack)
+    }
+}
 
 @Composable
-internal fun NukeUpdatePage(onBack: (Offset) -> Unit) {
-    NukePageScaffold(
-        title = "检测更新",
-        onBack = onBack,
-    ) {
+private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
+    val features = remember { FeaturesProvider.ALL_HOOK_ITEMS }
+    var selectedFeature by remember { mutableStateOf<BaseFeature?>(null) }
+
+    NukePageScaffold(title = "模块设置及调试", onBack = onBack) {
+        item(key = "actions") {
+            NukeSettingGroup(title = "操作") {
+                NukePreferenceRow(
+                    title = "重启宿主",
+                    description = "重新启动当前微信进程。",
+                    leading = { NukeCategoryIcon(NukeGlyphKind.Restart) },
+                    onClick = { restartHost() },
+                )
+            }
+        }
+        item(key = "overview") {
+            NukeSettingGroup(title = "状态概览") {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    NukeStatusPill("正常 ${features.size}", Color(0xFF16A34A))
+                }
+            }
+        }
+        item(key = "features") {
+            NukeSettingGroup(title = "FEATURES") {
+                features.forEachIndexed { index, feature ->
+                    NukeFeatureStatusRow(feature = feature, onClick = { selectedFeature = feature })
+                    if (index < features.lastIndex) NukeDivider()
+                }
+            }
+        }
+    }
+    selectedFeature?.let { feature ->
+        NukeFeatureStatusDialog(feature = feature, onDismiss = { selectedFeature = null })
+    }
+}
+
+@Composable
+private fun NukeFeatureStatusRow(feature: BaseFeature, onClick: () -> Unit) {
+    NukePreferenceRow(
+        title = feature.name,
+        description = feature.categories.joinToString(" / ").ifBlank { "模块基础能力" },
+        leading = { NukeCategoryIcon(NukeGlyphKind.CheckCircle) },
+        trailing = { NukeStatusPill("正常", Color(0xFF16A34A)) },
+        onClick = { onClick() },
+    )
+}
+
+@Composable
+private fun NukeFeatureStatusDialog(feature: BaseFeature, onDismiss: () -> Unit) {
+    val kind = when (feature) {
+        is ClickableFeature -> "可配置功能"
+        is SwitchFeature -> "开关功能"
+        else -> "模块基础能力"
+    }
+    NukeMessageDialog(
+        title = feature.name,
+        message = buildString {
+            appendLine("状态：正常")
+            appendLine("类型：$kind")
+            appendLine("分类：${feature.categories.joinToString(" / ").ifBlank { "未分类" }}")
+            feature.description.takeIf { it.isNotBlank() }?.let {
+                appendLine()
+                append(it)
+            }
+        },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
+    val context = LocalContext.current
+    val activity = LocalComponentActivity.current
+    var showClearConfirmation by remember { mutableStateOf(false) }
+
+    NukePageScaffold(title = "通用设置", onBack = onBack) {
+        item(key = "debug") {
+            NukeSettingGroup(title = "调试") {
+                NukeBooleanPreference(
+                    key = Preferences.VERBOSE_LOG,
+                    title = "详细日志",
+                    description = "输出高频日志（这可能会暴露你的隐私信息）",
+                    imageVector = MaterialSymbols.Outlined.Frame_bug,
+                )
+                NukeDivider()
+                NukeBooleanPreference(
+                    key = Preferences.SHOW_STARTUP_TOAST,
+                    title = "显示加载完成 Toast",
+                    description = "全部功能加载完成后显示 Toast 提示",
+                    imageVector = MaterialSymbols.Outlined.Notifications,
+                )
+                NukeDivider()
+                NukeBooleanPreference(
+                    key = Preferences.MATCH_GENERIC_WXID_EXP,
+                    title = "清理消息内容微信 ID 前缀时允许非标准 ID",
+                    description = "允许处理不带 wxid_ 前缀的微信 ID，可能导致误伤消息原始内容（实验性）",
+                    imageVector = MaterialSymbols.Outlined.Rule_settings,
+                    default = true,
+                )
+            }
+        }
+        item(key = "compatibility") {
+            NukeSettingGroup(title = "兼容") {
+                NukeBooleanPreference(
+                    key = Preferences.NO_DEX_RESOLVE,
+                    title = "禁用版本适配",
+                    description = "不弹出 DEX 查找对话框，未适配功能将不会被加载",
+                    imageVector = MaterialSymbols.Outlined.Block,
+                )
+                NukeDivider()
+                NukePreferenceRow(
+                    title = "重置适配信息",
+                    description = "清除 DEX 缓存，等待下次启动时重新适配",
+                    leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Build_circle) },
+                    trailing = { NukeCountAndChevron(text = null) },
+                    onClick = { ResetDexCache.onClick(activity) },
+                )
+                NukeDivider()
+                NukeBooleanPreference(
+                    key = Preferences.RESET_DEX_ON_HOT_UPDATE,
+                    title = "宿主热更新时重新适配",
+                    description = "宿主热更新时是否重置 DEX 缓存，可能导致频繁重新适配（实验性）",
+                    imageVector = MaterialSymbols.Outlined.Auto_delete,
+                )
+            }
+        }
+        item(key = "configuration") {
+            NukeSettingGroup(title = "配置") {
+                NukePreferenceRow(
+                    title = "导出配置",
+                    description = "将模块配置导出为 JSON",
+                    leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Upload) },
+                    trailing = { NukeCountAndChevron(text = null) },
+                    onClick = { SettingsConfigActions.export(context) },
+                )
+                NukeDivider()
+                NukePreferenceRow(
+                    title = "导入配置",
+                    description = "从 JSON 导入模块配置，并覆盖其中已有的配置项",
+                    leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Download) },
+                    trailing = { NukeCountAndChevron(text = null) },
+                    onClick = { SettingsConfigActions.importFromDocument(context) },
+                )
+                NukeDivider()
+                NukePreferenceRow(
+                    title = "清除配置",
+                    description = "清除全部模块配置（此操作不可逆）",
+                    leading = {
+                        NukeVectorCategoryIcon(
+                            MaterialSymbols.Outlined.Delete_forever,
+                            error = true,
+                        )
+                    },
+                    trailing = { NukeCountAndChevron(text = null, error = true) },
+                    onClick = { showClearConfirmation = true },
+                )
+            }
+        }
+    }
+    if (showClearConfirmation) {
+        NukeConfirmDialog(
+            title = "清除模块配置",
+            message = "确定清除全部模块配置吗？此操作不可逆。",
+            confirmText = "清除",
+            onDismiss = { showClearConfirmation = false },
+            onConfirm = {
+                SettingsConfigActions.clear()
+                showClearConfirmation = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun NukeBooleanPreference(
+    key: String,
+    title: String,
+    description: String,
+    imageVector: ImageVector,
+    default: Boolean = false,
+) {
+    var checked by remember(key, default) { mutableStateOf(WePrefs.getBoolOrDef(key, default)) }
+    NukePreferenceRow(
+        title = title,
+        description = description,
+        leading = { NukeVectorCategoryIcon(imageVector) },
+        trailing = {
+            NukeSwitch(
+                checked = checked,
+                onCheckedChange = {
+                    checked = it
+                    WePrefs.putBool(key, it)
+                },
+            )
+        },
+        onClick = {
+            checked = !checked
+            WePrefs.putBool(key, checked)
+        },
+    )
+}
+
+@Composable
+private fun NukeUpdatePage(onBack: (Offset) -> Unit) {
+    val activity = LocalComponentActivity.current
+    val scope = rememberCoroutineScope()
+    var updateInfo by remember { mutableStateOf<UpdateResult.UpdateAvailable?>(null) }
+    var updateError by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
+    var resultSummary by remember { mutableStateOf("尚未检查更新") }
+
+    fun checkForUpdate() {
+        if (checking) return
+        scope.launch {
+            checking = true
+            when (val result = AppUpdater.checkForUpdate()) {
+                UpdateResult.UpToDate -> resultSummary = "已是最新版本"
+                is UpdateResult.UpdateAvailable -> {
+                    resultSummary = "发现新版本 ${result.info.versionName}"
+                    updateInfo = result
+                }
+                is UpdateResult.Error -> {
+                    WeLogger.e("AppUpdater", "failed to check for updates", result.cause)
+                    updateError = result.cause.message ?: "未知错误"
+                    resultSummary = "检查更新失败"
+                }
+            }
+            checking = false
+        }
+    }
+
+    NukePageScaffold(title = "检测更新", onBack = onBack) {
         item(key = "installed") {
             NukeSettingGroup(title = "已安装") {
                 NukePreferenceRow(
-                    title = "1.0.1",
-                    description = "版本代码 226",
-                    leading = { NukeCategoryIcon(NukeGlyphKind.Info) },
+                    title = BuildConfig.VERSION_NAME,
+                    description = "版本代码 ${BuildConfig.VERSION_CODE}\n构建时间 ${formatEpoch(BuildConfig.BUILD_TIMESTAMP, true)}",
+                    leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Label) },
                 )
             }
         }
         item(key = "update") {
             NukeSettingGroup(title = "更新") {
                 NukePreferenceRow(
-                    title = "已是最新版本",
-                    description = "当前没有可用的新版 Nuke。",
-                    leading = { NukeCategoryIcon(NukeGlyphKind.CheckCircle) },
+                    title = if (checking) "正在检查更新" else resultSummary,
+                    description = "检查 WeKit 是否有可用的新版本。",
+                    leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Update) },
                 )
                 NukeDivider()
                 NukePreferenceRow(
                     title = "重新检测",
-                    leading = { NukeCategoryIcon(NukeGlyphKind.Update) },
-                    onClick = {},
+                    leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Update) },
+                    trailing = { NukeCountAndChevron(text = null) },
+                    enabled = !checking,
+                    onClick = { checkForUpdate() },
                 )
             }
         }
     }
-}
-
-@Composable
-internal fun NukeScriptsPage(onBack: (Offset) -> Unit) {
-    NukePageScaffold(
-        title = "脚本设置",
-        onBack = onBack,
-    ) {
-        item(key = "script_directory") {
-            NukeSettingGroup(title = null) {
-                NukePreferenceRow(
-                    title = "脚本目录",
-                    description = "/storage/emulated/0/Android/data/com.tencent.mm/files/nuke/scripts",
-                )
-            }
-        }
-        item(key = "script_empty") {
-            NukeSettingGroup(title = "脚本") {
-                NukeEmptyState(
-                    title = "没有发现脚本",
-                    description = "在脚本目录中放入包含 manifest.json 的脚本文件夹。",
-                )
-            }
-        }
-    }
-}
-
-@Composable
-internal fun NukeAppearancePage(
-    onBack: (Offset) -> Unit,
-) {
-    var showColorDialog by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val engineLabels = mapOf(
-        SettingsUiEngine.MIUIX to "Miuix",
-        SettingsUiEngine.NUKE to "Nuke",
-    )
-    val themeLabels = mapOf(
-        AppThemeMode.SYSTEM to "系统默认",
-        AppThemeMode.LIGHT to "浅色主题",
-        AppThemeMode.DARK to "深色主题",
-    )
-    val popupAnimationLabels = mapOf(
-        NukePopupAnimationMode.Vanilla to "原版",
-        NukePopupAnimationMode.ExitAlignedToEnter to "exit 对齐 enter",
-        NukePopupAnimationMode.EnterAlignedToExit to "enter 对齐 exit",
-    )
-
-    NukePageScaffold(
-        title = "界面设置",
-        onBack = onBack,
-    ) {
-        item(key = "ui_engine") {
-            NukeSettingGroup(title = "界面") {
-                NukeSelectPreference(
-                    title = "UI 组件引擎",
-                    description = "选择模块设置界面使用的组件库。",
-                    options = SettingsUiEngine.entries,
-                    selected = ThemeSettings.uiEngine,
-                    optionLabel = { engineLabels.getValue(it) },
-                    onSelected = { ThemeSettings.updateUiEngine(it) },
-                )
-            }
-        }
-        item(key = "theme_mode") {
-            NukeSettingGroup(title = "主题") {
-                NukeSelectPreference(
-                    title = "主题",
-                    description = "选择设置界面的明暗表现。",
-                    options = AppThemeMode.entries,
-                    selected = ThemeSettings.themeMode,
-                    optionLabel = { themeLabels.getValue(it) },
-                    onSelected = { ThemeSettings.updateThemeMode(it) },
-                )
-            }
-        }
-        item(key = "click_haptic") {
-            NukeSettingGroup(title = "交互") {
-                NukePreferenceRow(
-                    title = "点击震动",
-                    description = "点击按钮和设置项时提供触觉反馈",
-                    trailing = {
-                        NukeSwitch(
-                            checked = ThemeSettings.nukeHaptics,
-                            onCheckedChange = { ThemeSettings.updateNukeHaptics(it) },
-                        )
-                    },
-                    onClick = { ThemeSettings.updateNukeHaptics(!ThemeSettings.nukeHaptics) },
-                )
-            }
-        }
-        item(key = "color") {
-            NukeSettingGroup(title = "颜色") {
-                NukePreferenceRow(
-                    title = "自定义颜色",
-                    description = "启用后使用共享主题颜色，而非 Nuke 默认粉色",
-                    trailing = {
-                        NukeSwitch(
-                            checked = ThemeSettings.customColor,
-                            onCheckedChange = { ThemeSettings.updateCustomColor(it) },
-                        )
-                    },
-                    onClick = { ThemeSettings.updateCustomColor(!ThemeSettings.customColor) },
-                )
-
-                NukeAnimatedVisibility(
-                    visible = ThemeSettings.customColor,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column {
-                        NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
-                        NukePreferenceRow(
-                            title = "动态壁纸取色",
-                            description = "使用系统壁纸的强调色作为种子，需要 Android 12 或更高版本",
-                            trailing = {
-                                NukeSwitch(
-                                    checked = ThemeSettings.dynamicWallpaper,
-                                    onCheckedChange = { ThemeSettings.updateDynamicWallpaper(it) },
-                                )
-                            },
-                            onClick = {
-                                ThemeSettings.updateDynamicWallpaper(!ThemeSettings.dynamicWallpaper)
-                            },
-                        )
-
-                        NukeAnimatedVisibility(visible = !ThemeSettings.dynamicWallpaper) {
-                            Column {
-                                NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
-                                NukePreferenceRow(
-                                    title = "种子颜色",
-                                    description = "点击选择配色的种子颜色",
-                                    trailing = {
-                                        val seedColor = Color(ThemeSettings.seedColor)
-                                        NukeColorSwatch(color = seedColor, selected = false)
-                                        Spacer(Modifier.width(10.dp))
-                                        NukeText(
-                                            text = seedColor.toNukeHex(),
-                                            color = NukeTheme.colors.textSecondary,
-                                            fontSize = 13,
-                                            lineHeight = 18,
-                                            maxLines = 1,
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        NukeCountAndChevron(text = null)
-                                    },
-                                    onClick = { showColorDialog = true },
-                                )
-                            }
+    updateInfo?.let { result ->
+        NukeConfirmDialog(
+            title = "检测到新版本",
+            message = "当前版本：${BuildConfig.VERSION_NAME}\n新版本：${result.info.versionName}\n是否下载并安装？",
+            confirmText = "下载并安装",
+            onDismiss = { updateInfo = null },
+            onConfirm = {
+                updateInfo = null
+                activity.lifecycleScope.launch {
+                    runCatching { AppUpdater.downloadAndInstall(activity, result.info) }
+                        .onFailure { error ->
+                            if (error is CancellationException) throw error
+                            WeLogger.e("AppUpdater", "failed to download update", error)
+                            updateError = "下载更新失败：${error.message ?: "未知错误"}"
                         }
-
-                        NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
-                        NukePreferenceRow(
-                            title = "同时对微信生效",
-                            description = "将自定义配色应用到微信本身，重启微信后生效",
-                            trailing = {
-                                NukeSwitch(
-                                    checked = ThemeSettings.applyToWechat,
-                                    onCheckedChange = { value ->
-                                        ThemeSettings.updateApplyToWechat(value)
-                                        scope.launch { showToastSuspend(context, "重启微信生效") }
-                                    },
-                                )
-                            },
-                            onClick = {
-                                ThemeSettings.updateApplyToWechat(!ThemeSettings.applyToWechat)
-                                scope.launch { showToastSuspend(context, "重启微信生效") }
-                            },
-                        )
-                    }
                 }
-            }
-        }
-        item(key = "fine_tuning") {
-            Column {
-                NukeSettingGroup(title = "微调") {
-                    NukePreferenceRow(
-                        title = "套用推荐设置",
-                        description = "使用推荐的按压、页面返回和 Popup 动画组合",
-                        leading = { NukeCategoryIcon(NukeGlyphKind.CheckCircle) },
-                        onClick = { ThemeSettings.applyNukeRecommendedFineTuning() },
-                    )
-                    NukeDivider()
-                    NukePreferenceRow(
-                        title = "恢复原版设置",
-                        description = "恢复这些微调项的原版默认行为",
-                        leading = { NukeCategoryIcon(NukeGlyphKind.Restart) },
-                        onClick = { ThemeSettings.restoreNukeOriginalFineTuning() },
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                NukeSettingGroup(title = null) {
-                    NukePreferenceRow(
-                        title = "即时按压反馈",
-                        description = "移除按压反馈延迟，使快速轻点也立即触发缩放和倾斜动画",
-                        trailing = {
-                            NukeSwitch(
-                                checked = ThemeSettings.nukeImmediatePressFeedback,
-                                onCheckedChange = {
-                                    ThemeSettings.updateNukeImmediatePressFeedback(it)
-                                },
-                            )
-                        },
-                        onClick = {
-                            ThemeSettings.updateNukeImmediatePressFeedback(
-                                !ThemeSettings.nukeImmediatePressFeedback
-                            )
-                        },
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                NukeSettingGroup(title = null) {
-                    NukePreferenceRow(
-                        title = "页面 exit 动画语义逻辑优化",
-                        description = "根据返回来源收缩到手势边缘、导航栏返回键或左上角返回键",
-                        trailing = {
-                            NukeSwitch(
-                                checked = ThemeSettings.nukePageExitOptimization,
-                                onCheckedChange = {
-                                    ThemeSettings.updateNukePageExitOptimization(it)
-                                },
-                            )
-                        },
-                        onClick = {
-                            ThemeSettings.updateNukePageExitOptimization(
-                                !ThemeSettings.nukePageExitOptimization
-                            )
-                        },
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                NukeSettingGroup(title = null) {
-                    NukeSelectPreference(
-                        title = "Popup 动画",
-                        description = "调整原版 Popup 出现与消失动画的配对方式",
-                        options = NukePopupAnimationMode.entries,
-                        selected = ThemeSettings.nukePopupAnimation,
-                        optionLabel = { popupAnimationLabels.getValue(it) },
-                        onSelected = { ThemeSettings.updateNukePopupAnimation(it) },
-                    )
-                    NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
-                    NukePreferenceRow(
-                        title = "Popup 使用 Dialog 作为宿主",
-                        description = "改用与 Miuix Popup 相同的窗口宿主，以支持完整的返回手势分发",
-                        trailing = {
-                            NukeSwitch(
-                                checked = ThemeSettings.nukePopupDialogHost,
-                                onCheckedChange = { ThemeSettings.updateNukePopupDialogHost(it) },
-                            )
-                        },
-                        onClick = {
-                            ThemeSettings.updateNukePopupDialogHost(
-                                !ThemeSettings.nukePopupDialogHost
-                            )
-                        },
-                    )
-                    NukeAnimatedVisibility(
-                        visible = ThemeSettings.nukePopupDialogHost &&
-                            ThemeSettings.nukePopupAnimation.supportsPredictiveExit,
-                    ) {
-                        Column {
-                            NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
-                            NukePreferenceRow(
-                                title = "Popup exit 动画预见性返回",
-                                description = "返回手势进行时，Popup 会提前跟随手势播放部分消失动画",
-                                trailing = {
-                                    NukeSwitch(
-                                        checked = ThemeSettings.nukePopupPredictiveExit,
-                                        onCheckedChange = {
-                                            ThemeSettings.updateNukePopupPredictiveExit(it)
-                                        },
-                                    )
-                                },
-                                onClick = {
-                                    ThemeSettings.updateNukePopupPredictiveExit(
-                                        !ThemeSettings.nukePopupPredictiveExit
-                                    )
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        }
+            },
+        )
     }
-
-    if (showColorDialog) {
-        NukeThemeColorDialog(
-            accent = Color(ThemeSettings.seedColor),
-            onAccentChange = { ThemeSettings.updateSeedColor(it.toArgb()) },
-            onDismiss = { showColorDialog = false },
+    updateError?.let { message ->
+        NukeMessageDialog(
+            title = "检查更新失败",
+            message = "错误信息：$message",
+            onDismiss = { updateError = null },
         )
     }
 }
 
 @Composable
-private fun NukeThemeColorDialog(
-    accent: Color,
-    onAccentChange: (Color) -> Unit,
-    onDismiss: () -> Unit,
+private fun NukeAboutPage(
+    onBack: (Offset) -> Unit,
+    onOpenDestination: (NukeDestination, Offset) -> Unit,
 ) {
-    var selectedColor by remember(accent) { mutableStateOf(accent) }
-    var customHex by remember(accent) { mutableStateOf(accent.toNukeHex()) }
-    var hue by remember(accent) { mutableFloatStateOf(accent.toNukeHsv()[0]) }
-    var saturation by remember(accent) { mutableFloatStateOf(accent.toNukeHsv()[1]) }
-    var value by remember(accent) { mutableFloatStateOf(accent.toNukeHsv()[2]) }
-    val parsedCustom = customHex.parseNukeColor()
-
-    fun updateFromHsv() {
-        selectedColor = Color(AndroidColor.HSVToColor(floatArrayOf(hue, saturation, value)))
-        customHex = selectedColor.toNukeHex()
-    }
-
-    NukeDialogSurface(
-        title = "选择主题色",
-        onDismiss = onDismiss,
-        actions = { dismiss ->
-            NukeButton(
-                text = "取消",
-                modifier = Modifier.weight(1f),
-                onClick = dismiss,
-            )
-            NukeButton(
-                text = "保存",
-                modifier = Modifier.weight(1f),
-                primary = true,
-                enabled = parsedCustom != null,
-                onClick = {
-                    onAccentChange(selectedColor)
-                    dismiss()
-                },
-            )
-        },
+    val context = LocalContext.current
+    val contributors by produceState(
+        initialValue = NukeGitHubContributors.fallbackContributors,
     ) {
-        Column(
-            Modifier
-                .heightIn(max = 420.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            NukeDialogSectionTitle("预制颜色")
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                nukePresetColors.chunked(6).forEach { row ->
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        row.forEach { color ->
-                            NukeColorSwatch(
-                                color = color,
-                                selected = color.toNukeHex() == selectedColor.toNukeHex(),
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    selectedColor = color
-                                    customHex = color.toNukeHex()
-                                    val hsv = color.toNukeHsv()
-                                    hue = hsv[0]
-                                    saturation = hsv[1]
-                                    value = hsv[2]
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            NukeDialogSectionTitle("自定义色值")
-            NukeTextField(
-                value = customHex,
-                onValueChange = { input ->
-                    customHex = input.take(7)
-                    input.parseNukeColor()?.let { parsed ->
-                        selectedColor = parsed
-                        val hsv = parsed.toNukeHsv()
-                        hue = hsv[0]
-                        saturation = hsv[1]
-                        value = hsv[2]
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = "#RRGGBB",
-                singleLine = true,
-            )
-            Spacer(Modifier.height(8.dp))
-            NukeText(
-                text = parsedCustom?.toNukeHex() ?: "无效颜色，请输入 #RRGGBB",
-                color = if (parsedCustom == null) {
-                    NukeTheme.colors.accent
-                } else {
-                    NukeTheme.colors.textSecondary
-                },
-                fontSize = 12,
-                lineHeight = 16,
-                fontWeight = FontWeight.Medium,
-            )
-
-            Spacer(Modifier.height(16.dp))
-            NukeDialogSectionTitle("调色板")
-            NukeSaturationValuePalette(
-                hue = hue,
-                saturation = saturation,
-                value = value,
-                onChanged = { newSaturation, newValue ->
-                    saturation = newSaturation
-                    value = newValue
-                    updateFromHsv()
-                },
-            )
-            Spacer(Modifier.height(10.dp))
-            NukeHueBar(
-                hue = hue,
-                onHueChange = {
-                    hue = it
-                    updateFromHsv()
-                },
-            )
-        }
+        value = NukeGitHubContributors.fetchOrFallback()
     }
-}
-
-@Composable
-internal fun NukeAboutPage(onBack: (Offset) -> Unit) {
-    val projectLines = listOf(
-        "Nuke是一个免费的Xposed模块",
-        "前身为NewMiko @MikoCIBuilds",
-        "有事请联系作者邮箱 mingxi169@gmail.com",
-    )
-    NukePageScaffold(
-        title = "关于模块",
-        onBack = onBack,
-    ) {
-        item(key = "about_avatar") {
-            NukeAboutAvatar()
-        }
-        item(key = "about_project") {
-            NukeSettingGroup(title = "ABORT PROJECTS") {
+    NukePageScaffold(title = "关于模块", onBack = onBack) {
+        item(key = "avatar") { NukeAboutIcon() }
+        item(key = "project") {
+            NukeSettingGroup(title = "项目") {
                 Column(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    projectLines.forEach { line ->
-                        NukeText(
-                            text = line,
-                            color = NukeTheme.colors.textSecondary,
-                            fontSize = 13,
-                            lineHeight = 19,
-                        )
-                    }
+                    NukeText(
+                        text = "WeKit 是一个免费的开源 Xposed 模块。",
+                        color = NukeTheme.colors.textSecondary,
+                        fontSize = 13,
+                        lineHeight = 19,
+                    )
+                    NukeText(
+                        text = "它为微信提供可选的功能增强与界面优化。",
+                        color = NukeTheme.colors.textSecondary,
+                        fontSize = 13,
+                        lineHeight = 19,
+                    )
                 }
             }
         }
-        item(key = "about_developers") {
-            NukeSettingGroup(title = "DEVELOPERS") {
-                aboutDevelopers.forEachIndexed { index, developer ->
-                    NukeDeveloperRow(developer)
-                    if (index < aboutDevelopers.lastIndex) {
-                        NukeDivider()
-                    }
+        item(key = "developers") {
+            NukeSettingGroup(title = "开发者") {
+                contributors.forEachIndexed { index, contributor ->
+                    NukeDeveloperRow(
+                        contributor = contributor,
+                        onClick = {
+                            contributor.profileUrl.toUri().openInSystem(context, true)
+                        },
+                    )
+                    if (index < contributors.lastIndex) NukeDivider()
                 }
+            }
+        }
+        item(key = "links") {
+            NukeSettingGroup(title = "链接") {
+                NukePreferenceRow(
+                    title = "GitHub",
+                    description = "Ujhhgtg/WeKit",
+                    leading = { NukeVectorCategoryIcon(GitHubIcon) },
+                    trailing = { NukeCountAndChevron(text = null) },
+                    onClick = {
+                        "https://github.com/Ujhhgtg/WeKit".toUri().openInSystem(context, true)
+                    },
+                )
+                NukeDivider()
+                NukePreferenceRow(
+                    title = "Telegram",
+                    description = "https://t.me/+7j5dJ6g16B43OWVl",
+                    leading = { NukeVectorCategoryIcon(TelegramIcon) },
+                    trailing = { NukeCountAndChevron(text = null) },
+                    onClick = {
+                        "https://t.me/+7j5dJ6g16B43OWVl".toUri().openInSystem(context, true)
+                    },
+                )
+                NukeDivider()
+                NukePreferenceRow(
+                    title = "开放源代码许可",
+                    description = "本项目使用的开放源代码库许可",
+                    leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.License) },
+                    trailing = { NukeCountAndChevron(text = null) },
+                    onClick = { origin -> onOpenDestination(NukeDestination.Licenses, origin) },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun NukeAboutAvatar() {
-    val colors = NukeTheme.colors
+private fun NukeDeveloperRow(
+    contributor: NukeGitHubContributor,
+    onClick: () -> Unit,
+) {
+    NukePreferenceRow(
+        title = contributor.login,
+        description = contributor.contributionCount?.let { "GitHub 贡献 $it 次" } ?: "WeKit 开发者",
+        leading = { NukeDeveloperAvatar(contributor) },
+        trailing = { NukeCountAndChevron(text = null) },
+        onClick = { onClick() },
+    )
+}
+
+@Composable
+private fun NukeDeveloperAvatar(contributor: NukeGitHubContributor) {
+    Box(
+        Modifier
+            .size(34.dp)
+            .clip(NukeSquircleShape(11.dp))
+            .background(NukeTheme.colors.accent.copy(alpha = 0.12f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Keep a Nuke-native placeholder visible while Coil loads or if the avatar fails.
+        NukeGlyph(
+            kind = NukeGlyphKind.Person,
+            color = NukeTheme.colors.accent,
+            modifier = Modifier.size(18.dp),
+        )
+        AsyncImage(
+            model = contributor.avatarUrl,
+            contentDescription = "${contributor.login} 的 GitHub 头像",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+    }
+}
+
+@Composable
+private fun NukeAboutIcon() {
     Box(
         Modifier
             .fillMaxWidth()
@@ -621,75 +541,183 @@ private fun NukeAboutAvatar() {
             Modifier
                 .size(94.dp)
                 .clip(CircleShape)
-                .background(colors.accent.copy(alpha = 0.13f))
-                .border(1.dp, colors.accent.copy(alpha = 0.28f), CircleShape),
+                .background(NukeTheme.colors.accent.copy(alpha = 0.13f)),
             contentAlignment = Alignment.Center,
         ) {
-            Box(
-                Modifier
-                    .size(88.dp)
-                    .clip(CircleShape)
-                    .background(colors.surface),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.nuke_about_avatar),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxWidth(),
-                    contentScale = ContentScale.Crop,
+            Image(
+                painter = painterResource(R.mipmap.ic_launcher_foreground),
+                contentDescription = "WeKit",
+                modifier = Modifier
+                    .size(86.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop,
+            )
+        }
+    }
+}
+
+@Composable
+private fun NukeLicensesPage(onBack: (Offset) -> Unit) {
+    val resources = LocalContext.current.resources
+    val libraries = remember(resources) {
+        resources.openRawResource(R.raw.aboutlibraries)
+            .bufferedReader()
+            .use { Libs.Builder().withJson(it.readText()).build().libraries }
+            .sortedWith(compareBy<Library>(::nukeLibraryAuthor, Library::name))
+    }
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(query, libraries) {
+        if (query.isBlank()) libraries else libraries.filter { library ->
+            library.name.contains(query, ignoreCase = true) ||
+                nukeLibraryAuthor(library).contains(query, ignoreCase = true) ||
+                library.description?.contains(query, ignoreCase = true) == true
+        }
+    }
+    val libraryGroups = remember(filtered) {
+        filtered
+            .groupBy(::nukeLibraryAuthor)
+            .toSortedMap()
+            .map { (author, authorLibraries) ->
+                NukeLibraryGroup(
+                    author = author,
+                    libraries = authorLibraries.sortedBy(Library::name),
                 )
+            }
+    }
+
+    NukePageScaffold(title = "开放源代码许可", onBack = onBack) {
+        item(key = "search") {
+            NukeSearchField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "搜索库",
+            )
+        }
+        item(key = "count") {
+            NukeText(
+                text = if (query.isBlank()) "${libraries.size} 个库" else "${filtered.size}/${libraries.size} 个库",
+                color = NukeTheme.colors.textSecondary,
+                fontSize = 12,
+                lineHeight = 16,
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+        }
+        if (filtered.isEmpty()) {
+            item(key = "empty") {
+                NukeSettingGroup(title = null) {
+                    NukeText(
+                        text = "找不到「$query」的结果",
+                        color = NukeTheme.colors.textSecondary,
+                        fontSize = 13,
+                        lineHeight = 18,
+                        modifier = Modifier.padding(18.dp),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        } else {
+            items(libraryGroups, key = NukeLibraryGroup::author) { group ->
+                NukeLibraryGroup(group)
             }
         }
     }
 }
 
 @Composable
-private fun NukeDeveloperRow(developer: AboutDeveloper) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        NukeDeveloperAvatar(developer.name)
-        Spacer(Modifier.width(12.dp))
-        Column(
-            Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            NukeText(
-                text = developer.name,
-                color = NukeTheme.colors.textPrimary,
-                fontSize = 14,
-                lineHeight = 18,
-                fontWeight = FontWeight.SemiBold,
-            )
-            NukeText(
-                text = developer.description,
-                color = NukeTheme.colors.textSecondary,
-                fontSize = 12,
-                lineHeight = 17,
-            )
+private fun NukeLibraryGroup(group: NukeLibraryGroup) {
+    NukeSettingGroup(title = group.author) {
+        group.libraries.forEachIndexed { index, library ->
+            NukeLibraryRow(library)
+            if (index < group.libraries.lastIndex) NukeDivider()
         }
     }
 }
 
 @Composable
-private fun NukeDeveloperAvatar(name: String) {
-    Box(
-        Modifier
-            .size(36.dp)
-            .clip(NukeSquircleShape(12.dp))
-            .background(NukeTheme.colors.accent.copy(alpha = 0.13f)),
-        contentAlignment = Alignment.Center,
+private fun NukeLibraryRow(library: Library) {
+    val licenseNames = library.licenses.joinToString("、") { it.name }
+    NukePreferenceRow(
+        title = library.name,
+        description = buildString {
+            library.artifactVersion?.let { append("版本 $it") }
+            library.description?.takeIf { it.isNotBlank() }?.let {
+                if (isNotEmpty()) append('\n')
+                append(it)
+            }
+            if (licenseNames.isNotBlank()) {
+                if (isNotEmpty()) append('\n')
+                append("许可：$licenseNames")
+            }
+        }.ifBlank { null },
+    )
+}
+
+private data class NukeLibraryGroup(
+    val author: String,
+    val libraries: List<Library>,
+)
+
+private fun nukeLibraryAuthor(library: Library): String =
+    library.developers.firstOrNull()?.name?.takeIf(String::isNotBlank)
+        ?: library.organization?.name?.takeIf(String::isNotBlank)
+        ?: "未知作者"
+
+@Composable
+private fun NukeConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    NukeDialogSurface(
+        title = title,
+        onDismiss = onDismiss,
+        actions = { dismiss ->
+            NukeButton("取消", modifier = Modifier.weight(1f), onClick = dismiss)
+            NukeButton(
+                confirmText,
+                modifier = Modifier.weight(1f),
+                primary = true,
+                onClick = {
+                    onConfirm()
+                    dismiss()
+                },
+            )
+        },
     ) {
         NukeText(
-            text = name.trim().firstOrNull()?.toString().orEmpty(),
-            color = NukeTheme.colors.accent,
-            fontSize = 15,
-            lineHeight = 18,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
+            text = message,
+            color = NukeTheme.colors.textSecondary,
+            fontSize = 13,
+            lineHeight = 19,
+        )
+    }
+}
+
+@Composable
+private fun NukeMessageDialog(
+    title: String,
+    message: String,
+    onDismiss: () -> Unit,
+) {
+    NukeDialogSurface(
+        title = title,
+        onDismiss = onDismiss,
+        actions = { dismiss ->
+            NukeButton(
+                "关闭",
+                modifier = Modifier.weight(1f),
+                primary = true,
+                onClick = dismiss,
+            )
+        },
+    ) {
+        NukeText(
+            text = message,
+            color = NukeTheme.colors.textSecondary,
+            fontSize = 13,
+            lineHeight = 19,
         )
     }
 }

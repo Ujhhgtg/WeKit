@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -215,6 +216,158 @@ fun rememberNukeRevealState(
 ): NukeRevealState {
     val scope = rememberCoroutineScope()
     return remember(scope) { NukeRevealState(scope, initiallyRevealed) }
+}
+
+internal class NukeRevealStackEntry<T>(
+    val destination: T,
+    val revealState: NukeRevealState,
+)
+
+/**
+ * A reveal-backed route stack. Each route owns its reveal state so popping a nested destination
+ * exposes the page immediately below it instead of rebuilding the root page.
+ */
+@Stable
+class NukeRevealStackState<T> internal constructor(
+    private val scope: CoroutineScope,
+) {
+    internal val entries = mutableStateListOf<NukeRevealStackEntry<T>>()
+    private var viewportSize = IntSize.Zero
+    private var buttonNavigationBackOrigin: Offset? = null
+
+    val canPop: Boolean
+        get() = entries.isNotEmpty()
+
+    fun push(destination: T, from: Offset) {
+        val entry = NukeRevealStackEntry(destination, NukeRevealState(scope, initiallyRevealed = false))
+        // A route can be pushed after this navigator has already received layout/insets. Propagate
+        // that context before the first reveal so optimized exit never falls back to the center.
+        entry.revealState.updateViewportSize(viewportSize)
+        entry.revealState.updateButtonNavigationBackOrigin(buttonNavigationBackOrigin)
+        entries += entry
+        entry.revealState.reveal(from) {}
+    }
+
+    internal fun updateViewportSize(size: IntSize) {
+        viewportSize = size
+        entries.forEach { entry -> entry.revealState.updateViewportSize(size) }
+    }
+
+    internal fun updateButtonNavigationBackOrigin(origin: Offset?) {
+        buttonNavigationBackOrigin = origin
+        entries.forEach { entry -> entry.revealState.updateButtonNavigationBackOrigin(origin) }
+    }
+
+    fun pop(
+        from: Offset? = null,
+        optimizeExitOrigin: Boolean = false,
+    ) {
+        val entry = entries.lastOrNull() ?: return
+        entry.revealState.conceal(
+            from = from.takeIf { optimizeExitOrigin },
+        ) {
+            entries.remove(entry)
+        }
+    }
+
+    suspend fun predictivePop(
+        events: Flow<BackEventCompat>,
+        optimizeExitOrigin: Boolean = false,
+    ) {
+        val entry = entries.lastOrNull() ?: return
+        entry.revealState.predictiveConceal(
+            events = events,
+            optimizeExitOrigin = optimizeExitOrigin,
+        ) {
+            entries.remove(entry)
+        }
+    }
+}
+
+@Composable
+fun <T> rememberNukeRevealStackState(): NukeRevealStackState<T> {
+    val scope = rememberCoroutineScope()
+    return remember(scope) { NukeRevealStackState(scope) }
+}
+
+/**
+ * Stack-capable counterpart to [NukeRevealNavigator]. Routes are drawn as layered circular
+ * reveals, preserving the same motion contract for root and nested destinations.
+ */
+@Composable
+fun <T> NukeRevealStackNavigator(
+    state: NukeRevealStackState<T>,
+    modifier: Modifier = Modifier,
+    base: @Composable () -> Unit,
+    revealed: @Composable (T) -> Unit,
+) {
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val displayRotation = LocalView.current.display?.rotation ?: Surface.ROTATION_0
+    val navigationBars = WindowInsets.navigationBars
+    val buttonNavigation = remember(context, configuration) {
+        resolveButtonNavigation(context)
+    }
+    val buttonNavigationBackOrigin = buttonNavigation?.backOrigin(
+        viewportSize = containerSize,
+        navigationBarLeft = navigationBars.getLeft(density, layoutDirection),
+        navigationBarRight = navigationBars.getRight(density, layoutDirection),
+        navigationBarBottom = navigationBars.getBottom(density),
+        layoutDirection = layoutDirection,
+        displayRotation = displayRotation,
+    )
+    SideEffect {
+        state.updateButtonNavigationBackOrigin(buttonNavigationBackOrigin)
+    }
+    Box(
+        modifier
+            .fillMaxSize()
+            .onSizeChanged { size ->
+                containerSize = size
+                state.updateViewportSize(size)
+            }
+    ) {
+        base()
+        state.entries.forEach { entry ->
+            val revealState = entry.revealState
+            if (revealState.isRevealed || revealState.progress.value > 0f) {
+                val resolvedOrigin = if (revealState.origin == Offset.Zero) {
+                    Offset(containerSize.width / 2f, containerSize.height / 2f)
+                } else {
+                    revealState.origin
+                }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            clip = true
+                            shape = CircularRevealShape(
+                                progress = revealState.progress.value,
+                                origin = resolvedOrigin,
+                            )
+                        }
+                ) {
+                    revealed(entry.destination)
+                }
+            }
+        }
+        if (state.entries.lastOrNull()?.revealState?.blocksInput == true) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                awaitPointerEvent().changes.forEach { it.consume() }
+                            }
+                        }
+                    }
+            )
+        }
+    }
 }
 
 @Composable

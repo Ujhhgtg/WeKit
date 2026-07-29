@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.ui.utils
+package dev.ujhhgtg.wekit.ui.utils.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialExpressiveTheme
@@ -6,10 +6,6 @@ import androidx.compose.material3.MotionScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalConfiguration
-import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver
-import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
-import dev.ujhhgtg.wekit.ui.utils.theme.darkScheme
-import dev.ujhhgtg.wekit.ui.utils.theme.lightScheme
 import dev.ujhhgtg.wekit.utils.HostInfo
 
 /**
@@ -18,6 +14,8 @@ import dev.ujhhgtg.wekit.utils.HostInfo
  * The seed is [SeedResolver.injectedSeed]: WeChat green by default, or the user's custom color when
  * they opted it into WeChat ([ThemeSettings.applyToWechat]). This is read once when the composition
  * enters — it does NOT re-theme live (the user must restart WeChat for a change to apply).
+ *
+ * NEVER CALL THIS INSIDE MODULE APP.
  */
 @Composable
 fun InjectedUiTheme(

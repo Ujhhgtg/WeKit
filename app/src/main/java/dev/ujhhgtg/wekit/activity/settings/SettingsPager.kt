@@ -223,13 +223,13 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                     title = "导出配置",
                     summary = "将模块配置导出为 JSON",
                     icon = MaterialSymbols.Outlined.Upload,
-                    onClick = { exportConfig(context) },
+                    onClick = { SettingsConfigActions.export(context) },
                 )
                 PrefArrow(
                     title = "导入配置",
                     summary = "从 JSON 导入模块配置; JSON 中的配置将会与现有配置合并, 覆盖所有已存在的配置",
                     icon = MaterialSymbols.Outlined.Download,
-                    onClick = { importConfig(context) },
+                    onClick = { SettingsConfigActions.importFromDocument(context) },
                 )
                 PrefArrow(
                     title = "清除配置",
@@ -617,104 +617,8 @@ private fun PrefIcon(icon: ImageVector) {
     )
 }
 // ---------------------------------------------------------------------------
-//  Config import / export / clear / update / search (migrated verbatim)
+//  Update checks
 // ---------------------------------------------------------------------------
-
-private fun exportConfig(context: Context) {
-    TransparentActivity.launch(context) {
-        val exportLauncher = registerForActivityResult(
-            ActivityResultContracts.CreateDocument("application/json")
-        ) { uri ->
-            if (uri == null) {
-                finish()
-                return@registerForActivityResult
-            }
-            lifecycleScope.launch(Dispatchers.IO) {
-                val exportJson = run {
-                    val map = WePrefs.default.getAll()
-                    val jsonObject = buildJsonObject {
-                        for ((key, value) in map) {
-                            when (value) {
-                                is Boolean -> put(key, value)
-                                is Int -> put(key, value)
-                                is Long -> put(key, value)
-                                is Float -> put(key, value)
-                                is Double -> put(key, value)
-                                is String -> put(key, value)
-                                is Set<*> -> put(key, buildJsonArray {
-                                    @Suppress("UNCHECKED_CAST")
-                                    (value as Set<String>).forEach { add(it) }
-                                })
-
-                                null -> put(key, JsonNull)
-                            }
-                        }
-                    }
-                    DefaultJson.encodeToString(jsonObject)
-                }
-                runCatching {
-                    HostInfo.application.contentResolver.openOutputStream(uri, "w")!!.use { fos ->
-                        fos.writer().use { it.write(exportJson) }
-                    }
-                }.onFailure {
-                    showToastSuspend("导出失败!")
-                    WeLogger.e("WePrefs", "failed to export", it)
-                }.onSuccess { showToastSuspend("导出成功") }
-                withContext(Dispatchers.Main) { finish() }
-            }
-        }
-        exportLauncher.launch("wekit_prefs_backup.json")
-    }
-}
-
-private fun importConfig(context: Context) {
-    TransparentActivity.launch(context) {
-        val importLauncher = registerForActivityResult(
-            ActivityResultContracts.OpenDocument()
-        ) { uri ->
-            if (uri == null) {
-                finish()
-                return@registerForActivityResult
-            }
-            lifecycleScope.launch(Dispatchers.IO) {
-                runCatching {
-                    val jsonString = LauncherUI.getInstance()!!.contentResolver.openInputStream(uri)?.use { fis ->
-                        fis.reader().readText()
-                    } ?: return@launch
-                    val jsonObject = DefaultJson.parseToJsonElement(jsonString).jsonObject
-                    for ((key, element) in jsonObject) {
-                        when (element) {
-                            is JsonNull -> WePrefs.default.remove(key)
-                            is JsonPrimitive -> when {
-                                element.isString -> WePrefs.default.putString(key, element.content)
-                                element.booleanOrNull != null && (element.content == "true" || element.content == "false") ->
-                                    WePrefs.putBool(key, element.boolean)
-
-                                element.longOrNull != null && element.intOrNull == null ->
-                                    WePrefs.putLong(key, element.long)
-
-                                element.intOrNull != null -> WePrefs.putInt(key, element.int)
-                                element.floatOrNull != null -> WePrefs.putFloat(key, element.float)
-                            }
-
-                            is JsonArray -> WePrefs.default.putStringSet(
-                                key,
-                                element.mapTo(HashSet()) { it.jsonPrimitive.content }
-                            )
-
-                            else -> Unit
-                        }
-                    }
-                }.onFailure {
-                    showToastSuspend("导入失败!")
-                    WeLogger.e("WePrefs", "failed to import", it)
-                }.onSuccess { showToastSuspend("导入成功") }
-                withContext(Dispatchers.Main) { finish() }
-            }
-        }
-        importLauncher.launch(arrayOf("application/json"))
-    }
-}
 
 private fun checkForUpdate(
     onAvailable: (UpdateResult.UpdateAvailable) -> Unit,
@@ -749,7 +653,7 @@ private fun ClearConfigDialog(show: Boolean, onDismiss: () -> Unit) {
             onDismiss()
             CoroutineScope(Dispatchers.IO).launch {
                 showToastSuspend("正在清除...")
-                WePrefs.default.clear()
+                SettingsConfigActions.clear()
                 showToastSuspend("清除成功!")
             }
         },

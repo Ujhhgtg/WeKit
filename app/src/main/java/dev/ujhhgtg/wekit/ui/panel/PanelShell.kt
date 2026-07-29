@@ -110,7 +110,7 @@ import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Search
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
 import dev.ujhhgtg.wekit.ui.utils.CommonContextWrapper
-import dev.ujhhgtg.wekit.ui.utils.InjectedUiTheme
+import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import kotlinx.coroutines.delay
 

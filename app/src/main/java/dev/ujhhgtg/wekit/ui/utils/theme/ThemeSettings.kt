@@ -97,7 +97,7 @@ enum class AppColorSpec(
  *
  * Two consumers:
  * - the module's own UI ([ModuleTheme]) re-themes live from every value here;
- * - the UI injected into WeChat ([dev.ujhhgtg.wekit.ui.utils.InjectedUiTheme]) + native recoloring ([dev.ujhhgtg.wekit.features.items.beautify.MonetEngine]) only
+ * - the UI injected into WeChat ([InjectedUiTheme]) + native recoloring ([dev.ujhhgtg.wekit.features.items.beautify.MonetEngine]) only
  *   consult [applyToWechat]/[dynamicWallpaper]/[seedColor]/[paletteStyle]/[colorSpec], and NOT live —
  *   they read the persisted values once per WeChat launch.
  */
