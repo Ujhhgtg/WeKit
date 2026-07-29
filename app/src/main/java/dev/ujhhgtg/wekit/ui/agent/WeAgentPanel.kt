@@ -50,11 +50,13 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -95,9 +97,21 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  * Activity (Phase 8), not here.
  */
 @Composable
-fun WeAgentPanel(onDismiss: () -> Unit) {
+fun WeAgentPanel(
+    onDismiss: () -> Unit,
+    onBackHandlerChanged: ((() -> Unit)?) -> Unit,
+) {
     // The session sidebar is collapsed by default; the header icon toggles it.
     var sidebarOpen by remember { mutableStateOf(false) }
+
+    val currentBackHandler by rememberUpdatedState {
+        if (sidebarOpen) sidebarOpen = false else onDismiss()
+    }
+    DisposableEffect(onBackHandlerChanged) {
+        val handler = { currentBackHandler() }
+        onBackHandlerChanged(handler)
+        onDispose { onBackHandlerChanged(null) }
+    }
 
     // Scrim + centered card.
     Box(
@@ -502,11 +516,15 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
         expanded = false; submenu = PlusSubmenu.NONE
     }
 
+    fun handleDismissRequest() {
+        if (submenu == PlusSubmenu.NONE) close() else submenu = PlusSubmenu.NONE
+    }
+
     Box {
         IconButton(onClick = { expanded = true; submenu = PlusSubmenu.NONE }) {
             Icon(MaterialSymbols.Outlined.Add, contentDescription = "快捷操作")
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = ::close) {
+        DropdownMenu(expanded = expanded, onDismissRequest = ::handleDismissRequest) {
             when (submenu) {
                 PlusSubmenu.NONE -> {
                     DropdownMenuItem(

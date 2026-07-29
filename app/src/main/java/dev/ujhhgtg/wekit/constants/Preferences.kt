@@ -12,6 +12,13 @@ object Preferences {
 
     // Settings UI theming
     const val THEME_MODE = "settings_theme_mode"
+    const val THEME_UI_ENGINE = "settings_theme_ui_engine"
+    const val THEME_NUKE_HAPTICS = "settings_theme_nuke_haptics"
+    const val THEME_NUKE_POPUP_ANIMATION = "settings_theme_nuke_popup_animation"
+    const val THEME_NUKE_POPUP_DIALOG_HOST = "settings_theme_nuke_popup_dialog_host"
+    const val THEME_NUKE_POPUP_PREDICTIVE_EXIT = "settings_theme_nuke_popup_predictive_exit"
+    const val THEME_NUKE_PAGE_EXIT_OPTIMIZATION = "settings_theme_nuke_page_exit_optimization"
+    const val THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK = "settings_theme_nuke_immediate_press_feedback"
     const val THEME_CUSTOM_COLOR = "settings_theme_custom_color"
     const val THEME_DYNAMIC_WALLPAPER = "settings_theme_dynamic_wallpaper"
     const val THEME_PALETTE_STYLE = "settings_theme_palette_style"

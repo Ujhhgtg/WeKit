@@ -86,6 +86,7 @@ import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.theme.AppColorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.AppPaletteStyle
 import dev.ujhhgtg.wekit.ui.utils.theme.AppThemeMode
+import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.AppUpdater
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -149,7 +150,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
     UpdateErrorDialog(message = updateError, onDismiss = { updateError = null })
 
     MiuixListScaffold(title = "设置") {
-        // Account info card — shown at top of Settings tab.
+        // Account info card.
         item {
             Spacer(Modifier.height(12.dp))
             ProfileCard()
@@ -416,6 +417,15 @@ private fun <T> EnumDropdown(
 
 @Composable
 private fun ThemeSection() {
+    EnumDropdown(
+        title = "UI 组件引擎",
+        entries = SettingsUiEngine.entries,
+        selected = ThemeSettings.uiEngine,
+        labelOf = { it.displayName },
+        onSelected = { ThemeSettings.updateUiEngine(it) },
+        icon = MaterialSymbols.Outlined.Style,
+    )
+
     EnumDropdown(
         title = "主题模式",
         entries = AppThemeMode.entries,

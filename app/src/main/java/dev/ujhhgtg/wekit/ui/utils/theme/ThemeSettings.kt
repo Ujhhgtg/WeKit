@@ -10,6 +10,7 @@ import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.ui.content.nukex.NukePopupAnimationMode
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.applyToWechat
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.colorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.dynamicWallpaper
@@ -34,6 +35,15 @@ enum class AppThemeMode(val displayName: String) {
 
     companion object {
         fun fromName(value: String?) = entries.find { it.name == value } ?: SYSTEM
+    }
+}
+
+enum class SettingsUiEngine(val displayName: String) {
+    MIUIX("Miuix"),
+    NUKE("Nuke");
+
+    companion object {
+        fun fromName(value: String?) = entries.find { it.name == value } ?: MIUIX
     }
 }
 
@@ -93,7 +103,38 @@ enum class AppColorSpec(
  */
 object ThemeSettings {
 
+    var uiEngine by mutableStateOf(
+        SettingsUiEngine.fromName(WePrefs.getString(Preferences.THEME_UI_ENGINE))
+    )
+        private set
     var themeMode by mutableStateOf(AppThemeMode.fromName(WePrefs.getString(Preferences.THEME_MODE)))
+        private set
+    /** Haptic feedback for the Nuke component engine; ignored by the Miuix branch. */
+    var nukeHaptics by mutableStateOf(
+        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_HAPTICS, true)
+    )
+        private set
+    var nukePopupAnimation by mutableStateOf(
+        NukePopupAnimationMode.fromName(
+            WePrefs.getString(Preferences.THEME_NUKE_POPUP_ANIMATION)
+        )
+    )
+        private set
+    var nukePopupDialogHost by mutableStateOf(
+        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_POPUP_DIALOG_HOST, true)
+    )
+        private set
+    var nukePopupPredictiveExit by mutableStateOf(
+        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_POPUP_PREDICTIVE_EXIT, true)
+    )
+        private set
+    var nukePageExitOptimization by mutableStateOf(
+        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_PAGE_EXIT_OPTIMIZATION, true)
+    )
+        private set
+    var nukeImmediatePressFeedback by mutableStateOf(
+        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK, true)
+    )
         private set
     var customColor by mutableStateOf(WePrefs.getBoolOrFalse(Preferences.THEME_CUSTOM_COLOR))
         private set
@@ -123,9 +164,60 @@ object ThemeSettings {
     val effectiveColorSpec: AppColorSpec
         get() = if (paletteStyle.supportsSpec2025) colorSpec else AppColorSpec.SPEC_2021
 
+    fun updateUiEngine(value: SettingsUiEngine) {
+        uiEngine = value
+        WePrefs.putString(Preferences.THEME_UI_ENGINE, value.name)
+    }
+
     fun updateThemeMode(value: AppThemeMode) {
         themeMode = value
         WePrefs.putString(Preferences.THEME_MODE, value.name)
+    }
+
+    fun updateNukeHaptics(value: Boolean) {
+        nukeHaptics = value
+        WePrefs.putBool(Preferences.THEME_NUKE_HAPTICS, value)
+    }
+
+    fun updateNukePopupAnimation(value: NukePopupAnimationMode) {
+        nukePopupAnimation = value
+        WePrefs.putString(Preferences.THEME_NUKE_POPUP_ANIMATION, value.name)
+    }
+
+    fun updateNukePopupDialogHost(value: Boolean) {
+        nukePopupDialogHost = value
+        WePrefs.putBool(Preferences.THEME_NUKE_POPUP_DIALOG_HOST, value)
+    }
+
+    fun updateNukePopupPredictiveExit(value: Boolean) {
+        nukePopupPredictiveExit = value
+        WePrefs.putBool(Preferences.THEME_NUKE_POPUP_PREDICTIVE_EXIT, value)
+    }
+
+    fun updateNukePageExitOptimization(value: Boolean) {
+        nukePageExitOptimization = value
+        WePrefs.putBool(Preferences.THEME_NUKE_PAGE_EXIT_OPTIMIZATION, value)
+    }
+
+    fun updateNukeImmediatePressFeedback(value: Boolean) {
+        nukeImmediatePressFeedback = value
+        WePrefs.putBool(Preferences.THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK, value)
+    }
+
+    fun applyNukeRecommendedFineTuning() {
+        updateNukeImmediatePressFeedback(true)
+        updateNukePageExitOptimization(true)
+        updateNukePopupAnimation(NukePopupAnimationMode.Vanilla)
+        updateNukePopupDialogHost(true)
+        updateNukePopupPredictiveExit(true)
+    }
+
+    fun restoreNukeOriginalFineTuning() {
+        updateNukeImmediatePressFeedback(false)
+        updateNukePageExitOptimization(false)
+        updateNukePopupAnimation(NukePopupAnimationMode.Vanilla)
+        updateNukePopupDialogHost(false)
+        updateNukePopupPredictiveExit(false)
     }
 
     fun updateCustomColor(value: Boolean) {

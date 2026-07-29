@@ -38,6 +38,11 @@ object SeedResolver {
         if (ThemeSettings.dynamicWallpaper) wallpaperAccent(context, dark) ?: ThemeSettings.seedColor
         else ThemeSettings.seedColor
 
+    /** Effective accent for a settings engine, preserving its own default when custom color is off. */
+    fun moduleAccent(context: Context, dark: Boolean, defaultAccent: Int): Int =
+        if (ThemeSettings.customColor) customSeed(context, dark)
+        else defaultAccent
+
     /**
      * The seed for UI injected into WeChat: WeChat green unless the user opted the custom color into
      * WeChat ([ThemeSettings.applyToWechat]), in which case it follows [customSeed].

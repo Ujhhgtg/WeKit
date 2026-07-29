@@ -75,6 +75,7 @@ import com.composables.icons.materialsymbols.outlinedfilled.Article
 import com.composables.icons.materialsymbols.outlinedfilled.Home
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Tune
+import dev.ujhhgtg.wekit.activity.testsettings.NukeSettingsContent
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
@@ -89,6 +90,8 @@ import dev.ujhhgtg.wekit.ui.content.miuixAppBarBlur
 import dev.ujhhgtg.wekit.ui.content.miuixAppBarColor
 import dev.ujhhgtg.wekit.ui.content.rememberMiuixBlurBackdrop
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
+import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
+import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -123,8 +126,12 @@ class SettingsActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalComponentActivity provides this
             ) {
-                ModuleTheme {
-                    SettingsRoot(onFinish = { finish() })
+                when (ThemeSettings.uiEngine) {
+                    SettingsUiEngine.MIUIX -> ModuleTheme {
+                        SettingsRoot(onFinish = { finish() })
+                    }
+
+                    SettingsUiEngine.NUKE -> NukeSettingsContent()
                 }
             }
         }
@@ -479,8 +486,6 @@ fun FeatureRow(
         )
     }
 }
-
-
 
 
 
