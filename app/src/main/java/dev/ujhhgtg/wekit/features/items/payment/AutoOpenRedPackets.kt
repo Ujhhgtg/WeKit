@@ -36,12 +36,25 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
 
     private const val TAG = "AutoOpenRedPackets"
 
+    /** 企业微信/OpenIM 群红包使用 union 领取链路, 对应源码中的 sceneid == 1005 */
+    private const val UNION_SCENE_ID = 1005
+
     private val classReceiveLuckyMoney by dexClass {
         matcher {
             methods {
                 add {
                     name = "<init>"
                     usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoney")
+                }
+            }
+        }
+    }
+    private val classReceiveLuckyMoneyUnion by dexClass {
+        matcher {
+            methods {
+                add {
+                    name = "<init>"
+                    usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoneyUnion")
                 }
             }
         }
@@ -56,6 +69,16 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             }
         }
     }
+    private val classOpenLuckyMoneyUnion by dexClass {
+        matcher {
+            methods {
+                add {
+                    name = "<init>"
+                    usingEqStrings("MicroMsg.NetSceneOpenLuckyMoneyUnion")
+                }
+            }
+        }
+    }
     private val methodReceiveOnGYNetEnd by dexMethod {
         matcher {
             declaredClass(classReceiveLuckyMoney.clazz)
@@ -63,9 +86,23 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             paramCount = 3
         }
     }
+    private val methodReceiveUnionOnGYNetEnd by dexMethod {
+        matcher {
+            declaredClass(classReceiveLuckyMoneyUnion.clazz)
+            name = "onGYNetEnd"
+            paramCount = 3
+        }
+    }
     private val methodOpenOnGYNetEnd by dexMethod {
         matcher {
             declaredClass(classOpenLuckyMoney.clazz)
+            name = "onGYNetEnd"
+            paramCount = 3
+        }
+    }
+    private val methodOpenUnionOnGYNetEnd by dexMethod {
+        matcher {
+            declaredClass(classOpenLuckyMoneyUnion.clazz)
             name = "onGYNetEnd"
             paramCount = 3
         }
@@ -79,82 +116,33 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
         val talker: String,
         val msgType: Int,
         val channelId: Int,
+        val sceneId: Int = 0,
         val headImg: String = "",
         val nickName: String = "",
         val notificationEnabled: Boolean = false,
         val autoReply: String = ""
     )
 
+    /** 8.0.74+ 的 union 打开请求多了 left_button_continue 参数 */
+    private val unionOpenHasLeftButtonContinue: Boolean by lazy {
+        classOpenLuckyMoneyUnion.clazz.declaredConstructors.any { it.parameterCount == 10 }
+    }
+
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
 
         methodReceiveOnGYNetEnd.hookAfter {
-            val json = args[2] as? JSONObject ?: return@hookAfter
-            val sendId = json.optString("sendId")
-            val timingIdentifier = json.optString("timingIdentifier")
-
-            if (timingIdentifier.isNullOrEmpty() || sendId.isNullOrEmpty()) return@hookAfter
-
-            val info = currentRedPacketMap[sendId] ?: run {
-                WeLogger.e(TAG, "failed to find red packet in map (sendId=$sendId)")
-                return@hookAfter
-            }
-            WeLogger.i(
-                TAG,
-                "unpack request finished, sending open request ($sendId)"
-            )
-
-            thread(name = "OpenRedPacketThread") {
-                try {
-                    val openReq = classOpenLuckyMoney.clazz.createInstance(
-                        info.msgType, info.channelId, info.sendId, info.nativeUrl,
-                        info.headImg, info.nickName, info.talker,
-                        "v1.0", timingIdentifier, ""
-                    )
-                    WeNetSceneApi.sendNetScene(openReq)
-                } catch (e: Throwable) {
-                    WeLogger.e(TAG, "failed to send open request", e)
-                    currentRedPacketMap.remove(sendId)
-                }
-            }
+            handleReceiveResponse(args[2] as? JSONObject)
+        }
+        methodReceiveUnionOnGYNetEnd.hookAfter {
+            handleReceiveResponse(args[2] as? JSONObject)
         }
 
         methodOpenOnGYNetEnd.hookAfter {
-            val json = args[2] as? JSONObject ?: return@hookAfter
-
-            val sendId = json.optString("sendId")
-            if (sendId.isNullOrEmpty()) return@hookAfter
-
-            val info = currentRedPacketMap.remove(sendId) ?: return@hookAfter
-
-            val retCode = json.optInt("retcode", -1)
-            if (retCode != 0) {
-                WeLogger.w(TAG, "failed to grab packet (retcode=$retCode, sendId=$sendId)")
-                return@hookAfter
-            }
-
-            val receiveStatus = json.optInt("receiveStatus", -1)
-            if (receiveStatus != 2) {
-                WeLogger.w(TAG, "missed the packet (recvStatus=$receiveStatus, sendId=$sendId)")
-                return@hookAfter
-            }
-
-            val amount = json.optInt("amount", 0)
-            if (amount <= 0) return@hookAfter
-
-            val displayAmount = amount / 100.0
-
-            val reply = info.autoReply
-            if (reply.isNotBlank()) {
-                WeMessageApi.sendText(info.talker, reply.replace($$"$amount", "¥$displayAmount"))
-            }
-
-            if (!info.notificationEnabled) return@hookAfter
-
-            val displayName = WeDatabaseApi.getDisplayName(info.talker)
-            val isGroup = info.talker.isGroupChatWxId
-            val sourceLabel = if (isGroup) "群组" else "私聊"
-            showToast("抢到${sourceLabel}「${displayName}」中的红包 ¥${displayAmount}")
+            handleOpenResponse(args[2] as? JSONObject)
+        }
+        methodOpenUnionOnGYNetEnd.hookAfter {
+            handleOpenResponse(args[2] as? JSONObject)
         }
     }
 
@@ -201,6 +189,7 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             val uri = nativeUrl.toUri()
             val msgType = uri.getQueryParameter("msgtype")?.toIntOrNull() ?: 1
             val channelId = uri.getQueryParameter("channelid")?.toIntOrNull() ?: 1
+            val sceneId = extractXmlParam(xmlContent, "sceneid").toIntOrNull() ?: 0
             val sendId = uri.getQueryParameter("sendid") ?: ""
             val headImg = extractXmlParam(xmlContent, "headimgurl")
             val nickName = extractXmlParam(xmlContent, "sendertitle")
@@ -219,6 +208,7 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
                 talker = talker,
                 msgType = msgType,
                 channelId = channelId,
+                sceneId = sceneId,
                 headImg = headImg,
                 nickName = nickName,
                 notificationEnabled = settings.notification.enabled,
@@ -237,12 +227,20 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
 
                     WeLogger.i(
                         TAG,
-                        "delay ended, preparing to send receive request (sendId=$sendId)"
+                        "delay ended, preparing to send receive request (sendId=$sendId, sceneId=$sceneId)"
                     )
 
-                    val req = classReceiveLuckyMoney.clazz.createInstance(
-                        msgType, channelId, sendId, nativeUrl, 1 /* inWay */, "v1.0" /* ver */, talker
-                    )
+                    val req = if (sceneId == UNION_SCENE_ID) {
+                        WeLogger.i(TAG, "using union receive request (sendId=$sendId)")
+                        // 与宿主 LuckyMoneyNewReceiveUI 一致: union 领取请求固定 msgType=1 且不携带群名
+                        classReceiveLuckyMoneyUnion.clazz.createInstance(
+                            1, channelId, sendId, nativeUrl, 1 /* inWay */, "v1.0" /* ver */
+                        )
+                    } else {
+                        classReceiveLuckyMoney.clazz.createInstance(
+                            msgType, channelId, sendId, nativeUrl, 1 /* inWay */, "v1.0" /* ver */, talker
+                        )
+                    }
 
                     WeNetSceneApi.sendNetScene(req)
                     WeLogger.i(TAG, "sent receive request (sendId=$sendId)")
@@ -253,6 +251,92 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
         } catch (e: Throwable) {
             WeLogger.e(TAG, "failed to parse red packet data", e)
         }
+    }
+
+    private fun handleReceiveResponse(json: JSONObject?) {
+        json ?: return
+
+        val sendId = json.optString("sendId")
+        val timingIdentifier = json.optString("timingIdentifier")
+
+        if (timingIdentifier.isNullOrEmpty() || sendId.isNullOrEmpty()) return
+
+        val info = currentRedPacketMap[sendId] ?: run {
+            WeLogger.e(TAG, "failed to find red packet in map (sendId=$sendId)")
+            return
+        }
+        WeLogger.i(
+            TAG,
+            "unpack request finished, sending open request (sendId=$sendId, sceneId=${info.sceneId})"
+        )
+
+        thread(name = "OpenRedPacketThread") {
+            try {
+                val openReq = if (info.sceneId == UNION_SCENE_ID) {
+                    WeLogger.i(TAG, "using union open request (sendId=$sendId)")
+                    createUnionOpenRequest(info, timingIdentifier)
+                } else {
+                    classOpenLuckyMoney.clazz.createInstance(
+                        info.msgType, info.channelId, info.sendId, info.nativeUrl,
+                        info.headImg, info.nickName, info.talker,
+                        "v1.0", timingIdentifier, ""
+                    )
+                }
+                WeNetSceneApi.sendNetScene(openReq)
+            } catch (e: Throwable) {
+                WeLogger.e(TAG, "failed to send open request", e)
+                currentRedPacketMap.remove(sendId)
+            }
+        }
+    }
+
+    private fun handleOpenResponse(json: JSONObject?) {
+        json ?: return
+
+        val sendId = json.optString("sendId")
+        if (sendId.isNullOrEmpty()) return
+
+        val info = currentRedPacketMap.remove(sendId) ?: return
+
+        val retCode = json.optInt("retcode", -1)
+        if (retCode != 0) {
+            WeLogger.w(TAG, "failed to grab packet (retcode=$retCode, sendId=$sendId)")
+            return
+        }
+
+        val receiveStatus = json.optInt("receiveStatus", -1)
+        if (receiveStatus != 2) {
+            WeLogger.w(TAG, "missed the packet (recvStatus=$receiveStatus, sendId=$sendId)")
+            return
+        }
+
+        val amount = json.optInt("amount", 0)
+        if (amount <= 0) return
+
+        val displayAmount = amount / 100.0
+
+        val reply = info.autoReply
+        if (reply.isNotBlank()) {
+            WeMessageApi.sendText(info.talker, reply.replace($$"$amount", "¥$displayAmount"))
+        }
+
+        if (!info.notificationEnabled) return
+
+        val displayName = WeDatabaseApi.getDisplayName(info.talker)
+        val isGroup = info.talker.isGroupChatWxId
+        val sourceLabel = if (isGroup) "群组" else "私聊"
+        showToast("抢到${sourceLabel}「${displayName}」中的红包 ¥${displayAmount}")
+    }
+
+    private fun createUnionOpenRequest(info: RedPacketInfo, timingIdentifier: String): Any {
+        val args = mutableListOf<Any?>(
+            1, info.channelId, info.sendId, info.nativeUrl,
+            info.headImg, info.nickName, info.talker,
+            "v1.0", timingIdentifier
+        )
+        // 8.0.74+ 的 NetSceneOpenLuckyMoneyUnion 构造函数带 left_button_continue
+        if (unionOpenHasLeftButtonContinue) args += ""
+        return classOpenLuckyMoneyUnion.clazz.createInstance(*args.toTypedArray())
     }
 
     private fun extractXmlParam(xml: String, tag: String): String {
