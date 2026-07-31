@@ -15,7 +15,6 @@ object RemoveMenuLimits : SwitchFeature(), IResolveDex {
 
     private lateinit var showAndClickableEnumValue: Any
 
-    // com.tencent.mm.plugin.appbrand.menu.* only runs in the appbrand process.
     override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
 
     override fun onEnable() {
