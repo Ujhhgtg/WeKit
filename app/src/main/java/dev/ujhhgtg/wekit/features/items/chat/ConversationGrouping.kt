@@ -183,13 +183,15 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                 )
                             },
                             onDeleteGroup = { group ->
-                                saveGroups(loadGroups().filterNot { it.id == group.id })
-                                groups = loadGroups()
-                                if (selectedGroupId == group.id) {
-                                    selectedGroupId = ALL_TAB_ID
-                                    selectTab(ALL_TAB_ID)
+                                showConfirmDeleteGroupDialog(context, group) {
+                                    saveGroups(loadGroups().filterNot { it.id == group.id })
+                                    groups = loadGroups()
+                                    if (selectedGroupId == group.id) {
+                                        selectedGroupId = ALL_TAB_ID
+                                        selectTab(ALL_TAB_ID)
+                                    }
+                                    showToast("已删除「${group.name}」")
                                 }
-                                showToast("已删除「${group.name}」")
                             },
                             onReorder = { orderedIds ->
                                 val current = loadGroups()
@@ -534,9 +536,10 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
 
         LazyRow(
             state = listState,
-            // Reordering replaces scrolling in sort mode; disabling user scroll stops the drag from
-            // fighting the list's own horizontal scroll gesture. We auto-scroll near the edges below.
-            userScrollEnabled = false,
+            // Keep normal horizontal scrolling while nothing is picked up, so an overflowing tab
+            // row can be swiped left/right. Once a tab is picked up the drag consumes the gesture,
+            // and the auto-scroll below handles scrolling near the edges.
+            userScrollEnabled = draggingIndex == -1,
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerInput(Unit) {
@@ -787,16 +790,38 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                 group = group,
                 onDismiss = onDismiss,
                 onDelete = {
-                    val current = loadGroups()
-                    saveGroups(current.filterNot { it.id == group.id })
-                    onGroupDeleted()
-                    onDismiss()
+                    showConfirmDeleteGroupDialog(context, group) {
+                        val current = loadGroups()
+                        saveGroups(current.filterNot { it.id == group.id })
+                        onGroupDeleted()
+                        onDismiss()
+                    }
                 },
                 onSave = { updated ->
                     val current = loadGroups()
                     saveGroups(current.map { if (it.id == updated.id) updated else it })
                     onGroupUpdated()
                     onDismiss()
+                }
+            )
+        }
+    }
+
+    private fun showConfirmDeleteGroupDialog(
+        context: Context,
+        group: ChatGroup,
+        onConfirm: () -> Unit,
+    ) {
+        showComposeDialog(context) {
+            AlertDialogContent(
+                title = { Text("删除分组") },
+                text = { Text("确定要删除分组「${group.name}」吗?") },
+                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                confirmButton = {
+                    Button(onClick = {
+                        onDismiss()
+                        onConfirm()
+                    }) { Text("删除") }
                 }
             )
         }
