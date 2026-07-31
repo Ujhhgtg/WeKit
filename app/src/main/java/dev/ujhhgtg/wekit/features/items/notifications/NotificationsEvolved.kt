@@ -63,6 +63,18 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
         }
     }
 
+    // com.tencent.mm.storage.ConversationStorage#updateUnreadByTalker(talker) — same declaration
+    // as ConversationAggregation.methodConversationStorageUpdateUnreadByTalker. WeChat calls it
+    // whenever a conversation's unread state is cleared (chat opened / marked read elsewhere), so
+    // the accumulated MessagingStyle history for that talker is stale and should be dropped.
+    private val methodConversationStorageUpdateUnreadByTalker by dexMethod(allowFailure = true) {
+        matcher {
+            usingStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s", "update conversation failed")
+            paramTypes("java.lang.String")
+            returnType("boolean")
+        }
+    }
+
     // talker wxid captured from x.d, read back in the synchronous Notification.Builder.build() hook
     private val currentTalker = ThreadLocal<String?>()
 
@@ -73,7 +85,9 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
     private data class HistoryEntry(val senderName: String, val text: String, val timestamp: Long)
 
     // Per-conversation message history rebuilt into MessagingStyle on each notification update.
-    // Cleared when the user replies or marks as read; bounded to avoid unbounded growth.
+    // Cleared when WeChat clears the conversation's unread state (updateUnreadByTalker) or when
+    // the user marks it read; quick replies are re-added so the exchange stays visible. Bounded
+    // to avoid unbounded growth.
     private val messageHistory = LinkedHashMap<String, ArrayDeque<HistoryEntry>>()
     private const val MAX_HISTORY = 7
 
@@ -107,6 +121,13 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
                     WeMessageApi.sendText(targetWxId, replyContent)
                     WeConversationApi.markAsRead(targetWxId)
                     notificationManager.cancel(targetWxId.hashCode())
+
+                    // Keep the exchange visible in the accumulated history. markAsRead goes through
+                    // ConversationStorage.updateUnreadByTalker, whose hook below clears this
+                    // conversation's history, so re-add our own reply afterwards (only if queued).
+                    val history = messageHistory.getOrPut(targetWxId) { ArrayDeque() }
+                    history.addLast(HistoryEntry("我", replyContent, System.currentTimeMillis()))
+                    while (history.size > MAX_HISTORY) history.removeFirst()
                 }
 
                 ACTION_MARK_READ -> {
@@ -179,6 +200,16 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
         // this thread, so the build() hook below reads it back via the ThreadLocal.
         methodDealNotify.hookBefore {
             currentTalker.set(args[1] as? String)
+        }
+
+        // WeChat calls ConversationStorage.updateUnreadByTalker(talker) when a conversation's
+        // unread state is cleared outside our receiver (chat opened, read elsewhere, ...). Drop
+        // that talker's accumulated history so the next notification doesn't replay stale messages.
+        if (!methodConversationStorageUpdateUnreadByTalker.isPlaceholder) {
+            methodConversationStorageUpdateUnreadByTalker.hookBefore {
+                val username = args.firstOrNull() as? String ?: return@hookBefore
+                messageHistory.remove(username)
+            }
         }
 
         Notification.Builder::class.reflekt()
