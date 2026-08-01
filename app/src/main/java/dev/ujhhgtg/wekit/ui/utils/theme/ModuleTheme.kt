@@ -10,8 +10,10 @@ import androidx.compose.ui.platform.LocalContext
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.ThemeController
 import top.yukonga.miuix.kmp.theme.darkColorScheme as miuixDarkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme as miuixLightColorScheme
 
@@ -37,20 +39,20 @@ fun ModuleTheme(
 
     // TODO: currently we don't have any Miuix components injected into WeChat
     // ---- miuix ----
-//    val controller = if (!ThemeSettings.customColor) {
-//        ThemeController(
-//            colorSchemeMode = if (darkTheme) ColorSchemeMode.Dark else ColorSchemeMode.Light,
-//            isDark = darkTheme,
-//        )
-//    } else {
-//        ThemeController(
-//            colorSchemeMode = if (darkTheme) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
-//            keyColor = Color(SeedResolver.customSeed(context, darkTheme)),
-//            colorSpec = ThemeSettings.effectiveColorSpec.miuix,
-//            paletteStyle = ThemeSettings.paletteStyle.miuix,
-//            isDark = darkTheme,
-//        )
-//    }
+    val controller = if (!ThemeSettings.customColor) {
+        ThemeController(
+            colorSchemeMode = if (darkTheme) ColorSchemeMode.Dark else ColorSchemeMode.Light,
+            isDark = darkTheme,
+        )
+    } else {
+        ThemeController(
+            colorSchemeMode = if (darkTheme) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
+            keyColor = Color(SeedResolver.customSeed(context, darkTheme)),
+            colorSpec = ThemeSettings.effectiveColorSpec.miuix,
+            paletteStyle = ThemeSettings.paletteStyle.miuix,
+            isDark = darkTheme,
+        )
+    }
 
     // ---- Material 3 ----
     val materialScheme = when {
@@ -62,17 +64,17 @@ fun ModuleTheme(
         else -> defaultMiuixMaterialScheme(darkTheme)
     }
 
-    MaterialExpressiveTheme(
-        colorScheme = materialScheme,
-        motionScheme = MotionScheme.expressive(),
-    ) {
-//        MiuixTheme(controller = controller) {
-        CompositionLocalProvider(
-            LocalContentColor provides MiuixTheme.colorScheme.onBackground,
+    MiuixTheme(controller = controller) {
+        MaterialExpressiveTheme(
+            colorScheme = materialScheme,
+            motionScheme = MotionScheme.expressive(),
         ) {
-            content()
+            CompositionLocalProvider(
+                LocalContentColor provides MiuixTheme.colorScheme.onBackground,
+            ) {
+                content()
+            }
         }
-//        }
     }
 }
 
