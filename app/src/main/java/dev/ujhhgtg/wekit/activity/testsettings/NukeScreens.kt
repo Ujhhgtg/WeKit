@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.activity.testsettings
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -114,6 +116,13 @@ internal fun NukeSettingsRoot() {
         )
     }
 
+    // Miuix-style back chain while searching: the IME consumes the first back (closing the
+    // keyboard), the next back clears the query and drops the field's focus, and only then does
+    // back exit the page. Disabled while a destination is pushed so back keeps popping pages.
+    BackHandler(enabled = query.isNotBlank() && !navigator.canPop) {
+        query = ""
+    }
+
     NukeRevealStackNavigator(
         state = navigator,
         base = {
@@ -149,6 +158,12 @@ private fun NukeHomePage(
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = LocalComponentActivity.current
     var searchToggleRevision by remember { mutableIntStateOf(0) }
+    // Rows only animate on the first appearance of a search session; rows revealed later by
+    // scrolling (second-time appearance) stay static. Reset per blank -> non-blank transition.
+    var searchEntranceEnabled by remember(query.isBlank()) { mutableStateOf(true) }
+    LaunchedEffect(query.isBlank()) {
+        searchEntranceEnabled = false
+    }
     val featureEntries = buildList {
         add(
             NukeRootEntry(
@@ -254,6 +269,7 @@ private fun NukeHomePage(
                     toggleRevision = searchToggleRevision,
                     onToggleStateChanged = { searchToggleRevision++ },
                     activity = activity,
+                    animate = searchEntranceEnabled,
                 )
             }
             item(key = "tail") {
@@ -362,6 +378,7 @@ private fun LazyListScope.NukeFeatureSearchResults(
     toggleRevision: Int,
     onToggleStateChanged: () -> Unit,
     activity: androidx.activity.ComponentActivity,
+    animate: Boolean,
 ) {
     val normalizedQuery = query.trim().lowercase()
     val matchingItems = featureItems.filter { feature ->
@@ -393,7 +410,7 @@ private fun LazyListScope.NukeFeatureSearchResults(
         }
         itemsIndexed(matchingItems, key = { _, feature -> feature.name }) { index, feature ->
             Column(
-                Modifier.nukeGroupedCardItem(index, matchingItems.size),
+                Modifier.nukeGroupedCardItem(index, matchingItems.size, animate = animate),
             ) {
                 NukeFeatureRow(
                     feature = feature,
@@ -422,6 +439,12 @@ internal fun NukeFeatureCategoryPage(
     }
     var toggleRevision by remember { mutableIntStateOf(0) }
     val activity = LocalComponentActivity.current
+    // Rows only animate on the first appearance of the page; rows revealed later by scrolling
+    // stay static. The section title keeps bouncing on every appearance.
+    var entranceEnabled by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        entranceEnabled = false
+    }
 
     NukePageScaffold(
         title = categoryName,
@@ -442,7 +465,7 @@ internal fun NukeFeatureCategoryPage(
             }
             itemsIndexed(items, key = { _, feature -> feature.name }) { index, feature ->
                 Column(
-                    Modifier.nukeGroupedCardItem(index, items.size),
+                    Modifier.nukeGroupedCardItem(index, items.size, animate = entranceEnabled),
                 ) {
                     NukeFeatureRow(
                         feature = feature,

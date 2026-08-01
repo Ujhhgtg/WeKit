@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -120,6 +121,12 @@ internal fun NukeDestinationPage(
 private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
     val features = remember { FeaturesProvider.ALL_HOOK_ITEMS }
     var selectedFeature by remember { mutableStateOf<BaseFeature?>(null) }
+    // Only the FEATURES rows visible on the first frame animate in; scrolling reveals further
+    // rows statically.
+    var featuresEntranceEnabled by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        featuresEntranceEnabled = false
+    }
 
     NukePageScaffold(
         title = "模块设置及调试",
@@ -153,11 +160,17 @@ private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
         }
         item(key = "gap_features") { Spacer(Modifier.height(12.dp)) }
         item(key = "features_title") {
+            // The section title always bounces when it appears (including the second time after
+            // scrolling back to the top); only the rows are gated to first-appearance motion.
             NukeSettingGroupTitle(title = "FEATURES")
         }
         itemsIndexed(features, key = { _, feature -> feature.name }) { index, feature ->
             Column(
-                Modifier.nukeGroupedCardItem(index, features.size),
+                Modifier.nukeGroupedCardItem(
+                    index,
+                    features.size,
+                    animate = featuresEntranceEnabled,
+                ),
             ) {
                 NukeFeatureStatusRow(feature = feature, onClick = { selectedFeature = feature })
                 if (index < features.lastIndex) NukeDivider()

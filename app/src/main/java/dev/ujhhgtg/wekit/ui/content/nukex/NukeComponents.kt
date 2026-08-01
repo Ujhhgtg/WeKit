@@ -304,12 +304,18 @@ internal fun nukeGroupedCardShape(index: Int, count: Int): RoundedCornerShape =
     )
 
 @Composable
-fun Modifier.nukeGroupedCardItem(index: Int, count: Int): Modifier {
-    // Restore the setting-group entrance motion per row: fade in while springing up 6dp. Rows
-    // re-run it each time they enter composition (e.g. after scrolling back into view).
-    var entered by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        entered = true
+fun Modifier.nukeGroupedCardItem(
+    index: Int,
+    count: Int,
+    animate: Boolean = true,
+): Modifier {
+    // Entrance motion for the initial screenful only: rows composed before the page's entrance
+    // flag flips fade in while springing up 6dp; rows composed later while scrolling (the
+    // second-time appearance) stay static. The decision is frozen at first composition.
+    val animateOnEnter = remember { animate }
+    var entered by remember { mutableStateOf(!animateOnEnter) }
+    LaunchedEffect(animateOnEnter) {
+        if (animateOnEnter) entered = true
     }
     val itemAlpha by animateFloatAsState(
         targetValue = if (entered) 1f else 0f,
