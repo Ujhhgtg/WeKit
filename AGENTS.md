@@ -41,6 +41,19 @@
 - DEX analysis via DexKit with `IResolveDex` interface; method resolve body MD5-hashed for cache (
   `GenerateMethodHashesTask`)
 - DEX-resolved targets DSL: `val methodTarget by dexMethod()` `val classTarget by dexClass()` delegate → `methodTarget.hookBefore { ... }`, `val method: Method = methodTarget.method`, `val clazz = classTarget.clazz`
+- `allowFailure` on `dexMethod`/`dexClass`/`dexField` is ONLY for structures whose existence
+  differs across supported WeChat versions (present in old, absent in new, or vice versa). If a
+  declared Dex resolution is expected to succeed on every supported version (8.0.65–8.0.76), do
+  NOT set `allowFailure`: a resolution failure must fail that feature loudly instead of silently
+  degrading to a no-op.
+- JVM reflection over host classes should go through `reflekt` (`libs/common/reflekt/`) by
+  default, e.g. `thisObject.reflekt().firstField { ... }` or `.getField(name, true)` — not
+  hand-rolled `getDeclaredField`/`getMethod` traversal.
+- No excessive defensiveness. When e.g. the hooked method and its argument types are
+  known to hold, use direct casts: `thisObject as Activity`, `args[0] as View`, `!!`. Do NOT use `as?`
+  safe casts, `args.getOrNull(0)`, `?:`, `?.someFun()` or similar guards for values that should always be present/non-null/etc.
+  Code that is correct does not need the defense; code that is wrong must throw loudly and get caught by either `HookUtils`' or code's own exception catcher, and these
+  guards only swallow the exception and hide the real error. Defenses and guards that are reasonable should still exist.
 - UI: Jetpack Compose + Material 3, dialogs written using `showComposeDialog` and `AlertDialogContent`
 - Config: MMKV via `WePrefs`
 - Logging: via `WeLogger`
