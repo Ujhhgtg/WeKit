@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlin.system.exitProcess
 
 fun restartHost() {
+    WeLogger.i("KillHostUtils", "restarting host")
     showToast("正在重启...")
     val instance = "com.tencent.mm.process.KillProcessHelperActivity".toClass()
         .reflekt().firstField().getStatic()!!
@@ -13,5 +14,6 @@ fun restartHost() {
 }
 
 fun killHost() {
+    WeLogger.i("KillHostUtils", "killing host")
     exitProcess(0)
 }
