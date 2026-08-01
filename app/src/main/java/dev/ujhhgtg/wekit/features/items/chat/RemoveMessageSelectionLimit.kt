@@ -5,7 +5,6 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookCallback
@@ -26,9 +25,18 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
 
     private const val SELECTION_LIMIT = 100
 
+    private val classChattingDataAdapter by dexClass {
+        matcher {
+            usingEqStrings(
+                "MicroMsg.ChattingDataAdapterV3",
+                "[handleMsgChange] isLockNotify:"
+            )
+        }
+    }
+
     private val methodToggleMessageSelection by dexMethod {
         matcher {
-            declaredClass(WeMessageApi.classChattingDataAdapter.clazz)
+            declaredClass(classChattingDataAdapter.clazz)
             usingNumbers(SELECTION_LIMIT)
             paramTypes("${PackageNames.WECHAT}.plugin.msg.MsgIdTalker")
             returnType(bool)
@@ -37,7 +45,7 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
 
     private val methodGetSelectedMessageCount by dexMethod {
         matcher {
-            declaredClass(WeMessageApi.classChattingDataAdapter.clazz)
+            declaredClass(classChattingDataAdapter.clazz)
             addUsingField {
                 type(CopyOnWriteArraySet::class.java)
             }
