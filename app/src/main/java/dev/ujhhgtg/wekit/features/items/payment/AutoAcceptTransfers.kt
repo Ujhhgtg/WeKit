@@ -20,6 +20,7 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.runOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -127,7 +128,7 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
 
                 val displayName = WeDatabaseApi.getDisplayName(payerUsername)
 
-                Handler(Looper.getMainLooper()).post {
+                runOnUiThread {
                     showToast("收到「${displayName}」的转账 ${transferMsg.feedesc}")
                 }
             } catch (e: Throwable) {

@@ -10,7 +10,6 @@ import org.json.JSONObject
 @Feature(name = "移除视频广告", categories = ["小程序"], description = "跳过小程序视频广告")
 object RemoveVideoAds : SwitchFeature() {
 
-    // AppBrandJsBridgeBinding.subscribeHandler runs in the appbrand process.
     override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
 
     override fun onEnable() {
