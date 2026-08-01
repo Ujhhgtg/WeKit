@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -63,11 +65,13 @@ import dev.ujhhgtg.wekit.ui.content.nukex.NukePreferenceRow
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeRevealStackNavigator
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSearchField
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroup
+import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroupTitle
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSquircleShape
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSwitch
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeText
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeTheme
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeVectorCategoryIcon
+import dev.ujhhgtg.wekit.ui.content.nukex.nukeGroupedCardItem
 import dev.ujhhgtg.wekit.ui.content.nukex.rememberNukeRevealStackState
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -143,6 +147,8 @@ private fun NukeHomePage(
     onOpenDestination: (NukeDestination, Offset) -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = LocalComponentActivity.current
+    var searchToggleRevision by remember { mutableIntStateOf(0) }
     val featureEntries = buildList {
         add(
             NukeRootEntry(
@@ -210,7 +216,9 @@ private fun NukeHomePage(
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            // Search results rows are virtualized as their own items; they must sit flush against
+            // each other (and their title) to keep the card look, so spacing is applied manually.
+            verticalArrangement = Arrangement.spacedBy(if (query.isBlank()) 12.dp else 0.dp),
         ) {
             item(key = "search") {
                 NukeSearchField(
@@ -240,11 +248,19 @@ private fun NukeHomePage(
                     }
                 }
             } else {
-                item(key = "search_results") {
-                    NukeFeatureSearchResults(query = query, featureItems = featureItems)
-                }
+                NukeFeatureSearchResults(
+                    query = query,
+                    featureItems = featureItems,
+                    toggleRevision = searchToggleRevision,
+                    onToggleStateChanged = { searchToggleRevision++ },
+                    activity = activity,
+                )
             }
-            item(key = "tail") { Spacer(Modifier.height(8.dp)) }
+            item(key = "tail") {
+                // With 0 arrangement spacing in search mode, grow the tail spacer by the missing
+                // 12dp so the bottom inset matches the non-search layout.
+                Spacer(Modifier.height(if (query.isBlank()) 8.dp else 20.dp))
+            }
         }
     }
 }
@@ -340,10 +356,12 @@ private fun NukeAccountAvatar(url: String) {
     }
 }
 
-@Composable
-private fun NukeFeatureSearchResults(
+private fun LazyListScope.NukeFeatureSearchResults(
     query: String,
     featureItems: List<SwitchFeature>,
+    toggleRevision: Int,
+    onToggleStateChanged: () -> Unit,
+    activity: androidx.activity.ComponentActivity,
 ) {
     val normalizedQuery = query.trim().lowercase()
     val matchingItems = featureItems.filter { feature ->
@@ -353,21 +371,34 @@ private fun NukeFeatureSearchResults(
             addAll(feature.categories)
         }.any { matchesNukeQuery(it.lowercase(), normalizedQuery) }
     }
-    var toggleRevision by remember { mutableIntStateOf(0) }
-    val activity = LocalComponentActivity.current
 
-    NukeSettingGroup(title = "搜索结果") {
-        if (matchingItems.isEmpty()) {
-            NukeEmptyState(
-                title = "没有匹配结果",
-                description = "试试其他功能名称或关键词",
+    if (matchingItems.isEmpty()) {
+        item(key = "search_empty") {
+            NukeSettingGroup(
+                title = "搜索结果",
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                NukeEmptyState(
+                    title = "没有匹配结果",
+                    description = "试试其他功能名称或关键词",
+                )
+            }
+        }
+    } else {
+        item(key = "search_title") {
+            NukeSettingGroupTitle(
+                title = "搜索结果",
+                modifier = Modifier.padding(top = 12.dp),
             )
-        } else {
-            matchingItems.forEachIndexed { index, feature ->
+        }
+        itemsIndexed(matchingItems, key = { _, feature -> feature.name }) { index, feature ->
+            Column(
+                Modifier.nukeGroupedCardItem(index, matchingItems.size),
+            ) {
                 NukeFeatureRow(
                     feature = feature,
                     revision = toggleRevision,
-                    onStateChanged = { toggleRevision++ },
+                    onStateChanged = onToggleStateChanged,
                     activity = activity,
                 )
                 if (index < matchingItems.lastIndex) NukeDivider()
@@ -392,24 +423,34 @@ internal fun NukeFeatureCategoryPage(
     var toggleRevision by remember { mutableIntStateOf(0) }
     val activity = LocalComponentActivity.current
 
-    NukePageScaffold(title = categoryName, onBack = onBack) {
-        item(key = "features") {
-            if (items.isEmpty()) {
+    NukePageScaffold(
+        title = categoryName,
+        onBack = onBack,
+        // Rows are emitted as individual items; 0 spacing keeps them flush inside one card.
+        itemSpacing = 0.dp,
+    ) {
+        if (items.isEmpty()) {
+            item(key = "empty") {
                 NukeEmptyState(
                     title = "暂无功能",
                     description = "当前分组还没有可展示的功能",
                 )
-            } else {
-                NukeSettingGroup(title = categoryName) {
-                    items.forEachIndexed { index, feature ->
-                        NukeFeatureRow(
-                            feature = feature,
-                            revision = toggleRevision,
-                            onStateChanged = { toggleRevision++ },
-                            activity = activity,
-                        )
-                        if (index < items.lastIndex) NukeDivider()
-                    }
+            }
+        } else {
+            item(key = "title") {
+                NukeSettingGroupTitle(title = categoryName)
+            }
+            itemsIndexed(items, key = { _, feature -> feature.name }) { index, feature ->
+                Column(
+                    Modifier.nukeGroupedCardItem(index, items.size),
+                ) {
+                    NukeFeatureRow(
+                        feature = feature,
+                        revision = toggleRevision,
+                        onStateChanged = { toggleRevision++ },
+                        activity = activity,
+                    )
+                    if (index < items.lastIndex) NukeDivider()
                 }
             }
         }

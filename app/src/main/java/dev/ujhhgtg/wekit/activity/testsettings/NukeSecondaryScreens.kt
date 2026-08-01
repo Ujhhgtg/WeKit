@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.activity.testsettings
 
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -10,10 +9,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,15 +30,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
-import com.mikepenz.aboutlibraries.Libs
-import com.mikepenz.aboutlibraries.entity.Library
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Auto_delete
 import com.composables.icons.materialsymbols.outlined.Block
@@ -52,6 +50,8 @@ import com.composables.icons.materialsymbols.outlined.Notifications
 import com.composables.icons.materialsymbols.outlined.Rule_settings
 import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Upload
+import com.mikepenz.aboutlibraries.Libs
+import com.mikepenz.aboutlibraries.entity.Library
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.LocalComponentActivity
@@ -74,12 +74,14 @@ import dev.ujhhgtg.wekit.ui.content.nukex.NukePageScaffold
 import dev.ujhhgtg.wekit.ui.content.nukex.NukePreferenceRow
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSearchField
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroup
+import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroupTitle
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSquircleShape
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeStatusPill
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSwitch
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeText
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeTheme
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeVectorCategoryIcon
+import dev.ujhhgtg.wekit.ui.content.nukex.nukeGroupedCardItem
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.utils.AppUpdater
@@ -89,7 +91,6 @@ import dev.ujhhgtg.wekit.utils.formatEpoch
 import dev.ujhhgtg.wekit.utils.openInSystem
 import dev.ujhhgtg.wekit.utils.restartHost
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
@@ -120,7 +121,13 @@ private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
     val features = remember { FeaturesProvider.ALL_HOOK_ITEMS }
     var selectedFeature by remember { mutableStateOf<BaseFeature?>(null) }
 
-    NukePageScaffold(title = "模块设置及调试", onBack = onBack) {
+    NukePageScaffold(
+        title = "模块设置及调试",
+        onBack = onBack,
+        // FEATURES rows are individual items; 0 spacing keeps them flush and explicit spacer
+        // items below restore the 12dp rhythm between sections.
+        itemSpacing = 0.dp,
+    ) {
         item(key = "actions") {
             NukeSettingGroup(title = "操作") {
                 NukePreferenceRow(
@@ -131,6 +138,7 @@ private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
                 )
             }
         }
+        item(key = "gap_overview") { Spacer(Modifier.height(12.dp)) }
         item(key = "overview") {
             NukeSettingGroup(title = "状态概览") {
                 Row(
@@ -143,12 +151,16 @@ private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
                 }
             }
         }
-        item(key = "features") {
-            NukeSettingGroup(title = "FEATURES") {
-                features.forEachIndexed { index, feature ->
-                    NukeFeatureStatusRow(feature = feature, onClick = { selectedFeature = feature })
-                    if (index < features.lastIndex) NukeDivider()
-                }
+        item(key = "gap_features") { Spacer(Modifier.height(12.dp)) }
+        item(key = "features_title") {
+            NukeSettingGroupTitle(title = "FEATURES")
+        }
+        itemsIndexed(features, key = { _, feature -> feature.name }) { index, feature ->
+            Column(
+                Modifier.nukeGroupedCardItem(index, features.size),
+            ) {
+                NukeFeatureStatusRow(feature = feature, onClick = { selectedFeature = feature })
+                if (index < features.lastIndex) NukeDivider()
             }
         }
     }
@@ -558,12 +570,12 @@ private fun NukeAboutIcon() {
 
 @Composable
 private fun NukeLicensesPage(onBack: (Offset) -> Unit) {
-    val resources = LocalContext.current.resources
+    val resources = LocalResources.current
     val libraries = remember(resources) {
         resources.openRawResource(R.raw.aboutlibraries)
             .bufferedReader()
             .use { Libs.Builder().withJson(it.readText()).build().libraries }
-            .sortedWith(compareBy<Library>(::nukeLibraryAuthor, Library::name))
+            .sortedWith(compareBy(::nukeLibraryAuthor, Library::name))
     }
     var query by remember { mutableStateOf("") }
     val filtered = remember(query, libraries) {

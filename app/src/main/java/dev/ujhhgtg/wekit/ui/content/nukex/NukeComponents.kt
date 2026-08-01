@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -29,6 +28,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -183,6 +184,65 @@ fun NukeTopAppBar(
     }
 }
 
+private val NukeSettingGroupCornerRadius = 20.dp
+
+/**
+ * Shared section title used by [NukeSettingGroup] and by virtualized feature lists whose rows are
+ * emitted as individual [androidx.compose.foundation.lazy.LazyColumn] items.
+ */
+@Composable
+fun NukeSettingGroupTitle(
+    title: String?,
+    modifier: Modifier = Modifier,
+) {
+    if (title == null) return
+    val colors = NukeTheme.colors
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        entered = true
+    }
+
+    val titleAlpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(180),
+        label = "SettingGroupTitleAlphaAnimation",
+    )
+    val titleOffset by animateDpAsState(
+        targetValue = if (entered) 0.dp else 6.dp,
+        animationSpec = spring(dampingRatio = 0.75f, stiffness = 1_500f),
+        label = "SettingGroupTitleOffsetAnimation",
+    )
+    val markWidth by animateDpAsState(
+        targetValue = if (entered) 22.dp else 7.dp,
+        animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
+        label = "SettingGroupTitleMarkWidthAnimation",
+    )
+
+    Row(
+        modifier
+            .offset(y = titleOffset)
+            .graphicsLayer { alpha = titleAlpha }
+            .padding(bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(width = markWidth, height = 5.dp)
+                .clip(CircleShape)
+                .background(colors.accent)
+        )
+        NukeText(
+            text = title.uppercase(Locale.ROOT),
+            modifier = Modifier.padding(start = 8.dp),
+            color = colors.accent,
+            fontSize = 12,
+            lineHeight = 15,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+        )
+    }
+}
+
 @Composable
 fun NukeSettingGroup(
     title: String?,
@@ -205,58 +265,70 @@ fun NukeSettingGroup(
         animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
         label = "SettingGroupOffsetAnimation",
     )
-    val titleAlpha by animateFloatAsState(
-        targetValue = if (entered) 1f else 0f,
-        animationSpec = tween(180),
-        label = "SettingGroupTitleAlphaAnimation",
-    )
-    val titleOffset by animateDpAsState(
-        targetValue = if (entered) 0.dp else 6.dp,
-        animationSpec = spring(dampingRatio = 0.75f, stiffness = 1_500f),
-        label = "SettingGroupTitleOffsetAnimation",
-    )
-    val markWidth by animateDpAsState(
-        targetValue = if (entered) 22.dp else 7.dp,
-        animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
-        label = "SettingGroupTitleMarkWidthAnimation",
-    )
 
     Column(modifier.fillMaxWidth()) {
-        if (title != null) {
-            Row(
-                Modifier
-                    .offset(y = titleOffset)
-                    .graphicsLayer { alpha = titleAlpha }
-                    .padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    Modifier
-                        .size(width = markWidth, height = 5.dp)
-                        .clip(CircleShape)
-                        .background(colors.accent)
-                )
-                NukeText(
-                    text = title.uppercase(Locale.ROOT),
-                    modifier = Modifier.padding(start = 8.dp),
-                    color = colors.accent,
-                    fontSize = 12,
-                    lineHeight = 15,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                )
-            }
-        }
+        NukeSettingGroupTitle(title = title)
         Column(
             Modifier
                 .fillMaxWidth()
                 .offset(y = bodyOffset)
-                .graphicsLayer { alpha = bodyAlpha }
-                .clip(NukeSquircleShape(16.dp))
+                .graphicsLayer {
+                    alpha = bodyAlpha
+                    // A long feature list makes this group thousands of px tall. An offscreen
+                    // layer for the enter animation would be clamped to the device texture limit
+                    // (~8192px), clipping both drawing and input below that boundary.
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                }
+                // RoundedCornerShape produces an Outline.Rounded, whose hit test is plain
+                // rounded-rect math at any size. NukeSquircleShape's generic Path outline breaks
+                // point-in-path tests once the group is taller than ~8192px, leaving deep rows
+                // visible but unclickable (around the 29th row on typical 640dpi devices).
+                .clip(RoundedCornerShape(NukeSettingGroupCornerRadius))
                 .background(colors.surface),
             content = content,
         )
     }
+}
+
+/**
+ * Per-row card surface for virtualized grouped lists: the first row rounds the top corners, the
+ * last row rounds the bottom corners, and middle rows stay square so adjacent rows read as one
+ * continuous card. Mirrors the Miuix engine's `groupedCardItem` layout contract.
+ */
+internal fun nukeGroupedCardShape(index: Int, count: Int): RoundedCornerShape =
+    RoundedCornerShape(
+        topStart = if (index == 0) NukeSettingGroupCornerRadius else 0.dp,
+        topEnd = if (index == 0) NukeSettingGroupCornerRadius else 0.dp,
+        bottomEnd = if (index == count - 1) NukeSettingGroupCornerRadius else 0.dp,
+        bottomStart = if (index == count - 1) NukeSettingGroupCornerRadius else 0.dp,
+    )
+
+@Composable
+fun Modifier.nukeGroupedCardItem(index: Int, count: Int): Modifier {
+    // Restore the setting-group entrance motion per row: fade in while springing up 6dp. Rows
+    // re-run it each time they enter composition (e.g. after scrolling back into view).
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        entered = true
+    }
+    val itemAlpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(160),
+        label = "NukeGroupedCardItemAlphaAnimation",
+    )
+    val itemOffset by animateDpAsState(
+        targetValue = if (entered) 0.dp else 6.dp,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
+        label = "NukeGroupedCardItemOffsetAnimation",
+    )
+    return fillMaxWidth()
+        .offset(y = itemOffset)
+        .graphicsLayer {
+            alpha = itemAlpha
+            compositingStrategy = CompositingStrategy.ModulateAlpha
+        }
+        .clip(nukeGroupedCardShape(index, count))
+        .background(NukeTheme.colors.surface)
 }
 
 @Composable
