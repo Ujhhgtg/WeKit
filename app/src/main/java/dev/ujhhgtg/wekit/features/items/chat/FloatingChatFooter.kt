@@ -67,7 +67,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     private const val DEFAULT_CORNER_RADIUS = 24
     private const val DEFAULT_SIDE_MARGIN = 12
-    private const val DEFAULT_BOTTOM_GAP = 4
+    private const val DEFAULT_BOTTOM_GAP = 8
     private const val DEFAULT_ELEVATION = 4
 
     private const val MIN_CORNER_RADIUS = 0
