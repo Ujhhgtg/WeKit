@@ -4,8 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Outline
-import android.graphics.Paint
-import android.graphics.Rect
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
@@ -27,7 +25,6 @@ import com.tencent.mm.pluginsdk.ui.chat.AppPanel
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooterBottom
 import com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout
-import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -47,14 +44,14 @@ import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.constructor
-import java.lang.reflect.Modifier
 import java.util.WeakHashMap
 import kotlin.math.roundToInt
 
 @Feature(
     name = "悬浮输入框",
     categories = ["聊天"],
-    description = "将聊天输入框改为悬浮卡片形式, 带有圆角、阴影和侧边距"
+    description = "将聊天输入框改为悬浮卡片形式, 带有圆角、阴影和侧边距\n" +
+        "建议同时启用「聊天/聊天界面沉浸」"
 )
 object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
@@ -102,9 +99,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     /** 临时挪动面板期间保存的原 translationY。key 是 ChatFooterBottom。 */
     private val savedPanelTranslations = WeakHashMap<View, Float>()
-
-    /** ChattingUILayout.fitSystemWindows 入口时、还没被微信加料前的原始导航栏 inset。 */
-    private val navBarInsetsBeforeFit = WeakHashMap<View, Int>()
 
     /** 消息列表 RecyclerView 由微信自己设的原始 bottom padding (一般是 6dp)。 */
     private val chatListBasePaddings = WeakHashMap<View, Int>()
@@ -237,9 +231,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             } else {
                 applyBottomGap(footer)
             }
-            // 运行中才打开本特性时, 会话页可能已经带着底条和导航栏 padding; 当场清一遍,
-            // 之后的每次 fitSystemWindows 由上面的 hook 兜底。
-            footer.findAncestorChattingUILayout()?.let(::applyChatEdgeToEdge)
             trackNavBarInset(footer)
         }
 
@@ -293,26 +284,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             if (!movePanelAbove) return@hookAfter
             val panel = thisObject?.ownerChatFooter?.bottomPanel ?: return@hookAfter
             savedPanelTranslations.remove(panel)?.let { panel.translationY = it }
-        }
-
-        // 8.0.72+ 微信在自己那套 edge-to-edge 开关打开时, 会在 ChattingUILayout 底部画一条
-        // 全宽 @color/b 底条 (亮色=灰, 暗色=黑) 盖住消息, 同时把导航栏 inset 吃进布局的
-        // bottom padding, 消息列表因此到不了小白条背后。这里在方法返回后只从 padding 里
-        // 减掉导航栏那部分 (微信额外加的 inset 保留), 并把底条画笔调成透明。
-        ChattingUILayout::class.reflekt().firstMethodOrNull { name = "fitSystemWindows" }?.let { fit ->
-            fit.hookBefore {
-                val layout = thisObject as? View ?: return@hookBefore
-                navBarInsetsBeforeFit[layout] = (args[0] as? Rect)?.bottom ?: 0
-            }
-            fit.hookAfter {
-                val layout = thisObject as? View ?: return@hookAfter
-                val originalBottom = navBarInsetsBeforeFit.remove(layout) ?: 0
-                val keep = (layout.paddingBottom - originalBottom).coerceAtLeast(0)
-                if (layout.paddingBottom != keep) {
-                    layout.setPadding(layout.paddingLeft, layout.paddingTop, layout.paddingRight, keep)
-                }
-                suppressNavBarStrip(layout)
-            }
         }
 
         // 微信只在 state 2/3 显示面板, 从不隐藏它 —— 收起态由我们兜底设 GONE。
@@ -656,29 +627,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         else -> null
     }
 
-    /** 从 footer 向上找会话页根布局 ChattingUILayout。 */
-    private fun View.findAncestorChattingUILayout(): ChattingUILayout? {
-        var parent = parent
-        while (parent != null) {
-            if (parent is ChattingUILayout) return parent
-            parent = parent.parent
-        }
-        return null
-    }
-
-    /**
-     * 运行时才开启本特性时, 会话页可能已经吃下了导航栏 padding 并画上了底条。
-     * 当场把导航栏那部分 padding 去掉, 并把底条画笔调成透明。
-     */
-    private fun applyChatEdgeToEdge(layout: ChattingUILayout) {
-        val navInset = layout.currentNavBarInset()
-        val keep = (layout.paddingBottom - navInset).coerceAtLeast(0)
-        if (layout.paddingBottom != keep) {
-            layout.setPadding(layout.paddingLeft, layout.paddingTop, layout.paddingRight, keep)
-        }
-        suppressNavBarStrip(layout)
-    }
-
     /** 从 footer 所在的 ChattingScrollLayout 里定位消息列表的 RecyclerView。 */
     private fun ChatFooter.chatRecycler(): View? {
         chatListRecyclers[this]?.takeIf { it.isAttachedToWindow }?.let { return it }
@@ -758,26 +706,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         if (wasAtBottom && target > old) {
             // 滚动到新的 padding 底端, 让最新消息从卡片后露出; 用户正翻旧消息时不打扰
             recycler.scrollBy(0, target - old)
-        }
-    }
-
-    private fun View.currentNavBarInset(): Int {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return 0
-        return rootWindowInsets?.getInsets(WindowInsets.Type.navigationBars())?.bottom ?: 0
-    }
-
-    /**
-     * 8.0.72+ 的 ChattingUILayout 有一个 private final Paint 字段, 专门画那条全宽底条。
-     * 按类型找字段 (不碰混淆名), 把 alpha 置 0; fitSystemWindows 每次 setColor 之后
-     * hookAfter 会再把它归零。老版本没有这个字段, 直接跳过。
-     */
-    private fun suppressNavBarStrip(layout: View) {
-        val paintField = layout.javaClass.declaredFields.firstOrNull {
-            !Modifier.isStatic(it.modifiers) && it.type == Paint::class.java
-        } ?: return
-        runCatching {
-            paintField.isAccessible = true
-            (paintField.get(layout) as? Paint)?.alpha = 0
         }
     }
 
