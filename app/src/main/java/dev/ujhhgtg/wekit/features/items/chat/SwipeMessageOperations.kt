@@ -15,7 +15,6 @@ import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -41,6 +40,7 @@ import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.ui.utils.ExposurePlus1Icon
 import dev.ujhhgtg.wekit.ui.utils.FormatQuoteIcon
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -595,7 +595,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
         val context = view.context
         CoroutineScope(Dispatchers.IO).launch {
             val sent = RepeatMessages.repeatMessage(msgInfo)
-            showToastSuspend(context, if (sent) "已复读" else "复读失败! 可能为不支持的消息类型")
+            if (!sent) showToastSuspend(context, "复读失败!")
         }
     }
 
