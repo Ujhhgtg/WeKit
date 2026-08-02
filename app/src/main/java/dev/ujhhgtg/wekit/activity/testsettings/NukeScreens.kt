@@ -292,24 +292,28 @@ private fun NukeHomePage(
 private fun SecurityModeNukeRow() {
     val context = androidx.compose.ui.platform.LocalContext.current
     var checked by remember { mutableStateOf(SecurityMode.isEnabled) }
+
+    fun requestToggle(next: Boolean) {
+        if (next) {
+            SecurityMode.showEnableConfirmDialog(context) {
+                checked = true
+                SecurityMode.setEnabled(true)
+            }
+        } else {
+            checked = false
+            SecurityMode.setEnabled(false)
+        }
+    }
+
     NukePreferenceRow(
         title = SecurityMode.TITLE,
         description = SecurityMode.DESCRIPTION,
         leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Shield) },
+        onClick = { requestToggle(!checked) },
         trailing = {
             NukeSwitch(
                 checked = checked,
-                onCheckedChange = {
-                    if (it) {
-                        SecurityMode.showEnableConfirmDialog(context) {
-                            checked = true
-                            SecurityMode.setEnabled(true)
-                        }
-                    } else {
-                        checked = false
-                        SecurityMode.setEnabled(false)
-                    }
-                },
+                onCheckedChange = { requestToggle(it) },
             )
         },
     )
