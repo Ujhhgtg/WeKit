@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.activity.settings
 
 import android.content.Context
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -73,14 +72,12 @@ import com.composables.icons.materialsymbols.outlined.Volunteer_activism
 import com.composables.icons.materialsymbols.outlined.Wallpaper
 import com.mikepenz.aboutlibraries.Libs
 import com.mikepenz.aboutlibraries.entity.Library
-import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
-import dev.ujhhgtg.wekit.features.items.system.SecurityMode
+import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
@@ -91,35 +88,16 @@ import dev.ujhhgtg.wekit.ui.utils.theme.AppThemeMode
 import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.AppUpdater
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.UpdateResult
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.formatEpoch
 import dev.ujhhgtg.wekit.utils.openInSystem
-import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.float
-import kotlinx.serialization.json.floatOrNull
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
-import kotlinx.serialization.json.longOrNull
-import kotlinx.serialization.json.put
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -622,21 +600,21 @@ private fun PrefIcon(icon: ImageVector) {
 
 @Composable
 private fun SecuritySwitch(context: Context) {
-    var checked by remember { mutableStateOf(SecurityMode.isEnabled) }
+    var checked by remember { mutableStateOf(SafeMode.isEnabled) }
     SwitchPreference(
-        title = SecurityMode.TITLE,
-        summary = SecurityMode.DESCRIPTION,
+        title = SafeMode.TITLE,
+        summary = SafeMode.DESCRIPTION,
         startAction = { PrefIcon(MaterialSymbols.Outlined.Shield) },
         checked = checked,
         onCheckedChange = {
             if (it) {
-                SecurityMode.showEnableConfirmDialog(context) {
+                SafeMode.showEnableConfirmDialog(context) {
                     checked = true
-                    SecurityMode.setEnabled(true)
+                    SafeMode.setEnabled(true)
                 }
             } else {
                 checked = false
-                SecurityMode.setEnabled(false)
+                SafeMode.setEnabled(false)
             }
         },
     )

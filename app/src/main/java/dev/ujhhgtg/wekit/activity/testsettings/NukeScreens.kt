@@ -7,10 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,11 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -56,7 +52,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.features.items.system.SecurityMode
+import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCountAndChevron
@@ -72,7 +68,6 @@ import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroup
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroupTitle
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSquircleShape
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSwitch
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeText
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeTheme
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeVectorCategoryIcon
 import dev.ujhhgtg.wekit.ui.content.nukex.nukeGroupedCardItem
@@ -248,7 +243,7 @@ private fun NukeHomePage(
                 item(key = "account") { NukeCurrentAccountCard() }
                 item(key = "security") {
                     NukeSettingGroup(title = "安全") {
-                        SecurityModeNukeRow()
+                        SafeModeNukeRow()
                     }
                 }
                 nukeFeatureCategoryGroups(featureEntries).forEachIndexed { index, entries ->
@@ -289,25 +284,25 @@ private fun NukeHomePage(
 }
 
 @Composable
-private fun SecurityModeNukeRow() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var checked by remember { mutableStateOf(SecurityMode.isEnabled) }
+private fun SafeModeNukeRow() {
+    val context = LocalContext.current
+    var checked by remember { mutableStateOf(SafeMode.isEnabled) }
 
     fun requestToggle(next: Boolean) {
         if (next) {
-            SecurityMode.showEnableConfirmDialog(context) {
+            SafeMode.showEnableConfirmDialog(context) {
                 checked = true
-                SecurityMode.setEnabled(true)
+                SafeMode.setEnabled(true)
             }
         } else {
             checked = false
-            SecurityMode.setEnabled(false)
+            SafeMode.setEnabled(false)
         }
     }
 
     NukePreferenceRow(
-        title = SecurityMode.TITLE,
-        description = SecurityMode.DESCRIPTION,
+        title = SafeMode.TITLE,
+        description = SafeMode.DESCRIPTION,
         leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Shield) },
         onClick = { requestToggle(!checked) },
         trailing = {

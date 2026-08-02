@@ -13,19 +13,18 @@ import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.writeText
 
-/** 模块级「安全模式」开关（Nuke 1.0.2 移植，文件标记实现）。 */
-object SecurityMode {
+/** 模块级「安全模式」开关 */
+object SafeMode {
 
-    private const val TAG = "SecurityMode"
+    private const val TAG = "SafeMode"
     private val flagFile = KnownPaths.moduleData / "safe_mode.flag"
 
     const val TITLE = "安全模式"
     const val DESCRIPTION = "在不稳定环境中保守加载模块能力。"
     const val ENABLE_TITLE = "开启安全模式？"
     const val ENABLE_MESSAGE =
-        "开启后会立即卸载当前已经运行的普通 Hook，只保留 ignoreSecurityMode = true 的核心 Hook。\n\n" +
-            "下次启动时，普通 Hook 不会被加载，但仍会在设置页显示，方便你关闭安全模式后恢复使用。\n\n" +
-            "确认开启安全模式？"
+        "开启后, 下次启动时, 普通功能不会被加载, 只保留核心功能, 但仍会在设置页显示, 方便你关闭安全模式后恢复使用。\n\n" +
+            "确认开启安全模式?"
 
     val isEnabled: Boolean
         get() = flagFile.exists()
@@ -49,7 +48,6 @@ object SecurityMode {
     fun setEnabled(enabled: Boolean) {
         if (enabled) {
             runCatching {
-                flagFile.parent?.let { java.nio.file.Files.createDirectories(it) }
                 flagFile.writeText("")
             }.onFailure {
                 WeLogger.e(TAG, "failed to create safe mode flag", it)

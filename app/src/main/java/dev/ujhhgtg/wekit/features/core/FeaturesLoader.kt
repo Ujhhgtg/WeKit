@@ -4,8 +4,7 @@ import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
-import dev.ujhhgtg.wekit.features.api.ui.WeSettingsInjector
-import dev.ujhhgtg.wekit.features.items.system.SecurityMode
+import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.ui.content.DexResolver
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.TargetProcesses
@@ -27,7 +26,7 @@ object FeaturesLoader {
 
     fun loadFeatures() {
         val allFeatures = FeaturesProvider.ALL_HOOK_ITEMS
-        val safeMode = SecurityMode.isEnabled
+        val safeMode = SafeMode.isEnabled
         val featuresToStart = if (safeMode) {
             allFeatures.filterIsInstance<ApiFeature>()
         } else {
@@ -60,7 +59,7 @@ object FeaturesLoader {
             featuresToStart.forEach { feature ->
                 val isBroken = feature is IResolveDex && allBrokenItems.contains(feature)
 
-                if (isBroken && feature !is WeSettingsInjector) {
+                if (isBroken) {
                     WeLogger.w(TAG, "skipping ${feature.name} — incomplete cache, awaiting re-resolution")
                     return@forEach
                 }
