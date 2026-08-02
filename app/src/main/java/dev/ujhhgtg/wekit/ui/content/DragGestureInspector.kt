@@ -27,8 +27,9 @@ suspend fun PointerInputScope.inspectDragGestures(
     onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit
 ) {
     awaitEachGesture {
+        val initialDown = awaitFirstDown(false, PointerEventPass.Initial)
+
         val down = awaitFirstDown(false)
-        val initialDown = down
 
         onDragStart(down)
         onDrag(initialDown, Offset.Zero)

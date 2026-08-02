@@ -53,8 +53,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -71,7 +69,6 @@ import dev.ujhhgtg.wekit.ui.content.liquid.innerShadow
 import dev.ujhhgtg.wekit.ui.content.liquid.lens
 import dev.ujhhgtg.wekit.ui.content.liquid.rememberCombinedBackdrop
 import dev.ujhhgtg.wekit.ui.content.liquid.vibrancy
-import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
@@ -193,8 +190,6 @@ fun FloatingBottomBar(
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
-    val viewConfiguration = LocalViewConfiguration.current
-    val hostView = LocalView.current
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     val animationScope = rememberCoroutineScope()
 
@@ -228,7 +223,7 @@ fun FloatingBottomBar(
 
     val holder = remember { DampedDragAnimationHolder() }
 
-    val dampedDragAnimation = remember(animationScope, tabsCount, density, isLtr, viewConfiguration, hostView) {
+    val dampedDragAnimation = remember(animationScope, tabsCount, density, isLtr) {
         DampedDragAnimation(
             animationScope = animationScope,
             initialValue = selectedIndex().toFloat(),
@@ -236,12 +231,9 @@ fun FloatingBottomBar(
             visibilityThreshold = 0.001f,
             initialScale = 1f,
             pressedScale = 78f / 56f,
-            touchSlopPx = viewConfiguration.touchSlop,
-            longPressTimeoutMs = viewConfiguration.longPressTimeoutMillis,
-            hostView = hostView,
-            // Touch positions here are pill-local (the gesture node lives on the pill). Only start
-            // a drag when the touch lands within the tab strip; taps on other tabs are handled by
-            // the item clickables below the pill.
+            // Only start a drag when the touch lands within the tab strip bounds. Without this
+            // guard the pill swallows a tap on the already-selected tab as a zero-distance drag,
+            // so the tap never falls through to FloatingBottomBarItem.onClick (double-tap-home).
             canDrag = { offset ->
                 val anim = holder.instance ?: return@DampedDragAnimation true
                 if (tabWidthPx == 0f) return@DampedDragAnimation false
@@ -261,7 +253,6 @@ fun FloatingBottomBar(
                 val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
                 val previousIndex = currentIndex
                 animateToValue(targetIndex.toFloat())
-                WeLogger.d("PillGesture", "dragStopped target=$targetIndex previous=$previousIndex")
                 if (targetIndex != previousIndex) {
                     currentIndex = targetIndex
                     onSelected(targetIndex)
@@ -272,10 +263,7 @@ fun FloatingBottomBar(
             },
             onDrag = { _, dragAmount ->
                 if (tabWidthPx > 0) {
-                    // Track the finger 1:1 during the drag: a spring here lags behind the pointer,
-                    // and because the pill's hit box rides the same translation, the finger
-                    // outruns the box and later move events stop reaching the gesture node.
-                    snapToValue(
+                    updateValue(
                         (targetValue + dragAmount.x / tabWidthPx * if (isLtr) 1f else -1f)
                             .fastCoerceIn(0f, (tabsCount - 1).toFloat())
                     )
@@ -328,13 +316,9 @@ fun FloatingBottomBar(
                 InteractiveHighlight(
                     animationScope = animationScope,
                     position = { size, _ ->
-                        val padding = with(density) { 4.dp.toPx() }
                         Offset(
-                            if (isLtr) {
-                                padding + (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset
-                            } else {
-                                size.width - padding - (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset
-                            },
+                            if (isLtr) (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset
+                            else size.width - (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset,
                             size.height / 2f
                         )
                     }
@@ -344,31 +328,7 @@ fun FloatingBottomBar(
             null
         }
 
-    if (interactiveHighlight != null) {
-        dampedDragAnimation.onGestureStart = interactiveHighlight::startGesture
-        dampedDragAnimation.onGestureMove = interactiveHighlight::moveGesture
-        dampedDragAnimation.onGestureEnd = interactiveHighlight::endGesture
-    }
-
     val combinedBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
-
-    LaunchedEffect(dampedDragAnimation) {
-        snapshotFlow {
-            Triple(
-                dampedDragAnimation.value,
-                dampedDragAnimation.pressProgress,
-                dampedDragAnimation.scaleX,
-            )
-        }.collect { (value, press, scale) ->
-            WeLogger.d("PillPos", "value=$value press=$press scaleX=$scale tabW=$tabWidthPx")
-        }
-    }
-
-    LaunchedEffect(tabWidthPx) {
-        if (tabWidthPx > 0f) {
-            WeLogger.d("PillPos", "tabWidth=$tabWidthPx totalWidth=$totalWidthPx")
-        }
-    }
 
     Box(
         modifier = modifier.width(IntrinsicSize.Min),
@@ -382,7 +342,6 @@ fun FloatingBottomBar(
                         totalWidthPx = coords.size.width.toFloat()
                         val contentWidthPx = totalWidthPx - with(density) { 8.dp.toPx() }
                         tabWidthPx = (contentWidthPx / tabsCount).coerceAtLeast(0f)
-                        WeLogger.d("PillHit", "onGloballyPositioned total=$totalWidthPx tab=$tabWidthPx")
                     }
                     .graphicsLayer { translationX = panelOffset }
                     .dropShadow(
@@ -392,6 +351,11 @@ fun FloatingBottomBar(
                             color = Color.Black,
                             alpha = if (isInDark) 0.2f else 0.1f,
                         ),
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
                     )
                     .then(
                         if (isBlurEnabled) {
@@ -478,6 +442,7 @@ fun FloatingBottomBar(
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
                         }
+                        .then(interactiveHighlight?.gestureModifier ?: Modifier)
                         .then(dampedDragAnimation.modifier)
                         .drawBackdrop(
                             backdrop = combinedBackdrop,

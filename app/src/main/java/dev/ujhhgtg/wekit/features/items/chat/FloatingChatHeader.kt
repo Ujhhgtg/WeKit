@@ -10,7 +10,7 @@ import android.view.ViewStub
 import android.view.ViewTreeObserver
 import android.widget.RelativeLayout
 import androidx.activity.ComponentActivity
-import androidx.compose.material3.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue

@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat_input_bar_menu
 
 import android.content.Context
 import androidx.compose.foundation.clickable
-import androidx.compose.material3.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue

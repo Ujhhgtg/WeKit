@@ -25,7 +25,7 @@ okhttp = "5.4.0"
 hidden-api-bypass = "6.1"
 runtime = "1.11.4"
 # noinspection GradleDependency
-compose-material3 = "1.5.0-alpha24" # DO NOT UPDATE. RIPPLE EFFECT BROKE AGAIN. TOUCH EFFECT BROKE TOO. FUCK. YOU. GOOGLE.
+compose-material3 = "1.5.0-alpha19" # DO NOT UPDATE. RIPPLE EFFECT BROKE AGAIN. TOUCH EFFECT BROKE TOO. FUCK. YOU. GOOGLE.
 libsu = "6.0.0"
 libxposed = "102.0.0"
 aboutlibraries = "15.0.4"

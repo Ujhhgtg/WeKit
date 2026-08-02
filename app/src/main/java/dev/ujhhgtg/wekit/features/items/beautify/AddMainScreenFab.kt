@@ -22,8 +22,6 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -56,7 +54,6 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -70,7 +67,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -114,7 +110,6 @@ import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
-import dev.ujhhgtg.wekit.ui.utils.DebugComposeView
 import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -123,7 +118,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.killHost
 import dev.ujhhgtg.wekit.utils.restartHost
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -356,8 +350,7 @@ object AddMainScreenFab : ClickableFeature() {
             val lifecycleOwner = LifecycleOwnerProvider.lifecycleOwner
             val root = activity.rootView
 
-            val fabOverlayContainer = DebugComposeView(activity, "fabOverlay")
-            fabOverlayContainer.addView(
+            root.addView(
                 ComposeView(activity).apply {
                     setLifecycleOwner(lifecycleOwner)
 
@@ -460,7 +453,6 @@ object AddMainScreenFab : ClickableFeature() {
                     }
                 }
             )
-            root.addView(fabOverlayContainer)
         }
 
         LauncherUI::class.reflekt().firstMethod("startChatting").hookBefore {
@@ -554,23 +546,15 @@ object AddMainScreenFab : ClickableFeature() {
 
     @Composable
     private fun FabMenuButton(entry: FabMenuEntry, backgroundColor: Color, tint: Color) {
-        val fabInteractionSource = remember { MutableInteractionSource() }
-        LaunchedEffect(fabInteractionSource) {
-            fabInteractionSource.interactions.collect { interaction ->
-                WeLogger.d("FabRipple", "menuBtn ${entry.name} interaction=$interaction")
-            }
-        }
         SmallFloatingActionButton(
             onClick = {
-                WeLogger.d("FabRipple", "menuBtn ${entry.name} onClick")
                 entry.onClick()
                 // 编辑模式下的菜单项（例如「重置位置」）不应收起菜单
                 if (!editMode) expanded = false
             },
             containerColor = backgroundColor,
             shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(2.dp),
-            interactionSource = fabInteractionSource,
+            elevation = FloatingActionButtonDefaults.elevation(2.dp)
         ) {
             Icon(entry.icon, contentDescription = entry.name, tint = tint)
         }
@@ -587,29 +571,11 @@ object AddMainScreenFab : ClickableFeature() {
         maxDy: Float,
     ) {
         val editing = editMode
-        val fabInteractionSource = remember { MutableInteractionSource() }
-        val fabScope = rememberCoroutineScope()
-        LaunchedEffect(fabInteractionSource) {
-            fabInteractionSource.interactions.collect { interaction ->
-                WeLogger.d("FabRipple", "mainFab interaction=$interaction")
-            }
-        }
 
         FloatingActionButton(
-            onClick = {
-                WeLogger.d("FabRipple", "mainFab onClick editing=$editing")
-                // Diagnostic: manually emit a visible ripple pulse to verify the ripple draw path.
-                fabScope.launch {
-                    val press = PressInteraction.Press(Offset.Zero)
-                    fabInteractionSource.emit(press)
-                    delay(250)
-                    fabInteractionSource.emit(PressInteraction.Release(press))
-                }
-                if (editing) exitEditMode(save = true) else expanded = !expanded
-            },
+            onClick = { if (editing) exitEditMode(save = true) else expanded = !expanded },
             containerColor = backgroundColor,
             shape = CircleShape,
-            interactionSource = fabInteractionSource,
             // 拖动会消费触摸事件并取消点击，因此拖动与点击保存可以共存
             modifier = modifier.then(
                 if (editing) {

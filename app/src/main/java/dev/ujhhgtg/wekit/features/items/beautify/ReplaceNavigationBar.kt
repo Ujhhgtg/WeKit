@@ -41,7 +41,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -67,7 +67,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -107,13 +106,11 @@ import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarItem
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.rememberViewBackdrop
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
-import dev.ujhhgtg.wekit.ui.utils.DebugComposeView
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
-import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -301,7 +298,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                 }.self
 
             val navigateToTab = { pagerIndex: Int ->
-                WeLogger.d("NavTap", "navigateToTab pagerIndex=$pagerIndex")
                 methodOnTabClick.invoke(tabsAdapter, visibleTabItems[pagerIndex].wechatIndex)
             }
 
@@ -324,7 +320,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
             var lastHomeTapUptime = 0L
             val onTabClicked = { index: Int ->
-                WeLogger.d("NavTap", "onTabClicked index=$index")
                 if (index == 0 && bottomTabClickListener != null &&
                     SystemClock.uptimeMillis() - lastHomeTapUptime <= DOUBLE_TAP_WINDOW_MS
                 ) {
@@ -411,7 +406,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             val blurRadius = blurRadius
             val barScale = barScalePercent.coerceIn(MIN_BAR_SCALE, MAX_BAR_SCALE) / 100f
 
-            val composeContainer = DebugComposeView(activity, "bottomBar")
             val composeView = ComposeView(activity).apply {
                 setLifecycleOwner(lifecycleOwner)
 
@@ -549,24 +543,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                             }
                         } else {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .pointerInput("rootRaw") {
-                                        awaitEachGesture {
-                                            var running = true
-                                            while (running) {
-                                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                                event.changes.forEach {
-                                                    WeLogger.d(
-                                                        "PillHit",
-                                                        "rootRaw ${it.type} pos=${it.position} " +
-                                                            "pressed=${it.pressed} consumed=${it.isConsumed}",
-                                                    )
-                                                }
-                                                running = event.changes.any { it.pressed }
-                                            }
-                                        }
-                                    }
+                                modifier = Modifier.fillMaxWidth()
                             ) {
                                 val bottomCenter = Modifier.align(Alignment.BottomCenter)
 
@@ -598,15 +575,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         // nothing. Route that tap through the same haptic + tab
                                         // handler the items use, restoring double-tap-to-next-unread.
                                         onTabReselected = { index ->
-                                            WeLogger.d("NavTap", "onTabReselected index=$index")
                                             view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                             onTabClicked(index)
                                         },
-                        // Long-pressing the "发现" tab while it is already selected:
+                                        // Long-pressing the "发现" tab while it is already selected:
                                         // the pill sits on top and eats the event, so the item's
                                         // onLongPress modifier never fires — forward it here instead.
                                         onTabReselectedLongPress = { index ->
-                                            WeLogger.d("NavTap", "onTabReselectedLongPress index=$index")
                                             if (visibleTabItems[index].wechatIndex == 2) openImproveSnsTimeline()
                                         },
                                         // Sample WeChat's real content (native ViewPager) into the
@@ -628,7 +603,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
                                             FloatingBottomBarItem(
                                                 onClick = {
-                                                    WeLogger.d("NavTap", "item onClick index=$index")
                                                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                                     onTabClicked(index)
                                                 },
@@ -696,7 +670,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     }
                 }
             }
-            composeContainer.addView(composeView)
 
             if (useFloating) {
                 // In floating mode, hide the original tab bar container so that WeChat's
@@ -713,11 +686,11 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                 // hierarchy. Disable child/padding clipping on the parent so it renders.
                 viewParent.clipChildren = false
                 viewParent.clipToPadding = false
-                composeContainer.clipChildren = false
-                composeContainer.clipToPadding = false
+                composeView.clipChildren = false
+                composeView.clipToPadding = false
 
                 viewParent.addView(
-                    composeContainer,
+                    composeView,
                     FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -726,7 +699,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                 )
             } else {
                 bottomTabViewGroup.removeAllViews()
-                bottomTabViewGroup.addView(composeContainer)
+                bottomTabViewGroup.addView(composeView)
             }
         }
 

@@ -4,7 +4,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
-import androidx.compose.material3.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue

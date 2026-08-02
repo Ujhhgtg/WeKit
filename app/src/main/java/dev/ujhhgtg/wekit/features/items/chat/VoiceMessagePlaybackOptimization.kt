@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -21,6 +20,7 @@ import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MO
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.reflection.bool
 

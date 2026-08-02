@@ -8,7 +8,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
