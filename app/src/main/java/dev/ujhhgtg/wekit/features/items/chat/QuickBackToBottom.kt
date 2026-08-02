@@ -148,8 +148,6 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
         }
         methodComponentInit.hookAfter {
             val component = thisObject!!
-            // 气泡 View 字段声明在组件基类 a 里 (sf/gd 自身没有), reflekt 默认只搜声明字段,
-            // 需要 superclass=true 全层级扫描。
             val fieldValues = component.reflekt().fields { superclass = true }.map { it.get() }
             val bubble = fieldValues
                 .filterIsInstance<View>()
