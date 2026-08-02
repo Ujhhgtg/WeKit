@@ -103,7 +103,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
                                 steps = 39
                             )
                         },
-                        headlineContent = { Text("圆角弧度: %.2f".format(value)) },
+                        content = { Text("圆角弧度: %.2f".format(value)) },
                     )
                 },
                 dismissButton = {

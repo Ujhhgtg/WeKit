@@ -96,7 +96,7 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                                     onCheckedChange = null
                                 )
                             },
-                            headlineContent = { Text("隐藏朋友圈标签") },
+                            content = { Text("隐藏朋友圈标签") },
                         )
                         ListItem(
                             modifier = Modifier.clickable { hideFinderInput = !hideFinderInput },
@@ -108,7 +108,7 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                                 )
                             },
                             supportingContent = { Text("取决于微信版本, 可能为「视频号」「视频号和公众号」「作品」") },
-                            headlineContent = { Text("隐藏作品标签") },
+                            content = { Text("隐藏作品标签") },
                         )
                         ListItem(
                             modifier = Modifier.clickable { hideCardsInput = !hideCardsInput },
@@ -119,7 +119,7 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                                 )
                             },
                             supportingContent = { Text("取决于微信版本, 可能为「卡包」「小店与卡包」") },
-                            headlineContent = { Text("隐藏卡包标签") },
+                            content = { Text("隐藏卡包标签") },
                         )
                         ListItem(
                             modifier = Modifier.clickable { hideEmojiInput = !hideEmojiInput },
@@ -129,7 +129,7 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                                     onCheckedChange = null
                                 )
                             },
-                            headlineContent = { Text("隐藏表情标签") },
+                            content = { Text("隐藏表情标签") },
                         )
                     }
                 },

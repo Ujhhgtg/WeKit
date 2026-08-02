@@ -2989,7 +2989,7 @@ object Themes : ClickableFeature(), IResolveDex {
                                         onClick = { selectedId = theme.id }
                                     )
                                 },
-                                headlineContent = { Text(theme.name) },
+                                content = { Text(theme.name) },
                                 supportingContent = {
                                     Text(
                                         buildString {

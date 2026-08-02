@@ -178,7 +178,7 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
                                             onDismiss()
                                         },
                                     supportingContent = { Text(sourceApp.appId) },
-                                    headlineContent = { Text(sourceApp.appName) },
+                                    content = { Text(sourceApp.appName) },
                                 )
                             }
                         }

@@ -313,7 +313,7 @@ internal fun <T> PanelImportModePrompt(
             ListItem(
                 modifier = Modifier.clickable { onSelect(option.mode) },
                 colors = panelListItemColors(),
-                headlineContent = { Text(option.title) },
+                content = { Text(option.title) },
                 supportingContent = { Text(option.description) },
                 leadingContent = { Icon(option.icon, null) },
             )

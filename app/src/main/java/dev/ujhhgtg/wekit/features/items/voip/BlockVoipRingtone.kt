@@ -62,13 +62,13 @@ object BlockVoipRingtone : ClickableFeature(), IResolveDex {
                             modifier = Modifier.clickable { outCall = !outCall },
                             trailingContent = { Switch(checked = outCall, onCheckedChange = { outCall = it }) },
                             supportingContent = { Text("屏蔽拨出音视频通话时的铃声") },
-                            headlineContent = { Text("屏蔽呼出铃声") },
+                            content = { Text("屏蔽呼出铃声") },
                         )
                         ListItem(
                             modifier = Modifier.clickable { inCall = !inCall },
                             trailingContent = { Switch(checked = inCall, onCheckedChange = { inCall = it }) },
                             supportingContent = { Text("屏蔽收到音视频通话请求时的铃声") },
-                            headlineContent = { Text("屏蔽呼入铃声") },
+                            content = { Text("屏蔽呼入铃声") },
                         )
                     }
                 },

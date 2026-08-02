@@ -1985,7 +1985,7 @@ private fun VoicePackList(
                 ListItem(
                     modifier = Modifier.clickable { onSelectPack(pack) },
                     colors = panelListItemColors(),
-                    headlineContent = {
+                    content = {
                         Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     supportingContent = { Text("${pack.itemCount} 条语音") },
@@ -2010,7 +2010,7 @@ private fun VoicePackReorderContent(
     ) { pack, dragHandleModifier ->
         ListItem(
             colors = panelListItemColors(),
-            headlineContent = {
+            content = {
                 Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
             supportingContent = { Text("${pack.itemCount} 条语音") },
@@ -2062,7 +2062,7 @@ private fun VoiceItemReorderContent(
     ) { voice, dragHandleModifier ->
         ListItem(
             colors = panelListItemColors(),
-            headlineContent = {
+            content = {
                 Text(voice.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
             supportingContent = {
@@ -2176,7 +2176,7 @@ private fun VoiceList(
                             )
                         }
                     },
-                    headlineContent = { Text(voice.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    content = { Text(voice.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     supportingContent = if (durationMs > 0) ({
                         Text(formatDuration(durationMs))
                     }) else null,
@@ -2642,7 +2642,7 @@ private fun CloneManagerOverlay(
                                 .animateItem()
                                 .clickable(onClick = onSelectNone),
                             colors = panelListItemColors(),
-                            headlineContent = { Text("无") },
+                            content = { Text("无") },
                             supportingContent = { Text("不使用克隆音色") },
                             leadingContent = {
                                 RadioButton(selected = selectedId.isBlank(), onClick = onSelectNone)
@@ -2655,7 +2655,7 @@ private fun CloneManagerOverlay(
                                 .animateItem()
                                 .clickable { onSelect(voice) },
                             colors = panelListItemColors(),
-                            headlineContent = { Text(voice.name) },
+                            content = { Text(voice.name) },
                             leadingContent = {
                                 RadioButton(selected = voice.id == selectedId, onClick = { onSelect(voice) })
                             },
@@ -2695,7 +2695,7 @@ private fun CloneManagerOverlay(
                                     .animateItem()
                                     .clickable { onSelectSharedPack(pack) },
                                 colors = panelListItemColors(),
-                                headlineContent = { Text(pack.title) },
+                                content = { Text(pack.title) },
                                 supportingContent = { Text("${pack.itemCount} 条语音") },
                                 leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
                             )
@@ -2732,7 +2732,7 @@ private fun CloneManagerOverlay(
                                         .animateItem()
                                         .clickable { onSelectExampleGroup(group) },
                                     colors = panelListItemColors(),
-                                    headlineContent = { Text(group) },
+                                    content = { Text(group) },
                                     leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
                                 )
                             }
@@ -2749,7 +2749,7 @@ private fun CloneManagerOverlay(
                                 ListItem(
                                     modifier = Modifier.animateItem(),
                                     colors = panelListItemColors(),
-                                    headlineContent = {
+                                    content = {
                                         Text(example.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     },
                                     trailingContent = {

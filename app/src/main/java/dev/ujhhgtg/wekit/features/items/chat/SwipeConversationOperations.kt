@@ -81,7 +81,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                                 )
                             },
                             supportingContent = { Text("在「隐藏」左侧显示置顶快捷按钮") },
-                            headlineContent = { Text("置顶 / 取消置顶") },
+                            content = { Text("置顶 / 取消置顶") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -96,7 +96,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                                 )
                             },
                             supportingContent = { Text("在「隐藏」左侧显示免打扰快捷按钮") },
-                            headlineContent = { Text("免打扰 / 取消免打扰") },
+                            content = { Text("免打扰 / 取消免打扰") },
                         )
                     }
                 },

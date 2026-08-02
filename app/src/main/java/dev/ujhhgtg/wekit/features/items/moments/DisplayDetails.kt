@@ -130,7 +130,7 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
                                     onCheckedChange = null
                                 )
                             },
-                            headlineContent = { Text("隐藏可见范围图标") },
+                            content = { Text("隐藏可见范围图标") },
                         )
                     }
                 },

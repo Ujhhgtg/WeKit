@@ -408,7 +408,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                                         contentDescription = item.text
                                     )
                                 },
-                                headlineContent = { Text(item.text) },
+                                content = { Text(item.text) },
                             )
                         }
                     }
@@ -516,7 +516,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
             leadingContent = {
                 Icon(imageVector = row.imageVector, contentDescription = row.text)
             },
-            headlineContent = { Text(row.text) },
+            content = { Text(row.text) },
         )
     }
 

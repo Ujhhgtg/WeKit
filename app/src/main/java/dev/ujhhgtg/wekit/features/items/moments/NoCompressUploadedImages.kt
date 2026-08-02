@@ -116,7 +116,7 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
                             },
                             trailingContent = { RadioButton(mode == MODE_CONVERT, null) },
                             supportingContent = { Text("直接转换格式, 质量最高且速度快") },
-                            headlineContent = { Text("不压缩转换 (推荐)") },
+                            content = { Text("不压缩转换 (推荐)") },
                         )
 
                         ListItem(
@@ -125,7 +125,7 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
                             },
                             trailingContent = { RadioButton(mode == MODE_COPY, null) },
                             supportingContent = { Text("用原图覆盖压缩后的缓存") },
-                            headlineContent = { Text("原图覆盖") },
+                            content = { Text("原图覆盖") },
                         )
                     }
                 },

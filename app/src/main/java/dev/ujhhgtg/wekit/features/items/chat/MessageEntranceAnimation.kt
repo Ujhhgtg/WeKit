@@ -29,7 +29,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.WeakHashMap
 
 /**
- * 消息进入动画 — 与闭源模块 Geek 的「新消息特效」语义和行为完全一致的移植。
+ * 消息进入动画 — 与闭源模块 Geek 的「物理引擎特效」语义和行为完全一致的移植。
  *
  * 原模块实现链 (geek.apk):
  * - `ns` case 4 (ChatHook) 对 ChattingDataAdapterV3
@@ -47,10 +47,11 @@ import java.util.WeakHashMap
  * 4. 每次绑定都会先取消进行中的动画并复位 transform (Geek 的 `vh.j` + h40 取消)。
  *
  * 动画行为 (与 Geek 一致, 均使用 androidx.dynamicanimation 的同名弹簧参数):
- * - 默认弹跳 (`key_slide_entrance_on` 关): alpha 0→1 (250ms), scale 0.85→1.0
- *   SpringForce(stiffness=300, dampingRatio=0.6), 动画期间 HARDWARE layer;
- * - 侧滑 (`key_slide_entrance_on` 开), 按 `key_entrance_anim_style` (0=平移滑入, 1=重力掉落,
- *   默认 1) 设置初始态, 队列按 position 排序后每行错峰 45ms:
+ * - 弹跳入场: alpha 0→1 (250ms), scale 0.85→1.0 SpringForce(stiffness=300, dampingRatio=0.6),
+ *   动画期间 HARDWARE layer;
+ * - 平移滑入 / 重力掉落 (Geek 用 `key_slide_entrance_on` 开关 + `key_entrance_anim_style`,
+ *   本实现合并为单一 `msg_entrance_style`: 0=弹跳 1=平移滑入 2=重力掉落, 默认 0):
+ *   队列按 position 排序后每行错峰 45ms:
  *   - 平移滑入: translationX = ±120dp (自己发出的从右侧), spring 回 0
  *     (stiffness=300, dampingRatio=0.65);
  *   - 重力掉落: translationY = -250dp + scale 0.9, spring 回 0/1.0
@@ -63,20 +64,22 @@ import java.util.WeakHashMap
 )
 object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
 
-    /** 新消息特效 (Geek `key_chat_anim_on`, 默认开) */
+    /** 物理引擎特效 (Geek `key_chat_anim_on`, 默认开) */
     private var chatAnimOn by prefOption("msg_entrance_on", true)
 
-    /** 侧滑入场 (Geek `key_slide_entrance_on`, 默认关 => 默认弹跳) */
-    private var slideEntrance by prefOption("msg_entrance_slide", false)
-
-    /** 入场动效风格 (Geek `key_entrance_anim_style`, 0=平移滑入 1=重力掉落, 默认 1) */
-    private var entranceStyle by prefOption("msg_entrance_style", STYLE_DROP)
+    /**
+     * 入场动效风格: 0=弹跳入场 1=平移滑入 2=重力掉落。
+     * Geek 的 `key_slide_entrance_on` + `key_entrance_anim_style` 合并为单一 key,
+     * 默认弹跳; 旧双 key 配置不再读取 (无迁移)。
+     */
+    private var entranceStyle by prefOption("msg_entrance_style", STYLE_BOUNCE)
 
     /** 历史消息全跳动 (Geek `key_bounce_all_on_enter`, 默认关) */
     private var bounceAllOnEnter by prefOption("msg_entrance_bounce_all", false)
 
-    private const val STYLE_SLIDE = 0
-    private const val STYLE_DROP = 1
+    private const val STYLE_BOUNCE = 0
+    private const val STYLE_SLIDE = 1
+    private const val STYLE_DROP = 2
 
     /** itemView 上记录最近一次绑定的消息 id (对应 Geek 0x7E060011) */
     private const val VIEW_TAG_MSG_ID = 0x7E000004
@@ -193,7 +196,7 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
                         BOUNCE_ALL_GAP_MS
             if (!shouldAnimate) return@hookAfter
 
-            if (!slideEntrance) {
+            if (entranceStyle == STYLE_BOUNCE) {
                 playBounce(itemView)
             } else {
                 val density = itemView.resources.displayMetrics.density
@@ -323,7 +326,6 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var chatAnimInput by remember { mutableStateOf(chatAnimOn) }
-            var slideInput by remember { mutableStateOf(slideEntrance) }
             var styleInput by remember { mutableIntStateOf(entranceStyle) }
             var bounceAllInput by remember { mutableStateOf(bounceAllOnEnter) }
 
@@ -333,62 +335,62 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
                     DefaultColumn {
                         ListItem(
                             modifier = Modifier.clickable {
-                                                        chatAnimInput = !chatAnimInput
-                                                        chatAnimOn = chatAnimInput
-                                                    },
+                                chatAnimInput = !chatAnimInput
+                                chatAnimOn = chatAnimInput
+                            },
                             trailingContent = {
-                                                        Switch(checked = chatAnimInput, onCheckedChange = null)
-                                                    },
-                            supportingContent = { Text("开启物理引擎入场动效 (关则为原生)") },
-                            headlineContent = { Text("新消息特效") },
+                                Switch(checked = chatAnimInput, onCheckedChange = null)
+                            },
+                            supportingContent = { Text("开启物理引擎入场动效, 关则为原生") },
+                            content = { Text("物理引擎特效") },
                         )
 
                         ListItem(
                             modifier = Modifier.clickable {
-                                                        slideInput = !slideInput
-                                                        slideEntrance = slideInput
-                                                    },
+                                styleInput = STYLE_BOUNCE
+                                entranceStyle = STYLE_BOUNCE
+                            },
                             trailingContent = {
-                                                        Switch(checked = slideInput, onCheckedChange = null)
-                                                    },
-                            supportingContent = { Text("关闭时为弹跳入场; 开启后使用下方选择的入场动效风格") },
-                            headlineContent = { Text("侧滑入场 (默认弹跳)") },
+                                RadioButton(selected = styleInput == STYLE_BOUNCE, onClick = null)
+                            },
+                            supportingContent = { Text("消息缩放弹跳进入屏幕") },
+                            content = { Text("弹跳入场") },
                         )
 
                         ListItem(
                             modifier = Modifier.clickable {
-                                                        styleInput = STYLE_SLIDE
-                                                        entranceStyle = styleInput
-                                                    },
+                                styleInput = STYLE_SLIDE
+                                entranceStyle = STYLE_SLIDE
+                            },
                             trailingContent = {
-                                                        RadioButton(selected = styleInput == STYLE_SLIDE, onClick = null)
-                                                    },
+                                RadioButton(selected = styleInput == STYLE_SLIDE, onClick = null)
+                            },
                             supportingContent = { Text("消息水平平移滑入, 自己发出的从右侧、收到的从左侧") },
-                            headlineContent = { Text("平移滑入") },
+                            content = { Text("平移滑入") },
                         )
 
                         ListItem(
                             modifier = Modifier.clickable {
-                                                        styleInput = STYLE_DROP
-                                                        entranceStyle = styleInput
-                                                    },
+                                styleInput = STYLE_DROP
+                                entranceStyle = STYLE_DROP
+                            },
                             trailingContent = {
-                                                        RadioButton(selected = styleInput == STYLE_DROP, onClick = null)
-                                                    },
-                            supportingContent = { Text("消息从上方掉落进入, 仅在侧滑入场开启时生效") },
-                            headlineContent = { Text("重力掉落") },
+                                RadioButton(selected = styleInput == STYLE_DROP, onClick = null)
+                            },
+                            supportingContent = { Text("消息从上方掉落进入") },
+                            content = { Text("重力掉落") },
                         )
 
                         ListItem(
                             modifier = Modifier.clickable {
-                                                        bounceAllInput = !bounceAllInput
-                                                        bounceAllOnEnter = bounceAllInput
-                                                    },
+                                bounceAllInput = !bounceAllInput
+                                bounceAllOnEnter = bounceAllInput
+                            },
                             trailingContent = {
-                                                        Switch(checked = bounceAllInput, onCheckedChange = null)
-                                                    },
+                                Switch(checked = bounceAllInput, onCheckedChange = null)
+                            },
                             supportingContent = { Text("进入聊天界面时历史消息也逐条播放入场动画") },
-                            headlineContent = { Text("历史消息全跳动") },
+                            content = { Text("历史消息全跳动") },
                         )
                     }
                 })

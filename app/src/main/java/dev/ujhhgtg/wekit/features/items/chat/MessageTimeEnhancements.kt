@@ -337,7 +337,7 @@ object MessageTimeEnhancements : ClickableFeature(),
                                 )
                             },
                             supportingContent = { Text("时间是否始终居中, 不根据发送方居左居右") },
-                            headlineContent = { Text("时间居中显示") },
+                            content = { Text("时间居中显示") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -350,7 +350,7 @@ object MessageTimeEnhancements : ClickableFeature(),
                                 )
                             },
                             supportingContent = { Text("是否强制显示每条消息的时间") },
-                            headlineContent = { Text("显示每条消息时间") },
+                            content = { Text("显示每条消息时间") },
                         )
                     }
                 },

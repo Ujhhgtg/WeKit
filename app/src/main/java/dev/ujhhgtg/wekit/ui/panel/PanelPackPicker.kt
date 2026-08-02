@@ -116,7 +116,7 @@ private fun PanelPackPickerContent(
                             modifier = Modifier.clickable(enabled = !creating) { prompt = true },
                             colors = panelListItemColors(),
                             leadingContent = { Icon(MaterialSymbols.Outlined.Add, null) },
-                            headlineContent = { Text(createLabel) },
+                            content = { Text(createLabel) },
                             supportingContent = { Text("创建一个新包后保存到其中") },
                         )
                     }
@@ -125,7 +125,7 @@ private fun PanelPackPickerContent(
                             modifier = Modifier.clickable(enabled = !creating) { selectPack(pack.id) },
                             colors = panelListItemColors(),
                             leadingContent = { Icon(packIcon, null) },
-                            headlineContent = { Text(pack.title) },
+                            content = { Text(pack.title) },
                             supportingContent = { Text(itemCountLabel(pack.itemCount)) },
                         )
                     }

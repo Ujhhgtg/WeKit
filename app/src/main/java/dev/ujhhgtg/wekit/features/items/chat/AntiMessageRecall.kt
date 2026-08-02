@@ -117,7 +117,7 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                                 Switch(checked = recallOutgoingInput, onCheckedChange = null)
                             },
                             supportingContent = { Text("是否对自己发出的消息也生效 (这个功能现在是坏的, 别用)") },
-                            headlineContent = { Text("防撤回自己的消息") },
+                            content = { Text("防撤回自己的消息") },
                         )
 
                         TextField(

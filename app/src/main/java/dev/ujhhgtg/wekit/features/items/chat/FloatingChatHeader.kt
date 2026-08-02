@@ -694,13 +694,13 @@ object FloatingChatHeader : ClickableFeature() {
                 text = {
                     DefaultColumn {
                         ListItem(
-                            headlineContent = { Text("改动在重新进入聊天后生效") },
+                            content = { Text("改动在重新进入聊天后生效") },
                             supportingContent = {
                                 Text("标题栏及标题下方的置顶消息等卡片均以悬浮卡片显示")
                             }
                         )
                         ListItem(
-                            headlineContent = { Text("圆角半径: ${cornerInput.roundToInt()} dp") },
+                            content = { Text("圆角半径: ${cornerInput.roundToInt()} dp") },
                             supportingContent = {
                                 Slider(
                                     value = cornerInput,
@@ -711,7 +711,7 @@ object FloatingChatHeader : ClickableFeature() {
                             }
                         )
                         ListItem(
-                            headlineContent = { Text("侧边距: ${sideInput.roundToInt()} dp") },
+                            content = { Text("侧边距: ${sideInput.roundToInt()} dp") },
                             supportingContent = {
                                 Slider(
                                     value = sideInput,
@@ -722,7 +722,7 @@ object FloatingChatHeader : ClickableFeature() {
                             }
                         )
                         ListItem(
-                            headlineContent = { Text("顶部间距: ${gapInput.roundToInt()} dp") },
+                            content = { Text("顶部间距: ${gapInput.roundToInt()} dp") },
                             supportingContent = {
                                 Slider(
                                     value = gapInput,
@@ -733,7 +733,7 @@ object FloatingChatHeader : ClickableFeature() {
                             }
                         )
                         ListItem(
-                            headlineContent = { Text("下方卡片间距: ${extraGapInput.roundToInt()} dp") },
+                            content = { Text("下方卡片间距: ${extraGapInput.roundToInt()} dp") },
                             supportingContent = {
                                 Slider(
                                     value = extraGapInput,
@@ -744,7 +744,7 @@ object FloatingChatHeader : ClickableFeature() {
                             }
                         )
                         ListItem(
-                            headlineContent = { Text("阴影强度: ${elevInput.roundToInt()} dp") },
+                            content = { Text("阴影强度: ${elevInput.roundToInt()} dp") },
                             supportingContent = {
                                 Slider(
                                     value = elevInput,

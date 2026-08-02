@@ -237,7 +237,7 @@ internal fun HideContacts.showSchedulesDialog(context: Context) {
                                             if (index >= 0) schedules[index] = edited
                                         }
                                     },
-                                    headlineContent = { Text(schedule.summary()) },
+                                    content = { Text(schedule.summary()) },
                                     // Only for 每周重复: a 单次 headline already ends in （单次）.
                                     supportingContent = if (schedule.kind == HideScheduleKind.REPEATING) {
                                         { Text(kindLabel(schedule.kind)) }

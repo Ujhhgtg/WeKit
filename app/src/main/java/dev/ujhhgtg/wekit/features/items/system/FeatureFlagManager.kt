@@ -527,7 +527,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             modifier = modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick),
-            headlineContent = {
+            content = {
                 Text(
                     text = className.substringAfterLast('.'),
                     style = MaterialTheme.typography.bodyLarge
@@ -601,7 +601,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                             onOpenOverrideDialog(runtimeKey, effectiveTypeName)
                         },
                         supportingContent = { Text("为该灰度测试项覆盖其当前取值") },
-                        headlineContent = {
+                        content = {
                             Text("覆盖功能取值", style = MaterialTheme.typography.bodyLarge)
                         },
                     )
@@ -620,7 +620,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         ListItem(
             modifier = Modifier.clickable { copyToClipboard(context, value) },
             supportingContent = { Text(value) },
-            headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+            content = { Text(label, style = MaterialTheme.typography.bodyLarge) },
         )
     }
 

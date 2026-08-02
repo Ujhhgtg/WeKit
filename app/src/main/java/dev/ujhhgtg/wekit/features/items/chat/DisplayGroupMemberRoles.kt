@@ -104,7 +104,7 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
                         ListItem(
                             modifier = Modifier.clickable { showMem = !showMem },
                             trailingContent = { Switch(showMem, null) },
-                            headlineContent = { Text("显示「成员」标签") },
+                            content = { Text("显示「成员」标签") },
                         )
                         WeColorField(
                             label = "群主 | 背景色",

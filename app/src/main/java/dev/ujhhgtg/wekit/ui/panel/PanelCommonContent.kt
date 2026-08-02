@@ -113,7 +113,7 @@ fun PanelAutoCloseSetting(
 ) {
     ListItem(
         colors = panelListItemColors(),
-        headlineContent = { Text("发送后自动关闭面板") },
+        content = { Text("发送后自动关闭面板") },
         trailingContent = {
             Switch(
                 checked = checked,
@@ -130,7 +130,7 @@ fun PanelActionWrapSetting(
 ) {
     ListItem(
         colors = panelListItemColors(),
-        headlineContent = { Text("操作栏内容自动换行") },
+        content = { Text("操作栏内容自动换行") },
         supportingContent = { Text("内容超出屏幕宽度时换行显示") },
         trailingContent = {
             Switch(
@@ -148,7 +148,7 @@ fun PanelNavigationMemorySetting(
 ) {
     ListItem(
         colors = panelListItemColors(),
-        headlineContent = { Text("记忆面板导航位置") },
+        content = { Text("记忆面板导航位置") },
         supportingContent = { Text("关闭面板后，在本次微信运行期间恢复原页面") },
         trailingContent = {
             Switch(
@@ -168,7 +168,7 @@ fun PanelHistorySetting(
     ListItem(
         modifier = Modifier.clickable(onClick = onCustomValue),
         colors = panelListItemColors(),
-        headlineContent = { Text("最大历史数量") },
+        content = { Text("最大历史数量") },
         supportingContent = { Text("$value · 点击输入自定义数量") },
     )
     Slider(
@@ -190,7 +190,7 @@ fun PanelConcurrencySetting(
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
-        headlineContent = { Text(title) },
+        content = { Text(title) },
         supportingContent = { Text("同时运行 $value 个任务 · 点击修改") },
     )
 }
@@ -201,7 +201,7 @@ fun PanelFunBoxApiClientIdSetting(onClick: () -> Unit) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
-        headlineContent = { Text("伪装 FunBox API 客户端微信 ID") },
+        content = { Text("伪装 FunBox API 客户端微信 ID") },
         supportingContent = { Text(current) },
     )
 }
@@ -214,7 +214,7 @@ fun PanelTelegramBotTokenSetting(
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
-        headlineContent = { Text("Telegram Bot Token") },
+        content = { Text("Telegram Bot Token") },
         supportingContent = {
             Text(if (configured) "已设置" else "未设置")
         },
@@ -270,7 +270,7 @@ fun <T> PanelDropdownSetting(
                 .fillMaxWidth()
                 .clickable { expanded = true },
             colors = panelListItemColors(),
-            headlineContent = { Text(title) },
+            content = { Text(title) },
             supportingContent = { Text(selectedLabel) },
             trailingContent = { Icon(MaterialSymbols.Outlined.Arrow_drop_down, null) },
         )

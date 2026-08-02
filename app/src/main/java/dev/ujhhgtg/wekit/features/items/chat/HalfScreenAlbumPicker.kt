@@ -667,7 +667,7 @@ object HalfScreenAlbumPicker : ClickableFeature() {
                 text = {
                     DefaultColumn {
                         ListItem(
-                            headlineContent = { Text("高度占比: ${heightInput.roundToInt()}%") },
+                            content = { Text("高度占比: ${heightInput.roundToInt()}%") },
                             supportingContent = {
                                 Slider(
                                     value = heightInput,

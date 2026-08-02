@@ -120,7 +120,7 @@ object BatchAddLabel : ClickableFeature() {
                             items(loaded) { label ->
                                 ListItem(
                                     modifier = Modifier.clickable { onPick(label.labelName) },
-                                    headlineContent = { Text(label.labelName) },
+                                    content = { Text(label.labelName) },
                                 )
                             }
                         }

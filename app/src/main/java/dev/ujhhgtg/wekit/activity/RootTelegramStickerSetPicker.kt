@@ -303,7 +303,7 @@ internal fun RootTelegramStickerSetPickerContent(
                     items(requireNotNull(instances), key = RootTelegramInstance::packageName) { instance ->
                         ListItem(
                             modifier = Modifier.clickable { selectedPackage = instance.packageName },
-                            headlineContent = { Text(instance.packageName) },
+                            content = { Text(instance.packageName) },
                             supportingContent = { Text("当前账户") },
                             leadingContent = {
                                 RadioButton(

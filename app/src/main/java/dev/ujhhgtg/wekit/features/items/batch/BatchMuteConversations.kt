@@ -47,7 +47,7 @@ object BatchMuteConversations : ClickableFeature() {
                                 pickAndApply(context, mute = true)
                             },
                             supportingContent = { Text("选择要静音的对话") },
-                            headlineContent = { Text("开启免打扰") },
+                            content = { Text("开启免打扰") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -55,7 +55,7 @@ object BatchMuteConversations : ClickableFeature() {
                                 pickAndApply(context, mute = false)
                             },
                             supportingContent = { Text("选择要取消静音的对话") },
-                            headlineContent = { Text("关闭免打扰") },
+                            content = { Text("关闭免打扰") },
                         )
                     }
                 },

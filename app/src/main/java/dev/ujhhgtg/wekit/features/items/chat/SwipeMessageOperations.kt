@@ -543,7 +543,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                                 Switch(checked = secondary, onCheckedChange = null)
                             },
                             supportingContent = { Text("启用后, 在支持的消息上可调用次要操作以$sec") },
-                            headlineContent = { Text("启用次要操作") },
+                            content = { Text("启用次要操作") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -554,7 +554,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                                 Switch(checked = useEdit, onCheckedChange = null)
                             },
                             supportingContent = { Text("启用后, 次要划动操作变为「编辑」 (仅文字消息); 关闭时为「复读」") },
-                            headlineContent = { Text("使用「编辑」而非「复读」作为次要操作") },
+                            content = { Text("使用「编辑」而非「复读」作为次要操作") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -565,7 +565,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                                 Switch(checked = swap, onCheckedChange = null)
                             },
                             supportingContent = { Text("启用后, 左划$sec, 右划引用") },
-                            headlineContent = { Text("对调左右划") },
+                            content = { Text("对调左右划") },
                         )
                     }
                 }

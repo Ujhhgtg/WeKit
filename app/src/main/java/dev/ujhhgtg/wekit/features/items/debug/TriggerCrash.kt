@@ -99,7 +99,7 @@ object TriggerCrash : ClickableFeature() {
                                     onDismiss()
                                     onSelect(index)
                                 },
-                                headlineContent = {
+                                content = {
                                     Text(
                                         text = item,
                                         style = MaterialTheme.typography.bodyMedium

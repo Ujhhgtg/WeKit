@@ -83,7 +83,7 @@ internal fun TtsContent(
                 ListItem(
                     modifier = Modifier.clickable { onSelectEdgeVoice(id) },
                     colors = panelListItemColors(),
-                    headlineContent = { Text(title) },
+                    content = { Text(title) },
                     leadingContent = {
                         RadioButton(
                             selected = selectedEdgeVoice == id,

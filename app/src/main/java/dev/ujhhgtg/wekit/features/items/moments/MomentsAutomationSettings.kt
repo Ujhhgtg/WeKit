@@ -224,12 +224,12 @@ internal class MomentsAutomationSettings private constructor(
                     DefaultColumn {
                         ListItem(
                             modifier = Modifier.clickable { showGlobalDialog(context, onSettingsChanged) },
-                            headlineContent = { Text("全局设置") },
+                            content = { Text("全局设置") },
                             supportingContent = { Text("配置默认处理条件与执行方式") }
                         )
                         ListItem(
                             modifier = Modifier.clickable { showContactSelector(context, onSettingsChanged) },
-                            headlineContent = { Text("分联系人设置") },
+                            content = { Text("分联系人设置") },
                             supportingContent = { Text("为单个好友覆盖全局设置") }
                         )
                     }
@@ -577,7 +577,7 @@ internal class MomentsAutomationSettings private constructor(
                                 onCheckedChange = null
                             )
                         },
-                        headlineContent = { Text(type.displayName) }
+                        content = { Text(type.displayName) }
                     )
                 }
             }
@@ -637,7 +637,7 @@ internal class MomentsAutomationSettings private constructor(
             leadingContent = {
                 RadioButton(selected = selected, enabled = enabled, onClick = null)
             },
-            headlineContent = { Text(title) },
+            content = { Text(title) },
             supportingContent = summary?.let { value -> { Text(value) } }
         )
     }

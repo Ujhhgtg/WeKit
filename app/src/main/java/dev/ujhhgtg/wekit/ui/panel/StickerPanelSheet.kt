@@ -1710,7 +1710,7 @@ private fun StickerPanelContent(
                         requireNotNull(instances).forEach { pkg ->
                             ListItem(
                                 modifier = Modifier.clickable { selectedPackage = pkg },
-                                headlineContent = { Text(pkg) },
+                                content = { Text(pkg) },
                                 leadingContent = {
                                     RadioButton(
                                         selected = selectedPackage == pkg,
@@ -2282,7 +2282,7 @@ private fun StickerPackReorderContent(
     ) { pack, dragHandleModifier ->
         ListItem(
             colors = panelListItemColors(),
-            headlineContent = {
+            content = {
                 Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
             supportingContent = { Text("${pack.itemCount} 个表情") },
@@ -2319,7 +2319,7 @@ private fun StickerItemReorderContent(
     ) { sticker, dragHandleModifier ->
         ListItem(
             colors = panelListItemColors(),
-            headlineContent = {
+            content = {
                 Text(
                     sticker.customTitle?.takeIf(String::isNotBlank) ?: sticker.title,
                     maxLines = 1,
@@ -2811,7 +2811,7 @@ private fun <T> PanelListSelectionPrompt(
                         )
                     },
                     colors = panelListItemColors(),
-                    headlineContent = { Text(headlineText(item)) },
+                    content = { Text(headlineText(item)) },
                     supportingContent = supportingText?.let { text ->
                         { text(item)?.let { Text(it) } }
                     },
@@ -3036,14 +3036,14 @@ private fun StickerSettingsContent(
                 ListItem(
                     modifier = Modifier.clickable { tgsFrameRatePrompt = true },
                     colors = panelListItemColors(),
-                    headlineContent = { Text("TGS → GIF 帧率") },
+                    content = { Text("TGS → GIF 帧率") },
                     supportingContent = { Text("$tgsGifFrameRate FPS · 点击修改") },
                 )
             }
             item {
                 ListItem(
                     colors = panelListItemColors(),
-                    headlineContent = { Text("自动移除视频贴纸圆角遮罩") },
+                    content = { Text("自动移除视频贴纸圆角遮罩") },
                     supportingContent = { Text("仅影响从 Telegram 导入的 WEBM 表情") },
                     trailingContent = {
                         Switch(
@@ -3059,7 +3059,7 @@ private fun StickerSettingsContent(
             item {
                 ListItem(
                     colors = panelListItemColors(),
-                    headlineContent = { Text("移动预览松手后自动关闭") },
+                    content = { Text("移动预览松手后自动关闭") },
                     supportingContent = { Text("长按表情并移动手指后，松手时关闭大图预览") },
                     trailingContent = {
                         Switch(
@@ -3075,7 +3075,7 @@ private fun StickerSettingsContent(
             item {
                 ListItem(
                     colors = panelListItemColors(),
-                    headlineContent = { Text("在线表情预览使用原图") },
+                    content = { Text("在线表情预览使用原图") },
                     supportingContent = { Text("关闭后，大图预览将优先使用缩略图") },
                     trailingContent = {
                         Switch(
@@ -3093,7 +3093,7 @@ private fun StickerSettingsContent(
                 ListItem(
                     modifier = Modifier.clickable(onClick = onRecoverOnlinePackSources),
                     colors = panelListItemColors(),
-                    headlineContent = { Text("恢复在线表情包来源") },
+                    content = { Text("恢复在线表情包来源") },
                     supportingContent = { Text("为旧版下载的本地表情包尝试恢复在线来源元数据") },
                 )
             }
@@ -3124,7 +3124,7 @@ private fun StickerSettingsContent(
                 ListItem(
                     modifier = Modifier.clickable { numberPrompt = true },
                     colors = panelListItemColors(),
-                    headlineContent = { Text("每行表情数量") },
+                    content = { Text("每行表情数量") },
                     supportingContent = { Text("$columns · 点击输入自定义数量") },
                 )
                 Slider(

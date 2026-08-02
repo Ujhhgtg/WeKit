@@ -233,7 +233,7 @@ internal fun AutomationRuleHeader(
                 onCheckedChange = if (editable) onEnabledChange else null
             )
         },
-        headlineContent = { Text(title) },
+        content = { Text(title) },
         supportingContent = { Text(effectiveSummary) },
         trailingContent = if (isOverridden != null) {
             {
@@ -325,7 +325,7 @@ internal fun AutomationKeywordControls(
         }
         rule.strings.forEach { keyword ->
             ListItem(
-                headlineContent = { Text(keyword) },
+                content = { Text(keyword) },
                 trailingContent = {
                     TextButton(
                         enabled = editable,

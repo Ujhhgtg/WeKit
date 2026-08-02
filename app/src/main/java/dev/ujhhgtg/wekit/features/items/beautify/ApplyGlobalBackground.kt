@@ -264,7 +264,7 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                                 )
                             },
                             supportingContent = { Text("设置状态栏背景为透明") },
-                            headlineContent = { Text("状态栏背景透明") },
+                            content = { Text("状态栏背景透明") },
                         )
                     }
                 },

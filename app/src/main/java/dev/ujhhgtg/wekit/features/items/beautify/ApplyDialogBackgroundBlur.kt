@@ -134,7 +134,7 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
                                 5..30
                             )
                         },
-                        headlineContent = { Text("模糊半径 (实时生效)") },
+                        content = { Text("模糊半径 (实时生效)") },
                     )
                 },
                 confirmButton = { Button(onDismiss) { Text("关闭") } })

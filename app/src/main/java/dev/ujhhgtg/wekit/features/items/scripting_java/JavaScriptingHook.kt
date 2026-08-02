@@ -158,7 +158,7 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { toggle() },
-                                    headlineContent = { Text(entry.info.name) },
+                                    content = { Text(entry.info.name) },
                                     supportingContent = {
                                         Text(
                                             buildList {

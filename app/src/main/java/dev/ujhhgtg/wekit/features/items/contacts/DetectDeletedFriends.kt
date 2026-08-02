@@ -278,7 +278,7 @@ object DetectDeletedFriends : ClickableFeature() {
                                                 Text("微信号: ${friend.customWxId}")
                                             }
                                         },
-                                        headlineContent = { Text(friend.displayName) },
+                                        content = { Text(friend.displayName) },
                                     )
                                 }
                             }
@@ -329,7 +329,7 @@ object DetectDeletedFriends : ClickableFeature() {
                                                     )
                                                 },
                                                 supportingContent = { Text("新建标签") },
-                                                headlineContent = { Text(selectPhase.suggestedLabelName) },
+                                                content = { Text(selectPhase.suggestedLabelName) },
                                             )
                                         }
                                         items(labels) { label ->
@@ -342,7 +342,7 @@ object DetectDeletedFriends : ClickableFeature() {
                                                         total = selectPhase.friends.size
                                                     )
                                                 },
-                                                headlineContent = { Text(label.labelName) },
+                                                content = { Text(label.labelName) },
                                             )
                                         }
                                     }

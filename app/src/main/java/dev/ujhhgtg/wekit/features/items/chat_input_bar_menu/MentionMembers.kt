@@ -55,7 +55,7 @@ object MentionMembers : SwitchFeature() {
                                 stealthState = !stealthState
                                 stealthMentionAll = stealthState
                             },
-                            headlineContent = { Text("隐蔽@所有人") },
+                            content = { Text("隐蔽@所有人") },
                             supportingContent = { Text("开启时点击直接隐蔽发送@所有人消息 (不显示成员选择弹窗且消息不附带@昵称前缀); 关闭时弹出成员选择弹窗并在消息头部附带@昵称文本") },
                             trailingContent = {
                                 Switch(checked = stealthState, onCheckedChange = null)

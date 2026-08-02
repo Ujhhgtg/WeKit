@@ -600,7 +600,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                                 }
                             },
                             supportingContent = { Text("点击配置联系人隐藏列表") },
-                            headlineContent = { Text("配置隐藏列表") },
+                            content = { Text("配置隐藏列表") },
                         )
 
                         ListItem(
@@ -612,13 +612,13 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                                 Switch(checked = autoRejectVoipInput, onCheckedChange = null)
                             },
                             supportingContent = { Text("关闭时仅隐藏来电, 对方会一直响到超时; 开启后立即向对方发送拒接") },
-                            headlineContent = { Text("自动拒绝音视频通话") },
+                            content = { Text("自动拒绝音视频通话") },
                         )
 
                         ListItem(
                             modifier = Modifier.clickable { showSchedulesDialog(context) },
                             supportingContent = { Text("到点自动临时显示或恢复隐藏, 不会改动隐藏列表") },
-                            headlineContent = { Text("定时显示/隐藏") },
+                            content = { Text("定时显示/隐藏") },
                         )
 
                         ListItem(
@@ -630,7 +630,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                                 Switch(checked = tripleClickTitleInput, onCheckedChange = null)
                             },
                             supportingContent = { Text("连续三击主页顶部标题栏, 可临时显示或恢复隐藏联系人") },
-                            headlineContent = { Text("三击标题切换显隐") },
+                            content = { Text("三击标题切换显隐") },
                         )
                     }
                 })

@@ -221,6 +221,8 @@ object RemoveOfficialAccountAds : SwitchFeature(), IWePacketInterceptor {
             }
 
             is JSONArray -> for (i in 0 until node.length()) count += neutralizeEmbeddedAdJson(node.opt(i))
+
+            else -> {}
         }
         return count
     }
@@ -321,6 +323,8 @@ object RemoveOfficialAccountAds : SwitchFeature(), IWePacketInterceptor {
             }
 
             is JSONArray -> for (i in 0 until node.length()) removed += removeAdItems(node.opt(i))
+
+            else -> {}
         }
         return removed
     }

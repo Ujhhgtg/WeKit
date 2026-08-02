@@ -100,7 +100,7 @@ object AutoApproveDeviceLogin : ClickableFeature() {
                                 Switch(checked = syncMessagesInput, onCheckedChange = null)
                             },
                             supportingContent = { Text("批准登录时勾选 \"同步最近的消息\", 把手机上的近期聊天记录同步到该设备") },
-                            headlineContent = { Text("同步最近的消息") },
+                            content = { Text("同步最近的消息") },
                         )
 
                         ListItem(
@@ -112,7 +112,7 @@ object AutoApproveDeviceLogin : ClickableFeature() {
                                 Switch(checked = autoLoginDeviceInput, onCheckedChange = null)
                             },
                             supportingContent = { Text("批准登录时勾选 \"自动登录该设备\", 该设备以后无需再次确认即可登录") },
-                            headlineContent = { Text("自动登录该设备") },
+                            content = { Text("自动登录该设备") },
                         )
                     }
                 })

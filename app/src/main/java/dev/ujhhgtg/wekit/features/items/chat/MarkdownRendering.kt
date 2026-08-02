@@ -477,7 +477,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                                 )
                             },
                             supportingContent = { Text("使用微信 OpenClaw 路径执行原生 Markdown 渲染") },
-                            headlineContent = { Text("微信原生") },
+                            content = { Text("微信原生") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -486,7 +486,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                             },
                             trailingContent = { RadioButton(renderMode == RenderMode.HTML, null) },
                             supportingContent = { Text("使用 Rust crate 解析并转换为 HTML, 再使用 android.text.HTML 渲染") },
-                            headlineContent = { Text("markdown-rs + Html") },
+                            content = { Text("markdown-rs + Html") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -495,7 +495,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                             },
                             trailingContent = { RadioButton(renderMode == RenderMode.MARKWON, null) },
                             supportingContent = { Text("使用 Markwon Java 库直接渲染 Markdown") },
-                            headlineContent = { Text("Markwon") },
+                            content = { Text("Markwon") },
                         )
 
                         var noTextSizing by
@@ -513,7 +513,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                             },
                             trailingContent = { Switch(noTextSizing, null) },
                             supportingContent = { Text("不对 Headers, Subheaders 等组件改变字体大小") },
-                            headlineContent = { Text("禁止改变字体大小") },
+                            content = { Text("禁止改变字体大小") },
                         )
 
                         var compactHtml by
@@ -531,7 +531,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                             },
                             trailingContent = { Switch(compactHtml, null) },
                             supportingContent = { Text("使用一个而非两个换行来分段") },
-                            headlineContent = { Text("使用紧凑 HTML 渲染") },
+                            content = { Text("使用紧凑 HTML 渲染") },
                         )
                     }
                 },

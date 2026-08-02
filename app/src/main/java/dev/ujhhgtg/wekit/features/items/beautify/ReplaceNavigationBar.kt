@@ -798,7 +798,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     contentDescription = null,
                                 )
                             },
-                            headlineContent = { Text("页面管理") },
+                            content = { Text("页面管理") },
                             supportingContent = { Text("开关页面及调整顺序, 下次启动微信生效") },
                         )
                         ListItem(
@@ -808,7 +808,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     { animatePageChangeInput = it })
                             },
                             supportingContent = { Text("点击标签时滑动切换页面, 而非直接跳转") },
-                            headlineContent = { Text("启用页面切换动画") },
+                            content = { Text("启用页面切换动画") },
                         )
                         ListItem(
                             trailingContent = {
@@ -816,7 +816,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     useFloatingInput,
                                     { useFloatingInput = it })
                             },
-                            headlineContent = { Text("使用悬浮底栏") },
+                            content = { Text("使用悬浮底栏") },
                         )
                         ListItem(
                             trailingContent = {
@@ -825,7 +825,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     { useBackdropInput = it })
                             },
                             supportingContent = { Text("需启用「使用悬浮底栏」") },
-                            headlineContent = { Text("启用液态玻璃效果") },
+                            content = { Text("启用液态玻璃效果") },
                         )
                         if (useBackdropInput) {
                             ListItem(
@@ -837,7 +837,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         steps = MAX_BLUR_RADIUS - MIN_BLUR_RADIUS - 1
                                     )
                                 },
-                                headlineContent = {
+                                content = {
                                     val r = blurRadiusInput.roundToInt()
                                     Text(if (r <= 0) "模糊半径: 关闭 (完全透明)" else "模糊半径: $r")
                                 },
@@ -850,7 +850,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     { hideLabelsInput = it })
                             },
                             supportingContent = { Text("需启用「使用悬浮底栏」") },
-                            headlineContent = { Text("隐藏标签文本") },
+                            content = { Text("隐藏标签文本") },
                         )
                         ListItem(
                             supportingContent = {
@@ -861,7 +861,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     steps = (MAX_BAR_SCALE - MIN_BAR_SCALE) / BAR_SCALE_STEP - 1
                                 )
                             },
-                            headlineContent = { Text("底栏缩放: ${barScaleInput.roundToInt()}%") },
+                            content = { Text("底栏缩放: ${barScaleInput.roundToInt()}%") },
                         )
                         ListItem(
                             modifier = Modifier,
@@ -872,7 +872,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     { showFinderBadgeInput = it })
                             },
                             supportingContent = { Text("包含朋友圈新通知数量等") },
-                            headlineContent = { Text("显示「发现」标签角标") },
+                            content = { Text("显示「发现」标签角标") },
                         )
                     }
                 },

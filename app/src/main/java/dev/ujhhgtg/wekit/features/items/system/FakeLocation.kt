@@ -100,7 +100,7 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                                 launchWechatLocationPicker()
                             },
                             supportingContent = { Text("调用微信内置地图选择位置") },
-                            headlineContent = { Text("微信原生地图选点") },
+                            content = { Text("微信原生地图选点") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -108,7 +108,7 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                                 showOsmLocationPicker(context)
                             },
                             supportingContent = { Text("使用 OpenStreetMap 选择位置") },
-                            headlineContent = { Text("OSM 地图选点") },
+                            content = { Text("OSM 地图选点") },
                         )
                     }
                 },

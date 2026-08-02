@@ -830,7 +830,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                 text = {
                     DefaultColumn {
                         ListItem(
-                            headlineContent = { Text("菜单显示在输入框上方") },
+                            content = { Text("菜单显示在输入框上方") },
                             supportingContent = {
                                 Text("表情与工具菜单从输入框上沿向上展开, 输入框位置不动; 关闭则维持微信原样")
                             },
@@ -842,7 +842,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         )
                         ListItem(
-                            headlineContent = { Text("圆角半径: ${cornerInput.roundToInt()} dp") },
+                            content = { Text("圆角半径: ${cornerInput.roundToInt()} dp") },
                             supportingContent = {
                                 Slider(
                                     value = cornerInput,
@@ -853,7 +853,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         )
                         ListItem(
-                            headlineContent = { Text("侧边距: ${sideInput.roundToInt()} dp") },
+                            content = { Text("侧边距: ${sideInput.roundToInt()} dp") },
                             supportingContent = {
                                 Slider(
                                     value = sideInput,
@@ -864,7 +864,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         )
                         ListItem(
-                            headlineContent = { Text("底部间距: ${gapInput.roundToInt()} dp") },
+                            content = { Text("底部间距: ${gapInput.roundToInt()} dp") },
                             supportingContent = {
                                 Slider(
                                     value = gapInput,
@@ -875,7 +875,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         )
                         ListItem(
-                            headlineContent = { Text("阴影强度: ${elevInput.roundToInt()} dp") },
+                            content = { Text("阴影强度: ${elevInput.roundToInt()} dp") },
                             supportingContent = {
                                 Slider(
                                     value = elevInput,

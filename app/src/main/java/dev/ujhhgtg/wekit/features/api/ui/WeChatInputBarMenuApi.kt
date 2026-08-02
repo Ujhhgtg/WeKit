@@ -134,7 +134,7 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
             leadingContent = {
                 Icon(imageVector = item.icon, contentDescription = item.label)
             },
-            headlineContent = { Text(item.label) },
+            content = { Text(item.label) },
         )
     }
 }

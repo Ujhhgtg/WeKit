@@ -155,7 +155,7 @@ object AutoCacheFiles : ClickableFeature(),
                             modifier = Modifier.clickable { useWhitelistState = !useWhitelistState },
                             trailingContent = { Switch(checked = useWhitelistState, onCheckedChange = null) },
                             supportingContent = { Text(if (useWhitelistState) "仅对选中联系人缓存文件" else "对选中联系人跳过缓存文件") },
-                            headlineContent = { Text(if (useWhitelistState) "黑名单 [> 白名单 <]" else "[> 黑名单 <] 白名单") },
+                            content = { Text(if (useWhitelistState) "黑名单 [> 白名单 <]" else "[> 黑名单 <] 白名单") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -180,7 +180,7 @@ object AutoCacheFiles : ClickableFeature(),
                                 }
                             },
                             supportingContent = { Text("点击选择联系人") },
-                            headlineContent = { Text(if (useWhitelistState) "配置白名单" else "配置黑名单") },
+                            content = { Text(if (useWhitelistState) "配置白名单" else "配置黑名单") },
                         )
                     }
                 },

@@ -121,7 +121,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 WePrefs.putBool("${KEY_PREFIX}v", v)
                             },
                             trailingContent = { Switch(v, null) },
-                            headlineContent = { Text("Verbose") },
+                            content = { Text("Verbose") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -129,7 +129,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 WePrefs.putBool("${KEY_PREFIX}d", d)
                             },
                             trailingContent = { Switch(d, null) },
-                            headlineContent = { Text("Debug") },
+                            content = { Text("Debug") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -137,7 +137,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 WePrefs.putBool("${KEY_PREFIX}i", i)
                             },
                             trailingContent = { Switch(i, null) },
-                            headlineContent = { Text("Info") },
+                            content = { Text("Info") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -145,7 +145,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 WePrefs.putBool("${KEY_PREFIX}w", w)
                             },
                             trailingContent = { Switch(w, null) },
-                            headlineContent = { Text("Warning") },
+                            content = { Text("Warning") },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -153,7 +153,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 WePrefs.putBool("${KEY_PREFIX}e", e)
                             },
                             trailingContent = { Switch(e, null) },
-                            headlineContent = { Text("Error") },
+                            content = { Text("Error") },
                         )
                     }
                 },

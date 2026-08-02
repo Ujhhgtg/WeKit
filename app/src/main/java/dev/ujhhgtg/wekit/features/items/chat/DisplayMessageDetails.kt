@@ -65,7 +65,7 @@ object DisplayMessageDetails : SwitchFeature(),
                                             showToast("已复制")
                                         },
                                         supportingContent = { Text(value) },
-                                        headlineContent = { Text(key) },
+                                        content = { Text(key) },
                                     )
                                 }
                             }

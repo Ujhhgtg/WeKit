@@ -281,7 +281,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                             Switch(checked = stealthInput, onCheckedChange = null)
                         },
                         supportingContent = { Text("根据设备陀螺仪状态选择发送内容") },
-                        headlineContent = { Text("隐蔽模式") },
+                        content = { Text("隐蔽模式") },
                     )
                 })
         }

@@ -535,7 +535,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { displayModeMenuExpanded = true },
-                                headlineContent = { Text("显示样式") },
+                                content = { Text("显示样式") },
                                 supportingContent = { Text(currentDisplayMode.label) },
                                 trailingContent = {
                                     Icon(
@@ -682,7 +682,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                         insertQuickReply(reply)
                                         onDismiss()
                                     },
-                                    headlineContent = { Text(reply) },
+                                    content = { Text(reply) },
                                 )
                             }
                         }

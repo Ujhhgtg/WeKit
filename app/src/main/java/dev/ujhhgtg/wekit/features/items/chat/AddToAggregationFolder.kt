@@ -62,7 +62,7 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
                             Switch(checked = showConfigInput, onCheckedChange = null)
                         },
                         supportingContent = { Text("将对话加入文件夹后, 自动打开该文件夹的编辑对话框") },
-                        headlineContent = { Text("添加后打开配置对话框") },
+                        content = { Text("添加后打开配置对话框") },
                     )
                 },
                 dismissButton = { TextButton(onDismiss) { Text("取消") } },

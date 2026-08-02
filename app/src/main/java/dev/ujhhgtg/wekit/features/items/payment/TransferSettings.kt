@@ -177,12 +177,12 @@ internal object TransferSettings {
                     DefaultColumn {
                         ListItem(
                             modifier = Modifier.clickable { showGlobalDialog(context) },
-                            headlineContent = { Text("全局设置") },
+                            content = { Text("全局设置") },
                             supportingContent = { Text("配置默认接收条件与接收后的操作") }
                         )
                         ListItem(
                             modifier = Modifier.clickable { showContactSelector(context) },
-                            headlineContent = { Text("分联系人设置") },
+                            content = { Text("分联系人设置") },
                             supportingContent = { Text("为联系人、群聊或群成员覆盖全局设置") }
                         )
                     }
@@ -297,7 +297,7 @@ internal object TransferSettings {
                                     }
                                 )
                             },
-                            headlineContent = { Text("群聊全局设置") },
+                            content = { Text("群聊全局设置") },
                             supportingContent = {
                                 Text(if (groupOverrideCount == 0) "跟随全局设置" else "已覆盖 $groupOverrideCount 项")
                             }
@@ -309,7 +309,7 @@ internal object TransferSettings {
                                     onUpdated()
                                 }
                             },
-                            headlineContent = { Text("群聊分群成员设置") },
+                            content = { Text("群聊分群成员设置") },
                             supportingContent = {
                                 Text(if (memberCount == 0) "所有成员跟随群聊全局设置" else "已配置 $memberCount 个成员")
                             }
