@@ -48,6 +48,7 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
     private const val BUBBLE_TEXT = "回到最新"
 
     /** 点击后的原生加载链路完成窗口, 期间抑制「以下为新消息」分隔条。 */
+    // TODO: rewrite this ai slop
     private const val SUPPRESS_HISTORY_MSG_TIP_WINDOW_MS = 5_000L
 
     /** 每个 footer 对应的消息列表 RecyclerView, 避免每帧做整树 DFS。 */
