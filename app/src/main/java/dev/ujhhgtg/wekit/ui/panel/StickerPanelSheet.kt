@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -2274,7 +2275,7 @@ private fun StickerPackReorderContent(
     packs: List<StickerPack>,
     onMove: (Int, Int) -> Unit,
 ) {
-    PanelReorderableList(
+    ReorderableList(
         items = packs,
         itemKey = StickerPack::id,
         onMove = onMove,
@@ -2311,7 +2312,7 @@ private fun StickerItemReorderContent(
     onMove: (Int, Int) -> Unit,
 ) {
     val context = LocalContext.current
-    PanelReorderableList(
+    ReorderableList(
         items = stickers,
         itemKey = { requireNotNull(it.localPath) },
         onMove = onMove,

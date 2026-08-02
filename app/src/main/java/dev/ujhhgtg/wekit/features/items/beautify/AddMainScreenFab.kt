@@ -18,8 +18,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -38,9 +36,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -58,14 +53,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
@@ -75,7 +68,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Drag_handle
@@ -110,6 +102,7 @@ import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -777,10 +770,6 @@ object AddMainScreenFab : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var currentItems by remember { mutableStateOf(loadConfig()) }
-            var draggingIndex by remember { mutableStateOf<Int?>(null) }
-            var dragOffset by remember { mutableFloatStateOf(0f) }
-            val listState = rememberLazyListState()
-            val coroutineScope = rememberCoroutineScope()
 
             fun moveItem(from: Int, to: Int) {
                 if (from == to || from !in currentItems.indices || to !in currentItems.indices) return
@@ -859,19 +848,15 @@ object AddMainScreenFab : ClickableFeature() {
                                 modifier = Modifier.padding(vertical = 28.dp),
                             )
                         } else {
-                            LazyColumn(
-                                state = listState,
+                            ReorderableList(
+                                items = currentItems,
+                                itemKey = { it.id },
+                                onMove = { from, to -> moveItem(from, to) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(max = 420.dp)
                                     .padding(top = 8.dp),
-                                userScrollEnabled = draggingIndex == null,
-                            ) {
-                                itemsIndexed(
-                                    items = currentItems,
-                                    key = { _, item -> item.id },
-                                ) { index, item ->
-                                    val isDragging = index == draggingIndex
+                            ) { item, dragHandleModifier ->
                                     val description = when (item.type) {
                                         FabType.START_ACTIVITY -> item.targetActivity ?: "启动 Activity"
                                         FabType.MARK_ALL_READ -> "将全部未读消息标记为已读"
@@ -882,75 +867,13 @@ object AddMainScreenFab : ClickableFeature() {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .zIndex(if (isDragging) 1f else 0f)
-                                            .graphicsLayer {
-                                                translationY = if (isDragging) dragOffset else 0f
-                                                scaleX = if (isDragging) 1.02f else 1f
-                                                scaleY = if (isDragging) 1.02f else 1f
-                                                shadowElevation = if (isDragging) 8.dp.toPx() else 0f
-                                            }
-                                            .then(if (isDragging) Modifier else Modifier.animateItem())
                                             .padding(vertical = 3.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Box(
                                             modifier = Modifier
                                                 .size(48.dp)
-                                                .pointerInput(item.id) {
-                                                    detectDragGesturesAfterLongPress(
-                                                        onDragStart = {
-                                                            draggingIndex = listState.layoutInfo.visibleItemsInfo
-                                                                .firstOrNull { it.key == item.id }
-                                                                ?.index
-                                                                ?: index
-                                                            dragOffset = 0f
-                                                        },
-                                                        onDragCancel = {
-                                                            draggingIndex = null
-                                                            dragOffset = 0f
-                                                        },
-                                                        onDragEnd = {
-                                                            draggingIndex = null
-                                                            dragOffset = 0f
-                                                        },
-                                                        onDrag = { change, amount ->
-                                                            change.consume()
-                                                            val currentIndex = draggingIndex ?: return@detectDragGesturesAfterLongPress
-                                                            dragOffset += amount.y
-                                                            val currentInfo = listState.layoutInfo.visibleItemsInfo
-                                                                .firstOrNull { it.index == currentIndex }
-                                                                ?: return@detectDragGesturesAfterLongPress
-                                                            val start = currentInfo.offset + dragOffset
-                                                            val end = start + currentInfo.size
-                                                            val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { targetInfo ->
-                                                                if (targetInfo.index == currentIndex) {
-                                                                    false
-                                                                } else if (dragOffset > 0f) {
-                                                                    targetInfo.index > currentIndex &&
-                                                                            end > targetInfo.offset + targetInfo.size / 2
-                                                                } else {
-                                                                    targetInfo.index < currentIndex &&
-                                                                            start < targetInfo.offset + targetInfo.size / 2
-                                                                }
-                                                            }
-                                                            if (target != null) {
-                                                                moveItem(currentIndex, target.index)
-                                                                dragOffset -= target.offset - currentInfo.offset
-                                                                draggingIndex = target.index
-                                                            }
-
-                                                            val viewport = listState.layoutInfo
-                                                            val center = currentInfo.offset + dragOffset + currentInfo.size / 2
-                                                            when {
-                                                                center < viewport.viewportStartOffset + 56 && listState.canScrollBackward ->
-                                                                    coroutineScope.launch { listState.scrollBy(-12f) }
-
-                                                                center > viewport.viewportEndOffset - 56 && listState.canScrollForward ->
-                                                                    coroutineScope.launch { listState.scrollBy(12f) }
-                                                            }
-                                                        },
-                                                    )
-                                                },
+                                                .then(dragHandleModifier),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Icon(
@@ -993,7 +916,6 @@ object AddMainScreenFab : ClickableFeature() {
                                         }
                                     }
                                 }
-                            }
                         }
                     }
                 },

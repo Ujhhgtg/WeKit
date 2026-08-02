@@ -24,6 +24,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -2002,7 +2003,7 @@ private fun VoicePackReorderContent(
     packs: List<VoicePack>,
     onMove: (Int, Int) -> Unit,
 ) {
-    PanelReorderableList(
+    ReorderableList(
         items = packs,
         itemKey = VoicePack::id,
         onMove = onMove,
@@ -2054,7 +2055,7 @@ private fun VoiceItemReorderContent(
     voices: List<VoiceItem>,
     onMove: (Int, Int) -> Unit,
 ) {
-    PanelReorderableList(
+    ReorderableList(
         items = voices,
         itemKey = { requireNotNull(it.localPath) },
         onMove = onMove,
