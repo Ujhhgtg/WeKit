@@ -5,14 +5,17 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Outline
 import android.os.Build
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.RelativeLayout
+import android.widget.TextView
 import androidx.activity.ComponentActivity
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -39,6 +42,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.allViews
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -76,6 +80,12 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     private const val MIN_ELEVATION = 0
     private const val MAX_ELEVATION = 16
 
+    /** 微信原版「x条新消息」气泡与输入行之间的留白 (支持版本恒为 44dp)。 */
+    private const val NEW_MSG_BUBBLE_GAP_DP = 44
+
+    /** 气泡图标的宿主类名 (布局 XML 直接引用, 不会被混淆)。 */
+    private const val WE_CHAT_ICON_VIEW = "com.tencent.mm.ui.widget.imageview.WeImageView"
+
     /** 键盘与面板同时展开时, 至少给会话内容留出的高度。 */
     private const val PANEL_TOP_RESERVE_DP = 120
 
@@ -108,6 +118,12 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     /** 已经报过"找不到列表"警告的 footer, 避免每帧刷日志。 */
     private val chatListLookupWarned = WeakHashMap<View, Boolean>()
+
+    /** 每个 footer 对应的「x条新消息」气泡, 避免每次高度刷新都做整树 DFS。 */
+    private val newMessageBubbles = WeakHashMap<View, View>()
+
+    /** 已经报过"找不到气泡"警告的 footer, 避免每帧刷日志。 */
+    private val newMessageBubbleLookupWarned = WeakHashMap<View, Boolean>()
 
     /** 已注册的 pre-draw 监听, 重进会话时先摘掉旧的再挂新的, 避免监听失效。 */
     private val navInsetPreDraws = WeakHashMap<View, ViewTreeObserver.OnPreDrawListener>()
@@ -578,7 +594,12 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
      */
     private fun trackNavBarInset(footer: ChatFooter) {
         val listener = ViewTreeObserver.OnPreDrawListener {
-            if (movePanelAbove) applyBottomMargin(footer) else applyBottomGap(footer)
+            if (movePanelAbove) {
+                applyBottomMargin(footer)
+                liftNewMessageBubble(footer)
+            } else {
+                applyBottomGap(footer)
+            }
             true
         }
         // 会话页会复用同一个 footer 实例: 重挂前先摘旧监听, 防止旧 observer 已失效或重复触发
@@ -587,6 +608,75 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         }
         navInsetPreDraws[footer] = listener
         footer.viewTreeObserver.addOnPreDrawListener(listener)
+    }
+
+    /**
+     * 「x条新消息」气泡 (HistoryMsgTongueComponent 的 mGoBackToHistoryMsgLayout, 布局 id
+     * bm4) 是 ChattingContent 的直接子 View, 始终贴着内容底边。面板搬到输入行上方后,
+     * 悬浮卡片用负 topMargin 盖住了内容底部一截, 微信自己的 44dp 底边距就不够用了,
+     * 气泡下半截会被卡片挡住。这里按 footer 实际绘制位置算出卡片盖住的高度, 在微信
+     * 设定的 margin 之上补足, 保留原版的气泡与输入框间距。
+     */
+    private fun liftNewMessageBubble(footer: ChatFooter) {
+        if (!movePanelAbove) return
+        val bubble = footer.newMessageBubble() ?: return
+        val lp = bubble.layoutParams as? FrameLayout.LayoutParams ?: return
+        if (lp.gravity and Gravity.VERTICAL_GRAVITY_MASK != Gravity.BOTTOM) return
+        val content = bubble.parent as? View ?: return
+        val contentBottom = content.bottom + content.translationY
+        val cardTop = footer.top + footer.translationY
+        val overlap = (contentBottom - cardTop).toInt().coerceAtLeast(0)
+        if (overlap <= 0) return
+        val gap = (NEW_MSG_BUBBLE_GAP_DP * footer.resources.displayMetrics.density).toInt()
+        val target = maxOf(lp.bottomMargin, overlap + gap)
+        if (lp.bottomMargin == target) return
+        lp.bottomMargin = target
+        bubble.layoutParams = lp
+    }
+
+    /**
+     * 从 ChattingScrollLayout 里定位「x条新消息」气泡。不碰资源表, 也不依赖逐版本混淆的
+     * 资源名/类名: 气泡是 ChattingContent (footer 的兄弟节点) 的直接子 LinearLayout,
+     * 内容区居中, 由 WeImageView + TextView 组成。微信同屏的「翻到顶部/底部」提示条虽然
+     * 也是 WeImageView + TextView, 但内容是 center_vertical 且带 elevation, 不会命中;
+     * 引用气泡用普通 ImageView; 其余提示视图都嵌在更深层, 只查直接子节点即可排除。
+     */
+    private fun ChatFooter.newMessageBubble(): View? {
+        newMessageBubbles[this]?.takeIf {
+            it.isAttachedToWindow && (it.parent as? ViewGroup)?.parent === parent
+        }?.let { return it }
+        val scrollLayout = parent as? ViewGroup ?: return null
+        for (i in 0 until scrollLayout.childCount) {
+            val sibling = scrollLayout.getChildAt(i) as? ViewGroup ?: continue
+            if (sibling === this) continue
+            for (j in 0 until sibling.childCount) {
+                val candidate = sibling.getChildAt(j)
+                if (candidate.isNewMessageBubble()) {
+                    newMessageBubbles[this] = candidate
+                    return candidate
+                }
+            }
+        }
+        if (newMessageBubbleLookupWarned.put(this, true) == null) {
+            WeLogger.w(TAG, "new message bubble not found, lift skipped")
+        }
+        return null
+    }
+
+    private fun View.isNewMessageBubble(): Boolean {
+        if (this !is LinearLayout) return false
+        val g = gravity
+        if (g and Gravity.VERTICAL_GRAVITY_MASK != Gravity.CENTER_VERTICAL) return false
+        if (g and Gravity.HORIZONTAL_GRAVITY_MASK != Gravity.CENTER_HORIZONTAL) return false
+        var hasIcon = false
+        var hasText = false
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (!hasIcon && child.javaClass.name == WE_CHAT_ICON_VIEW) hasIcon = true
+            if (!hasText && child is TextView) hasText = true
+            if (hasIcon && hasText) return true
+        }
+        return false
     }
 
     /**
