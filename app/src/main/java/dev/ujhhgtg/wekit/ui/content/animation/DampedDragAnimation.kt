@@ -8,20 +8,18 @@
 // Licensed under GPL-3.0
 package dev.ujhhgtg.wekit.ui.content.animation
 
+import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.MutatorMutex
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.unit.IntSize
-import dev.ujhhgtg.wekit.ui.content.inspectDragGestures
+import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.android.awaitFrame
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -46,6 +44,16 @@ class DampedDragAnimation(
     // Same occlusion problem as onTap: the pill eats the event so the tab item's own long-press
     // modifier never fires for the currently-selected tab.
     val onLongPress: DampedDragAnimation.() -> Unit = {},
+    // Optional raw gesture hooks used to drive the interactive highlight from the same
+    // synchronous node that drives the pill (the suspending pointerInput path is unreliable
+    // inside the injected host).
+    var onGestureStart: (Offset) -> Unit = {},
+    var onGestureMove: (Offset) -> Unit = {},
+    var onGestureEnd: () -> Unit = {},
+    // Resolved at composition time (Modifier.Node has no public viewConfiguration accessor).
+    private val touchSlopPx: Float,
+    private val longPressTimeoutMs: Long,
+    private val hostView: View,
 ) {
 
     private val valueAnimationSpec =
@@ -87,66 +95,45 @@ class DampedDragAnimation(
     val scaleY: Float get() = scaleYAnimation.value
     val velocity: Float get() = velocityAnimation.value
 
-    val modifier: Modifier = Modifier.pointerInput(Unit) {
-        val tapSlop = viewConfiguration.touchSlop
-        val longPressTimeoutMs = viewConfiguration.longPressTimeoutMillis
-        var accumulatedDrag = 0f
-        var longPressJob: Job? = null
-        var longPressFired = false
-        inspectDragGestures(
-            onDragStart = { down ->
-                isDragging = true
-                accumulatedDrag = 0f
-                longPressFired = false
-                onDragStarted(down.position)
-                press()
-                // Race a long-press timer alongside the drag detection. Cancelled if the
-                // finger moves past slop before the timeout — same semantics as the platform.
-                longPressJob = animationScope.launch {
-                    delay(longPressTimeoutMs)
-                    longPressFired = true
-                    onLongPress()
-                }
-            },
-            onDragEnd = {
-                isDragging = false
-                longPressJob?.cancel()
-                longPressJob = null
-                onDragStopped()
-                release()
-                // A gesture that never moved past touch slop is a tap on the pill, not a
-                // drag. Forward it so a tap on the selected tab still triggers an action.
-                // Skip if a long press already fired for this gesture.
-                if (!longPressFired && accumulatedDrag <= tapSlop) {
-                    onTap()
-                }
-            },
-            onDragCancel = {
-                isDragging = false
-                longPressJob?.cancel()
-                longPressJob = null
-                longPressFired = false
-                onDragStopped()
-                release()
-            }
-        ) { change, dragAmount ->
-            val position = change.position
-            val previousPosition = change.previousPosition
-
-            val isInside = canDrag(position)
-            val wasInside = canDrag(previousPosition)
-
-            if (isInside && wasInside) {
-                accumulatedDrag += abs(dragAmount.x) + abs(dragAmount.y)
-                onDrag(size, dragAmount)
-                // Cancel the long-press timer as soon as the finger clearly drags.
-                if (accumulatedDrag > tapSlop) {
-                    longPressJob?.cancel()
-                    longPressJob = null
-                }
-            }
-        }
-    }
+    val modifier: Modifier = Modifier.pillDragPointer(
+        canDrag = canDrag,
+        touchSlop = touchSlopPx,
+        longPressTimeoutMillis = longPressTimeoutMs,
+        hostView = hostView,
+        onGestureStart = onGestureStart,
+        onGestureMove = onGestureMove,
+        onGestureEnd = onGestureEnd,
+        onDragStart = { position ->
+            WeLogger.d("PillGesture", "dragStart pos=$position isInside=${canDrag(position)}")
+            isDragging = true
+            onDragStarted(position)
+            press()
+        },
+        onDrag = { bounds, position, dragAmount ->
+            WeLogger.d("PillGesture", "dragMove pos=$position amount=$dragAmount")
+            onDrag(bounds, dragAmount)
+        },
+        onDragEnd = {
+            WeLogger.d("PillGesture", "dragEnd")
+            isDragging = false
+            onDragStopped()
+            release()
+        },
+        onDragCancel = {
+            WeLogger.d("PillGesture", "dragCancel")
+            isDragging = false
+            onDragStopped()
+            release()
+        },
+        onTap = {
+            WeLogger.d("PillGesture", "tap fired")
+            onTap()
+        },
+        onLongPress = {
+            WeLogger.d("PillGesture", "longPress fired")
+            onLongPress()
+        },
+    )
 
     fun press() {
         velocityTracker.resetTracking()
