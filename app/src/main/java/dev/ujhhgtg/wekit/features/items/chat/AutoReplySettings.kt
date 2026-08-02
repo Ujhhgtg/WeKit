@@ -6,13 +6,18 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -31,6 +36,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Delete
+import com.composables.icons.materialsymbols.outlined.Drag_handle
 import com.composables.icons.materialsymbols.outlined.Upload
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -53,6 +60,7 @@ import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -502,47 +510,76 @@ internal object AutoReplySettings {
             ListItem(
                 content = { Text("任务 (按顺序匹配)") },
                 supportingContent = {
-                    Text(if (rules.tasks.isEmpty()) "尚未添加任务" else "${rules.tasks.size} 个任务")
+                    Text(
+                        if (rules.tasks.isEmpty()) {
+                            "尚未添加任务"
+                        } else {
+                            "长按拖动手柄调整顺序 · ${rules.tasks.size} 个任务"
+                        }
+                    )
                 },
             )
-            rules.tasks.forEachIndexed { index, task ->
-                val taskName = task.name.ifBlank { "任务 ${index + 1}" }
-                ListItem(
-                    modifier = Modifier.clickable { onEditTask(index) },
-                    content = { Text(taskName) },
-                    supportingContent = {
-                        Text(automationKeywordSummary(task.keyword, "不限关键词"))
+            if (rules.tasks.isNotEmpty()) {
+                ReorderableList(
+                    items = rules.tasks,
+                    itemKey = { System.identityHashCode(it) },
+                    onMove = { from, to ->
+                        val tasks = rules.tasks.toMutableList()
+                        tasks.add(to, tasks.removeAt(from))
+                        onChange(RuleKey.TASKS, rules.copy(tasks = tasks))
                     },
-                    trailingContent = {
-                        Row {
-                            TextButton(
-                                enabled = index > 0,
-                                onClick = {
-                                    val tasks = rules.tasks.toMutableList()
-                                    val tmp = tasks[index]
-                                    tasks[index] = tasks[index - 1]
-                                    tasks[index - 1] = tmp
-                                    onChange(RuleKey.TASKS, rules.copy(tasks = tasks))
-                                },
-                            ) { Text("上移") }
-                            TextButton(
-                                enabled = index < rules.tasks.lastIndex,
-                                onClick = {
-                                    val tasks = rules.tasks.toMutableList()
-                                    val tmp = tasks[index]
-                                    tasks[index] = tasks[index + 1]
-                                    tasks[index + 1] = tmp
-                                    onChange(RuleKey.TASKS, rules.copy(tasks = tasks))
-                                },
-                            ) { Text("下移") }
-                            TextButton(
-                                onClick = {
-                                    onChange(RuleKey.TASKS, rules.copy(tasks = rules.tasks - task))
-                                },
-                            ) { Text("删除") }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp),
+                ) { task, dragHandleModifier ->
+                    val index = rules.tasks.indexOfFirst { it === task }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 60.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .then(dragHandleModifier),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                MaterialSymbols.Outlined.Drag_handle,
+                                contentDescription = "拖动任务",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
-                    },
-                )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onEditTask(index) }
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                        ) {
+                            Text(
+                                text = task.name.ifBlank { "任务 ${index + 1}" },
+                                maxLines = 1,
+                            )
+                            Text(
+                                text = automationKeywordSummary(task.keyword, "不限关键词"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                onChange(RuleKey.TASKS, rules.copy(tasks = rules.tasks - task))
+                            },
+                        ) {
+                            Icon(
+                                MaterialSymbols.Outlined.Delete,
+                                contentDescription = "删除任务",
+                            )
+                        }
+                    }
+                }
             }
             ListItem(
                 modifier = Modifier.clickable(onClick = onAddTask),
