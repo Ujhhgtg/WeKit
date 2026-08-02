@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -59,6 +62,9 @@ internal object RedPacketSettings {
     private val legacyGroupMemberFile by lazy { KnownPaths.moduleData / "red_packet_group_members.json" }
 
     @Serializable
+    internal enum class ReceiveMode { NETWORK, CLICK }
+
+    @Serializable
     data class DelayRule(
         val enabled: Boolean = true,
         val baseMs: String = "500",
@@ -75,6 +81,7 @@ internal object RedPacketSettings {
     data class RuleSet(
         val grab: AutomationToggleRule = AutomationToggleRule(enabled = true),
         val grabSelf: AutomationToggleRule = AutomationToggleRule(),
+        val receiveMode: ReceiveMode = ReceiveMode.NETWORK,
         val timeRange: AutomationTimeRangeRule = AutomationTimeRangeRule(),
         val keyword: AutomationKeywordRule = AutomationKeywordRule(),
         val delay: DelayRule = DelayRule(),
@@ -100,6 +107,7 @@ internal object RedPacketSettings {
     data class RuleOverrides(
         val grab: AutomationToggleRule? = null,
         val grabSelf: AutomationToggleRule? = null,
+        val receiveMode: ReceiveMode? = null,
         val timeRange: AutomationTimeRangeRule? = null,
         val keyword: AutomationKeywordRule? = null,
         val delay: DelayRule? = null,
@@ -111,6 +119,7 @@ internal object RedPacketSettings {
         fun overriddenCount(): Int = listOf(
             grab,
             grabSelf,
+            receiveMode,
             timeRange,
             keyword,
             delay,
@@ -137,6 +146,7 @@ internal object RedPacketSettings {
     private enum class RuleKey {
         GRAB,
         GRAB_SELF,
+        RECEIVE_MODE,
         TIME_RANGE,
         KEYWORD,
         DELAY,
@@ -447,6 +457,40 @@ internal object RedPacketSettings {
                 }
             )
 
+            val receiveModeEditable = overriddenKeys == null || RuleKey.RECEIVE_MODE in overriddenKeys
+            RuleHeader(
+                title = "领取方式",
+                summary = if (rules.receiveMode == ReceiveMode.NETWORK) {
+                    "网络直发 (默认)"
+                } else {
+                    "模拟手动点击"
+                },
+                enabled = true,
+                key = RuleKey.RECEIVE_MODE,
+                overriddenKeys = overriddenKeys,
+                parentLabel = parentLabel,
+                onActivate = onActivate,
+                onReset = onReset,
+                onEnabledChange = {},
+            )
+            if (receiveModeEditable) {
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                ) {
+                    ReceiveMode.entries.forEachIndexed { index, mode ->
+                        SegmentedButton(
+                            selected = rules.receiveMode == mode,
+                            onClick = { onChange(RuleKey.RECEIVE_MODE, rules.copy(receiveMode = mode)) },
+                            shape = SegmentedButtonDefaults.itemShape(index, ReceiveMode.entries.size),
+                        ) {
+                            Text(if (mode == ReceiveMode.NETWORK) "网络直发" else "模拟手动点击")
+                        }
+                    }
+                }
+            }
+
             val timeEditable = overriddenKeys == null || RuleKey.TIME_RANGE in overriddenKeys
             RuleHeader(
                 title = "时间段抢红包",
@@ -627,6 +671,7 @@ internal object RedPacketSettings {
         return copy(
             grab = overrides.grab ?: grab,
             grabSelf = overrides.grabSelf ?: grabSelf,
+            receiveMode = overrides.receiveMode ?: receiveMode,
             timeRange = overrides.timeRange ?: timeRange,
             keyword = overrides.keyword ?: keyword,
             delay = overrides.delay ?: delay,
@@ -638,6 +683,7 @@ internal object RedPacketSettings {
     private fun RuleOverrides.keys(): Set<RuleKey> = buildSet {
         if (grab != null) add(RuleKey.GRAB)
         if (grabSelf != null) add(RuleKey.GRAB_SELF)
+        if (receiveMode != null) add(RuleKey.RECEIVE_MODE)
         if (timeRange != null) add(RuleKey.TIME_RANGE)
         if (keyword != null) add(RuleKey.KEYWORD)
         if (delay != null) add(RuleKey.DELAY)
@@ -648,6 +694,7 @@ internal object RedPacketSettings {
     private fun RuleOverrides.withRule(key: RuleKey, rules: RuleSet): RuleOverrides = when (key) {
         RuleKey.GRAB -> copy(grab = rules.grab)
         RuleKey.GRAB_SELF -> copy(grabSelf = rules.grabSelf)
+        RuleKey.RECEIVE_MODE -> copy(receiveMode = rules.receiveMode)
         RuleKey.TIME_RANGE -> copy(timeRange = rules.timeRange)
         RuleKey.KEYWORD -> copy(keyword = rules.keyword)
         RuleKey.DELAY -> copy(delay = rules.delay)
@@ -658,6 +705,7 @@ internal object RedPacketSettings {
     private fun RuleOverrides.withoutRule(key: RuleKey): RuleOverrides = when (key) {
         RuleKey.GRAB -> copy(grab = null)
         RuleKey.GRAB_SELF -> copy(grabSelf = null)
+        RuleKey.RECEIVE_MODE -> copy(receiveMode = null)
         RuleKey.TIME_RANGE -> copy(timeRange = null)
         RuleKey.KEYWORD -> copy(keyword = null)
         RuleKey.DELAY -> copy(delay = null)
