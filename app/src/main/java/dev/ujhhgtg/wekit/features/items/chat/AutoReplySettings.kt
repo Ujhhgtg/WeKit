@@ -37,8 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
+import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Drag_handle
-import com.composables.icons.materialsymbols.outlined.Upload
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -776,7 +776,7 @@ internal object AutoReplySettings {
                         )
                     },
                 ) {
-                    Icon(MaterialSymbols.Outlined.Upload, contentDescription = "导入")
+                    Icon(MaterialSymbols.Outlined.Download, contentDescription = "导入")
                 }
             },
             singleLine = true,
