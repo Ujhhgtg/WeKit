@@ -341,13 +341,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             val initialPagerIndex = viewPager.currentItem
             val selectedPageIndexState = mutableIntStateOf(initialPagerIndex)
             val scrollOffsetState = mutableFloatStateOf(0f)
-            // Settled page index: only advances once the pager comes to rest on a page
-            // (positionOffset == 0). The floating bar highlights from this so the tab
-            // change happens *after* the content stops in both directions. The raw
-            // `position` above flips to the target the instant a backward swipe starts,
-            // which would move the pill early; the NavigationBar branch still needs that
-            // raw value for its scroll-driven color cross-fade.
-            val settledPageIndexState = mutableIntStateOf(initialPagerIndex)
             // Target page as soon as it's decided: immediately on a tab tap, and at the
             // half-way crossing during a finger swipe. Drives the discrete spring so a tap
             // still bulges + slides the pill instead of teleporting.
@@ -367,9 +360,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
                     selectedPageIndexState.intValue = position
                     scrollOffsetState.floatValue = positionOffset
-                    if (positionOffset == 0f) {
-                        settledPageIndexState.intValue = position
-                    }
                 }
 
             tabsAdapter.reflekt()
@@ -425,7 +415,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         }
 
                         var selectedIndex by selectedPageIndexState
-                        val settledIndex by settledPageIndexState
                         val targetIndex by targetPageIndexState
                         val unreadCount by unreadCountState
                         val finderUnreadCount by finderUnreadCountState
@@ -599,7 +588,14 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         )
                                     ) {
                                         visibleTabItems.forEachIndexed { index, item ->
-                                            val isSelected = index == settledIndex
+                                            // Key the fill crossfade to the target page (the same
+                                            // driver as the pill), not the settled page: target
+                                            // flips immediately on a tab tap and on finger release
+                                            // during a swipe, while the settled page only advances
+                                            // after the pager stops. This matches SettingsActivity's
+                                            // Miuix bar, where the icon fills the moment the tab
+                                            // decision is made instead of a beat after the pill.
+                                            val isSelected = index == targetIndex
 
                                             FloatingBottomBarItem(
                                                 onClick = {
