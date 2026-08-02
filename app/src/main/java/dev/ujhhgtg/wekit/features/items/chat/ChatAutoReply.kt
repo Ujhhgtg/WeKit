@@ -95,6 +95,10 @@ object ChatAutoReply : ClickableFeature(), WeDatabaseListenerApi.IInsertListener
                     reply.path.isNotBlank() && File(reply.path).isFile &&
                         WeMessageApi.sendImage(talker, reply.path)
 
+                AutoReplyType.VIDEO ->
+                    reply.path.isNotBlank() && File(reply.path).isFile &&
+                        WeMessageApi.sendVideo(talker, reply.path)
+
                 AutoReplyType.VOICE -> {
                     val duration = reply.voiceDurationMs.toIntOrNull() ?: 0
                     reply.path.isNotBlank() && File(reply.path).isFile && duration in 1..60000 &&

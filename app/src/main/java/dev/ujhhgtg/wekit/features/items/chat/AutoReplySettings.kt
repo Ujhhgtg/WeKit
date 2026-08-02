@@ -1,6 +1,10 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.content.Context
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -8,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Icon
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -21,8 +26,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Upload
+import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
@@ -40,6 +50,7 @@ import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -47,13 +58,18 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlin.io.path.div
 
 private const val CONFIG_VERSION = 1
 
 @Serializable
-internal enum class AutoReplyType { TEXT, IMAGE, VOICE }
+internal enum class AutoReplyType { TEXT, IMAGE, VIDEO, VOICE }
 
 @Serializable
 internal data class AutoReplyRule(
@@ -582,7 +598,14 @@ internal object AutoReplySettings {
                         onClick = { onChange(task.copy(reply = task.reply.copy(type = type))) },
                         shape = SegmentedButtonDefaults.itemShape(index, AutoReplyType.entries.size),
                     ) {
-                        Text(if (type == AutoReplyType.TEXT) "文本" else if (type == AutoReplyType.IMAGE) "图片" else "语音")
+                        Text(
+                            when (type) {
+                                AutoReplyType.TEXT -> "文本"
+                                AutoReplyType.IMAGE -> "图片"
+                                AutoReplyType.VIDEO -> "视频"
+                                AutoReplyType.VOICE -> "语音"
+                            }
+                        )
                     }
                 }
             }
@@ -597,25 +620,23 @@ internal object AutoReplySettings {
                     singleLine = true,
                 )
 
-                AutoReplyType.IMAGE -> OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = task.reply.path,
-                    onValueChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
-                    label = { Text("图片路径") },
-                    singleLine = true,
+                AutoReplyType.IMAGE -> AssetPathField(
+                    type = AutoReplyType.IMAGE,
+                    path = task.reply.path,
+                    onChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
+                )
+
+                AutoReplyType.VIDEO -> AssetPathField(
+                    type = AutoReplyType.VIDEO,
+                    path = task.reply.path,
+                    onChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
                 )
 
                 AutoReplyType.VOICE -> {
-                    OutlinedTextField(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        value = task.reply.path,
-                        onValueChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
-                        label = { Text("语音文件路径 (amr/silk)") },
-                        singleLine = true,
+                    AssetPathField(
+                        type = AutoReplyType.VOICE,
+                        path = task.reply.path,
+                        onChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
                     )
                     OutlinedTextField(
                         modifier = Modifier
@@ -672,6 +693,112 @@ internal object AutoReplySettings {
 
             AutomationSettingsError(validationError)
         }
+    }
+
+    @Composable
+    private fun AssetPathField(
+        type: AutoReplyType,
+        path: String,
+        onChange: (String) -> Unit,
+    ) {
+        val context = LocalContext.current
+        OutlinedTextField(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            value = path,
+            onValueChange = onChange,
+            label = {
+                Text(
+                    when (type) {
+                        AutoReplyType.IMAGE -> "图片路径"
+                        AutoReplyType.VIDEO -> "视频路径"
+                        AutoReplyType.VOICE -> "语音文件路径 (amr/silk)"
+                        AutoReplyType.TEXT -> ""
+                    }
+                )
+            },
+            trailingIcon = {
+                IconButton(
+                    onClick = {
+                        importAsset(
+                            context = context,
+                            mimeTypes = when (type) {
+                                AutoReplyType.IMAGE -> arrayOf("image/*")
+                                AutoReplyType.VIDEO -> arrayOf("video/*")
+                                AutoReplyType.VOICE -> arrayOf("audio/*")
+                                AutoReplyType.TEXT -> return@IconButton
+                            },
+                            typePrefix = when (type) {
+                                AutoReplyType.IMAGE -> "image"
+                                AutoReplyType.VIDEO -> "video"
+                                AutoReplyType.VOICE -> "voice"
+                                AutoReplyType.TEXT -> ""
+                            },
+                            onImported = onChange,
+                        )
+                    },
+                ) {
+                    Icon(MaterialSymbols.Outlined.Upload, contentDescription = "导入")
+                }
+            },
+            singleLine = true,
+        )
+    }
+
+    /**
+     * 用 TransparentActivity 拉起系统文件选择器，把所选文件拷贝到
+     * `KnownPaths.userAssets`（文件名 `<type>_<timestamp>.<ext>`），成功后回填路径。
+     */
+    private fun importAsset(
+        context: Context,
+        mimeTypes: Array<String>,
+        typePrefix: String,
+        onImported: (String) -> Unit,
+    ) {
+        TransparentActivity.launch(context) {
+            val launcher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri == null) {
+                    finish()
+                    return@registerForActivityResult
+                }
+                lifecycleScope.launch(Dispatchers.IO) {
+                    runCatching {
+                        val extension = queryDisplayName(contentResolver, uri)?.substringAfterLast('.', "")
+                            ?.lowercase()?.takeIf(String::isNotBlank)
+                            ?: fallbackExtension(contentResolver.getType(uri))
+                        val target = KnownPaths.userAssets /
+                            "${typePrefix}_${System.currentTimeMillis()}.$extension"
+                        contentResolver.openInputStream(uri)?.use { input ->
+                            Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
+                        } ?: error("cannot open picked file")
+                        withContext(Dispatchers.Main) {
+                            onImported(target.toString())
+                            finish()
+                        }
+                    }.onFailure {
+                        WeLogger.e(TAG, "import asset failed", it)
+                        withContext(Dispatchers.Main) { finish() }
+                    }
+                }
+            }
+            launcher.launch(mimeTypes)
+        }
+    }
+
+    private fun queryDisplayName(resolver: ContentResolver, uri: Uri): String? {
+        return runCatching {
+            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        }.getOrNull()
+    }
+
+    private fun fallbackExtension(mimeType: String?): String = when {
+        mimeType?.startsWith("image/") == true -> "jpg"
+        mimeType?.startsWith("video/") == true -> "mp4"
+        mimeType?.startsWith("audio/") == true -> "m4a"
+        else -> "bin"
     }
 
     @Composable
@@ -749,7 +876,7 @@ internal object AutoReplySettings {
         task.keyword.validationError("关键词")?.let { return it }
         when (task.reply.type) {
             AutoReplyType.TEXT -> if (task.reply.text.isBlank()) return "文本回复内容不能为空"
-            AutoReplyType.IMAGE, AutoReplyType.VOICE -> if (task.reply.path.isBlank()) {
+            AutoReplyType.IMAGE, AutoReplyType.VIDEO, AutoReplyType.VOICE -> if (task.reply.path.isBlank()) {
                 return "回复文件路径不能为空"
             }
         }
