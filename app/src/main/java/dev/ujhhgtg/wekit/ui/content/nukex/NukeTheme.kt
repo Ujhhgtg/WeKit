@@ -10,7 +10,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver
+import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
+
+private const val NUKE_DEFAULT_ACCENT = 0xFFEC4899.toInt()
 
 @Immutable
 data class NukeColors(
@@ -135,4 +140,35 @@ fun NukeTheme(
         LocalNukeTheme provides state,
         content = content,
     )
+}
+
+/**
+ * 以当前模块设置装配 NukeTheme（明暗 + 主题色 + 动效/触感），供设置页与独立对话框共用，
+ * 保证经 [showComposeDialog] 弹出的 Nuke 组件拿到与设置页一致的主题色。
+ */
+@Composable
+fun NukeModuleTheme(
+    content: @Composable () -> Unit,
+) {
+    val context = LocalContext.current
+    val darkTheme = ThemeSettings.themeMode.resolve()
+    NukeTheme(
+        darkTheme = darkTheme,
+        accent = Color(
+            SeedResolver.moduleAccent(
+                context = context,
+                dark = darkTheme,
+                defaultAccent = NUKE_DEFAULT_ACCENT,
+            ),
+        ),
+        hapticsEnabled = ThemeSettings.nukeHaptics,
+        immediatePressFeedback = ThemeSettings.nukeImmediatePressFeedback,
+        popupMotion = NukePopupMotionConfig(
+            animationMode = ThemeSettings.nukePopupAnimation,
+            useDialogHost = ThemeSettings.nukePopupDialogHost,
+            predictiveExit = ThemeSettings.nukePopupPredictiveExit,
+        ),
+    ) {
+        content()
+    }
 }
