@@ -20,6 +20,7 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.get
 import androidx.core.view.WindowCompat
+import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
@@ -78,6 +79,9 @@ object ImmersiveChatUi : SwitchFeature() {
     /** 每个会话页布局的状态栏偏移刷新监听。 */
     private val offsetPreDraws = WeakHashMap<View, ViewTreeObserver.OnPreDrawListener>()
 
+    /** 已把微信 EdgeToEdgeWrapperLayout 的底条颜色/状态栏色块压透明的窗口包装, 避免每帧反射。 */
+    private val wrapperStripsNeutralized = WeakHashMap<View, Boolean>()
+
     override fun onEnable() {
         // 聊天页 attach 时把所在窗口切成 edge-to-edge: 内容延伸到状态栏背后。
         // 每个窗口只应用一次, 不做恢复 —— 其他页面 (如服务消息盒子) 因此也处于
@@ -96,6 +100,15 @@ object ImmersiveChatUi : SwitchFeature() {
             })
         } ?: WeLogger.w(TAG, "ChattingUILayout constructor hook target not found")
 
+        // 通知半屏/全屏路径下 ChatFooter 一定存在且稳定 attach, 借它兜底应用 edge-to-edge:
+        // 这些路径的 ChattingUILayout 可能由微信布局预取线程提前 inflate, 构造 hook/attach 监听会漏。
+        ChatFooter::class.reflekt().firstMethodOrNull { name = "onAttachedToWindow" }?.hookAfter {
+            val footer = thisObject as? ChatFooter ?: return@hookAfter
+            val layout = footer.findAncestorChattingUILayout() ?: return@hookAfter
+            applyChatEdgeToEdge(layout)
+            trackStatusBarOffset(layout)
+        } ?: WeLogger.w(TAG, "ChatFooter.onAttachedToWindow hook target not found")
+
         // 运行中才打开本特性时, 已有会话的布局早已构造完, attach 监听不会再触发;
         // 下一次布局 (切会话/键盘/旋转) 到来时补挂状态栏偏移追踪。
         ChattingUILayout::class.reflekt().firstMethodOrNull {
@@ -104,7 +117,10 @@ object ImmersiveChatUi : SwitchFeature() {
         }?.hookAfter {
             val layout = thisObject
             if (layout !is ChattingUILayout) return@hookAfter
-            if (offsetPreDraws[layout] == null) trackStatusBarOffset(layout)
+            if (offsetPreDraws[layout] == null) {
+                applyChatEdgeToEdge(layout)
+                trackStatusBarOffset(layout)
+            }
         } ?: WeLogger.w(TAG, "onLayout hook target not found")
 
         // 聊天页启用 edge-to-edge 后, ChattingUILayout 会把状态栏 inset 吃进 paddingTop,
@@ -249,10 +265,53 @@ object ImmersiveChatUi : SwitchFeature() {
         val listener = ViewTreeObserver.OnPreDrawListener {
             statusBarOffsets[layout] = currentStatusBarOffset(layout)
             reassertEdgeToEdgeStatusBar(layout)
+            neutralizeChatWrapper(layout)
             true
         }
         offsetPreDraws[layout] = listener
         layout.viewTreeObserver.addOnPreDrawListener(listener)
+    }
+
+    /**
+     * 微信自己的 EdgeToEdgeWrapperLayout 会按 statusBarStrategy 重新给整个聊天内容加状态栏
+     * padding, 半屏切全屏时还会从 ALWAYS_HIDE 切回 ALWAYS_AVOID 再刷一次 padding。这里每帧
+     * 把 wrapper 的四边 padding 归零, 并把它的状态栏/导航栏色块压成透明, 保证沉浸不被打回。
+     */
+    private fun neutralizeChatWrapper(layout: View) {
+        val wrapper = layout.findEdgeToEdgeWrapper() ?: return
+        if (wrapper.paddingTop != 0 || wrapper.paddingBottom != 0) {
+            wrapper.setPadding(wrapper.paddingLeft, 0, wrapper.paddingRight, 0)
+        }
+        if (wrapperStripsNeutralized[wrapper] != null) return
+        runCatching {
+            wrapper.javaClass.getMethod(
+                "setNavigationBarBackgroundColor",
+                Int::class.javaPrimitiveType
+            ).invoke(wrapper, Color.TRANSPARENT)
+            wrapper.javaClass.getMethod("setStatusBarColor", Int::class.javaPrimitiveType)
+                .invoke(wrapper, Color.TRANSPARENT)
+        }
+        wrapperStripsNeutralized[wrapper] = true
+    }
+
+    private fun View.findEdgeToEdgeWrapper(): View? {
+        var current: View? = this
+        while (current != null) {
+            if (current.javaClass.name == "com.tencent.mm.ui.widget.EdgeToEdgeWrapperLayout") {
+                return current
+            }
+            current = current.parent as? View
+        }
+        return null
+    }
+
+    private fun View.findAncestorChattingUILayout(): ChattingUILayout? {
+        var parent = parent
+        while (parent != null) {
+            if (parent is ChattingUILayout) return parent
+            parent = parent.parent
+        }
+        return null
     }
 
     // ---- ConvBoxServiceConversationUI 对话列表的 edge-to-edge 适配 ----

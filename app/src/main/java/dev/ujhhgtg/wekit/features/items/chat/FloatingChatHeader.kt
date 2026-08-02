@@ -1,7 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.graphics.Outline
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
@@ -29,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
@@ -125,6 +128,12 @@ object FloatingChatHeader : ClickableFeature() {
 
     /** 每个会话页布局对应的 ChatTipsBarGroup, 构造时登记, 不依赖它在树里的具体位置。 */
     private val tipsBarGroups = WeakHashMap<View, View>()
+
+    /** 半屏路径下使用窗口级 ActionBarContainer 时, 已把它所在 ActionBarOverlayLayout 切成 overlay。 */
+    private val windowBarOverlays = WeakHashMap<View, Boolean>()
+
+    /** 标题栏来自窗口级 ActionBarContainer 的布局, 边距按 overlay 坐标算, 不再叠加 layout.paddingTop。 */
+    private val windowBarHeaders = WeakHashMap<View, Boolean>()
 
     /** 已输出过内容宿主子 View 诊断日志的布局。 */
     private val overlayDiagLogged = WeakHashMap<View, Boolean>()
@@ -265,6 +274,13 @@ object FloatingChatHeader : ClickableFeature() {
             })
         } ?: WeLogger.w(TAG, "ChattingUILayout constructor hook target not found")
 
+        // 通知半屏/全屏路径下 ChatFooter 一定存在且稳定 attach, 借它兜底追踪 ChattingUILayout:
+        // 这些路径的 ChattingUILayout 可能由微信布局预取线程提前 inflate, 构造 hook/attach 监听会漏。
+        ChatFooter::class.reflekt().firstMethodOrNull { name = "onAttachedToWindow" }?.hookAfter {
+            val footer = thisObject as? ChatFooter ?: return@hookAfter
+            footer.findAncestorChattingUILayout()?.let(::trackHeader)
+        } ?: WeLogger.w(TAG, "ChatFooter.onAttachedToWindow hook target not found")
+
         // 运行中才打开本特性时, 已有会话的布局早已构造完, attach 监听不会再触发;
         // 下一次布局 (切会话/键盘/旋转) 到来时补挂追踪, 之后的 pre-draw 完成全部改造。
         // onLayout 沿继承链命中 KeyboardLinearLayout.onLayout —— ChattingUILayout 运行时
@@ -334,15 +350,24 @@ object FloatingChatHeader : ClickableFeature() {
     }
 
     private fun findHeader(layout: View): View? {
-        val found = layout.allViews.firstOrNull { it.javaClass.name == ACTION_BAR_CONTAINER_CLASS }
-        if (found == null) {
-            if (lookupWarned.put(layout, true) == null) {
-                WeLogger.w(TAG, "ActionBarContainer not found, retrying on next pre-draw")
-            }
-            return null
+        layout.allViews.firstOrNull { it.javaClass.name == ACTION_BAR_CONTAINER_CLASS }?.let {
+            headerViews[layout] = it
+            return it
         }
-        headerViews[layout] = found
-        return found
+        // 通知半屏路径: ChattingUI.supportNavigationSwipeBack() 返回 false,
+        // ChattingUIFragment 不会 inflate 布局内的 bkr ViewStub, 标题栏是窗口级 ActionBarContainer。
+        if (layout.isHalfScreenStyle()) {
+            layout.rootView?.allViews?.firstOrNull {
+                it.javaClass.name == ACTION_BAR_CONTAINER_CLASS
+            }?.let {
+                headerViews[layout] = it
+                return it
+            }
+        }
+        if (lookupWarned.put(layout, true) == null) {
+            WeLogger.w(TAG, "ActionBarContainer not found, retrying on next pre-draw")
+        }
+        return null
     }
 
     /**
@@ -353,7 +378,19 @@ object FloatingChatHeader : ClickableFeature() {
     private fun reparentIfNeeded(layout: View, header: View) {
         if (reparentBlocked[layout] != null) return
         val parent = header.parent as? ViewGroup ?: return
-        if (parent !== layout) return
+        if (parent !== layout) {
+            // 半屏路径的窗口级 ActionBarContainer 不能重挂 (AppCompat 的 ActionBarOverlayLayout
+            // 会继续用它的 LayoutParams, 重挂会类型崩溃), 改为原位 overlay 悬浮。
+            // overlay 悬浮依赖沉浸模式提供的状态栏偏移; 未开沉浸时只做卡片样式, 不改变层级。
+            if (layout.isHalfScreenStyle() && ImmersiveChatUi.statusBarOffset(layout) > 0) {
+                headerTopOffsets[layout] = layout.top + layout.paddingTop
+                if (windowBarHeaders.put(layout, true) == null) {
+                    WeLogger.d(TAG, "floating half-screen window action bar in place")
+                }
+                ensureWindowBarOverlay(header)
+            }
+            return
+        }
         if (reparentScheduled.put(layout, true) != null) return
         layout.post {
             try {
@@ -361,6 +398,24 @@ object FloatingChatHeader : ClickableFeature() {
             } finally {
                 reparentScheduled.remove(layout)
             }
+        }
+    }
+
+    /** 把窗口级标题栏所在的 ActionBarOverlayLayout 切成 overlay, 让消息内容延伸到标题卡背后。 */
+    private fun ensureWindowBarOverlay(header: View) {
+        if (windowBarOverlays[header] != null) return
+        var parent = header.parent
+        while (parent != null) {
+            if (parent.javaClass.name == "androidx.appcompat.widget.ActionBarOverlayLayout") {
+                val applied = runCatching {
+                    parent.javaClass.getMethod("setOverlayMode", Boolean::class.javaPrimitiveType)
+                        .invoke(parent, true)
+                    true
+                }.getOrDefault(false)
+                if (applied) windowBarOverlays[header] = true
+                break
+            }
+            parent = parent.parent
         }
     }
 
@@ -392,8 +447,16 @@ object FloatingChatHeader : ClickableFeature() {
     /** 圆角 / 裁剪 / 阴影, 与悬浮输入框同一套绘制属性; 标题栏和标题区挂件共用。 */
     private fun applyCardStyle(view: View) {
         val style = HeaderStyle(cornerRadiusDp, elevationDp)
-        if (headerStyles[view] == style) return
         val density = view.resources.displayMetrics.density
+        val expectedElevation = elevationDp * density
+        // 半屏路径微信会在展开动画结束时清掉 ActionBarContainer 的 outline (m.a()),
+        // 只按样式缓存判断会漏掉这次恢复, 所以 outline/elevation 被微信改掉时也要重刷。
+        if (headerStyles[view] == style &&
+            view.outlineProvider != null &&
+            view.elevation == expectedElevation
+        ) {
+            return
+        }
         view.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
                 val r = view.resources.displayMetrics.density * cornerRadiusDp
@@ -402,7 +465,7 @@ object FloatingChatHeader : ClickableFeature() {
             }
         }
         view.clipToOutline = true
-        view.elevation = elevationDp * density
+        view.elevation = expectedElevation
         headerStyles[view] = style
         WeLogger.d(TAG, "applied drawing style: corner=${cornerRadiusDp}dp elev=${elevationDp}dp")
     }
@@ -435,8 +498,13 @@ object FloatingChatHeader : ClickableFeature() {
         val sidePx = (sideMarginDp * density).toInt()
         // 实时算而不是用重挂时的快照: 聊天页 edge-to-edge 后 paddingTop 会被清零,
         // 标题卡需要落在 状态栏 inset + 顶部间距 的位置。
-        val topPx = layout.top + layout.paddingTop +
+        val topPx = if (windowBarHeaders[layout] == true) {
+            // 窗口级 ActionBarContainer 的坐标原点已经包含系统栏偏移, 直接加状态栏 inset 即可
             ImmersiveChatUi.statusBarOffset(layout) + (topGapDp * density).toInt()
+        } else {
+            layout.top + layout.paddingTop +
+                ImmersiveChatUi.statusBarOffset(layout) + (topGapDp * density).toInt()
+        }
         if (lp.leftMargin != sidePx || lp.rightMargin != sidePx || lp.topMargin != topPx) {
             lp.leftMargin = sidePx
             lp.rightMargin = sidePx
@@ -1205,6 +1273,21 @@ object FloatingChatHeader : ClickableFeature() {
             parent = parent.parent
         }
         return null
+    }
+
+    /** 通知半屏路径: ChattingUI 带有 NotificationHalfScreenChattingUIC 时关闭 swipe-back,
+     * 布局内自定义标题栏不会 inflate, 必须走窗口级 ActionBarContainer。 */
+    private fun View.isHalfScreenStyle(): Boolean {
+        val activity = context.activityOrNull() ?: return false
+        return runCatching {
+            activity.javaClass.getMethod("supportNavigationSwipeBack").invoke(activity) as? Boolean
+        }.getOrNull() == false
+    }
+
+    private tailrec fun Context.activityOrNull(): Activity? = when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.activityOrNull()
+        else -> null
     }
 
     /**
