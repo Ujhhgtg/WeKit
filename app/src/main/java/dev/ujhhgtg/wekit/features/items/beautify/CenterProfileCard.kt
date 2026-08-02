@@ -381,9 +381,9 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
     }
 
     private fun collectSource(root: ViewGroup): AccountInfoSource {
-        val avatarImage = root.findViewsWhich<ImageView> { view ->
+        val avatarImage = root.findViewsWhich { view ->
             view is ImageView && view.isVisible && view.drawable != null
-        }.maxByOrNull { it.visibleArea() } ?: error("failed to find avatar image view")
+        }.map { it as ImageView }.maxByOrNull { it.visibleArea() } ?: error("failed to find avatar image view")
 
         val self = WeDatabaseApi.getFriend(WeApi.selfWxId)
 

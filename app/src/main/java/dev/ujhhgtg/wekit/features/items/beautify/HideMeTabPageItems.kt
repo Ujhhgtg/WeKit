@@ -72,7 +72,7 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
     private fun applyEntryRules(root: ViewGroup) {
         val targets = selectedTargets
         if (targets.isEmpty()) return
-        root.findViewsWhich<TextView> { it is TextView && it.text?.toString()?.trim().orEmpty() in targets }.forEach {
+        root.findViewsWhich { it is TextView && it.text?.toString()?.trim().orEmpty() in targets }.forEach {
             hideContainerFor(it)
         }
     }

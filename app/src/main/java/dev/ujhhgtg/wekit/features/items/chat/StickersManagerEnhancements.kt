@@ -57,12 +57,12 @@ object StickersManagerEnhancements : SwitchFeature() {
         // same ConstraintLayout parent as the RecyclerView.
         val constraintParent = recyclerView.parent as ViewGroup
         val bottomBar = constraintParent
-            .findViewWhich<FrameLayout> { it is FrameLayout }!!
+            .findViewWhich { it is FrameLayout }!! as FrameLayout
 
         // Guard against duplicate injection (e.g. orientation change).
         if (bottomBar.findViewWithTag<View>(INJECTED_TAG) != null) return
 
-        val textViews = bottomBar.findViewsWhich<TextView> { it is TextView }.toList()
+        val textViews = bottomBar.findViewsWhich { it is TextView }.map { it as TextView }.toList()
 
         val moveTv = textViews.first()
         val deleteTv = textViews.last()

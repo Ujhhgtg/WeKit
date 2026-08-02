@@ -3,11 +3,13 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.content.Context
 import android.graphics.Outline
 import android.util.AttributeSet
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.ViewStub
 import android.view.ViewTreeObserver
+import android.widget.FrameLayout
 import android.widget.RelativeLayout
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.ui.utils.ListItem
@@ -71,6 +73,9 @@ object FloatingChatHeader : ClickableFeature() {
     /** 消息列表所在的内容区宿主, 标题区挂件之外的直接子 View 才需要做成悬浮卡。 */
     private const val CHATTING_SCROLL_LAYOUT_CLASS = "com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout"
 
+    /** 消息列表与多选快捷按钮所在的内容区 (layout ss 的 bki)。 */
+    private const val CHATTING_CONTENT_CLASS = "com.tencent.mm.pluginsdk.ui.chat.ChattingContent"
+
     /** 内容宿主里这些子 View 不是"标题下挂件", 排除在悬浮卡之外。 */
     private const val ME_HOLDER_VIEW_CLASS = "com.tencent.mm.magicbrush.plugin.emoji.ui.MEHolderView"
     private const val TALK_ROOM_POPUP_NAV_CLASS = "com.tencent.mm.ui.base.TalkRoomPopupNav"
@@ -92,6 +97,12 @@ object FloatingChatHeader : ClickableFeature() {
 
     /** 每个会话页布局对应的消息列表 RecyclerView, 避免每次高度刷新都做整树 DFS。 */
     private val chatListRecyclers = WeakHashMap<View, View>()
+
+    /** 每个会话页布局对应的聊天内容区 (ChattingContent), 多选快捷按钮的宿主。 */
+    private val chatContents = WeakHashMap<View, View>()
+
+    /** 每个会话页布局对应的顶部"选择到这里"按钮, inflate 后缓存, 失效则重找。 */
+    private val quickSelectUpViews = WeakHashMap<View, View>()
 
     /** 每个会话页布局对应的内容区宿主 (包含 ChattingScrollLayout 的那个直接子 View)。 */
     private val contentHosts = WeakHashMap<View, View>()
@@ -221,6 +232,7 @@ object FloatingChatHeader : ClickableFeature() {
         applyHeaderZoneOverlays(layout, header)
         suppressTipsBarDimFor(layout)
         applyChatListPadding(layout, header)
+        applyQuickSelectOffset(layout, header)
     }
 
     private fun findHeader(layout: View): View? {
@@ -524,7 +536,7 @@ object FloatingChatHeader : ClickableFeature() {
         // 所以按特征递归找: 纯 View + 全尺寸参数。
         val cached = tipsBarDims[group]
         val dims = cached?.takeIf { list -> list.all { it.parent !== null } }
-            ?: group.findViewsWhich<View> { it.isTipsBarDim() }.toList()
+            ?: group.findViewsWhich { it.isTipsBarDim() }.toList()
         if (dims.isEmpty()) {
             if (dimWarned.put(group, true) == null) {
                 val tree = group.allViews.take(30).joinToString(", ") { v ->
@@ -557,7 +569,7 @@ object FloatingChatHeader : ClickableFeature() {
     /** 提示条组内容列表 (MaxHeightWxRecyclerView), 找不到时返回 null。 */
     private fun tipsBarRecycler(group: View): View? {
         tipsBarRecyclers[group]?.takeIf { it.isAttachedToWindow }?.let { return it }
-        val found = group.findViewWhich<View> {
+        val found = group.findViewWhich {
             it.javaClass.name == "com.tencent.mm.view.recyclerview.MaxHeightWxRecyclerView"
         }
         if (found != null) tipsBarRecyclers[group] = found
@@ -651,6 +663,64 @@ object FloatingChatHeader : ClickableFeature() {
             return true
         }
         return false
+    }
+
+    /**
+     * 多选模式顶部"选择到这里"按钮 (ChattingContent 里 top|left 的 wrap_content 小浮层)
+     * 原生位于标题栏下方; 标题栏重挂成悬浮卡后内容区顶到屏幕上方, 按钮会被标题卡盖住。
+     * 这里把它下推到标题卡下沿 + 卡片间距, 几何与列表 top padding 同一套。
+     */
+    private fun applyQuickSelectOffset(layout: View, header: View) {
+        if (headerTopOffsets[layout] == null) return
+        val content = chatContent(layout) as? ViewGroup ?: return
+        val quickSelect = quickSelectUpView(content, layout) ?: return
+        val density = layout.resources.displayMetrics.density
+        val gapPx = (extraGapDp * density).toInt()
+        // 标题卡下沿 (ChattingUILayout 坐标系): statusBarOffset + 卡高 + 顶部间距
+        val titleBottomPx = ImmersiveChatUi.statusBarOffset(layout) +
+            header.height + (topGapDp * density).toInt()
+        // ChattingScrollLayout 滚动时用 translationY 移动内容区, 要一起算进按钮的屏幕位置
+        val contentTopPx = content.offsetTopIn(layout) + content.translationY.roundToInt()
+        val marginTop = (titleBottomPx + gapPx - contentTopPx).coerceAtLeast(0)
+        val lp = quickSelect.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+        if (lp.topMargin != marginTop) {
+            lp.topMargin = marginTop
+            quickSelect.requestLayout()
+            WeLogger.d(TAG, "quick select up view top margin: ${lp.topMargin} -> $marginTop")
+        }
+    }
+
+    private fun chatContent(layout: View): View? {
+        chatContents[layout]?.takeIf { it.isAttachedToWindow }?.let { return it }
+        val found = layout.allViews.firstOrNull {
+            it.javaClass.name == CHATTING_CONTENT_CLASS
+        }
+        if (found != null) chatContents[layout] = found
+        return found
+    }
+
+    private fun quickSelectUpView(content: ViewGroup, layout: View): View? {
+        quickSelectUpViews[layout]?.takeIf { it.parent === content }?.let { return it }
+        for (i in 0 until content.childCount) {
+            val child = content.getChildAt(i)
+            if (child.isQuickSelectUp()) {
+                quickSelectUpViews[layout] = child
+                return child
+            }
+        }
+        return null
+    }
+
+    /** 结构特征: 内容区直接子 View 里 top|left 的 wrap_content 小浮层 (含未展开的 ViewStub)。 */
+    private fun View.isQuickSelectUp(): Boolean {
+        val lp = layoutParams as? FrameLayout.LayoutParams ?: return false
+        val topLeft = Gravity.TOP or Gravity.LEFT
+        val topStart = Gravity.TOP or Gravity.START
+        if (lp.gravity != topLeft && lp.gravity != topStart) return false
+        if (lp.width != ViewGroup.LayoutParams.WRAP_CONTENT ||
+            lp.height != ViewGroup.LayoutParams.WRAP_CONTENT
+        ) return false
+        return lp.topMargin > 0
     }
 
     private fun View.chatRecycler(): View? {

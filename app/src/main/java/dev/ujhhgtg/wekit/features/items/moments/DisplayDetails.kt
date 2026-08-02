@@ -163,7 +163,7 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
     }
 
     private fun attachToLists(root: ViewGroup) {
-        val container = root.findViewWhich<WxRecyclerView> { it is WxRecyclerView } ?: error("RecyclerView not found")
+        val container = root.findViewWhich { it is WxRecyclerView } as WxRecyclerView? ?: error("RecyclerView not found")
         // scheduleAttach retries four times, and every attempt that finds the list would otherwise
         // register its own layout listener, multiplying the per-item reflection/regex work.
         synchronized(attachedRoots) {
@@ -188,11 +188,11 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
 
         val timeText = formatEpoch(createTime.toLong() * 1000, timeFormat)
         val itemGroup = itemView as ViewGroup
-        val timeTextView = itemGroup.findViewWhich<TextView> { view ->
+        val timeTextView = itemGroup.findViewWhich { view ->
             if (view !is TextView || !view.isVisible) return@findViewWhich false
             val text = view.text?.toString().orEmpty()
             TIMESTAMP_REGEX.matches(text.trim()) || timeText.isNotEmpty() && text.contains(timeText)
-        } ?: return
+        } as? TextView? ?: return
 
         // The getTimeString hook keeps the time view on the detail text; only fill the bare relative-time gap here.
         val originalText = timeTextView.text?.toString().orEmpty()
@@ -210,7 +210,7 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
         }
 
         if (hideGroupIcon) {
-            val buttons = (timeTextView.parent as? ViewGroup).findViewsWhich<View> {
+            val buttons = (timeTextView.parent as? ViewGroup).findViewsWhich {
                 it is WeImageView
             }.toList()
             if (buttons.size > 1) {
@@ -298,7 +298,7 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
     }
 
     private fun locateSnsInfo(itemView: View): Any? {
-        val interactionView = itemView.findViewWhich<View> {
+        val interactionView = itemView.findViewWhich {
             classImproveInteractionLayout.clazz.isInstance(it)
         } ?: return null
 

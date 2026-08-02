@@ -1630,15 +1630,15 @@ object Themes : ClickableFeature(), IResolveDex {
                 val contentView = thisObject as? ViewGroup ?: return@hookAfter
                 val activity = contentView.context as? Activity ?: return@hookAfter
                 val chatFooterFinder = {
-                    contentView.findViewWhich<ViewGroup> {
+                    contentView.findViewWhich {
                         it.javaClass.name == "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
-                    }
+                    } as ViewGroup?
                 }
                 when (activity.javaClass.name) {
                     "com.tencent.mm.ui.LauncherUI" -> {
-                        val chattingUiLayout = contentView.findViewWhich<ViewGroup> {
+                        val chattingUiLayout = contentView.findViewWhich {
                             it.javaClass.name == "com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout"
-                        } ?: return@hookAfter
+                        } as ViewGroup? ?: return@hookAfter
                         themedDrawable("chat/actionbar/background.png")?.let { d ->
                             val parent = chattingUiLayout.parent as? ViewGroup ?: return@let
                             parent.addView(
@@ -1681,9 +1681,9 @@ object Themes : ClickableFeature(), IResolveDex {
                                 )
                             }
                         }
-                        val chattingUiLayout = contentView.findViewWhich<ViewGroup> {
+                        val chattingUiLayout = contentView.findViewWhich {
                             it.javaClass.name == "com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout"
-                        }
+                        } as ViewGroup?
                         val chatFooter = chatFooterFinder()
                         if (chattingUiLayout != null) {
                             setNullBg(chattingUiLayout)

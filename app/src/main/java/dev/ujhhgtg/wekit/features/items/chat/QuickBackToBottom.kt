@@ -204,12 +204,12 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
         // 微信只在它自己显示气泡时才会把 layout_gravity 从 XML 的 top|right 改成 bottom|end;
         // 我们强制显示时它没走这套逻辑, 气泡会停在屏幕右上角, 这里主动钉回右下角。
         ensureBottomRight(bubble)
-        val icon = bubble.findViewWhich<WeImageView> { it is WeImageView }!!
+        val icon = bubble.findViewWhich { it is WeImageView }!! as WeImageView
         if (icon.rotation != BUBBLE_ICON_ROTATION) icon.rotation = BUBBLE_ICON_ROTATION
         // 每帧都接管点击: 微信 H0/update 随时会重挂 zf/eg 等监听, 只在文本变化时替换会漏掉,
         // 点到旧的 zf (D 为空) 会 NPE, 点到旧的 eg 会用过期位置跳到错误消息。
         bubble.setOnClickListener { scrollToLatest(bubble) }
-        val textView = bubble.findViewWhich<TextView> { it is TextView }!!
+        val textView = bubble.findViewWhich { it is TextView }!! as TextView
         if (textView.text.toString() != BUBBLE_TEXT) {
             textView.text = BUBBLE_TEXT
             WeLogger.d(TAG, "bubble taken over: remaining=${remaining}px threshold=${threshold}px")
@@ -265,9 +265,9 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
     private fun ChatFooter.chatRecycler(): ChattingRecyclerView {
         val cached = chatListRecyclers[this]
         if (cached != null && cached.isAttachedToWindow) return cached
-        val found = (parent as ChattingScrollLayout)
-            .findViewWhich<MMChattingListView> { it is MMChattingListView }!!
-            .findViewWhich<ChattingRecyclerView> { it is ChattingRecyclerView }!!
+        val found = ((parent as ChattingScrollLayout)
+            .findViewWhich { it is MMChattingListView }!! as MMChattingListView)
+            .findViewWhich { it is ChattingRecyclerView }!! as ChattingRecyclerView
         chatListRecyclers[this] = found
         return found
     }
@@ -283,7 +283,7 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
             return cached
         }
         val content = (parent as ChattingScrollLayout)
-            .findViewWhich<ChattingContent> { it is ChattingContent }!!
+            .findViewWhich { it is ChattingContent }!! as ChattingContent
         for (i in 0 until content.childCount) {
             val candidate = content.getChildAt(i)
             if (candidate.isNewMessageBubble()) {

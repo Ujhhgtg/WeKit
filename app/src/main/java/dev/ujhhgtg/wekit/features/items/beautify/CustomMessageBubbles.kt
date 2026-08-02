@@ -216,18 +216,18 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         @Suppress("DEPRECATION")
         when (msgInfo.type) {
             MessageType.TEXT, MessageType.LINK, MessageType.GROUP_NOTE, MessageType.QUOTE -> {
-                val neatTextView = view.findViewWhich<MMNeat7extView> { it is MMNeat7extView }!!
+                val neatTextView = view.findViewWhich { it is MMNeat7extView }!! as MMNeat7extView
                 applyForegroundColor(neatTextView, msgInfo.isSelfSender)
                 applyBubble(neatTextView, msgInfo.isSelfSender)
             }
 
             MessageType.VOIP -> {
-                val bubbleView = view.findViewWhich<LinearLayout> {
+                val bubbleView = view.findViewWhich {
                     it.javaClass == LinearLayout::class.java
                             && it.tag?.javaClass?.name?.startsWith("com.tencent.mm.ui.chatting.viewitems") == true
-                }!!
-                val bubbleTextView = bubbleView.findViewWhich<TextView> { it is TextView }!!
-                val bubbleIconView = bubbleView.findViewWhich<LinearLayout> { it !== bubbleView && it is LinearLayout }!!
+                }!! as LinearLayout
+                val bubbleTextView = bubbleView.findViewWhich { it is TextView }!! as TextView
+                val bubbleIconView = bubbleView.findViewWhich { it !== bubbleView && it is LinearLayout }!! as LinearLayout
                 applyForegroundColor(bubbleTextView, msgInfo.isSelfSender)
                 applyForegroundColorByBackgroundColorFilter(bubbleIconView, msgInfo.isSelfSender)
                 applyBubble(bubbleView, msgInfo.isSelfSender)
@@ -240,7 +240,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 //   - the animated wave overlay: an AnimImageView shown on top during playback,
                 //     whose bubble background WeChat resets on every bind
                 // Style every bubble-bearing view so the overlay keeps our custom bubble too.
-                view.findViewsWhich<View> { hasBubbleTag(it) || it is AnimImageView }
+                view.findViewsWhich { hasBubbleTag(it) || it is AnimImageView }
                     .forEach { applyBubble(it, msgInfo.isSelfSender) }
 
                 // The visible duration text (e.g. "5''") lives in a separate untagged TextView
@@ -248,12 +248,12 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 // overlay. The tagged bubble itself has no text, so color every TextView in that
                 // container instead. Locate the container structurally (no obfuscated ids): the
                 // group whose direct children include both a tagged bubble and an AnimImageView.
-                val container = view.findViewWhich<ViewGroup> { v ->
+                val container = view.findViewWhich { v ->
                     v is ViewGroup
                             && (0 until v.childCount).any { hasBubbleTag(v.getChildAt(it)) }
                             && (0 until v.childCount).any { v.getChildAt(it) is AnimImageView }
-                }
-                container.findViewsWhich<TextView> { it is TextView }
+                } as ViewGroup?
+                container.findViewsWhich { it is TextView }.map { it as TextView }
                     .forEach { applyForegroundColor(it, msgInfo.isSelfSender) }
 
                 // The play icon is a compound drawable, not text, so setTextColor never touches it.
@@ -263,7 +263,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 // click, so we stash the color as a tag and let hookVoiceIconTint() re-apply it then.
 //                val iconColor = getForegroundColor(view.context, msgInfo.isSelfSender)
 //                if (iconColor != -1) {
-//                    container.findViewsWhich<TextView> { it is TextView }.forEach { tv ->
+//                    container.findViewsWhich { it is TextView }.map { it as TextView }.forEach { tv ->
 //                        if (tv is AnimImageView) tv.setTag(ICON_TINT_TAG, iconColor)
 //                        tv.compoundDrawables.forEach { applyIconColorFilter(it, iconColor) }
 //                    }

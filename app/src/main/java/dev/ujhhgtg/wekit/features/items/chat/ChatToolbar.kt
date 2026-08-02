@@ -289,7 +289,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
         // (0, 0, 0) is the MMFlipper holding one GridView per page; absent until AppPanel.init()
         // has inflated the panel's layout.
-        val grids = appPanel.findViewByChildIndexes<ViewGroup>(0, 0, 0)
+        val grids = (appPanel.findViewByChildIndexes(0, 0, 0) as ViewGroup?)
             ?.children?.map { view -> view as GridView }
             ?: return
 
@@ -348,7 +348,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             if (toolsOf(appPanel).lastSnapshotTime != null) return@postDelayed
             // initAppGrid dereferences views that AppPanel.init() inflates, so only force it once
             // the panel's layout is there.
-            if (appPanel.findViewByChildIndexes<ViewGroup>(0, 0, 0) == null) return@postDelayed
+            if (appPanel.findViewByChildIndexes(0, 0, 0) == null) return@postDelayed
 
             WeLogger.d(TAG, "grid was never initialized for this chat footer, forcing initAppGrid")
             // R8 staticizes initAppGrid on current builds, which is why the hooks read the panel out
@@ -381,7 +381,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 val metrics = appPanel.resources.displayMetrics
                 val width = metrics.widthPixels
                 val fallbackDp = if (metrics.widthPixels < metrics.heightPixels) 215 else 158
-                val containerHeight = appPanel.findViewByChildIndexes<View>(0, 0)
+                val containerHeight = appPanel.findViewByChildIndexes(0, 0)
                     ?.layoutParams?.height?.takeIf { it > 0 }
                     ?: (fallbackDp * metrics.density).toInt()
                 val dotStrip = (22 * metrics.density).toInt()
@@ -418,15 +418,15 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             val lifecycleOwner = LifecycleOwnerProvider.getOrCreate(activity)
 
             chatFooter.setLifecycleOwner(lifecycleOwner)
-            val linearLayout = chatFooter.findViewByChildIndexes<LinearLayout>(0, 1)!!
+            val linearLayout = chatFooter.findViewByChildIndexes(0, 1)!! as LinearLayout
             linearLayout.setLifecycleOwner(lifecycleOwner)
-            if (linearLayout.findViewWhich<View> { it is ComposeView } != null) return@hookAfter
+            if (linearLayout.findViewWhich { it is ComposeView } != null) return@hookAfter
             activity.window.decorView.setLifecycleOwner(lifecycleOwner)
 
             // The panel is part of the footer's own layout and ChatFooter.initAppPanel() has already
             // run inside the constructor, so it is reachable here. Bind this toolbar to that panel
             // only, and make sure something initializes its grid.
-            val appPanel = chatFooter.findViewWhich<AppPanel> { it is AppPanel }
+            val appPanel = chatFooter.findViewWhich { it is AppPanel } as AppPanel?
             if (appPanel == null) WeLogger.w(TAG, "no AppPanel in this chat footer, toolbar will stay empty")
             val toolsFlow = appPanel?.let { toolsOf(it).flow } ?: MutableStateFlow(emptyList())
             appPanel?.let { scheduleGridInitWatchdog(it) }

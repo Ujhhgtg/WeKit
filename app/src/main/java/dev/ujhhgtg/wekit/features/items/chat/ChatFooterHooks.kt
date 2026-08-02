@@ -26,10 +26,10 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
     override fun onEnable() {
         methodInitSmileyBtn.hookAfter {
             val chatFooter = thisObject as ChatFooter
-            val searchedView = chatFooter.findViewByChildIndexes<View>(0)!!
-            val imgButtons = searchedView.findViewsWhich<ImageButton> { view ->
+            val searchedView = chatFooter.findViewByChildIndexes(0)!!
+            val imgButtons = searchedView.findViewsWhich { view ->
                 view.javaClass.simpleName == "WeImageButton"
-            }.toList()
+            }.map { it as ImageButton }.toList()
 
             if (VoicePanel.isEnabled) {
                 val voiceBtn = imgButtons.first()
@@ -48,12 +48,12 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
             }
 
             val menuBtn = imgButtons.last()
-            val sendBtn = searchedView.findViewWhich<AndroidButton> { view ->
+            val sendBtn = searchedView.findViewWhich { view ->
                 view.javaClass.name == "android.widget.Button" && run {
                     val text = (view as AndroidButton).text?.toString()?.trim() ?: ""
                     text == "发送" || text.equals("send", ignoreCase = true)
                 }
-            }!!
+            }!! as AndroidButton
 
             listOf(menuBtn, sendBtn).forEach {
                 it.setOnLongClickListener { view ->

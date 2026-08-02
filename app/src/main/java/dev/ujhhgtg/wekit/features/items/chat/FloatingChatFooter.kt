@@ -424,7 +424,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
      *    按剩余空间压缩面板, 并给会话内容留出 [PANEL_TOP_RESERVE_DP]。
      */
     private fun applyPanelHeight(footer: ChatFooter, panel: ChatFooterBottom, from: String) {
-        val appPanel = footer.findViewWhich<View> { it is AppPanel }
+        val appPanel = footer.findViewWhich { it is AppPanel }
         val lp = panel.layoutParams ?: return
         // AppPanel 是懒创建的 (第一次点「+」才走 G0), 在那之前微信从没调过 setPortHeighPx,
         // 自然高度无从得知。退回 getKeyBordHeightPX() —— 它正是 G0 给 AppPanel 的初值,
@@ -515,7 +515,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     /** ChatFooter 子树里的表情/工具面板容器。 */
     private val ChatFooter.bottomPanel: ChatFooterBottom?
-        get() = findViewWhich { it is ChatFooterBottom }
+        get() = findViewWhich { it is ChatFooterBottom } as ChatFooterBottom?
 
     /** 从 ChatFooter 的辅助类实例 (如 FullScreenEditHelper) 反查它服务的 ChatFooter。 */
     private val Any.ownerChatFooter: ChatFooter?

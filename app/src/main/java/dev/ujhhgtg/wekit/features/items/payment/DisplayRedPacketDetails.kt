@@ -101,7 +101,7 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
                 superclass()
             }
             .get() as? ViewGroup ?: return null
-        return itemView.findViewByChildIndexes(0, 1, 1, 1, 1)
+        return itemView.findViewByChildIndexes(0, 1, 1, 1, 1) as TextView?
     }
 
     private fun getTimestampFromRecord(record: Any): Long? {

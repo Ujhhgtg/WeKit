@@ -46,6 +46,6 @@ object HideConversationListDividers : SwitchFeature(), IResolveDex {
     }
 
     private fun handleViewGroup(viewGroup: ViewGroup) {
-        viewGroup.findViewByChildIndexes<View>(0, 1, 1, 1)?.isGone = true
+        viewGroup.findViewByChildIndexes(0, 1, 1, 1)?.isGone = true
     }
 }
