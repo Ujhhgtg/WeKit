@@ -54,7 +54,6 @@ object HalfScreenAlbumPicker : ClickableFeature() {
     private const val SMART_GALLERY_UI = "com.tencent.mm.plugin.gallery.ui.SmartGalleryUI"
     private const val GALLERY_ENTRY_UI = "com.tencent.mm.plugin.gallery.ui.GalleryEntryUI"
     private const val MM_FRAGMENT_ACTIVITY = "com.tencent.mm.ui.MMFragmentActivity"
-    private const val EXTRA_RECENT_PHOTO_QUICK_SEND = "key_from_c2c_recently_quickly_send"
 
     /** The grid picker plus the two screens pushed on top of it. All three become sheets. */
     private val SHEET_ACTIVITIES = setOf(ALBUM_PREVIEW_UI, IMAGE_PREVIEW_UI, SMART_GALLERY_UI)
@@ -185,7 +184,7 @@ object HalfScreenAlbumPicker : ClickableFeature() {
 
         hookOrientationRequests()
         hookCloseTransitionCapture()
-        hookRecentPhotoRedirectAfterFirstFrame()
+        hookTrampolineRedirectAfterFirstFrame()
     }
 
     /**
@@ -345,10 +344,11 @@ object HalfScreenAlbumPicker : ClickableFeature() {
 
     /**
      * Every hook bails unless this is the chat "+" panel's picker or one of the two sheets it
-     * pushes, so anything unrecognized falls through to stock WeChat behavior. The recent-photo
-     * bubble's direct ImagePreviewUI launch is a chat sheet too (it carries the same
-     * query_source_type); [hookRecentPhotoRedirectAfterFirstFrame] makes sure its redirecting
-     * trampoline has drawn a frame before ImagePreviewUI launches.
+     * pushes, so anything unrecognized falls through to stock WeChat behavior. The direct
+     * GalleryEntryUI launches that skip the picker — the recent-photo bubble and the system
+     * camera's post-capture preview — are chat sheets too (they carry the same
+     * query_source_type); [hookTrampolineRedirectAfterFirstFrame] makes sure their redirecting
+     * trampoline has drawn a frame before the sheet launches.
      */
     private fun isChatSheet(activity: Activity): Boolean {
         // Subclasses that do not override onCreate inherit the onCreate hooks: MediaTabAlbumUI and
@@ -368,33 +368,40 @@ object HalfScreenAlbumPicker : ClickableFeature() {
     }
 
     /**
-     * Holds off the recent-photo bubble's direct preview until its redirect trampoline has drawn
-     * its first frame.
+     * Holds off GalleryEntryUI's immediate redirect until the trampoline has drawn its first
+     * frame.
      *
-     * The "你可能要发送的照片" bubble launches GalleryEntryUI, which redirects to ImagePreviewUI
-     * from its own onResume — before GalleryEntryUI (a blank translucent window with no content)
-     * has produced a single frame. The sheet hook then converts ImagePreviewUI to translucent
-     * while that never-drawn window sits below it, and Android's launch transition adds the
-     * below window as a participant it has to wait for; with nothing ever triggering its draw,
-     * the whole launch is held for the transition's multi-second collection timeout. The
-     * picker-pushed preview is unaffected because AlbumPreviewUI has long been drawn by the time
-     * it opens ImagePreviewUI.
+     * GalleryEntryUI is a blank translucent window with no content; its onResume redirects to a
+     * sheet before it has produced a single frame. This happens on two direct chat routes: the
+     * "你可能要发送的照片" bubble, and the system camera's post-capture preview
+     * (`preview_image` + `isTakePhoto`, launched after the user confirms in the system camera).
+     * The sheet hook then converts the target to translucent while that never-drawn window sits
+     * below it, and Android's launch transition adds the below window as a participant it has to
+     * wait for; with nothing ever triggering its draw, the whole launch is held for the
+     * transition's multi-second collection timeout. The picker-pushed preview is unaffected
+     * because AlbumPreviewUI has long been drawn by the time it opens ImagePreviewUI.
      *
-     * Deferring the redirect by one frame makes the direct route structurally identical to the
-     * picker route: the caller is already drawn, so the synchronous translucent conversion in
-     * ImagePreviewUI's onCreate completes immediately, the chat stays visible above the sheet
-     * through the enter transition, and the normal close transition is restored.
+     * Deferring the redirect by one frame makes every trampoline route structurally identical to
+     * the picker route: the caller is already drawn, so the synchronous translucent conversion in
+     * the sheet's onCreate completes immediately, the chat stays visible above the sheet through
+     * the enter transition, and the normal close transition is restored.
      */
-    private fun hookRecentPhotoRedirectAfterFirstFrame() {
+    private fun hookTrampolineRedirectAfterFirstFrame() {
         GALLERY_ENTRY_UI.toClass().reflekt().firstMethod {
             name = "startActivityForResult"
             parameters(Intent::class.java, int)
         }.hookBefore {
-            val entry = thisObject as? Activity ?: return@hookBefore
-            val intent = args[0] as? Intent ?: return@hookBefore
-            val requestCode = args[1] as? Int ?: return@hookBefore
-            if (intent.component?.className != IMAGE_PREVIEW_UI) return@hookBefore
-            if (!intent.getBooleanExtra(EXTRA_RECENT_PHOTO_QUICK_SEND, false)) {
+            val entry = thisObject as Activity
+            val intent = args[0] as Intent
+            val requestCode = args[1] as Int
+
+            // Only the chat half-screen sheet routes matter: the target becomes translucent, so
+            // the never-drawn trampoline below it stalls the launch transition. GalleryEntryUI's
+            // other redirects (opaque screens) cover the trampoline and never hit the stall, so
+            // they keep WeChat's stock launch.
+            val targetClass = intent.component?.className ?: return@hookBefore
+            if (targetClass !in SHEET_ACTIVITIES) return@hookBefore
+            if (intent.getIntExtra("query_source_type", -1) !in CHAT_QUERY_SOURCE_TYPES) {
                 return@hookBefore
             }
 
