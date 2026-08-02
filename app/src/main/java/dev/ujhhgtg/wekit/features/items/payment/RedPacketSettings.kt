@@ -26,6 +26,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordControls
 import dev.ujhhgtg.wekit.features.items.AutomationContactSettingsSelector
+import dev.ujhhgtg.wekit.features.items.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordRule
 import dev.ujhhgtg.wekit.features.items.AutomationRuleHeader
 import dev.ujhhgtg.wekit.features.items.AutomationScrollableColumn
@@ -57,6 +58,8 @@ import kotlin.random.Random
 internal object RedPacketSettings {
     private const val TAG = "RedPacketSettings"
     private const val CONFIG_VERSION = 1
+    private val RED_PACKET_KEYWORD_MODES =
+        listOf(AutomationKeywordMode.STRING_LIST, AutomationKeywordMode.REGEX)
 
     private val configFile by lazy { KnownPaths.moduleData / "red_packet_settings.json" }
     private val legacyGroupMemberFile by lazy { KnownPaths.moduleData / "red_packet_group_members.json" }
@@ -84,6 +87,7 @@ internal object RedPacketSettings {
         val receiveMode: ReceiveMode = ReceiveMode.NETWORK,
         val timeRange: AutomationTimeRangeRule = AutomationTimeRangeRule(),
         val keyword: AutomationKeywordRule = AutomationKeywordRule(),
+        val skipKeyword: AutomationKeywordRule = AutomationKeywordRule(),
         val delay: DelayRule = DelayRule(),
         val notification: AutomationToggleRule = AutomationToggleRule(),
         val autoReply: ReplyRule = ReplyRule()
@@ -110,6 +114,7 @@ internal object RedPacketSettings {
         val receiveMode: ReceiveMode? = null,
         val timeRange: AutomationTimeRangeRule? = null,
         val keyword: AutomationKeywordRule? = null,
+        val skipKeyword: AutomationKeywordRule? = null,
         val delay: DelayRule? = null,
         val notification: AutomationToggleRule? = null,
         val autoReply: ReplyRule? = null
@@ -122,6 +127,7 @@ internal object RedPacketSettings {
             receiveMode,
             timeRange,
             keyword,
+            skipKeyword,
             delay,
             notification,
             autoReply
@@ -149,6 +155,7 @@ internal object RedPacketSettings {
         RECEIVE_MODE,
         TIME_RANGE,
         KEYWORD,
+        SKIP_KEYWORD,
         DELAY,
         NOTIFICATION,
         AUTO_REPLY
@@ -466,6 +473,7 @@ internal object RedPacketSettings {
                     "模拟手动点击"
                 },
                 enabled = true,
+                switchEnabled = false,
                 key = RuleKey.RECEIVE_MODE,
                 overriddenKeys = overriddenKeys,
                 parentLabel = parentLabel,
@@ -535,7 +543,34 @@ internal object RedPacketSettings {
                 AutomationKeywordControls(
                     rule = rules.keyword,
                     editable = keywordEditable,
+                    modes = RED_PACKET_KEYWORD_MODES,
                     onChange = { onChange(RuleKey.KEYWORD, rules.copy(keyword = it)) }
+                )
+            }
+
+            val skipKeywordEditable = overriddenKeys == null || RuleKey.SKIP_KEYWORD in overriddenKeys
+            RuleHeader(
+                title = "关键词不抢红包",
+                summary = automationKeywordSummary(rules.skipKeyword, "不限制跳过关键词"),
+                enabled = rules.skipKeyword.enabled,
+                key = RuleKey.SKIP_KEYWORD,
+                overriddenKeys = overriddenKeys,
+                parentLabel = parentLabel,
+                onActivate = onActivate,
+                onReset = onReset,
+                onEnabledChange = {
+                    onChange(
+                        RuleKey.SKIP_KEYWORD,
+                        rules.copy(skipKeyword = rules.skipKeyword.copy(enabled = it)),
+                    )
+                },
+            )
+            if (rules.skipKeyword.enabled) {
+                AutomationKeywordControls(
+                    rule = rules.skipKeyword,
+                    editable = skipKeywordEditable,
+                    modes = RED_PACKET_KEYWORD_MODES,
+                    onChange = { onChange(RuleKey.SKIP_KEYWORD, rules.copy(skipKeyword = it)) },
                 )
             }
 
@@ -647,6 +682,7 @@ internal object RedPacketSettings {
         title: String,
         summary: String,
         enabled: Boolean,
+        switchEnabled: Boolean = true,
         key: RuleKey,
         overriddenKeys: Set<RuleKey>?,
         parentLabel: String,
@@ -662,7 +698,8 @@ internal object RedPacketSettings {
             parentLabel = parentLabel,
             onActivate = { onActivate(key) },
             onReset = { onReset(key) },
-            onEnabledChange = onEnabledChange
+            onEnabledChange = onEnabledChange,
+            switchEnabled = switchEnabled,
         )
     }
 
@@ -674,6 +711,7 @@ internal object RedPacketSettings {
             receiveMode = overrides.receiveMode ?: receiveMode,
             timeRange = overrides.timeRange ?: timeRange,
             keyword = overrides.keyword ?: keyword,
+            skipKeyword = overrides.skipKeyword ?: skipKeyword,
             delay = overrides.delay ?: delay,
             notification = overrides.notification ?: notification,
             autoReply = overrides.autoReply ?: autoReply
@@ -686,6 +724,7 @@ internal object RedPacketSettings {
         if (receiveMode != null) add(RuleKey.RECEIVE_MODE)
         if (timeRange != null) add(RuleKey.TIME_RANGE)
         if (keyword != null) add(RuleKey.KEYWORD)
+        if (skipKeyword != null) add(RuleKey.SKIP_KEYWORD)
         if (delay != null) add(RuleKey.DELAY)
         if (notification != null) add(RuleKey.NOTIFICATION)
         if (autoReply != null) add(RuleKey.AUTO_REPLY)
@@ -697,6 +736,7 @@ internal object RedPacketSettings {
         RuleKey.RECEIVE_MODE -> copy(receiveMode = rules.receiveMode)
         RuleKey.TIME_RANGE -> copy(timeRange = rules.timeRange)
         RuleKey.KEYWORD -> copy(keyword = rules.keyword)
+        RuleKey.SKIP_KEYWORD -> copy(skipKeyword = rules.skipKeyword)
         RuleKey.DELAY -> copy(delay = rules.delay)
         RuleKey.NOTIFICATION -> copy(notification = rules.notification)
         RuleKey.AUTO_REPLY -> copy(autoReply = rules.autoReply)
@@ -708,6 +748,7 @@ internal object RedPacketSettings {
         RuleKey.RECEIVE_MODE -> copy(receiveMode = null)
         RuleKey.TIME_RANGE -> copy(timeRange = null)
         RuleKey.KEYWORD -> copy(keyword = null)
+        RuleKey.SKIP_KEYWORD -> copy(skipKeyword = null)
         RuleKey.DELAY -> copy(delay = null)
         RuleKey.NOTIFICATION -> copy(notification = null)
         RuleKey.AUTO_REPLY -> copy(autoReply = null)
@@ -722,6 +763,9 @@ internal object RedPacketSettings {
         }
         if (validates(RuleKey.KEYWORD)) {
             rules.keyword.validationError("关键词")?.let { return it }
+        }
+        if (validates(RuleKey.SKIP_KEYWORD)) {
+            rules.skipKeyword.validationError("不抢关键词")?.let { return it }
         }
         if (validates(RuleKey.AUTO_REPLY) && rules.autoReply.enabled && rules.autoReply.text.isBlank()) {
             return "自动回复内容不能为空"

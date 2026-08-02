@@ -237,6 +237,10 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             val nickName = extractXmlParam(xmlContent, "sendertitle")
 
             if (sendId.isEmpty()) return
+            if (settings.skipKeyword.enabled && settings.skipKeyword.matches(nickName)) {
+                WeLogger.i(TAG, "skipping packet from $sender in $talker: skip keyword matched")
+                return
+            }
             if (!settings.matchesKeyword(nickName)) {
                 WeLogger.i(TAG, "skipping packet from $sender in $talker: keyword did not match")
                 return

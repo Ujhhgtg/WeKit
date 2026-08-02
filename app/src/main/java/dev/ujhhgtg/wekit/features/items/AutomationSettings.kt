@@ -223,19 +223,20 @@ internal fun AutomationRuleHeader(
     parentLabel: String = "",
     onActivate: () -> Unit = {},
     onReset: () -> Unit = {},
-    onEnabledChange: (Boolean) -> Unit
+    onEnabledChange: (Boolean) -> Unit,
+    switchEnabled: Boolean = true,
 ) {
     val editable = isOverridden != false
     val effectiveSummary = if (isOverridden == false) "跟随$parentLabel: $summary" else summary
     ListItem(
         modifier = Modifier.clickable {
-            if (editable) onEnabledChange(!enabled) else onActivate()
+            if (editable && switchEnabled) onEnabledChange(!enabled) else onActivate()
         },
         leadingContent = {
             Switch(
                 checked = enabled,
-                enabled = editable,
-                onCheckedChange = if (editable) onEnabledChange else null
+                enabled = editable && switchEnabled,
+                onCheckedChange = if (editable && switchEnabled) onEnabledChange else null
             )
         },
         content = { Text(title) },
@@ -284,7 +285,8 @@ internal fun AutomationTimeRangeControls(
 internal fun AutomationKeywordControls(
     rule: AutomationKeywordRule,
     editable: Boolean,
-    onChange: (AutomationKeywordRule) -> Unit
+    onChange: (AutomationKeywordRule) -> Unit,
+    modes: List<AutomationKeywordMode> = AutomationKeywordMode.entries,
 ) {
     var pendingKeyword by remember { mutableStateOf("") }
     SingleChoiceSegmentedButtonRow(
@@ -292,12 +294,12 @@ internal fun AutomationKeywordControls(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        AutomationKeywordMode.entries.forEachIndexed { index, mode ->
+        modes.forEachIndexed { index, mode ->
             SegmentedButton(
                 selected = rule.mode == mode,
                 enabled = editable,
                 onClick = { onChange(rule.copy(mode = mode)) },
-                shape = SegmentedButtonDefaults.itemShape(index, AutomationKeywordMode.entries.size)
+                shape = SegmentedButtonDefaults.itemShape(index, modes.size)
             ) {
                 Text(
                     when (mode) {
