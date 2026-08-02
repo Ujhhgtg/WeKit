@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -25,6 +24,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.WeakHashMap
 
@@ -63,9 +63,6 @@ import java.util.WeakHashMap
     description = "聊天界面中单条消息进入屏幕时播放入场动画, 支持弹跳/平移滑入/重力掉落, 可让历史消息全跳动"
 )
 object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
-
-    /** 物理引擎特效 (Geek `key_chat_anim_on`, 默认开) */
-    private var chatAnimOn by prefOption("msg_entrance_on", true)
 
     /**
      * 入场动效风格: 0=弹跳入场 1=平移滑入 2=重力掉落。
@@ -176,7 +173,7 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
             val createTimeMillis =
                 if (createTime in 100_000_000L..10_000_000_000L) createTime * 1000 else createTime
             val isFresh = now - createTimeMillis < FRESH_WINDOW_MS
-            if (chatAnimOn && isFresh) {
+            if (isFresh) {
                 itemView.rootView.setTag(ROOT_TAG_FIRST_FRESH_RENDER, now)
             }
 
@@ -189,7 +186,6 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
 
             // 同一行原地刷新 (进度/状态更新等), 不重复播放
             if (previousMsgId == msgId) return@hookAfter
-            if (!chatAnimOn) return@hookAfter
 
             val shouldAnimate =
                 isFresh || bounceAllOnEnter && now - (itemView.rootView.getTag(ROOT_TAG_FIRST_FRESH_RENDER) as? Long ?: 0L) >=
@@ -325,7 +321,6 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var chatAnimInput by remember { mutableStateOf(chatAnimOn) }
             var styleInput by remember { mutableIntStateOf(entranceStyle) }
             var bounceAllInput by remember { mutableStateOf(bounceAllOnEnter) }
 
@@ -333,18 +328,6 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
                 title = { Text("消息进入动画") },
                 text = {
                     DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                chatAnimInput = !chatAnimInput
-                                chatAnimOn = chatAnimInput
-                            },
-                            trailingContent = {
-                                Switch(checked = chatAnimInput, onCheckedChange = null)
-                            },
-                            supportingContent = { Text("开启物理引擎入场动效, 关则为原生") },
-                            content = { Text("物理引擎特效") },
-                        )
-
                         ListItem(
                             modifier = Modifier.clickable {
                                 styleInput = STYLE_BOUNCE
