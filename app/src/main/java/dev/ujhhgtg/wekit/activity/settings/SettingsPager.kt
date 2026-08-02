@@ -64,6 +64,7 @@ import com.composables.icons.materialsymbols.outlined.Notifications
 import com.composables.icons.materialsymbols.outlined.Palette
 import com.composables.icons.materialsymbols.outlined.Rule_settings
 import com.composables.icons.materialsymbols.outlined.Search
+import com.composables.icons.materialsymbols.outlined.Shield
 import com.composables.icons.materialsymbols.outlined.Style
 import com.composables.icons.materialsymbols.outlined.Sync
 import com.composables.icons.materialsymbols.outlined.Update
@@ -79,6 +80,7 @@ import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
+import dev.ujhhgtg.wekit.features.items.system.SecurityMode
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
@@ -168,6 +170,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
         item {
             MiuixSmallTitle(text = "调试", modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
+                SecuritySwitch(context)
                 PrefSwitch(
                     key = Preferences.VERBOSE_LOG,
                     title = "详细日志",
@@ -614,6 +617,28 @@ private fun PrefIcon(icon: ImageVector) {
         contentDescription = null,
         modifier = Modifier.padding(end = 6.dp),
         tint = MiuixTheme.colorScheme.onBackground,
+    )
+}
+
+@Composable
+private fun SecuritySwitch(context: Context) {
+    var checked by remember { mutableStateOf(SecurityMode.isEnabled) }
+    SwitchPreference(
+        title = SecurityMode.TITLE,
+        summary = SecurityMode.DESCRIPTION,
+        startAction = { PrefIcon(MaterialSymbols.Outlined.Shield) },
+        checked = checked,
+        onCheckedChange = {
+            if (it) {
+                SecurityMode.showEnableConfirmDialog(context) {
+                    checked = true
+                    SecurityMode.setEnabled(true)
+                }
+            } else {
+                checked = false
+                SecurityMode.setEnabled(false)
+            }
+        },
     )
 }
 // ---------------------------------------------------------------------------

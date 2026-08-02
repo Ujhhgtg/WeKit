@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.api.ui.WeSettingsInjector
+import dev.ujhhgtg.wekit.features.items.system.SecurityMode
 import dev.ujhhgtg.wekit.ui.content.DexResolver
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.TargetProcesses
@@ -26,7 +27,20 @@ object FeaturesLoader {
 
     fun loadFeatures() {
         val allFeatures = FeaturesProvider.ALL_HOOK_ITEMS
-        val allDexItems = allFeatures.filterIsInstance<IResolveDex>()
+        val safeMode = SecurityMode.isEnabled
+        val featuresToStart = if (safeMode) {
+            allFeatures.filterIsInstance<ApiFeature>()
+        } else {
+            allFeatures
+        }
+        if (safeMode) {
+            WeLogger.i(
+                TAG,
+                "safe mode active: loading only ${featuresToStart.size} ApiFeature(s), " +
+                    "skipping ${allFeatures.size - featuresToStart.size} feature(s)",
+            )
+        }
+        val allDexItems = featuresToStart.filterIsInstance<IResolveDex>()
 
         val outdatedItems = DexCacheManager.getOutdatedItems(allDexItems)
         val validItems = allDexItems - outdatedItems.toSet()
@@ -43,7 +57,7 @@ object FeaturesLoader {
             handleBrokenItems(allBrokenItems)
 
         val elapsed = measureTime {
-            allFeatures.forEach { feature ->
+            featuresToStart.forEach { feature ->
                 val isBroken = feature is IResolveDex && allBrokenItems.contains(feature)
 
                 if (isBroken && feature !is WeSettingsInjector) {

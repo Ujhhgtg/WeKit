@@ -42,6 +42,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Fiber_new
 import com.composables.icons.materialsymbols.outlined.Info
 import com.composables.icons.materialsymbols.outlined.Settings
+import com.composables.icons.materialsymbols.outlined.Shield
 import com.composables.icons.materialsymbols.outlined.Style
 import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Volunteer_activism
@@ -55,6 +56,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.items.system.SecurityMode
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCountAndChevron
@@ -244,6 +246,11 @@ private fun NukeHomePage(
             }
             if (query.isBlank()) {
                 item(key = "account") { NukeCurrentAccountCard() }
+                item(key = "security") {
+                    NukeSettingGroup(title = "安全") {
+                        SecurityModeNukeRow()
+                    }
+                }
                 nukeFeatureCategoryGroups(featureEntries).forEachIndexed { index, entries ->
                     item(key = "feature_group_$index") {
                         NukeRootEntryGroup(
@@ -279,6 +286,33 @@ private fun NukeHomePage(
             }
         }
     }
+}
+
+@Composable
+private fun SecurityModeNukeRow() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var checked by remember { mutableStateOf(SecurityMode.isEnabled) }
+    NukePreferenceRow(
+        title = SecurityMode.TITLE,
+        description = SecurityMode.DESCRIPTION,
+        leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Shield) },
+        trailing = {
+            NukeSwitch(
+                checked = checked,
+                onCheckedChange = {
+                    if (it) {
+                        SecurityMode.showEnableConfirmDialog(context) {
+                            checked = true
+                            SecurityMode.setEnabled(true)
+                        }
+                    } else {
+                        checked = false
+                        SecurityMode.setEnabled(false)
+                    }
+                },
+            )
+        },
+    )
 }
 
 @Composable
