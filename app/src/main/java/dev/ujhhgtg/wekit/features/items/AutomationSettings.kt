@@ -303,9 +303,9 @@ internal fun AutomationKeywordControls(
             ) {
                 Text(
                     when (mode) {
-                        AutomationKeywordMode.STRING_LIST -> "字符串列表"
-                        AutomationKeywordMode.EXACT -> "完全匹配"
-                        AutomationKeywordMode.REGEX -> "正则表达式"
+                        AutomationKeywordMode.STRING_LIST -> "包含"
+                        AutomationKeywordMode.EXACT -> "相等"
+                        AutomationKeywordMode.REGEX -> "Regex"
                     }
                 )
             }
