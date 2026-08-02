@@ -68,6 +68,7 @@ internal data class AutomationTimeRangeRule(
 @Serializable
 internal enum class AutomationKeywordMode {
     STRING_LIST,
+    EXACT,
     REGEX
 }
 
@@ -76,19 +77,23 @@ internal data class AutomationKeywordRule(
     val enabled: Boolean = false,
     val mode: AutomationKeywordMode = AutomationKeywordMode.STRING_LIST,
     val strings: List<String> = emptyList(),
-    val regex: String = ""
+    val regex: String = "",
+    val ignoreCase: Boolean = false,
 ) {
     fun matches(text: String): Boolean {
         if (!enabled) return true
+        val keywords = strings
+            .asSequence()
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .toList()
         return when (mode) {
-            AutomationKeywordMode.STRING_LIST -> strings
-                .asSequence()
-                .map(String::trim)
-                .filter(String::isNotEmpty)
-                .any { text.contains(it) }
+            AutomationKeywordMode.STRING_LIST -> keywords.any { text.contains(it, ignoreCase) }
+            AutomationKeywordMode.EXACT -> keywords.any { text.equals(it, ignoreCase) }
 
             AutomationKeywordMode.REGEX -> runCatching {
-                Regex(regex).containsMatchIn(text)
+                Regex(regex, if (ignoreCase) setOf(RegexOption.IGNORE_CASE) else emptySet())
+                    .containsMatchIn(text)
             }.getOrDefault(false)
         }
     }
@@ -96,7 +101,7 @@ internal data class AutomationKeywordRule(
     fun validationError(label: String): String? {
         if (!enabled) return null
         return when (mode) {
-            AutomationKeywordMode.STRING_LIST ->
+            AutomationKeywordMode.STRING_LIST, AutomationKeywordMode.EXACT ->
                 if (strings.none(String::isNotBlank)) "${label}字符串列表不能为空" else null
 
             AutomationKeywordMode.REGEX -> when {
@@ -294,11 +299,30 @@ internal fun AutomationKeywordControls(
                 onClick = { onChange(rule.copy(mode = mode)) },
                 shape = SegmentedButtonDefaults.itemShape(index, AutomationKeywordMode.entries.size)
             ) {
-                Text(if (mode == AutomationKeywordMode.STRING_LIST) "字符串列表" else "正则表达式")
+                Text(
+                    when (mode) {
+                        AutomationKeywordMode.STRING_LIST -> "字符串列表"
+                        AutomationKeywordMode.EXACT -> "完全匹配"
+                        AutomationKeywordMode.REGEX -> "正则表达式"
+                    }
+                )
             }
         }
     }
-    if (rule.mode == AutomationKeywordMode.STRING_LIST) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("忽略大小写", modifier = Modifier.weight(1f))
+        Switch(
+            checked = rule.ignoreCase,
+            enabled = editable,
+            onCheckedChange = { onChange(rule.copy(ignoreCase = it)) }
+        )
+    }
+    if (rule.mode == AutomationKeywordMode.STRING_LIST || rule.mode == AutomationKeywordMode.EXACT) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -381,7 +405,7 @@ internal fun automationKeywordSummary(rule: AutomationKeywordRule, unrestrictedT
     if (!rule.enabled) return unrestrictedText
     return when (rule.mode) {
         AutomationKeywordMode.STRING_LIST -> "匹配字符串列表中的任意一项 (${rule.strings.size})"
+        AutomationKeywordMode.EXACT -> "完全匹配字符串列表中的任意一项 (${rule.strings.size})"
         AutomationKeywordMode.REGEX -> if (rule.regex.isBlank()) "尚未填写正则表达式" else "匹配单个正则表达式"
     }
 }
-
