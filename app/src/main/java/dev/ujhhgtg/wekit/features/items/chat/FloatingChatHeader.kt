@@ -444,11 +444,12 @@ object FloatingChatHeader : ClickableFeature() {
         WeLogger.d(TAG, "reparented title bar onto chat root (topOffset=${headerTopOffsets[layout]})")
     }
 
-    /** 圆角 / 裁剪 / 阴影, 与悬浮输入框同一套绘制属性; 标题栏和标题区挂件共用。 */
+    /** 圆角 / 裁剪 / 阴影 / 暗色浮层, 与悬浮输入框同一套绘制属性; 标题栏和标题区挂件共用。 */
     private fun applyCardStyle(view: View) {
         val style = HeaderStyle(cornerRadiusDp, elevationDp)
         val density = view.resources.displayMetrics.density
         val expectedElevation = elevationDp * density
+        FloatingChatCardVisuals.applyDarkSurface(view, cornerRadiusDp)
         // 半屏路径微信会在展开动画结束时清掉 ActionBarContainer 的 outline (m.a()),
         // 只按样式缓存判断会漏掉这次恢复, 所以 outline/elevation 被微信改掉时也要重刷。
         if (headerStyles[view] == style &&
@@ -479,6 +480,7 @@ object FloatingChatHeader : ClickableFeature() {
      */
     private fun applyTipsBarCardStyle(group: View) {
         val style = HeaderStyle(cornerRadiusDp, elevationDp)
+        FloatingChatCardVisuals.applyDarkSurface(group, cornerRadiusDp)
         if (tipsBarStyles[group] != style) {
             val density = group.resources.displayMetrics.density
             group.outlineProvider = group.outlineProvider as? TipsBarCardOutline
@@ -810,6 +812,7 @@ object FloatingChatHeader : ClickableFeature() {
             }
             return
         }
+        FloatingChatCardVisuals.applyDarkSurface(body, cornerRadiusDp)
         // 早退 2: 找不到内容列表 (MaxHeightWxRecyclerView), 保留原生布局。
         val recycler = tipsBarRecycler(group) ?: return
         // 早退 3: 只对置顶消息行 (s4.xml 结构) 生效; 直播等其它提示条共用同一组件, 不碰。

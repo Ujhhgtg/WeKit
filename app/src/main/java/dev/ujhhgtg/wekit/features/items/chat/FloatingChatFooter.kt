@@ -537,7 +537,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             return null
         }
 
-    /** 设置 outline / 圆角裁剪 / 阴影 —— 全是不依赖 LayoutParams 的绘制属性, 可重复调用。 */
+    /** 设置 outline / 圆角裁剪 / 阴影 / 暗色浮层 —— 全是不依赖 LayoutParams 的绘制属性, 可重复调用。 */
     private fun applyDrawingStyle(footer: ChatFooter) {
         val density = footer.resources.displayMetrics.density
         footer.outlineProvider = object : ViewOutlineProvider() {
@@ -549,6 +549,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         }
         footer.clipToOutline = true
         footer.elevation = elevationDp * density
+        FloatingChatCardVisuals.applyDarkSurface(footer, cornerRadiusDp)
         if (!movePanelAbove) trackOutlineWhileScrolling(footer)
         WeLogger.d(TAG, "applied drawing style: corner=${cornerRadiusDp}dp elev=${elevationDp}dp")
     }
