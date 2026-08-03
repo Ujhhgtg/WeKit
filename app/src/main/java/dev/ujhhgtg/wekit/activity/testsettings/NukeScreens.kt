@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -525,10 +526,14 @@ internal fun NukeFeatureRow(
     }
     val configurable = feature as? ClickableFeature
 
+    DisposableEffect(feature.name) {
+        feature.setToggleCompletionCallback { onStateChanged() }
+        onDispose {}
+    }
+
     fun toggle(requested: Boolean) {
         if (feature.onBeforeToggle(requested, activity)) {
             feature.applyToggle(requested)
-            onStateChanged()
         }
     }
 
