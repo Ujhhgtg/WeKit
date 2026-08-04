@@ -71,7 +71,7 @@ object PredictiveBackGestures : ClickableFeature() {
      * host ActivityInfo receives the predictive-back flags for the Activity it will instantiate.
      */
     private fun isModuleActivity(info: ActivityInfo, intent: Intent? = null): Boolean =
-        info.name.startsWith(PackageNames.MODULE) ||
+        info.name?.startsWith(PackageNames.MODULE) == true ||
             intent?.component?.className?.startsWith(PackageNames.MODULE) == true
 
     private fun applyFlag(info: ActivityInfo) {
