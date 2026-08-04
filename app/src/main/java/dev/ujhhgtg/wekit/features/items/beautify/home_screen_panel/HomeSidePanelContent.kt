@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -93,6 +94,9 @@ internal fun weatherCardSnapshot(state: WeatherUiState): WeatherSnapshot? = when
 
 internal fun hitokotoCardErrorMessage(state: HitokotoUiState): String? =
     (state as? HitokotoUiState.Error)?.message
+
+internal fun homeSidePanelProfileDisplayName(profile: HomeSidePanelProfile): String =
+    profile.nickname.ifBlank { "微信用户" }
 
 internal fun homeSidePanelAttribution(author: String?, source: String?): String? {
     val normalizedAuthor = author?.trim()?.takeIf(String::isNotEmpty)
@@ -174,12 +178,7 @@ private fun HomeSidePanelProfileHeader(
             }
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(profile.nickname.ifBlank { "微信用户" }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text(
-                text = profile.wxId.ifBlank { "微信账号" },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text(homeSidePanelProfileDisplayName(profile), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             HomeSidePanelStatus(profile.status, controller)
         }
     }
@@ -225,14 +224,16 @@ private fun HomeSidePanelWeatherCard(
     controller: HomeSidePanelController,
 ) {
     val snapshot = weatherCardSnapshot(weather)
+    val shape = RoundedCornerShape(24.dp)
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(shape)
             .combinedClickable(
                 onClick = controller::refreshWeather,
                 onLongClick = controller::openWeatherSettings,
             ),
-        shape = RoundedCornerShape(24.dp),
+        shape = shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -277,11 +278,13 @@ private fun HomeSidePanelShortcutList(controller: HomeSidePanelController) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
         tiles.forEach { shortcut ->
             val spec = shortcutSpec(shortcut)
+            val shape = RoundedCornerShape(18.dp)
             Card(
                 modifier = Modifier
                     .weight(1f)
+                    .clip(shape)
                     .combinedClickable(onClick = { controller.runShortcut(shortcut) }, onLongClick = null),
-                shape = RoundedCornerShape(18.dp),
+                shape = shape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             ) {
                 Column(
@@ -327,18 +330,22 @@ private fun HomeSidePanelHitokotoCard(
         is HitokotoUiState.Error -> hitokoto.cached
         else -> null
     }
+    val shape = RoundedCornerShape(22.dp)
     Card(
-        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = controller::fetchAnotherHitokoto, onLongClick = controller::openHitokotoSettings),
-        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .combinedClickable(
+                onClick = controller::fetchAnotherHitokoto,
+                onLongClick = controller::openHitokotoSettings,
+            ),
+        shape = shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(MaterialSymbols.Outlined.Format_quote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Text("一言", modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                IconButton(onClick = controller::fetchAnotherHitokoto, modifier = Modifier.size(30.dp)) {
-                    Icon(MaterialSymbols.Outlined.Refresh, contentDescription = "换一句", modifier = Modifier.size(18.dp))
-                }
             }
             Text(
                 text = snapshot?.text ?: if (hitokoto is HitokotoUiState.Error) hitokoto.message else "一言加载中…",
@@ -355,11 +362,18 @@ private fun HomeSidePanelHitokotoCard(
                 }
             }
             if (snapshot != null && (settings.showSource || settings.showAuthor)) {
-                val attribution = listOfNotNull(
-                    snapshot.source?.takeIf { settings.showSource },
-                    snapshot.author?.takeIf { settings.showAuthor },
-                ).joinToString(" · ")
-                if (attribution.isNotBlank()) Text(attribution, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                homeSidePanelAttribution(
+                    author = snapshot.author?.takeIf { settings.showAuthor },
+                    source = snapshot.source?.takeIf { settings.showSource },
+                )?.let { attribution ->
+                    Text(
+                        text = attribution,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End,
+                    )
+                }
             }
         }
     }

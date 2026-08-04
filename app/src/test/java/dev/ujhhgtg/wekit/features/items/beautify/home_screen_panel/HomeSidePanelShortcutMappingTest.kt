@@ -7,6 +7,18 @@ import org.junit.jupiter.api.Test
 class HomeSidePanelShortcutMappingTest {
 
     @Test
+    fun accountHeaderUsesTheNicknameInsteadOfTheWxId() {
+        val profile = HomeSidePanelProfile(
+            wxId = "wxid_should_not_be_rendered",
+            nickname = "真实昵称",
+            avatarUrl = "",
+            status = HomeSidePanelStatusUiState.NoStatus,
+        )
+
+        assertEquals("真实昵称", homeSidePanelProfileDisplayName(profile))
+    }
+
+    @Test
     fun hitokotoAttributionUsesTheApprovedChineseBookTitleFormat() {
         assertEquals("—— 作者「出处」", homeSidePanelAttribution(author = "作者", source = "出处"))
         assertEquals("—— 作者", homeSidePanelAttribution(author = "作者", source = null))
