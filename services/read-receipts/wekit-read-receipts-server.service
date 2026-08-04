@@ -8,8 +8,8 @@ Wants=network-online.target
 Type=simple
 User=ujhhgtg
 Group=ujhhgtg
-WorkingDirectory=/home/ujhhgtg/coding/WeKit/contrib/wekit-read-receipts-server
-ExecStart=/home/ujhhgtg/coding/WeKit/contrib/wekit-read-receipts-server/target/release/wekit-read-receipts-server
+WorkingDirectory=/home/ujhhgtg/coding/WeKit/services/read-receipts
+ExecStart=/home/ujhhgtg/coding/WeKit/services/read-receipts/target/release/wekit-read-receipts-server
 
 Environment=RUST_LOG=info
 Environment=BIND_ADDR=0.0.0.0
@@ -26,7 +26,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
 # read_receipts.db is written in WorkingDirectory, so allow writes there:
-ReadWritePaths=/home/ujhhgtg/coding/WeKit/contrib/wekit-read-receipts-server
+ReadWritePaths=/home/ujhhgtg/coding/WeKit/services/read-receipts
 PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

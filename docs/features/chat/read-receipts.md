@@ -69,7 +69,7 @@ sudo apt install build-essential pkg-config libssl-dev
 
 ```bash
 git clone https://github.com/Ujhhgtg/WeKit.git
-cd ./WeKit/contrib/wekit-read-receipts-server
+cd ./WeKit/services/read-receipts
 cargo run --release
 ```
 
