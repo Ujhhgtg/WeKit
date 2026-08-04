@@ -1,16 +1,33 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import androidx.activity.ComponentActivity
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
-import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 
 @Feature(name = "引用消息直达", categories = ["聊天"], description = "点击被引用消息时直接跳转至对应消息")
-object QuotedMessageDirectJump : SwitchFeature(), IResolveDex {
+object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
+
+    private var messageListDirectJump by prefOption("chat_quoted_direct_jump_message_list", true)
+    private var inputBoxDirectJump by prefOption("chat_quoted_direct_jump_input_box", true)
 
     private val methodClickEvent by dexMethod {
         searchPackages("com.tencent.mm.ui.chatting.viewitems")
@@ -58,6 +75,10 @@ object QuotedMessageDirectJump : SwitchFeature(), IResolveDex {
 
     override fun onEnable() {
         methodClickEvent.hookBefore {
+            val isInputBox = args[1] == null
+            val shouldDirectJump = if (isInputBox) inputBoxDirectJump else messageListDirectJump
+            if (!shouldDirectJump) return@hookBefore
+
             val chattingContext = args[0]
             val view = args[2]
             val longValue = args[3]
@@ -65,7 +86,7 @@ object QuotedMessageDirectJump : SwitchFeature(), IResolveDex {
             val msgQuoteItem = args[5]
             val chattingItemHolder = args[7]!!
             val chattingItem = chattingItemHolder.reflekt()
-                .firstField { type { it != String::class.java } }.get()!!
+                .firstField { type { it != String::class.java } }.get()
             val mGetQuoteMessageInfo = methodGetQuoteMessageInfo.method
             var msgInfo: Any
             if (mGetQuoteMessageInfo.parameterCount == 6) {
@@ -114,6 +135,43 @@ object QuotedMessageDirectJump : SwitchFeature(), IResolveDex {
                 )
             }
             result = null
+        }
+    }
+
+    override fun onClick(context: ComponentActivity) {
+        showComposeDialog(context) {
+            var messageList by remember { mutableStateOf(messageListDirectJump) }
+            var inputBox by remember { mutableStateOf(inputBoxDirectJump) }
+
+            AlertDialogContent(
+                title = { Text("引用消息直达") },
+                text = {
+                    DefaultColumn {
+                        ListItem(
+                            modifier = Modifier.clickable {
+                                messageList = !messageList
+                                messageListDirectJump = messageList
+                            },
+                            trailingContent = {
+                                Switch(checked = messageList, onCheckedChange = null)
+                            },
+                            supportingContent = { Text("点击聊天消息中的被引用消息时, 直接跳转到原消息") },
+                            content = { Text("消息列表引用直达") },
+                        )
+                        ListItem(
+                            modifier = Modifier.clickable {
+                                inputBox = !inputBox
+                                inputBoxDirectJump = inputBox
+                            },
+                            trailingContent = {
+                                Switch(checked = inputBox, onCheckedChange = null)
+                            },
+                            supportingContent = { Text("点击输入框底部的被引用消息时, 直接跳转到原消息") },
+                            content = { Text("输入框引用直达") },
+                        )
+                    }
+                },
+            )
         }
     }
 }

@@ -67,8 +67,9 @@
   do not rerun it for unrelated changes when no Dex declarations or resolution steps changed.
   Rerun the affected supported APK versions after changing `dexMethod`, `dexClass`, `dexField`,
   inline matchers, or the corresponding `resolveDex`/`resolveInlineDex` logic.
-- Before reporting a Dex resolver change as complete, run the affected desktop tests plus the
-  relevant Gradle tests, `./x build`, and `git diff --check`.
+- Before reporting a Dex resolver change as complete, run the affected desktop tests plus any
+  relevant existing or qualifying Gradle tests (as defined under Testing Strategy), `./x build`,
+  and `git diff --check`.
 
 ### Desktop-safe Dex resolver rules
 
@@ -99,6 +100,18 @@
   cache. Expect one device re-resolution after such a change; never retain or hand-edit an old
   hash to suppress it. Avoid unrelated formatting/refactors in resolver and inline matcher bodies
   when a cache invalidation is not intended.
+
+## Testing Strategy
+
+- TDD and new automated tests are allowed only when all core logic under test lives in WeKit,
+  has low coupling to WeChat, and does not depend on WeChat host classes, runtime state, UI, or
+  behavior.
+- If work does not meet all of those conditions, do not use TDD and do not add low-value tests
+  merely to satisfy a testing workflow. Host hooks, reflection/DexKit glue, and host UI behavior
+  are normally in this category.
+- Use `./x dex-test` for automated Dex resolution validation as documented above. Apart from Dex
+  resolution, manual testing in the real WeChat host is the primary behavioral test method;
+  desktop JVM or Gradle tests do not replace it.
 
 ## Key Conventions
 
