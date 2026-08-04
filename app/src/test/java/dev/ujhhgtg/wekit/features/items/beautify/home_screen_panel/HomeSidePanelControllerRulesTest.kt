@@ -80,7 +80,22 @@ class HomeSidePanelControllerRulesTest {
         controller.openHitokotoSettings()
         assertEquals(HomeSidePanelCardMode.HITOKOTO_SETTINGS, controller.uiState.value.cardMode)
         controller.runShortcut(HomeSidePanelShortcut.SCAN)
+        assertEquals(listOf("close"), navigator.events)
+        navigator.finishClose()
         assertEquals(listOf("close", "SCAN"), navigator.events)
+        controller.close()
+    }
+
+    @Test
+    fun clearUnreadExecutesImmediatelyAndIgnoresCloseCompletion() {
+        val navigator = RecordingNavigator()
+        val controller = fixtureController(navigator = navigator)
+
+        controller.runShortcut(HomeSidePanelShortcut.MARK_ALL_READ)
+
+        assertEquals(listOf("close", "MARK_ALL_READ"), navigator.events)
+        navigator.finishClose()
+        assertEquals(listOf("close", "MARK_ALL_READ"), navigator.events)
         controller.close()
     }
 
@@ -333,13 +348,20 @@ private class FixtureLocationResolver : HomeSidePanelLocationResolver {
 
 private class RecordingNavigator : HomeSidePanelNavigator {
     val events = mutableListOf<String>()
+    private var afterClosed: (() -> Unit)? = null
 
-    override fun closePanel() {
+    override fun closePanel(afterClosed: (() -> Unit)?) {
         events += "close"
+        this.afterClosed = afterClosed
     }
 
     override fun openShortcut(shortcut: HomeSidePanelShortcut) {
         events += shortcut.name
+    }
+
+    fun finishClose() {
+        afterClosed?.invoke()
+        afterClosed = null
     }
 }
 

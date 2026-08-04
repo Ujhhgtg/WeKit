@@ -11,7 +11,7 @@ enum class HomeSidePanelShortcut {
 }
 
 interface HomeSidePanelNavigator {
-    fun closePanel()
+    fun closePanel(afterClosed: (() -> Unit)? = null)
 
     fun openShortcut(shortcut: HomeSidePanelShortcut)
 }

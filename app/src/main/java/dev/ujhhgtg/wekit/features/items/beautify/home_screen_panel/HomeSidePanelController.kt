@@ -218,8 +218,12 @@ class HomeSidePanelController(
     }
 
     fun runShortcut(shortcut: HomeSidePanelShortcut) {
-        navigator.closePanel()
-        navigator.openShortcut(shortcut)
+        if (homeSidePanelShortcutWaitsForClose(shortcut)) {
+            navigator.closePanel { navigator.openShortcut(shortcut) }
+        } else {
+            navigator.closePanel()
+            navigator.openShortcut(shortcut)
+        }
     }
 
     fun close() {

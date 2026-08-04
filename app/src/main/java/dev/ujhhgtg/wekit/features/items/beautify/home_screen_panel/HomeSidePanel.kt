@@ -420,7 +420,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             locationResolver = AndroidHomeSidePanelLocationResolver(cityIndex),
             navigator = HomeSidePanelHostNavigator(
                 activity = activity,
-                closePanel = { close(animated = true) },
+                closePanel = { afterClosed -> close(animated = true, afterClosed = afterClosed) },
                 ioScope = controllerScope,
             ),
             scope = controllerScope,
@@ -598,6 +598,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
 
         fun consumeBack(): Boolean {
+            if (controller.consumeSettingsBack()) return true
             if (!homeSidePanelShouldConsumeMoveTaskToBack(renderedProgress, dragging, gesture.isTracking)) {
                 return false
             }
@@ -605,7 +606,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             return true
         }
 
-        fun close(animated: Boolean) {
+        fun close(animated: Boolean, afterClosed: (() -> Unit)? = null) {
             val from = renderedProgress
             animator?.cancel()
             animator = null
@@ -613,9 +614,10 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             parent.requestDisallowInterceptTouchEvent(false)
             gesture.close()
             if (animated) {
-                animateTo(0f, from)
+                animateTo(0f, from, afterClosed)
             } else {
                 applyProgress(0f)
+                afterClosed?.invoke()
             }
         }
 
@@ -798,12 +800,17 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             if (renderedProgress > CLOSED_EPSILON) overlayRoot.visibility = View.VISIBLE
         }
 
-        private fun animateTo(target: Float, from: Float = renderedProgress) {
+        private fun animateTo(
+            target: Float,
+            from: Float = renderedProgress,
+            afterClosed: (() -> Unit)? = null,
+        ) {
             animator?.cancel()
             animator = null
             if (kotlin.math.abs(from - target) < 0.001f) {
                 gesture.snapTo(target)
                 applyProgress(target)
+                afterClosed?.invoke()
                 return
             }
             overlayRoot.visibility = View.VISIBLE
@@ -826,6 +833,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                         gesture.snapTo(target)
                         applyProgress(target)
                         if (animator === animation) animator = null
+                        afterClosed?.invoke()
                     }
                 })
                 start()
@@ -1109,11 +1117,11 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
 
 private class HomeSidePanelHostNavigator(
     private val activity: Activity,
-    private val closePanel: () -> Unit,
+    private val closePanel: ((() -> Unit)?) -> Unit,
     private val ioScope: CoroutineScope,
 ) : HomeSidePanelNavigator {
 
-    override fun closePanel() = closePanel.invoke()
+    override fun closePanel(afterClosed: (() -> Unit)?) = closePanel.invoke(afterClosed)
 
     override fun openShortcut(shortcut: HomeSidePanelShortcut) {
         when (shortcut) {
