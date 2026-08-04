@@ -128,8 +128,8 @@ private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|
 private class ScannedSource(
     val text: String,
     private val codeMask: BooleanArray,
-    private val source: String,
     private val sourceIndices: IntArray,
+    private val sourceLineNumbers: IntArray,
 ) {
     val length: Int get() = text.length
 
@@ -166,7 +166,7 @@ private class ScannedSource(
         return depth
     }
 
-    fun sourceLineAt(index: Int): Int = source.take(sourceIndices[index]).count { it == '\n' } + 1
+    fun sourceLineAt(index: Int): Int = sourceLineNumbers[sourceIndices[index]]
 
     fun findCode(regex: Regex): MatchResult? = regex.findAll(text).firstOrNull { codeMask[it.range.first] }
     fun findAllCode(regex: Regex): List<MatchResult> = regex.findAll(text).filter { codeMask[it.range.first] }.toList()
@@ -190,6 +190,12 @@ private fun stripCommentsPreservingStrings(source: String): ScannedSource {
     val text = StringBuilder(source.length)
     val codeMask = BooleanArray(source.length)
     val sourceIndices = IntArray(source.length)
+    val sourceLineNumbers = IntArray(source.length)
+    var sourceLine = 1
+    source.forEachIndexed { index, char ->
+        sourceLineNumbers[index] = sourceLine
+        if (char == '\n') sourceLine++
+    }
 
     fun emit(char: Char, isCode: Boolean, sourceIndex: Int) {
         codeMask[text.length] = isCode
@@ -336,5 +342,10 @@ private fun stripCommentsPreservingStrings(source: String): ScannedSource {
             }
         }
     }
-    return ScannedSource(text.toString(), codeMask.copyOf(text.length), source, sourceIndices.copyOf(text.length))
+    return ScannedSource(
+        text.toString(),
+        codeMask.copyOf(text.length),
+        sourceIndices.copyOf(text.length),
+        sourceLineNumbers,
+    )
 }

@@ -130,6 +130,8 @@ class DexResolverSourceScannerTest {
         )!!
 
         assertEquals(6, findDesktopIncompatibleAccesses(source).single().line)
+        val block = source.blocks.single()
+        assertEquals(6, source.sourceLinesByBlock[block]!![block.text.indexOf("classOwner.clazz")])
     }
 
     private companion object {
