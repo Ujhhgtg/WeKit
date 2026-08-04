@@ -4,6 +4,7 @@ import android.content.Context
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -76,8 +77,8 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     }
     val classImageFeatureService by dexClass {
         matcher {
-            addFieldForType(classImageInfoStorage.clazz)
-            addFieldForType(methodDownloadImageServiceDownloadImage.method.declaringClass)
+            addFieldForType(classImageInfoStorage.data.name)
+            addFieldForType(methodDownloadImageServiceDownloadImage.data.declaredClassName)
         }
     }
     private val methodApiManagerGetApi by dexMethod {

@@ -8,6 +8,7 @@ import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
@@ -39,7 +40,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
     private val methodGetStorage by dexMethod {
         matcher {
-            declaredClass(classMmKernel.clazz)
+            declaredClass(classMmKernel.data.name)
             modifiers = Modifier.PUBLIC or Modifier.STATIC
             paramCount = 0
             usingStrings("mCoreStorage not initialized!")

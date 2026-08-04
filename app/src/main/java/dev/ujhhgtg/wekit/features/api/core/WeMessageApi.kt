@@ -25,9 +25,11 @@ import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.cacheFile
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.downloadFile
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -212,7 +214,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
     val methodMsgInfoStorageInsertMessage by dexMethod {
         matcher {
-            declaredClass(classMsgInfoStorage.clazz)
+            declaredClass(classMsgInfoStorage.data.name)
             usingEqStrings("MsgInfo processAddMsg insert db error")
         }
     }
@@ -237,7 +239,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
     val methodGetIsTransformed by dexMethod {
         matcher {
-            declaredClass(classMsgInfo.clazz)
+            declaredClass(classMsgInfo.data.name)
             usingNumbers(64, 0)
             usingFields {
                 add {
@@ -322,7 +324,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
     private val methodMmKernelGetStorage by dexMethod(allowMultiple = true) {
         matcher {
-            declaredClass(classMmKernel.clazz)
+            declaredClass(classMmKernel.data.name)
             modifiers = Modifier.PUBLIC or Modifier.STATIC
             paramCount = 0
             usingStrings("mCoreStorage not initialized!")
@@ -475,18 +477,19 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
         methodImageSendEntry.find(dexKit) {
             matcher {
-                declaredClass(classImageSender.clazz)
+                declaredClass(classImageSender.data.name)
                 modifiers = Modifier.PUBLIC or Modifier.STATIC or Modifier.FINAL
                 paramCount(4, 5)
                 usingEqStrings("send_mid_size", "send_hevc_mid_size")
             }
         }
 
-        val taskClassName = methodImageSendEntry.method.parameterTypes[1]
-        classImageTask.setDescriptor(taskClassName.name)
+        val taskClassName = methodImageSendEntry.data.paramTypeNames[1]
+        classImageTask.setDescriptor(taskClassName)
 
-        if (HostInfo.versionCode >= WeChatVersions.MM_8_0_67 && !HostInfo.isHostGooglePlay ||
-            HostInfo.versionCode >= WeChatVersions.MM_8_0_66_PLAY && HostInfo.isHostGooglePlay
+        val host = DexResolutionContext.host
+        if (host.versionCode >= WeChatVersions.MM_8_0_67 && !host.isGooglePlay ||
+            host.versionCode >= WeChatVersions.MM_8_0_66_PLAY && host.isGooglePlay
         ) {
             methodImgUploadFeatureServiceSendImage.find(dexKit) {
                 matcher {
@@ -537,8 +540,8 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         }
 
-        val targetInterface = classVoiceServiceImpl.clazz.interfaces.first {
-            !it.isBuiltin && !it.name.startsWith("ki0.")
+        val targetInterface = classVoiceServiceImpl.data.interfaces.first {
+            !it.name.startsWith("ki0.")
         }
         classVoiceServiceInterface.setDescriptor(targetInterface.name)
     }
@@ -595,7 +598,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 usingEqStrings("MicroMsg.MsgInfoStorage", "build new index last %d")
             }
             paramTypes(BString, long)
-            returnType(classMsgInfo.clazz)
+            returnType(classMsgInfo.data.name)
             usingEqStrings("msgSvrId=?")
         }
     }
@@ -1835,7 +1838,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     private val methodToggleMessageSelection by dexMethod {
         matcher {
-            declaredClass(classChattingDataAdapter.clazz)
+            declaredClass(classChattingDataAdapter.data.name)
             usingNumbers(100)
             usingEqStrings("msgIdTalker")
             returnType(bool)
