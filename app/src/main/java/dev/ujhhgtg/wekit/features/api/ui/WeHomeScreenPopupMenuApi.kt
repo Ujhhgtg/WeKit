@@ -10,6 +10,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -90,7 +91,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
         searchPackages("com.tencent.mm.ui")
         matcher {
             addFieldForType(bool)
-            addFieldForType(classMenuItemData.clazz)
+            addFieldForType(classMenuItemData.data.name)
         }
     }
 

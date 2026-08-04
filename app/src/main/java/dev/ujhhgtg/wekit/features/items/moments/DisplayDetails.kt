@@ -24,6 +24,7 @@ import com.tencent.mm.ui.widget.imageview.WeImageView
 import com.tencent.mm.view.recyclerview.WxRecyclerView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -257,42 +258,42 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
 
     private val fieldInteractionSnsInfo by dexField {
         matcher {
-            declaredClass(classImproveInteractionLayout.clazz)
-            type(classImproveSnsInfo.clazz)
+            declaredClass(classImproveInteractionLayout.data.name)
+            type(classImproveSnsInfo.data.name)
         }
     }
 
     private val fieldSnsId by dexField {
         matcher {
-            declaredClass(classImproveSnsInfo.clazz.superclass!!)
+            declaredClass(classImproveSnsInfo.data.superClass!!.name)
             name = "field_snsId"
         }
     }
 
     private val fieldUserName by dexField {
         matcher {
-            declaredClass(classImproveSnsInfo.clazz.superclass!!)
+            declaredClass(classImproveSnsInfo.data.superClass!!.name)
             name = "field_userName"
         }
     }
 
     private val fieldCreateTime by dexField {
         matcher {
-            declaredClass(classImproveSnsInfo.clazz.superclass!!)
+            declaredClass(classImproveSnsInfo.data.superClass!!.name)
             name = "field_createTime"
         }
     }
 
     private val fieldType by dexField {
         matcher {
-            declaredClass(classImproveSnsInfo.clazz.superclass!!)
+            declaredClass(classImproveSnsInfo.data.superClass!!.name)
             name = "field_type"
         }
     }
 
     private val methodGetTimeString by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classImproveSnsInfo.clazz)
+            declaredClass(classImproveSnsInfo.data.name)
             usingEqStrings("getTimeString")
         }
     }

@@ -19,6 +19,7 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
@@ -112,22 +113,22 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val fieldInteractionSnsInfo by dexField {
         matcher {
-            declaredClass(classImproveInteractionLayout.clazz)
-            type(classImproveSnsInfo.clazz)
+            declaredClass(classImproveInteractionLayout.data.name)
+            type(classImproveSnsInfo.data.name)
         }
     }
 
     // --- end used by AutoMomentsBase ---
     private val methodSendLike by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classSnsService.clazz)
+            declaredClass(classSnsService.data.name)
             modifiers = Modifier.STATIC
             paramTypes(SNS_INFO_CLASS, "int", null, "int")
         }
     }
     private val methodCancelLike by dexMethod {
         matcher {
-            declaredClass(classSnsService.clazz)
+            declaredClass(classSnsService.data.name)
             modifiers = Modifier.STATIC
             paramTypes(String::class.java)
             returnType(Void.TYPE)
@@ -148,7 +149,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         matcher {
             modifiers = Modifier.STATIC
             paramCount(0)
-            returnType(methodGetSnsInfoByLocalId.method.declaringClass)
+            returnType(methodGetSnsInfoByLocalId.data.declaredClassName)
             usingStrings(
                 "com.tencent.mm.plugin.sns.model.SnsCore",
                 "getSnsInfoStorage"
@@ -157,7 +158,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     }
     private val methodGetSnsInfoBySnsId by dexMethod {
         matcher {
-            declaredClass(methodGetSnsInfoByLocalId.method.declaringClass)
+            declaredClass(methodGetSnsInfoByLocalId.data.declaredClassName)
             paramTypes("long")
             returnType(SNS_INFO_CLASS)
             usingStrings("select *,rowid from SnsInfo  where SnsInfo.snsId=")
@@ -195,7 +196,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val ctorUploadPackHelper by dexConstructor {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             paramCount(2)
         }
     }
@@ -203,7 +204,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodCommit by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("commit", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -211,7 +212,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodSetContentDes by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("setContentDes", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -219,7 +220,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodSetSdkId by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("setSdkId", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -227,7 +228,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodSetSdkAppName by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("setSdkAppName", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -235,7 +236,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodSetUploadList by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("setUploadList", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -243,7 +244,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodAddImageMediaObjByPath by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             returnType(bool)
             paramCount(2)
             paramTypes(String::class.java, String::class.java)
@@ -254,7 +255,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodAddSightObjectByPath by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             returnType(bool)
             paramCount(4)
             paramTypes(String::class.java, String::class.java, String::class.java, String::class.java)
@@ -277,7 +278,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     // 媒体上传元素构造器: (path, type)。
     val ctorSnsUploadElement by dexConstructor {
         matcher {
-            declaredClass(classSnsUploadElement.clazz)
+            declaredClass(classSnsUploadElement.data.name)
             paramCount(2)
             paramTypes("java.lang.String", "int")
         }
@@ -291,14 +292,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsBigName by dexMethod {
         matcher {
-            declaredClass(classSnsUtil.clazz)
+            declaredClass(classSnsUtil.data.name)
             usingEqStrings("getSnsBigName")
         }
     }
 
     val methodGetSnsThumbName by dexMethod {
         matcher {
-            declaredClass(classSnsUtil.clazz)
+            declaredClass(classSnsUtil.data.name)
             usingEqStrings("getSnsThumbName")
         }
     }
@@ -311,7 +312,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetMediaFilePath by dexMethod {
         matcher {
-            declaredClass(classSnsPathHelper.clazz)
+            declaredClass(classSnsPathHelper.data.name)
             usingEqStrings("getMediaFilePath")
         }
     }
@@ -324,14 +325,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsVideoPath by dexMethod {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             usingEqStrings("getSnsVideoPath")
         }
     }
 
     val methodGenCdnMediaId by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             modifiers = Modifier.STATIC
             paramCount(2)
             paramTypes("int", null)
@@ -342,7 +343,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsVideoFullPath by dexMethod {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             modifiers = Modifier.STATIC
             paramCount(2)
             paramTypes(String::class.java, null)
@@ -356,7 +357,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodIsSnsVideoDownloadFinished by dexMethod {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             modifiers = Modifier.STATIC
             paramCount(2)
             paramTypes(String::class.java, null)
@@ -370,7 +371,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsVideoThumbImagePath by dexMethod {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             usingEqStrings("getSnsVideoThumbImagePath")
         }
     }
@@ -383,7 +384,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetAccSnsPath by dexMethod {
         matcher {
-            declaredClass(classSnsCore.clazz)
+            declaredClass(classSnsCore.data.name)
             modifiers = Modifier.STATIC
             paramCount(0)
             returnType(String::class.java)
@@ -393,7 +394,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsVideoService by dexMethod {
         matcher {
-            declaredClass(classSnsCore.clazz)
+            declaredClass(classSnsCore.data.name)
             modifiers = Modifier.STATIC
             paramCount(0)
             usingStrings("getSnsVideoService", "com.tencent.mm.plugin.sns.model.SnsCore")
@@ -402,7 +403,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodDownloadVideo by dexMethod {
         matcher {
-            declaredClass(methodGetSnsVideoService.method.returnType)
+            declaredClass(methodGetSnsVideoService.data.returnTypeName)
             paramCount(7)
             paramTypes(null, "int", "java.lang.String", "boolean", "boolean", "int", "java.lang.String")
             returnType(bool)
@@ -422,7 +423,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     // SnsCore.getSnsDownManager(): 取 DownloadManager 单例, 与 getSnsVideoService 同构。
     val methodGetSnsDownManager by dexMethod {
         matcher {
-            declaredClass(classSnsCore.clazz)
+            declaredClass(classSnsCore.data.name)
             modifiers = Modifier.STATIC
             paramCount(0)
             usingStrings("getSnsDownManager", "com.tencent.mm.plugin.sns.model.SnsCore")
@@ -433,7 +434,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodAddDownLoadSns by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classSnsDownloadManager.clazz)
+            declaredClass(classSnsDownloadManager.data.name)
             paramCount(4)
             returnType(bool)
             usingEqStrings("addDownLoadSns", "com.tencent.mm.plugin.sns.model.DownloadManager")
@@ -528,7 +529,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     private val methodSnsUiActionOnActivityResult by dexMethod {
         matcher {
-            declaredClass(classSnsUiAction.clazz)
+            declaredClass(classSnsUiAction.data.name)
             paramCount(3)
             paramTypes(Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Intent::class.java)
             returnType(Void.TYPE)
@@ -538,7 +539,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     private val methodSnsUploadOnCreate by dexMethod {
         matcher {
-            declaredClass(classSnsUploadUi.clazz)
+            declaredClass(classSnsUploadUi.data.name)
             paramCount(1)
             paramTypes(Bundle::class.java)
             returnType(Void.TYPE)
