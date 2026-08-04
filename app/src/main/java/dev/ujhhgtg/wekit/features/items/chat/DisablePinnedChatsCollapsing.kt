@@ -25,11 +25,15 @@ object DisablePinnedChatsCollapsing : SwitchFeature(), IResolveDex {
 
     override fun onEnable() {
         methodAddCollapseChatItem.hookBefore {
-            WeDatabaseApi.execStatement("DELETE FROM rconversation WHERE username = 'message_fold'")
+            if (WeDatabaseApi.isReady) {
+                WeDatabaseApi.execStatement("DELETE FROM rconversation WHERE username = 'message_fold'")
+            }
             result = null
         }
         methodIfShouldAddCollapseChatItem.hookBefore {
-            WeDatabaseApi.execStatement("DELETE FROM rconversation WHERE username = 'message_fold'")
+            if (WeDatabaseApi.isReady) {
+                WeDatabaseApi.execStatement("DELETE FROM rconversation WHERE username = 'message_fold'")
+            }
             result = false
         }
     }
