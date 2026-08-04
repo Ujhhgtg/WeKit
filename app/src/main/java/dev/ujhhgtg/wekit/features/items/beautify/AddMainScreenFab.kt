@@ -111,10 +111,11 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.killHost
 import dev.ujhhgtg.wekit.utils.restartHost
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.lang.ref.WeakReference
 import java.util.UUID
+import java.util.WeakHashMap
 
 @Feature(name = "主屏幕添加 FAB", categories = ["界面美化"], description = "向微信主屏幕添加浮动操作按钮")
 object AddMainScreenFab : ClickableFeature() {
@@ -142,7 +143,6 @@ object AddMainScreenFab : ClickableFeature() {
 
     private var expanded by mutableStateOf(false)
 
-    /** 位置编辑模式。设置界面通过 [ActivityProxy][dev.ujhhgtg.wekit.loader.utils.n] 运行在微信进程内，因此静态标记即可跨界面共享 */
     private var editMode by mutableStateOf(false)
 
     /** 相对默认锚点的偏移，单位 dp；负值表示向左 / 向上 */
@@ -151,6 +151,9 @@ object AddMainScreenFab : ClickableFeature() {
 
     /** 进入编辑模式时的位置，用于「取消」还原 */
     private var offsetBeforeEdit = 0f to 0f
+    private val hostViews = WeakHashMap<Activity, WeakReference<ComposeView>>()
+
+    internal fun hostViewFor(activity: Activity): ComposeView? = hostViews[activity]?.get()
 
     private class FabMenuEntry(
         val name: String,
@@ -343,8 +346,7 @@ object AddMainScreenFab : ClickableFeature() {
             val lifecycleOwner = LifecycleOwnerProvider.lifecycleOwner
             val root = activity.rootView
 
-            root.addView(
-                ComposeView(activity).apply {
+            val hostView = ComposeView(activity).apply {
                     setLifecycleOwner(lifecycleOwner)
 
                     setContent {
@@ -394,12 +396,11 @@ object AddMainScreenFab : ClickableFeature() {
                                 // 展开方向始终按真实菜单的高度计算，这样编辑模式下预览到的方向就是最终效果。
                                 // 上方放得下就向上展开（默认行为），放不下再考虑向下。
                                 val menuHeight = menuHeightOf(maxOf(menuItems.size, entries.size))
-                                val roomAbove = fabTop
                                 val roomBelow = maxHeight - fabTop - FAB_SIZE
                                 val expandDown = when {
-                                    menuHeight <= roomAbove -> false
+                                    menuHeight <= fabTop -> false
                                     menuHeight <= roomBelow -> true
-                                    else -> roomBelow > roomAbove
+                                    else -> roomBelow > fabTop
                                 }
 
                                 // 菜单与 FAB 都只有一个固定的调用点，展开方向只改变修饰符参数。
@@ -418,7 +419,7 @@ object AddMainScreenFab : ClickableFeature() {
                                         .padding(
                                             start = if (onRight) 0.dp else fabLeft,
                                             end = if (onRight) (maxWidth - fabLeft - FAB_SIZE).coerceAtLeast(0.dp) else 0.dp,
-                                            top = if (expandDown) (fabTop + FAB_SIZE + MENU_GAP) else 0.dp,
+                                            top = if (expandDown) fabTop + FAB_SIZE + MENU_GAP else 0.dp,
                                             bottom = if (expandDown) 0.dp else (maxHeight - fabTop + MENU_GAP).coerceAtLeast(0.dp),
                                         ),
                                     entries = entries,
@@ -445,7 +446,8 @@ object AddMainScreenFab : ClickableFeature() {
                         }
                     }
                 }
-            )
+            root.addView(hostView)
+            hostViews[activity] = WeakReference(hostView)
         }
 
         LauncherUI::class.reflekt().firstMethod("startChatting").hookBefore {
