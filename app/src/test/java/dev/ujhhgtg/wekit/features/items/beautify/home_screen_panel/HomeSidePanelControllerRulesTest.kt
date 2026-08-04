@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import android.app.Activity
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -127,6 +128,28 @@ class HomeSidePanelControllerRulesTest {
     }
 
     @Test
+    fun slowFullProfileReadDoesNotBlockHitokotoPreload() {
+        val identityGate = CompletableDeferred<Unit>()
+        val hitokotoRepository = RecordingHitokotoRepository()
+        val controller = HomeSidePanelController(
+            profileRepository = SlowIdentityProfileRepository(identityGate),
+            weatherRepository = FixtureWeatherRepository(),
+            hitokotoRepository = hitokotoRepository,
+            locationResolver = FixtureLocationResolver(),
+            navigator = RecordingNavigator(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            weatherProfileAccount = { "wxid" },
+            setWeatherProfileAccount = {},
+        )
+
+        controller.startPreload()
+
+        assertEquals(1, hitokotoRepository.fetchCount)
+        identityGate.complete(Unit)
+        controller.close()
+    }
+
+    @Test
     fun locationAndSearchCallbacksHaveFreshnessGuards() {
         assertEquals(false, homeSidePanelShouldStartLocationDetection(actionInProgress = true))
         assertEquals(true, homeSidePanelShouldStartLocationDetection(actionInProgress = false))
@@ -168,11 +191,32 @@ private class FixtureProfileRepository(
     },
     cityIndex = UnusedControllerCityIndex,
 ) {
+    override suspend fun loadAccountId(): String = profile.wxId
+
     override suspend fun loadIdentity(): HomeSidePanelProfile = profile
 
     override suspend fun refreshStatus(): HomeSidePanelStatusUiState = profile.status
 
     override suspend fun readWeatherCityFromProfile(): WeatherCityMatchResult = profileCityResult
+}
+
+private class SlowIdentityProfileRepository(
+    private val identityGate: CompletableDeferred<Unit>,
+) : HomeSidePanelProfileRepository(
+    statusReader = object : HomeSidePanelTextStatusReader {
+        override fun read(wxId: String): HomeSidePanelStatusUiState = HomeSidePanelStatusUiState.NoStatus
+    },
+    cityIndex = UnusedControllerCityIndex,
+) {
+    override suspend fun loadAccountId(): String = "wxid"
+
+    override suspend fun loadIdentity(): HomeSidePanelProfile {
+        identityGate.await()
+        return HomeSidePanelProfile("wxid", "昵称", "", HomeSidePanelStatusUiState.NoStatus)
+    }
+
+    override suspend fun readWeatherCityFromProfile(): WeatherCityMatchResult =
+        WeatherCityMatchResult.Success(DEFAULT_WEATHER_CITY)
 }
 
 private class FixtureWeatherRepository(

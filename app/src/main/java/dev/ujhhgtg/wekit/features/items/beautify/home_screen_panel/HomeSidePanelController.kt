@@ -53,11 +53,17 @@ class HomeSidePanelController(
         if (!started.compareAndSet(false, true)) return
         scope.launch {
             loadIdentity()
-            prepareWeatherAccount()
-            loadCachedValues()
-            initializeWeatherCityFromProfile()
-            launch { refreshWeatherInternal() }
-            launch { fetchHitokotoInternal(preload = true) }
+        }
+        scope.launch {
+            loadCachedHitokoto()
+            fetchHitokotoInternal(preload = true)
+        }
+        scope.launch {
+            val accountId = loadAccountId()
+            prepareWeatherAccount(accountId)
+            loadCachedWeather()
+            initializeWeatherCityFromProfile(accountId)
+            refreshWeatherInternal()
         }
     }
 
@@ -206,7 +212,7 @@ class HomeSidePanelController(
         scope.coroutineContext.cancel()
     }
 
-    private suspend fun loadCachedValues() {
+    private suspend fun loadCachedWeather() {
         weatherRepository.loadCached()?.let { snapshot ->
             _uiState.update { state ->
                 state.copy(
@@ -215,6 +221,9 @@ class HomeSidePanelController(
                 )
             }
         }
+    }
+
+    private suspend fun loadCachedHitokoto() {
         hitokotoRepository.loadCached()?.let { snapshot ->
             _uiState.update { state ->
                 state.copy(hitokoto = HitokotoUiState.Ready(snapshot))
@@ -238,8 +247,15 @@ class HomeSidePanelController(
         _uiState.update { it.copy(profile = profile) }
     }
 
-    private suspend fun initializeWeatherCityFromProfile() {
-        val accountId = _uiState.value.profile.wxId
+    private suspend fun loadAccountId(): String = try {
+        profileRepository.loadAccountId()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Throwable) {
+        ""
+    }
+
+    private suspend fun initializeWeatherCityFromProfile(accountId: String) {
         if (accountId.isBlank()) return
         if (homeSidePanelWeatherProfileStateBelongsToAccount(weatherProfileAccount(), accountId)) return
         when (val result = profileRepository.readWeatherCityFromProfile()) {
@@ -255,8 +271,7 @@ class HomeSidePanelController(
         setWeatherProfileAccount(accountId)
     }
 
-    private suspend fun prepareWeatherAccount() {
-        val accountId = _uiState.value.profile.wxId
+    private suspend fun prepareWeatherAccount(accountId: String) {
         if (accountId.isBlank()) return
         if (homeSidePanelWeatherProfileStateBelongsToAccount(weatherProfileAccount(), accountId)) return
         weatherRepository.resetForAccount()

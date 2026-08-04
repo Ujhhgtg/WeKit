@@ -17,6 +17,10 @@ open class HomeSidePanelProfileRepository(
     private val cityIndex: HomeSidePanelCityIndex,
 ) {
 
+    open suspend fun loadAccountId(): String = withContext(Dispatchers.IO) {
+        WeApi.selfWxId
+    }
+
     open suspend fun loadIdentity(): HomeSidePanelProfile = withContext(Dispatchers.IO) {
         val wxId = WeApi.selfWxId
         val nickname = WeDatabaseApi.getSelfProfileField(SelfProfileField.NAME, "")
