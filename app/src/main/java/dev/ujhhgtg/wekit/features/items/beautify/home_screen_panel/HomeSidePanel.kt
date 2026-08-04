@@ -51,6 +51,9 @@ import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.CustomViewPager
 import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.items.beautify.AddMainScreenFab
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -63,11 +66,13 @@ import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
+import org.luckypray.dexkit.DexKitBridge
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import android.graphics.Color as AndroidColor
+import java.lang.reflect.Modifier as ReflectModifier
 
 internal fun homeSidePanelShouldConsumeBack(
     progress: Float,
@@ -126,15 +131,76 @@ internal fun homeSidePanelShouldReparentExternalChrome(
 
 @Suppress("DEPRECATION")
 @Feature(name = "主页侧滑面板", categories = ["界面美化"], description = "在微信主页添加一个左划侧栏面板 (负一屏)")
-object HomeSidePanel : SwitchFeature() {
+object HomeSidePanel : SwitchFeature(), IResolveDex {
 
     private const val TAG = "HomeSidePanel"
+    private val classTextStatusService by dexClass()
+    private val classTextStatusRecord by dexClass()
+    private val methodTextStatusStorageAccessor by dexMethod()
+    private val methodLatestStatusByUsername by dexMethod()
     private val sessions = WeakHashMap<WxViewPager, WeakReference<HomeSidePanelSession>>()
     private val pendingEdgeToEdgeAttachListeners =
         WeakHashMap<View, View.OnAttachStateChangeListener>()
-    private val dispatchTouchEventMethod =
+    private val dispatchTouchEventMethod by lazy {
         CustomViewPager::class.java.getDeclaredMethod("dispatchTouchEvent", MotionEvent::class.java)
+    }
     private val pendingHostCancel = ThreadLocal<PendingHostCancel?>()
+
+    override fun resolveDex(dexKit: DexKitBridge) {
+        classTextStatusRecord.find(dexKit) {
+            matcher {
+                addFieldForName("field_UserName")
+                addFieldForName("field_StatusID")
+                addFieldForName("field_IconID")
+                addFieldForName("field_Description")
+                addFieldForName("field_ExpireTime")
+                addFieldForName("field_EmojiInfo")
+            }
+        }
+
+        methodLatestStatusByUsername.find(dexKit) {
+            matcher {
+                paramTypes(String::class.java)
+                usingEqStrings(
+                    "MicroMsg.TextStatus.StatusInfoAffStorage",
+                    "getLatestStatusByUserName: failed",
+                )
+            }
+        }
+
+        val latestStatusMethod = dexKit.getMethodData(
+            methodLatestStatusByUsername.getDescriptorString()!!,
+        )!!
+        val storageInterface = latestStatusMethod.declaredClass!!.interfaces.single { candidate ->
+            candidate.methods.any { method ->
+                method.methodName == latestStatusMethod.methodName &&
+                    method.paramTypeNames == latestStatusMethod.paramTypeNames &&
+                    method.returnTypeName == latestStatusMethod.returnTypeName
+            }
+        }
+        val storageAccessor = dexKit.findMethod {
+            matcher {
+                paramTypes()
+                returnType(storageInterface.name)
+            }
+        }.filter { candidate ->
+            candidate.declaredClass!!.fields.any { field ->
+                field.typeName == candidate.declaredClassName &&
+                    ReflectModifier.isStatic(field.modifiers)
+            }
+        }.single()
+
+        classTextStatusService.setDescriptor(storageAccessor.declaredClass!!)
+        methodTextStatusStorageAccessor.setDescriptor(storageAccessor)
+    }
+
+    internal fun createTextStatusReader(): HomeSidePanelTextStatusReader =
+        HomeSidePanelTextStatusApi(
+            serviceClass = classTextStatusService.clazz,
+            storageAccessor = methodTextStatusStorageAccessor.method,
+            latestStatusMethod = methodLatestStatusByUsername.method,
+            recordClass = classTextStatusRecord.clazz,
+        )
 
     override fun onEnable() {
         LauncherUI::class.reflekt().firstMethodOrNull {
