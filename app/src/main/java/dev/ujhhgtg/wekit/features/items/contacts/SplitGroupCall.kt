@@ -22,6 +22,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
@@ -204,12 +205,10 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         }
     }
 
-    private val talkRoomServerClass by lazy { methodEnterTalkRoom.method.declaringClass }
-
     /** TalkRoomServer.exitTalkRoom() —— 终止当前「实时对讲机」. */
     private val methodExitTalkRoom by dexMethod {
         matcher {
-            declaredClass(talkRoomServerClass)
+            declaredClass = methodEnterTalkRoom.data.declaredClassName
             usingStrings("exitTalkRoom", "exitTalkRoom: has exited")
             paramCount = 0
             returnType("void")
@@ -221,20 +220,20 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         matcher {
             modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC
             paramCount = 0
-            returnType(talkRoomServerClass)
+            returnType = methodEnterTalkRoom.data.declaredClassName
         }
     }
 
     /** TalkRoomServer 当前房间 ID; 空值表示没有正在进行的实时对讲. */
     private val fieldCurrentTalkRoom by dexField {
         matcher {
-            declaredClass(methodEnterTalkRoom.method.declaringClass)
+            declaredClass = methodEnterTalkRoom.data.declaredClassName
             type = "java.lang.String"
         }
     }
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        val iLinkServiceName = classILinkService.clazz.name
+        val iLinkServiceName = classILinkService.data.name
         val readerMethod = dexKit.findMethod {
             matcher {
                 declaredClass = classILinkService.getDescriptorString()!!
