@@ -510,11 +510,20 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 }
             }
 
-            ctorNetSceneUploadMsgImg.setPlaceholderDescriptor()
+            ctorNetSceneUploadMsgImg.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "new image feature service path is active",
+            )
         } else {
-            methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor()
+            methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "legacy NetSceneUploadMsgImg path is active",
+            )
 
-            methodAppInfoSetAppId.setPlaceholderDescriptor()
+            methodAppInfoSetAppId.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "legacy NetSceneUploadMsgImg path is active",
+            )
 
             ctorNetSceneUploadMsgImg.find(dexKit) {
                 searchPackages("com.tencent.mm.modelimage")

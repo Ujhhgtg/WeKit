@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
+import dev.ujhhgtg.wekit.dexkit.resolution.resolveAllDex
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -108,8 +109,7 @@ fun DexResolver(
         return try {
             progressChannel.send(ScanProgress.Start(displayName))
 
-            item.resolveInlineDex(dexKit)
-            item.resolveDex(dexKit)
+            item.resolveAllDex(dexKit)
 
             DexCacheManager.saveItemCache(item)
             progressChannel.send(ScanProgress.Complete(displayName))

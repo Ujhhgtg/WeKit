@@ -81,7 +81,10 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
 
         val modifyMethod = modifyMethods.singleOrNull()
         if (modifyMethod == null) {
-            methodAvatarModify.setPlaceholderDescriptor()
+            methodAvatarModify.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "avatar modify method is absent in this host variant",
+            )
         } else {
             methodAvatarModify.setDescriptor(modifyMethod)
         }

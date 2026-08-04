@@ -5,6 +5,9 @@ package dev.ujhhgtg.wekit.dexkit.dsl
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionDiagnostic
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
@@ -30,18 +33,79 @@ private const val PLACEHOLDER_DESCRIPTOR =
     "Lcom/tencent/mm/ui/LauncherUI;->getInstance()Lcom/tencent/mm/ui/LauncherUI;"
 
 /**
- * 所有 Dex 委托的公共接口，用于统一缓存读写。
+ * 所有 Dex 委托的公共基类，用于统一缓存读写与桌面测试诊断。
  * 每个委托负责自己的序列化/反序列化。
  */
-sealed interface BaseDexDelegate {
-    val key: String
-    fun getDescriptorString(): String?
+sealed class BaseDexDelegate(val key: String) {
+    var diagnostic = DexResolutionDiagnostic(DexResolutionStatus.PENDING)
+        private set
+
+    internal fun resetForDexTest() {
+        clearResolvedValue()
+        diagnostic = DexResolutionDiagnostic(DexResolutionStatus.PENDING)
+    }
+
+    protected fun recordSuccess(descriptor: String) {
+        diagnostic = DexResolutionDiagnostic(
+            status = DexResolutionStatus.SUCCESS,
+            descriptor = descriptor,
+        )
+    }
+
+    protected fun recordExpectedFailure(descriptor: String, reason: String) {
+        diagnostic = DexResolutionDiagnostic(
+            status = DexResolutionStatus.EXPECTED_FAILURE,
+            descriptor = descriptor,
+            message = reason,
+        )
+    }
+
+    protected fun recordUnexpectedPlaceholder(descriptor: String) {
+        diagnostic = DexResolutionDiagnostic(
+            status = DexResolutionStatus.UNEXPECTED_FAILURE,
+            descriptor = descriptor,
+            message = "placeholder descriptor was set without an expected-failure classification",
+        )
+    }
+
+    protected fun recordUnexpectedFailure(error: Throwable) {
+        diagnostic = DexResolutionDiagnostic(
+            status = DexResolutionStatus.UNEXPECTED_FAILURE,
+            message = error.message,
+            exceptionType = error::class.java.name,
+            stackTrace = error.stackTraceToString(),
+        )
+    }
+
+    internal fun markBlocked(causeKey: String) {
+        if (diagnostic.status == DexResolutionStatus.PENDING) {
+            diagnostic = DexResolutionDiagnostic(
+                status = DexResolutionStatus.BLOCKED,
+                blockedBy = causeKey,
+            )
+        }
+    }
+
+    internal fun markIncomplete() {
+        if (diagnostic.status == DexResolutionStatus.PENDING) {
+            diagnostic = DexResolutionDiagnostic(DexResolutionStatus.INCOMPLETE)
+        }
+    }
+
+    protected fun recordDescriptorAfterSet(descriptor: String) {
+        if (diagnostic.status == DexResolutionStatus.PENDING) {
+            recordSuccess(descriptor)
+        }
+    }
+
+    protected abstract fun clearResolvedValue()
+    abstract fun getDescriptorString(): String?
 
     /** 从缓存字符串恢复状态 */
-    fun loadDescriptor(value: String)
+    abstract fun loadDescriptor(value: String)
 
     /** 执行内联查找（如果是内联声明的话） */
-    fun findInline(dexKit: DexKitBridge): Boolean = true
+    open fun findInline(dexKit: DexKitBridge): Boolean = true
 }
 
 // ---------------------------------------------------------------------------
@@ -52,9 +116,9 @@ sealed interface BaseDexDelegate {
  * Dex 类委托 — 自动生成 Key，自动反射获取 Class。
  */
 class DexClassDelegate internal constructor(
-    override val key: String,
+    key: String,
     private val inlineBlock: ((DexClassDelegate, DexKitBridge) -> Boolean)? = null
-) : ReadOnlyProperty<BaseFeature, DexClassDelegate>, BaseDexDelegate {
+) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexClassDelegate> {
 
     private var descriptorString: String? = null
     private var cachedClass: Class<*>? = null
@@ -74,6 +138,7 @@ class DexClassDelegate internal constructor(
     fun setDescriptor(className: String) {
         descriptorString = className
         cachedClass = null
+        recordDescriptorAfterSet(className)
     }
 
     @Suppress("unused")
@@ -81,9 +146,17 @@ class DexClassDelegate internal constructor(
         setDescriptor(c.name)
     }
 
-    fun setPlaceholderDescriptor() {
+    fun setPlaceholderDescriptor(
+        expectedFailure: Boolean = false,
+        reason: String? = null,
+    ) {
         WeLogger.w("DexClassDelegate", "setting placeholder for $key")
         setDescriptor("com.tencent.mm.ui.LauncherUI")
+        if (expectedFailure) {
+            recordExpectedFailure("com.tencent.mm.ui.LauncherUI", reason ?: "allowed Dex class resolution failure")
+        } else {
+            recordUnexpectedPlaceholder("com.tencent.mm.ui.LauncherUI")
+        }
     }
 
     val isPlaceholder
@@ -91,6 +164,11 @@ class DexClassDelegate internal constructor(
 
     override fun getDescriptorString(): String? = descriptorString
     override fun loadDescriptor(value: String) = setDescriptor(value)
+
+    override fun clearResolvedValue() {
+        descriptorString = null
+        cachedClass = null
+    }
 
     /**
      * 查找 Dex 类。结果直接写入委托自身。
@@ -102,21 +180,29 @@ class DexClassDelegate internal constructor(
         multipleIndex: Int = 0,
         block: FindClass.() -> Unit
     ): Boolean {
-        val results = dexKit.findClass(block)
+        try {
+            val results = dexKit.findClass(block)
 
-        if (results.isEmpty()) {
-            if (!allowFailure) error("DexKit: No class found for key: $key")
-            setPlaceholderDescriptor()
-            return false
+            if (results.isEmpty()) {
+                if (!allowFailure) error("DexKit: No class found for key: $key")
+                setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "allowFailure=true produced no class result",
+                )
+                return false
+            }
+            if (results.size > 1 && !allowMultiple)
+                error(
+                    "DexKit: Multiple classes found for key: $key, count: ${results.size}, classes: ${
+                    results.joinToString(",") { it.name }
+                }")
+
+            setDescriptor(results[multipleIndex].name)
+            return true
+        } catch (e: Throwable) {
+            recordUnexpectedFailure(e)
+            throw e
         }
-        if (results.size > 1 && !allowMultiple)
-            error(
-                "DexKit: Multiple classes found for key: $key, count: ${results.size}, classes: ${
-                results.joinToString(",") { it.name }
-            }")
-
-        setDescriptor(results[multipleIndex].name)
-        return true
     }
 
     fun getClassData(dexKit: DexKitBridge): ClassData =
@@ -137,9 +223,9 @@ class DexClassDelegate internal constructor(
  * Dex 字段委托 — 自动生成 Key，自动反射获取 Field。
  */
 class DexFieldDelegate internal constructor(
-    override val key: String,
+    key: String,
     private val inlineBlock: ((DexFieldDelegate, DexKitBridge) -> Boolean)? = null
-) : ReadOnlyProperty<BaseFeature, DexFieldDelegate>, BaseDexDelegate {
+) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexFieldDelegate> {
 
     private var descriptorString: String? = null
     private var cachedField: Field? = null
@@ -156,6 +242,7 @@ class DexFieldDelegate internal constructor(
     fun setDescriptor(desc: String) {
         descriptorString = desc
         cachedField = null
+        recordDescriptorAfterSet(desc)
     }
 
     @Suppress("unused")
@@ -163,9 +250,17 @@ class DexFieldDelegate internal constructor(
         setDescriptor(f.descriptor)
     }
 
-    fun setPlaceholderDescriptor() {
+    fun setPlaceholderDescriptor(
+        expectedFailure: Boolean = false,
+        reason: String? = null,
+    ) {
         WeLogger.w("DexFieldDelegate", "setting placeholder for $key")
         setDescriptor(PLACEHOLDER_FIELD_DESCRIPTOR)
+        if (expectedFailure) {
+            recordExpectedFailure(PLACEHOLDER_FIELD_DESCRIPTOR, reason ?: "allowed Dex field resolution failure")
+        } else {
+            recordUnexpectedPlaceholder(PLACEHOLDER_FIELD_DESCRIPTOR)
+        }
     }
 
     val isPlaceholder
@@ -174,6 +269,11 @@ class DexFieldDelegate internal constructor(
     override fun getDescriptorString(): String? = descriptorString
     override fun loadDescriptor(value: String) = setDescriptor(value)
 
+    override fun clearResolvedValue() {
+        descriptorString = null
+        cachedField = null
+    }
+
     fun find(
         dexKit: DexKitBridge,
         allowMultiple: Boolean = false,
@@ -181,22 +281,30 @@ class DexFieldDelegate internal constructor(
         resultIndex: Int = 0,
         block: FindField.() -> Unit
     ): Boolean {
-        val results = dexKit.findField(block)
+        try {
+            val results = dexKit.findField(block)
 
-        if (results.isEmpty()) {
-            if (!allowFailure) error("DexKit: No field found for key: $key")
-            setPlaceholderDescriptor()
-            return false
+            if (results.isEmpty()) {
+                if (!allowFailure) error("DexKit: No field found for key: $key")
+                setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "allowFailure=true produced no field result",
+                )
+                return false
+            }
+            if (results.size > 1 && !allowMultiple)
+                error(
+                    "DexKit: Multiple fields found for key: $key, count: ${results.size}, fields:${
+                        results.map { "${it.className}::${it.fieldName}" }
+                    }"
+                )
+
+            setDescriptor(results[resultIndex].descriptor)
+            return true
+        } catch (e: Throwable) {
+            recordUnexpectedFailure(e)
+            throw e
         }
-        if (results.size > 1 && !allowMultiple)
-            error(
-                "DexKit: Multiple fields found for key: $key, count: ${results.size}, fields:${
-                    results.map { "${it.className}::${it.fieldName}" }
-                }"
-            )
-
-        setDescriptor(results[resultIndex].descriptor)
-        return true
     }
 
     override fun findInline(dexKit: DexKitBridge): Boolean {
@@ -236,9 +344,9 @@ class DexFieldDelegate internal constructor(
  * Dex 方法委托 — 自动生成 Key，自动反射获取 Method。
  */
 class DexMethodDelegate internal constructor(
-    override val key: String,
+    key: String,
     private val inlineBlock: ((DexMethodDelegate, DexKitBridge) -> Boolean)? = null
-) : ReadOnlyProperty<BaseFeature, DexMethodDelegate>, BaseDexDelegate {
+) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexMethodDelegate> {
 
     private var descriptor: DexMethodDescriptor? = null
     private var cachedMethod: Method? = null
@@ -258,6 +366,7 @@ class DexMethodDelegate internal constructor(
     fun setDescriptor(desc: DexMethodDescriptor) {
         descriptor = desc
         cachedMethod = null
+        recordDescriptorAfterSet(desc.descriptor)
     }
 
     @Suppress("NOTHING_TO_INLINE")
@@ -269,15 +378,29 @@ class DexMethodDelegate internal constructor(
     fun setDescriptor(className: String, methodName: String, methodSign: String) =
         setDescriptor(DexMethodDescriptor(className, methodName, methodSign))
 
-    fun setPlaceholderDescriptor() {
+    fun setPlaceholderDescriptor(
+        expectedFailure: Boolean = false,
+        reason: String? = null,
+    ) {
         WeLogger.w("DexMethodDelegate", "setting placeholder for $key")
         setDescriptor(DexMethodDescriptor(PLACEHOLDER_DESCRIPTOR))
+        if (expectedFailure) {
+            recordExpectedFailure(PLACEHOLDER_DESCRIPTOR, reason ?: "allowed Dex method resolution failure")
+        } else {
+            recordUnexpectedPlaceholder(PLACEHOLDER_DESCRIPTOR)
+        }
     }
 
     override fun getDescriptorString(): String? = descriptor?.descriptor
 
     override fun loadDescriptor(value: String) {
         descriptor = DexMethodDescriptor(value)
+        cachedMethod = null
+        recordDescriptorAfterSet(value)
+    }
+
+    override fun clearResolvedValue() {
+        descriptor = null
         cachedMethod = null
     }
 
@@ -291,25 +414,33 @@ class DexMethodDelegate internal constructor(
         resultIndex: Int = 0,
         block: FindMethod.() -> Unit
     ): Boolean {
-        val results = dexKit.findMethod(block)
+        try {
+            val results = dexKit.findMethod(block)
 
-        if (results.isEmpty()) {
-            if (!allowFailure) error("DexKit: No method found for key: $key")
-            setPlaceholderDescriptor()
-            return false
+            if (results.isEmpty()) {
+                if (!allowFailure) error("DexKit: No method found for key: $key")
+                setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "allowFailure=true produced no method result",
+                )
+                return false
+            }
+            if (results.size > 1 && !allowMultiple)
+                error(
+                    "DexKit: Multiple methods found for key: $key, count: ${results.size}, methods:${
+                        results.map {
+                            "${it.className}::${it.methodName}"
+                        }
+                    }"
+                )
+
+            val m = results[resultIndex]
+            setDescriptor(DexMethodDescriptor(m.className, m.methodName, m.methodSign))
+            return true
+        } catch (e: Throwable) {
+            recordUnexpectedFailure(e)
+            throw e
         }
-        if (results.size > 1 && !allowMultiple)
-            error(
-                "DexKit: Multiple methods found for key: $key, count: ${results.size}, methods:${
-                    results.map {
-                        "${it.className}::${it.methodName}"
-                    }
-                }"
-            )
-
-        val m = results[resultIndex]
-        setDescriptor(DexMethodDescriptor(m.className, m.methodName, m.methodSign))
-        return true
     }
 
     override fun findInline(dexKit: DexKitBridge): Boolean {
@@ -327,9 +458,9 @@ class DexMethodDelegate internal constructor(
  * Dex 构造函数委托 — 自动生成 Key，自动反射获取 Constructor。
  */
 class DexConstructorDelegate internal constructor(
-    override val key: String,
+    key: String,
     private val inlineBlock: ((DexConstructorDelegate, DexKitBridge) -> Boolean)? = null
-) : ReadOnlyProperty<BaseFeature, DexConstructorDelegate>, BaseDexDelegate {
+) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexConstructorDelegate> {
 
     private var descriptor: DexMethodDescriptor? = null
     private var cachedConstructor: Constructor<*>? = null
@@ -354,11 +485,20 @@ class DexConstructorDelegate internal constructor(
     fun setDescriptor(desc: DexMethodDescriptor) {
         descriptor = desc
         cachedConstructor = null
+        recordDescriptorAfterSet(desc.descriptor)
     }
 
-    fun setPlaceholderDescriptor() {
+    fun setPlaceholderDescriptor(
+        expectedFailure: Boolean = false,
+        reason: String? = null,
+    ) {
         WeLogger.w("DexConstructorDelegate", "setting placeholder for $key")
         setDescriptor(DexMethodDescriptor(PLACEHOLDER_DESCRIPTOR))
+        if (expectedFailure) {
+            recordExpectedFailure(PLACEHOLDER_DESCRIPTOR, reason ?: "allowed Dex constructor resolution failure")
+        } else {
+            recordUnexpectedPlaceholder(PLACEHOLDER_DESCRIPTOR)
+        }
     }
 
     @Suppress("unused")
@@ -369,6 +509,12 @@ class DexConstructorDelegate internal constructor(
 
     override fun loadDescriptor(value: String) {
         descriptor = DexMethodDescriptor(value)
+        cachedConstructor = null
+        recordDescriptorAfterSet(value)
+    }
+
+    override fun clearResolvedValue() {
+        descriptor = null
         cachedConstructor = null
     }
 
@@ -382,22 +528,31 @@ class DexConstructorDelegate internal constructor(
         resultIndex: Int = 0,
         block: FindMethod.() -> Unit
     ): Boolean {
-        val results = dexKit.findMethod {
-            block()
-            if (matcher == null) matcher { name = "<init>" }
-            else matcher!!.name = "<init>"
-        }
+        try {
+            val results = dexKit.findMethod {
+                block()
+                if (matcher == null) matcher { name = "<init>" }
+                else matcher!!.name = "<init>"
+            }
 
-        if (results.isEmpty()) {
-            if (throwOnFailure) error("DexKit: No constructor found for key: $key")
-            return false
-        }
-        if (results.size > 1 && !allowMultiple)
-            error("DexKit: Multiple constructors found for key: $key, count: ${results.size}")
+            if (results.isEmpty()) {
+                if (throwOnFailure) error("DexKit: No constructor found for key: $key")
+                setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "throwOnFailure=false produced no constructor result",
+                )
+                return false
+            }
+            if (results.size > 1 && !allowMultiple)
+                error("DexKit: Multiple constructors found for key: $key, count: ${results.size}")
 
-        val m = results[resultIndex]
-        setDescriptor(DexMethodDescriptor(m.className, "<init>", m.methodSign))
-        return true
+            val m = results[resultIndex]
+            setDescriptor(DexMethodDescriptor(m.className, "<init>", m.methodSign))
+            return true
+        } catch (e: Throwable) {
+            recordUnexpectedFailure(e)
+            throw e
+        }
     }
 
     override fun findInline(dexKit: DexKitBridge): Boolean {
@@ -449,7 +604,19 @@ fun dexMethod(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeat
 
 @Suppress("NOTHING_TO_INLINE")
 inline fun DexKitBridge.findClassData(clazz: String): ClassData? =
-    findClass { matcher { className = clazz } }.singleOrNull()
+    getClassData(clazz)
+
+val DexClassDelegate.data: ClassData
+    get() = DexResolutionContext.dexKit.getClassData(getDescriptorString()!!)!!
+
+val DexMethodDelegate.data: MethodData
+    get() = DexResolutionContext.dexKit.getMethodData(getDescriptorString()!!)!!
+
+val DexConstructorDelegate.data: MethodData
+    get() = DexResolutionContext.dexKit.getMethodData(getDescriptorString()!!)!!
+
+val DexFieldDelegate.data: FieldData
+    get() = DexResolutionContext.dexKit.getFieldData(getDescriptorString()!!)!!
 
 // ---------------------------------------------------------------------------
 // 内联查找委托工厂函数
