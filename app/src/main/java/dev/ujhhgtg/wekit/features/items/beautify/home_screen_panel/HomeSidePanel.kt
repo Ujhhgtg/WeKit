@@ -93,6 +93,9 @@ internal fun homeSidePanelShouldPublishWeatherSearch(currentQuery: String, resul
 internal fun homeSidePanelOneShotCloseDuration(from: Float, target: Float): Long =
     (120L + 120L * kotlin.math.abs(from - target)).roundToInt().toLong()
 
+internal fun homeSidePanelNormalCloseDuration(from: Float, target: Float): Long =
+    (180L + 180L * kotlin.math.abs(from - target)).roundToInt().toLong()
+
 internal fun homeSidePanelWeatherProfileStateBelongsToAccount(
     storedAccountId: String?,
     currentAccountId: String,
@@ -232,7 +235,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             val session = sessions.values.mapNotNull { it.get() }.firstOrNull { it.ownsActivity(activity) }
                 ?: return@hookBefore
             if (session.consumeBack()) {
-                WeLogger.i(TAG, "consuming LauncherUI.moveTaskToBack while drawer is open")
                 result = true
             }
         }
@@ -343,7 +345,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
         pendingEdgeToEdgeAttachListeners[decor] = listener
         decor.addOnAttachStateChangeListener(listener)
-        WeLogger.i(TAG, "waiting for LauncherUI decor attachment before applying edge-to-edge")
     }
 
     private fun removePendingEdgeToEdgeAttachListener(activity: Activity) {
@@ -356,12 +357,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = AndroidColor.TRANSPARENT
         window.decorView.requestApplyInsets()
-        WeLogger.i(
-            TAG,
-            "LauncherUI edge-to-edge applied: " +
-                "attached=${window.decorView.isAttachedToWindow}, " +
-                "systemUi=${window.decorView.systemUiVisibility}",
-        )
     }
 
     private data class PendingHostCancel(
@@ -420,7 +415,9 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             locationResolver = AndroidHomeSidePanelLocationResolver(cityIndex),
             navigator = HomeSidePanelHostNavigator(
                 activity = activity,
-                closePanel = { afterClosed -> close(animated = true, afterClosed = afterClosed) },
+                closePanel = { afterClosed ->
+                    close(animated = true, oneShot = true, afterClosed = afterClosed)
+                },
                 ioScope = controllerScope,
             ),
             scope = controllerScope,
@@ -453,7 +450,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         fun attach() {
             if (attached) return
             attached = true
-            WeLogger.i(TAG, "attaching home side panel to ${parent.javaClass.name}")
 
             parentClipChildren = parent.clipChildren
             parentClipToPadding = parent.clipToPadding
@@ -470,7 +466,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             dimView.alpha = 0f
             dimView.isClickable = true
             dimView.setOnClickListener {
-                if (renderedProgress > CLOSED_EPSILON) close(animated = true)
+                if (renderedProgress > CLOSED_EPSILON) close(animated = true, oneShot = true)
             }
 
             panelView.setBackgroundColor(AndroidColor.TRANSPARENT)
@@ -520,11 +516,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             parent.post {
                 updateDrawerWidth()
                 applyProgress(0f)
-                WeLogger.i(
-                    TAG,
-                    "home side panel ready: parent=${parent.width}x${parent.height}, " +
-                        "drawerWidth=$drawerWidthPx, touchSlop=${gestureConfig.touchSlopPx}px",
-                )
             }
         }
 
@@ -606,7 +597,11 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             return true
         }
 
-        fun close(animated: Boolean, afterClosed: (() -> Unit)? = null) {
+        fun close(
+            animated: Boolean,
+            oneShot: Boolean = false,
+            afterClosed: (() -> Unit)? = null,
+        ) {
             val from = renderedProgress
             animator?.cancel()
             animator = null
@@ -614,7 +609,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             parent.requestDisallowInterceptTouchEvent(false)
             gesture.close()
             if (animated) {
-                animateTo(0f, from, afterClosed)
+                animateTo(0f, from, oneShot, afterClosed)
             } else {
                 applyProgress(0f)
                 afterClosed?.invoke()
@@ -625,13 +620,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             return when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     beginGesture(event)
-                    if (gesture.selectedTabIndex == HOME_TAB_INDEX) {
-                        WeLogger.i(
-                            TAG,
-                            "pager touch down: x=${event.x}, y=${event.y}, " +
-                                "progress=$renderedProgress",
-                        )
-                    }
                     PagerTouchResult.PASS
                 }
 
@@ -646,11 +634,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                             if (!dragging) {
                                 dragging = true
                                 parent.requestDisallowInterceptTouchEvent(true)
-                                WeLogger.i(
-                                    TAG,
-                                    "pager drag captured: x=${event.x}, y=${event.y}, " +
-                                        "progress=${gesture.progress}",
-                                )
                                 PagerTouchResult.CANCEL_HOST
                             } else {
                                 PagerTouchResult.CONSUME
@@ -668,7 +651,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                         val target = gesture.onUp(event.eventTime)
                         dragging = false
                         parent.requestDisallowInterceptTouchEvent(false)
-                        animateTo(target, from)
+                        animateTo(target, from, oneShot = target == 0f)
                         PagerTouchResult.CONSUME
                     }
                 }
@@ -682,7 +665,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                         val target = gesture.onCancel()
                         dragging = false
                         parent.requestDisallowInterceptTouchEvent(false)
-                        animateTo(target, from)
+                        animateTo(target, from, oneShot = target == 0f)
                         PagerTouchResult.CONSUME
                     }
                 }
@@ -724,9 +707,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                 MotionEvent.ACTION_MOVE -> {
                     val decision = gesture.onMove(event.x, event.y, event.eventTime)
                     if (decision == HomeSidePanelGestureDecision.CONSUME) {
-                        if (!dragging) {
-                            WeLogger.i(TAG, "drawer drag captured: x=${event.x}, progress=${gesture.progress}")
-                        }
                         dragging = true
                         parent.requestDisallowInterceptTouchEvent(true)
                         applyProgress(gesture.progress)
@@ -769,7 +749,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                     val target = gesture.onUp(event.eventTime)
                     dragging = false
                     parent.requestDisallowInterceptTouchEvent(false)
-                    animateTo(target, from)
+                    animateTo(target, from, oneShot = target == 0f)
                     true
                 }
 
@@ -778,7 +758,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                     val target = gesture.onCancel()
                     dragging = false
                     parent.requestDisallowInterceptTouchEvent(false)
-                    animateTo(target, from)
+                    animateTo(target, from, oneShot = target == 0f)
                     true
                 }
 
@@ -803,6 +783,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private fun animateTo(
             target: Float,
             from: Float = renderedProgress,
+            oneShot: Boolean = false,
             afterClosed: (() -> Unit)? = null,
         ) {
             animator?.cancel()
@@ -816,7 +797,11 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             overlayRoot.visibility = View.VISIBLE
             var canceled = false
             animator = ValueAnimator.ofFloat(from, target).apply {
-                duration = (180L + 180L * kotlin.math.abs(from - target)).roundToInt().toLong()
+                duration = if (oneShot && target == 0f) {
+                    homeSidePanelOneShotCloseDuration(from, target)
+                } else {
+                    homeSidePanelNormalCloseDuration(from, target)
+                }
                 interpolator = DecelerateInterpolator(1.4f)
                 addUpdateListener {
                     val progress = it.animatedValue as Float
@@ -852,15 +837,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             if (actionBarCandidate != null && actionBarContainer !== actionBarCandidate) {
                 restoreActionBarTransform()
                 actionBarContainer = actionBarCandidate
-                val toolbar = actionBarCandidate.findViewWhich {
-                    homeSidePanelIsToolbarClass(it.javaClass.name)
-                }
-                WeLogger.i(
-                    TAG,
-                    "resolved actionbar chrome in place: container=${actionBarCandidate.javaClass.name}, " +
-                        "parent=${actionBarCandidate.parent.javaClass.name}, " +
-                        "toolbar=${toolbar?.javaClass?.name ?: "missing"}",
-                )
             }
             val fabCandidate = AddMainScreenFab.hostViewFor(activity)?.takeIf { it.parent != null }
             if (fabHostView?.parent == null && fabCandidate == null) {
@@ -869,7 +845,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             if (fabCandidate != null && fabHostView !== fabCandidate) {
                 restoreFabHostToOriginalParent()
                 moveFabHostIntoContentWrapper(fabCandidate)
-                WeLogger.i(TAG, "resolved AddMainScreenFab host: ${fabCandidate.javaClass.name}")
             }
             if (
                 fabCandidate != null &&
@@ -948,7 +923,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             }
             val snapshot = actionBarTransformSnapshot ?: captureActionBarTransform(actionBar).also {
                 actionBarTransformSnapshot = it
-                WeLogger.i(TAG, "applying in-place side-panel transform to ActionBarContainer")
             }
             if (actionBar.pivotX != snapshot.transformPivotX) {
                 actionBar.pivotX = snapshot.transformPivotX
@@ -993,7 +967,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             actionBar.translationX = snapshot.translationX
             actionBar.translationY = snapshot.translationY
             actionBarTransformSnapshot = null
-            WeLogger.i(TAG, "restored in-place ActionBarContainer transform")
         }
 
         private fun moveFabHostIntoContentWrapper(host: View) {
@@ -1014,7 +987,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                 ),
             )
             fabHostView = host
-            WeLogger.i(TAG, "moved AddMainScreenFab host into side-panel content wrapper")
         }
 
         private fun restoreFabHostToOriginalParent() {

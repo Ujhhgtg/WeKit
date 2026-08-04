@@ -11,6 +11,7 @@ class HomeSidePanelGestureStateTest {
     @Test
     fun fullOneShotCloseUsesTheApprovedShorterDuration() {
         assertEquals(240L, homeSidePanelOneShotCloseDuration(from = 1f, target = 0f))
+        assertEquals(360L, homeSidePanelNormalCloseDuration(from = 1f, target = 0f))
     }
 
     @Test
