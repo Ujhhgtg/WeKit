@@ -11,12 +11,12 @@ interface HomeSidePanelTextStatusReader {
     fun read(wxId: String): HomeSidePanelStatusUiState
 }
 
-class HomeSidePanelProfileRepository(
+open class HomeSidePanelProfileRepository(
     private val statusReader: HomeSidePanelTextStatusReader,
     private val cityIndex: HomeSidePanelCityIndex,
 ) {
 
-    suspend fun loadIdentity(): HomeSidePanelProfile = withContext(Dispatchers.IO) {
+    open suspend fun loadIdentity(): HomeSidePanelProfile = withContext(Dispatchers.IO) {
         val wxId = WeApi.selfWxId
         val nickname = WeDatabaseApi.getSelfProfileField(SelfProfileField.NAME, "")
             .toString()
@@ -29,11 +29,11 @@ class HomeSidePanelProfileRepository(
         )
     }
 
-    suspend fun refreshStatus(): HomeSidePanelStatusUiState = withContext(Dispatchers.IO) {
+    open suspend fun refreshStatus(): HomeSidePanelStatusUiState = withContext(Dispatchers.IO) {
         statusReader.read(WeApi.selfWxId)
     }
 
-    suspend fun readWeatherCityFromProfile(): WeatherCityMatchResult = withContext(Dispatchers.IO) {
+    open suspend fun readWeatherCityFromProfile(): WeatherCityMatchResult = withContext(Dispatchers.IO) {
         try {
             val country = WeDatabaseApi.getSelfProfileField(SelfProfileField.COUNTRY_CODE, "").toString()
             val province = WeDatabaseApi.getSelfProfileField(SelfProfileField.PROVINCE, "").toString()
