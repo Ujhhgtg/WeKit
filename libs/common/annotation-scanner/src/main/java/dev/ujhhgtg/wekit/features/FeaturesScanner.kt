@@ -24,6 +24,7 @@ import com.squareup.kotlinpoet.ksp.writeTo
 private const val PACKAGE_NAME = "dev.ujhhgtg.wekit"
 private const val HOOKS_CORE_PACKAGE = "$PACKAGE_NAME.features.core"
 private const val BASE_HOOK_ITEM = "BaseFeature"
+private const val RESOLVER_INTERFACE = "$PACKAGE_NAME.dexkit.abc.IResolveDex"
 
 class FeaturesKspProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
@@ -140,6 +141,66 @@ class FeaturesScanner(
 
         FileSpec.builder(HOOKS_CORE_PACKAGE, "FeaturesProvider")
             .addType(objectSpec)
+            .build()
+            .writeTo(codeGenerator, dependencies)
+
+        val resolverSymbols = sortedSymbols.filter { symbol ->
+            symbol.getAllSuperTypes().any {
+                it.declaration.qualifiedName?.asString() == RESOLVER_INTERFACE
+            }
+        }
+        val resolverStringType = ClassName("kotlin", "String")
+        val resolverCategoriesType = ClassName("kotlin.collections", "List").parameterizedBy(resolverStringType)
+        val resolverEntryClass = TypeSpec.classBuilder("DexResolutionTestEntry")
+            .primaryConstructor(
+                com.squareup.kotlinpoet.FunSpec.constructorBuilder()
+                    .addParameter("className", resolverStringType)
+                    .addParameter("name", resolverStringType)
+                    .addParameter("categories", resolverCategoriesType)
+                    .addParameter("description", resolverStringType)
+                    .build()
+            )
+            .addProperty(PropertySpec.builder("className", resolverStringType).initializer("className").build())
+            .addProperty(PropertySpec.builder("name", resolverStringType).initializer("name").build())
+            .addProperty(PropertySpec.builder("categories", resolverCategoriesType).initializer("categories").build())
+            .addProperty(PropertySpec.builder("description", resolverStringType).initializer("description").build())
+            .build()
+
+        val resolverItems = CodeBlock.builder().apply {
+            addStatement("listOf(")
+            indent()
+            for (symbol in resolverSymbols) {
+                val annotation = symbol.annotations.first { it.shortName.asString() == "Feature" }
+                val name = (annotation.arguments.find { it.name?.asString() == "name" } ?: annotation.arguments[0]).value as String
+                val categories = (annotation.arguments.find { it.name?.asString() == "categories" } ?: annotation.arguments[1]).value as List<*>
+                val description = (annotation.arguments.find { it.name?.asString() == "description" } ?: annotation.arguments.getOrNull(2))?.value as? String ?: ""
+                addStatement(
+                    "DexResolutionTestEntry(%S, %S, listOf(%L), %S),",
+                    symbol.qualifiedName!!.asString(),
+                    name,
+                    categories.map { CodeBlock.of("%S", it.toString()) }.joinToCode(", "),
+                    description,
+                )
+            }
+            unindent()
+            add(")")
+        }.build()
+
+        val resolverRegistry = TypeSpec.objectBuilder("DexResolutionTestRegistry")
+            .addProperty(
+                PropertySpec.builder(
+                    "ITEMS",
+                    ClassName("kotlin.collections", "List").parameterizedBy(ClassName(HOOKS_CORE_PACKAGE, "DexResolutionTestEntry")),
+                )
+                    .initializer(resolverItems)
+                    .build()
+            )
+            .addKdoc("Auto-generated lazy metadata for desktop DexKit resolution tests.\n")
+            .build()
+
+        FileSpec.builder(HOOKS_CORE_PACKAGE, "DexResolutionTestRegistry")
+            .addType(resolverEntryClass)
+            .addType(resolverRegistry)
             .build()
             .writeTo(codeGenerator, dependencies)
 
