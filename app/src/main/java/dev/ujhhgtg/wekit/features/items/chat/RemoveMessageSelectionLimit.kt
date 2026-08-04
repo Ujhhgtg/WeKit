@@ -38,7 +38,7 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
         matcher {
             declaredClass(classChattingDataAdapter.clazz)
             usingNumbers(SELECTION_LIMIT)
-            paramTypes("${PackageNames.WECHAT}.plugin.msg.MsgIdTalker")
+            usingEqStrings("msgIdTalker")
             returnType(bool)
         }
     }

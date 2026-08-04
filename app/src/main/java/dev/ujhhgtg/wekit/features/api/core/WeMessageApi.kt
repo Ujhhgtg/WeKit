@@ -23,7 +23,6 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.makeAccessible
-import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -1825,12 +1824,21 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private val methodToggleMessageSelection by dexMethod {
+        matcher {
+            declaredClass(classChattingDataAdapter.clazz)
+            usingNumbers(100)
+            usingEqStrings("msgIdTalker")
+            returnType(bool)
+        }
+    }
+
     private fun triggerDownload(imgLocalId: Long, talker: String): Boolean {
         return try {
             val m = WeServiceApi.methodDownloadImageServiceDownloadImage.method
             val downloadService = m.declaringClass.createInstance()
 
-            val msgIdTalker = "com.tencent.mm.plugin.msg.MsgIdTalker".toClass()
+            val msgIdTalker = methodToggleMessageSelection.method.parameterTypes[0]
                 .createInstance(imgLocalId, talker)
 
             val wClass = m.parameterTypes[5]
