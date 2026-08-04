@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Intent
 import android.content.Context
 import android.graphics.Outline
 import android.view.MotionEvent
@@ -15,46 +16,22 @@ import android.view.ViewTreeObserver
 import android.view.Window
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.isNotEmpty
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.CustomViewPager
 import com.tencent.mm.ui.mogic.WxViewPager
+import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.items.beautify.AddMainScreenFab
+import dev.ujhhgtg.wekit.features.api.core.WeApi
+import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -69,6 +46,12 @@ import dev.ujhhgtg.wekit.utils.reflection.int
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import android.graphics.Color as AndroidColor
@@ -234,6 +217,14 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                 WeLogger.i(TAG, "consuming LauncherUI.moveTaskToBack while drawer is open")
                 result = true
             }
+        }
+        LauncherUI::class.reflekt().firstMethod {
+            name = "onResume"
+            parameters()
+        }.hookAfter {
+            val activity = thisObject as Activity
+            sessions.values.mapNotNull { it.get() }.firstOrNull { it.ownsActivity(activity) }
+                ?.resumePendingLocationDetection()
         }
         LauncherUI::class.reflekt().firstMethod {
             name = "onDestroy"
@@ -417,6 +408,30 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private val overlayRoot = HomeSidePanelOverlayLayout(activity).also { it.session = this }
         private val dimView = View(activity)
         private val panelView = ComposeView(activity)
+        private val controllerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        private val cityIndex = AssetHomeSidePanelCityIndex(activity)
+        private val controller = HomeSidePanelController(
+            profileRepository = HomeSidePanelProfileRepository(
+                statusReader = createTextStatusReader(),
+                cityIndex = cityIndex,
+            ),
+            weatherRepository = DefaultHomeSidePanelWeatherRepository(
+                preferences = PersistedHomeSidePanelWeatherPreferences,
+                cityIndex = cityIndex,
+                client = homeSidePanelHttpClient,
+            ),
+            hitokotoRepository = DefaultHomeSidePanelHitokotoRepository(
+                preferences = PersistedHomeSidePanelHitokotoPreferences,
+                client = homeSidePanelHttpClient,
+            ),
+            locationResolver = AndroidHomeSidePanelLocationResolver(cityIndex),
+            navigator = HomeSidePanelHostNavigator(
+                activity = activity,
+                closePanel = { close(animated = true) },
+                ioScope = controllerScope,
+            ),
+            scope = controllerScope,
+        )
         private val outlineProvider = ProgressOutlineProvider()
         private val preDrawListener = ViewTreeObserver.OnPreDrawListener {
             absorbStrayChildren()
@@ -439,6 +454,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private var fabOriginalParent: ViewGroup? = null
         private var fabOriginalLayoutParams: ViewGroup.LayoutParams? = null
         private var fabOriginalIndex = -1
+        private var wasPanelVisible = false
 
         fun attach() {
             if (attached) return
@@ -466,9 +482,11 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             panelView.setBackgroundColor(AndroidColor.TRANSPARENT)
             panelView.isClickable = true
             panelView.setLifecycleOwner(LifecycleOwnerProvider.getOrCreate(activity))
+            controller.startPreload()
             panelView.setContent {
                 InjectedUiTheme {
-                    HomeSidePanelContent()
+                    val state by controller.uiState.collectAsStateWithLifecycle()
+                    HomeSidePanelContent(state, controller)
                 }
             }
             overlayRoot.clipChildren = false
@@ -520,6 +538,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             attached = false
             animator?.cancel()
             animator = null
+            controller.close()
             if (parent.viewTreeObserver.isAlive) {
                 parent.viewTreeObserver.removeOnPreDrawListener(preDrawListener)
             }
@@ -542,6 +561,10 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
 
         fun ownsActivity(candidate: Activity): Boolean = activity === candidate
+
+        fun resumePendingLocationDetection() {
+            controller.resumePendingLocationDetection(activity)
+        }
 
         fun consumeBack(): Boolean {
             if (!homeSidePanelShouldConsumeMoveTaskToBack(renderedProgress, dragging, gesture.isTracking)) {
@@ -824,7 +847,10 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
 
         private fun applyProgress(progress: Float) {
             val p = progress.coerceIn(0f, 1f)
+            val becameVisible = !wasPanelVisible && p > CLOSED_EPSILON
             renderedProgress = p
+            if (becameVisible) controller.onPanelOpened()
+            wasPanelVisible = p > CLOSED_EPSILON
             updateDrawerWidth()
             resolveExternalChrome()
 
@@ -1050,211 +1076,43 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     private const val PAGE_SETTLED_EPSILON = 0.001f
 }
 
-@Composable
-private fun HomeSidePanelContent() {
-    Surface(
-        modifier = Modifier
-            .fillMaxHeight()
-            .fillMaxWidth(),
-        color = Color(0xFFF4F7F4),
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        shape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 18.dp, top = 52.dp, end = 16.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            ProfileHeader()
-            TimeCard()
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                QuickTile(symbol = "◎", label = "扫一扫", modifier = Modifier.weight(1f))
-                QuickTile(symbol = "▣", label = "收付款", modifier = Modifier.weight(1f))
-                QuickTile(symbol = "◇", label = "收藏", modifier = Modifier.weight(1f))
-            }
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White.copy(alpha = 0.86f),
-                shape = RoundedCornerShape(22.dp),
-                tonalElevation = 1.dp,
-            ) {
-                Column {
-                    MenuRow(symbol = "◉", label = "朋友圈")
-                    MenuRow(symbol = "▥", label = "视频号")
-                    MenuRow(symbol = "◌", label = "清空未读")
-                    MenuRow(symbol = "⚙", label = "侧滑面板设置", showDivider = false)
+private class HomeSidePanelHostNavigator(
+    private val activity: Activity,
+    private val closePanel: () -> Unit,
+    private val ioScope: CoroutineScope,
+) : HomeSidePanelNavigator {
+
+    override fun closePanel() = closePanel.invoke()
+
+    override fun openShortcut(shortcut: HomeSidePanelShortcut) {
+        when (shortcut) {
+            HomeSidePanelShortcut.SCAN -> startExplicit("${activity.packageName}.plugin.scanner.ui.BaseScanUI")
+            HomeSidePanelShortcut.PAYMENTS -> {
+                if (!startExplicit("${activity.packageName}.plugin.offline.ui.WalletOfflineCoinPurseUI")) {
+                    startExplicit("${activity.packageName}.plugin.mall.ui.MallIndexUIv2")
                 }
             }
-            Surface(
-                color = Color(0xFF15231B),
-                shape = RoundedCornerShape(18.dp),
-            ) {
-                Text(
-                    text = "当前只是内容壳：验证滑动层级、缩放和 dim，实际入口与数据以后再补。",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
-                    color = Color(0xFFDCE5DE),
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                )
-            }
+
+            HomeSidePanelShortcut.FAVORITES -> startExplicit("${activity.packageName}.plugin.fav.ui.FavoriteIndexUI")
+            HomeSidePanelShortcut.MOMENTS -> WeApi.openMoments(activity, WeApi.selfWxId)
+            HomeSidePanelShortcut.VIDEO_CHANNELS -> startExplicit("${activity.packageName}.plugin.finder.ui.FinderHomeAffinityUI")
+            HomeSidePanelShortcut.MARK_ALL_READ -> ioScope.launch(Dispatchers.IO) { WeConversationApi.markAllAsRead() }
+            HomeSidePanelShortcut.WEKIT_SETTINGS -> activity.startActivity(Intent(activity, SettingsActivity::class.java))
         }
+    }
+
+    private fun startExplicit(className: String): Boolean {
+        val intent = Intent().setClassName(activity.packageName, className)
+        if (intent.resolveActivity(activity.packageManager) == null) return false
+        activity.startActivity(intent)
+        return true
     }
 }
 
-@Composable
-private fun ProfileHeader() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Color(0xFF102017)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "微",
-                color = Color(0xFFA8F4C7),
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-            )
-        }
-        Column {
-            Text(
-                text = "微信用户",
-                color = Color(0xFF162018),
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-            )
-            Text(
-                text = "WeKit 侧滑面板 · Compose 壳",
-                color = Color(0xFF758178),
-                fontSize = 12.sp,
-            )
-        }
-    }
-}
-
-@Composable
-private fun TimeCard() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.Transparent,
-        shape = RoundedCornerShape(22.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(Color(0xFF14241A), Color(0xFF1E3E29)),
-                    )
-                )
-                .padding(18.dp),
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom,
-                ) {
-                    Text(
-                        text = "09:41",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 38.sp,
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = "8月4日 周二",
-                        color = Color(0xFFB8C7BC),
-                        fontSize = 11.sp,
-                    )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "上午好，今天也要写漂亮的 Hook。",
-                    color = Color.White,
-                    fontSize = 13.sp,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "多云 27°C · 体感 29°C",
-                    color = Color(0xFFA9B8AD),
-                    fontSize = 11.sp,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuickTile(
-    symbol: String,
-    label: String,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier.height(66.dp),
-        color = Color.White.copy(alpha = 0.86f),
-        shape = RoundedCornerShape(18.dp),
-        tonalElevation = 1.dp,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(text = symbol, color = Color(0xFF25352A), fontSize = 20.sp)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = label, color = Color(0xFF68756C), fontSize = 11.sp)
-        }
-    }
-}
-
-@Composable
-private fun MenuRow(
-    symbol: String,
-    label: String,
-    showDivider: Boolean = true,
-) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFEFF5F0)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = symbol, color = Color(0xFF2C3B31), fontSize = 14.sp)
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = label,
-                modifier = Modifier.weight(1f),
-                color = Color(0xFF2F3D34),
-                fontSize = 14.sp,
-            )
-            Text(text = "›", color = Color(0xFFB4BBB6), fontSize = 20.sp)
-        }
-        if (showDivider) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .padding(start = 56.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
-            )
-        }
-    }
+private val homeSidePanelHttpClient by lazy {
+    OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(10, TimeUnit.SECONDS)
+        .build()
 }

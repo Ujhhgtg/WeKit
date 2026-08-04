@@ -22,4 +22,25 @@ class HomeSidePanelShortcutMappingTest {
             },
         )
     }
+
+    @Test
+    fun scanPaymentsAndFavoritesRemainTilesWhileTheRestRemainListItems() {
+        assertEquals(
+            listOf(
+                HomeSidePanelShortcut.SCAN,
+                HomeSidePanelShortcut.PAYMENTS,
+                HomeSidePanelShortcut.FAVORITES,
+            ),
+            HomeSidePanelShortcut.entries.filter { shortcutSpec(it).placement == HomeSidePanelShortcutPlacement.TILE },
+        )
+        assertEquals(
+            listOf(
+                HomeSidePanelShortcut.MOMENTS,
+                HomeSidePanelShortcut.VIDEO_CHANNELS,
+                HomeSidePanelShortcut.MARK_ALL_READ,
+                HomeSidePanelShortcut.WEKIT_SETTINGS,
+            ),
+            HomeSidePanelShortcut.entries.filter { shortcutSpec(it).placement == HomeSidePanelShortcutPlacement.LIST_ITEM },
+        )
+    }
 }

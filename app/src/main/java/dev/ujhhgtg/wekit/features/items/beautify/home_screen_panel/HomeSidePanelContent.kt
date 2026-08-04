@@ -73,20 +73,26 @@ enum class HomeSidePanelIconKind {
     SETTINGS,
 }
 
+enum class HomeSidePanelShortcutPlacement {
+    TILE,
+    LIST_ITEM,
+}
+
 data class HomeSidePanelShortcutSpec(
     val shortcut: HomeSidePanelShortcut,
     val label: String,
     val icon: HomeSidePanelIconKind,
+    val placement: HomeSidePanelShortcutPlacement,
 )
 
 internal fun shortcutSpec(shortcut: HomeSidePanelShortcut): HomeSidePanelShortcutSpec = when (shortcut) {
-    HomeSidePanelShortcut.SCAN -> HomeSidePanelShortcutSpec(shortcut, "扫一扫", HomeSidePanelIconKind.QR_CODE_SCANNER)
-    HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelShortcutSpec(shortcut, "收付款", HomeSidePanelIconKind.PAYMENTS)
-    HomeSidePanelShortcut.FAVORITES -> HomeSidePanelShortcutSpec(shortcut, "收藏", HomeSidePanelIconKind.COLLECTIONS_BOOKMARK)
-    HomeSidePanelShortcut.MOMENTS -> HomeSidePanelShortcutSpec(shortcut, "朋友圈", HomeSidePanelIconKind.PHOTO_LIBRARY)
-    HomeSidePanelShortcut.VIDEO_CHANNELS -> HomeSidePanelShortcutSpec(shortcut, "视频号", HomeSidePanelIconKind.VIDEO_LIBRARY)
-    HomeSidePanelShortcut.MARK_ALL_READ -> HomeSidePanelShortcutSpec(shortcut, "清空未读", HomeSidePanelIconKind.MARK_EMAIL_READ)
-    HomeSidePanelShortcut.WEKIT_SETTINGS -> HomeSidePanelShortcutSpec(shortcut, "WeKit 设置", HomeSidePanelIconKind.SETTINGS)
+    HomeSidePanelShortcut.SCAN -> HomeSidePanelShortcutSpec(shortcut, "扫一扫", HomeSidePanelIconKind.QR_CODE_SCANNER, HomeSidePanelShortcutPlacement.TILE)
+    HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelShortcutSpec(shortcut, "收付款", HomeSidePanelIconKind.PAYMENTS, HomeSidePanelShortcutPlacement.TILE)
+    HomeSidePanelShortcut.FAVORITES -> HomeSidePanelShortcutSpec(shortcut, "收藏", HomeSidePanelIconKind.COLLECTIONS_BOOKMARK, HomeSidePanelShortcutPlacement.TILE)
+    HomeSidePanelShortcut.MOMENTS -> HomeSidePanelShortcutSpec(shortcut, "朋友圈", HomeSidePanelIconKind.PHOTO_LIBRARY, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.VIDEO_CHANNELS -> HomeSidePanelShortcutSpec(shortcut, "视频号", HomeSidePanelIconKind.VIDEO_LIBRARY, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.MARK_ALL_READ -> HomeSidePanelShortcutSpec(shortcut, "清空未读", HomeSidePanelIconKind.MARK_EMAIL_READ, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.WEKIT_SETTINGS -> HomeSidePanelShortcutSpec(shortcut, "WeKit 设置", HomeSidePanelIconKind.SETTINGS, HomeSidePanelShortcutPlacement.LIST_ITEM)
 }
 
 @Composable
@@ -173,7 +179,9 @@ private fun HomeSidePanelStatus(
             }
 
             is HomeSidePanelStatusUiState.Ready -> {
-                status.status.emoji?.thumbUrl?.takeIf(String::isNotBlank)?.let { url ->
+                val emojiUrl = status.status.emoji?.thumbUrl?.takeIf(String::isNotBlank)
+                    ?: status.status.emoji?.url?.takeIf(String::isNotBlank)
+                emojiUrl?.let { url ->
                     AsyncImage(model = url, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
                 Text(status.status.description.ifBlank { "在线" }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -248,12 +256,35 @@ private fun HomeSidePanelWeatherCard(
 
 @Composable
 private fun HomeSidePanelShortcutList(controller: HomeSidePanelController) {
+    val tiles = HomeSidePanelShortcut.entries.filter { shortcutSpec(it).placement == HomeSidePanelShortcutPlacement.TILE }
+    val listItems = HomeSidePanelShortcut.entries.filter { shortcutSpec(it).placement == HomeSidePanelShortcutPlacement.LIST_ITEM }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        tiles.forEach { shortcut ->
+            val spec = shortcutSpec(shortcut)
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .combinedClickable(onClick = { controller.runShortcut(shortcut) }, onLongClick = null),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Icon(shortcutIcon(spec.icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text(spec.label, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        HomeSidePanelShortcut.entries.forEachIndexed { index, shortcut ->
+        listItems.forEachIndexed { index, shortcut ->
             val spec = shortcutSpec(shortcut)
             ListItem(
                 headlineContent = { Text(spec.label) },
@@ -263,7 +294,7 @@ private fun HomeSidePanelShortcutList(controller: HomeSidePanelController) {
                 trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { controller.runShortcut(shortcut) }, onLongClick = null),
             )
-            if (index != HomeSidePanelShortcut.entries.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            if (index != listItems.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         }
     }
 }

@@ -6,9 +6,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -18,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,10 +53,16 @@ fun HomeSidePanelSettingsContent(
     state: HomeSidePanelUiState,
     controller: HomeSidePanelController,
 ) {
-    when (state.cardMode) {
-        HomeSidePanelCardMode.WEATHER_SETTINGS -> HomeSidePanelWeatherSettings(state, controller)
-        HomeSidePanelCardMode.HITOKOTO_SETTINGS -> HomeSidePanelHitokotoSettings(state, controller)
-        HomeSidePanelCardMode.CONTENT -> HomeSidePanelContent(state, controller)
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
+    ) {
+        when (state.cardMode) {
+            HomeSidePanelCardMode.WEATHER_SETTINGS -> HomeSidePanelWeatherSettings(state, controller)
+            HomeSidePanelCardMode.HITOKOTO_SETTINGS -> HomeSidePanelHitokotoSettings(state, controller)
+            HomeSidePanelCardMode.CONTENT -> HomeSidePanelContent(state, controller)
+        }
     }
 }
 
@@ -58,7 +74,11 @@ private fun HomeSidePanelWeatherSettings(
     val activity = LocalContext.current as Activity
     var query by remember(state.weatherSettings.searchQuery) { mutableStateOf(state.weatherSettings.searchQuery) }
     Column(
-        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom).asPaddingValues())
+            .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         SettingsHeader("天气设置", controller::closeCardSettings)
@@ -122,7 +142,11 @@ private fun HomeSidePanelHitokotoSettings(
 ) {
     var draft by remember(state.hitokotoSettings) { mutableStateOf(state.hitokotoSettings) }
     Column(
-        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom).asPaddingValues())
+            .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         SettingsHeader("一言设置", controller::closeCardSettings)
