@@ -45,6 +45,31 @@
 - Config: MMKV via `WePrefs`
 - Logging: via `WeLogger`
 
+## Desktop DexKit Validation
+
+- Use `./x dex-test` to run the same `IResolveDex`/DexKit resolution steps used by
+  `DexCacheManager.kt` against WeChat APKs on the Linux desktop. Test only the supported host
+  range **8.0.65–8.0.76**; APKs outside that range are useful for investigation but must not be
+  treated as compatibility gates for the project.
+- Test each supported APK version separately, including separate normal and Google Play APKs
+  when both are available. Each APK runs in its own JVM worker and must carry its own version code,
+  version name, build tag, and Google Play metadata.
+- Reports belong under `dex-test-results/<run-id>/` (or an explicitly supplied output directory),
+  never under Gradle's `build/reports/`. Preserve the per-APK JSON reports and aggregate summary.
+- Resolution classification is strict: an `allowFailure = true` delegate that receives its
+  placeholder is `EXPECTED_FAILURE`; an unhandled resolver exception is `UNEXPECTED_FAILURE`;
+  delegates that remain pending after that exception are `BLOCKED` and must record the triggering
+  delegate; a resolver returning with pending delegates is `INCOMPLETE`.
+- A desktop resolution pass does not prove hook-time behavior on a physical device. Initialization,
+  worker, native-library, APK metadata, report, unexpected, blocked, or incomplete failures must
+  remain visible and make the command fail.
+- DexKit desktop testing is intentionally expensive. After a supported-version run has passed,
+  do not rerun it for unrelated changes when no Dex declarations or resolution steps changed.
+  Rerun the affected supported APK versions after changing `dexMethod`, `dexClass`, `dexField`,
+  inline matchers, or the corresponding `resolveDex`/`resolveInlineDex` logic.
+- Before reporting a Dex resolver change as complete, run the affected desktop tests plus the
+  relevant Gradle tests, `./x build`, and `git diff --check`.
+
 ## Key Conventions
 
 - Package namespace: `dev.ujhhgtg.wekit`
@@ -52,7 +77,8 @@
 - Target: WeChat `com.tencent.mm`, versions 8.0.65–8.0.76. Current host info in `HostInfo`
 - Process targeting via `TargetProcesses`: override `startup()` to check
   `TargetProcesses.isInMain` / `TargetProcesses.currentType`. Default: main process only.
-- No unit tests — manual testing on real WeChat only
+- Device behavior still requires manual testing on real WeChat; desktop JVM tests cover Dex
+  resolution only and do not replace device validation.
 - If `JsApiExposer` (`hooks/items/scripting_js/JsApiExposer.kt`) is modified, keep `globals.d.ts` in
   the same directory in sync — it's the TypeScript type declaration for the JS scripting API
 - NEVER wrap `hookBefore` and `hookAfter` in a `try-catch`/`runCatching` block. They should NOT fail. If they fail, then it's the module developer's problem.
