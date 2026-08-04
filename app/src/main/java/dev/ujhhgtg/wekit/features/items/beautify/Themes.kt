@@ -124,7 +124,7 @@ object Themes : ClickableFeature(), IResolveDex {
     private const val TAG = "Themes"
 
     /** 与 cherrywechat 一致：主题根目录位于模块数据目录下 */
-    private val THEMES_PATH = (KnownPaths.moduleData / "themes").createDirsSafe()
+    private val THEMES_PATH by lazy { (KnownPaths.moduleData / "themes").createDirsSafe() }
 
     private const val KEY_CURRENT_THEME = "themes_current_id"
 
