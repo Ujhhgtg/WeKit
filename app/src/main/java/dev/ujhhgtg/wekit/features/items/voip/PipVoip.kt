@@ -20,6 +20,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.activity.PipVoipActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -378,7 +379,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val methodBallRemoveVoipView by dexMethod {
         matcher {
-            declaredClass(methodBallAddVoipView.method.declaringClass)
+            declaredClass(methodBallAddVoipView.data.declaredClassName)
             paramTypes(FrameLayout::class.java.name)
             returnType = "void"
             usingEqStrings("removeVoipView, no ball, view:%s")
@@ -395,8 +396,8 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val fieldVoipMpServiceInstance by dexField {
         matcher {
-            declaredClass(classVoipMpService.clazz)
-            type(classVoipMpService.clazz)
+            declaredClass(classVoipMpService.data.name)
+            type(classVoipMpService.data.name)
             modifiers(Modifier.STATIC)
         }
     }
@@ -404,7 +405,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
     /** `launchPage(context, needAnimation)`：把通话界面重新拉起来 */
     private val methodVoipMpLaunchPage by dexMethod {
         matcher {
-            declaredClass(classVoipMpService.clazz)
+            declaredClass(classVoipMpService.data.name)
             paramTypes(Context::class.java.name, "boolean")
             returnType = "void"
         }
@@ -413,7 +414,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
     /** `dismissSmallWindow()`：微信认为最小化界面该消失了 */
     private val methodVoipMpDismissSmallWindow by dexMethod {
         matcher {
-            declaredClass(classVoipMpService.clazz)
+            declaredClass(classVoipMpService.data.name)
             paramCount = 0
             returnType = "void"
             usingEqStrings("MicroMsg.VoIPMP.Launcher", "dismissSmallWindow: ")
@@ -429,8 +430,8 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val fieldVoipMpCoreInstance by dexField {
         matcher {
-            declaredClass(classVoipMpCore.clazz)
-            type(classVoipMpCore.clazz)
+            declaredClass(classVoipMpCore.data.name)
+            type(classVoipMpCore.data.name)
             modifiers(Modifier.STATIC)
         }
     }
@@ -438,7 +439,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
     /** `SetAppCmd(cmd, payload, length)` */
     private val methodVoipMpSetAppCmd by dexMethod {
         matcher {
-            declaredClass(classVoipMpCore.clazz)
+            declaredClass(classVoipMpCore.data.name)
             paramTypes("int", ByteBuffer::class.java.name, "int")
             returnType = "int"
         }
@@ -453,7 +454,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
      */
     private val methodVoipMpHangUp by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classVoipMpCore.clazz)
+            declaredClass(classVoipMpCore.data.name)
             paramTypes("boolean", null)
             returnType = "void"
             addCaller {
@@ -482,7 +483,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val fieldVoipMpMicMuted by dexField {
         matcher {
-            declaredClass(methodVoipMpMuteMic.method.declaringClass)
+            declaredClass(methodVoipMpMuteMic.data.declaredClassName)
             type = "boolean"
             addWriteMethod {
                 usingEqStrings("MicroMsg.VoIPMPAudioCapturer", "muteMicrophone")
@@ -498,9 +499,9 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val methodVoipMpAudioCapturer by dexMethod {
         matcher {
-            declaredClass(methodVoipMpMuteMic.method.declaringClass)
+            declaredClass(methodVoipMpMuteMic.data.declaredClassName)
             paramCount = 0
-            returnType(classVoipMpAudioCapturer.clazz.interfaces.single())
+            returnType(classVoipMpAudioCapturer.data.interfaces.single().name)
         }
     }
 
@@ -515,8 +516,8 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val fieldVoipMpRecorder by dexField {
         matcher {
-            declaredClass(classVoipMpAudioCapturer.clazz)
-            type(methodVoipMpSwitchMute.method.declaringClass)
+            declaredClass(classVoipMpAudioCapturer.data.name)
+            type(methodVoipMpSwitchMute.data.declaredClassName)
         }
     }
 
@@ -558,14 +559,14 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val fieldVoipAudioManager by dexField {
         matcher {
-            declaredClass(classBaseVoipManager.clazz)
-            type(classVoipAudioManager.clazz.interfaces.single())
+            declaredClass(classBaseVoipManager.data.name)
+            type(classVoipAudioManager.data.interfaces.single().name)
         }
     }
 
     private val methodSetVoipMuted by dexMethod {
         matcher {
-            declaredClass(classFlutterVoipManager.clazz)
+            declaredClass(classFlutterVoipManager.data.name)
             paramTypes("boolean")
             returnType = "void"
             usingEqStrings("qipeng, enableMute.", "qipeng, disableMute.")
@@ -574,7 +575,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val methodVoipHangUp by dexMethod {
         matcher {
-            declaredClass(classBaseVoipManager.clazz)
+            declaredClass(classBaseVoipManager.data.name)
             paramTypes("int")
             returnType = "void"
             usingEqStrings("hangupTalkingOrCancelInvite")
@@ -583,10 +584,10 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val fieldVoipMuted by dexField {
         matcher {
-            declaredClass(classVoipAudioManager.clazz)
+            declaredClass(classVoipAudioManager.data.name)
             type = "boolean"
             addWriteMethod {
-                declaredClass(classFlutterVoipManager.clazz)
+                declaredClass(classFlutterVoipManager.data.name)
                 paramTypes("boolean")
                 usingEqStrings("qipeng, enableMute.", "qipeng, disableMute.")
             }
@@ -595,21 +596,21 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val fieldFlutterVoipActivity by dexField {
         matcher {
-            declaredClass(classFlutterVoipPlugin.clazz)
+            declaredClass(classFlutterVoipPlugin.data.name)
             type(Activity::class.java)
         }
     }
 
     private val fieldFlutterVoipManager by dexField {
         matcher {
-            declaredClass(classFlutterVoipPlugin.clazz)
-            type(classFlutterVoipManager.clazz)
+            declaredClass(classFlutterVoipPlugin.data.name)
+            type(classFlutterVoipManager.data.name)
         }
     }
 
     private val methodFlutterVoipAttachedToActivity by dexMethod {
         matcher {
-            declaredClass(classFlutterVoipPlugin.clazz)
+            declaredClass(classFlutterVoipPlugin.data.name)
             paramCount = 1
             returnType = "void"
             usingEqStrings("onAttachedToActivity: ", "init flutter voip mgr")
@@ -618,7 +619,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val methodFlutterVoipReattachedToActivity by dexMethod {
         matcher {
-            declaredClass(classFlutterVoipPlugin.clazz)
+            declaredClass(classFlutterVoipPlugin.data.name)
             paramCount = 1
             returnType = "void"
             usingEqStrings("onReattachedToActivityForConfigChanges:")
@@ -640,7 +641,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
     private val fieldMultiTalkViewModel by dexField {
         matcher {
             declaredClass(MultiTalkMainUI::class.java)
-            type(classMultiTalkViewModel.clazz)
+            type(classMultiTalkViewModel.data.name)
         }
     }
 
@@ -683,7 +684,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val methodMultiTalkMic by dexMethod {
         matcher {
-            declaredClass(classMultiTalkViewModel.clazz)
+            declaredClass(classMultiTalkViewModel.data.name)
             paramTypes("boolean")
             returnType = "void"
             usingEqStrings("onMicClick, cur state: ")
@@ -698,8 +699,8 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val fieldMultiTalkMicState by dexField {
         matcher {
-            declaredClass(classMultiTalkViewModel.clazz)
-            type(classObservableState.clazz)
+            declaredClass(classMultiTalkViewModel.data.name)
+            type(classObservableState.data.name)
             addReadMethod {
                 usingEqStrings("MicroMsg.MT.MultiTalkUIViewModel", "onMicClick, cur state: ")
             }
@@ -708,8 +709,8 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val fieldMultiTalkCameraState by dexField {
         matcher {
-            declaredClass(classMultiTalkViewModel.clazz)
-            type(classObservableState.clazz)
+            declaredClass(classMultiTalkViewModel.data.name)
+            type(classObservableState.data.name)
             addReadMethod {
                 usingEqStrings("MicroMsg.MT.MultiTalkUIViewModel", "onCameraClick, cur state: ")
             }
@@ -718,7 +719,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val methodObservableValue by dexMethod {
         matcher {
-            declaredClass(classObservableState.clazz)
+            declaredClass(classObservableState.data.name)
             paramCount = 0
             returnType(Any::class.java)
         }

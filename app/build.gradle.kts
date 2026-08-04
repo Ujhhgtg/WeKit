@@ -207,6 +207,10 @@ val validateDesktopDexResolvers = tasks.register<ValidateDesktopDexResolversTask
     )
 }
 
+tasks.named("preBuild") {
+    dependsOn(validateDesktopDexResolvers)
+}
+
 val generateNewFeatures = tasks.register<GenerateNewFeaturesTask>("generateNewFeatures") {
     description = "Collect features added within the last 30 days of history"
     group = "wekit"

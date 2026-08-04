@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.core.net.toUri
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -103,28 +104,28 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
     }
     private val methodReceiveOnGYNetEnd by dexMethod {
         matcher {
-            declaredClass(classReceiveLuckyMoney.clazz)
+            declaredClass(classReceiveLuckyMoney.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         }
     }
     private val methodReceiveUnionOnGYNetEnd by dexMethod {
         matcher {
-            declaredClass(classReceiveLuckyMoneyUnion.clazz)
+            declaredClass(classReceiveLuckyMoneyUnion.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         }
     }
     private val methodOpenOnGYNetEnd by dexMethod {
         matcher {
-            declaredClass(classOpenLuckyMoney.clazz)
+            declaredClass(classOpenLuckyMoney.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         }
     }
     private val methodOpenUnionOnGYNetEnd by dexMethod {
         matcher {
-            declaredClass(classOpenLuckyMoneyUnion.clazz)
+            declaredClass(classOpenLuckyMoneyUnion.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         }

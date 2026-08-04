@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.system
 
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -17,7 +18,7 @@ object DisableWebViewSafetyWarnings : SwitchFeature(), IResolveDex {
     }
     private val methodGetIsUrlSafe by dexMethod {
         matcher {
-            declaredClass(methodGetIsInterceptEnabled.method.declaringClass)
+            declaredClass(methodGetIsInterceptEnabled.data.declaredClassName)
             usingEqStrings("http", "https")
         }
     }

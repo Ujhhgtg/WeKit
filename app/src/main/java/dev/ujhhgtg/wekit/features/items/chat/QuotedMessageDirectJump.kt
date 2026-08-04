@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -22,7 +23,7 @@ object QuotedMessageDirectJump : SwitchFeature(), IResolveDex {
     }
     private val methodClickToPositionEvent by dexMethod {
         matcher {
-            declaredClass(methodClickEvent.method.declaringClass)
+            declaredClass(methodClickEvent.data.declaredClassName)
             usingEqStrings(
                 "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
                 "handleItemClickToPositionEvent,quotedMsg is null!"
@@ -31,7 +32,7 @@ object QuotedMessageDirectJump : SwitchFeature(), IResolveDex {
     }
     private val methodGetQuoteMessageInfo by dexMethod {
         matcher {
-            declaredClass(methodClickEvent.method.declaringClass)
+            declaredClass(methodClickEvent.data.declaredClassName)
             usingStrings(
                 "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
                 "%s msgId:%s msgSvrId:%s"
@@ -50,7 +51,7 @@ object QuotedMessageDirectJump : SwitchFeature(), IResolveDex {
     }
     private val methodChattingContextGetTalker by dexMethod {
         matcher {
-            declaredClass(classChattingContext.clazz)
+            declaredClass(classChattingContext.data.name)
             usingEqStrings("getTalker returns null.")
         }
     }

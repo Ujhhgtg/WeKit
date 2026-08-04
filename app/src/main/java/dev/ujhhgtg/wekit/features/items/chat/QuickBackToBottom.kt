@@ -16,6 +16,7 @@ import com.tencent.mm.ui.chatting.view.MMChattingListView
 import com.tencent.mm.ui.widget.imageview.WeImageView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -112,7 +113,7 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
     /** ChattingContext.getTalker()。 */
     private val methodChattingContextGetTalker by dexMethod {
         matcher {
-            declaredClass(classChattingContext.clazz)
+            declaredClass(classChattingContext.data.name)
             usingEqStrings("getTalker returns null.")
         }
     }

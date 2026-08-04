@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -36,7 +37,7 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
 
     private val methodToggleMessageSelection by dexMethod {
         matcher {
-            declaredClass(classChattingDataAdapter.clazz)
+            declaredClass(classChattingDataAdapter.data.name)
             usingNumbers(SELECTION_LIMIT)
             usingEqStrings("msgIdTalker")
             returnType(bool)
@@ -45,7 +46,7 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
 
     private val methodGetSelectedMessageCount by dexMethod {
         matcher {
-            declaredClass(classChattingDataAdapter.clazz)
+            declaredClass(classChattingDataAdapter.data.name)
             addUsingField {
                 type(CopyOnWriteArraySet::class.java)
             }
@@ -69,7 +70,7 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
         resultIndex = 0
     ) {
         matcher {
-            declaredClass(classChatItemQuickSelect.clazz)
+            declaredClass(classChatItemQuickSelect.data.name)
             usingNumbers(SELECTION_LIMIT)
             paramTypes(bool)
             returnType(void)
@@ -81,7 +82,7 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
         resultIndex = 1
     ) {
         matcher {
-            declaredClass(classChatItemQuickSelect.clazz)
+            declaredClass(classChatItemQuickSelect.data.name)
             usingNumbers(SELECTION_LIMIT)
             paramTypes(bool)
             returnType(void)

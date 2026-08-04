@@ -45,6 +45,7 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -137,7 +138,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     // com.tencent.mm.feature.avatar.w.pg; an exception: this doesn't call methodMvvmLoadAvatar
     private val methodFeatureAvatarSimple1 by dexMethod {
         matcher {
-            declaredClass(classAvatarDrawable.clazz)
+            declaredClass(classAvatarDrawable.data.name)
             paramTypes(
                 "android.widget.ImageView",
                 "java.lang.String"
