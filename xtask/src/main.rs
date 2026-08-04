@@ -7,6 +7,7 @@
 //!   zygisk <COMMAND>     Build, package, and install the Zygisk module.
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
+//!   dex-test [OPTIONS]   Resolve WeKit DexKit targets against desktop APKs.
 //!
 //! Run `cargo xtask <COMMAND> --help` for per-command options.
 
@@ -22,6 +23,8 @@ use std::{
 };
 use walkdir::WalkDir;
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
+
+mod dex_test;
 
 // ── Project constants (mirror app/build.gradle.kts / libs.versions.toml) ──────
 
@@ -128,6 +131,9 @@ enum Cmd {
 
     /// Run `cargo clippy` on the native library for each target ABI.
     Clippy(NativeArgs),
+
+    /// Run DexKit resolvers against one or more WeChat APKs on this Linux desktop.
+    DexTest(dex_test::DexTestArgs),
 }
 
 #[derive(Args)]
@@ -351,6 +357,7 @@ fn main() -> Result<()> {
         Cmd::Zygisk(args) => task_zygisk(args)?,
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
         Cmd::Clippy(args) => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
+        Cmd::DexTest(args) => dex_test::task_dex_test(args)?,
     }
     Ok(())
 }
@@ -714,6 +721,8 @@ struct GradleVersionCatalog {
 #[derive(Deserialize)]
 struct GradleVersions {
     ndk: String,
+    #[serde(default)]
+    dexkit: Option<String>,
 }
 
 fn task_zygisk(args: ZygiskArgs) -> Result<()> {
