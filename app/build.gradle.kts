@@ -196,6 +196,17 @@ val generateMethodHashes = tasks.register<GenerateMethodHashesTask>("generateMet
     namespace.set(libs.versions.namespace.get())
 }
 
+val validateDesktopDexResolvers = tasks.register<ValidateDesktopDexResolversTask>("validateDesktopDexResolvers") {
+    description = "Validate that Dex resolvers can run without a live WeChat host"
+    group = "verification"
+    sourceDir.set(file("src/main/java"))
+    includePaths.set(
+        providers.gradleProperty("dexResolverValidationInclude")
+            .map { it.split(',').map(String::trim).filter(String::isNotEmpty) }
+            .orElse(emptyList()),
+    )
+}
+
 val generateNewFeatures = tasks.register<GenerateNewFeaturesTask>("generateNewFeatures") {
     description = "Collect features added within the last 30 days of history"
     group = "wekit"
