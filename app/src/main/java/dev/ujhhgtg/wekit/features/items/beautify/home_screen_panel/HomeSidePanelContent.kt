@@ -85,8 +85,11 @@ data class HomeSidePanelShortcutSpec(
     val placement: HomeSidePanelShortcutPlacement,
 )
 
-internal fun weatherCardErrorMessage(state: WeatherUiState): String? =
-    (state as? WeatherUiState.Error)?.message
+internal fun weatherCardSnapshot(state: WeatherUiState): WeatherSnapshot? = when (state) {
+    is WeatherUiState.Ready -> state.snapshot
+    is WeatherUiState.Error -> state.cached
+    WeatherUiState.Loading -> null
+}
 
 internal fun hitokotoCardErrorMessage(state: HitokotoUiState): String? =
     (state as? HitokotoUiState.Error)?.message
@@ -221,11 +224,7 @@ private fun HomeSidePanelWeatherCard(
     weather: WeatherUiState,
     controller: HomeSidePanelController,
 ) {
-    val snapshot = when (weather) {
-        is WeatherUiState.Ready -> weather.snapshot
-        is WeatherUiState.Error -> weather.cached
-        else -> null
-    }
+    val snapshot = weatherCardSnapshot(weather)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -260,19 +259,11 @@ private fun HomeSidePanelWeatherCard(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
                 )
                 Text("更新于 ${snapshot.publishedAt}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f))
-                weatherCardErrorMessage(weather)?.let { message ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(message, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                        IconButton(onClick = controller::refreshWeather, modifier = Modifier.size(28.dp)) {
-                            Icon(MaterialSymbols.Outlined.Refresh, contentDescription = "重试天气", modifier = Modifier.size(18.dp))
-                        }
-                    }
-                }
             } else {
                 Text(
-                    if (weather is WeatherUiState.Error) weather.message else "天气加载中…",
+                    if (weather is WeatherUiState.Loading) "天气加载中…" else "暂无天气数据，点击卡片重试",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (weather is WeatherUiState.Error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
             }
         }

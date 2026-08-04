@@ -17,6 +17,7 @@ import android.view.Window
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.WindowCompat
@@ -42,6 +43,7 @@ import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.float
@@ -50,6 +52,7 @@ import org.luckypray.dexkit.DexKitBridge
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -472,9 +475,17 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             panelView.setBackgroundColor(AndroidColor.TRANSPARENT)
             panelView.isClickable = true
             panelView.setLifecycleOwner(LifecycleOwnerProvider.getOrCreate(activity))
-            controller.startPreload()
             panelView.setContent {
                 InjectedUiTheme {
+                    LaunchedEffect(controller) {
+                        val messagesJob = launch(start = CoroutineStart.UNDISPATCHED) {
+                            controller.weatherMessages.collect { message ->
+                                showToast(activity, message)
+                            }
+                        }
+                        controller.startPreload()
+                        messagesJob.join()
+                    }
                     val state by controller.uiState.collectAsStateWithLifecycle()
                     HomeSidePanelContent(state, controller)
                 }

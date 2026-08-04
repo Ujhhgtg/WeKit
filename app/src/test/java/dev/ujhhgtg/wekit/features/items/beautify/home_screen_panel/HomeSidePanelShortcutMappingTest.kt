@@ -54,7 +54,7 @@ class HomeSidePanelShortcutMappingTest {
     }
 
     @Test
-    fun cachedErrorsKeepTheirVisibleFailureMessage() {
+    fun cachedWeatherFailureKeepsContentWithoutAnInlineFailureMessage() {
         val weather = WeatherSnapshot(
             city = DEFAULT_WEATHER_CITY,
             weatherCode = "0",
@@ -68,7 +68,7 @@ class HomeSidePanelShortcutMappingTest {
             fetchedAt = 0L,
         )
         val quote = HitokotoSnapshot("id", "一句话", null, null, null, null, null, 0L)
-        assertEquals("天气请求超时", weatherCardErrorMessage(WeatherUiState.Error("天气请求超时", weather)))
+        assertEquals(weather, weatherCardSnapshot(WeatherUiState.Error("天气请求超时", weather)))
         assertEquals("一言服务不可用", hitokotoCardErrorMessage(HitokotoUiState.Error("一言服务不可用", quote)))
     }
 

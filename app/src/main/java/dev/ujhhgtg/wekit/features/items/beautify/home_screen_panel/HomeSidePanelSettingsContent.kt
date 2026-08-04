@@ -1,16 +1,19 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import android.app.Activity
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -22,11 +25,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -86,6 +93,36 @@ private fun HomeSidePanelWeatherSettings(
             "当前城市：${state.weatherSettings.selectedCity.province} ${state.weatherSettings.selectedCity.city}",
             style = MaterialTheme.typography.titleMedium,
         )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { controller.detectWeatherLocation(activity) },
+                modifier = Modifier.weight(1f).height(72.dp),
+                enabled = !state.weatherSettings.actionInProgress,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(MaterialSymbols.Outlined.My_location, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Text("自动检测", maxLines = 1, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            OutlinedButton(
+                onClick = controller::readWeatherFromProfile,
+                modifier = Modifier.weight(1f).height(72.dp),
+                enabled = !state.weatherSettings.actionInProgress,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(MaterialSymbols.Outlined.Person_pin, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Text("从个人资料读取", maxLines = 1, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
         OutlinedTextField(
             value = query,
             onValueChange = {
@@ -96,38 +133,32 @@ private fun HomeSidePanelWeatherSettings(
             singleLine = true,
             label = { Text("搜索城市") },
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = { controller.detectWeatherLocation(activity) },
-                modifier = Modifier.weight(1f),
-                enabled = !state.weatherSettings.actionInProgress,
-            ) {
-                Icon(MaterialSymbols.Outlined.My_location, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("自动检测", modifier = Modifier.padding(start = 5.dp))
-            }
-            Button(
-                onClick = controller::readWeatherFromProfile,
-                modifier = Modifier.weight(1f),
-                enabled = !state.weatherSettings.actionInProgress,
-            ) {
-                Icon(MaterialSymbols.Outlined.Person_pin, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("从个人资料读取", modifier = Modifier.padding(start = 5.dp))
-            }
-        }
-        state.weatherSettings.message?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        }
         if (state.weatherSettings.searchResults.isNotEmpty()) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                state.weatherSettings.searchResults.forEach { city ->
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            ) {
+                state.weatherSettings.searchResults.forEachIndexed { index, city ->
+                    val selected = city.cityNum == state.weatherSettings.selectedCity.cityNum
                     ListItem(
                         headlineContent = { Text(city.city + city.district.orEmpty()) },
-                        supportingContent = { Text(city.province) },
-                        trailingContent = { Text(city.cityNum, style = MaterialTheme.typography.labelSmall) },
-                        modifier = Modifier.fillMaxWidth(),
+                        supportingContent = { Text("${city.province} · ${city.cityNum}") },
+                        trailingContent = {
+                            RadioButton(selected = selected, onClick = null)
+                        },
+                        colors = ListItemDefaults.colors(
+                            containerColor = if (selected) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerLow
+                            },
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { controller.selectWeatherCity(city) },
                     )
-                    TextButton(onClick = { controller.selectWeatherCity(city) }, modifier = Modifier.align(Alignment.End)) {
-                        Text("选择")
+                    if (index != state.weatherSettings.searchResults.lastIndex) {
+                        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                     }
                 }
             }
