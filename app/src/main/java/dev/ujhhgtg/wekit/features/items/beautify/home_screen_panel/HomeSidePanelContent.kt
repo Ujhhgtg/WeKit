@@ -46,32 +46,32 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Cloudy
-import com.composables.icons.materialsymbols.outlined.Collections_bookmark
 import com.composables.icons.materialsymbols.outlined.Foggy
 import com.composables.icons.materialsymbols.outlined.Format_quote
-import com.composables.icons.materialsymbols.outlined.Mark_email_read
-import com.composables.icons.materialsymbols.outlined.Payments
-import com.composables.icons.materialsymbols.outlined.Photo_library
-import com.composables.icons.materialsymbols.outlined.Qr_code_scanner
 import com.composables.icons.materialsymbols.outlined.Question_mark
 import com.composables.icons.materialsymbols.outlined.Rainy
 import com.composables.icons.materialsymbols.outlined.Refresh
-import com.composables.icons.materialsymbols.outlined.Settings
 import com.composables.icons.materialsymbols.outlined.Sunny
 import com.composables.icons.materialsymbols.outlined.Thunderstorm
-import com.composables.icons.materialsymbols.outlined.Video_library
 import com.composables.icons.materialsymbols.outlined.Weather_snowy
+import com.composables.icons.materialsymbols.outlinedfilled.Bookmark
+import com.composables.icons.materialsymbols.outlinedfilled.Camera
+import com.composables.icons.materialsymbols.outlinedfilled.Extension
+import com.composables.icons.materialsymbols.outlinedfilled.Mark_chat_read
+import com.composables.icons.materialsymbols.outlinedfilled.Movie
+import com.composables.icons.materialsymbols.outlinedfilled.Qr_code_scanner
+import com.composables.icons.materialsymbols.outlinedfilled.Wallet
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 enum class HomeSidePanelIconKind {
     QR_CODE_SCANNER,
-    PAYMENTS,
-    COLLECTIONS_BOOKMARK,
-    PHOTO_LIBRARY,
-    VIDEO_LIBRARY,
-    MARK_EMAIL_READ,
-    SETTINGS,
+    WALLET,
+    BOOKMARK,
+    CAMERA,
+    MOVIE,
+    MARK_CHAT_READ,
+    EXTENSION,
 }
 
 enum class HomeSidePanelShortcutPlacement {
@@ -111,12 +111,12 @@ internal fun homeSidePanelAttribution(author: String?, source: String?): String?
 
 internal fun shortcutSpec(shortcut: HomeSidePanelShortcut): HomeSidePanelShortcutSpec = when (shortcut) {
     HomeSidePanelShortcut.SCAN -> HomeSidePanelShortcutSpec(shortcut, "扫一扫", HomeSidePanelIconKind.QR_CODE_SCANNER, HomeSidePanelShortcutPlacement.TILE)
-    HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelShortcutSpec(shortcut, "收付款", HomeSidePanelIconKind.PAYMENTS, HomeSidePanelShortcutPlacement.TILE)
-    HomeSidePanelShortcut.FAVORITES -> HomeSidePanelShortcutSpec(shortcut, "收藏", HomeSidePanelIconKind.COLLECTIONS_BOOKMARK, HomeSidePanelShortcutPlacement.TILE)
-    HomeSidePanelShortcut.MOMENTS -> HomeSidePanelShortcutSpec(shortcut, "朋友圈", HomeSidePanelIconKind.PHOTO_LIBRARY, HomeSidePanelShortcutPlacement.LIST_ITEM)
-    HomeSidePanelShortcut.VIDEO_CHANNELS -> HomeSidePanelShortcutSpec(shortcut, "视频号", HomeSidePanelIconKind.VIDEO_LIBRARY, HomeSidePanelShortcutPlacement.LIST_ITEM)
-    HomeSidePanelShortcut.MARK_ALL_READ -> HomeSidePanelShortcutSpec(shortcut, "清空未读", HomeSidePanelIconKind.MARK_EMAIL_READ, HomeSidePanelShortcutPlacement.LIST_ITEM)
-    HomeSidePanelShortcut.WEKIT_SETTINGS -> HomeSidePanelShortcutSpec(shortcut, "WeKit 设置", HomeSidePanelIconKind.SETTINGS, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelShortcutSpec(shortcut, "收付款", HomeSidePanelIconKind.WALLET, HomeSidePanelShortcutPlacement.TILE)
+    HomeSidePanelShortcut.FAVORITES -> HomeSidePanelShortcutSpec(shortcut, "收藏", HomeSidePanelIconKind.BOOKMARK, HomeSidePanelShortcutPlacement.TILE)
+    HomeSidePanelShortcut.MOMENTS -> HomeSidePanelShortcutSpec(shortcut, "朋友圈", HomeSidePanelIconKind.CAMERA, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.VIDEO_CHANNELS -> HomeSidePanelShortcutSpec(shortcut, "视频号", HomeSidePanelIconKind.MOVIE, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.MARK_ALL_READ -> HomeSidePanelShortcutSpec(shortcut, "清空未读", HomeSidePanelIconKind.MARK_CHAT_READ, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.WEKIT_SETTINGS -> HomeSidePanelShortcutSpec(shortcut, "WeKit 设置", HomeSidePanelIconKind.EXTENSION, HomeSidePanelShortcutPlacement.LIST_ITEM)
 }
 
 @Composable
@@ -396,11 +396,11 @@ private fun weatherIcon(code: String): ImageVector = when (weatherIconKind(code)
 }
 
 private fun shortcutIcon(kind: HomeSidePanelIconKind): ImageVector = when (kind) {
-    HomeSidePanelIconKind.QR_CODE_SCANNER -> MaterialSymbols.Outlined.Qr_code_scanner
-    HomeSidePanelIconKind.PAYMENTS -> MaterialSymbols.Outlined.Payments
-    HomeSidePanelIconKind.COLLECTIONS_BOOKMARK -> MaterialSymbols.Outlined.Collections_bookmark
-    HomeSidePanelIconKind.PHOTO_LIBRARY -> MaterialSymbols.Outlined.Photo_library
-    HomeSidePanelIconKind.VIDEO_LIBRARY -> MaterialSymbols.Outlined.Video_library
-    HomeSidePanelIconKind.MARK_EMAIL_READ -> MaterialSymbols.Outlined.Mark_email_read
-    HomeSidePanelIconKind.SETTINGS -> MaterialSymbols.Outlined.Settings
+    HomeSidePanelIconKind.QR_CODE_SCANNER -> MaterialSymbols.OutlinedFilled.Qr_code_scanner
+    HomeSidePanelIconKind.WALLET -> MaterialSymbols.OutlinedFilled.Wallet
+    HomeSidePanelIconKind.BOOKMARK -> MaterialSymbols.OutlinedFilled.Bookmark
+    HomeSidePanelIconKind.CAMERA -> MaterialSymbols.OutlinedFilled.Camera
+    HomeSidePanelIconKind.MOVIE -> MaterialSymbols.OutlinedFilled.Movie
+    HomeSidePanelIconKind.MARK_CHAT_READ -> MaterialSymbols.OutlinedFilled.Mark_chat_read
+    HomeSidePanelIconKind.EXTENSION -> MaterialSymbols.OutlinedFilled.Extension
 }

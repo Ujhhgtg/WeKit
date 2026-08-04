@@ -4,7 +4,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.ui.utils.CheckCircleIcon
+import dev.ujhhgtg.wekit.ui.utils.MarkChatReadIcon
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.android.showToast
 
@@ -22,7 +22,7 @@ object MarkAllAsRead : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProvi
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777012, "清空未读", CheckCircleIcon
+                777012, "清空未读", MarkChatReadIcon
             ) {
                 WeConversationApi.markAllAsRead()
                 showToast("已将全部未读消息标为已读")

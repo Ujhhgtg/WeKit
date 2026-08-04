@@ -82,6 +82,7 @@ import com.composables.icons.materialsymbols.outlinedfilled.Drag_pan
 import com.composables.icons.materialsymbols.outlinedfilled.Extension
 import com.composables.icons.materialsymbols.outlinedfilled.Favorite
 import com.composables.icons.materialsymbols.outlinedfilled.Movie
+import com.composables.icons.materialsymbols.outlinedfilled.Mark_chat_read
 import com.composables.icons.materialsymbols.outlinedfilled.Qr_code_scanner
 import com.composables.icons.materialsymbols.outlinedfilled.Restart_alt
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
@@ -193,7 +194,8 @@ object AddMainScreenFab : ClickableFeature() {
             "Update" to MaterialSymbols.OutlinedFilled.Update,
             "Bookmark" to MaterialSymbols.OutlinedFilled.Bookmark,
             "Favorite" to MaterialSymbols.OutlinedFilled.Favorite,
-            "Check_circle" to MaterialSymbols.OutlinedFilled.Check_circle
+            "Mark_chat_read" to MaterialSymbols.OutlinedFilled.Mark_chat_read,
+            "Check_circle" to MaterialSymbols.OutlinedFilled.Check_circle,
         )
     }
 
@@ -217,7 +219,7 @@ object AddMainScreenFab : ClickableFeature() {
         FabItemConfig("6", FabType.MODULE_SETTINGS, "模块设置", "Extension"),
         FabItemConfig("9", FabType.RESTART_HOST, "重启微信", "Update"),
         FabItemConfig("7", FabType.FORCE_STOP, "强行停止", "Cancel"),
-        FabItemConfig("8", FabType.MARK_ALL_READ, "清空未读", "Check_circle")
+        FabItemConfig("8", FabType.MARK_ALL_READ, "清空未读", "Mark_chat_read")
     )
 
     private fun loadConfig(): List<FabItemConfig> {
