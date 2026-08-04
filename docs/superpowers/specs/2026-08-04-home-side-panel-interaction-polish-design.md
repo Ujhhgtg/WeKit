@@ -57,9 +57,32 @@
 - 点击整个卡片随机刷新、长按进入设置的行为保持不变。
 - 署名单独占一行、填满宽度并右对齐。
 - 同时有作者和出处时格式为 `—— 作者「出处」`。
-- 只有作者时格式为 `—— 作者`。
+- 没有出处时格式为 `—— 作者`。
 - 只有出处时格式为 `——「出处」`。
 - 作者和出处都为空时不显示署名。
+
+## 账号卡片
+
+顶部账号卡片只显示真实头像、昵称和状态，不显示 wxId 或其他账号 ID 文本。
+
+## 快捷入口图标统一
+
+HomeSidePanel 快捷入口图标必须复用 `AddMainScreenFab.kt` 默认配置使用的 Material Symbols 图标：
+
+- 扫一扫：`Qr_code_scanner`。
+- 收付款：`Wallet`。
+- 收藏：`Bookmark`。
+- 朋友圈：`Camera`。
+- 视频号：`Movie`。
+- WeKit 设置：`Extension`。
+
+清空未读不再使用 `Check_circle`/`CheckCircleIcon`，统一使用 `Mark_chat_read`。该图标同时反向同步到：
+
+- `AddMainScreenFab.kt` 的默认清空未读配置和图标池。
+- `MarkAllAsRead.kt` 的首页菜单项 drawable，使用 `/home/ujhhgtg/Downloads/mark_chat_read_24px.xml` 同步生成的资源。
+- HomeSidePanel 的 Material Symbols 图标映射。
+
+同一功能在 FAB、首页菜单和 HomeSidePanel 中必须保持图形语义一致。
 
 ## 天气错误提示
 
@@ -83,6 +106,8 @@
 - one-shot 关闭时长短于常规关闭时长，完整关闭目标约 240ms。
 - 动画取消时不执行待跳转回调。
 - 一言署名四种组合的精确格式。
+- 快捷入口图标名称与 FAB 默认配置、清空未读 drawable 的统一映射。
+- 账号卡片不渲染 wxId 文本。
 - 天气错误每次通过一次性消息发布，不依赖页面内错误 Text。
 
 最终验证：
@@ -101,5 +126,5 @@ git diff --check
 - 不新增自定义选项。
 - 不使用 `getIdentifier`。
 - 不新增 `PhoneWindow` Hook。
-- 不修改 HomeSidePanel 之外的现有功能行为。
+- 除图标统一所需的 `AddMainScreenFab.kt` 和 `MarkAllAsRead.kt` 同步外，不修改 HomeSidePanel 之外的现有功能行为。
 - 不重复 DexKit 全版本测试，除非实施过程中修改 Dex 声明或解析逻辑。
