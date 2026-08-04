@@ -4,6 +4,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -63,6 +64,42 @@ class HomeSidePanelHitokotoRepositoryTest {
         assertEquals(1, requestCount.get())
         gate.complete(Unit)
         assertEquals(1, fetches.map { it.await() }.distinct().size)
+    }
+
+    @Test
+    fun changedRequestSettingsDoNotReuseThePreviousInFlightRequest() = runBlocking {
+        val firstGate = CompletableDeferred<Unit>()
+        val secondGate = CompletableDeferred<Unit>()
+        val requestCount = AtomicInteger()
+        val requestedCategories = mutableListOf<List<String>>()
+        val preferences = InMemoryHomeSidePanelHitokotoPreferences()
+        val repository = DefaultHomeSidePanelHitokotoRepository(
+            preferences = preferences,
+            client = OkHttpClient(),
+            nowMs = { 1_000L },
+            fetchPayload = { request ->
+                requestedCategories.add(request.url.queryParameterValues("c").filterNotNull())
+                when (requestCount.incrementAndGet()) {
+                    1 -> firstGate.await()
+                    else -> secondGate.await()
+                }
+                validHitokotoJson
+            },
+        )
+        val first = async { repository.fetchRandom() }
+        while (requestCount.get() < 1) delay(10)
+        repository.saveSettings(HitokotoSettings(categories = setOf("a")))
+        val second = async { repository.fetchRandom() }
+        withTimeout(1_000L) {
+            while (requestCount.get() < 2) delay(10)
+        }
+        secondGate.complete(Unit)
+
+        second.await()
+        assertEquals(listOf("a"), requestedCategories.last())
+        firstGate.complete(Unit)
+        runCatching { first.await() }
+        Unit
     }
 
     @Test

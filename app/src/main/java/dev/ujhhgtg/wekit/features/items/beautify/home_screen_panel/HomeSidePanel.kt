@@ -40,7 +40,10 @@ import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
+import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.hookAfterDirectly
+import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 import org.luckypray.dexkit.DexKitBridge
@@ -79,6 +82,18 @@ internal fun homeSidePanelIsActionBarContainerClass(className: String): Boolean 
 
 internal fun homeSidePanelIsToolbarClass(className: String): Boolean =
     className == "androidx.appcompat.widget.Toolbar"
+
+internal fun homeSidePanelOwnsTabsAdapter(expected: Any, actual: Any?): Boolean = expected === actual
+
+internal fun homeSidePanelShouldStartLocationDetection(actionInProgress: Boolean): Boolean = !actionInProgress
+
+internal fun homeSidePanelShouldPublishWeatherSearch(currentQuery: String, resultQuery: String): Boolean =
+    currentQuery == resultQuery
+
+internal fun homeSidePanelWeatherProfileStateBelongsToAccount(
+    storedAccountId: String?,
+    currentAccountId: String,
+): Boolean = currentAccountId.isNotBlank() && storedAccountId == currentAccountId
 
 internal data class HomeSidePanelVisualTransform(
     val easedProgress: Float,
@@ -281,36 +296,9 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             }
             if (sessions[viewPager]?.get() != null) return@hookAfter
 
-            val session = HomeSidePanelSession(activity, parent).also { it.attach() }
+            val session = HomeSidePanelSession(activity, parent, viewPager, tabsAdapter).also { it.attach() }
             session.setSelectedTab(viewPager.currentItem)
             sessions[viewPager] = WeakReference(session)
-
-            val reflectedTabsAdapter = tabsAdapter.reflekt()
-            val onPageSelected = reflectedTabsAdapter.firstMethod {
-                    name = "onPageSelected"
-                    parameters(int)
-                }
-            onPageSelected.hookBefore {
-                session.setSelectedTab(args[0] as Int)
-            }
-            onPageSelected.hookAfter {
-                val position = args[0] as Int
-                if (homeSidePanelShouldReapplyEdgeToEdgeAfterTabSelection(position)) {
-                    ensureLauncherEdgeToEdge(activity)
-                }
-            }
-            reflectedTabsAdapter.firstMethod {
-                name = "onPageScrolled"
-                parameters(int, float, int)
-            }.hookBefore {
-                val position = args[0] as Int
-                val offset = args[1] as Float
-                if (position != HOME_TAB_INDEX || offset > PAGE_SETTLED_EPSILON) {
-                    session.setSelectedTab(-1)
-                } else {
-                    session.setSelectedTab(viewPager.currentItem)
-                }
-            }
         }
     }
 
@@ -398,6 +386,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     private class HomeSidePanelSession(
         private val activity: Activity,
         private val parent: FrameLayout,
+        private val viewPager: WxViewPager,
+        private val tabsAdapter: Any,
     ) {
         private val gestureConfig = homeSidePanelGestureConfig(
             density = activity.resources.displayMetrics.density,
@@ -455,6 +445,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private var fabOriginalLayoutParams: ViewGroup.LayoutParams? = null
         private var fabOriginalIndex = -1
         private var wasPanelVisible = false
+        private val tabsAdapterHookHandles = mutableListOf<HookHandle>()
 
         fun attach() {
             if (attached) return
@@ -522,6 +513,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                 )
             )
             parent.viewTreeObserver.addOnPreDrawListener(preDrawListener)
+            installTabsAdapterHooks()
             parent.post {
                 updateDrawerWidth()
                 applyProgress(0f)
@@ -538,6 +530,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             attached = false
             animator?.cancel()
             animator = null
+            tabsAdapterHookHandles.forEach { it.unhook() }
+            tabsAdapterHookHandles.clear()
             controller.close()
             if (parent.viewTreeObserver.isAlive) {
                 parent.viewTreeObserver.removeOnPreDrawListener(preDrawListener)
@@ -557,6 +551,40 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             gesture.setSelectedTab(index)
             if (index != HOME_TAB_INDEX && renderedProgress > CLOSED_EPSILON) {
                 close(animated = true)
+            }
+        }
+
+        private fun installTabsAdapterHooks() {
+            val reflectedTabsAdapter = tabsAdapter.reflekt()
+            tabsAdapterHookHandles += reflectedTabsAdapter.firstMethod {
+                name = "onPageSelected"
+                parameters(int)
+            }.hookBeforeDirectly {
+                if (!homeSidePanelOwnsTabsAdapter(tabsAdapter, thisObject)) return@hookBeforeDirectly
+                setSelectedTab(args[0] as Int)
+            }
+            tabsAdapterHookHandles += reflectedTabsAdapter.firstMethod {
+                name = "onPageSelected"
+                parameters(int)
+            }.hookAfterDirectly {
+                if (!homeSidePanelOwnsTabsAdapter(tabsAdapter, thisObject)) return@hookAfterDirectly
+                val position = args[0] as Int
+                if (homeSidePanelShouldReapplyEdgeToEdgeAfterTabSelection(position)) {
+                    ensureLauncherEdgeToEdge(activity)
+                }
+            }
+            tabsAdapterHookHandles += reflectedTabsAdapter.firstMethod {
+                name = "onPageScrolled"
+                parameters(int, float, int)
+            }.hookBeforeDirectly {
+                if (!homeSidePanelOwnsTabsAdapter(tabsAdapter, thisObject)) return@hookBeforeDirectly
+                val position = args[0] as Int
+                val offset = args[1] as Float
+                if (position != HOME_TAB_INDEX || offset > PAGE_SETTLED_EPSILON) {
+                    setSelectedTab(-1)
+                } else {
+                    setSelectedTab(viewPager.currentItem)
+                }
             }
         }
 

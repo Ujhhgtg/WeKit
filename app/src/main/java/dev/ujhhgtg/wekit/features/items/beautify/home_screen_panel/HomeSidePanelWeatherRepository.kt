@@ -21,7 +21,6 @@ import okhttp3.Response
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.time.Duration
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -36,6 +35,8 @@ interface HomeSidePanelWeatherRepository {
     fun selectedCity(): WeatherCity
 
     fun selectCity(city: WeatherCity)
+
+    fun resetForAccount()
 }
 
 internal interface HomeSidePanelWeatherPreferences {
@@ -122,8 +123,8 @@ internal class DefaultHomeSidePanelWeatherRepository(
     },
 ) : HomeSidePanelWeatherRepository {
 
-    private val inFlight = AtomicReference<Deferred<WeatherResult>?>(null)
-    private val lastRequestStartedAt = AtomicLong(Long.MIN_VALUE)
+    private val inFlight = AtomicReference<InFlightWeatherRequest?>(null)
+    private val lastRequestStartedAt = AtomicReference<WeatherRequestStart?>(null)
 
     override suspend fun loadCached(): WeatherSnapshot? = preferences.weatherLastSuccess
 
@@ -131,11 +132,15 @@ internal class DefaultHomeSidePanelWeatherRepository(
         if (city.cityNum.isBlank()) {
             return WeatherResult.Error("未选择天气城市", preferences.weatherLastSuccess)
         }
-        inFlight.get()?.let { return it.await() }
-
         val now = nowMs()
+        inFlight.get()?.let { current ->
+            if (current.cityNum == city.cityNum) return current.deferred.await()
+            current.deferred.cancel()
+            inFlight.compareAndSet(current, null)
+        }
+
         val previousStart = lastRequestStartedAt.get()
-        if (previousStart != Long.MIN_VALUE && now - previousStart < MIN_REFRESH_INTERVAL_MS) {
+        if (previousStart?.cityNum == city.cityNum && now - previousStart.startedAt < MIN_REFRESH_INTERVAL_MS) {
             val cached = preferences.weatherLastSuccess
             return if (cached?.city?.cityNum == city.cityNum) {
                 WeatherResult.Success(cached)
@@ -146,17 +151,23 @@ internal class DefaultHomeSidePanelWeatherRepository(
 
         return coroutineScope {
             val created = async(Dispatchers.IO, start = CoroutineStart.LAZY) { performRefresh(city) }
-            if (inFlight.compareAndSet(null, created)) {
-                lastRequestStartedAt.set(now)
+            val entry = InFlightWeatherRequest(city.cityNum, created)
+            if (inFlight.compareAndSet(null, entry)) {
+                lastRequestStartedAt.set(WeatherRequestStart(city.cityNum, now))
                 created.start()
                 try {
-                    created.await()
+                    val result = created.await()
+                    if (inFlight.get() === entry && result is WeatherResult.Success) {
+                        preferences.selectedWeatherCity = city
+                        preferences.weatherLastSuccess = result.snapshot
+                    }
+                    result
                 } finally {
-                    inFlight.compareAndSet(created, null)
+                    inFlight.compareAndSet(entry, null)
                 }
             } else {
                 created.cancel()
-                inFlight.get()?.await() ?: refresh(city)
+                refresh(city)
             }
         }
     }
@@ -169,13 +180,16 @@ internal class DefaultHomeSidePanelWeatherRepository(
         preferences.selectedWeatherCity = city
     }
 
+    override fun resetForAccount() {
+        preferences.selectedWeatherCity = DEFAULT_WEATHER_CITY
+        preferences.weatherLastSuccess = null
+    }
+
     private suspend fun performRefresh(city: WeatherCity): WeatherResult {
         val cached = preferences.weatherLastSuccess
         val request = Request.Builder().url(buildWeatherUrl(city)).get().build()
         return try {
             val snapshot = parseWeatherPayload(city, fetchPayload(request), nowMs())
-            preferences.selectedWeatherCity = city
-            preferences.weatherLastSuccess = snapshot
             WeatherResult.Success(snapshot)
         } catch (error: CancellationException) {
             throw error
@@ -201,6 +215,16 @@ internal class DefaultHomeSidePanelWeatherRepository(
         const val TAG = "HomeSidePanelWeather"
         const val MIN_REFRESH_INTERVAL_MS = 1_000L
     }
+
+    private data class InFlightWeatherRequest(
+        val cityNum: String,
+        val deferred: Deferred<WeatherResult>,
+    )
+
+    private data class WeatherRequestStart(
+        val cityNum: String,
+        val startedAt: Long,
+    )
 }
 
 @Serializable

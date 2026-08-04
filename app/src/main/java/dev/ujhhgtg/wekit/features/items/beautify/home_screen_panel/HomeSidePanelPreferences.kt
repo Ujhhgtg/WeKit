@@ -8,6 +8,7 @@ internal object HomeSidePanelPreferenceKeys {
     const val WEATHER_CITY = "home_side_panel_weather_city"
     const val WEATHER_LAST_SUCCESS = "home_side_panel_weather_last_success"
     const val WEATHER_PROFILE_INITIALIZED = "home_side_panel_weather_profile_initialized"
+    const val WEATHER_PROFILE_ACCOUNT = "home_side_panel_weather_profile_account"
     const val WEATHER_LAST_ERROR = "home_side_panel_weather_last_error"
     const val HITOKOTO_SETTINGS = "home_side_panel_hitokoto_settings"
     const val HITOKOTO_LAST_SUCCESS = "home_side_panel_hitokoto_last_success"
@@ -55,6 +56,16 @@ internal object HomeSidePanelPreferences {
             .onFailure { WeLogger.w(TAG, "failed to decode preference $key", it) }
             .getOrNull()
     }
+
+    var weatherProfileAccount: String?
+        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.WEATHER_PROFILE_ACCOUNT)
+        set(value) {
+            if (value.isNullOrBlank()) {
+                WePrefs.remove(HomeSidePanelPreferenceKeys.WEATHER_PROFILE_ACCOUNT)
+            } else {
+                WePrefs.putString(HomeSidePanelPreferenceKeys.WEATHER_PROFILE_ACCOUNT, value)
+            }
+        }
 
     private inline fun <reified T> encode(key: String, value: T) {
         runCatching { DefaultJson.encodeToString(value) }

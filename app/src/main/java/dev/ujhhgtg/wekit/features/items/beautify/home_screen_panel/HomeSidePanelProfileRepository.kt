@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.utils.WeLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,6 +46,8 @@ open class HomeSidePanelProfileRepository(
                     WeDatabaseApi.getSelfProfileField(SelfProfileField.CITY_CODE, "").toString()
                 }
             cityIndex.matchProfile(country, province, city)
+        } catch (error: CancellationException) {
+            throw error
         } catch (throwable: Throwable) {
             WeLogger.e(TAG, "failed to read weather city from WeChat profile", throwable)
             WeatherCityMatchResult.Error(WeatherCityMatchFailure.READ_ERROR)

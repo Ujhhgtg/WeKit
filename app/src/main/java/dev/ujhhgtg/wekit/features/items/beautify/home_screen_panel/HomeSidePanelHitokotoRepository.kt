@@ -22,7 +22,6 @@ import okhttp3.Response
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.time.Duration
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -95,8 +94,8 @@ internal class DefaultHomeSidePanelHitokotoRepository(
     },
 ) : HomeSidePanelHitokotoRepository {
 
-    private val inFlight = AtomicReference<Deferred<HitokotoResult>?>(null)
-    private val lastRequestStartedAt = AtomicLong(Long.MIN_VALUE)
+    private val inFlight = AtomicReference<InFlightHitokotoRequest?>(null)
+    private val lastRequestStartedAt = AtomicReference<HitokotoRequestStart?>(null)
     private val lastError = AtomicReference<HitokotoResult.Error?>(null)
 
     override fun loadSettings(): HitokotoSettings = preferences.hitokotoSettings
@@ -127,11 +126,16 @@ internal class DefaultHomeSidePanelHitokotoRepository(
         if (validationError != null) {
             return HitokotoResult.Error(validationError, preferences.hitokotoLastSuccess)
         }
-        inFlight.get()?.let { return it.await() }
+        val requestKey = settings.requestKey()
+        inFlight.get()?.let { current ->
+            if (current.requestKey == requestKey) return current.deferred.await()
+            current.deferred.cancel()
+            inFlight.compareAndSet(current, null)
+        }
 
         val now = nowMs()
         val previousStart = lastRequestStartedAt.get()
-        if (previousStart != Long.MIN_VALUE && now - previousStart < MIN_REFRESH_INTERVAL_MS) {
+        if (previousStart?.requestKey == requestKey && now - previousStart.startedAt < MIN_REFRESH_INTERVAL_MS) {
             return preferences.hitokotoLastSuccess?.let(HitokotoResult::Success)
                 ?: lastError.get()
                 ?: HitokotoResult.Error("请求过于频繁，请稍后再试", null)
@@ -141,17 +145,29 @@ internal class DefaultHomeSidePanelHitokotoRepository(
             val created = async(Dispatchers.IO, start = CoroutineStart.LAZY) {
                 performFetch(settings)
             }
-            if (inFlight.compareAndSet(null, created)) {
-                lastRequestStartedAt.set(now)
+            val entry = InFlightHitokotoRequest(requestKey, created)
+            if (inFlight.compareAndSet(null, entry)) {
+                lastRequestStartedAt.set(HitokotoRequestStart(requestKey, now))
                 created.start()
                 try {
-                    created.await()
+                    val result = created.await()
+                    if (inFlight.get() === entry) {
+                        when (result) {
+                            is HitokotoResult.Success -> {
+                                preferences.hitokotoLastSuccess = result.snapshot
+                                lastError.set(null)
+                            }
+
+                            is HitokotoResult.Error -> lastError.set(result)
+                        }
+                    }
+                    result
                 } finally {
-                    inFlight.compareAndSet(created, null)
+                    inFlight.compareAndSet(entry, null)
                 }
             } else {
                 created.cancel()
-                inFlight.get()?.await() ?: fetchRandom()
+                fetchRandom()
             }
         }
     }
@@ -161,34 +177,27 @@ internal class DefaultHomeSidePanelHitokotoRepository(
         val request = Request.Builder().url(buildHitokotoUrl(settings)).get().build()
         return try {
             val snapshot = parseHitokotoPayload(fetchPayload(request), nowMs())
-            preferences.hitokotoLastSuccess = snapshot
-            lastError.set(null)
             HitokotoResult.Success(snapshot)
         } catch (error: CancellationException) {
             throw error
         } catch (error: HitokotoHttpException) {
             val result = HitokotoResult.Error("一言服务请求失败：HTTP ${error.code}", cached)
-            lastError.set(result)
             WeLogger.w(TAG, "hitokoto request failed with HTTP ${error.code}")
             result
         } catch (error: SocketTimeoutException) {
             val result = HitokotoResult.Error("一言请求超时", cached)
-            lastError.set(result)
             WeLogger.w(TAG, "hitokoto request timed out", error)
             result
         } catch (error: InvalidHitokotoPayloadException) {
             val result = HitokotoResult.Error("一言数据解析失败", cached)
-            lastError.set(result)
             WeLogger.w(TAG, "hitokoto payload is incomplete", error)
             result
         } catch (error: SerializationException) {
             val result = HitokotoResult.Error("一言数据解析失败", cached)
-            lastError.set(result)
             WeLogger.w(TAG, "hitokoto payload is malformed", error)
             result
         } catch (error: IOException) {
             val result = HitokotoResult.Error("无法连接一言服务", cached)
-            lastError.set(result)
             WeLogger.w(TAG, "hitokoto request failed", error)
             result
         }
@@ -198,6 +207,30 @@ internal class DefaultHomeSidePanelHitokotoRepository(
         const val TAG = "HomeSidePanelHitokoto"
         const val MIN_REFRESH_INTERVAL_MS = 1_000L
     }
+
+    private fun HitokotoSettings.requestKey(): HitokotoRequestKey = HitokotoRequestKey(
+        categories = categories.sorted(),
+        minLength = minLength,
+        maxLength = maxLength,
+        charset = charset,
+    )
+
+    private data class InFlightHitokotoRequest(
+        val requestKey: HitokotoRequestKey,
+        val deferred: Deferred<HitokotoResult>,
+    )
+
+    private data class HitokotoRequestStart(
+        val requestKey: HitokotoRequestKey,
+        val startedAt: Long,
+    )
+
+    private data class HitokotoRequestKey(
+        val categories: List<String>,
+        val minLength: Int?,
+        val maxLength: Int?,
+        val charset: String,
+    )
 }
 
 @Serializable

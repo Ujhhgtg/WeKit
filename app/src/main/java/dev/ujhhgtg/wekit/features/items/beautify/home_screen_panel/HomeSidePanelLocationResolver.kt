@@ -13,6 +13,7 @@ import android.os.CancellationSignal
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import dev.ujhhgtg.wekit.utils.WeLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -76,6 +77,8 @@ internal class AndroidHomeSidePanelLocationResolver(
         } catch (error: SecurityException) {
             WeLogger.w(TAG, "location permission was revoked during request", error)
             return LocationResolution.NeedPermission
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Throwable) {
             WeLogger.w(TAG, "location request failed", error)
             return LocationResolution.Error("定位失败，请重试或手动选择城市")
@@ -83,6 +86,8 @@ internal class AndroidHomeSidePanelLocationResolver(
 
         val address = try {
             geocode(activity, location)
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Throwable) {
             WeLogger.w(TAG, "reverse geocoding failed", error)
             return LocationResolution.GeocoderFailed

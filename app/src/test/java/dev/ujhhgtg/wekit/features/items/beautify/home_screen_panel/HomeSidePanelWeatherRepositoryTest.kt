@@ -66,6 +66,44 @@ class HomeSidePanelWeatherRepositoryTest {
     }
 
     @Test
+    fun refreshForAnotherCityDoesNotReuseTheFirstCityRequest() = runBlocking {
+        val firstGate = CompletableDeferred<Unit>()
+        val secondGate = CompletableDeferred<Unit>()
+        val requestCount = AtomicInteger()
+        val preferences = InMemoryHomeSidePanelWeatherPreferences()
+        val repository = DefaultHomeSidePanelWeatherRepository(
+            preferences = preferences,
+            cityIndex = UnusedHomeSidePanelCityIndex,
+            client = OkHttpClient(),
+            nowMs = { 10_000L },
+            fetchPayload = {
+                when (requestCount.incrementAndGet()) {
+                    1 -> {
+                        firstGate.await()
+                        fixtureWeatherJson
+                    }
+
+                    else -> {
+                        secondGate.await()
+                        fixtureWeatherJson
+                    }
+                }
+            },
+        )
+        val first = async { repository.refresh(BEIJING_CITY) }
+        while (requestCount.get() < 1) delay(10)
+        val second = async { repository.refresh(SHANGHAI_CITY) }
+        while (requestCount.get() < 2) delay(10)
+        secondGate.complete(Unit)
+
+        val secondResult = second.await()
+        assertEquals(SHANGHAI_CITY.cityNum, (secondResult as WeatherResult.Success).snapshot.city.cityNum)
+        assertEquals(SHANGHAI_CITY.cityNum, preferences.selectedWeatherCity.cityNum)
+        firstGate.complete(Unit)
+        first.awaitCatchingCancellation()
+    }
+
+    @Test
     fun refreshWithinOneSecondUsesTheCachedSnapshot() = runBlocking {
         val requestCount = AtomicInteger()
         val repository = DefaultHomeSidePanelWeatherRepository(
@@ -93,6 +131,12 @@ class HomeSidePanelWeatherRepositoryTest {
             cityNum = "101010100",
         )
 
+        val SHANGHAI_CITY = BEIJING_CITY.copy(
+            province = "上海市",
+            city = "上海市",
+            cityNum = "101020100",
+        )
+
         const val fixtureWeatherJson = """
             {
               "current": {
@@ -114,6 +158,10 @@ class HomeSidePanelWeatherRepositoryTest {
             }
         """
     }
+}
+
+private suspend fun <T> kotlinx.coroutines.Deferred<T>.awaitCatchingCancellation() {
+    runCatching { await() }
 }
 
 private object UnusedHomeSidePanelCityIndex : HomeSidePanelCityIndex {

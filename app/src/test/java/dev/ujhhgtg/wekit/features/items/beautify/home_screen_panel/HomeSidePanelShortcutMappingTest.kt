@@ -43,4 +43,30 @@ class HomeSidePanelShortcutMappingTest {
             HomeSidePanelShortcut.entries.filter { shortcutSpec(it).placement == HomeSidePanelShortcutPlacement.LIST_ITEM },
         )
     }
+
+    @Test
+    fun cachedErrorsKeepTheirVisibleFailureMessage() {
+        val weather = WeatherSnapshot(
+            city = DEFAULT_WEATHER_CITY,
+            weatherCode = "0",
+            temperature = "20",
+            feelsLike = "20",
+            high = "25",
+            low = "15",
+            humidity = "50",
+            windSpeed = "2",
+            publishedAt = "",
+            fetchedAt = 0L,
+        )
+        val quote = HitokotoSnapshot("id", "一句话", null, null, null, null, null, 0L)
+        assertEquals("天气请求超时", weatherCardErrorMessage(WeatherUiState.Error("天气请求超时", weather)))
+        assertEquals("一言服务不可用", hitokotoCardErrorMessage(HitokotoUiState.Error("一言服务不可用", quote)))
+    }
+
+    @Test
+    fun tabCallbacksAreScopedToTheirAdapter() {
+        val adapter = Any()
+        assertEquals(true, homeSidePanelOwnsTabsAdapter(adapter, adapter))
+        assertEquals(false, homeSidePanelOwnsTabsAdapter(adapter, Any()))
+    }
 }

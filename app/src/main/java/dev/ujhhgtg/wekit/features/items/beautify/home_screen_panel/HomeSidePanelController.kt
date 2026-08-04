@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,16 +20,17 @@ class HomeSidePanelController(
     private val locationResolver: HomeSidePanelLocationResolver,
     private val navigator: HomeSidePanelNavigator,
     private val scope: CoroutineScope,
-    private val weatherProfileInitialized: () -> Boolean = {
-        HomeSidePanelPreferences.weatherProfileInitialized
+    private val weatherProfileAccount: () -> String? = {
+        HomeSidePanelPreferences.weatherProfileAccount
     },
-    private val setWeatherProfileInitialized: (Boolean) -> Unit = {
-        HomeSidePanelPreferences.weatherProfileInitialized = it
+    private val setWeatherProfileAccount: (String?) -> Unit = {
+        HomeSidePanelPreferences.weatherProfileAccount = it
     },
 ) {
 
     private val started = AtomicBoolean()
     private var pendingLocationPermission = false
+    private var locationJob: Job? = null
     private val _uiState = MutableStateFlow(
         HomeSidePanelUiState(
             profile = HomeSidePanelProfile(
@@ -50,8 +52,9 @@ class HomeSidePanelController(
     fun startPreload() {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
-            loadCachedValues()
             loadIdentity()
+            prepareWeatherAccount()
+            loadCachedValues()
             initializeWeatherCityFromProfile()
             launch { refreshWeatherInternal() }
             launch { fetchHitokotoInternal(preload = true) }
@@ -87,7 +90,7 @@ class HomeSidePanelController(
                         message = null,
                         actionInProgress = false,
                     )
-                    setWeatherProfileInitialized(true)
+                    setWeatherProfileAccount(_uiState.value.profile.wxId)
                     refreshWeatherInternal()
                 }
 
@@ -96,7 +99,7 @@ class HomeSidePanelController(
                         message = result.reason.message,
                         actionInProgress = false,
                     )
-                    setWeatherProfileInitialized(true)
+                    setWeatherProfileAccount(_uiState.value.profile.wxId)
                 }
             }
         }
@@ -108,8 +111,10 @@ class HomeSidePanelController(
         }
         scope.launch {
             val results = weatherRepository.searchCities(query)
-            _uiState.update { state ->
-                state.copy(weatherSettings = state.weatherSettings.copy(searchResults = results))
+            if (homeSidePanelShouldPublishWeatherSearch(_uiState.value.weatherSettings.searchQuery, query)) {
+                _uiState.update { state ->
+                    state.copy(weatherSettings = state.weatherSettings.copy(searchResults = results))
+                }
             }
         }
     }
@@ -121,7 +126,10 @@ class HomeSidePanelController(
     }
 
     fun detectWeatherLocation(activity: Activity) {
-        scope.launch {
+        if (!homeSidePanelShouldStartLocationDetection(_uiState.value.weatherSettings.actionInProgress)) return
+        setWeatherSettingsProgress(true)
+        locationJob?.cancel()
+        locationJob = scope.launch {
             when (val resolution = locationResolver.resolve(activity)) {
                 LocationResolution.NeedPermission -> {
                     pendingLocationPermission = true
@@ -140,6 +148,7 @@ class HomeSidePanelController(
         if (!pendingLocationPermission) return
         if (locationResolver.hasCoarsePermission(activity)) {
             pendingLocationPermission = false
+            setWeatherSettingsProgress(false)
             detectWeatherLocation(activity)
         } else {
             pendingLocationPermission = false
@@ -175,6 +184,7 @@ class HomeSidePanelController(
                     cardMode = HomeSidePanelCardMode.CONTENT,
                 )
             }
+            scope.launch { fetchHitokotoInternal(preload = false) }
         } catch (error: IllegalArgumentException) {
             _uiState.update { state ->
                 state.copy(
@@ -229,7 +239,9 @@ class HomeSidePanelController(
     }
 
     private suspend fun initializeWeatherCityFromProfile() {
-        if (weatherProfileInitialized()) return
+        val accountId = _uiState.value.profile.wxId
+        if (accountId.isBlank()) return
+        if (homeSidePanelWeatherProfileStateBelongsToAccount(weatherProfileAccount(), accountId)) return
         when (val result = profileRepository.readWeatherCityFromProfile()) {
             is WeatherCityMatchResult.Success -> {
                 weatherRepository.selectCity(result.city)
@@ -240,7 +252,17 @@ class HomeSidePanelController(
                 updateWeatherSettings(message = result.reason.message)
             }
         }
-        setWeatherProfileInitialized(true)
+        setWeatherProfileAccount(accountId)
+    }
+
+    private suspend fun prepareWeatherAccount() {
+        val accountId = _uiState.value.profile.wxId
+        if (accountId.isBlank()) return
+        if (homeSidePanelWeatherProfileStateBelongsToAccount(weatherProfileAccount(), accountId)) return
+        weatherRepository.resetForAccount()
+        _uiState.update { state ->
+            state.copy(weatherSettings = state.weatherSettings.copy(selectedCity = DEFAULT_WEATHER_CITY))
+        }
     }
 
     private suspend fun refreshWeatherInternal() {

@@ -45,17 +45,106 @@ class HomeSidePanelControllerRulesTest {
         controller.close()
     }
 
+    @Test
+    fun savingHitokotoSettingsImmediatelyRequestsAnotherQuote() {
+        val hitokotoRepository = RecordingHitokotoRepository()
+        val controller = fixtureController(hitokotoRepository = hitokotoRepository)
+        controller.openHitokotoSettings()
+        controller.saveHitokotoSettings(HitokotoSettings(categories = setOf("a")))
+        assertEquals(1, hitokotoRepository.fetchCount)
+        assertEquals(setOf("a"), hitokotoRepository.savedSettings.categories)
+        assertEquals(HomeSidePanelCardMode.CONTENT, controller.uiState.value.cardMode)
+        controller.close()
+    }
+
+    @Test
+    fun accountBootstrapStateDoesNotBelongToAnotherAccount() {
+        assertEquals(true, homeSidePanelWeatherProfileStateBelongsToAccount("wxid-a", "wxid-a"))
+        assertEquals(false, homeSidePanelWeatherProfileStateBelongsToAccount("wxid-a", "wxid-b"))
+        assertEquals(false, homeSidePanelWeatherProfileStateBelongsToAccount(null, "wxid-b"))
+    }
+
+    @Test
+    fun switchingAccountsClearsThePreviousWeatherStateAndBootstrapsAgain() {
+        val previousCity = DEFAULT_WEATHER_CITY.copy(
+            province = "上海",
+            city = "上海",
+            cityNum = "101020100",
+        )
+        val weatherRepository = FixtureWeatherRepository(previousCity)
+        var storedAccount: String? = "wxid-old"
+        val controller = HomeSidePanelController(
+            profileRepository = FixtureProfileRepository(
+                profile = HomeSidePanelProfile("wxid-new", "新账号", "", HomeSidePanelStatusUiState.NoStatus),
+                profileCityResult = WeatherCityMatchResult.Success(DEFAULT_WEATHER_CITY),
+            ),
+            weatherRepository = weatherRepository,
+            hitokotoRepository = FixtureHitokotoRepository(),
+            locationResolver = FixtureLocationResolver(),
+            navigator = RecordingNavigator(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            weatherProfileAccount = { storedAccount },
+            setWeatherProfileAccount = { storedAccount = it },
+        )
+
+        controller.startPreload()
+
+        assertEquals(1, weatherRepository.resetCount)
+        assertEquals("wxid-new", storedAccount)
+        assertEquals(DEFAULT_WEATHER_CITY.cityNum, weatherRepository.selectedCity().cityNum)
+        controller.close()
+    }
+
+    @Test
+    fun failedIdentityReadDoesNotClearTheStoredWeatherState() {
+        val previousCity = DEFAULT_WEATHER_CITY.copy(
+            province = "上海",
+            city = "上海",
+            cityNum = "101020100",
+        )
+        val weatherRepository = FixtureWeatherRepository(previousCity)
+        var storedAccount: String? = "wxid-existing"
+        val controller = HomeSidePanelController(
+            profileRepository = FixtureProfileRepository(
+                profile = HomeSidePanelProfile("", "微信用户", "", HomeSidePanelStatusUiState.Error("获取失败")),
+                profileCityResult = WeatherCityMatchResult.Success(DEFAULT_WEATHER_CITY),
+            ),
+            weatherRepository = weatherRepository,
+            hitokotoRepository = FixtureHitokotoRepository(),
+            locationResolver = FixtureLocationResolver(),
+            navigator = RecordingNavigator(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            weatherProfileAccount = { storedAccount },
+            setWeatherProfileAccount = { storedAccount = it },
+        )
+
+        controller.startPreload()
+
+        assertEquals(0, weatherRepository.resetCount)
+        assertEquals("wxid-existing", storedAccount)
+        assertEquals(previousCity.cityNum, weatherRepository.selectedCity().cityNum)
+        controller.close()
+    }
+
+    @Test
+    fun locationAndSearchCallbacksHaveFreshnessGuards() {
+        assertEquals(false, homeSidePanelShouldStartLocationDetection(actionInProgress = true))
+        assertEquals(true, homeSidePanelShouldStartLocationDetection(actionInProgress = false))
+        assertEquals(true, homeSidePanelShouldPublishWeatherSearch("上海", "上海"))
+        assertEquals(false, homeSidePanelShouldPublishWeatherSearch("上海", "北京"))
+    }
+
     private fun fixtureController(
         profileCityResult: WeatherCityMatchResult = WeatherCityMatchResult.Success(DEFAULT_WEATHER_CITY),
         status: HomeSidePanelStatusUiState = HomeSidePanelStatusUiState.NoStatus,
         navigator: RecordingNavigator = RecordingNavigator(),
+        hitokotoRepository: HomeSidePanelHitokotoRepository = FixtureHitokotoRepository(),
     ): HomeSidePanelController {
         val profileRepository = FixtureProfileRepository(
             profile = HomeSidePanelProfile("wxid", "昵称", "", status),
             profileCityResult = profileCityResult,
         )
         val weatherRepository = FixtureWeatherRepository()
-        val hitokotoRepository = FixtureHitokotoRepository()
         val locationResolver = FixtureLocationResolver()
         return HomeSidePanelController(
             profileRepository = profileRepository,
@@ -64,8 +153,8 @@ class HomeSidePanelControllerRulesTest {
             locationResolver = locationResolver,
             navigator = navigator,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            weatherProfileInitialized = { false },
-            setWeatherProfileInitialized = {},
+            weatherProfileAccount = { null },
+            setWeatherProfileAccount = {},
         )
     }
 }
@@ -86,7 +175,12 @@ private class FixtureProfileRepository(
     override suspend fun readWeatherCityFromProfile(): WeatherCityMatchResult = profileCityResult
 }
 
-private class FixtureWeatherRepository : HomeSidePanelWeatherRepository {
+private class FixtureWeatherRepository(
+    initialCity: WeatherCity = DEFAULT_WEATHER_CITY,
+) : HomeSidePanelWeatherRepository {
+    private var city = initialCity
+    var resetCount = 0
+
     override suspend fun loadCached(): WeatherSnapshot? = null
 
     override suspend fun refresh(city: WeatherCity): WeatherResult = WeatherResult.Success(
@@ -95,9 +189,16 @@ private class FixtureWeatherRepository : HomeSidePanelWeatherRepository {
 
     override suspend fun searchCities(query: String): List<WeatherCity> = emptyList()
 
-    override fun selectedCity(): WeatherCity = DEFAULT_WEATHER_CITY
+    override fun selectedCity(): WeatherCity = city
 
-    override fun selectCity(city: WeatherCity) = Unit
+    override fun selectCity(city: WeatherCity) {
+        this.city = city
+    }
+
+    override fun resetForAccount() {
+        resetCount += 1
+        city = DEFAULT_WEATHER_CITY
+    }
 }
 
 private class FixtureHitokotoRepository : HomeSidePanelHitokotoRepository {
@@ -110,6 +211,26 @@ private class FixtureHitokotoRepository : HomeSidePanelHitokotoRepository {
     override suspend fun preload(): HitokotoResult = HitokotoResult.Error("fixture", null)
 
     override suspend fun fetchRandom(): HitokotoResult = HitokotoResult.Error("fixture", null)
+}
+
+private class RecordingHitokotoRepository : HomeSidePanelHitokotoRepository {
+    var fetchCount = 0
+    var savedSettings = HitokotoSettings()
+
+    override fun loadSettings(): HitokotoSettings = savedSettings
+
+    override fun saveSettings(settings: HitokotoSettings) {
+        savedSettings = settings
+    }
+
+    override suspend fun loadCached(): HitokotoSnapshot? = null
+
+    override suspend fun preload(): HitokotoResult = fetchRandom()
+
+    override suspend fun fetchRandom(): HitokotoResult {
+        fetchCount += 1
+        return HitokotoResult.Error("fixture", null)
+    }
 }
 
 private class FixtureLocationResolver : HomeSidePanelLocationResolver {

@@ -85,6 +85,12 @@ data class HomeSidePanelShortcutSpec(
     val placement: HomeSidePanelShortcutPlacement,
 )
 
+internal fun weatherCardErrorMessage(state: WeatherUiState): String? =
+    (state as? WeatherUiState.Error)?.message
+
+internal fun hitokotoCardErrorMessage(state: HitokotoUiState): String? =
+    (state as? HitokotoUiState.Error)?.message
+
 internal fun shortcutSpec(shortcut: HomeSidePanelShortcut): HomeSidePanelShortcutSpec = when (shortcut) {
     HomeSidePanelShortcut.SCAN -> HomeSidePanelShortcutSpec(shortcut, "扫一扫", HomeSidePanelIconKind.QR_CODE_SCANNER, HomeSidePanelShortcutPlacement.TILE)
     HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelShortcutSpec(shortcut, "收付款", HomeSidePanelIconKind.PAYMENTS, HomeSidePanelShortcutPlacement.TILE)
@@ -243,6 +249,14 @@ private fun HomeSidePanelWeatherCard(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
                 )
                 Text("更新于 ${snapshot.publishedAt}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f))
+                weatherCardErrorMessage(weather)?.let { message ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(message, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        IconButton(onClick = controller::refreshWeather, modifier = Modifier.size(28.dp)) {
+                            Icon(MaterialSymbols.Outlined.Refresh, contentDescription = "重试天气", modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
             } else {
                 Text(
                     if (weather is WeatherUiState.Error) weather.message else "天气加载中…",
@@ -328,6 +342,16 @@ private fun HomeSidePanelHitokotoCard(
                 text = snapshot?.text ?: if (hitokoto is HitokotoUiState.Error) hitokoto.message else "一言加载中…",
                 style = MaterialTheme.typography.bodyLarge,
             )
+            if (snapshot != null) {
+                hitokotoCardErrorMessage(hitokoto)?.let { message ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(message, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        IconButton(onClick = controller::fetchAnotherHitokoto, modifier = Modifier.size(28.dp)) {
+                            Icon(MaterialSymbols.Outlined.Refresh, contentDescription = "重试一言", modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+            }
             if (snapshot != null && (settings.showSource || settings.showAuthor)) {
                 val attribution = listOfNotNull(
                     snapshot.source?.takeIf { settings.showSource },
