@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.beautify
 
-import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isGone
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -46,6 +45,8 @@ object HideConversationListDividers : SwitchFeature(), IResolveDex {
     }
 
     private fun handleViewGroup(viewGroup: ViewGroup) {
-        viewGroup.findViewByChildIndexes(0, 1, 1, 1)?.isGone = true
+        val divider = viewGroup.findViewByChildIndexes(0, 1, 1, 1)
+            ?: viewGroup.findViewByChildIndexes(0, 1, 1)
+        divider?.isGone = true
     }
 }
