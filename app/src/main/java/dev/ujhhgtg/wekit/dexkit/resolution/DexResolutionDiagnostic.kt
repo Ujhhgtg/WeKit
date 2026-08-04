@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.dexkit.resolution
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class DexResolutionStatus {
     PENDING,
     SUCCESS,

@@ -87,8 +87,6 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         }
     }
 
-    private val multiTalkManagerClass by lazy { methodExitMultiTalk.method.declaringClass }
-
     /** com.tencent.mm.plugin.multitalk.ilinkservice.i4 —— ILinkService (enum, 单例 INSTANCE). */
     private val classILinkService by dexClass {
         matcher {
@@ -115,14 +113,14 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         matcher {
             declaredClass = classSubCoreMultiTalk.getDescriptorString()!!
             modifiers = ReflectModifier.STATIC or ReflectModifier.PUBLIC
-            returnType(multiTalkManagerClass)
+            returnType = methodExitMultiTalk.data.declaredClassName
         }
     }
 
     /** v0.D(e4) —— 设置通话状态 (onChangeMultiTalkStatus). */
     private val methodSetStatus by dexMethod {
         matcher {
-            declaredClass(multiTalkManagerClass)
+            declaredClass = methodExitMultiTalk.data.declaredClassName
             paramCount = 1
             usingStrings("onChangeMultiTalkStatus is %s")
         }
@@ -131,7 +129,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     /** v0.O(String, int) —— setCurrentMTSDKMode, 记录群 -> 通话模式. */
     private val methodSetMtSdkMode by dexMethod {
         matcher {
-            declaredClass(multiTalkManagerClass)
+            declaredClass = methodExitMultiTalk.data.declaredClassName
             paramCount = 2
             usingStrings("setCurrentMTSDKMode groupid:%s, mode:%d")
         }

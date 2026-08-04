@@ -100,6 +100,7 @@ sealed class BaseDexDelegate(val key: String) {
 
     protected abstract fun clearResolvedValue()
     abstract fun getDescriptorString(): String?
+    abstract val isPlaceholder: Boolean
 
     /** 从缓存字符串恢复状态 */
     abstract fun loadDescriptor(value: String)
@@ -159,7 +160,7 @@ class DexClassDelegate internal constructor(
         }
     }
 
-    val isPlaceholder
+    override val isPlaceholder
         get() = descriptorString == "com.tencent.mm.ui.LauncherUI"
 
     override fun getDescriptorString(): String? = descriptorString
@@ -263,7 +264,7 @@ class DexFieldDelegate internal constructor(
         }
     }
 
-    val isPlaceholder
+    override val isPlaceholder
         get() = descriptorString == PLACEHOLDER_FIELD_DESCRIPTOR
 
     override fun getDescriptorString(): String? = descriptorString
@@ -372,7 +373,7 @@ class DexMethodDelegate internal constructor(
     @Suppress("NOTHING_TO_INLINE")
     inline fun setDescriptor(m: MethodData) = setDescriptor(DexMethodDescriptor(m.className, m.methodName, m.methodSign))
 
-    val isPlaceholder
+    override val isPlaceholder
         get() = descriptor?.descriptor == PLACEHOLDER_DESCRIPTOR
 
     fun setDescriptor(className: String, methodName: String, methodSign: String) =
@@ -474,7 +475,7 @@ class DexConstructorDelegate internal constructor(
             return cachedConstructor ?: error("Constructor not found for key: $key")
         }
 
-    val isPlaceholder
+    override val isPlaceholder
         get() = descriptor?.descriptor == PLACEHOLDER_DESCRIPTOR
 
     @Deprecated("You shouldn't call .reflekt() on a Constructor", level = DeprecationLevel.ERROR)
