@@ -91,6 +91,17 @@ internal fun weatherCardErrorMessage(state: WeatherUiState): String? =
 internal fun hitokotoCardErrorMessage(state: HitokotoUiState): String? =
     (state as? HitokotoUiState.Error)?.message
 
+internal fun homeSidePanelAttribution(author: String?, source: String?): String? {
+    val normalizedAuthor = author?.trim()?.takeIf(String::isNotEmpty)
+    val normalizedSource = source?.trim()?.takeIf(String::isNotEmpty)
+    return when {
+        normalizedAuthor != null && normalizedSource != null -> "—— $normalizedAuthor「$normalizedSource」"
+        normalizedAuthor != null -> "—— $normalizedAuthor"
+        normalizedSource != null -> "——「$normalizedSource」"
+        else -> null
+    }
+}
+
 internal fun shortcutSpec(shortcut: HomeSidePanelShortcut): HomeSidePanelShortcutSpec = when (shortcut) {
     HomeSidePanelShortcut.SCAN -> HomeSidePanelShortcutSpec(shortcut, "扫一扫", HomeSidePanelIconKind.QR_CODE_SCANNER, HomeSidePanelShortcutPlacement.TILE)
     HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelShortcutSpec(shortcut, "收付款", HomeSidePanelIconKind.PAYMENTS, HomeSidePanelShortcutPlacement.TILE)

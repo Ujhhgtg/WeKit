@@ -9,6 +9,11 @@ import org.junit.jupiter.api.Test
 class HomeSidePanelGestureStateTest {
 
     @Test
+    fun fullOneShotCloseUsesTheApprovedShorterDuration() {
+        assertEquals(240L, homeSidePanelOneShotCloseDuration(from = 1f, target = 0f))
+    }
+
+    @Test
     fun gestureThresholdsUseDensityScaledPixels() {
         val config = homeSidePanelGestureConfig(density = 3f)
 

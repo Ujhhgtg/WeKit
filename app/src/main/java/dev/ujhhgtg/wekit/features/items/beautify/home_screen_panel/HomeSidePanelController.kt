@@ -6,7 +6,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -31,6 +34,7 @@ class HomeSidePanelController(
     private val started = AtomicBoolean()
     private var pendingLocationPermission = false
     private var locationJob: Job? = null
+    private val _weatherMessages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     private val _uiState = MutableStateFlow(
         HomeSidePanelUiState(
             profile = HomeSidePanelProfile(
@@ -48,6 +52,7 @@ class HomeSidePanelController(
     )
 
     val uiState: StateFlow<HomeSidePanelUiState> = _uiState.asStateFlow()
+    val weatherMessages: SharedFlow<String> = _weatherMessages.asSharedFlow()
 
     fun startPreload() {
         if (!started.compareAndSet(false, true)) return
@@ -105,6 +110,7 @@ class HomeSidePanelController(
                         message = result.reason.message,
                         actionInProgress = false,
                     )
+                    publishWeatherMessage(result.reason.message)
                     setWeatherProfileAccount(_uiState.value.profile.wxId)
                 }
             }
@@ -158,10 +164,12 @@ class HomeSidePanelController(
             detectWeatherLocation(activity)
         } else {
             pendingLocationPermission = false
+            val message = "定位权限已拒绝，仍可搜索或手动选择城市"
             updateWeatherSettings(
-                message = "定位权限已拒绝，仍可搜索或手动选择城市",
+                message = message,
                 actionInProgress = false,
             )
+            publishWeatherMessage(message)
         }
     }
 
@@ -175,6 +183,12 @@ class HomeSidePanelController(
 
     fun closeCardSettings() {
         _uiState.update { it.copy(cardMode = HomeSidePanelCardMode.CONTENT) }
+    }
+
+    fun consumeSettingsBack(): Boolean {
+        if (_uiState.value.cardMode == HomeSidePanelCardMode.CONTENT) return false
+        closeCardSettings()
+        return true
     }
 
     fun fetchAnotherHitokoto() {
@@ -266,6 +280,7 @@ class HomeSidePanelController(
 
             is WeatherCityMatchResult.Error -> {
                 updateWeatherSettings(message = result.reason.message)
+                publishWeatherMessage(result.reason.message)
             }
         }
         setWeatherProfileAccount(accountId)
@@ -303,6 +318,7 @@ class HomeSidePanelController(
                 ),
             )
         }
+        if (result is WeatherResult.Error) publishWeatherMessage(result.message)
     }
 
     private suspend fun fetchHitokotoInternal(preload: Boolean) {
@@ -339,10 +355,14 @@ class HomeSidePanelController(
             }
 
             LocationResolution.NeedPermission -> Unit
-            else -> updateWeatherSettings(
-                message = locationResolutionMessage(resolution),
-                actionInProgress = false,
-            )
+            else -> {
+                val message = locationResolutionMessage(resolution)
+                updateWeatherSettings(
+                    message = message,
+                    actionInProgress = false,
+                )
+                publishWeatherMessage(message)
+            }
         }
     }
 
@@ -366,6 +386,10 @@ class HomeSidePanelController(
                 ),
             )
         }
+    }
+
+    private fun publishWeatherMessage(message: String) {
+        _weatherMessages.tryEmit(message)
     }
 
 }

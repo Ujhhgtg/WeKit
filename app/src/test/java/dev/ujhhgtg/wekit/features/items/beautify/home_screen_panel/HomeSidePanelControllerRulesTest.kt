@@ -5,12 +5,50 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class HomeSidePanelControllerRulesTest {
+
+    @Test
+    fun settingsBackReturnsToContentBeforeThePanelCanClose() {
+        val controller = fixtureController()
+
+        controller.openWeatherSettings()
+        assertTrue(controller.consumeSettingsBack())
+        assertEquals(HomeSidePanelCardMode.CONTENT, controller.uiState.value.cardMode)
+
+        controller.openHitokotoSettings()
+        assertTrue(controller.consumeSettingsBack())
+        assertEquals(HomeSidePanelCardMode.CONTENT, controller.uiState.value.cardMode)
+
+        assertFalse(controller.consumeSettingsBack())
+        controller.close()
+    }
+
+    @Test
+    fun repeatedWeatherFailuresPublishRepeatedTransientMessages() {
+        val controller = fixtureController(
+            profileCityResult = WeatherCityMatchResult.Error(WeatherCityMatchFailure.UNSUPPORTED_COUNTRY),
+        )
+        val messages = mutableListOf<String>()
+        val collectionJob = controller.weatherMessages
+            .onEach(messages::add)
+            .launchIn(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+
+        controller.readWeatherFromProfile()
+        controller.readWeatherFromProfile()
+
+        assertEquals(listOf("不支持的资料地区", "不支持的资料地区"), messages)
+        collectionJob.cancel()
+        controller.close()
+    }
 
     @Test
     fun profileCityFailureKeepsBeijingAndPublishesTheExactMessage() {
@@ -44,6 +82,16 @@ class HomeSidePanelControllerRulesTest {
         controller.runShortcut(HomeSidePanelShortcut.SCAN)
         assertEquals(listOf("close", "SCAN"), navigator.events)
         controller.close()
+    }
+
+    @Test
+    fun onlyClearUnreadCanExecuteWithoutWaitingForThePanelToClose() {
+        assertFalse(homeSidePanelShortcutWaitsForClose(HomeSidePanelShortcut.MARK_ALL_READ))
+        HomeSidePanelShortcut.entries
+            .filterNot { it == HomeSidePanelShortcut.MARK_ALL_READ }
+            .forEach { shortcut ->
+                assertTrue(homeSidePanelShortcutWaitsForClose(shortcut), shortcut.name)
+            }
     }
 
     @Test

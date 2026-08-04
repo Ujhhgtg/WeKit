@@ -1,9 +1,18 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class HomeSidePanelShortcutMappingTest {
+
+    @Test
+    fun hitokotoAttributionUsesTheApprovedChineseBookTitleFormat() {
+        assertEquals("—— 作者「出处」", homeSidePanelAttribution(author = "作者", source = "出处"))
+        assertEquals("—— 作者", homeSidePanelAttribution(author = "作者", source = null))
+        assertEquals("——「出处」", homeSidePanelAttribution(author = null, source = "出处"))
+        assertNull(homeSidePanelAttribution(author = null, source = null))
+    }
 
     @Test
     fun everyShortcutHasTheApprovedLabelAndSemanticIcon() {

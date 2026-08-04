@@ -90,6 +90,9 @@ internal fun homeSidePanelShouldStartLocationDetection(actionInProgress: Boolean
 internal fun homeSidePanelShouldPublishWeatherSearch(currentQuery: String, resultQuery: String): Boolean =
     currentQuery == resultQuery
 
+internal fun homeSidePanelOneShotCloseDuration(from: Float, target: Float): Long =
+    (120L + 120L * kotlin.math.abs(from - target)).roundToInt().toLong()
+
 internal fun homeSidePanelWeatherProfileStateBelongsToAccount(
     storedAccountId: String?,
     currentAccountId: String,

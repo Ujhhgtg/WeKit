@@ -15,3 +15,6 @@ interface HomeSidePanelNavigator {
 
     fun openShortcut(shortcut: HomeSidePanelShortcut)
 }
+
+internal fun homeSidePanelShortcutWaitsForClose(shortcut: HomeSidePanelShortcut): Boolean =
+    shortcut != HomeSidePanelShortcut.MARK_ALL_READ
