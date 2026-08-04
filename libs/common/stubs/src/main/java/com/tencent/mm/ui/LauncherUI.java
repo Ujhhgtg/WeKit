@@ -10,4 +10,8 @@ public class LauncherUI extends Activity {
     public static LauncherUI getInstance() {
         throw new RuntimeException("Stub!");
     }
+
+    public MMFragment getCurrentFragmet() {
+        throw new RuntimeException("Stub!");
+    }
 }

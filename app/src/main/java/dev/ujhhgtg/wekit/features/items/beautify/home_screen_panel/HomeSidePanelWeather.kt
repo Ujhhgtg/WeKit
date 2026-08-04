@@ -1,0 +1,703 @@
+package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
+
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.pm.PackageManager
+import android.database.sqlite.SQLiteDatabase
+import android.icu.text.Transliterator
+import android.location.Address
+import android.location.Geocoder
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.os.Build
+import android.os.CancellationSignal
+import android.os.Looper
+import androidx.core.content.ContextCompat
+import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import java.io.IOException
+import java.io.File
+import java.net.SocketTimeoutException
+import java.util.concurrent.atomic.AtomicReference
+import java.util.Locale
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
+@Serializable
+internal data class WeatherCity(
+    val countryCode: String,
+    val province: String,
+    val city: String,
+    val district: String?,
+    val cityNum: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+)
+
+internal val DEFAULT_WEATHER_CITY = WeatherCity(
+    countryCode = "CN",
+    province = "北京",
+    city = "北京",
+    district = null,
+    cityNum = "101010100",
+)
+
+@Serializable
+internal data class WeatherSnapshot(
+    val city: WeatherCity,
+    val weatherCode: String,
+    val temperature: String,
+    val feelsLike: String,
+    val high: String,
+    val low: String,
+    val humidity: String,
+    val windSpeed: String,
+    val publishedAt: String,
+    val fetchedAt: Long,
+)
+
+internal sealed interface WeatherUiState {
+    data object Loading : WeatherUiState
+    data class Ready(
+        val snapshot: WeatherSnapshot,
+        val refreshing: Boolean = false,
+    ) : WeatherUiState
+
+    data class Error(
+        val message: String,
+        val cached: WeatherSnapshot?,
+    ) : WeatherUiState
+}
+
+internal sealed interface WeatherResult {
+    data class Success(val snapshot: WeatherSnapshot) : WeatherResult
+    data class Error(val message: String, val cached: WeatherSnapshot?) : WeatherResult
+}
+
+internal sealed interface WeatherCityMatchResult {
+    data class Success(val city: WeatherCity) : WeatherCityMatchResult
+    data class Error(val reason: WeatherCityMatchFailure) : WeatherCityMatchResult
+}
+
+internal enum class WeatherCityMatchFailure(val message: String) {
+    UNSUPPORTED_COUNTRY("不支持的资料地区"),
+    MISSING_REGION("个人资料中没有地区"),
+    MISSING_CITY("个人资料中没有城市"),
+    NO_MATCH("无法在天气城市库中匹配该城市"),
+    READ_ERROR("读取个人资料失败"),
+}
+
+internal data class WeatherSettingsUiState(
+    val selectedCity: WeatherCity = DEFAULT_WEATHER_CITY,
+    val searchQuery: String = "",
+    val searchResults: List<WeatherCity> = emptyList(),
+    val actionInProgress: Boolean = false,
+)
+
+internal fun isEligibleWeatherCountry(code: String): Boolean =
+    code.trim().uppercase() in setOf("CN", "HK", "MO", "TW")
+
+enum class WeatherIconKind {
+    SUNNY,
+    CLOUDY,
+    RAIN,
+    SNOW,
+    FOG,
+    THUNDER,
+    UNKNOWN,
+}
+
+internal fun weatherIconKind(code: String): WeatherIconKind = when (code.toIntOrNull()) {
+    0 -> WeatherIconKind.SUNNY
+    1, 2 -> WeatherIconKind.CLOUDY
+    4, 5, 32, 33 -> WeatherIconKind.THUNDER
+    6, 13, 14, 15, 16, 17, 26, 27, 28, 34 -> WeatherIconKind.SNOW
+    3, 7, 8, 9, 10, 11, 12, 19, 21, 22, 23, 24, 25 -> WeatherIconKind.RAIN
+    18, 20, 29, 30, 31, 35, 53 -> WeatherIconKind.FOG
+    else -> WeatherIconKind.UNKNOWN
+}
+
+private fun buildWeatherUrl(city: WeatherCity): HttpUrl = WEATHER_ENDPOINT.toHttpUrl()
+    .newBuilder()
+    .addQueryParameter("latitude", "0")
+    .addQueryParameter("longitude", "0")
+    .addQueryParameter("locationKey", "weathercn:${city.cityNum}")
+    .addQueryParameter("sign", WEATHER_SIGN)
+    .addQueryParameter("isGlobal", "false")
+    .addQueryParameter("locale", "zh_cn")
+    .addQueryParameter("days", "5")
+    .addQueryParameter("appKey", WEATHER_APP_KEY)
+    .build()
+
+private fun parseWeatherPayload(
+    city: WeatherCity,
+    payload: String,
+    fetchedAt: Long,
+): WeatherSnapshot {
+    val decoded = DefaultJson.decodeFromString<XiaomiWeatherPayload>(payload)
+    val current = decoded.current ?: throw InvalidWeatherPayloadException("缺少当前天气")
+    val daily = decoded.forecastDaily?.temperature?.value?.firstOrNull()
+        ?: throw InvalidWeatherPayloadException("缺少每日天气")
+    return WeatherSnapshot(
+        city = city,
+        weatherCode = current.weather.requireWeatherValue("天气代码"),
+        temperature = current.temperature?.value.requireWeatherValue("当前温度"),
+        feelsLike = current.feelsLike?.value.requireWeatherValue("体感温度"),
+        high = daily.from.requireWeatherValue("最高温度"),
+        low = daily.to.requireWeatherValue("最低温度"),
+        humidity = current.humidity?.value.requireWeatherValue("湿度"),
+        windSpeed = current.wind?.speed?.value.requireWeatherValue("风速"),
+        publishedAt = current.pubTime.requireWeatherValue("发布时间"),
+        fetchedAt = fetchedAt,
+    )
+}
+
+internal class HomeSidePanelWeather(
+    private val cityIndex: HomeSidePanelCityIndex,
+    private val client: OkHttpClient,
+) {
+
+    private val inFlight = AtomicReference<InFlightWeatherRequest?>(null)
+    private val lastRequestStartedAt = AtomicReference<WeatherRequestStart?>(null)
+
+    fun loadCached(): WeatherSnapshot? = HomeSidePanelPreferences.weatherLastSuccess
+
+    suspend fun refresh(city: WeatherCity): WeatherResult {
+        if (city.cityNum.isBlank()) {
+            return WeatherResult.Error("未选择天气城市", HomeSidePanelPreferences.weatherLastSuccess)
+        }
+        val now = System.currentTimeMillis()
+        inFlight.get()?.let { current ->
+            if (current.cityNum == city.cityNum) return current.deferred.await()
+            current.deferred.cancel()
+            inFlight.compareAndSet(current, null)
+        }
+
+        val previousStart = lastRequestStartedAt.get()
+        if (previousStart?.cityNum == city.cityNum && now - previousStart.startedAt < MIN_REFRESH_INTERVAL_MS) {
+            val cached = HomeSidePanelPreferences.weatherLastSuccess
+            return if (cached?.city?.cityNum == city.cityNum) {
+                WeatherResult.Success(cached)
+            } else {
+                WeatherResult.Error("刷新过于频繁，请稍后再试", cached)
+            }
+        }
+
+        return coroutineScope {
+            val created = async(Dispatchers.IO, start = CoroutineStart.LAZY) { performRefresh(city) }
+            val entry = InFlightWeatherRequest(city.cityNum, created)
+            if (inFlight.compareAndSet(null, entry)) {
+                lastRequestStartedAt.set(WeatherRequestStart(city.cityNum, now))
+                created.start()
+                try {
+                    val result = created.await()
+                    if (inFlight.get() === entry && result is WeatherResult.Success) {
+                        HomeSidePanelPreferences.selectedWeatherCity = city
+                        HomeSidePanelPreferences.weatherLastSuccess = result.snapshot
+                    }
+                    result
+                } finally {
+                    inFlight.compareAndSet(entry, null)
+                }
+            } else {
+                created.cancel()
+                refresh(city)
+            }
+        }
+    }
+
+    suspend fun searchCities(query: String): List<WeatherCity> = cityIndex.search(query)
+
+    fun selectedCity(): WeatherCity = HomeSidePanelPreferences.selectedWeatherCity
+
+    fun selectCity(city: WeatherCity) {
+        HomeSidePanelPreferences.selectedWeatherCity = city
+    }
+
+    fun resetForAccount() {
+        HomeSidePanelPreferences.selectedWeatherCity = DEFAULT_WEATHER_CITY
+        HomeSidePanelPreferences.weatherLastSuccess = null
+    }
+
+    private suspend fun performRefresh(city: WeatherCity): WeatherResult {
+        val cached = HomeSidePanelPreferences.weatherLastSuccess
+        val request = Request.Builder().url(buildWeatherUrl(city)).get().build()
+        return try {
+            val payload = client.newCall(request).awaitWeatherPayload()
+            val snapshot = parseWeatherPayload(city, payload, System.currentTimeMillis())
+            WeatherResult.Success(snapshot)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: WeatherHttpException) {
+            WeLogger.w(TAG, "weather request failed with HTTP ${error.code}")
+            WeatherResult.Error("天气服务请求失败：HTTP ${error.code}", cached)
+        } catch (error: SocketTimeoutException) {
+            WeLogger.w(TAG, "weather request timed out", error)
+            WeatherResult.Error("天气请求超时", cached)
+        } catch (error: InvalidWeatherPayloadException) {
+            WeLogger.w(TAG, "weather payload is incomplete", error)
+            WeatherResult.Error("天气服务返回的数据不完整", cached)
+        } catch (error: SerializationException) {
+            WeLogger.w(TAG, "weather payload is malformed", error)
+            WeatherResult.Error("天气服务返回了无效数据", cached)
+        } catch (error: IOException) {
+            WeLogger.w(TAG, "weather request failed", error)
+            WeatherResult.Error("无法连接天气服务", cached)
+        }
+    }
+
+    private companion object {
+        const val TAG = "HomeSidePanelWeather"
+        const val MIN_REFRESH_INTERVAL_MS = 1_000L
+    }
+
+    private data class InFlightWeatherRequest(
+        val cityNum: String,
+        val deferred: Deferred<WeatherResult>,
+    )
+
+    private data class WeatherRequestStart(
+        val cityNum: String,
+        val startedAt: Long,
+    )
+}
+
+@Serializable
+private data class XiaomiWeatherPayload(
+    val current: XiaomiCurrentWeather? = null,
+    val forecastDaily: XiaomiDailyForecast? = null,
+)
+
+@Serializable
+private data class XiaomiCurrentWeather(
+    val feelsLike: XiaomiWeatherValue? = null,
+    val humidity: XiaomiWeatherValue? = null,
+    val temperature: XiaomiWeatherValue? = null,
+    val weather: String = "",
+    val wind: XiaomiWind? = null,
+    val pubTime: String = "",
+)
+
+@Serializable
+private data class XiaomiWeatherValue(
+    val value: String = "",
+)
+
+@Serializable
+private data class XiaomiWind(
+    val speed: XiaomiWeatherValue? = null,
+)
+
+@Serializable
+private data class XiaomiDailyForecast(
+    val temperature: XiaomiDailyTemperature? = null,
+)
+
+@Serializable
+private data class XiaomiDailyTemperature(
+    val value: List<XiaomiDailyRange> = emptyList(),
+)
+
+@Serializable
+private data class XiaomiDailyRange(
+    val from: String = "",
+    val to: String = "",
+)
+
+private class InvalidWeatherPayloadException(message: String) : IllegalArgumentException(message)
+
+private class WeatherHttpException(val code: Int) : IOException()
+
+private fun String?.requireWeatherValue(name: String): String =
+    this?.takeIf(String::isNotBlank) ?: throw InvalidWeatherPayloadException("缺少$name")
+
+private suspend fun Call.awaitWeatherPayload(): String = suspendCancellableCoroutine { continuation ->
+    continuation.invokeOnCancellation { cancel() }
+    enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {
+            if (continuation.isActive) continuation.resumeWithException(e)
+        }
+
+        override fun onResponse(call: Call, response: Response) {
+            response.use {
+                if (!continuation.isActive) return
+                if (!it.isSuccessful) {
+                    continuation.resumeWithException(WeatherHttpException(it.code))
+                } else {
+                    continuation.resume(it.body.string())
+                }
+            }
+        }
+    })
+}
+
+private const val WEATHER_ENDPOINT = "https://weatherapi.market.xiaomi.com/wtr-v3/weather/all"
+private const val WEATHER_SIGN = "zUFJoAR2ZVrDy1vF3D07"
+private const val WEATHER_APP_KEY = "weather20151024"
+
+private val cityQueryTransliterator: Transliterator? by lazy {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        Transliterator.getInstance("Han-Latin; Latin-ASCII")
+    } else {
+        null
+    }
+}
+
+private fun transliterateCityQuery(value: String): String =
+    cityQueryTransliterator?.let { synchronized(it) { it.transliterate(value) } } ?: value
+
+internal class HomeSidePanelCityMatcher(
+    private val cities: List<WeatherCity>,
+) {
+
+    fun search(query: String): List<WeatherCity> {
+        val normalizedQuery = normalizeSearchValue(query)
+        if (normalizedQuery.isEmpty()) return emptyList()
+        return cities.asSequence()
+            .filter { city ->
+                city.searchValues().any { value ->
+                    normalizeSearchValue(value).contains(normalizedQuery) ||
+                        normalizeSearchValue(transliterateCityQuery(value)).contains(normalizedQuery)
+                }
+            }
+            .distinctBy { it.labelKey() }
+            .toList()
+    }
+
+    fun matchProfile(
+        countryCode: String,
+        province: String,
+        city: String,
+    ): WeatherCityMatchResult {
+        if (!isEligibleWeatherCountry(countryCode)) {
+            return WeatherCityMatchResult.Error(WeatherCityMatchFailure.UNSUPPORTED_COUNTRY)
+        }
+        if (province.isBlank()) {
+            return WeatherCityMatchResult.Error(WeatherCityMatchFailure.MISSING_REGION)
+        }
+        if (city.isBlank()) {
+            return WeatherCityMatchResult.Error(WeatherCityMatchFailure.MISSING_CITY)
+        }
+        return match(
+            countryCode = countryCode.trim().uppercase(),
+            province = province,
+            city = city,
+        )
+    }
+
+    fun matchLocation(province: String, city: String): WeatherCityMatchResult {
+        if (city.isBlank()) {
+            return WeatherCityMatchResult.Error(WeatherCityMatchFailure.MISSING_CITY)
+        }
+        return match(countryCode = null, province = province, city = city)
+    }
+
+    private fun match(
+        countryCode: String?,
+        province: String,
+        city: String,
+    ): WeatherCityMatchResult {
+        val normalizedProvince = normalizeRegionValue(province)
+        val normalizedCity = normalizeRegionValue(city)
+        val countryMatches: (WeatherCity) -> Boolean = { candidate ->
+            countryCode == null || candidate.countryCode == countryCode
+        }
+        val provinceMatches: (WeatherCity) -> Boolean = { candidate ->
+            normalizeRegionValue(candidate.province) == normalizedProvince
+        }
+        val matched = cities.firstOrNull { candidate ->
+            countryMatches(candidate) && provinceMatches(candidate) &&
+                candidate.normalizedCombinedCity() == normalizedCity
+        } ?: cities.firstOrNull { candidate ->
+            countryMatches(candidate) && provinceMatches(candidate) &&
+                normalizeRegionValue(candidate.city) == normalizedCity
+        } ?: cities.firstOrNull { candidate ->
+            countryMatches(candidate) && candidate.matchesCityValue(normalizedCity)
+        } ?: cities.firstOrNull { candidate ->
+            candidate.matchesCityValue(normalizedCity)
+        }
+        return matched?.let(WeatherCityMatchResult::Success)
+            ?: WeatherCityMatchResult.Error(WeatherCityMatchFailure.NO_MATCH)
+    }
+
+    private fun WeatherCity.matchesCityValue(value: String): Boolean =
+        normalizedCombinedCity() == value ||
+            normalizeRegionValue(city) == value ||
+            district?.let(::normalizeRegionValue) == value
+
+    private fun WeatherCity.normalizedCombinedCity(): String =
+        normalizeRegionValue(city + district.orEmpty())
+
+    private fun WeatherCity.searchValues(): List<String> = listOf(
+        province,
+        city,
+        city + district.orEmpty(),
+        province + city + district.orEmpty(),
+    )
+
+    private fun WeatherCity.labelKey(): String =
+        listOf(countryCode, province, city, district.orEmpty()).joinToString("\u0000")
+}
+
+internal class HomeSidePanelCityIndex(context: Context) {
+
+    private val appContext = context.applicationContext
+    private val matcher by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        HomeSidePanelCityMatcher(loadCities())
+    }
+
+    suspend fun search(query: String): List<WeatherCity> = withContext(Dispatchers.IO) {
+        matcher.search(query)
+    }
+
+    suspend fun matchProfile(
+        countryCode: String,
+        province: String,
+        city: String,
+    ): WeatherCityMatchResult = withContext(Dispatchers.IO) {
+        matcher.matchProfile(countryCode, province, city)
+    }
+
+    suspend fun matchLocation(
+        province: String,
+        city: String,
+    ): WeatherCityMatchResult = withContext(Dispatchers.IO) {
+        matcher.matchLocation(province, city)
+    }
+
+    private fun loadCities(): List<WeatherCity> {
+        val databaseFile = copyDatabaseAssetOnce()
+        val database = SQLiteDatabase.openDatabase(
+            databaseFile.absolutePath,
+            null,
+            SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS,
+        )
+        return database.use { db ->
+            db.rawQuery(CITY_QUERY, null).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val provinceId = cursor.getInt(0)
+                        val rawName = cursor.getString(1)
+                        val separatorIndex = rawName.indexOf('.')
+                        val city = if (separatorIndex < 0) rawName else rawName.substring(0, separatorIndex)
+                        val district = if (separatorIndex < 0) null else rawName.substring(separatorIndex + 1)
+                        add(
+                            WeatherCity(
+                                countryCode = provinceId.toCountryCode(),
+                                province = cursor.getString(3),
+                                city = city,
+                                district = district,
+                                cityNum = cursor.getString(2),
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun copyDatabaseAssetOnce(): File {
+        val directory = File(appContext.noBackupFilesDir, ASSET_DIRECTORY).apply { mkdirs() }
+        val databaseFile = File(directory, ASSET_FILE_NAME)
+        if (!databaseFile.exists()) {
+            appContext.assets.open(ASSET_PATH).use { input ->
+                databaseFile.outputStream().use(input::copyTo)
+            }
+        }
+        return databaseFile
+    }
+
+    private fun Int.toCountryCode(): String = when (this) {
+        31 -> "HK"
+        32 -> "MO"
+        33 -> "TW"
+        else -> "CN"
+    }
+
+    private companion object {
+        const val ASSET_DIRECTORY = "home_side_panel"
+        const val ASSET_FILE_NAME = "xiaomi_weather.db"
+        const val ASSET_PATH = "$ASSET_DIRECTORY/$ASSET_FILE_NAME"
+        const val CITY_QUERY = """
+            SELECT c.province_id, c.name, c.city_num, p.name AS province
+            FROM citys c
+            LEFT JOIN provinces p ON p._id = c.province_id + 1
+            ORDER BY c._id
+        """
+    }
+}
+
+internal sealed interface LocationResolution {
+    data object NeedPermission : LocationResolution
+    data object LocationDisabled : LocationResolution
+    data object Timeout : LocationResolution
+    data object GeocoderFailed : LocationResolution
+    data object CityNotFound : LocationResolution
+    data class Success(val city: WeatherCity) : LocationResolution
+    data class Error(val message: String) : LocationResolution
+}
+
+internal fun locationResolutionMessage(resolution: LocationResolution): String = when (resolution) {
+    LocationResolution.NeedPermission -> "需要定位权限，请允许后重试"
+    LocationResolution.LocationDisabled -> "请先开启系统定位服务"
+    LocationResolution.Timeout -> "定位超时，请重试或手动选择城市"
+    LocationResolution.GeocoderFailed -> "无法将当前位置转换为城市"
+    LocationResolution.CityNotFound -> "天气城市库中找不到当前城市"
+    is LocationResolution.Success -> ""
+    is LocationResolution.Error -> resolution.message
+}
+
+@Suppress("DEPRECATION")
+internal class HomeSidePanelLocation(
+    private val cityIndex: HomeSidePanelCityIndex,
+) {
+
+    fun hasCoarsePermission(activity: Activity): Boolean =
+        hostDeclaresCoarsePermission(activity) &&
+            ContextCompat.checkSelfPermission(
+                activity,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+
+    suspend fun resolve(activity: Activity): LocationResolution {
+        if (!hostDeclaresCoarsePermission(activity)) {
+            return LocationResolution.Error("当前微信版本未声明粗略定位权限，请手动选择城市")
+        }
+        if (!hasCoarsePermission(activity)) return LocationResolution.NeedPermission
+
+        val locationManager = activity.getSystemService(LocationManager::class.java)
+            ?: return LocationResolution.Error("当前微信无法访问系统定位服务，请手动选择城市")
+        val provider = enabledProvider(locationManager)
+            ?: return LocationResolution.LocationDisabled
+        val location = try {
+            withTimeoutOrNull(LOCATION_TIMEOUT_MS) {
+                requestLocation(activity, locationManager, provider)
+            }
+        } catch (error: SecurityException) {
+            WeLogger.w(LOCATION_TAG, "location permission was revoked during request", error)
+            return LocationResolution.NeedPermission
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            WeLogger.w(LOCATION_TAG, "location request failed", error)
+            return LocationResolution.Error("定位失败，请重试或手动选择城市")
+        } ?: return LocationResolution.Timeout
+
+        val address = try {
+            geocode(activity, location)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            WeLogger.w(LOCATION_TAG, "reverse geocoding failed", error)
+            return LocationResolution.GeocoderFailed
+        } ?: return LocationResolution.GeocoderFailed
+
+        val province = address.adminArea.orEmpty().ifBlank { address.subAdminArea.orEmpty() }
+        val city = address.locality.orEmpty()
+            .ifBlank { address.subAdminArea.orEmpty() }
+            .ifBlank { address.adminArea.orEmpty() }
+        return when (val result = cityIndex.matchLocation(province, city)) {
+            is WeatherCityMatchResult.Success -> LocationResolution.Success(result.city)
+            is WeatherCityMatchResult.Error -> LocationResolution.CityNotFound
+        }
+    }
+
+    private fun hostDeclaresCoarsePermission(activity: Activity): Boolean = try {
+        activity.packageManager
+            .getPackageInfo(activity.packageName, PackageManager.GET_PERMISSIONS)
+            .requestedPermissions
+            ?.contains(Manifest.permission.ACCESS_COARSE_LOCATION) == true
+    } catch (error: PackageManager.NameNotFoundException) {
+        WeLogger.w(LOCATION_TAG, "failed to read host permission declarations", error)
+        false
+    }
+
+    private fun enabledProvider(locationManager: LocationManager): String? =
+        listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
+            .firstOrNull(locationManager::isProviderEnabled)
+
+    private suspend fun requestLocation(
+        activity: Activity,
+        locationManager: LocationManager,
+        provider: String,
+    ): Location? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        suspendCancellableCoroutine { continuation ->
+            val cancellationSignal = CancellationSignal()
+            continuation.invokeOnCancellation { cancellationSignal.cancel() }
+            locationManager.getCurrentLocation(
+                provider,
+                cancellationSignal,
+                activity.mainExecutor,
+            ) { location ->
+                if (continuation.isActive) continuation.resume(location)
+            }
+        }
+    } else {
+        suspendCancellableCoroutine { continuation ->
+            val listener = object : LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    locationManager.removeUpdates(this)
+                    if (continuation.isActive) continuation.resume(location)
+                }
+            }
+            continuation.invokeOnCancellation { locationManager.removeUpdates(listener) }
+            locationManager.requestSingleUpdate(provider, listener, Looper.getMainLooper())
+        }
+    }
+
+    private suspend fun geocode(activity: Activity, location: Location): Address? =
+        withContext(Dispatchers.IO) {
+            if (!Geocoder.isPresent()) return@withContext null
+            Geocoder(activity, Locale.getDefault())
+                .getFromLocation(location.latitude, location.longitude, 1)
+                ?.firstOrNull()
+        }
+
+    private companion object {
+        const val LOCATION_TAG = "HomeSidePanelLocation"
+        const val LOCATION_TIMEOUT_MS = 12_000L
+    }
+}
+
+private val WEATHER_REGION_SUFFIXES = listOf(
+    "特别行政区",
+    "维吾尔自治区",
+    "壮族自治区",
+    "回族自治区",
+    "自治区",
+    "省",
+    "市",
+    "区",
+    "县",
+)
+
+private fun normalizeRegionValue(value: String): String {
+    var normalized = value.trim().lowercase().replace(Regex("\\s+"), "")
+    WEATHER_REGION_SUFFIXES.forEach { suffix ->
+        normalized = normalized.replace(suffix, "")
+    }
+    return normalized
+}
+
+private fun normalizeSearchValue(value: String): String =
+    normalizeRegionValue(value).replace(Regex("[^\\p{L}\\p{N}]"), "")

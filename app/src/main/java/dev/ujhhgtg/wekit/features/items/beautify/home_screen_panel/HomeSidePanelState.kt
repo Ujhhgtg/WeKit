@@ -2,9 +2,12 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,21 +17,32 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
+import dev.ujhhgtg.wekit.features.api.core.WeApi
+import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
+import dev.ujhhgtg.wekit.utils.android.showToast
 import java.util.concurrent.atomic.AtomicBoolean
 
-class HomeSidePanelController(
-    private val profileRepository: HomeSidePanelProfileRepository,
-    private val weatherRepository: HomeSidePanelWeatherRepository,
-    private val hitokotoRepository: HomeSidePanelHitokotoRepository,
-    private val locationResolver: HomeSidePanelLocationResolver,
-    private val navigator: HomeSidePanelNavigator,
+internal data class HomeSidePanelUiState(
+    val profile: HomeSidePanelProfile,
+    val weather: WeatherUiState,
+    val weatherSettings: WeatherSettingsUiState,
+    val hitokoto: HitokotoUiState,
+    val hitokotoSettings: HitokotoSettings,
+    val hideWeChatTitle: Boolean,
+)
+
+internal class HomeSidePanelState(
+    private val activity: Activity,
+    private val profile: HomeSidePanelProfileLoader,
+    private val weather: HomeSidePanelWeather,
+    private val hitokoto: HomeSidePanelHitokoto,
+    private val location: HomeSidePanelLocation,
     private val scope: CoroutineScope,
-    private val weatherProfileAccount: () -> String? = {
-        HomeSidePanelPreferences.weatherProfileAccount
-    },
-    private val setWeatherProfileAccount: (String?) -> Unit = {
-        HomeSidePanelPreferences.weatherProfileAccount = it
-    },
+    private val closePanel: ((() -> Unit)?) -> Unit,
 ) {
 
     private val started = AtomicBoolean()
@@ -44,12 +58,15 @@ class HomeSidePanelController(
                 status = HomeSidePanelStatusUiState.Loading,
             ),
             weather = WeatherUiState.Loading,
-            weatherSettings = WeatherSettingsUiState(selectedCity = weatherRepository.selectedCity()),
+            weatherSettings = WeatherSettingsUiState(selectedCity = weather.selectedCity()),
             hitokoto = HitokotoUiState.Loading,
-            hitokotoSettings = hitokotoRepository.loadSettings(),
-            cardMode = HomeSidePanelCardMode.CONTENT,
+            hitokotoSettings = hitokoto.loadSettings(),
+            hideWeChatTitle = HomeSidePanelPreferences.hideWeChatTitle,
         ),
     )
+
+    var route by mutableStateOf(HomeSidePanelRoute.HOME)
+        private set
 
     val uiState: StateFlow<HomeSidePanelUiState> = _uiState.asStateFlow()
     val weatherMessages: SharedFlow<String> = _weatherMessages.asSharedFlow()
@@ -61,7 +78,7 @@ class HomeSidePanelController(
         }
         scope.launch {
             loadCachedHitokoto()
-            fetchHitokotoInternal(preload = true)
+            fetchHitokotoInternal()
         }
         scope.launch {
             val accountId = loadAccountId()
@@ -78,7 +95,7 @@ class HomeSidePanelController(
 
     fun refreshStatus() {
         scope.launch {
-            val status = profileRepository.refreshStatus()
+            val status = profile.refreshStatus()
             _uiState.update { state ->
                 state.copy(profile = state.profile.copy(status = status))
             }
@@ -92,26 +109,24 @@ class HomeSidePanelController(
     fun readWeatherFromProfile() {
         scope.launch {
             setWeatherSettingsProgress(true)
-            val result = profileRepository.readWeatherCityFromProfile()
+            val result = profile.readWeatherCityFromProfile()
             when (result) {
                 is WeatherCityMatchResult.Success -> {
-                    weatherRepository.selectCity(result.city)
+                    weather.selectCity(result.city)
                     updateWeatherSettings(
                         selectedCity = result.city,
-                        message = null,
                         actionInProgress = false,
                     )
-                    setWeatherProfileAccount(_uiState.value.profile.wxId)
+                    HomeSidePanelPreferences.weatherProfileAccount = _uiState.value.profile.wxId
                     refreshWeatherInternal()
                 }
 
                 is WeatherCityMatchResult.Error -> {
                     updateWeatherSettings(
-                        message = result.reason.message,
                         actionInProgress = false,
                     )
                     publishWeatherMessage(result.reason.message)
-                    setWeatherProfileAccount(_uiState.value.profile.wxId)
+                    HomeSidePanelPreferences.weatherProfileAccount = _uiState.value.profile.wxId
                 }
             }
         }
@@ -122,8 +137,8 @@ class HomeSidePanelController(
             state.copy(weatherSettings = state.weatherSettings.copy(searchQuery = query))
         }
         scope.launch {
-            val results = weatherRepository.searchCities(query)
-            if (homeSidePanelShouldPublishWeatherSearch(_uiState.value.weatherSettings.searchQuery, query)) {
+            val results = weather.searchCities(query)
+            if (_uiState.value.weatherSettings.searchQuery == query) {
                 _uiState.update { state ->
                     state.copy(weatherSettings = state.weatherSettings.copy(searchResults = results))
                 }
@@ -132,17 +147,17 @@ class HomeSidePanelController(
     }
 
     fun selectWeatherCity(city: WeatherCity) {
-        weatherRepository.selectCity(city)
-        updateWeatherSettings(selectedCity = city, message = null, searchResults = emptyList())
+        weather.selectCity(city)
+        updateWeatherSettings(selectedCity = city, searchResults = emptyList())
         scope.launch { refreshWeatherInternal() }
     }
 
-    fun detectWeatherLocation(activity: Activity) {
-        if (!homeSidePanelShouldStartLocationDetection(_uiState.value.weatherSettings.actionInProgress)) return
+    fun detectWeatherLocation() {
+        if (_uiState.value.weatherSettings.actionInProgress) return
         setWeatherSettingsProgress(true)
         locationJob?.cancel()
         locationJob = scope.launch {
-            when (val resolution = locationResolver.resolve(activity)) {
+            when (val resolution = location.resolve(activity)) {
                 LocationResolution.NeedPermission -> {
                     pendingLocationPermission = true
                     activity.requestPermissions(
@@ -156,17 +171,16 @@ class HomeSidePanelController(
         }
     }
 
-    fun resumePendingLocationDetection(activity: Activity) {
+    fun resumePendingLocationDetection() {
         if (!pendingLocationPermission) return
-        if (locationResolver.hasCoarsePermission(activity)) {
+        if (location.hasCoarsePermission(activity)) {
             pendingLocationPermission = false
             setWeatherSettingsProgress(false)
-            detectWeatherLocation(activity)
+            detectWeatherLocation()
         } else {
             pendingLocationPermission = false
             val message = "定位权限已拒绝，仍可搜索或手动选择城市"
             updateWeatherSettings(
-                message = message,
                 actionInProgress = false,
             )
             publishWeatherMessage(message)
@@ -174,37 +188,58 @@ class HomeSidePanelController(
     }
 
     fun openWeatherSettings() {
-        _uiState.update { it.copy(cardMode = HomeSidePanelCardMode.WEATHER_SETTINGS) }
+        route = HomeSidePanelRoute.WEATHER_SETTINGS
     }
 
     fun openHitokotoSettings() {
-        _uiState.update { it.copy(cardMode = HomeSidePanelCardMode.HITOKOTO_SETTINGS) }
+        route = HomeSidePanelRoute.HITOKOTO_SETTINGS
+    }
+
+    fun openPanelSettings() {
+        route = HomeSidePanelRoute.PANEL_SETTINGS
     }
 
     fun closeCardSettings() {
-        _uiState.update { it.copy(cardMode = HomeSidePanelCardMode.CONTENT) }
+        route = HomeSidePanelRoute.HOME
     }
 
     fun consumeSettingsBack(): Boolean {
-        if (_uiState.value.cardMode == HomeSidePanelCardMode.CONTENT) return false
+        if (route == HomeSidePanelRoute.HOME) return false
         closeCardSettings()
         return true
     }
 
     fun fetchAnotherHitokoto() {
-        scope.launch { fetchHitokotoInternal(preload = false) }
+        scope.launch { fetchHitokotoInternal() }
+    }
+
+    fun setHideWeChatTitle(hide: Boolean) {
+        HomeSidePanelPreferences.hideWeChatTitle = hide
+        _uiState.update { it.copy(hideWeChatTitle = hide) }
+    }
+
+    fun openPersonalProfile() {
+        closePanel { openPersonalProfileActivity() }
+    }
+
+    fun openStatusEditor() {
+        closePanel { openStatusEditorActivity() }
+    }
+
+    fun openStatusEditorFromToolbar() {
+        openStatusEditorActivity()
     }
 
     fun saveHitokotoSettings(settings: HitokotoSettings) {
         try {
-            hitokotoRepository.saveSettings(settings)
+            hitokoto.saveSettings(settings)
             _uiState.update {
                 it.copy(
                     hitokotoSettings = settings,
-                    cardMode = HomeSidePanelCardMode.CONTENT,
                 )
             }
-            scope.launch { fetchHitokotoInternal(preload = false) }
+            route = HomeSidePanelRoute.HOME
+            scope.launch { fetchHitokotoInternal() }
         } catch (error: IllegalArgumentException) {
             _uiState.update { state ->
                 state.copy(
@@ -218,11 +253,11 @@ class HomeSidePanelController(
     }
 
     fun runShortcut(shortcut: HomeSidePanelShortcut) {
-        if (homeSidePanelShortcutWaitsForClose(shortcut)) {
-            navigator.closePanel { navigator.openShortcut(shortcut) }
+        if (shortcut == HomeSidePanelShortcut.MARK_ALL_READ) {
+            closePanel(null)
+            openShortcut(shortcut)
         } else {
-            navigator.closePanel()
-            navigator.openShortcut(shortcut)
+            closePanel { openShortcut(shortcut) }
         }
     }
 
@@ -231,7 +266,7 @@ class HomeSidePanelController(
     }
 
     private suspend fun loadCachedWeather() {
-        weatherRepository.loadCached()?.let { snapshot ->
+        weather.loadCached()?.let { snapshot ->
             _uiState.update { state ->
                 state.copy(
                     weather = WeatherUiState.Ready(snapshot),
@@ -242,7 +277,7 @@ class HomeSidePanelController(
     }
 
     private suspend fun loadCachedHitokoto() {
-        hitokotoRepository.loadCached()?.let { snapshot ->
+        hitokoto.loadCached()?.let { snapshot ->
             _uiState.update { state ->
                 state.copy(hitokoto = HitokotoUiState.Ready(snapshot))
             }
@@ -250,8 +285,8 @@ class HomeSidePanelController(
     }
 
     private suspend fun loadIdentity() {
-        val profile = try {
-            profileRepository.loadIdentity()
+        val loadedProfile = try {
+            profile.loadIdentity()
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
@@ -262,11 +297,11 @@ class HomeSidePanelController(
                 status = HomeSidePanelStatusUiState.Error("获取失败"),
             )
         }
-        _uiState.update { it.copy(profile = profile) }
+        _uiState.update { it.copy(profile = loadedProfile) }
     }
 
     private suspend fun loadAccountId(): String = try {
-        profileRepository.loadAccountId()
+        profile.loadAccountId()
     } catch (error: CancellationException) {
         throw error
     } catch (error: Throwable) {
@@ -275,25 +310,24 @@ class HomeSidePanelController(
 
     private suspend fun initializeWeatherCityFromProfile(accountId: String) {
         if (accountId.isBlank()) return
-        if (homeSidePanelWeatherProfileStateBelongsToAccount(weatherProfileAccount(), accountId)) return
-        when (val result = profileRepository.readWeatherCityFromProfile()) {
+        if (HomeSidePanelPreferences.weatherProfileAccount == accountId) return
+        when (val result = profile.readWeatherCityFromProfile()) {
             is WeatherCityMatchResult.Success -> {
-                weatherRepository.selectCity(result.city)
-                updateWeatherSettings(selectedCity = result.city, message = null)
+                weather.selectCity(result.city)
+                updateWeatherSettings(selectedCity = result.city)
             }
 
             is WeatherCityMatchResult.Error -> {
-                updateWeatherSettings(message = result.reason.message)
                 publishWeatherMessage(result.reason.message)
             }
         }
-        setWeatherProfileAccount(accountId)
+        HomeSidePanelPreferences.weatherProfileAccount = accountId
     }
 
     private suspend fun prepareWeatherAccount(accountId: String) {
         if (accountId.isBlank()) return
-        if (homeSidePanelWeatherProfileStateBelongsToAccount(weatherProfileAccount(), accountId)) return
-        weatherRepository.resetForAccount()
+        if (HomeSidePanelPreferences.weatherProfileAccount == accountId) return
+        weather.resetForAccount()
         _uiState.update { state ->
             state.copy(weatherSettings = state.weatherSettings.copy(selectedCity = DEFAULT_WEATHER_CITY))
         }
@@ -309,7 +343,7 @@ class HomeSidePanelController(
                 },
             )
         }
-        val result = weatherRepository.refresh(weatherRepository.selectedCity())
+        val result = weather.refresh(weather.selectedCity())
         _uiState.update { state ->
             state.copy(
                 weather = when (result) {
@@ -317,7 +351,7 @@ class HomeSidePanelController(
                     is WeatherResult.Error -> WeatherUiState.Error(result.message, result.cached)
                 },
                 weatherSettings = state.weatherSettings.copy(
-                    selectedCity = weatherRepository.selectedCity(),
+                    selectedCity = weather.selectedCity(),
                     actionInProgress = false,
                 ),
             )
@@ -325,7 +359,7 @@ class HomeSidePanelController(
         if (result is WeatherResult.Error) publishWeatherMessage(result.message)
     }
 
-    private suspend fun fetchHitokotoInternal(preload: Boolean) {
+    private suspend fun fetchHitokotoInternal() {
         val current = _uiState.value.hitokoto
         _uiState.update {
             it.copy(
@@ -335,7 +369,7 @@ class HomeSidePanelController(
                 },
             )
         }
-        val result = if (preload) hitokotoRepository.preload() else hitokotoRepository.fetchRandom()
+        val result = hitokoto.fetchRandom()
         _uiState.update { state ->
             state.copy(
                 hitokoto = when (result) {
@@ -349,10 +383,9 @@ class HomeSidePanelController(
     private suspend fun applyLocationResolution(resolution: LocationResolution) {
         when (resolution) {
             is LocationResolution.Success -> {
-                weatherRepository.selectCity(resolution.city)
+                weather.selectCity(resolution.city)
                 updateWeatherSettings(
                     selectedCity = resolution.city,
-                    message = null,
                     actionInProgress = false,
                 )
                 refreshWeatherInternal()
@@ -362,7 +395,6 @@ class HomeSidePanelController(
             else -> {
                 val message = locationResolutionMessage(resolution)
                 updateWeatherSettings(
-                    message = message,
                     actionInProgress = false,
                 )
                 publishWeatherMessage(message)
@@ -377,7 +409,6 @@ class HomeSidePanelController(
     private fun updateWeatherSettings(
         selectedCity: WeatherCity? = null,
         searchResults: List<WeatherCity>? = null,
-        message: String? = null,
         actionInProgress: Boolean? = null,
     ) {
         _uiState.update { state ->
@@ -385,7 +416,6 @@ class HomeSidePanelController(
                 weatherSettings = state.weatherSettings.copy(
                     selectedCity = selectedCity ?: state.weatherSettings.selectedCity,
                     searchResults = searchResults ?: state.weatherSettings.searchResults,
-                    message = message,
                     actionInProgress = actionInProgress ?: state.weatherSettings.actionInProgress,
                 ),
             )
@@ -396,6 +426,76 @@ class HomeSidePanelController(
         _weatherMessages.tryEmit(message)
     }
 
+    private fun openShortcut(shortcut: HomeSidePanelShortcut) {
+        when (shortcut) {
+            HomeSidePanelShortcut.SCAN -> startExplicit("${activity.packageName}.plugin.scanner.ui.BaseScanUI")
+            HomeSidePanelShortcut.PAYMENTS -> {
+                if (!startExplicit("${activity.packageName}.plugin.offline.ui.WalletOfflineCoinPurseUI")) {
+                    startExplicit("${activity.packageName}.plugin.mall.ui.MallIndexUIv2")
+                }
+            }
+
+            HomeSidePanelShortcut.FAVORITES -> startExplicit("${activity.packageName}.plugin.fav.ui.FavoriteIndexUI")
+            HomeSidePanelShortcut.MOMENTS -> WeApi.openMoments(activity, WeApi.selfWxId)
+            HomeSidePanelShortcut.VIDEO_CHANNELS -> startExplicit("${activity.packageName}.plugin.finder.ui.FinderHomeAffinityUI")
+            HomeSidePanelShortcut.MARK_ALL_READ -> scope.launch(Dispatchers.IO) { WeConversationApi.markAllAsRead() }
+            HomeSidePanelShortcut.WEKIT_SETTINGS -> activity.startActivity(Intent(activity, SettingsActivity::class.java))
+        }
+    }
+
+    private fun openPersonalProfileActivity() {
+        val opened = startExplicit(PERSONAL_PROFILE_NEW_CLASS) {
+            putExtra("key_config_item", "SettingGroup_Main_PersonalInfo")
+        } || startExplicit(PERSONAL_PROFILE_LEGACY_CLASS)
+        if (!opened) showToast(activity, "无法打开个人资料页")
+    }
+
+    private fun openStatusEditorActivity() {
+        val opened = STATUS_EDITOR_CLASSES.any { className ->
+            startExplicit(className) { putExtra("KEY_IS_ENTER", true) }
+        }
+        if (!opened) showToast(activity, "无法打开状态编辑页")
+    }
+
+    private fun startExplicit(className: String, configure: Intent.() -> Unit = {}): Boolean {
+        val intent = Intent().setClassName(activity.packageName, className).apply(configure)
+        if (intent.resolveActivity(activity.packageManager) == null) return false
+        return try {
+            activity.startActivity(intent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        }
+    }
+
+    private companion object {
+        const val PERSONAL_PROFILE_NEW_CLASS =
+            "com.tencent.mm.plugin.setting.ui.setting_new.CommonSettingsUI"
+        const val PERSONAL_PROFILE_LEGACY_CLASS =
+            "com.tencent.mm.plugin.setting.ui.setting.SettingsPersonalInfoUI"
+        val STATUS_EDITOR_CLASSES = listOf(
+            "com.tencent.mm.plugin.textstatus.ui.TextStatusDoWhatActivityV2",
+            "com.tencent.mm.plugin.textstatus.ui.TextStatusDoWhatActivity",
+        )
+    }
+
 }
 
 internal const val HOME_SIDE_PANEL_LOCATION_REQUEST_CODE = 0x574B
+
+internal enum class HomeSidePanelRoute {
+    HOME,
+    WEATHER_SETTINGS,
+    HITOKOTO_SETTINGS,
+    PANEL_SETTINGS,
+}
+
+internal enum class HomeSidePanelShortcut {
+    SCAN,
+    PAYMENTS,
+    FAVORITES,
+    MOMENTS,
+    VIDEO_CHANNELS,
+    MARK_ALL_READ,
+    WEKIT_SETTINGS,
+}

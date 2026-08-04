@@ -21,54 +21,77 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import java.net.SocketTimeoutException
-import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-interface HomeSidePanelHitokotoRepository {
-    fun loadSettings(): HitokotoSettings
+internal val HITOKOTO_CATEGORY_CODES = ('a'..'l').map(Char::toString).toSet()
 
-    fun saveSettings(settings: HitokotoSettings)
+@Serializable
+internal data class HitokotoSnapshot(
+    val uuid: String,
+    val text: String,
+    val type: String?,
+    val source: String?,
+    val author: String?,
+    val creator: String?,
+    val createdAt: String?,
+    val fetchedAt: Long,
+)
 
-    suspend fun loadCached(): HitokotoSnapshot?
+@Serializable
+internal data class HitokotoSettings(
+    val categories: Set<String> = HITOKOTO_CATEGORY_CODES,
+    val minLength: Int? = null,
+    val maxLength: Int? = null,
+    val showSource: Boolean = true,
+    val showAuthor: Boolean = true,
+)
 
-    suspend fun preload(): HitokotoResult
+internal sealed interface HitokotoUiState {
+    data object Loading : HitokotoUiState
+    data class Ready(
+        val snapshot: HitokotoSnapshot,
+        val refreshing: Boolean = false,
+    ) : HitokotoUiState
 
-    suspend fun fetchRandom(): HitokotoResult
+    data class Error(
+        val message: String,
+        val cached: HitokotoSnapshot?,
+    ) : HitokotoUiState
 }
 
-internal interface HomeSidePanelHitokotoPreferences {
-    var hitokotoSettings: HitokotoSettings
-    var hitokotoLastSuccess: HitokotoSnapshot?
+internal sealed interface HitokotoResult {
+    data class Success(val snapshot: HitokotoSnapshot) : HitokotoResult
+    data class Error(val message: String, val cached: HitokotoSnapshot?) : HitokotoResult
 }
 
-internal object PersistedHomeSidePanelHitokotoPreferences : HomeSidePanelHitokotoPreferences {
-    override var hitokotoSettings: HitokotoSettings
-        get() = HomeSidePanelPreferences.hitokotoSettings
-        set(value) {
-            HomeSidePanelPreferences.hitokotoSettings = value
-        }
-
-    override var hitokotoLastSuccess: HitokotoSnapshot?
-        get() = HomeSidePanelPreferences.hitokotoLastSuccess
-        set(value) {
-            HomeSidePanelPreferences.hitokotoLastSuccess = value
-        }
+private fun validateHitokotoSettings(
+    minLength: Int?,
+    maxLength: Int?,
+    categories: Set<String> = HITOKOTO_CATEGORY_CODES,
+): String? = when {
+    minLength != null && minLength < 0 || maxLength != null && maxLength < 0 ->
+        "长度不能为负数"
+    categories.isEmpty() -> "至少选择一个分类"
+    categories.any { it !in HITOKOTO_CATEGORY_CODES } -> "包含不支持的一言分类"
+    minLength != null && maxLength != null && maxLength < minLength ->
+        "最大长度不能小于最小长度"
+    else -> null
 }
 
-internal fun buildHitokotoUrl(settings: HitokotoSettings): HttpUrl = HITOKOTO_ENDPOINT.toHttpUrl()
+private fun buildHitokotoUrl(settings: HitokotoSettings): HttpUrl = HITOKOTO_ENDPOINT.toHttpUrl()
     .newBuilder()
     .addQueryParameter("encode", "json")
     .apply {
         settings.categories.sorted().forEach { addQueryParameter("c", it) }
         settings.minLength?.let { addQueryParameter("min_length", it.toString()) }
         settings.maxLength?.let { addQueryParameter("max_length", it.toString()) }
-        addQueryParameter("charset", settings.charset)
+        addQueryParameter("charset", HITOKOTO_CHARSET)
     }
     .build()
 
-internal fun parseHitokotoPayload(payload: String, fetchedAt: Long): HitokotoSnapshot {
+private fun parseHitokotoPayload(payload: String, fetchedAt: Long): HitokotoSnapshot {
     val decoded = DefaultJson.decodeFromString<HitokotoPayload>(payload)
     return HitokotoSnapshot(
         uuid = decoded.uuid.takeIf(String::isNotBlank)
@@ -84,47 +107,37 @@ internal fun parseHitokotoPayload(payload: String, fetchedAt: Long): HitokotoSna
     )
 }
 
-internal class DefaultHomeSidePanelHitokotoRepository(
-    private val preferences: HomeSidePanelHitokotoPreferences =
-        PersistedHomeSidePanelHitokotoPreferences,
-    private val client: OkHttpClient = defaultHitokotoHttpClient,
-    private val nowMs: () -> Long = System::currentTimeMillis,
-    private val fetchPayload: suspend (Request) -> String = { request ->
-        client.newCall(request).awaitHitokotoPayload()
-    },
-) : HomeSidePanelHitokotoRepository {
+internal class HomeSidePanelHitokoto(
+    private val client: OkHttpClient,
+) {
 
     private val inFlight = AtomicReference<InFlightHitokotoRequest?>(null)
     private val lastRequestStartedAt = AtomicReference<HitokotoRequestStart?>(null)
     private val lastError = AtomicReference<HitokotoResult.Error?>(null)
 
-    override fun loadSettings(): HitokotoSettings = preferences.hitokotoSettings
+    fun loadSettings(): HitokotoSettings = HomeSidePanelPreferences.hitokotoSettings
 
-    override fun saveSettings(settings: HitokotoSettings) {
+    fun saveSettings(settings: HitokotoSettings) {
         val validationError = validateHitokotoSettings(
             minLength = settings.minLength,
             maxLength = settings.maxLength,
             categories = settings.categories,
-            charset = settings.charset,
         )
         require(validationError == null) { validationError!! }
-        preferences.hitokotoSettings = settings
+        HomeSidePanelPreferences.hitokotoSettings = settings
     }
 
-    override suspend fun loadCached(): HitokotoSnapshot? = preferences.hitokotoLastSuccess
+    fun loadCached(): HitokotoSnapshot? = HomeSidePanelPreferences.hitokotoLastSuccess
 
-    override suspend fun preload(): HitokotoResult = fetchRandom()
-
-    override suspend fun fetchRandom(): HitokotoResult {
+    suspend fun fetchRandom(): HitokotoResult {
         val settings = loadSettings()
         val validationError = validateHitokotoSettings(
             minLength = settings.minLength,
             maxLength = settings.maxLength,
             categories = settings.categories,
-            charset = settings.charset,
         )
         if (validationError != null) {
-            return HitokotoResult.Error(validationError, preferences.hitokotoLastSuccess)
+            return HitokotoResult.Error(validationError, HomeSidePanelPreferences.hitokotoLastSuccess)
         }
         val requestKey = settings.requestKey()
         inFlight.get()?.let { current ->
@@ -133,10 +146,10 @@ internal class DefaultHomeSidePanelHitokotoRepository(
             inFlight.compareAndSet(current, null)
         }
 
-        val now = nowMs()
+        val now = System.currentTimeMillis()
         val previousStart = lastRequestStartedAt.get()
         if (previousStart?.requestKey == requestKey && now - previousStart.startedAt < MIN_REFRESH_INTERVAL_MS) {
-            return preferences.hitokotoLastSuccess?.let(HitokotoResult::Success)
+            return HomeSidePanelPreferences.hitokotoLastSuccess?.let(HitokotoResult::Success)
                 ?: lastError.get()
                 ?: HitokotoResult.Error("请求过于频繁，请稍后再试", null)
         }
@@ -154,7 +167,7 @@ internal class DefaultHomeSidePanelHitokotoRepository(
                     if (inFlight.get() === entry) {
                         when (result) {
                             is HitokotoResult.Success -> {
-                                preferences.hitokotoLastSuccess = result.snapshot
+                                HomeSidePanelPreferences.hitokotoLastSuccess = result.snapshot
                                 lastError.set(null)
                             }
 
@@ -173,10 +186,11 @@ internal class DefaultHomeSidePanelHitokotoRepository(
     }
 
     private suspend fun performFetch(settings: HitokotoSettings): HitokotoResult {
-        val cached = preferences.hitokotoLastSuccess
+        val cached = HomeSidePanelPreferences.hitokotoLastSuccess
         val request = Request.Builder().url(buildHitokotoUrl(settings)).get().build()
         return try {
-            val snapshot = parseHitokotoPayload(fetchPayload(request), nowMs())
+            val payload = client.newCall(request).awaitHitokotoPayload()
+            val snapshot = parseHitokotoPayload(payload, System.currentTimeMillis())
             HitokotoResult.Success(snapshot)
         } catch (error: CancellationException) {
             throw error
@@ -212,7 +226,6 @@ internal class DefaultHomeSidePanelHitokotoRepository(
         categories = categories.sorted(),
         minLength = minLength,
         maxLength = maxLength,
-        charset = charset,
     )
 
     private data class InFlightHitokotoRequest(
@@ -229,7 +242,6 @@ internal class DefaultHomeSidePanelHitokotoRepository(
         val categories: List<String>,
         val minLength: Int?,
         val maxLength: Int?,
-        val charset: String,
     )
 }
 
@@ -268,12 +280,5 @@ private suspend fun Call.awaitHitokotoPayload(): String = suspendCancellableCoro
     })
 }
 
-private val defaultHitokotoHttpClient by lazy {
-    OkHttpClient.Builder()
-        .connectTimeout(Duration.ofSeconds(10))
-        .readTimeout(Duration.ofSeconds(10))
-        .callTimeout(Duration.ofSeconds(10))
-        .build()
-}
-
 private const val HITOKOTO_ENDPOINT = "https://v1.hitokoto.cn/"
+private const val HITOKOTO_CHARSET = "utf-8"

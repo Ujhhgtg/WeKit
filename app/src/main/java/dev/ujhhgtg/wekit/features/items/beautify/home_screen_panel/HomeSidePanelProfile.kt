@@ -2,26 +2,38 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
+import dev.ujhhgtg.wekit.features.api.core.TextStatus
+import dev.ujhhgtg.wekit.features.api.core.TextStatusApi
+import dev.ujhhgtg.wekit.features.api.core.TextStatusResult
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-interface HomeSidePanelTextStatusReader {
-    fun read(wxId: String): HomeSidePanelStatusUiState
+internal data class HomeSidePanelProfile(
+    val wxId: String,
+    val nickname: String,
+    val avatarUrl: String,
+    val status: HomeSidePanelStatusUiState,
+)
+
+internal sealed interface HomeSidePanelStatusUiState {
+    data object Loading : HomeSidePanelStatusUiState
+    data class Ready(val status: TextStatus) : HomeSidePanelStatusUiState
+    data object NoStatus : HomeSidePanelStatusUiState
+    data class Error(val message: String) : HomeSidePanelStatusUiState
 }
 
-open class HomeSidePanelProfileRepository(
-    private val statusReader: HomeSidePanelTextStatusReader,
+internal class HomeSidePanelProfileLoader(
     private val cityIndex: HomeSidePanelCityIndex,
 ) {
 
-    open suspend fun loadAccountId(): String = withContext(Dispatchers.IO) {
+    suspend fun loadAccountId(): String = withContext(Dispatchers.IO) {
         WeApi.selfWxId
     }
 
-    open suspend fun loadIdentity(): HomeSidePanelProfile = withContext(Dispatchers.IO) {
+    suspend fun loadIdentity(): HomeSidePanelProfile = withContext(Dispatchers.IO) {
         val wxId = WeApi.selfWxId
         val nickname = WeDatabaseApi.getSelfProfileField(SelfProfileField.NAME, "")
             .toString()
@@ -30,15 +42,15 @@ open class HomeSidePanelProfileRepository(
             wxId = wxId,
             nickname = nickname,
             avatarUrl = WeDatabaseApi.getAvatarUrl(wxId),
-            status = statusReader.read(wxId),
+            status = TextStatusApi.read(wxId).toUiState(),
         )
     }
 
-    open suspend fun refreshStatus(): HomeSidePanelStatusUiState = withContext(Dispatchers.IO) {
-        statusReader.read(WeApi.selfWxId)
+    suspend fun refreshStatus(): HomeSidePanelStatusUiState = withContext(Dispatchers.IO) {
+        TextStatusApi.read(WeApi.selfWxId).toUiState()
     }
 
-    open suspend fun readWeatherCityFromProfile(): WeatherCityMatchResult = withContext(Dispatchers.IO) {
+    suspend fun readWeatherCityFromProfile(): WeatherCityMatchResult = withContext(Dispatchers.IO) {
         try {
             val country = WeDatabaseApi.getSelfProfileField(SelfProfileField.COUNTRY_CODE, "").toString()
             val province = WeDatabaseApi.getSelfProfileField(SelfProfileField.PROVINCE, "").toString()
@@ -59,6 +71,12 @@ open class HomeSidePanelProfileRepository(
     }
 
     private companion object {
-        const val TAG = "HomeSidePanelProfileRepository"
+        const val TAG = "HomeSidePanelProfile"
     }
+}
+
+private fun TextStatusResult.toUiState(): HomeSidePanelStatusUiState = when (this) {
+    is TextStatusResult.Ready -> HomeSidePanelStatusUiState.Ready(status)
+    TextStatusResult.NoStatus -> HomeSidePanelStatusUiState.NoStatus
+    is TextStatusResult.Error -> HomeSidePanelStatusUiState.Error("获取失败")
 }

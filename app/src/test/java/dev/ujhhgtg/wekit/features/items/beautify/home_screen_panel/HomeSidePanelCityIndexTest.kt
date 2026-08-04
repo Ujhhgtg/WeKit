@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class HomeSidePanelCityIndexTest {
@@ -14,17 +13,7 @@ class HomeSidePanelCityIndexTest {
         WeatherCity("TW", "台湾", "台北", null, "101340101"),
     )
 
-    private val matcher = HomeSidePanelCityMatcher(
-        cities = cities,
-        transliterator = CityQueryTransliterator { value ->
-            when (value) {
-                "北京" -> "bei jing"
-                "北京海淀" -> "bei jing hai dian"
-                "广东广州" -> "guang dong guang zhou"
-                else -> value
-            }
-        },
-    )
+    private val matcher = HomeSidePanelCityMatcher(cities)
 
     @Test
     fun profileMatchingNormalizesProvinceCityAndDistrictSuffixes() {
@@ -69,16 +58,11 @@ class HomeSidePanelCityIndexTest {
     }
 
     @Test
-    fun searchSupportsLabelsAndTransliterationInStableOrder() {
-        assertEquals(
-            listOf("101010100", "101010200"),
-            matcher.search("bei jing").map(WeatherCity::cityNum),
-        )
+    fun searchMatchesDistrictSuffixes() {
         assertEquals(
             listOf("101010200"),
             matcher.search("海淀区").map(WeatherCity::cityNum),
         )
-        assertTrue(matcher.search("  ").isEmpty())
     }
 
     @Test

@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 
@@ -12,11 +13,14 @@ internal object HomeSidePanelPreferenceKeys {
     const val WEATHER_LAST_ERROR = "home_side_panel_weather_last_error"
     const val HITOKOTO_SETTINGS = "home_side_panel_hitokoto_settings"
     const val HITOKOTO_LAST_SUCCESS = "home_side_panel_hitokoto_last_success"
+    const val HIDE_WECHAT_TITLE = "home_side_panel_hide_wechat_title"
 }
 
 internal object HomeSidePanelPreferences {
 
     private const val TAG = "HomeSidePanelPreferences"
+
+    var hideWeChatTitle by prefOption(HomeSidePanelPreferenceKeys.HIDE_WECHAT_TITLE, false)
 
     var selectedWeatherCity: WeatherCity
         get() = decode(HomeSidePanelPreferenceKeys.WEATHER_CITY) ?: DEFAULT_WEATHER_CITY
