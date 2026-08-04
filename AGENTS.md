@@ -70,6 +70,36 @@
 - Before reporting a Dex resolver change as complete, run the affected desktop tests plus the
   relevant Gradle tests, `./x build`, and `git diff --check`.
 
+### Desktop-safe Dex resolver rules
+
+- `resolveDex`, `resolveInlineDex`, and inline matcher blocks run in the same
+  `DexResolutionContext`. When a matcher needs information from an already-resolved delegate,
+  use its DexKit metadata (`delegate.data.name`, `.declaredClassName`, `.returnTypeName`,
+  `.paramTypeNames`, `.superClass`, `.interfaces`, etc.), not JVM reflection. In particular, do
+  not use another delegate's `.clazz`, `.method`, `.constructor`, `.field`, `asClass`, or
+  reflection-derived `Class`/type information to construct a later Dex query: desktop workers
+  cannot reliably load WeChat/Android classes.
+- Do not hide that reflection behind a `lazy` property or object initialization. A resolver-side
+  lazy such as `by lazy { target.method.declaringClass }` is still invalid for desktop testing;
+  derive the required descriptor from `target.data` while resolving instead. Reflection properties
+  remain valid after resolution for actual hook-time Android behavior; this rule applies only to
+  declaration and resolution paths.
+- Version, build-tag, and Google Play branches inside resolution must read
+  `DexResolutionContext.host`, rather than `HostInfo`, so `./x dex-test` uses metadata belonging
+  to the APK under test. Android resolution receives equivalent current-host metadata through the
+  same context.
+- A metadata migration must preserve the intended descriptor/matcher constraints. Do not loosen
+  strings, signatures, or structural predicates merely to make a desktop test pass; use stable
+  DexKit evidence as normal.
+- For an intentional supported-version absence, use `allowFailure = true` only as documented
+  below and record the placeholder explicitly with `expectedFailure = true` plus a version reason.
+  Do not convert exceptions or uncertain matches into placeholders just to obtain a green report.
+- Resolver source is part of the device cache key: even a mechanically equivalent rewrite from
+  reflection to `.data` changes the generated `methodHash` and invalidates that feature's old
+  cache. Expect one device re-resolution after such a change; never retain or hand-edit an old
+  hash to suppress it. Avoid unrelated formatting/refactors in resolver and inline matcher bodies
+  when a cache invalidation is not intended.
+
 ## Key Conventions
 
 - Package namespace: `dev.ujhhgtg.wekit`
