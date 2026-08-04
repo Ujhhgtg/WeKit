@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.tasks.testing.Test
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
@@ -322,7 +323,39 @@ dependencies {
 
     compileOnly(project(":libs:common:stubs"))
     testImplementation(libs.junit.jupiter)
+    testImplementation(project(":libs:common:stubs"))
+    testImplementation(libs.legacyxposed.api)
+    testImplementation(libs.libxposed.api)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+val dexTestWorkerProperties = listOf(
+    "wekit.dexTest.apk",
+    "wekit.dexTest.nativeLibrary",
+    "wekit.dexTest.report",
+    "wekit.dexTest.dexKitVersion",
+    "wekit.dexTest.dexKitRevision",
+    "wekit.dexTest.versionCode",
+    "wekit.dexTest.versionName",
+    "wekit.dexTest.buildTag",
+    "wekit.dexTest.isGooglePlay",
+)
+val dexTestWorker = providers.gradleProperty("dexTestWorker").map(String::toBoolean).orElse(false)
+
+tasks.withType<Test>().configureEach {
+    if (dexTestWorker.get()) {
+        filter {
+            includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexTestWorkerTest")
+        }
+        dexTestWorkerProperties.forEach { propertyName ->
+            systemProperty(propertyName, providers.gradleProperty(propertyName).orNull.orEmpty())
+        }
+        outputs.upToDateWhen { false }
+    } else {
+        filter {
+            excludeTestsMatching("dev.ujhhgtg.wekit.dextest.DexTestWorkerTest")
+        }
+    }
 }
 
 // markwon conflict
