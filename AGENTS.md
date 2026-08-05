@@ -9,6 +9,9 @@
 # (./x is alias to `cargo xtask` which orchestrates the build process)
 ```
 
+- **When working in a Git worktree, initialize submodules before starting any work:**
+  `git submodule update --init --recursive`. Worktrees do not automatically populate submodule
+  contents, and builds will fail when `libs/common/bsh` and `libs/common/reflekt` are empty.
 - JDK 21
 - **Gradle does NOT build the Rust native lib.** `./gradlew assemble*` only packages whatever
   prebuilt `libwekit_native.so` already sits in `app/src/main/jniLibs/<abi>/`. Compiling
