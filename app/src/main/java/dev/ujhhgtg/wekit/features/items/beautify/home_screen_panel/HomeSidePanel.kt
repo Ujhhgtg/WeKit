@@ -15,13 +15,16 @@ import android.view.ViewTreeObserver
 import android.view.Window
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.ComposeView
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isNotEmpty
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.CustomViewPager
@@ -110,7 +113,7 @@ object HomeSidePanel : SwitchFeature() {
             result = true
         }
         LauncherUI::class.hookAfterOnCreate {
-            ensureLauncherEdgeToEdge(thisObject as Activity)
+            ensureLauncherEdgeToEdge(thisObject as Activity, "LauncherUI.onCreate")
         }
         LauncherUI::class.reflekt().firstMethod {
             name = "moveTaskToBack"
@@ -128,6 +131,7 @@ object HomeSidePanel : SwitchFeature() {
             parameters()
         }.hookAfter {
             val activity = thisObject as Activity
+            logLauncherWindowState(activity.window, "LauncherUI.onResume")
             sessions.values.mapNotNull { it.get() }.firstOrNull { it.ownsActivity(activity) }
                 ?.onLauncherResumed()
         }
@@ -168,7 +172,7 @@ object HomeSidePanel : SwitchFeature() {
                     type = "com.tencent.mm.ui.MMFragmentActivity"
                 }
                 .get()!! as Activity
-            ensureLauncherEdgeToEdge(activity)
+            ensureLauncherEdgeToEdge(activity, "MainTabUI.doOnCreate")
             val viewPager = thisObject!!.reflekt()
                 .firstField {
                     name = "mViewPager"
@@ -209,11 +213,11 @@ object HomeSidePanel : SwitchFeature() {
         }
     }
 
-    private fun ensureLauncherEdgeToEdge(activity: Activity) {
+    private fun ensureLauncherEdgeToEdge(activity: Activity, reason: String) {
         val window = activity.window
         val decor = window.decorView
         if (decor.isAttachedToWindow) {
-            applyLauncherEdgeToEdge(window)
+            applyLauncherEdgeToEdge(window, reason)
             return
         }
         if (pendingEdgeToEdgeAttachListeners[decor] != null) return
@@ -222,7 +226,7 @@ object HomeSidePanel : SwitchFeature() {
                 pendingEdgeToEdgeAttachListeners.remove(view)
                 view.removeOnAttachStateChangeListener(this)
                 view.post {
-                    applyLauncherEdgeToEdge(activity.window)
+                    applyLauncherEdgeToEdge(activity.window, "$reason/decorAttached")
                 }
             }
 
@@ -238,10 +242,36 @@ object HomeSidePanel : SwitchFeature() {
         decor.removeOnAttachStateChangeListener(listener)
     }
 
-    private fun applyLauncherEdgeToEdge(window: Window) {
+    private fun applyLauncherEdgeToEdge(window: Window, reason: String) {
+        val before = window.decorView.systemUiVisibility
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = AndroidColor.TRANSPARENT
         window.decorView.requestApplyInsets()
+        logLauncherWindowState(window, reason, before)
+    }
+
+    private fun logLauncherWindowState(
+        window: Window,
+        reason: String,
+        beforeSystemUiVisibility: Int? = null,
+    ) {
+        val decor = window.decorView
+        val insets = ViewCompat.getRootWindowInsets(decor)
+        val navigationBottom = insets
+            ?.getInsets(WindowInsetsCompat.Type.navigationBars())
+            ?.bottom
+            ?: 0
+        val tappableBottom = insets
+            ?.getInsets(WindowInsetsCompat.Type.tappableElement())
+            ?.bottom
+            ?: 0
+        WeLogger.d(
+            TAG,
+            "window[$reason] sysUi=" +
+                (beforeSystemUiVisibility?.let { "0x${it.toString(16)} -> " } ?: "") +
+                "0x${decor.systemUiVisibility.toString(16)} navigation=$navigationBottom " +
+                "tappable=$tappableBottom attached=${decor.isAttachedToWindow}"
+        )
     }
 
     private data class PendingHostCancel(
@@ -311,6 +341,7 @@ object HomeSidePanel : SwitchFeature() {
             updateDrawerWidth()
             resolveExternalChrome()
             syncToolbarProfileBindings()
+            syncNativeContentBottomInset()
             applyActionBarProgress(renderedProgress)
             true
         }
@@ -332,6 +363,9 @@ object HomeSidePanel : SwitchFeature() {
         private var suppressCloseUntilNextFrame = false
         private var selectedTabIndex = HOME_TAB_INDEX
         private var chattingVisible = false
+        private var cachedNativeBottomTabView: View? = null
+        private var nativeBottomTabMissingLogged = false
+        private var lastNativeContentInsetLogState: String? = null
         private val toolbarProfileBindings = linkedMapOf<RelativeLayout, ToolbarProfileBinding>()
         private val homeToolbarHosts = linkedSetOf<RelativeLayout>()
         private val chattingToolbarHosts = linkedSetOf<RelativeLayout>()
@@ -413,19 +447,99 @@ object HomeSidePanel : SwitchFeature() {
             parent.viewTreeObserver.addOnPreDrawListener(preDrawListener)
             installTabsAdapterHooks()
             parent.post {
-                refreshNativeBottomTabInsetsAfterReparent()
                 updateDrawerWidth()
                 applyProgress(0f)
             }
         }
 
-        private fun refreshNativeBottomTabInsetsAfterReparent() {
-            val bottomBar = parent.findViewWhich {
-                it.javaClass.name == LAUNCHER_BOTTOM_TAB_VIEW_CLASS
-            } ?: return
-            if (bottomBar.visibility != View.VISIBLE) return
-            if (bottomBar.findViewWhich { it is ComposeView } != null) return
-            ensureLauncherEdgeToEdge(activity)
+        private fun syncNativeContentBottomInset() {
+            val bottomBar = cachedNativeBottomTabView
+                ?.takeIf { it.isAttachedToWindow }
+                ?: contentWrapper.findViewWhich {
+                    it.javaClass.name == LAUNCHER_BOTTOM_TAB_VIEW_CLASS
+                }?.also { cachedNativeBottomTabView = it }
+            if (bottomBar == null) {
+                if (!nativeBottomTabMissingLogged) {
+                    WeLogger.w(TAG, "native bottom tab not found; launcher content inset pending")
+                    nativeBottomTabMissingLogged = true
+                }
+                return
+            }
+            nativeBottomTabMissingLogged = false
+
+            val replacementOwnsInsets =
+                bottomBar.visibility != View.VISIBLE || bottomBar.findViewWhich { it is ComposeView } != null
+            val insets = ViewCompat.getRootWindowInsets(contentWrapper)
+            val navigationBottom = insets
+                ?.getInsets(WindowInsetsCompat.Type.navigationBars())
+                ?.bottom
+                ?: 0
+            val tappableBottom = insets
+                ?.getInsets(WindowInsetsCompat.Type.tappableElement())
+                ?.bottom
+                ?: 0
+            val ancestorBottomInset = contentBottomGapToDecor()
+            val nativeBottomInset = bottomBar.paddingBottom +
+                ((bottomBar as ViewGroup).directLinearLayout()?.paddingBottom ?: 0)
+            val alreadyAvoidedBottom = ancestorBottomInset + nativeBottomInset
+            val targetBottom = if (chattingVisible || replacementOwnsInsets) {
+                0
+            } else {
+                (navigationBottom - alreadyAvoidedBottom).coerceAtLeast(0)
+            }
+
+            if (contentWrapper.paddingBottom != targetBottom) {
+                contentWrapper.setPadding(
+                    contentWrapper.paddingLeft,
+                    contentWrapper.paddingTop,
+                    contentWrapper.paddingRight,
+                    targetBottom,
+                )
+            }
+            val logState = "$targetBottom/$navigationBottom/$tappableBottom/$ancestorBottomInset/" +
+                "$nativeBottomInset/$chattingVisible/$replacementOwnsInsets/${bottomBar.visibility}"
+            if (lastNativeContentInsetLogState != logState) {
+                WeLogger.d(
+                    TAG,
+                    "native content inset target=$targetBottom " +
+                        "(navigation=$navigationBottom tappable=$tappableBottom " +
+                        "ancestor=$ancestorBottomInset native=$nativeBottomInset " +
+                        "chatting=$chattingVisible replacement=$replacementOwnsInsets " +
+                        "wrapper=${contentWrapper.height}/${contentWrapper.paddingBottom} " +
+                        "bottomBar=${bottomBar.height}/${bottomBar.top}/${bottomBar.bottom}/" +
+                        "${bottomBar.paddingBottom}/${bottomBar.visibility} sysUi=0x" +
+                        activity.window.decorView.systemUiVisibility.toString(16) + ")"
+                )
+                lastNativeContentInsetLogState = logState
+            }
+        }
+
+        /**
+         * contentWrapper 自己的 padding 不改变它的边界，因此这里得到的是微信祖先布局已经
+         * 留出的底部空间。使用布局坐标而不是屏幕坐标，避免侧栏动画的 scale/translation
+         * 被误算成系统栏补偿。
+         */
+        private fun contentBottomGapToDecor(): Int {
+            var bottom = contentWrapper.bottom
+            var ancestor = contentWrapper.parent as View
+            while (ancestor !== decorRoot) {
+                bottom += ancestor.top
+                ancestor = ancestor.parent as View
+            }
+            return (decorRoot.height - bottom).coerceAtLeast(0)
+        }
+
+        /**
+         * 8.0.65-8.0.69 把导航栏高度加在 LauncherUIBottomTabView 的直接 LinearLayout
+         * 子项上；8.0.74+ 的新 Edge2EdgeHelper 则可能直接加在底栏本身。两者都要计入
+         * 已有补偿，wrapper 只补剩余差值。
+         */
+        private fun ViewGroup.directLinearLayout(): LinearLayout? {
+            for (index in 0 until childCount) {
+                val child = getChildAt(index)
+                if (child is LinearLayout) return child
+            }
+            return null
         }
 
         fun detach() {
@@ -442,6 +556,15 @@ object HomeSidePanel : SwitchFeature() {
             clearToolbarProfileBindings()
             restoreActionBarTransform()
             restoreFabHostToOriginalParent()
+            contentWrapper.setPadding(
+                contentWrapper.paddingLeft,
+                contentWrapper.paddingTop,
+                contentWrapper.paddingRight,
+                0,
+            )
+            cachedNativeBottomTabView = null
+            nativeBottomTabMissingLogged = false
+            lastNativeContentInsetLogState = null
             restoreContent()
             panelView.disposeComposition()
             decorRoot.removeView(overlayRoot)
@@ -480,7 +603,7 @@ object HomeSidePanel : SwitchFeature() {
                 if (tabsAdapter !== thisObject) return@hookAfterDirectly
                 val position = args[0] as Int
                 if (position == HOME_TAB_INDEX) {
-                    ensureLauncherEdgeToEdge(activity)
+                    ensureLauncherEdgeToEdge(activity, "MainTabUI.onPageSelected")
                 }
             }
             tabsAdapterHookHandles += reflectedTabsAdapter.firstMethod {
