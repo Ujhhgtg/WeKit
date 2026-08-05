@@ -12,6 +12,9 @@
 - **When working in a Git worktree, initialize submodules before starting any work:**
   `git submodule update --init --recursive`. Worktrees do not automatically populate submodule
   contents, and builds will fail when `libs/common/bsh` and `libs/common/reflekt` are empty.
+- **When working in a Git worktree, work directly on `dev` unless the user explicitly requests
+  another branch or isolated history.** This is because commits made on a detached worktree are not automatically
+  transferred by Codex's “local checkout” action and can appear to be lost.
 - JDK 21
 - **Gradle does NOT build the Rust native lib.** `./gradlew assemble*` only packages whatever
   prebuilt `libwekit_native.so` already sits in `app/src/main/jniLibs/<abi>/`. Compiling
