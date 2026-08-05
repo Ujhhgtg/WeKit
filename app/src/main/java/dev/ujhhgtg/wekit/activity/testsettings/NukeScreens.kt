@@ -586,7 +586,7 @@ private fun nukeFeatureCategoryGroups(entries: List<NukeRootEntry>): List<List<N
         listOf("朋友圈", "系统与隐私", "音视频通话", "通知"),
         listOf("界面美化", "公众号", "小程序", "视频号"),
         listOf("个人资料", "调试"),
-        listOf("脚本 (JS)", "脚本 (Java)"),
+        listOf("脚本 (Java)"),
         listOf("娱乐", "批量操作"),
         listOf("首页右上角菜单", "联系人详情页面"),
         listOf("模块设置及调试"),

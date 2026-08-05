@@ -156,14 +156,6 @@
 * [上传透明头像](features/profile/upload-transparent-avatars.md)
 * [移除个性签名限制](features/profile/remove-signature-limits.md)
 
-## 脚本引擎
-
-* [脚本引擎](features/scripting_js/js-scripting-hook.md)
-* [脚本引擎 API 参考](features/scripting_js/js-api-reference.md)
-* [触发器: 收到消息](features/scripting_js/on-message.md)
-* [触发器: 发起请求](features/scripting_js/on-request.md)
-* [触发器: 收到响应](features/scripting_js/on-response.md)
-
 ## 调试
 
 * [崩溃拦截](features/debug/crash-interceptor.md)

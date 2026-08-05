@@ -1,5 +1,5 @@
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.gradle.api.tasks.testing.Test
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
@@ -291,8 +291,6 @@ dependencies {
     implementation(libs.okhttp3.okhttp)
     implementation(libs.jsoup)
 
-    implementation(libs.rhino)
-
     implementation(libs.fastjson2)
 
     compileOnly(libs.lombok)
@@ -322,6 +320,7 @@ dependencies {
     implementation(libs.osmdroid.android)
 
     compileOnly(project(":libs:common:stubs"))
+
     testImplementation(libs.junit.jupiter)
     testImplementation(project(":libs:common:stubs"))
     testImplementation(libs.legacyxposed.api)
