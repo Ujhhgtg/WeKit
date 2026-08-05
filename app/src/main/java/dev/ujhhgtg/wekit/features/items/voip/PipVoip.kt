@@ -24,6 +24,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
@@ -38,6 +39,7 @@ import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
 import java.nio.ByteBuffer
 import java.util.WeakHashMap
+import org.luckypray.dexkit.DexKitBridge
 
 /**
  * 用系统画中画代替微信通话最小化时的悬浮窗。
@@ -262,7 +264,11 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
 
         override fun toggleMic() {
-            methodMultiTalkMic.method.invoke(viewModel, true)
+            if (methodMultiTalkMic.isPlaceholder) {
+                toggleLegacyMultiTalkMic(viewModel)
+            } else {
+                methodMultiTalkMic.method.invoke(viewModel, true)
+            }
         }
 
         override fun toggleVideo() {
@@ -277,6 +283,23 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
         private val viewModel: Any
             get() = fieldMultiTalkViewModel.field.get(activity)!!
+    }
+
+    /** 8.0.65 将多人通话麦克风逻辑内联到 ControlPanelLogic。 */
+    private fun toggleLegacyMultiTalkMic(viewModel: Any) {
+        val state = fieldMultiTalkMicState.field.get(viewModel)
+        val micEnabled = methodObservableValue.method.invoke(state) as Boolean
+
+        state.reflekt().firstMethod {
+            name = "setValue"
+            parameterCount = 1
+        }.invoke(!micEnabled)
+
+        val manager = methodGetMultiTalkManager.method.invoke(null)
+        methodMultiTalkManagerMute.method.invoke(manager, micEnabled)
+
+        val engine = methodGetMultiTalkEngine.method.invoke(null)
+        methodMultiTalkEngineMic.method.invoke(engine, !micEnabled)
     }
 
     /**
@@ -633,7 +656,6 @@ object PipVoip : SwitchFeature(), IResolveDex {
             usingEqStrings(
                 "MicroMsg.MT.MultiTalkUIViewModel",
                 "onCameraClick, cur state: ",
-                "onMicClick, cur state: ",
             )
         }
     }
@@ -664,6 +686,20 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
+    private val classMutableObservableState by dexClass {
+        searchPackages("androidx.lifecycle")
+        matcher {
+            superClass = classObservableState.data.name
+            methods {
+                add {
+                    name = "setValue"
+                    paramTypes("java.lang.Object")
+                    returnType = "void"
+                }
+            }
+        }
+    }
+
     private val methodMultiTalkMinimize by dexMethod {
         matcher {
             declaredClass(MultiTalkMainUI::class.java)
@@ -682,14 +718,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodMultiTalkMic by dexMethod {
-        matcher {
-            declaredClass(classMultiTalkViewModel.data.name)
-            paramTypes("boolean")
-            returnType = "void"
-            usingEqStrings("onMicClick, cur state: ")
-        }
-    }
+    private val methodMultiTalkMic by dexMethod()
 
     private val methodMultiTalkCamera by dexMethod {
         matcher {
@@ -697,12 +726,62 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
+    private val classMultiTalkManager by dexClass {
+        matcher {
+            usingEqStrings("MicroMsg.MT.MultiTalkManager", "hy: set mute record: %b")
+        }
+    }
+
+    private val methodMultiTalkManagerMute by dexMethod {
+        matcher {
+            declaredClass(classMultiTalkManager.data.name)
+            paramTypes("boolean")
+            returnType = "void"
+            usingEqStrings("MicroMsg.Multitalk.ILinkService", "hy: set mute record: %b")
+        }
+    }
+
+    private val methodGetMultiTalkManager by dexMethod {
+        matcher {
+            modifiers(Modifier.PUBLIC or Modifier.STATIC)
+            paramCount = 0
+            returnType(classMultiTalkManager.data.name)
+        }
+    }
+
+    private val classMultiTalkEngine by dexClass {
+        matcher {
+            usingEqStrings("MicroMsg.MT.MultiTalkEngine", "setEngineMicOn, %s")
+        }
+    }
+
+    private val methodMultiTalkEngineMic by dexMethod {
+        matcher {
+            declaredClass(classMultiTalkEngine.data.name)
+            paramTypes("boolean")
+            returnType = "void"
+            usingEqStrings("MicroMsg.MT.MultiTalkEngine", "setEngineMicOn, %s")
+        }
+    }
+
+    private val methodGetMultiTalkEngine by dexMethod {
+        matcher {
+            modifiers(Modifier.PUBLIC or Modifier.STATIC)
+            paramCount = 0
+            returnType(classMultiTalkEngine.data.name)
+        }
+    }
+
     private val fieldMultiTalkMicState by dexField {
         matcher {
             declaredClass(classMultiTalkViewModel.data.name)
-            type(classObservableState.data.name)
+            type(classMutableObservableState.data.name)
             addReadMethod {
-                usingEqStrings("MicroMsg.MT.MultiTalkUIViewModel", "onMicClick, cur state: ")
+                usingEqStrings("onMicClick, cur state: ")
+            }
+            addReadMethod {
+                declaredClass(MultiTalkMainUI::class.java)
+                usingEqStrings("mMultiTalkGroupMemberList", "usrName")
             }
         }
     }
@@ -722,6 +801,34 @@ object PipVoip : SwitchFeature(), IResolveDex {
             declaredClass(classObservableState.data.name)
             paramCount = 0
             returnType(Any::class.java)
+        }
+    }
+
+    override fun resolveDex(dexKit: DexKitBridge) {
+        val directMicMethods = dexKit.findMethod {
+            matcher {
+                declaredClass(classMultiTalkViewModel.data.name)
+                paramTypes("boolean")
+                returnType = "void"
+                usingEqStrings("onMicClick, cur state: ")
+            }
+        }
+
+        when (directMicMethods.size) {
+            1 -> methodMultiTalkMic.setDescriptor(directMicMethods.single())
+            0 -> {
+                check(DexResolutionContext.host.versionName == "8.0.65") {
+                    "direct MultiTalk mic method is missing on ${DexResolutionContext.host.versionName}"
+                }
+                methodMultiTalkMic.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "WeChat 8.0.65 inlines MultiTalk mic handling into ControlPanelLogic",
+                )
+            }
+
+            else -> error(
+                "multiple direct MultiTalk mic methods found: ${directMicMethods.joinToString { it.descriptor }}"
+            )
         }
     }
 
