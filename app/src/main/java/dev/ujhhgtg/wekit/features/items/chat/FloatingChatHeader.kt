@@ -86,6 +86,9 @@ object FloatingChatHeader : ClickableFeature() {
     /** 标题栏容器, 微信把 ViewStub(bkr) inflate 成这个 androidx 控件。 */
     private const val ACTION_BAR_CONTAINER_CLASS = "androidx.appcompat.widget.ActionBarContainer"
 
+    /** 独立聊天 Activity 的公共基类; 这类页面使用窗口级标题栏。 */
+    private const val CHATTING_UI_ACTIVITY_CLASS = "com.tencent.mm.ui.chatting.ChattingUI"
+
     /** 消息列表所在的内容区宿主, 标题区挂件之外的直接子 View 才需要做成悬浮卡。 */
     private const val CHATTING_SCROLL_LAYOUT_CLASS = "com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout"
 
@@ -354,13 +357,16 @@ object FloatingChatHeader : ClickableFeature() {
             headerViews[layout] = it
             return it
         }
-        // 通知半屏路径: ChattingUI.supportNavigationSwipeBack() 返回 false,
-        // ChattingUIFragment 不会 inflate 布局内的 bkr ViewStub, 标题栏是窗口级 ActionBarContainer。
-        if (layout.isHalfScreenStyle()) {
+        // 独立 ChattingUI 路径中 ChattingUIFragment(true) 的 isCurrentActivity=true,
+        // 所以布局内的 bkr ViewStub 不会 inflate; 无论是通知半屏还是全屏
+        // ChattingMainUI, 标题栏都来自窗口级 ActionBarContainer。LauncherUI 中的
+        // 聊天 Fragment 仍走上面的布局内标题栏, 避免误选主窗口标题栏。
+        if (layout.isInStandaloneChattingUi()) {
             layout.rootView?.allViews?.firstOrNull {
                 it.javaClass.name == ACTION_BAR_CONTAINER_CLASS
             }?.let {
                 headerViews[layout] = it
+                windowBarHeaders[layout] = true
                 return it
             }
         }
@@ -379,14 +385,11 @@ object FloatingChatHeader : ClickableFeature() {
         if (reparentBlocked[layout] != null) return
         val parent = header.parent as? ViewGroup ?: return
         if (parent !== layout) {
-            // 半屏路径的窗口级 ActionBarContainer 不能重挂 (AppCompat 的 ActionBarOverlayLayout
+            // 窗口级 ActionBarContainer 不能重挂 (AppCompat 的 ActionBarOverlayLayout
             // 会继续用它的 LayoutParams, 重挂会类型崩溃), 改为原位 overlay 悬浮。
             // overlay 悬浮依赖沉浸模式提供的状态栏偏移; 未开沉浸时只做卡片样式, 不改变层级。
-            if (layout.isHalfScreenStyle() && ImmersiveChatUi.statusBarOffset(layout) > 0) {
+            if (windowBarHeaders[layout] == true && ImmersiveChatUi.statusBarOffset(layout) > 0) {
                 headerTopOffsets[layout] = layout.top + layout.paddingTop
-                if (windowBarHeaders.put(layout, true) == null) {
-                    WeLogger.d(TAG, "floating half-screen window action bar in place")
-                }
                 ensureWindowBarOverlay(header)
             }
             return
@@ -412,7 +415,10 @@ object FloatingChatHeader : ClickableFeature() {
                         .invoke(parent, true)
                     true
                 }.getOrDefault(false)
-                if (applied) windowBarOverlays[header] = true
+                if (applied) {
+                    windowBarOverlays[header] = true
+                    WeLogger.d(TAG, "floating standalone chatting window action bar in place")
+                }
                 break
             }
             parent = parent.parent
@@ -1278,13 +1284,10 @@ object FloatingChatHeader : ClickableFeature() {
         return null
     }
 
-    /** 通知半屏路径: ChattingUI 带有 NotificationHalfScreenChattingUIC 时关闭 swipe-back,
-     * 布局内自定义标题栏不会 inflate, 必须走窗口级 ActionBarContainer。 */
-    private fun View.isHalfScreenStyle(): Boolean {
+    /** 独立 ChattingUI 的 Fragment 不使用布局内标题栏, 必须走窗口级 ActionBarContainer。 */
+    private fun View.isInStandaloneChattingUi(): Boolean {
         val activity = context.activityOrNull() ?: return false
-        return runCatching {
-            activity.javaClass.getMethod("supportNavigationSwipeBack").invoke(activity) as? Boolean
-        }.getOrNull() == false
+        return CHATTING_UI_ACTIVITY_CLASS.toClass().isInstance(activity)
     }
 
     private tailrec fun Context.activityOrNull(): Activity? = when (this) {
