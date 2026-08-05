@@ -7,7 +7,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
-import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.GARBAGE_CHATROOM_REGEX
+import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.LEGIT_CHATROOM_REGEX
 import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.isFakeGroup
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -22,22 +22,15 @@ import kotlin.concurrent.thread
 @Feature(
     name = "删除假群组",
     categories = ["娱乐"],
-    description = "彻底清除假群组 (仅清除本地数据库，不影响原群)。识别两类假群：" +
-        "①「分裂群组」产生的 xxx@@chatroom；" +
-        "②wxid 形如 <数字><乱码汉字>@chatroom 的垃圾群。"
+    description = "彻底清除假群组 (仅清除本地数据库，不影响原群)。" +
+        "任何包含 @chatroom、但不符合 <纯数字>@chatroom 格式的 wxid 都会被识别为假群。"
 )
 object DeleteFakeGroups : ClickableFeature() {
 
     private const val TAG = "DeleteFakeGroups"
 
-    /**
-     * Matches the "garbage-Chinese" fake-group pattern: a numeric prefix followed by one or
-     * more non-ASCII characters (typically CJK) before the standard `@chatroom` suffix.
-     *
-     * Examples that match:  `12345678你@chatroom`, `12345678人@chatroom`
-     * Examples that don't:  `12345678@chatroom` (legit), `12345678@@chatroom` (handled separately)
-     */
-    private val GARBAGE_CHATROOM_REGEX = Regex("""^\d+[^\x00-\x7F]+@chatroom$""")
+    /** Matches a legitimate chatroom wxid composed only of digits and the standard suffix. */
+    private val LEGIT_CHATROOM_REGEX = Regex("""^\d+@chatroom$""")
 
     override fun onClick(context: ComponentActivity) {
         val fakeGroups = getFakeGroups()
@@ -110,9 +103,8 @@ object DeleteFakeGroups : ClickableFeature() {
     /**
      * Hard-delete all DB rows belonging to [fakeGroupId].
      *
-     * Handled formats:
-     *   - `xxx@@chatroom`           — split-group fake (double-@ fingerprint)
-     *   - `<digits><CJK>@chatroom`  — garbage-Chinese fake (numeric prefix + non-ASCII junk)
+     * A group is considered fake when its wxid contains `@chatroom` but does not fully match
+     * `<digits>@chatroom`.
      *
      * Tables touched:
      *   rcontact        — contact/group identity row
@@ -166,14 +158,8 @@ object DeleteFakeGroups : ClickableFeature() {
     }
 
     /**
-     * Returns all fake groups currently in rcontact. Two kinds are detected:
-     *
-     * 1. **Split-group** (`xxx@@chatroom`) — double-@ fingerprint left by [SplitGroupChats].
-     * 2. **Garbage-Chinese** (`<digits><CJK>@chatroom`) — wxid with a numeric prefix followed by
-     *    meaningless non-ASCII characters before the standard `@chatroom` suffix.
-     *
-     * SQLite's `LIKE` cannot match Unicode ranges, so we fetch all `%@chatroom` candidates and
-     * then apply [isFakeGroup] in Kotlin to discriminate.
+     * Returns all fake groups currently in rcontact. The query prefilters wxids containing
+     * `@chatroom`, then [isFakeGroup] excludes legitimate `<digits>@chatroom` identifiers.
      */
     private fun getFakeGroups(): List<WeGroup> {
         return try {
@@ -182,7 +168,7 @@ object DeleteFakeGroups : ClickableFeature() {
                 SELECT r.username, r.nickname, r.pyInitial, r.quanPin, i.reserved2 AS avatarUrl
                 FROM rcontact r
                 LEFT JOIN img_flag i ON r.username = i.username
-                WHERE r.username LIKE '%@chatroom'
+                WHERE r.username LIKE '%@chatroom%'
                 """.trimIndent()
             )
             val result = mutableListOf<WeGroup>()
@@ -206,14 +192,9 @@ object DeleteFakeGroups : ClickableFeature() {
         }
     }
 
-    /**
-     * Returns true if this chatroom wxid is a fake group that can be safely deleted.
-     *
-     * - `endsWith("@@chatroom")` — split-group double-@ pattern
-     * - [GARBAGE_CHATROOM_REGEX] — numeric prefix + non-ASCII (CJK) junk before `@chatroom`
-     */
+    /** Returns true when the wxid contains `@chatroom` but is not a legitimate chatroom wxid. */
     private fun String.isFakeGroup(): Boolean =
-        endsWith("@@chatroom") || GARBAGE_CHATROOM_REGEX.matches(this)
+        contains("@chatroom") && !LEGIT_CHATROOM_REGEX.matches(this)
 
     override val noSwitchWidget = true
 }
