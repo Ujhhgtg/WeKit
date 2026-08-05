@@ -6,6 +6,12 @@ data class WeChatroomSyncState(
     val memberVersion: Int?,
 )
 
+sealed interface ChatroomSyncStateReadResult {
+    data object MissingRow : ChatroomSyncStateReadResult
+    data class Available(val state: WeChatroomSyncState) : ChatroomSyncStateReadResult
+    data object Unavailable : ChatroomSyncStateReadResult
+}
+
 fun normalizeChatroomMemberIds(memberList: String): Set<String> =
     memberList
         .split(";")

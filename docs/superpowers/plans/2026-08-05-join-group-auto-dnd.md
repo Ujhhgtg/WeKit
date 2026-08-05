@@ -87,8 +87,8 @@
 - Test: `app/src/test/...` only for any extracted pure normalization function that has no Android/WeChat coupling
 
 **Interfaces:**
-- Produces `WeChatroomSyncState(roomId: String, memberIds: Set<String>, memberVersion: Int?)` (use the repository’s established nullable/version type if source inspection proves a different type).
-- Produces `WeDatabaseApi.getChatroomSyncState(roomId: String): WeChatroomSyncState?`.
+- Produces `WeChatroomSyncState(roomId: String, memberIds: Set<String>, memberVersion: Int?)` and `ChatroomSyncStateReadResult` (`MissingRow`, `Available(state)`, `Unavailable`).
+- Produces `WeDatabaseApi.getChatroomSyncState(roomId: String): ChatroomSyncStateReadResult`.
 
 - [ ] **Step 1: Inspect existing SQL helper and model conventions.**
 
@@ -100,7 +100,7 @@
 
 - [ ] **Step 3: Add raw chatroom-state SQL.**
 
-  Query the `chatroom` row by `chatroomname`, selecting `memberlist` and the version column confirmed in Task 1. Return `null` for no row or unavailable database; preserve an empty member set when the row exists with an empty list.
+  Query the `chatroom` row by `chatroomname`, selecting `memberlist` and the version column confirmed in Task 1. Return `MissingRow` only when no row exists, `Unavailable` for database unavailability/query failures, and `Available(state)` for a row (including an empty member set).
 
 - [ ] **Step 4: Normalize member IDs deterministically.**
 

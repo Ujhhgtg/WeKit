@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.api.core.models.WeChatroomSyncState
 import dev.ujhhgtg.wekit.features.api.core.models.WeContact
@@ -535,22 +536,24 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         }
     }
 
-    fun getChatroomSyncState(roomId: String): WeChatroomSyncState? {
-        if (!isReady || roomId.isEmpty()) return null
+    fun getChatroomSyncState(roomId: String): ChatroomSyncStateReadResult {
+        if (!isReady || roomId.isEmpty()) return ChatroomSyncStateReadResult.Unavailable
 
         return try {
             db.rawQuery(SqlStatements.CHATROOM_SYNC_STATE, arrayOf(roomId)).use { cursor ->
-                if (!cursor.moveToFirst()) return null
+                if (!cursor.moveToFirst()) return ChatroomSyncStateReadResult.MissingRow
 
-                WeChatroomSyncState(
-                    roomId = roomId,
-                    memberIds = normalizeChatroomMemberIds(cursor.getString(0).orEmpty()),
-                    memberVersion = if (cursor.isNull(1)) null else cursor.getInt(1),
+                ChatroomSyncStateReadResult.Available(
+                    WeChatroomSyncState(
+                        roomId = roomId,
+                        memberIds = normalizeChatroomMemberIds(cursor.getString(0).orEmpty()),
+                        memberVersion = if (cursor.isNull(1)) null else cursor.getInt(1),
+                    ),
                 )
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "failed to get chatroom sync state; roomId=$roomId", e)
-            null
+            ChatroomSyncStateReadResult.Unavailable
         }
     }
 
