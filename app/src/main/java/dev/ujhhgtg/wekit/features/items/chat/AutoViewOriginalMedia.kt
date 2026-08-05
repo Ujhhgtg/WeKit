@@ -1,19 +1,40 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import android.view.View
 import android.widget.Button
+import android.widget.TextView
 import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import java.util.WeakHashMap
 import org.luckypray.dexkit.DexKitBridge
 
 @Feature(name = "自动查看原图", categories = ["聊天"], description = "在打开图片和视频时自动点击查看原图")
 object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
+    private const val MEDIA_DOWNLOAD_TEXT_CLASS =
+        "com.tencent.mm.plugin.media.view.download.MediaDownloadText"
+    private const val LAYERED_ORIGINAL_MEDIA_VERSION = "8.0.76"
+
     private val methodSetImageHdImgBtnVisibility by dexMethod()
     private val methodCheckNeedShowOriginVideoBtn by dexMethod()
+    private val classMediaGalleryVideoBottomBarLayer by dexClass()
+    private val methodUpdateMediaGalleryVideoOriginButton by dexMethod()
+    private val classMediaGalleryChatLiveBottomBarLayer by dexClass()
+    private val methodBindMediaGalleryChatLiveBottomBar by dexMethod()
+
+    private val lastLivePhotoBindings = WeakHashMap<Any, Any>()
+
+    private val originalMediaKeywords = listOf(
+        "查看原图", "Full Image", "View Full Image",
+        "查看原视频", "Original quality", "View Full Video",
+    )
 
     override fun resolveDex(dexKit: DexKitBridge) {
         val results = dexKit.findMethod {
@@ -37,6 +58,52 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 usingEqStrings("checkNeedShowOriginVideoBtn")
             }
         }
+
+        classMediaGalleryVideoBottomBarLayer.find(dexKit) {
+            matcher {
+                usingEqStrings("MediaGallery.VideoBottomBarLayer")
+            }
+        }
+
+        if (DexResolutionContext.host.versionName != LAYERED_ORIGINAL_MEDIA_VERSION) {
+            methodUpdateMediaGalleryVideoOriginButton.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "the layered original-video button is absent before WeChat 8.0.76",
+            )
+            classMediaGalleryChatLiveBottomBarLayer.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "the chat live-photo bottom bar is absent before WeChat 8.0.76",
+            )
+            methodBindMediaGalleryChatLiveBottomBar.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "the chat live-photo bottom bar is absent before WeChat 8.0.76",
+            )
+            return
+        }
+
+        methodUpdateMediaGalleryVideoOriginButton.find(dexKit) {
+            matcher {
+                declaredClass(classMediaGalleryVideoBottomBarLayer.data.name)
+                paramTypes("java.lang.String", "boolean")
+                returnType = "void"
+                usingEqStrings("getString(...)")
+            }
+        }
+
+        classMediaGalleryChatLiveBottomBarLayer.find(dexKit) {
+            matcher {
+                usingEqStrings("MediaGallery.ChatLiveBottomBarLayer")
+            }
+        }
+
+        methodBindMediaGalleryChatLiveBottomBar.find(dexKit) {
+            matcher {
+                declaredClass(classMediaGalleryChatLiveBottomBarLayer.data.name)
+                paramCount = 1
+                returnType = "void"
+                usingEqStrings("bindContext", "msgInfo")
+            }
+        }
     }
 
     override fun onEnable() {
@@ -47,27 +114,77 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             if (method.isPlaceholder) return@forEach
 
             method.hookAfter {
-                thisObject!!.reflekt().fields {
+                clickVisibleOriginalMediaButtons(thisObject!!)
+            }
+        }
+
+        if (!methodUpdateMediaGalleryVideoOriginButton.isPlaceholder) {
+            methodUpdateMediaGalleryVideoOriginButton.hookAfter {
+                if (args[1] as Boolean) return@hookAfter
+
+                val binding = thisObject!!.reflekt().firstField {
+                    type { !it.isPrimitive }
+                }.get()!!
+                val originalVideoButton = binding.reflekt().firstField {
                     type = Button::class
-                }.forEach {
-                    (it.get() as Button?)?.let { imgBtn ->
-                        if (imgBtn.isVisible) {
-                            val keywords = listOf(
-                                "查看原图", "Full Image",
-                                "查看原视频", "Original quality",
-                            )
-                            if (keywords.any { text ->
-                                    imgBtn.text.contains(
-                                        text,
-                                        ignoreCase = true
-                                    )
-                                }) {
-                                imgBtn.performClick()
-                            }
-                        }
+                }.get() as Button
+                clickOriginalMediaButton(originalVideoButton)
+            }
+        }
+
+        if (!methodBindMediaGalleryChatLiveBottomBar.isPlaceholder) {
+            methodBindMediaGalleryChatLiveBottomBar.hookAfter {
+                val layer = thisObject!!
+                val bindContext = args[0]!!
+                if (lastLivePhotoBindings[layer] === bindContext) return@hookAfter
+                lastLivePhotoBindings[layer] = bindContext
+
+                val binding = layer.reflekt().firstField {
+                    type { candidate ->
+                        candidate.reflekt().fields {
+                            type = MEDIA_DOWNLOAD_TEXT_CLASS
+                        }.isNotEmpty()
+                    }
+                }.get()!!
+                val originalImageControl = binding.reflekt().firstField {
+                    type = MEDIA_DOWNLOAD_TEXT_CLASS
+                }.get() as View
+
+                originalImageControl.post {
+                    if (lastLivePhotoBindings[layer] === bindContext &&
+                        originalImageControl.isShown &&
+                        originalImageControl.isEnabled &&
+                        originalImageControl.hasVisibleOriginalMediaLabel()
+                    ) {
+                        originalImageControl.performClick()
                     }
                 }
             }
         }
     }
+
+    private fun clickVisibleOriginalMediaButtons(owner: Any) {
+        owner.reflekt().fields {
+            type = Button::class
+        }.forEach {
+            clickOriginalMediaButton(it.get() as Button)
+        }
+    }
+
+    private fun clickOriginalMediaButton(button: Button) {
+        if (button.isVisible && button.text.isOriginalMediaLabel()) {
+            button.performClick()
+        }
+    }
+
+    private fun View.hasVisibleOriginalMediaLabel(): Boolean =
+        reflekt().fields {
+            type = TextView::class
+        }.any {
+            val textView = it.get() as TextView
+            textView.isVisible && textView.text.isOriginalMediaLabel()
+        }
+
+    private fun CharSequence.isOriginalMediaLabel(): Boolean =
+        originalMediaKeywords.any { contains(it, ignoreCase = true) }
 }
