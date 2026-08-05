@@ -34,6 +34,7 @@ internal data class HomeSidePanelUiState(
     val weatherSettings: WeatherSettingsUiState,
     val hitokoto: HitokotoUiState,
     val hitokotoSettings: HitokotoSettings,
+    val wallet: HomeSidePanelWalletUiState,
     val showToolbarProfile: Boolean,
     val hideWeChatTitle: Boolean,
 )
@@ -65,6 +66,11 @@ internal class HomeSidePanelState(
             weatherSettings = WeatherSettingsUiState(selectedCity = weather.selectedCity()),
             hitokoto = HitokotoUiState.Loading,
             hitokotoSettings = hitokoto.loadSettings(),
+            wallet = HomeSidePanelWalletUiState(
+                displayState = HomeSidePanelWalletDisplayState(
+                    defaultMaskEnabled = HomeSidePanelPreferences.hideWalletBalance,
+                ),
+            ),
             showToolbarProfile = HomeSidePanelPreferences.showToolbarProfile,
             hideWeChatTitle = HomeSidePanelPreferences.hideWeChatTitle,
         ),
@@ -96,6 +102,7 @@ internal class HomeSidePanelState(
     }
 
     fun onPanelOpened() {
+        resetWalletDisplay()
         scheduleIdentitySync(
             waitForChange = false,
             maxAttempts = PANEL_OPEN_STATUS_SYNC_ATTEMPTS,
@@ -206,6 +213,35 @@ internal class HomeSidePanelState(
         route = HomeSidePanelRoute.WEATHER_SETTINGS
     }
 
+    fun openWalletSettings() {
+        route = HomeSidePanelRoute.WALLET_SETTINGS
+    }
+
+    fun toggleWalletBalance() {
+        _uiState.update { state ->
+            state.copy(
+                wallet = state.wallet.copy(
+                    displayState = state.wallet.displayState.toggleFromCard(),
+                ),
+            )
+        }
+    }
+
+    fun setHideWalletBalance(hide: Boolean) {
+        HomeSidePanelPreferences.hideWalletBalance = hide
+        _uiState.update { state ->
+            state.copy(
+                wallet = state.wallet.copy(
+                    displayState = HomeSidePanelWalletDisplayState(hide),
+                ),
+            )
+        }
+    }
+
+    fun onPanelClosed() {
+        resetWalletDisplay()
+    }
+
     fun openHitokotoSettings() {
         route = HomeSidePanelRoute.HITOKOTO_SETTINGS
     }
@@ -282,7 +318,18 @@ internal class HomeSidePanelState(
     }
 
     fun close() {
+        resetWalletDisplay()
         scope.coroutineContext.cancel()
+    }
+
+    private fun resetWalletDisplay() {
+        _uiState.update { state ->
+            state.copy(
+                wallet = state.wallet.copy(
+                    displayState = state.wallet.displayState.reset(),
+                ),
+            )
+        }
     }
 
     private suspend fun loadCachedWeather() {
@@ -621,6 +668,7 @@ internal const val HOME_SIDE_PANEL_LOCATION_REQUEST_CODE = 0x574B
 internal enum class HomeSidePanelRoute {
     HOME,
     WEATHER_SETTINGS,
+    WALLET_SETTINGS,
     HITOKOTO_SETTINGS,
     PANEL_SETTINGS,
 }

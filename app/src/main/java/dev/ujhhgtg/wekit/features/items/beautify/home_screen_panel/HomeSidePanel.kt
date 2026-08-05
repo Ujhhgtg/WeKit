@@ -1051,8 +1051,10 @@ object HomeSidePanel : SwitchFeature() {
         private fun applyProgress(progress: Float) {
             val p = progress.coerceIn(0f, 1f)
             val becameVisible = !wasPanelVisible && p > CLOSED_EPSILON
+            val becameHidden = wasPanelVisible && p <= CLOSED_EPSILON
             renderedProgress = p
             if (becameVisible) panelState.onPanelOpened()
+            if (becameHidden) panelState.onPanelClosed()
             wasPanelVisible = p > CLOSED_EPSILON
             updateDrawerWidth()
             resolveExternalChrome()

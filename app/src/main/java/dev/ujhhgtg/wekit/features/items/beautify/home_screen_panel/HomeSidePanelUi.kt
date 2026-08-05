@@ -67,6 +67,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
@@ -183,6 +184,7 @@ internal fun HomeSidePanelContent(
         when (panelState.route) {
             HomeSidePanelRoute.HOME -> HomeSidePanelHome(state, panelState)
             HomeSidePanelRoute.WEATHER_SETTINGS -> HomeSidePanelWeatherSettings(state, panelState)
+            HomeSidePanelRoute.WALLET_SETTINGS -> HomeSidePanelWalletSettings(state.wallet, panelState)
             HomeSidePanelRoute.HITOKOTO_SETTINGS -> HomeSidePanelHitokotoSettings(state, panelState)
             HomeSidePanelRoute.PANEL_SETTINGS -> HomeSidePanelPanelSettings(state, panelState)
         }
@@ -205,6 +207,7 @@ private fun HomeSidePanelHome(
         HomeSidePanelProfileHeader(state.profile, panelState)
         HomeSidePanelDateTimeCard()
         HomeSidePanelWeatherCard(state.weather, panelState)
+        HomeSidePanelWalletCard(state.wallet, panelState)
         HomeSidePanelShortcutList(panelState)
         HomeSidePanelHitokotoCard(state.hitokoto, state.hitokotoSettings, panelState)
     }
@@ -518,6 +521,95 @@ private fun HomeSidePanelWeatherCard(
                             strokeWidth = 3.dp,
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun HomeSidePanelWalletCard(
+    wallet: HomeSidePanelWalletUiState,
+    panelState: HomeSidePanelState,
+) {
+    val shape = RoundedCornerShape(24.dp)
+    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .combinedClickable(
+                onClick = panelState::toggleWalletBalance,
+                onLongClick = panelState::openWalletSettings,
+            ),
+        shape = shape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    MaterialSymbols.Outlined.Wallet,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = contentColor,
+                )
+                Text(
+                    "钱包",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = contentColor,
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "当前余额",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = contentColor.copy(alpha = 0.7f),
+                )
+                Text(
+                    text = wallet.displayBalance,
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = if (wallet.displayState.isMasked) 4.sp else 0.sp,
+                    color = contentColor,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { panelState.runShortcut(HomeSidePanelShortcut.SCAN) },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
+                ) {
+                    Icon(
+                        MaterialSymbols.Outlined.Qr_code_scanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text("扫一扫", modifier = Modifier.padding(start = 7.dp), maxLines = 1)
+                }
+                Button(
+                    onClick = { panelState.runShortcut(HomeSidePanelShortcut.PAYMENTS) },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
+                ) {
+                    Icon(
+                        MaterialSymbols.Outlined.Wallet,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text("付款码", modifier = Modifier.padding(start = 7.dp), maxLines = 1)
                 }
             }
         }
@@ -956,6 +1048,42 @@ private fun HomeSidePanelToolbarStatusText(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
+}
+
+@Composable
+private fun HomeSidePanelWalletSettings(
+    wallet: HomeSidePanelWalletUiState,
+    panelState: HomeSidePanelState,
+) {
+    val hideBalance = wallet.displayState.defaultMaskEnabled
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom).asPaddingValues())
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SettingsHeader("钱包设置", panelState::closeCardSettings)
+        ListItem(
+            headlineContent = { Text("默认隐藏余额") },
+            supportingContent = { Text("打开侧栏时默认显示 ******") },
+            trailingContent = {
+                Switch(
+                    checked = hideBalance,
+                    onCheckedChange = panelState::setHideWalletBalance,
+                )
+            },
+            modifier = Modifier.clickable {
+                panelState.setHideWalletBalance(!hideBalance)
+            },
+        )
+        Text(
+            "启用后，点击钱包卡片可临时显示或隐藏余额；关闭侧栏后自动恢复隐藏。临时状态不会保存。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
 }
 
 @Composable
