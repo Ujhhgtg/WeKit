@@ -4,9 +4,9 @@
 
 **Goal:** Add a switchable feature that opens sticker messages in WeChat’s native image viewer, preferring WeChat’s decoded file, then a reusable GIF cache, then a PNG snapshot.
 
-**Architecture:** `WeMessageApi` owns the reusable EmojiInfo decrypt/WXGF-to-GIF/write pipeline. `ViewStickerAsImage` owns mandatory Dex resolution, synchronous click interception, path selection, Activity resolution, snapshot fallback, and viewer launch. A small Android-free logic file contains only deterministic MD5, scaling, retention, and consumption decisions covered by JVM tests.
+**Architecture:** `WeMessageApi` owns the reusable EmojiInfo decrypt/WXGF-to-GIF/write pipeline. `ViewStickerAsImage` owns mandatory Dex resolution, synchronous click interception, path selection, Activity resolution, snapshot fallback, and viewer launch. A small Android-free logic file contains deterministic MD5, scaling, and retention decisions used directly by the runtime implementation; no new JVM test is added for this host-integrated feature.
 
-**Tech Stack:** Kotlin, Android Views/graphics, Xposed hook utilities, DexKit DSL, `reflekt`, `java.nio.file`, JUnit Jupiter, xtask (`./x`).
+**Tech Stack:** Kotlin, Android Views/graphics, Xposed hook utilities, DexKit DSL, `reflekt`, `java.nio.file`, xtask (`./x`).
 
 ## Global Constraints
 
@@ -17,7 +17,7 @@
 - Never wrap the `hookBefore` body in `try/catch` or `runCatching`.
 - Runtime reflection over host objects must use `reflekt` unless invoking a specifically Dex-resolved `Method`.
 - Keep the click flow synchronous; consume the original click only after `startActivity()` returns without throwing.
-- JVM tests may cover only Android/WeChat-independent logic. Do not fake Views, Activities, DexKit, host classes, native conversion, or hooks.
+- Do not add JVM tests for this feature: its core behavior is host hook, Android UI, filesystem, native conversion, or runtime reflection. Do not add low-value identity-function tests merely to satisfy a workflow.
 - Build through `./x build`; direct Gradle assembly can package a stale Rust native library.
 - Do not modify `AntiStatusDeletion`, `WeTextStatusApi`, conversation-list files, or generated feature registries.
 - Produce one implementation commit: `feat: view sticker messages as images`.
@@ -27,7 +27,6 @@
 ## File Map
 
 - Create `app/src/main/java/dev/ujhhgtg/wekit/features/items/chat/ViewStickerAsImageLogic.kt` — pure MD5, size, retention, and click-consumption decisions.
-- Create `app/src/test/java/dev/ujhhgtg/wekit/features/items/chat/ViewStickerAsImageLogicTest.kt` — focused JUnit tests for the pure logic.
 - Modify `app/src/main/java/dev/ujhhgtg/wekit/features/api/core/WeMessageApi.kt:1919-1949` — reusable atomic sticker decoding API while preserving `saveStickerByMd5`.
 - Create `app/src/main/java/dev/ujhhgtg/wekit/features/items/chat/ViewStickerAsImage.kt` — feature, Dex resolvers, hook, native-path lookup, caches, snapshot, and viewer launch.
 
@@ -57,7 +56,6 @@ internal fun previewFilesToDelete(
     oldFilesToKeep: Int = 10,
 ): List<PreviewFileMetadata>
 
-internal fun shouldConsumeStickerClick(viewerLaunchAccepted: Boolean): Boolean
 ```
 
 ```kotlin
@@ -71,103 +69,18 @@ fun WeMessageApi.decodeStickerToFile(
 
 ---
 
-### Task 1: Add the Android-Free Sticker Decisions
+### Task 1: Add the Shared Sticker Decision Helpers
 
 **Files:**
 - Create: `app/src/main/java/dev/ujhhgtg/wekit/features/items/chat/ViewStickerAsImageLogic.kt`
-- Test: `app/src/test/java/dev/ujhhgtg/wekit/features/items/chat/ViewStickerAsImageLogicTest.kt`
 
 **Interfaces:**
 - Consumes: `XmlUtils.extractXmlAttr(String, String): String` and `XmlUtils.extractXmlTag(String, String): String`.
 - Produces: all pure interfaces listed in “Stable Interfaces”.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Implement the shared runtime helpers**
 
-Create `ViewStickerAsImageLogicTest.kt`:
-
-```kotlin
-package dev.ujhhgtg.wekit.features.items.chat
-
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Test
-
-class ViewStickerAsImageLogicTest {
-
-    @Test
-    fun imagePathWinsOverXmlMd5Values() {
-        assertEquals(
-            "from-image-path",
-            resolveStickerMd5(
-                imagePath = " from-image-path ",
-                messageXml = """<msg md5="from-attribute"><md5>from-tag</md5></msg>""",
-            ),
-        )
-    }
-
-    @Test
-    fun xmlAttributeThenTagProvideMd5Fallbacks() {
-        assertEquals(
-            "from-attribute",
-            resolveStickerMd5(
-                imagePath = " ",
-                messageXml = """<msg md5="from-attribute"><md5>from-tag</md5></msg>""",
-            ),
-        )
-        assertEquals(
-            "from-tag",
-            resolveStickerMd5(
-                imagePath = null,
-                messageXml = """<msg><md5><![CDATA[from-tag]]></md5></msg>""",
-            ),
-        )
-        assertNull(resolveStickerMd5(null, "<msg><md5> </md5></msg>"))
-    }
-
-    @Test
-    fun snapshotDimensionsAreValidatedAndCapped() {
-        assertEquals(StickerPixelSize(1024, 768), scaleStickerSnapshot(1024, 768))
-        assertEquals(StickerPixelSize(2048, 1024), scaleStickerSnapshot(4096, 2048))
-        assertEquals(StickerPixelSize(1024, 2048), scaleStickerSnapshot(2048, 4096))
-        assertEquals(StickerPixelSize(1, 2048), scaleStickerSnapshot(1, 4096))
-        assertNull(scaleStickerSnapshot(0, 100))
-        assertNull(scaleStickerSnapshot(100, -1))
-    }
-
-    @Test
-    fun cleanupKeepsTenNewestOldFilesBeforeWrite() {
-        val existing = (1L..12L).map { PreviewFileMetadata("file-$it", it) }
-
-        assertEquals(
-            listOf(PreviewFileMetadata("file-2", 2), PreviewFileMetadata("file-1", 1)),
-            previewFilesToDelete(existing),
-        )
-        assertTrue(previewFilesToDelete(existing.take(10)).isEmpty())
-    }
-
-    @Test
-    fun originalClickIsConsumedOnlyAfterLaunchAcceptance() {
-        assertTrue(shouldConsumeStickerClick(true))
-        assertFalse(shouldConsumeStickerClick(false))
-    }
-}
-```
-
-- [ ] **Step 2: Run the focused test and verify the red state**
-
-Run:
-
-```bash
-./gradlew :app:testStandardDebugUnitTest --tests 'dev.ujhhgtg.wekit.features.items.chat.ViewStickerAsImageLogicTest'
-```
-
-Expected: compilation fails because `StickerPixelSize`, `PreviewFileMetadata`, and the tested functions do not exist.
-
-- [ ] **Step 3: Implement the minimal pure logic**
-
-Create `ViewStickerAsImageLogic.kt`:
+Create `ViewStickerAsImageLogic.kt` with the exact pure helpers below. These are implementation extraction points used by the Android feature, not a reason to add a new test suite:
 
 ```kotlin
 package dev.ujhhgtg.wekit.features.items.chat
@@ -209,18 +122,15 @@ internal fun previewFilesToDelete(
     require(oldFilesToKeep >= 0)
     return existing.sortedByDescending { it.lastModifiedMillis }.drop(oldFilesToKeep)
 }
-
-internal fun shouldConsumeStickerClick(viewerLaunchAccepted: Boolean): Boolean =
-    viewerLaunchAccepted
 ```
 
-- [ ] **Step 4: Run the focused test and verify green**
+- [ ] **Step 2: Compile the helper boundary**
 
-Run the same focused test command. Expected: `BUILD SUCCESSFUL`; all five tests pass.
+```bash
+./gradlew :app:compileStandardDebugKotlin
+```
 
-- [ ] **Step 5: Review the boundary**
-
-Confirm `ViewStickerAsImageLogic.kt` imports no `android.*`, DexKit, hook, filesystem, reflection, or WeChat host type. Do not commit yet; this feature has one final commit boundary.
+Expected: `BUILD SUCCESSFUL`. Confirm the helper file imports no Android, DexKit, hook, filesystem, reflection, or WeChat host type. Do not add a test file for these straightforward helpers.
 
 ---
 
@@ -366,7 +276,7 @@ override fun resolveDex(dexKit: DexKitBridge) {
             paramTypes(
                 "android.view.View",
                 null,
-                methodEmojiClickHandler.data.paramTypeNames.single(),
+                null,
             )
             returnType = "void"
         }
@@ -382,19 +292,19 @@ Implement `resolveEmojiMethods` so each dependency uses the preceding `MethodDat
 
 ```kotlin
 private fun resolveEmojiMethods(dexKit: DexKitBridge) {
+    val resolveEmojiInfo = dexKit.findMethod {
+        matcher {
+            paramTypes(methodEmojiClickEntry.data.paramTypeNames[2])
+            returnType = "com.tencent.mm.storage.emotion.EmojiInfo"
+        }
+    }.single { !Modifier.isStatic(it.modifiers) }
+    methodResolveEmojiInfo.setDescriptor(resolveEmojiInfo)
+
     methodEmojiResolverGetter.find(dexKit) {
         searchPackages("com.tencent.mm.feature.emoji")
         matcher {
             paramCount = 0
             returnType = methodResolveEmojiInfo.data.declaredClassName
-        }
-    }
-
-    methodResolveEmojiInfo.find(dexKit) {
-        matcher {
-            paramTypes(methodEmojiClickHandler.data.paramTypeNames.single())
-            returnType = "com.tencent.mm.storage.emotion.EmojiInfo"
-            usingEqStrings("MicroMsg.EmojiClickListener", "exit in teen mode")
         }
     }
 
@@ -414,7 +324,7 @@ private fun resolveEmojiMethods(dexKit: DexKitBridge) {
 }
 ```
 
-Implement the dependency order exactly as follows: resolve the handler, entry, and `MsgInfo → EmojiInfo` method first; then resolve the zero-argument getter in `com.tencent.mm.feature.emoji` whose return type matches the resolver type through DexKit’s assignable return-type matcher; finally resolve `EmojiInfo → getDecryptPath()`.
+Resolve in this exact order: handler, entry, non-static `MsgInfo → EmojiInfo`, zero-argument getter returning that concrete resolver class, then `EmojiInfo → getDecryptPath()`. The 8.0.65 handler takes a tag wrapper, so the MsgInfo type always comes from `methodEmojiClickEntry.data.paramTypeNames[2]`, not the handler parameter. Filtering the two same-signature candidates by `!Modifier.isStatic(it.modifiers)` selects the resolver and excludes the static chatting-component wrapper using desktop-safe `MethodData` metadata.
 
 The runtime receiver contract is verified across all inspected hosts: `WeServiceApi.emojiFeatureService` obtains the service singleton through the existing static ServiceManager delegate, and the Emoji resolver getter is an **instance** method invoked on that singleton. Use the existing API rather than duplicating service-manager reflection:
 
@@ -425,7 +335,7 @@ val emojiInfo = methodResolveEmojiInfo.method
     .invoke(resolver, hostMessage)!!
 ```
 
-The getter is never invoked with a null receiver. The resolver’s concrete runtime object implements the getter’s declared return interface; do not require the obfuscated concrete resolver class in a matcher.
+The getter is never invoked with a null receiver. Its declared return type is the concrete resolver class found above, so the getter matcher uses `methodResolveEmojiInfo.data.declaredClassName`; runtime invocation still goes through the existing emoji feature service singleton.
 
 - [ ] **Step 4: Run the complete supported Dex matrix**
 
@@ -466,7 +376,7 @@ override fun onEnable() {
 
         val activity = resolveUsableActivity(clickedView) ?: return@hookBefore
         val path = resolveViewerPath(clickedView, hostMessage, messageInfo) ?: return@hookBefore
-        if (shouldConsumeStickerClick(startNativeImageViewer(activity, path))) {
+        if (startNativeImageViewer(activity, path)) {
             result = null
         }
     }
@@ -630,14 +540,13 @@ private fun createSnapshot(clickedView: View): Path? {
 
 Ensure `prunePreviewDirectory` calls `createDirectories()` before `Files.createTempFile`.
 
-- [ ] **Step 3: Re-run focused tests and compile**
+- [ ] **Step 3: Compile the completed snapshot path**
 
 ```bash
-./gradlew :app:testStandardDebugUnitTest --tests 'dev.ujhhgtg.wekit.features.items.chat.ViewStickerAsImageLogicTest'
 ./gradlew :app:compileStandardDebugKotlin
 ```
 
-Expected: both commands exit zero. Do not add Bitmap/View JVM tests.
+Expected: the command exits zero. Do not add Bitmap/View or helper identity tests.
 
 ---
 
@@ -653,13 +562,13 @@ Expected: both commands exit zero. Do not add Bitmap/View JVM tests.
 
 Use the Task 3 command with output directory `dex-test-results/view-sticker-as-image-final`. Expected: all five delegates succeed on all six APK variants, with no blocked/incomplete result.
 
-- [ ] **Step 2: Run the focused JVM tests**
+- [ ] **Step 2: Run the relevant existing test suite**
 
 ```bash
-./gradlew :app:testStandardDebugUnitTest --tests 'dev.ujhhgtg.wekit.features.items.chat.ViewStickerAsImageLogicTest'
+./gradlew :app:testStandardDebugUnitTest
 ```
 
-Expected: all tests pass.
+Expected: the existing standard debug JVM suite passes. This feature adds no new JVM test file.
 
 - [ ] **Step 3: Build through xtask**
 
@@ -689,8 +598,7 @@ On real WeChat, verify type-47 and Sogou stickers, native decoded path, first GI
 git add \
   app/src/main/java/dev/ujhhgtg/wekit/features/api/core/WeMessageApi.kt \
   app/src/main/java/dev/ujhhgtg/wekit/features/items/chat/ViewStickerAsImage.kt \
-  app/src/main/java/dev/ujhhgtg/wekit/features/items/chat/ViewStickerAsImageLogic.kt \
-  app/src/test/java/dev/ujhhgtg/wekit/features/items/chat/ViewStickerAsImageLogicTest.kt
+  app/src/main/java/dev/ujhhgtg/wekit/features/items/chat/ViewStickerAsImageLogic.kt
 git commit -m "feat: view sticker messages as images"
 ```
 

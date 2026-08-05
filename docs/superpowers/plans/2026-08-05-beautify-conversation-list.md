@@ -6,20 +6,20 @@
 
 **Architecture:** `WeConversationListViewApi` is the always-on shared binding boundary. It resolves both proven `BaseAdapter.getView(int, View, ViewGroup): View` targets, dispatches listeners, retains weak adapter/ListView references, refreshes through virtual `notifyDataSetChanged`, and owns the OR-merged divider state. `BeautifyConversationList` is a `ClickableFeature` consumer that owns preferences, pure visual policy, row restoration, unread access, avatar discovery, and Compose settings. `HideConversationListDividers` becomes a coordinator owner without its own Dex hooks.
 
-**Tech Stack:** Kotlin, Android Views/graphics, Jetpack Compose Material 3, DexKit DSL, `reflekt`, WePrefs/MMKV, JUnit Jupiter, xtask (`./x`).
+**Tech Stack:** Kotlin, Android Views/graphics, Jetpack Compose Material 3, DexKit DSL, `reflekt`, WePrefs/MMKV, xtask (`./x`).
 
 ## Global Constraints
 
 - Target only WeChat 8.0.65, 8.0.67, 8.0.69, 8.0.69 Google Play, 8.0.74, and 8.0.76.
 - Run only in the WeChat main process through existing `ApiFeature`/`ClickableFeature` defaults.
-- Legacy conversation adapter is expected only in 8.0.74/8.0.76; only that delegate may use `allowFailure` and must set an explicit versioned expected-failure placeholder through `DexResolutionContext.host`.
+- Legacy conversation adapter is absent only in 8.0.74/8.0.76; only that delegate may use `allowFailure` and must set an explicit versioned expected-failure placeholder through `DexResolutionContext.host`.
 - MVVM conversation adapter is mandatory on every supported host; it must not use `allowFailure`.
 - Resolver matcher dependencies must use Dex delegate `.data` metadata, never JVM reflection or host class loading during resolution.
 - Conversation hosts are `ListView + BaseAdapter`; do not add a RecyclerView branch.
 - `refresh()` calls the live adapter’s virtual `notifyDataSetChanged()` on the main thread and performs no data query or reconstruction.
 - Runtime host reflection must use `reflekt`; unread accessor failures log once per runtime model class and mean “read”.
 - Row styling must restore only module-owned values; do not alter event listeners, hierarchy, margins, LayoutParams, elevation, foreground, global `RoundAvatars`, or private `Themes` palette state.
-- JVM tests may cover only Android/WeChat-independent value objects and pure functions. Do not fake Views, adapters, DexKit, reflection, Activities, or Compose.
+- Do not add a new JVM test file for preset constants, boolean OR rules, candidate arithmetic, Android Views, adapters, DexKit, reflection, Activities, or Compose; these do not justify a test seam under AGENTS.md.
 - Build through `./x build`; do not use direct Gradle assembly as final build evidence.
 - Do not modify `AntiStatusDeletion` or `WeTextStatusApi`.
 - Produce one implementation commit: `feat: beautify conversation list`.
@@ -29,7 +29,6 @@
 ## File Map
 
 - Create `app/src/main/java/dev/ujhhgtg/wekit/features/items/beautify/ConversationListVisualPolicy.kt` — Android-free presets, palette, unread predicate, divider OR rule, avatar candidate scoring, and dp conversion.
-- Create `app/src/test/java/dev/ujhhgtg/wekit/features/items/beautify/ConversationListVisualPolicyTest.kt` — pure policy tests only.
 - Create `app/src/main/java/dev/ujhhgtg/wekit/features/api/ui/WeConversationListViewApi.kt` — dual adapter resolver, listener dispatch, weak refresh state, divider coordinator.
 - Modify `app/src/main/java/dev/ujhhgtg/wekit/features/items/beautify/HideConversationListDividers.kt` — remove its Dex hooks and delegate to API ownership.
 - Create `app/src/main/java/dev/ujhhgtg/wekit/features/items/beautify/BeautifyConversationList.kt` — feature lifecycle, preferences, row visuals, unread access, avatar outline, and Compose dialog.
@@ -92,108 +91,15 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
 ---
 
-### Task 1: Add and Test the Pure Conversation Visual Policy
+### Task 1: Add the Conversation Visual Policy
 
 **Files:**
 - Create: `app/src/main/java/dev/ujhhgtg/wekit/features/items/beautify/ConversationListVisualPolicy.kt`
-- Test: `app/src/test/java/dev/ujhhgtg/wekit/features/items/beautify/ConversationListVisualPolicyTest.kt`
 
 **Interfaces:**
-- Produces: all Android-free interfaces listed above.
+- Produces: the Android-free preset, palette, unread, divider, avatar-score, and dp-conversion interfaces listed above.
 
-- [ ] **Step 1: Write the failing tests**
-
-Create tests for all three presets, palette constants, unread/divider semantics, avatar candidate bounds/scoring, and truncating dp conversion:
-
-```kotlin
-package dev.ujhhgtg.wekit.features.items.beautify
-
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Test
-
-class ConversationListVisualPolicyTest {
-    @Test
-    fun presetsMatchTheSpecification() {
-        assertEquals(ConversationListPreset.COMFORT_CARD, ConversationListPreset.entries[0])
-        assertEquals(14, ConversationListPreset.COMFORT_CARD.rowRadiusDp)
-        assertEquals(10, ConversationListPreset.COMFORT_CARD.horizontalInsetDp)
-        assertEquals(4, ConversationListPreset.COMFORT_CARD.verticalInsetDp)
-        assertEquals(12, ConversationListPreset.COMFORT_CARD.avatarRadiusDp)
-        assertEquals(0xFFF7FAF9.toInt(), ConversationListPreset.COMFORT_CARD.lightBackgroundColor)
-        assertEquals(0xFF252827.toInt(), ConversationListPreset.COMFORT_CARD.darkBackgroundColor)
-
-        assertEquals(10, ConversationListPreset.COMPACT_ROUNDED.rowRadiusDp)
-        assertEquals(6, ConversationListPreset.COMPACT_ROUNDED.horizontalInsetDp)
-        assertEquals(2, ConversationListPreset.COMPACT_ROUNDED.verticalInsetDp)
-        assertEquals(10, ConversationListPreset.COMPACT_ROUNDED.avatarRadiusDp)
-        assertEquals(0xFFF9FBFA.toInt(), ConversationListPreset.COMPACT_ROUNDED.lightBackgroundColor)
-        assertEquals(0xFF272928.toInt(), ConversationListPreset.COMPACT_ROUNDED.darkBackgroundColor)
-
-        assertEquals(6, ConversationListPreset.MINIMAL_LIST.rowRadiusDp)
-        assertEquals(0, ConversationListPreset.MINIMAL_LIST.horizontalInsetDp)
-        assertEquals(0, ConversationListPreset.MINIMAL_LIST.verticalInsetDp)
-        assertEquals(8, ConversationListPreset.MINIMAL_LIST.avatarRadiusDp)
-        assertEquals(0xFFFCFCFC.toInt(), ConversationListPreset.MINIMAL_LIST.lightBackgroundColor)
-        assertEquals(0xFF232323.toInt(), ConversationListPreset.MINIMAL_LIST.darkBackgroundColor)
-    }
-
-    @Test
-    fun paletteUsesFixedLightAndDarkColors() {
-        assertEquals(
-            ConversationListPalette(0xFFF7FAF9.toInt(), 0x16161D1C, 0xFFEAF8F2.toInt(), 0x18006A62),
-            conversationListPalette(ConversationListPreset.COMFORT_CARD, false),
-        )
-        assertEquals(
-            ConversationListPalette(0xFF232323.toInt(), 0x22FFFFFF, 0xFF253E37.toInt(), 0x2AFFFFFF),
-            conversationListPalette(ConversationListPreset.MINIMAL_LIST, true),
-        )
-    }
-
-    @Test
-    fun unreadAndDividerRulesMatchTheOrSemantics() {
-        assertTrue(isUnreadConversation(1))
-        assertFalse(isUnreadConversation(0))
-        assertFalse(isUnreadConversation(-1))
-        assertFalse(shouldHideConversationDivider(false, false, true))
-        assertFalse(shouldHideConversationDivider(false, true, false))
-        assertTrue(shouldHideConversationDivider(true, false, false))
-        assertTrue(shouldHideConversationDivider(false, true, true))
-        assertTrue(shouldHideConversationDivider(true, true, false))
-    }
-
-    @Test
-    fun avatarScoringRejectsInvalidGeometryAndRanksCandidates() {
-        assertNull(avatarCandidateScore(AvatarCandidateMetrics(63, 63, 9), 1f))
-        assertNull(avatarCandidateScore(AvatarCandidateMetrics(31, 31, 8), 1f))
-        assertNull(avatarCandidateScore(AvatarCandidateMetrics(85, 85, 8), 1f))
-        assertNull(avatarCandidateScore(AvatarCandidateMetrics(84, 64, 8), 1f))
-        assertTrue(
-            avatarCandidateScore(AvatarCandidateMetrics(64, 64, 8), 1f)!! >
-                avatarCandidateScore(AvatarCandidateMetrics(64, 60, 8), 1f)!!,
-        )
-    }
-
-    @Test
-    fun dpConversionTruncates() {
-        assertEquals(15, dpToPx(10, 1.5f))
-        assertEquals(13, dpToPx(9, 1.5f))
-        assertEquals(0, dpToPx(0, 3f))
-    }
-}
-```
-
-- [ ] **Step 2: Run the focused test and verify the red state**
-
-```bash
-./gradlew :app:testStandardDebugUnitTest --tests 'dev.ujhhgtg.wekit.features.items.beautify.ConversationListVisualPolicyTest'
-```
-
-Expected: compilation fails because the policy source does not exist.
-
-- [ ] **Step 3: Implement the Android-free policy**
+- [ ] **Step 1: Implement the policy values and helpers**
 
 Create the enum with exact values:
 
@@ -212,11 +118,15 @@ internal enum class ConversationListPreset(
 }
 ```
 
-Implement the palette constants, `isUnreadConversation(count > 0)`, the explicit OR rule, and the Nuke-compatible avatar score: reject depth > 8, side bounds 32dp–84dp, max side zero, and shape deviation > 0.22; return area minus deviation. Keep the file free of Android, WeChat, DexKit, `reflekt`, and Compose imports.
+Implement the fixed palette constants, `isUnreadConversation(count > 0)`, the explicit divider OR rule, and the bounded avatar candidate score from the approved spec. Keep the file free of Android, WeChat, DexKit, `reflekt`, and Compose imports. Do not create an identity/helper-only test suite.
 
-- [ ] **Step 4: Run the focused test and verify green**
+- [ ] **Step 2: Compile the policy boundary**
 
-Run the same focused test command. Expected: `BUILD SUCCESSFUL` and all five tests pass.
+```bash
+./gradlew :app:compileStandardDebugKotlin
+```
+
+Expected: `BUILD SUCCESSFUL`.
 
 ---
 
@@ -632,15 +542,15 @@ Expected: `BUILD SUCCESSFUL`.
 ### Task 6: Run Final Verification and Create the Single Commit
 
 **Files:**
-- Verify all five source/test files in this plan.
+- Verify all four source files in this plan.
 
-- [ ] **Step 1: Run the focused pure-policy tests**
+- [ ] **Step 1: Run the relevant existing JVM suite**
 
 ```bash
-./gradlew :app:testStandardDebugUnitTest --tests 'dev.ujhhgtg.wekit.features.items.beautify.ConversationListVisualPolicyTest'
+./gradlew :app:testStandardDebugUnitTest
 ```
 
-Expected: all policy tests pass.
+Expected: the existing suite passes. This feature adds no new JVM test file.
 
 - [ ] **Step 2: Run the affected Dex matrix**
 
@@ -686,8 +596,7 @@ git add \
   app/src/main/java/dev/ujhhgtg/wekit/features/api/ui/WeConversationListViewApi.kt \
   app/src/main/java/dev/ujhhgtg/wekit/features/items/beautify/ConversationListVisualPolicy.kt \
   app/src/main/java/dev/ujhhgtg/wekit/features/items/beautify/BeautifyConversationList.kt \
-  app/src/main/java/dev/ujhhgtg/wekit/features/items/beautify/HideConversationListDividers.kt \
-  app/src/test/java/dev/ujhhgtg/wekit/features/items/beautify/ConversationListVisualPolicyTest.kt
+  app/src/main/java/dev/ujhhgtg/wekit/features/items/beautify/HideConversationListDividers.kt
 git commit -m "feat: beautify conversation list"
 ```
 

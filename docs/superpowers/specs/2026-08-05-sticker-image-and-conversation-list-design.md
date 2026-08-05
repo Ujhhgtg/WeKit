@@ -62,15 +62,15 @@ WeConversationListViewApi (legacy + MVVM getView)
 
 使用 `IResolveDex` 解析两个必需目标，两个 delegate 均不得使用 `allowFailure`：
 
-1. 贴纸处理方法：限定在 `com.tencent.mm.ui.chatting.viewitems`，参数数量为 1、返回 `void`，并同时包含 `MicroMsg.EmojiClickListener` 与 `exit in teen mode`。
-2. 点击入口：声明类取自前一 delegate 的 `data.declaredClassName`，参数固定为 `[android.view.View, 任意聊天上下文类型, 前一 delegate 的唯一参数类型]`，返回 `void`。后续 matcher 只能使用 `.data` 元数据，不能在 resolver 中加载宿主 `Class`/`Method`。
+1. 贴纸处理方法：限定在 `com.tencent.mm.ui.chatting.viewitems`，参数数量为 1、返回 `void`，并同时包含 `MicroMsg.EmojiClickListener` 与 `exit in teen mode`。8.0.65 的该参数是 View tag wrapper，其余已检查版本为 MsgInfo。
+2. 点击入口：声明类取自前一 delegate 的 `data.declaredClassName`，参数固定为 `[android.view.View, 任意聊天上下文类型, 任意第三参数]`，返回 `void`；实际 MsgInfo 类型从点击入口的 `data.paramTypeNames[2]` 取得。后续 matcher 只能使用 `.data` 元数据，不能在 resolver 中加载宿主 `Class`/`Method`。
 
 该结构在 8.0.65、8.0.67、8.0.69、8.0.74、8.0.76 的宿主源码中均为 `void entry(View, context, MsgInfo)` 调用单参数 handler；8.0.69 Google Play 由必需的 Dex 测试确认。运行时混淆类名和聊天上下文类型均不得写入 matcher。
 
 另外解析 `MsgInfo → EmojiInfo` 与 `EmojiInfo` 解密路径链：
 
 - Emoji resolver getter：`com.tencent.mm.feature.emoji` 中零参数方法，返回实际 resolver 类型。
-- `resolveEmojiInfo`：声明类为上述 resolver 类型，唯一参数取贴纸处理方法的消息类型，返回 `com.tencent.mm.storage.emotion.EmojiInfo`。
+- `resolveEmojiInfo`：唯一参数取点击入口第三参数的 MsgInfo 类型，返回 `com.tencent.mm.storage.emotion.EmojiInfo`；同签名的聊天组件 static wrapper 必须排除，选择非 static resolver 方法。
 - `getEmojiDecryptPath`：声明类为 `EmojiInfo`、零参数、返回 `String`，并同时使用 `MicroMsg.emoji.EmojiInfo`、`[cpan] get icon path failed. product id and md5 are null.`、`decrypt/`、`getDecryptPath decrypt %s` 作为稳定证据。
 
 这三个目标在支持矩阵中也必须成功解析，不用 `allowFailure`。它们对应 Nuke 的 `MsgInfo → EmojiInfo → getDecryptPath()` 路径，而不是从 `MessageInfo.imagePath` 猜测本地文件。
@@ -194,14 +194,11 @@ hideDivider =
 
 ## 测试与验收
 
-### 纯逻辑测试
+### 自动化测试边界
 
-只为抽离成无 Android/WeChat 依赖的 WeKit 值对象和纯函数增加 JVM 测试：
+本功能不新增 JVM 单元测试。贴纸功能的关键行为依赖 WeChat host、DexKit、Android View/Bitmap/Activity、原生 WXGF 转换、文件系统与 Hook 时序；`shouldConsumeStickerClick(x) = x` 一类恒等 helper 及其测试属于为满足流程而增加的低价值测试，禁止引入。可抽离的 md5、缩放与清理 helper 直接由实现使用，通过代码审查、现有测试套件、Dex 测试和真机验收验证。
 
-- `ViewStickerAsImage`：md5 字符串来源优先级、2048px 等比尺寸计算、快照文件排序/保留边界，以及“启动 helper 返回 true 才选择消费”的纯结果函数。
-- `BeautifyConversationList`：三套预设的完整数值、明暗颜色选择、`field_unReadCount` 已转换为整数后的正/零判定、分隔线 OR 合并规则、头像候选评分以及 inset/radius 的 dp→px 计算。
-
-不在 JVM 测试中构造 WeChat host 类、DexKit、Android View/Drawable、反射 accessor、Activity/Intent 或真实回收流程。实际 unread 字段访问、先恢复再应用的 View ownership、图片查看器和行回收只做真机验收；Dex matcher 只由 `./x dex-test` 验证。
+`BeautifyConversationList` 同样不为 Android View、反射 accessor 或回收流程增加 JVM 测试；如实现仅包含预设常量和简单布尔/数值转换，也不为这些机械逻辑新建测试文件。
 
 ### Dex 与构建验证
 
@@ -215,7 +212,7 @@ hideDivider =
 
 ```text
 相关 ./x dex-test
-相关 JVM focused tests
+现有相关 JVM tests
 ./x build
 git diff --check
 ```
@@ -226,7 +223,7 @@ git diff --check
 
 实现计划保持两个独立提交和验证边界：
 
-1. `ViewStickerAsImage`：`WeMessageApi` 解码/写入重构、feature、纯逻辑测试。
-2. `BeautifyConversationList`：`WeConversationListViewApi`、`HideConversationListDividers` 迁移、feature、纯逻辑测试。
+1. `ViewStickerAsImage`：`WeMessageApi` 解码/写入重构、feature。
+2. `BeautifyConversationList`：`WeConversationListViewApi`、`HideConversationListDividers` 迁移、feature。
 
 本设计文档单独提交，不能与实现文件混在同一 commit。随后两个实现提交的变更列表中不得出现 `AntiStatusDeletion` 或 `WeTextStatusApi`。
