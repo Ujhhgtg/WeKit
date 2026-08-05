@@ -93,6 +93,7 @@ private fun homeSidePanelShouldReparentExternalChrome(
 object HomeSidePanel : SwitchFeature() {
 
     private const val TAG = "HomeSidePanel"
+    private const val LAUNCHER_BOTTOM_TAB_VIEW_CLASS = "com.tencent.mm.ui.LauncherUIBottomTabView"
     private val sessions = WeakHashMap<WxViewPager, WeakReference<HomeSidePanelSession>>()
     private val pendingEdgeToEdgeAttachListeners =
         WeakHashMap<View, View.OnAttachStateChangeListener>()
@@ -239,13 +240,8 @@ object HomeSidePanel : SwitchFeature() {
 
     private fun applyLauncherEdgeToEdge(window: Window) {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val decor = window.decorView
-        // AndroidX does not add this legacy layout flag on API 30+, while WeChat's
-        // edge-to-edge helper does on every supported host version.
-        decor.systemUiVisibility =
-            decor.systemUiVisibility or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
         window.statusBarColor = AndroidColor.TRANSPARENT
-        decor.requestApplyInsets()
+        window.decorView.requestApplyInsets()
     }
 
     private data class PendingHostCancel(
@@ -417,9 +413,19 @@ object HomeSidePanel : SwitchFeature() {
             parent.viewTreeObserver.addOnPreDrawListener(preDrawListener)
             installTabsAdapterHooks()
             parent.post {
+                refreshNativeBottomTabInsetsAfterReparent()
                 updateDrawerWidth()
                 applyProgress(0f)
             }
+        }
+
+        private fun refreshNativeBottomTabInsetsAfterReparent() {
+            val bottomBar = parent.findViewWhich {
+                it.javaClass.name == LAUNCHER_BOTTOM_TAB_VIEW_CLASS
+            } ?: return
+            if (bottomBar.visibility != View.VISIBLE) return
+            if (bottomBar.findViewWhich { it is ComposeView } != null) return
+            ensureLauncherEdgeToEdge(activity)
         }
 
         fun detach() {
