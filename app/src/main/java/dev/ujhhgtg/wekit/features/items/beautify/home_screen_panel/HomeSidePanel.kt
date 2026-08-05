@@ -1001,13 +1001,14 @@ object HomeSidePanel : SwitchFeature() {
         }
 
         private fun syncToolbarProfileVisibility() {
-            val showProfile = selectedTabIndex == HOME_TAB_INDEX
+            val state = panelState.uiState.value
+            val showProfile = state.showToolbarProfile && selectedTabIndex == HOME_TAB_INDEX
             toolbarProfileBindings.values.forEach { binding ->
                 binding.composeView.visibility = if (showProfile) View.VISIBLE else View.GONE
             }
             syncNativeTitleVisibility(
                 bindings = toolbarProfileBindings.values,
-                hide = showProfile && panelState.uiState.value.hideWeChatTitle,
+                hide = showProfile && state.hideWeChatTitle,
             )
         }
 

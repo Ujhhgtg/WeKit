@@ -34,6 +34,7 @@ internal data class HomeSidePanelUiState(
     val weatherSettings: WeatherSettingsUiState,
     val hitokoto: HitokotoUiState,
     val hitokotoSettings: HitokotoSettings,
+    val showToolbarProfile: Boolean,
     val hideWeChatTitle: Boolean,
 )
 
@@ -64,6 +65,7 @@ internal class HomeSidePanelState(
             weatherSettings = WeatherSettingsUiState(selectedCity = weather.selectedCity()),
             hitokoto = HitokotoUiState.Loading,
             hitokotoSettings = hitokoto.loadSettings(),
+            showToolbarProfile = HomeSidePanelPreferences.showToolbarProfile,
             hideWeChatTitle = HomeSidePanelPreferences.hideWeChatTitle,
         ),
     )
@@ -224,6 +226,11 @@ internal class HomeSidePanelState(
 
     fun fetchAnotherHitokoto() {
         scope.launch { fetchHitokotoInternal() }
+    }
+
+    fun setShowToolbarProfile(show: Boolean) {
+        HomeSidePanelPreferences.showToolbarProfile = show
+        _uiState.update { it.copy(showToolbarProfile = show) }
     }
 
     fun setHideWeChatTitle(hide: Boolean) {

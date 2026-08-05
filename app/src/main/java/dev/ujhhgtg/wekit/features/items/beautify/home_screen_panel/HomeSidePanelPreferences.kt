@@ -13,6 +13,7 @@ internal object HomeSidePanelPreferenceKeys {
     const val WEATHER_LAST_ERROR = "home_side_panel_weather_last_error"
     const val HITOKOTO_SETTINGS = "home_side_panel_hitokoto_settings"
     const val HITOKOTO_LAST_SUCCESS = "home_side_panel_hitokoto_last_success"
+    const val SHOW_TOOLBAR_PROFILE = "home_side_panel_show_toolbar_profile"
     const val HIDE_WECHAT_TITLE = "home_side_panel_hide_wechat_title"
 }
 
@@ -20,6 +21,7 @@ internal object HomeSidePanelPreferences {
 
     private const val TAG = "HomeSidePanelPreferences"
 
+    var showToolbarProfile by prefOption(HomeSidePanelPreferenceKeys.SHOW_TOOLBAR_PROFILE, true)
     var hideWeChatTitle by prefOption(HomeSidePanelPreferenceKeys.HIDE_WECHAT_TITLE, false)
 
     var selectedWeatherCity: WeatherCity

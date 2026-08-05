@@ -972,14 +972,27 @@ private fun HomeSidePanelPanelSettings(
     ) {
         SettingsHeader("侧栏设置", panelState::closeCardSettings)
         ListItem(
+            headlineContent = { Text("在微信标题栏显示「我」组件") },
+            trailingContent = {
+                Switch(
+                    checked = state.showToolbarProfile,
+                    onCheckedChange = panelState::setShowToolbarProfile,
+                )
+            },
+            modifier = Modifier.clickable {
+                panelState.setShowToolbarProfile(!state.showToolbarProfile)
+            },
+        )
+        ListItem(
             headlineContent = { Text("隐藏微信标题栏微信字样") },
             trailingContent = {
                 Switch(
                     checked = state.hideWeChatTitle,
+                    enabled = state.showToolbarProfile,
                     onCheckedChange = panelState::setHideWeChatTitle,
                 )
             },
-            modifier = Modifier.clickable {
+            modifier = Modifier.clickable(enabled = state.showToolbarProfile) {
                 panelState.setHideWeChatTitle(!state.hideWeChatTitle)
             },
         )
