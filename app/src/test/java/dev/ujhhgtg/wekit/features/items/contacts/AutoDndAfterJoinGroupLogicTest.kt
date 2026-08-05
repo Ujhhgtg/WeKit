@@ -12,8 +12,8 @@ class AutoDndAfterJoinGroupLogicTest {
     private val selfWxId = "wxid_self"
 
     @Test
-    fun missingOldRowDoesNotMuteWhenNewStateContainsSelf() {
-        assertFalse(
+    fun mutesWhenMissingOldRowAndNewStateContainsSelf() {
+        assertTrue(
             shouldMuteJoinedGroup(
                 oldState = null,
                 newState = state(memberIds = setOf(selfWxId)),
@@ -67,10 +67,10 @@ class AutoDndAfterJoinGroupLogicTest {
     }
 
     @Test
-    fun initialSelfCreatedGroupDoesNotMuteBecauseDirectCreatePersistenceBypassesThisPredicate() {
-        assertFalse(
+    fun mutesWhenExistingEmptyMemberListChangesToSelfPresent() {
+        assertTrue(
             shouldMuteJoinedGroup(
-                oldState = null,
+                oldState = state(memberIds = emptySet()),
                 newState = state(memberIds = setOf(selfWxId)),
                 selfWxId = selfWxId,
             ),

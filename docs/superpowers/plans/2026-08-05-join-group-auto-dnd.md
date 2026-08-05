@@ -138,12 +138,13 @@
 - [ ] **Step 1: Write failing pure tests for accepted transitions.**
 
   Test these exact cases:
-  - no old row + new member set contains self -> `false` because restoration/first materialization is ambiguous;
+  - no old row + new complete member set contains self -> `true`; this is a first-time invitation/QR join;
+  - old empty member set + new complete member set contains self -> `true`;
   - old member set excludes self + new set contains self -> `true`;
   - old member set already contains self -> `false`;
   - another member is added but self remains present/absent -> `false`;
   - new state does not contain self -> `false`;
-  - the initial self-created/pulled-up operation bypasses this predicate because it uses the direct create-response persistence path;
+  - do not encode the initial self-created/pulled-up operation in this pure predicate: it bypasses the generic hook through direct create-response persistence;
   - a later self-created-group rejoin with the same persisted transition -> `true`;
   - unsupported room suffix -> `false` if suffix validation belongs in the pure predicate.
 
@@ -163,7 +164,7 @@
   ): Boolean
   ```
 
-  Require an existing, complete old row whose member set excludes self and a new member set containing self. Fail closed for a missing old row because restoration, replay, and first materialization are ambiguous. Keep ordinary existing-room updates from triggering unless they establish the exact self transition.
+  Treat a missing old row as self absent: when the new member set is complete and contains self, it is a first-time invitation/QR join. An existing empty old member set follows the same self-absent rule after a complete post-sync state. The initial self-created/pulled-up operation remains excluded because direct create-response persistence bypasses this predicate. Fail closed only when the new state is unavailable, empty, or does not contain self; keep ordinary existing-room updates from triggering unless they establish the exact self transition.
 
 - [ ] **Step 4: Implement deterministic deduplication key generation.**
 
@@ -214,7 +215,7 @@
 
 - [ ] **Step 4: Implement the after-hook transition.**
 
-  Retrieve and remove the matching old snapshot, read the post-sync state, use the Task 3 predicate, and return without action for missing state, empty/unconfirmed member data, missing old rows, existing self membership, or unsupported room IDs.
+  Retrieve and remove the matching old snapshot, read the post-sync state, use the Task 3 predicate, and return without action only for unavailable/empty post-sync state, missing self identity, existing self membership, or unsupported room IDs. Missing or empty old state must reach the predicate.
 
 - [ ] **Step 5: Implement one-shot asynchronous DND submission.**
 

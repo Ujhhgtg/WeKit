@@ -8,9 +8,8 @@ fun shouldMuteJoinedGroup(
     newState: WeChatroomSyncState,
     selfWxId: String,
 ): Boolean =
-    oldState != null &&
-        newState.roomId.isChatroomId() &&
-        selfWxId !in oldState.memberIds &&
+    newState.roomId.isChatroomId() &&
+        (oldState == null || selfWxId !in oldState.memberIds) &&
         selfWxId in newState.memberIds
 
 fun dedupKey(state: WeChatroomSyncState): String =

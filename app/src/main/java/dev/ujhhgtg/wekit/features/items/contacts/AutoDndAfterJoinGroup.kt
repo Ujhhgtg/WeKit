@@ -99,7 +99,7 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
                 if (param.throwable != null) return
 
                 val newState = WeDatabaseApi.getChatroomSyncState(snapshot.roomId)
-                if (snapshot.oldState?.memberIds.isNullOrEmpty() || newState == null || newState.memberIds.isEmpty()) {
+                if (newState == null || newState.memberIds.isEmpty()) {
                     WeLogger.d(TAG, "skip unavailable or incomplete sync state for ${snapshot.roomId}")
                     return
                 }
