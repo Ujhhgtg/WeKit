@@ -291,8 +291,6 @@ dependencies {
     implementation(libs.okhttp3.okhttp)
     implementation(libs.jsoup)
 
-    implementation(libs.fastjson2)
-
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
 

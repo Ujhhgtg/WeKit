@@ -5,7 +5,6 @@ compose-bom = "2026.06.01"
 dexkit = "2.2.0"
 appcompat = "1.7.1"
 composablehorizons-symbols = "2.2.1"
-fastjson2 = "2.0.63"
 junitJupiter = "6.1.2"
 lifecycle-runtime = "2.11.0"
 material = "1.14.0"
@@ -13,7 +12,7 @@ activity = "1.13.0"
 navigationevent = "1.1.2"
 kotlin = "2.4.10"
 androidx-core-ktx = "1.19.0"
-mmkv = "2.4.0"
+mmkv = "2.4.1"
 osmdroid = "6.1.20"
 profileinstaller = "1.4.1"
 serialization = "1.11.0"
@@ -39,7 +38,7 @@ mcp-server = "0.15.0"
 mcp-client = "0.15.0"
 jsoup = "1.23.1"
 room = "2.8.4"
-ktor = "3.5.1"
+ktor = "3.5.2"
 dexmaker = "2.28.6"
 dynamicanimation = "1.1.0"
 
@@ -78,7 +77,6 @@ androidx-browser = { module = "androidx.browser:browser", version.ref = "browser
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 composablehorizons-material-symbols-outlined = { module = "com.composables:icons-material-symbols-outlined-cmp", version.ref = "composablehorizons-symbols" }
 composablehorizons-material-symbols-filled = { module = "com.composables:icons-material-symbols-outlined-filled-cmp", version.ref = "composablehorizons-symbols" }
-fastjson2 = { module = "com.alibaba.fastjson2:fastjson2", version.ref = "fastjson2" }
 miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui-android", version.ref = "miuix" }
 miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.ref = "miuix" }
 miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuix" }

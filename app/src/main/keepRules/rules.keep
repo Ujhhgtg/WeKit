@@ -1,19 +1,8 @@
 # App
 -keepnames class * implements dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
--keep class com.alibaba.fastjson2.** { *; }
--keep class okhttp3.** { *; }
-
-# Monet overlay builder: ARSCLib + apksig + BouncyCastle
--keep class com.reandroid.** { *; }
--dontwarn com.reandroid.**
--keep class com.android.apksig.** { *; }
--dontwarn com.android.apksig.**
--keep class org.bouncycastle.** { *; }
--dontwarn org.bouncycastle.**
 
 # Attributes
 -keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault,LineNumberTable,SourceFile,*Annotation*
--keep class kotlin.Metadata { *; }
 
 # Natives
 -keepclasseswithmembernames class * {
@@ -39,6 +28,8 @@
 -keep class bsh.Node { *; }
 -keep class bsh.Modifiers { *; }
 -keep class bsh.snapshot.BshSnapshot { *; }
+
+# Serializables
 -keepclassmembers class * implements java.io.Serializable {
     static final long serialVersionUID;
     private static final java.io.ObjectStreamField[] serialPersistentFields;
