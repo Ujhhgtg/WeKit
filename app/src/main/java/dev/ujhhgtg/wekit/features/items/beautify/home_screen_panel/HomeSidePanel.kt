@@ -128,7 +128,7 @@ object HomeSidePanel : SwitchFeature() {
         }.hookAfter {
             val activity = thisObject as Activity
             sessions.values.mapNotNull { it.get() }.firstOrNull { it.ownsActivity(activity) }
-                ?.resumePendingLocationDetection()
+                ?.onLauncherResumed()
         }
         LauncherUI::class.reflekt().firstMethod {
             name = "onDestroy"
@@ -366,7 +366,7 @@ object HomeSidePanel : SwitchFeature() {
                 InjectedUiTheme {
                     LaunchedEffect(panelState) {
                         val messagesJob = launch(start = CoroutineStart.UNDISPATCHED) {
-                            panelState.weatherMessages.collect { message ->
+                            panelState.messages.collect { message ->
                                 showToast(activity, message)
                             }
                         }
@@ -489,9 +489,9 @@ object HomeSidePanel : SwitchFeature() {
 
         fun ownsActivity(candidate: Activity): Boolean = activity === candidate
 
-        fun resumePendingLocationDetection() {
+        fun onLauncherResumed() {
             panelState.resumePendingLocationDetection()
-            panelState.onPanelOpened()
+            panelState.onLauncherResumed()
         }
 
         fun open() {

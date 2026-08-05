@@ -146,9 +146,6 @@ internal fun weatherCardSnapshot(state: WeatherUiState): WeatherSnapshot? = when
     WeatherUiState.Loading -> null
 }
 
-internal fun hitokotoCardErrorMessage(state: HitokotoUiState): String? =
-    (state as? HitokotoUiState.Error)?.message
-
 internal fun homeSidePanelProfileDisplayName(profile: HomeSidePanelProfile): String =
     profile.nickname.ifBlank { "微信用户" }
 
@@ -272,7 +269,9 @@ private fun HomeSidePanelStatus(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(
+            if (status == HomeSidePanelStatusUiState.NoStatus) 5.dp else 3.dp,
+        ),
     ) {
         when (status) {
             HomeSidePanelStatusUiState.Loading -> CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
@@ -368,153 +367,158 @@ private fun HomeSidePanelWeatherCard(
                 .joinToString(" · ")
         } ?: "天气"
         Column {
-            Column(Modifier.padding(start = 18.dp, top = 17.dp, end = 18.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        MaterialSymbols.Outlined.Location_on,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = contentColor,
-                    )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 18.dp, top = 17.dp, end = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    MaterialSymbols.Outlined.Location_on,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = contentColor,
+                )
+                Text(
+                    location,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 5.dp),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                snapshot?.let {
                     Text(
-                        location,
+                        "更新于 ${formatWeatherPublishedAt(it.publishedAt)}",
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 5.dp),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = contentColor,
+                            .padding(start = 10.dp)
+                            .widthIn(max = 112.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = 0.65f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    snapshot?.let {
-                        Text(
-                            "更新于 ${formatWeatherPublishedAt(it.publishedAt)}",
+                }
+            }
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(110.dp)
+                            .padding(horizontal = 18.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (snapshot != null) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "${snapshot.temperature}°",
+                                        style = MaterialTheme.typography.displayLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = contentColor,
+                                        maxLines = 1,
+                                    )
+                                    Text(
+                                        "体感 ${snapshot.feelsLike}°",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = contentColor.copy(alpha = 0.72f),
+                                    )
+                                }
+                                Column(
+                                    modifier = Modifier.widthIn(min = 96.dp, max = 120.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Icon(
+                                        weatherIcon(snapshot.weatherCode),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(52.dp),
+                                        tint = contentColor,
+                                    )
+                                    Text(
+                                        weatherDescription(snapshot.weatherCode),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Medium,
+                                        color = contentColor,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        } else if (weather is WeatherUiState.Loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                color = contentColor,
+                                strokeWidth = 3.dp,
+                            )
+                        } else {
+                            Text(
+                                "暂无天气数据，点击卡片重试",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = contentColor,
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = contentColor.copy(alpha = 0.14f))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(68.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        HomeSidePanelWeatherMetric(
+                            icon = MaterialSymbols.Outlined.Device_thermostat,
+                            value = snapshot?.let { "${it.high}° / ${it.low}°" } ?: "-- / --",
+                            label = "最高 / 最低",
+                            modifier = Modifier.weight(1f),
+                        )
+                        VerticalDivider(
                             modifier = Modifier
-                                .padding(start = 10.dp)
-                                .widthIn(max = 112.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = contentColor.copy(alpha = 0.65f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                                .fillMaxHeight()
+                                .padding(vertical = 10.dp),
+                            color = contentColor.copy(alpha = 0.12f),
+                        )
+                        HomeSidePanelWeatherMetric(
+                            icon = MaterialSymbols.Outlined.Humidity_percentage,
+                            value = snapshot?.let { "${it.humidity}%" } ?: "--",
+                            label = "湿度",
+                            modifier = Modifier.weight(1f),
+                        )
+                        VerticalDivider(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(vertical = 10.dp),
+                            color = contentColor.copy(alpha = 0.12f),
+                        )
+                        HomeSidePanelWeatherMetric(
+                            icon = MaterialSymbols.Outlined.Air,
+                            value = snapshot?.let { "${it.windSpeed} km/h" } ?: "--",
+                            label = "风速",
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(110.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (snapshot != null) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "${snapshot.temperature}°",
-                                    style = MaterialTheme.typography.displayLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = contentColor,
-                                    maxLines = 1,
-                                )
-                                Text(
-                                    "体感 ${snapshot.feelsLike}°",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = contentColor.copy(alpha = 0.72f),
-                                )
-                            }
-                            Column(
-                                modifier = Modifier.widthIn(min = 96.dp, max = 120.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Icon(
-                                    weatherIcon(snapshot.weatherCode),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(52.dp),
-                                    tint = contentColor,
-                                )
-                                Text(
-                                    weatherDescription(snapshot.weatherCode),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Medium,
-                                    color = contentColor,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                        if (weather is WeatherUiState.Ready && weather.refreshing) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(28.dp),
-                                    color = contentColor,
-                                    strokeWidth = 3.dp,
-                                )
-                            }
-                        }
-                    } else if (weather is WeatherUiState.Loading) {
+                if (weather is WeatherUiState.Ready && weather.refreshing) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(28.dp),
                             color = contentColor,
                             strokeWidth = 3.dp,
                         )
-                    } else {
-                        Text(
-                            "暂无天气数据，点击卡片重试",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = contentColor,
-                        )
                     }
                 }
-            }
-            HorizontalDivider(color = contentColor.copy(alpha = 0.14f))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(68.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                HomeSidePanelWeatherMetric(
-                    icon = MaterialSymbols.Outlined.Device_thermostat,
-                    value = snapshot?.let { "${it.high}° / ${it.low}°" } ?: "-- / --",
-                    label = "最高 / 最低",
-                    modifier = Modifier.weight(1f),
-                )
-                VerticalDivider(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(vertical = 10.dp),
-                    color = contentColor.copy(alpha = 0.12f),
-                )
-                HomeSidePanelWeatherMetric(
-                    icon = MaterialSymbols.Outlined.Humidity_percentage,
-                    value = snapshot?.let { "${it.humidity}%" } ?: "--",
-                    label = "湿度",
-                    modifier = Modifier.weight(1f),
-                )
-                VerticalDivider(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(vertical = 10.dp),
-                    color = contentColor.copy(alpha = 0.12f),
-                )
-                HomeSidePanelWeatherMetric(
-                    icon = MaterialSymbols.Outlined.Air,
-                    value = snapshot?.let { "${it.windSpeed} km/h" } ?: "--",
-                    label = "风速",
-                    modifier = Modifier.weight(1f),
-                )
             }
         }
     }
@@ -649,32 +653,42 @@ private fun HomeSidePanelHitokotoCard(
                 Icon(MaterialSymbols.Outlined.Format_quote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Text("一言", modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
-            Text(
-                text = snapshot?.text ?: if (hitokoto is HitokotoUiState.Error) hitokoto.message else "一言加载中…",
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            if (snapshot != null) {
-                hitokotoCardErrorMessage(hitokoto)?.let { message ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(message, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                        IconButton(onClick = panelState::fetchAnotherHitokoto, modifier = Modifier.size(28.dp)) {
-                            Icon(MaterialSymbols.Outlined.Refresh, contentDescription = "重试一言", modifier = Modifier.size(18.dp))
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(
+                text = snapshot?.text ?: if (hitokoto is HitokotoUiState.Loading) "一言加载中…" else "点击卡片获取一言",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    if (snapshot != null && (settings.showSource || settings.showAuthor)) {
+                        homeSidePanelAttribution(
+                            author = snapshot.author?.takeIf { settings.showAuthor },
+                            source = snapshot.source?.takeIf { settings.showSource },
+                        )?.let { attribution ->
+                            Text(
+                                text = attribution,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.End,
+                            )
                         }
                     }
                 }
-            }
-            if (snapshot != null && (settings.showSource || settings.showAuthor)) {
-                homeSidePanelAttribution(
-                    author = snapshot.author?.takeIf { settings.showAuthor },
-                    source = snapshot.source?.takeIf { settings.showSource },
-                )?.let { attribution ->
-                    Text(
-                        text = attribution,
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.End,
-                    )
+                val refreshing = hitokoto is HitokotoUiState.Loading ||
+                    hitokoto is HitokotoUiState.Ready && hitokoto.refreshing
+                if (refreshing) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.82f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            strokeWidth = 3.dp,
+                        )
+                    }
                 }
             }
         }
@@ -875,7 +889,9 @@ private fun HomeSidePanelToolbarStatus(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(
+            if (status == HomeSidePanelStatusUiState.NoStatus) 3.dp else 2.dp,
+        ),
     ) {
         when (status) {
             HomeSidePanelStatusUiState.Loading -> {

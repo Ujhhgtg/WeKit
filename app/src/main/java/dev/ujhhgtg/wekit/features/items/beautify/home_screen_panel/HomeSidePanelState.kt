@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -49,7 +50,8 @@ internal class HomeSidePanelState(
     private val started = AtomicBoolean()
     private var pendingLocationPermission = false
     private var locationJob: Job? = null
-    private val _weatherMessages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    private var statusSyncJob: Job? = null
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     private val _uiState = MutableStateFlow(
         HomeSidePanelUiState(
             profile = HomeSidePanelProfile(
@@ -70,13 +72,14 @@ internal class HomeSidePanelState(
         private set
 
     val uiState: StateFlow<HomeSidePanelUiState> = _uiState.asStateFlow()
-    val weatherMessages: SharedFlow<String> = _weatherMessages.asSharedFlow()
+    val messages: SharedFlow<String> = _messages.asSharedFlow()
 
     fun startPreload() {
         if (!started.compareAndSet(false, true)) return
-        scope.launch {
-            loadIdentity()
-        }
+        scheduleIdentitySync(
+            waitForChange = false,
+            maxAttempts = INITIAL_STATUS_SYNC_ATTEMPTS,
+        )
         scope.launch {
             loadCachedHitokoto()
             fetchHitokotoInternal()
@@ -91,16 +94,25 @@ internal class HomeSidePanelState(
     }
 
     fun onPanelOpened() {
-        scope.launch { loadIdentity() }
+        scheduleIdentitySync(
+            waitForChange = false,
+            maxAttempts = PANEL_OPEN_STATUS_SYNC_ATTEMPTS,
+        )
     }
 
     fun refreshStatus() {
-        scope.launch {
-            val status = profile.refreshStatus()
-            _uiState.update { state ->
-                state.copy(profile = state.profile.copy(status = status))
-            }
-        }
+        scheduleStatusSync(
+            baseline = null,
+            waitForChange = false,
+            maxAttempts = MANUAL_STATUS_SYNC_ATTEMPTS,
+        )
+    }
+
+    fun onLauncherResumed() {
+        scheduleIdentitySync(
+            waitForChange = true,
+            maxAttempts = RESUME_STATUS_SYNC_ATTEMPTS,
+        )
     }
 
     fun refreshWeather() {
@@ -126,7 +138,7 @@ internal class HomeSidePanelState(
                     updateWeatherSettings(
                         actionInProgress = false,
                     )
-                    publishWeatherMessage(result.reason.message)
+                    publishMessage(result.reason.message)
                     HomeSidePanelPreferences.weatherProfileAccount = _uiState.value.profile.wxId
                 }
             }
@@ -184,7 +196,7 @@ internal class HomeSidePanelState(
             updateWeatherSettings(
                 actionInProgress = false,
             )
-            publishWeatherMessage(message)
+            publishMessage(message)
         }
     }
 
@@ -301,6 +313,78 @@ internal class HomeSidePanelState(
         _uiState.update { it.copy(profile = loadedProfile) }
     }
 
+    private fun scheduleStatusSync(
+        baseline: StatusFingerprint?,
+        waitForChange: Boolean,
+        maxAttempts: Int,
+    ) {
+        statusSyncJob?.cancel()
+        statusSyncJob = scope.launch {
+            synchronizeStatus(baseline, waitForChange, maxAttempts)
+        }
+    }
+
+    private fun scheduleIdentitySync(
+        waitForChange: Boolean,
+        maxAttempts: Int,
+    ) {
+        val baseline = statusFingerprint(_uiState.value.profile.status)
+        statusSyncJob?.cancel()
+        statusSyncJob = scope.launch {
+            loadIdentity()
+            val loadedStatus = _uiState.value.profile.status
+            if (statusSyncSatisfied(loadedStatus, baseline, waitForChange)) return@launch
+            synchronizeStatus(
+                baseline = baseline,
+                waitForChange = waitForChange,
+                maxAttempts = maxAttempts - 1,
+                delayFirst = true,
+            )
+        }
+    }
+
+    private suspend fun synchronizeStatus(
+        baseline: StatusFingerprint?,
+        waitForChange: Boolean,
+        maxAttempts: Int,
+        delayFirst: Boolean = false,
+    ) {
+        repeat(maxAttempts) { attempt ->
+            if (delayFirst || attempt > 0) delay(STATUS_SYNC_INTERVAL_MS)
+            val status = profile.refreshStatus()
+            _uiState.update { state ->
+                state.copy(profile = state.profile.copy(status = status))
+            }
+            if (statusSyncSatisfied(status, baseline, waitForChange)) return
+        }
+    }
+
+    private fun statusSyncSatisfied(
+        status: HomeSidePanelStatusUiState,
+        baseline: StatusFingerprint?,
+        waitForChange: Boolean,
+    ): Boolean = isSettledStatus(status) &&
+        (!waitForChange || statusFingerprint(status) != baseline)
+
+    private fun isSettledStatus(status: HomeSidePanelStatusUiState): Boolean = when (status) {
+        HomeSidePanelStatusUiState.Loading -> false
+        is HomeSidePanelStatusUiState.Ready -> status.status.description.isNotBlank()
+        HomeSidePanelStatusUiState.NoStatus,
+        is HomeSidePanelStatusUiState.Error -> true
+    }
+
+    private fun statusFingerprint(status: HomeSidePanelStatusUiState): StatusFingerprint = when (status) {
+        HomeSidePanelStatusUiState.Loading -> StatusFingerprint.Loading
+        HomeSidePanelStatusUiState.NoStatus -> StatusFingerprint.NoStatus
+        is HomeSidePanelStatusUiState.Error -> StatusFingerprint.Error
+        is HomeSidePanelStatusUiState.Ready -> StatusFingerprint.Ready(
+            statusId = status.status.statusId,
+            description = status.status.description,
+            iconId = status.status.iconId,
+            userText = status.status.userText,
+        )
+    }
+
     private suspend fun loadAccountId(): String = try {
         profile.loadAccountId()
     } catch (error: CancellationException) {
@@ -319,7 +403,7 @@ internal class HomeSidePanelState(
             }
 
             is WeatherCityMatchResult.Error -> {
-                publishWeatherMessage(result.reason.message)
+                publishMessage(result.reason.message)
             }
         }
         HomeSidePanelPreferences.weatherProfileAccount = accountId
@@ -340,6 +424,8 @@ internal class HomeSidePanelState(
             it.copy(
                 weather = when (current) {
                     is WeatherUiState.Ready -> current.copy(refreshing = true)
+                    is WeatherUiState.Error -> current.cached?.let { WeatherUiState.Ready(it, refreshing = true) }
+                        ?: WeatherUiState.Loading
                     else -> WeatherUiState.Loading
                 },
             )
@@ -357,7 +443,7 @@ internal class HomeSidePanelState(
                 ),
             )
         }
-        if (result is WeatherResult.Error) publishWeatherMessage(result.message)
+        if (result is WeatherResult.Error) publishMessage(result.message)
     }
 
     private suspend fun fetchHitokotoInternal() {
@@ -366,6 +452,8 @@ internal class HomeSidePanelState(
             it.copy(
                 hitokoto = when (current) {
                     is HitokotoUiState.Ready -> current.copy(refreshing = true)
+                    is HitokotoUiState.Error -> current.cached?.let { HitokotoUiState.Ready(it, refreshing = true) }
+                        ?: HitokotoUiState.Loading
                     else -> HitokotoUiState.Loading
                 },
             )
@@ -379,6 +467,7 @@ internal class HomeSidePanelState(
                 },
             )
         }
+        if (result is HitokotoResult.Error) publishMessage(result.message)
     }
 
     private suspend fun applyLocationResolution(resolution: LocationResolution) {
@@ -398,7 +487,7 @@ internal class HomeSidePanelState(
                 updateWeatherSettings(
                     actionInProgress = false,
                 )
-                publishWeatherMessage(message)
+                publishMessage(message)
             }
         }
     }
@@ -423,8 +512,8 @@ internal class HomeSidePanelState(
         }
     }
 
-    private fun publishWeatherMessage(message: String) {
-        _weatherMessages.tryEmit(message)
+    private fun publishMessage(message: String) {
+        _messages.tryEmit(message)
     }
 
     private fun openShortcut(shortcut: HomeSidePanelShortcut) {
@@ -452,15 +541,30 @@ internal class HomeSidePanelState(
     }
 
     private fun openStatusDestination() {
-        if (WeTextStatusApi.openCurrentStatusActions(activity, WeApi.selfWxId)) return
-        openStatusEditorActivity()
+        val baseline = statusFingerprint(_uiState.value.profile.status)
+        if (WeTextStatusApi.openCurrentStatusActions(activity, WeApi.selfWxId)) {
+            scheduleStatusSync(
+                baseline = baseline,
+                waitForChange = true,
+                maxAttempts = STATUS_ACTION_SYNC_ATTEMPTS,
+            )
+            return
+        }
+        if (openStatusEditorActivity()) {
+            scheduleStatusSync(
+                baseline = baseline,
+                waitForChange = true,
+                maxAttempts = STATUS_ACTION_SYNC_ATTEMPTS,
+            )
+        }
     }
 
-    private fun openStatusEditorActivity() {
+    private fun openStatusEditorActivity(): Boolean {
         val opened = STATUS_EDITOR_CLASSES.any { className ->
             startExplicit(className) { putExtra("KEY_IS_ENTER", true) }
         }
         if (!opened) showToast(activity, "无法打开状态编辑页")
+        return opened
     }
 
     private fun startExplicit(className: String, configure: Intent.() -> Unit = {}): Boolean {
@@ -483,6 +587,24 @@ internal class HomeSidePanelState(
             "com.tencent.mm.plugin.textstatus.ui.TextStatusDoWhatActivityV2",
             "com.tencent.mm.plugin.textstatus.ui.TextStatusDoWhatActivity",
         )
+        const val STATUS_SYNC_INTERVAL_MS = 350L
+        const val INITIAL_STATUS_SYNC_ATTEMPTS = 24
+        const val PANEL_OPEN_STATUS_SYNC_ATTEMPTS = 8
+        const val MANUAL_STATUS_SYNC_ATTEMPTS = 12
+        const val RESUME_STATUS_SYNC_ATTEMPTS = 8
+        const val STATUS_ACTION_SYNC_ATTEMPTS = 48
+    }
+
+    private sealed interface StatusFingerprint {
+        data object Loading : StatusFingerprint
+        data object NoStatus : StatusFingerprint
+        data object Error : StatusFingerprint
+        data class Ready(
+            val statusId: String,
+            val description: String,
+            val iconId: String,
+            val userText: String,
+        ) : StatusFingerprint
     }
 
 }
