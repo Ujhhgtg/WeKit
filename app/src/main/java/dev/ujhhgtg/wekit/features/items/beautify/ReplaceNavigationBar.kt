@@ -235,6 +235,17 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             hookAfter(priority = 100) {
                 remapProgrammaticTab.remove()
                 allowLogicalTabCount.remove()
+
+                val logicalIndex = args[0] as Int
+                val pagerIndex = visibleWechatIndices.indexOf(logicalIndex)
+                if (pagerIndex >= 0) {
+                    val viewPager = thisObject!!.reflekt()
+                        .firstField { name = "mViewPager" }
+                        .get()!! as WxViewPager
+                    if (viewPager.currentItem != pagerIndex) {
+                        viewPager.setCurrentItem(pagerIndex, false)
+                    }
+                }
             }
         }
 

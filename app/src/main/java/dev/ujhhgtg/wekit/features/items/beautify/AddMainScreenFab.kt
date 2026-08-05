@@ -290,12 +290,12 @@ object AddMainScreenFab : ClickableFeature() {
         expanded = false
     }
 
-    private fun startActivityByName(context: Context, className: String) {
-        val intent = Intent().apply {
-            setClassName(context.packageName, className)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    private fun startActivityByName(activity: Activity, className: String) {
+        val intent = Intent().setClassName(activity.packageName, className)
+        if (className == "com.tencent.mm.plugin.mall.ui.MallIndexUIv2") {
+            intent.putExtra("key_not_goto_launcher_ui_when_back", true)
         }
-        context.startActivity(intent)
+        activity.startActivity(intent)
     }
 
     override fun onEnable() {
