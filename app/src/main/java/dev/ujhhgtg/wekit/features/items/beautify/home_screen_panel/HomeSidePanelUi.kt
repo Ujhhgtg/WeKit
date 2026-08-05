@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
+import android.graphics.PorterDuff
+import android.widget.ImageView
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -48,6 +50,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +67,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -72,26 +77,41 @@ import com.composables.icons.materialsymbols.outlined.Bookmark
 import com.composables.icons.materialsymbols.outlined.Camera
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Close
-import com.composables.icons.materialsymbols.outlined.Cloudy
+import com.composables.icons.materialsymbols.outlined.Cloud
+import com.composables.icons.materialsymbols.outlined.Cloudy_snowing
+import com.composables.icons.materialsymbols.outlined.Cyclone
 import com.composables.icons.materialsymbols.outlined.Device_thermostat
 import com.composables.icons.materialsymbols.outlined.Extension
 import com.composables.icons.materialsymbols.outlined.Foggy
 import com.composables.icons.materialsymbols.outlined.Format_quote
+import com.composables.icons.materialsymbols.outlined.Grain
 import com.composables.icons.materialsymbols.outlined.Humidity_percentage
 import com.composables.icons.materialsymbols.outlined.Location_on
 import com.composables.icons.materialsymbols.outlined.Mark_chat_read
 import com.composables.icons.materialsymbols.outlined.Movie
 import com.composables.icons.materialsymbols.outlined.My_location
+import com.composables.icons.materialsymbols.outlined.Partly_cloudy_day
 import com.composables.icons.materialsymbols.outlined.Person_pin
 import com.composables.icons.materialsymbols.outlined.Qr_code_scanner
 import com.composables.icons.materialsymbols.outlined.Question_mark
 import com.composables.icons.materialsymbols.outlined.Rainy
 import com.composables.icons.materialsymbols.outlined.Refresh
+import com.composables.icons.materialsymbols.outlined.Rainy_heavy
+import com.composables.icons.materialsymbols.outlined.Rainy_light
+import com.composables.icons.materialsymbols.outlined.Rainy_snow
 import com.composables.icons.materialsymbols.outlined.Settings
+import com.composables.icons.materialsymbols.outlined.Snowing
+import com.composables.icons.materialsymbols.outlined.Snowing_heavy
+import com.composables.icons.materialsymbols.outlined.Storm
 import com.composables.icons.materialsymbols.outlined.Sunny
+import com.composables.icons.materialsymbols.outlined.Sunny_snowing
 import com.composables.icons.materialsymbols.outlined.Thunderstorm
+import com.composables.icons.materialsymbols.outlined.Tornado
 import com.composables.icons.materialsymbols.outlined.Wallet
+import com.composables.icons.materialsymbols.outlined.Weather_hail
 import com.composables.icons.materialsymbols.outlined.Weather_snowy
+import dev.ujhhgtg.wekit.features.api.core.TextStatus
+import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.LocalDateTime
@@ -252,7 +272,7 @@ private fun HomeSidePanelStatus(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         when (status) {
             HomeSidePanelStatusUiState.Loading -> CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
@@ -267,13 +287,9 @@ private fun HomeSidePanelStatus(
             }
 
             is HomeSidePanelStatusUiState.Ready -> {
-                val emojiUrl = status.status.emoji?.thumbUrl?.takeIf(String::isNotBlank)
-                    ?: status.status.emoji?.url?.takeIf(String::isNotBlank)
-                emojiUrl?.let { url ->
-                    AsyncImage(model = url, contentDescription = null, modifier = Modifier.size(18.dp))
-                }
+                HomeSidePanelTextStatusIcon(status.status, 22.dp)
                 Text(
-                    status.status.description.ifBlank { "在线" },
+                    status.status.description,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -673,22 +689,71 @@ private fun greetingForHour(hour: Int): String = when (hour) {
 
 private fun weatherIcon(code: String): ImageVector = when (weatherIconKind(code)) {
     WeatherIconKind.SUNNY -> MaterialSymbols.Outlined.Sunny
-    WeatherIconKind.CLOUDY -> MaterialSymbols.Outlined.Cloudy
+    WeatherIconKind.PARTLY_CLOUDY -> MaterialSymbols.Outlined.Partly_cloudy_day
+    WeatherIconKind.OVERCAST -> MaterialSymbols.Outlined.Cloud
+    WeatherIconKind.SHOWER -> MaterialSymbols.Outlined.Rainy
+    WeatherIconKind.THUNDERSTORM -> MaterialSymbols.Outlined.Thunderstorm
+    WeatherIconKind.HAIL -> MaterialSymbols.Outlined.Weather_hail
+    WeatherIconKind.SLEET -> MaterialSymbols.Outlined.Rainy_snow
+    WeatherIconKind.LIGHT_RAIN -> MaterialSymbols.Outlined.Rainy_light
     WeatherIconKind.RAIN -> MaterialSymbols.Outlined.Rainy
+    WeatherIconKind.HEAVY_RAIN -> MaterialSymbols.Outlined.Rainy_heavy
+    WeatherIconKind.RAINSTORM -> MaterialSymbols.Outlined.Storm
+    WeatherIconKind.SNOW_SHOWER -> MaterialSymbols.Outlined.Sunny_snowing
+    WeatherIconKind.LIGHT_SNOW -> MaterialSymbols.Outlined.Snowing
     WeatherIconKind.SNOW -> MaterialSymbols.Outlined.Weather_snowy
+    WeatherIconKind.HEAVY_SNOW -> MaterialSymbols.Outlined.Snowing_heavy
+    WeatherIconKind.BLIZZARD -> MaterialSymbols.Outlined.Cloudy_snowing
     WeatherIconKind.FOG -> MaterialSymbols.Outlined.Foggy
-    WeatherIconKind.THUNDER -> MaterialSymbols.Outlined.Thunderstorm
+    WeatherIconKind.FREEZING_RAIN -> MaterialSymbols.Outlined.Rainy_snow
+    WeatherIconKind.DUST_STORM -> MaterialSymbols.Outlined.Storm
+    WeatherIconKind.DUST -> MaterialSymbols.Outlined.Grain
+    WeatherIconKind.SAND -> MaterialSymbols.Outlined.Grain
+    WeatherIconKind.SQUALL -> MaterialSymbols.Outlined.Cyclone
+    WeatherIconKind.TORNADO -> MaterialSymbols.Outlined.Tornado
+    WeatherIconKind.HAZE -> MaterialSymbols.Outlined.Air
     WeatherIconKind.UNKNOWN -> MaterialSymbols.Outlined.Question_mark
 }
 
-private fun weatherDescription(code: String): String = when (weatherIconKind(code)) {
-    WeatherIconKind.SUNNY -> "晴"
-    WeatherIconKind.CLOUDY -> "多云"
-    WeatherIconKind.RAIN -> "雨"
-    WeatherIconKind.SNOW -> "雪"
-    WeatherIconKind.FOG -> "雾"
-    WeatherIconKind.THUNDER -> "雷雨"
-    WeatherIconKind.UNKNOWN -> "未知"
+private fun weatherDescription(code: String): String = when (code.toIntOrNull()) {
+    0 -> "晴"
+    1 -> "多云"
+    2 -> "阴"
+    3 -> "阵雨"
+    4 -> "雷阵雨"
+    5 -> "雷阵雨并伴有冰雹"
+    6 -> "雨夹雪"
+    7 -> "小雨"
+    8 -> "中雨"
+    9 -> "大雨"
+    10 -> "暴雨"
+    11 -> "大暴雨"
+    12 -> "特大暴雨"
+    13 -> "阵雪"
+    14 -> "小雪"
+    15 -> "中雪"
+    16 -> "大雪"
+    17 -> "暴雪"
+    18 -> "雾"
+    19 -> "冻雨"
+    20 -> "沙尘暴"
+    21 -> "小雨-中雨"
+    22 -> "中雨-大雨"
+    23 -> "大雨-暴雨"
+    24 -> "暴雨-大暴雨"
+    25 -> "大暴雨-特大暴雨"
+    26 -> "小雪-中雪"
+    27 -> "中雪-大雪"
+    28 -> "大雪-暴雪"
+    29 -> "浮尘"
+    30 -> "扬沙"
+    31 -> "强沙尘暴"
+    32 -> "飑"
+    33 -> "龙卷风"
+    34 -> "若高吹雪"
+    35 -> "轻雾"
+    53 -> "霾"
+    else -> "未知"
 }
 
 private fun formatWeatherPublishedAt(publishedAt: String): String = runCatching {
@@ -717,7 +782,7 @@ internal fun HomeSidePanelToolbarContent(
     Row(
         modifier = Modifier
             .fillMaxHeight()
-            .widthIn(max = 196.dp)
+            .widthIn(max = 280.dp)
             .padding(start = 16.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -810,7 +875,7 @@ private fun HomeSidePanelToolbarStatus(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         when (status) {
             HomeSidePanelStatusUiState.Loading -> {
@@ -824,12 +889,8 @@ private fun HomeSidePanelToolbarStatus(
             }
 
             is HomeSidePanelStatusUiState.Ready -> {
-                val emojiUrl = status.status.emoji?.thumbUrl?.takeIf(String::isNotBlank)
-                    ?: status.status.emoji?.url?.takeIf(String::isNotBlank)
-                emojiUrl?.let { url ->
-                    AsyncImage(model = url, contentDescription = null, modifier = Modifier.size(13.dp))
-                }
-                HomeSidePanelToolbarStatusText(status.status.description.ifBlank { "在线" })
+                HomeSidePanelTextStatusIcon(status.status, 18.dp)
+                HomeSidePanelToolbarStatusText(status.status.description)
             }
 
             is HomeSidePanelStatusUiState.Error -> {
@@ -842,6 +903,28 @@ private fun HomeSidePanelToolbarStatus(
                 HomeSidePanelToolbarStatusText("获取失败", MaterialTheme.colorScheme.error)
             }
         }
+    }
+}
+
+@Composable
+private fun HomeSidePanelTextStatusIcon(status: TextStatus, size: Dp) {
+    val iconTint = MaterialTheme.colorScheme.onSurface.toArgb()
+    key(status.iconId) {
+        AndroidView(
+            factory = { context ->
+                ImageView(context).apply {
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    contentDescription = status.description
+                    WeTextStatusApi.renderIcon(this, status.iconId)
+                    setColorFilter(iconTint, PorterDuff.Mode.SRC_IN)
+                }
+            },
+            update = { imageView ->
+                imageView.contentDescription = status.description
+                imageView.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN)
+            },
+            modifier = Modifier.size(size),
+        )
     }
 }
 

@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
+import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -223,11 +224,11 @@ internal class HomeSidePanelState(
     }
 
     fun openStatusEditor() {
-        closePanel { openStatusEditorActivity() }
+        closePanel { openStatusDestination() }
     }
 
     fun openStatusEditorFromToolbar() {
-        openStatusEditorActivity()
+        openStatusDestination()
     }
 
     fun saveHitokotoSettings(settings: HitokotoSettings) {
@@ -448,6 +449,11 @@ internal class HomeSidePanelState(
             putExtra("key_config_item", "SettingGroup_Main_PersonalInfo")
         } || startExplicit(PERSONAL_PROFILE_LEGACY_CLASS)
         if (!opened) showToast(activity, "无法打开个人资料页")
+    }
+
+    private fun openStatusDestination() {
+        if (WeTextStatusApi.openCurrentStatusActions(activity, WeApi.selfWxId)) return
+        openStatusEditorActivity()
     }
 
     private fun openStatusEditorActivity() {

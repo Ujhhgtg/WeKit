@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
@@ -35,13 +36,14 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import java.io.IOException
 import java.io.File
+import java.io.IOException
 import java.net.SocketTimeoutException
-import java.util.concurrent.atomic.AtomicReference
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.time.Duration.Companion.seconds
 
 @Serializable
 internal data class WeatherCity(
@@ -119,21 +121,66 @@ internal fun isEligibleWeatherCountry(code: String): Boolean =
 
 enum class WeatherIconKind {
     SUNNY,
-    CLOUDY,
+    PARTLY_CLOUDY,
+    OVERCAST,
+    SHOWER,
+    THUNDERSTORM,
+    HAIL,
+    SLEET,
+    LIGHT_RAIN,
     RAIN,
+    HEAVY_RAIN,
+    RAINSTORM,
+    SNOW_SHOWER,
+    LIGHT_SNOW,
     SNOW,
+    HEAVY_SNOW,
+    BLIZZARD,
     FOG,
-    THUNDER,
+    FREEZING_RAIN,
+    DUST_STORM,
+    DUST,
+    SAND,
+    SQUALL,
+    TORNADO,
+    HAZE,
     UNKNOWN,
 }
 
 internal fun weatherIconKind(code: String): WeatherIconKind = when (code.toIntOrNull()) {
     0 -> WeatherIconKind.SUNNY
-    1, 2 -> WeatherIconKind.CLOUDY
-    4, 5, 32, 33 -> WeatherIconKind.THUNDER
-    6, 13, 14, 15, 16, 17, 26, 27, 28, 34 -> WeatherIconKind.SNOW
-    3, 7, 8, 9, 10, 11, 12, 19, 21, 22, 23, 24, 25 -> WeatherIconKind.RAIN
-    18, 20, 29, 30, 31, 35, 53 -> WeatherIconKind.FOG
+    1 -> WeatherIconKind.PARTLY_CLOUDY
+    2 -> WeatherIconKind.OVERCAST
+    3 -> WeatherIconKind.SHOWER
+    4 -> WeatherIconKind.THUNDERSTORM
+    5 -> WeatherIconKind.HAIL
+    6 -> WeatherIconKind.SLEET
+    7 -> WeatherIconKind.LIGHT_RAIN
+    8 -> WeatherIconKind.RAIN
+    9 -> WeatherIconKind.HEAVY_RAIN
+    10, 11, 12 -> WeatherIconKind.RAINSTORM
+    13 -> WeatherIconKind.SNOW_SHOWER
+    14 -> WeatherIconKind.LIGHT_SNOW
+    15 -> WeatherIconKind.SNOW
+    16 -> WeatherIconKind.HEAVY_SNOW
+    17 -> WeatherIconKind.BLIZZARD
+    18 -> WeatherIconKind.FOG
+    19 -> WeatherIconKind.FREEZING_RAIN
+    20 -> WeatherIconKind.DUST_STORM
+    21, 22 -> WeatherIconKind.RAIN
+    23 -> WeatherIconKind.HEAVY_RAIN
+    24, 25 -> WeatherIconKind.RAINSTORM
+    26 -> WeatherIconKind.SNOW
+    27 -> WeatherIconKind.HEAVY_SNOW
+    28 -> WeatherIconKind.BLIZZARD
+    29 -> WeatherIconKind.DUST
+    30 -> WeatherIconKind.SAND
+    31 -> WeatherIconKind.DUST_STORM
+    32 -> WeatherIconKind.SQUALL
+    33 -> WeatherIconKind.TORNADO
+    34 -> WeatherIconKind.BLIZZARD
+    35 -> WeatherIconKind.FOG
+    53 -> WeatherIconKind.HAZE
     else -> WeatherIconKind.UNKNOWN
 }
 
@@ -363,6 +410,7 @@ private val cityQueryTransliterator: Transliterator? by lazy {
     }
 }
 
+@SuppressLint("NewApi") // guarded by cityQueryTransliterator
 private fun transliterateCityQuery(value: String): String =
     cityQueryTransliterator?.let { synchronized(it) { it.transliterate(value) } } ?: value
 
@@ -590,7 +638,7 @@ internal class HomeSidePanelLocation(
         val provider = enabledProvider(locationManager)
             ?: return LocationResolution.LocationDisabled
         val location = try {
-            withTimeoutOrNull(LOCATION_TIMEOUT_MS) {
+            withTimeoutOrNull(LOCATION_TIMEOUT) {
                 requestLocation(activity, locationManager, provider)
             }
         } catch (error: SecurityException) {
@@ -636,6 +684,7 @@ internal class HomeSidePanelLocation(
         listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
             .firstOrNull(locationManager::isProviderEnabled)
 
+    @SuppressLint("MissingPermission")
     private suspend fun requestLocation(
         activity: Activity,
         locationManager: LocationManager,
@@ -675,7 +724,7 @@ internal class HomeSidePanelLocation(
 
     private companion object {
         const val LOCATION_TAG = "HomeSidePanelLocation"
-        const val LOCATION_TIMEOUT_MS = 12_000L
+        val LOCATION_TIMEOUT = 12.seconds
     }
 }
 

@@ -1,10 +1,10 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
+import dev.ujhhgtg.wekit.features.api.core.TextStatus
+import dev.ujhhgtg.wekit.features.api.core.TextStatusResult
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
-import dev.ujhhgtg.wekit.features.api.core.TextStatus
-import dev.ujhhgtg.wekit.features.api.core.TextStatusApi
-import dev.ujhhgtg.wekit.features.api.core.TextStatusResult
+import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CancellationException
@@ -42,12 +42,12 @@ internal class HomeSidePanelProfileLoader(
             wxId = wxId,
             nickname = nickname,
             avatarUrl = WeDatabaseApi.getAvatarUrl(wxId),
-            status = TextStatusApi.read(wxId).toUiState(),
+            status = WeTextStatusApi.read(wxId).toUiState(),
         )
     }
 
     suspend fun refreshStatus(): HomeSidePanelStatusUiState = withContext(Dispatchers.IO) {
-        TextStatusApi.read(WeApi.selfWxId).toUiState()
+        WeTextStatusApi.read(WeApi.selfWxId).toUiState()
     }
 
     suspend fun readWeatherCityFromProfile(): WeatherCityMatchResult = withContext(Dispatchers.IO) {
