@@ -15,13 +15,16 @@ import android.view.ViewTreeObserver
 import android.view.Window
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.ComposeView
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isNotEmpty
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.CustomViewPager
@@ -93,6 +96,7 @@ private fun homeSidePanelShouldReparentExternalChrome(
 object HomeSidePanel : SwitchFeature() {
 
     private const val TAG = "HomeSidePanel"
+    private const val LAUNCHER_BOTTOM_TAB_VIEW_CLASS = "com.tencent.mm.ui.LauncherUIBottomTabView"
     private val sessions = WeakHashMap<WxViewPager, WeakReference<HomeSidePanelSession>>()
     private val pendingEdgeToEdgeAttachListeners =
         WeakHashMap<View, View.OnAttachStateChangeListener>()
@@ -311,6 +315,7 @@ object HomeSidePanel : SwitchFeature() {
             resolveExternalChrome()
             syncToolbarProfileBindings()
             applyActionBarProgress(renderedProgress)
+            syncNativeBottomTabInsets()
             true
         }
 
@@ -331,11 +336,72 @@ object HomeSidePanel : SwitchFeature() {
         private var suppressCloseUntilNextFrame = false
         private var selectedTabIndex = HOME_TAB_INDEX
         private var chattingVisible = false
+        private var cachedNativeBottomTabView: View? = null
         private val toolbarProfileBindings = linkedMapOf<RelativeLayout, ToolbarProfileBinding>()
         private val homeToolbarHosts = linkedSetOf<RelativeLayout>()
         private val chattingToolbarHosts = linkedSetOf<RelativeLayout>()
         private val nativeTitleVisibilities = linkedMapOf<TextView, Int>()
         private val tabsAdapterHookHandles = mutableListOf<HookHandle>()
+
+        private fun syncNativeBottomTabInsets() {
+            val bottomBar = cachedNativeBottomTabView
+                ?.takeIf { it.isAttachedToWindow }
+                ?: parent.findViewWhich { it.javaClass.name == LAUNCHER_BOTTOM_TAB_VIEW_CLASS }
+                    ?.also { cachedNativeBottomTabView = it }
+                ?: return
+
+            val nativeContainer = bottomBar as ViewGroup
+            val legacyLinear = (0 until nativeContainer.childCount)
+                .asSequence()
+                .map(nativeContainer::getChildAt)
+                .filterIsInstance<LinearLayout>()
+                .firstOrNull()
+            val isComposeReplacement = bottomBar.findViewWhich { it is ComposeView } != null
+            if (bottomBar.visibility != View.VISIBLE || isComposeReplacement) {
+                clearNativeBottomTabPadding(bottomBar, legacyLinear)
+                return
+            }
+
+            val insets = ViewCompat.getRootWindowInsets(bottomBar) ?: return
+            val systemBottom = insets.getInsets(
+                WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.tappableElement(),
+            ).bottom
+            if (bottomBar.paddingBottom != systemBottom) {
+                bottomBar.setPadding(
+                    bottomBar.paddingLeft,
+                    bottomBar.paddingTop,
+                    bottomBar.paddingRight,
+                    systemBottom,
+                )
+            }
+            if (legacyLinear != null && legacyLinear.paddingBottom != 0) {
+                legacyLinear.setPadding(
+                    legacyLinear.paddingLeft,
+                    legacyLinear.paddingTop,
+                    legacyLinear.paddingRight,
+                    0,
+                )
+            }
+        }
+
+        private fun clearNativeBottomTabPadding(bottomBar: View, legacyLinear: LinearLayout?) {
+            if (bottomBar.paddingBottom != 0) {
+                bottomBar.setPadding(
+                    bottomBar.paddingLeft,
+                    bottomBar.paddingTop,
+                    bottomBar.paddingRight,
+                    0,
+                )
+            }
+            if (legacyLinear != null && legacyLinear.paddingBottom != 0) {
+                legacyLinear.setPadding(
+                    legacyLinear.paddingLeft,
+                    legacyLinear.paddingTop,
+                    legacyLinear.paddingRight,
+                    0,
+                )
+            }
+        }
 
         fun attach() {
             if (attached) return
