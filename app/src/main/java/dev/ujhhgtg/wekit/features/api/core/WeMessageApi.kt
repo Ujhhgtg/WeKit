@@ -60,14 +60,17 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.FileTime
 import java.util.UUID
 import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.copyTo
+import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.fileSize
@@ -1917,11 +1920,18 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * 根据 md5 解密贴纸, 转为 GIF 并保存到 Download/WeKit/。
+     * 根据 md5 解密贴纸, 转为 GIF 并写入指定文件。
      * @return 保存后的文件路径, 失败返回 null
      */
-    fun saveStickerByMd5(md5: String, fileName: String? = null): String? {
+    fun decodeStickerToFile(md5: String, destination: Path): Path? {
+        var temporary: Path? = null
         return try {
+            if (destination.isRegularFile() && destination.fileSize() > 0L) {
+                Files.setLastModifiedTime(destination, FileTime.fromMillis(System.currentTimeMillis()))
+                return destination
+            }
+
+            destination.parent.createDirectories()
             val emojiInfo = WeServiceApi.getEmojiInfoByMd5(md5)
             val emojiFileEncryptMgr = classEmojiFileEncryptMgr.reflekt()
                 .firstMethod {
@@ -1929,23 +1939,52 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                     parameterCount = 0
                 }
                 .invokeStatic()!!
-            var bytes = emojiFileEncryptMgr.reflekt()
+            val encryptedBytes = emojiFileEncryptMgr.reflekt()
                 .firstMethod {
                     parameters(IEmojiInfo::class)
                     returnType = ByteArray::class
                 }
                 .invoke(emojiInfo) as ByteArray
-            bytes = MMWXGFJNI.nativeWxamToGif(bytes)
+            val gifBytes = MMWXGFJNI.nativeWxamToGif(encryptedBytes)
+            check(gifBytes.isNotEmpty()) { "converted sticker GIF is empty" }
 
-            val outPath = KnownPaths.downloads / (fileName ?: "sticker_${System.currentTimeMillis()}.gif")
-            outPath.deleteIfExists()
-            outPath.outputStream().use { it.write(bytes) }
-            WeLogger.i(TAG, "saved sticker: $outPath")
-            outPath.absolutePathString()
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "saveStickerByMd5 failed", e)
+            temporary = Files.createTempFile(destination.parent, ".${destination.name}.", ".tmp")
+            temporary.outputStream().use { output -> output.write(gifBytes) }
+            check(temporary.isRegularFile() && temporary.fileSize() > 0L) {
+                "temporary sticker GIF is empty"
+            }
+
+            try {
+                Files.move(
+                    temporary,
+                    destination,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING)
+            }
+            temporary = null
+            check(destination.isRegularFile() && destination.fileSize() > 0L) {
+                "final sticker GIF is empty"
+            }
+            destination
+        } catch (error: Exception) {
+            WeLogger.e(TAG, "decodeStickerToFile failed for md5=$md5", error)
             null
+        } finally {
+            temporary?.deleteIfExists()
         }
+    }
+
+    /**
+     * 根据 md5 解密贴纸, 转为 GIF 并保存到 Download/WeKit/。
+     * @return 保存后的文件路径, 失败返回 null
+     */
+    fun saveStickerByMd5(md5: String, fileName: String? = null): String? {
+        val outPath = KnownPaths.downloads /
+                (fileName ?: "sticker_${System.currentTimeMillis()}.gif")
+        return decodeStickerToFile(md5, outPath)?.absolutePathString()
     }
 
     /**
