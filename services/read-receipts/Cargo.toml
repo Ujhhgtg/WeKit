@@ -14,5 +14,4 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sha2 = "0.11"
 hex = "0.4"
-crossterm = { version = "0.29", features = ["events"] }
 rustyline = "18.0.1"
