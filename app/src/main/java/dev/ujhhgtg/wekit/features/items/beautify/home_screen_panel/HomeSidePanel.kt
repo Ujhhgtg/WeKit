@@ -18,22 +18,22 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isNotEmpty
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.CustomViewPager
 import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.features.items.beautify.AddMainScreenFab
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.items.beautify.AddMainScreenFab
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -46,14 +46,14 @@ import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
-import java.lang.ref.WeakReference
-import java.util.WeakHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import java.lang.ref.WeakReference
+import java.util.WeakHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -113,7 +113,7 @@ object HomeSidePanel : SwitchFeature() {
             result = true
         }
         LauncherUI::class.hookAfterOnCreate {
-            ensureLauncherEdgeToEdge(thisObject as Activity, "LauncherUI.onCreate")
+            ensureLauncherEdgeToEdge(thisObject as Activity)
         }
         LauncherUI::class.reflekt().firstMethod {
             name = "moveTaskToBack"
@@ -131,7 +131,6 @@ object HomeSidePanel : SwitchFeature() {
             parameters()
         }.hookAfter {
             val activity = thisObject as Activity
-            logLauncherWindowState(activity.window, "LauncherUI.onResume")
             sessions.values.mapNotNull { it.get() }.firstOrNull { it.ownsActivity(activity) }
                 ?.onLauncherResumed()
         }
@@ -172,7 +171,7 @@ object HomeSidePanel : SwitchFeature() {
                     type = "com.tencent.mm.ui.MMFragmentActivity"
                 }
                 .get()!! as Activity
-            ensureLauncherEdgeToEdge(activity, "MainTabUI.doOnCreate")
+            ensureLauncherEdgeToEdge(activity)
             val viewPager = thisObject!!.reflekt()
                 .firstField {
                     name = "mViewPager"
@@ -213,11 +212,11 @@ object HomeSidePanel : SwitchFeature() {
         }
     }
 
-    private fun ensureLauncherEdgeToEdge(activity: Activity, reason: String) {
+    private fun ensureLauncherEdgeToEdge(activity: Activity) {
         val window = activity.window
         val decor = window.decorView
         if (decor.isAttachedToWindow) {
-            applyLauncherEdgeToEdge(window, reason)
+            applyLauncherEdgeToEdge(window)
             return
         }
         if (pendingEdgeToEdgeAttachListeners[decor] != null) return
@@ -226,7 +225,7 @@ object HomeSidePanel : SwitchFeature() {
                 pendingEdgeToEdgeAttachListeners.remove(view)
                 view.removeOnAttachStateChangeListener(this)
                 view.post {
-                    applyLauncherEdgeToEdge(activity.window, "$reason/decorAttached")
+                    applyLauncherEdgeToEdge(activity.window)
                 }
             }
 
@@ -242,36 +241,10 @@ object HomeSidePanel : SwitchFeature() {
         decor.removeOnAttachStateChangeListener(listener)
     }
 
-    private fun applyLauncherEdgeToEdge(window: Window, reason: String) {
-        val before = window.decorView.systemUiVisibility
+    private fun applyLauncherEdgeToEdge(window: Window) {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = AndroidColor.TRANSPARENT
         window.decorView.requestApplyInsets()
-        logLauncherWindowState(window, reason, before)
-    }
-
-    private fun logLauncherWindowState(
-        window: Window,
-        reason: String,
-        beforeSystemUiVisibility: Int? = null,
-    ) {
-        val decor = window.decorView
-        val insets = ViewCompat.getRootWindowInsets(decor)
-        val navigationBottom = insets
-            ?.getInsets(WindowInsetsCompat.Type.navigationBars())
-            ?.bottom
-            ?: 0
-        val tappableBottom = insets
-            ?.getInsets(WindowInsetsCompat.Type.tappableElement())
-            ?.bottom
-            ?: 0
-        WeLogger.d(
-            TAG,
-            "window[$reason] sysUi=" +
-                (beforeSystemUiVisibility?.let { "0x${it.toString(16)} -> " } ?: "") +
-                "0x${decor.systemUiVisibility.toString(16)} navigation=$navigationBottom " +
-                "tappable=$tappableBottom attached=${decor.isAttachedToWindow}"
-        )
     }
 
     private data class PendingHostCancel(
@@ -603,7 +576,7 @@ object HomeSidePanel : SwitchFeature() {
                 if (tabsAdapter !== thisObject) return@hookAfterDirectly
                 val position = args[0] as Int
                 if (position == HOME_TAB_INDEX) {
-                    ensureLauncherEdgeToEdge(activity, "MainTabUI.onPageSelected")
+                    ensureLauncherEdgeToEdge(activity)
                 }
             }
             tabsAdapterHookHandles += reflectedTabsAdapter.firstMethod {
@@ -952,7 +925,7 @@ object HomeSidePanel : SwitchFeature() {
         }
 
         private fun isChattingVisible(): Boolean =
-            (activity as LauncherUI).getCurrentFragmet() != null
+            (activity as LauncherUI).currentFragmet != null
 
         private fun collectToolbarProfileHosts(
             view: View,
