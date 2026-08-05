@@ -3,14 +3,14 @@
 ## Status
 
 - Date: 2026-08-05
-- State: draft for maintainer review
+- State: approved by maintainer on 2026-08-05
 - Target branch: `dev`
 - Translation platform: Hosted Weblate Libre
 - Implementation status: not started
 
-This document defines the first internationalization architecture for WeKit. It records the design
-approved in discussion, but implementation must not begin until the maintainer approves this
-written specification.
+This document defines the first internationalization architecture for WeKit. The maintainer
+approved this written specification on 2026-08-05; implementation follows the separate execution
+plans and remains subject to their verification gates.
 
 ## Context
 
