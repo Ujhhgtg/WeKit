@@ -145,6 +145,11 @@ private fun rejectVoipMpCall(wxId: String) {
  * "not open multitalk receiver or black user" and returns without showing any UI).
  */
 private fun HideContacts.installMultiTalkHooks() {
+    if (methodMultiTalkOnInvite.isPlaceholder) {
+        WeLogger.w(TAG, "onInviteMultiTalk wasn't resolved; multitalk invite hiding unavailable")
+        return
+    }
+
     methodMultiTalkOnInvite.hookBefore {
         val group = args[0] ?: return@hookBefore
         val (chatroom, inviter) = readMultiTalkInvite(group) ?: return@hookBefore

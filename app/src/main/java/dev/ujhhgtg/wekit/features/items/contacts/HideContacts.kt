@@ -12,7 +12,6 @@ import android.hardware.SensorManager
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -34,13 +33,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
-import dev.ujhhgtg.wekit.features.items.contacts.HideContacts.hookNewMessageNotification
-import dev.ujhhgtg.wekit.features.items.contacts.HideContacts.methodAddressMvvmListPreprocessList
-import dev.ujhhgtg.wekit.features.items.contacts.HideContacts.methodFtsSearchChatroomMemberTask
-import dev.ujhhgtg.wekit.features.items.contacts.HideContacts.methodMultiTalkOnInvite
-import dev.ujhhgtg.wekit.features.items.contacts.HideContacts.methodVoipShowFloatingCard
-import dev.ujhhgtg.wekit.features.items.contacts.HideContacts.temporarilyShown
-import dev.ujhhgtg.wekit.features.items.contacts.HideContacts.toggleTemporarilyShown
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.installListHooks
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.installMomentsHooks
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.installSchedules
@@ -55,6 +47,7 @@ import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -62,6 +55,7 @@ import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.now
 import org.luckypray.dexkit.query.enums.MatchType
+import org.luckypray.dexkit.query.matchers.MethodMatcher
 import java.lang.ref.WeakReference
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.milliseconds
@@ -937,20 +931,40 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     /** `mp5.q2.Ii(String toUser, ...)` — VoIPMP call-record insertion (未接听 / 已取消 / duration). */
     internal val methodVoipMpInsertMsg by dexMethod {
         matcher {
-            // The CoreV2 ZIDL stub logs the same text under a different tag; pairing with the
-            // Launcher tag picks out q2.Ii.
-            usingEqStrings("MicroMsg.VoIPMP.Launcher", "insertMsg() called with: toUser = ")
+            paramTypes(
+                "java.lang.String",
+                "boolean",
+                "int",
+                "long",
+                "long",
+                "long",
+                "int",
+            )
+            returnType("void")
+            anyOf(
+                MethodMatcher().apply {
+                    usingEqStrings(
+                        "MicroMsg.VoIPMP.Launcher",
+                        "insertMsg() called with: toUser = ",
+                    )
+                },
+                MethodMatcher().apply {
+                    declaredClass {
+                        usingEqStrings("MicroMsg.VoIPMP.Launcher", "closeReceiverBanner")
+                    }
+                },
+            )
         }
     }
 
     // ── multitalk (群通话), used when the VoIPMP multitalk experiment is off ───────────────────
 
     /** `v0.G(MultiTalkGroup)` — MultiTalkManager.onInviteMultiTalk. */
-    internal val methodMultiTalkOnInvite by dexMethod {
+    internal val methodMultiTalkOnInvite by dexMethod(allowFailure = true) {
         matcher {
             usingEqStrings(
                 "MicroMsg.MT.MultiTalkManager",
-                "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b"
+                "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b",
             )
         }
     }
@@ -960,15 +974,12 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * exitCurrentMultiTalk. Declared on the same `v0` (MultiTalkManager) as [methodMultiTalkOnInvite],
      * so the invite hook's `thisObject` is the receiver to invoke this on — no separate singleton
      * lookup needed.
-     *
-     * NB: do NOT resolve a singleton getter by referencing `methodExitMultiTalk.method` from another
-     * matcher block. With `allowFailure = true` a failed resolution leaves a placeholder, and reading
-     * `.method` on a placeholder throws — which would take down dex resolution for the whole feature
-     * on a cold cache.
      */
     internal val methodExitMultiTalk by dexMethod(allowFailure = true) {
         matcher {
-            usingStrings("exitCurrentMultiTalk: isReject %b isMissCall %b isPhoneCall %b isNetworkError %b")
+            usingStrings(
+                "exitCurrentMultiTalk: isReject %b isMissCall %b isPhoneCall %b isNetworkError %b",
+            )
         }
     }
 

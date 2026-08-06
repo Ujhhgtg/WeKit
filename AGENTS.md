@@ -55,7 +55,7 @@
 
 - Use `./x dex-test` to run the same `IResolveDex`/DexKit resolution steps used by
   `DexCacheManager.kt` against WeChat APKs on the Linux desktop. Test only the supported host
-  range **8.0.65–8.0.76**; APKs outside that range are useful for investigation but must not be
+  range **8.0.65–8.0.77**; APKs outside that range are useful for investigation but must not be
   treated as compatibility gates for the project.
 - Test each supported APK version separately, including separate normal and Google Play APKs
   when both are available. Each APK runs in its own JVM worker and must carry its own version code,
@@ -133,7 +133,7 @@
 
 - Package namespace: `dev.ujhhgtg.wekit`
 - Min SDK 28, target SDK 37, compile SDK 37
-- Target: WeChat `com.tencent.mm`, versions 8.0.65–8.0.76. Current host info in `HostInfo`
+- Target: WeChat `com.tencent.mm`, versions 8.0.65–8.0.77. Current host info in `HostInfo`
 - Process targeting via `TargetProcesses`: override `startup()` to check
   `TargetProcesses.isInMain` / `TargetProcesses.currentType`. Default: main process only.
 - Device behavior still requires manual testing on real WeChat; desktop JVM tests cover Dex
@@ -146,7 +146,7 @@
   report "feature does not undo its changes in `onDisable`" as a bug.
 - `allowFailure` on `dexMethod`/`dexClass`/`dexField` is ONLY for structures whose existence
   differs across supported WeChat versions (present in old, absent in new, or vice versa). If a
-  declared Dex resolution is expected to succeed on every supported version (8.0.65–8.0.76), do
+  declared Dex resolution is expected to succeed on every supported version (8.0.65–8.0.77), do
   NOT set `allowFailure`: a resolution failure must fail that feature loudly instead of silently
   degrading to a no-op.
 - JVM reflection over host classes should go through `reflekt` (`libs/common/reflekt/`) by

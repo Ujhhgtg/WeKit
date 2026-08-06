@@ -6,17 +6,17 @@ import android.graphics.drawable.Drawable
 import android.view.View
 import android.widget.BaseAdapter
 import android.widget.ListView
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.view.isGone
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.runOnUiThread
-import org.luckypray.dexkit.DexKitBridge
 import java.lang.ref.WeakReference
 import java.util.Collections
 import java.util.IdentityHashMap
@@ -43,42 +43,29 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     private var latestAdapter: WeakReference<BaseAdapter>? = null
     private var latestListView: WeakReference<ListView>? = null
 
-    private val methodLegacyGetView by dexMethod()
-    private val methodMvvmGetView by dexMethod()
-
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val hostVersion = DexResolutionContext.host.versionName
-        if (hostVersion in setOf("8.0.74", "8.0.76")) {
-            methodLegacyGetView.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "ConversationWithCacheAdapter is absent in WeChat $hostVersion; MVVM adapter remains required",
+    private val methodLegacyGetView by dexMethod(allowFailure = true) {
+        searchPackages("com.tencent.mm.ui.conversation")
+        matcher {
+            name = "getView"
+            paramTypes("int", "android.view.View", "android.view.ViewGroup")
+            returnType = "android.view.View"
+            usingEqStrings(
+                "MicroMsg.ConversationWithCacheAdapter",
+                "Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d",
             )
-        } else {
-            methodLegacyGetView.find(dexKit) {
-                searchPackages("com.tencent.mm.ui.conversation")
-                matcher {
-                    name = "getView"
-                    paramTypes("int", "android.view.View", "android.view.ViewGroup")
-                    returnType = "android.view.View"
-                    usingEqStrings(
-                        "MicroMsg.ConversationWithCacheAdapter",
-                        "Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d",
-                    )
-                }
-            }
         }
-        methodMvvmGetView.find(dexKit) {
-            matcher {
-                declaredClass {
-                    usingEqStrings(
-                        "MicroMsg.ConversationAdapter.MvvmConversationAdapter",
-                        "Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d",
-                    )
-                }
-                name = "getView"
-                paramTypes("int", "android.view.View", "android.view.ViewGroup")
-                returnType = "android.view.View"
+    }
+    private val methodMvvmGetView by dexMethod {
+        matcher {
+            declaredClass {
+                usingEqStrings(
+                    "MicroMsg.ConversationAdapter.MvvmConversationAdapter",
+                    "Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d",
+                )
             }
+            name = "getView"
+            paramTypes("int", "android.view.View", "android.view.ViewGroup")
+            returnType = "android.view.View"
         }
     }
 
@@ -150,6 +137,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         }
     }
 
+    @Suppress("ClassName")
     private object dividerCoordinator {
         private data class RowDividerState(val originalVisibility: Int)
         private data class ListDividerState(
@@ -200,7 +188,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             listView ?: return
             if (hiddenOwners.isNotEmpty()) {
                 val state = listStates.getOrPut(listView) {
-                    ListDividerState(listView.divider, listView.dividerHeight, ColorDrawable(Color.TRANSPARENT))
+                    ListDividerState(listView.divider, listView.dividerHeight, Color.TRANSPARENT.toDrawable())
                 }
                 if (listView.divider !== state.moduleDivider) listView.divider = state.moduleDivider
                 if (listView.dividerHeight != 0) listView.dividerHeight = 0
@@ -222,7 +210,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
                 if (divider.visibility != View.GONE) divider.visibility = View.GONE
             } else {
                 val state = rowStates.remove(divider) ?: return
-                if (divider.visibility == View.GONE) divider.visibility = state.originalVisibility
+                if (divider.isGone) divider.visibility = state.originalVisibility
             }
         }
 

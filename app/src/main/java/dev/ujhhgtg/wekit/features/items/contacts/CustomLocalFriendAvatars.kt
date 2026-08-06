@@ -70,6 +70,7 @@ import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import kotlinx.serialization.json.Json
+import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.text.Collator
@@ -136,20 +137,37 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     }
 
     // com.tencent.mm.feature.avatar.w.pg; an exception: this doesn't call methodMvvmLoadAvatar
-    private val methodFeatureAvatarSimple1 by dexMethod {
-        matcher {
-            declaredClass(classAvatarDrawable.data.name)
-            paramTypes(
-                "android.widget.ImageView",
-                "java.lang.String"
-            )
-            returnType(Void.TYPE)
+    private val methodFeatureAvatarSimple1 by dexMethod()
 
-            addInvoke {
-                declaredClass = "android.view.View"
-                name = "invalidate"
-            }
-        }
+    override fun resolveDex(dexKit: DexKitBridge) {
+        methodFeatureAvatarSimple1.setDescriptor(
+            dexKit.findMethod {
+                matcher {
+                    declaredClass(classAvatarDrawable.data.name)
+                    paramTypes(
+                        "android.widget.ImageView",
+                        "java.lang.String"
+                    )
+                    returnType(Void.TYPE)
+
+                    usingNumbers(0.5f)
+                }
+            }.singleOrNull() ?: dexKit.findMethod {
+                matcher {
+                    declaredClass(classAvatarDrawable.data.name)
+                    paramTypes(
+                        "android.widget.ImageView",
+                        "java.lang.String"
+                    )
+                    returnType(Void.TYPE)
+
+                    addInvoke {
+                        declaredClass = "android.view.View"
+                        name = "invalidate"
+                    }
+                }
+            }.single()
+        )
     }
 
     private val methodPluginsdkLoadAvatar by dexMethod(allowFailure = true) {
