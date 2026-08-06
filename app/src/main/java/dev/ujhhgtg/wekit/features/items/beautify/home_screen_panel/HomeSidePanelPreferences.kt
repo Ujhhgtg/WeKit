@@ -24,7 +24,7 @@ internal object HomeSidePanelPreferences {
 
     var showToolbarProfile by prefOption(HomeSidePanelPreferenceKeys.SHOW_TOOLBAR_PROFILE, true)
     var hideWeChatTitle by prefOption(HomeSidePanelPreferenceKeys.HIDE_WECHAT_TITLE, false)
-    var hideWalletBalance by prefOption(HomeSidePanelPreferenceKeys.HIDE_WALLET_BALANCE, true)
+    var hideWalletBalance by prefOption(HomeSidePanelPreferenceKeys.HIDE_WALLET_BALANCE, false)
 
     var selectedWeatherCity: WeatherCity
         get() = decode(HomeSidePanelPreferenceKeys.WEATHER_CITY) ?: DEFAULT_WEATHER_CITY

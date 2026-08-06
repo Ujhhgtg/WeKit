@@ -88,8 +88,8 @@ internal fun readHomeSidePanelWalletBalance(
     val walletCache = walletPayService.reflekt().firstMethod {
         parameters()
         returnType = walletCacheReadMethod.declaringClass
-    }.invoke(walletPayService)!!
-    val balanceKey = walletCacheReadMethod.parameterTypes[0].enumConstants
+    }.invoke()!!
+    val balanceKey = walletCacheReadMethod.parameterTypes[0].enumConstants!!
         .single { (it as Enum<*>).name == HomeSidePanelWalletBalanceSource.BALANCE_KEY }
     return walletCacheReadMethod.invoke(walletCache, balanceKey, null) as? Long
 }
