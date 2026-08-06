@@ -4,10 +4,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Handler
 import android.os.Looper
-import bsh.BshHook
 import bsh.BshMethod
 import bsh.Interpreter
-import bsh.LocalMethodHookParam
 import bsh.NameSpace
 import dalvik.system.InMemoryDexClassLoader
 import dev.ujhhgtg.reflekt.reflekt
@@ -77,29 +75,7 @@ object JavaEngine {
 
     fun executeAllOnLoad(scripts: Map<String, JavaPlugin>) {
         scripts.values.forEach { plugin ->
-            if (BypassScriptsDrm.isEnabled) {
-                val hook = object : BshHook {
-                    override fun beforeLocalMethod(param: LocalMethodHookParam) {
-                        when (param.methodName) {
-                            "isUsingVPN", "isUsingProxy", "hasSuspiciousCertificates", "isSSLValidationBypassed",
-                            "detectPacketCapture", "showAntiCaptureDialog", "fetchBlackListFromNetwork", "checkBlackListSync",
-                            "showBlackToast" -> {
-                                param.isIntercepted = true; param.returnValue = false
-                            }
-
-                            "getBlackFriends" -> {
-                                param.isIntercepted = true; param.returnValue = arrayListOf<Any>()
-                            }
-
-                            "checkAuthorization" -> {
-                                param.isIntercepted = true; param.returnValue = true
-                            }
-                        }
-                    }
-                }
-                Interpreter.bshHookManager.addHook(hook)
-            }
-
+            BypassScriptsDrm.registerInterpreter(plugin.interpreter)
             try {
                 initPlugin(plugin)
                 plugin.interpreter.eval(plugin.content)
@@ -125,6 +101,8 @@ object JavaEngine {
                 }
             } catch (e: Exception) {
                 WeLogger.e(TAG, "onUnload execution failed for script ${plugin.name}", e)
+            } finally {
+                BypassScriptsDrm.unregisterInterpreter(plugin.interpreter)
             }
         }
     }

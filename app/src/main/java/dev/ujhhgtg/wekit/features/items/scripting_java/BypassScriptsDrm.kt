@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.scripting_java
 
+import bsh.Interpreter
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -8,4 +9,22 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
     categories = ["脚本 (Java)"],
     description = "尝试绕过轩心云脚本的抓包检测 & 授权验证 & 云黑检测\n没关系的, 你们继续圈你们的钱, 我继续写我的代码, 不喜欢就受着"
 )
-object BypassScriptsDrm : SwitchFeature() // actual implementation in JavaEngine
+object BypassScriptsDrm : SwitchFeature() {
+    private val hook = ScriptsDrmBypassHook()
+
+    internal fun registerInterpreter(interpreter: Interpreter) {
+        hook.registerInterpreter(interpreter)
+    }
+
+    internal fun unregisterInterpreter(interpreter: Interpreter) {
+        hook.unregisterInterpreter(interpreter)
+    }
+
+    override fun onEnable() {
+        Interpreter.bshHookManager.addHook(hook)
+    }
+
+    override fun onDisable() {
+        Interpreter.bshHookManager.removeHook(hook)
+    }
+}

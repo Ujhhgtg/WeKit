@@ -37,6 +37,9 @@ import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import me.hd.wauxv.data.bean.MsgInfoBean
 import me.hd.wauxv.data.bean.PayMsgBean
@@ -60,6 +63,9 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
     private val SCRIPTS_DIR by lazy { (KnownPaths.moduleData / "scripts_java").createDirsSafe() }
 
     val scripts = ConcurrentHashMap<String, JavaPlugin>()
+    private val lifecycleLock = Any()
+    private var loadJob: Job? = null
+    private var lifecycleGeneration = 0L
 
     private data class ScriptEntry(
         val dir: Path,
@@ -74,6 +80,10 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
     }
 
     override fun onEnable() {
+        val generation = synchronized(lifecycleLock) {
+            lifecycleGeneration += 1
+            lifecycleGeneration
+        }
         WeDatabaseListenerApi.addListener(this)
 
         WeMessageApi.methodMsgInfoHandleApiInsertMessage.hookAfter {
@@ -96,9 +106,11 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
             JavaEngine.executeAllOnRecvPayMsg(scripts, payMsgBean)
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
+        loadJob = CoroutineScope(Dispatchers.IO).launch {
             WeLogger.d(TAG, "loading java scripts...")
+            val loadedScripts = ConcurrentHashMap<String, JavaPlugin>()
             for (scriptDir in SCRIPTS_DIR.listDirectoryEntries().filter { it.isDirectory() }) {
+                currentCoroutineContext().ensureActive()
                 val dirName = scriptDir.name
                 if (!isScriptEnabled(scriptDir)) {
                     WeLogger.d(TAG, "skipping '$dirName': disabled")
@@ -124,10 +136,16 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                     content = content,
                     interpreter = Interpreter(null, "")
                 )
-                scripts[dirName] = plugin
+                loadedScripts[dirName] = plugin
             }
 
-            JavaEngine.executeAllOnLoad(scripts)
+            currentCoroutineContext().ensureActive()
+            synchronized(lifecycleLock) {
+                check(lifecycleGeneration == generation)
+                scripts.clear()
+                scripts.putAll(loadedScripts)
+                JavaEngine.executeAllOnLoad(scripts)
+            }
         }
     }
 
@@ -222,10 +240,17 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
     }.getOrDefault(false)
 
     override fun onDisable() {
+        synchronized(lifecycleLock) {
+            lifecycleGeneration += 1
+        }
+        loadJob?.cancel()
+        loadJob = null
         WeDatabaseListenerApi.removeListener(this)
         JavaHookApi.unhookEverything()
-        JavaEngine.executeAllOnUnload(scripts)
-        scripts.clear()
+        synchronized(lifecycleLock) {
+            JavaEngine.executeAllOnUnload(scripts)
+            scripts.clear()
+        }
     }
 
     override fun onInsert(table: String, values: ContentValues) {
