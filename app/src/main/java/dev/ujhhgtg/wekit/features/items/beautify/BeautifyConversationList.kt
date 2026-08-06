@@ -2,15 +2,11 @@ package dev.ujhhgtg.wekit.features.items.beautify
 
 import android.content.Context
 import android.content.res.ColorStateList
-import android.graphics.Outline
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
 import android.view.View
-import android.view.ViewGroup
-import android.view.ViewOutlineProvider
-import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.ListItem
@@ -36,30 +32,26 @@ import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
-import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 
 private enum class ConversationListPreset(
     val rowRadiusDp: Int,
     val horizontalInsetDp: Int,
     val verticalInsetDp: Int,
-    val avatarRadiusDp: Int,
     val lightBackgroundColor: Int,
     val darkBackgroundColor: Int,
 ) {
-    COMFORT_CARD(14, 10, 4, 12, 0xFFF7FAF9.toInt(), 0xFF252827.toInt()),
-    COMPACT_ROUNDED(10, 6, 2, 10, 0xFFF9FBFA.toInt(), 0xFF272928.toInt()),
-    MINIMAL_LIST(6, 0, 0, 8, 0xFFFCFCFC.toInt(), 0xFF232323.toInt()),
+    NO_LAYOUT(0, 0, 0, 0, 0),
+    COMFORT_CARD(14, 10, 4, 0xFFF7FAF9.toInt(), 0xFF252827.toInt()),
+    COMPACT_ROUNDED(10, 6, 2, 0xFFF9FBFA.toInt(), 0xFF272928.toInt()),
+    MINIMAL_LIST(6, 0, 0, 0xFFFCFCFC.toInt(), 0xFF232323.toInt()),
 }
 
 @Feature(
     name = "美化对话列表",
     categories = ["聊天", "界面美化"],
-    description = "为主页会话列表提供卡片布局、圆角头像、未读突出和分隔线设置",
+    description = "为主页会话列表提供卡片布局、未读突出和分隔线设置",
 )
 object BeautifyConversationList : ClickableFeature() {
 
@@ -67,11 +59,10 @@ object BeautifyConversationList : ClickableFeature() {
 
     private var presetName by prefOption(
         "beautify_conversation_list_preset",
-        ConversationListPreset.COMFORT_CARD.name,
+        ConversationListPreset.NO_LAYOUT.name,
     )
-    private var roundAvatarsEnabled by prefOption("beautify_conversation_list_round_avatars", true)
-    private var highlightUnreadEnabled by prefOption("beautify_conversation_list_highlight_unread", true)
-    private var hideDividersEnabled by prefOption("beautify_conversation_list_hide_dividers", true)
+    private var highlightUnreadEnabled by prefOption("beautify_conversation_list_highlight_unread", false)
+    private var hideDividersEnabled by prefOption("beautify_conversation_list_hide_dividers", false)
 
     private val selectedPreset: ConversationListPreset
         get() = ConversationListPreset.entries.firstOrNull { it.name == presetName }
@@ -84,14 +75,6 @@ object BeautifyConversationList : ClickableFeature() {
         val density: Float,
     )
 
-    private data class AvatarVisualState(
-        val view: WeakReference<ImageView>,
-        val outlineProvider: ViewOutlineProvider,
-        val clipToOutline: Boolean,
-        val moduleOutlineProvider: ViewOutlineProvider,
-        val radiusPx: Float,
-    )
-
     private data class RowVisualState(
         var baselineBackground: Drawable?,
         var baselinePaddingLeft: Int,
@@ -100,7 +83,6 @@ object BeautifyConversationList : ClickableFeature() {
         var baselinePaddingBottom: Int,
         var moduleBackground: Drawable? = null,
         var backgroundKey: RowBackgroundKey? = null,
-        var avatar: AvatarVisualState? = null,
     )
 
     private sealed interface UnreadAccessor {
@@ -133,7 +115,6 @@ object BeautifyConversationList : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var draftPreset by remember { mutableStateOf(selectedPreset) }
-            var draftRoundAvatars by remember { mutableStateOf(roundAvatarsEnabled) }
             var draftHighlightUnread by remember { mutableStateOf(highlightUnreadEnabled) }
             var draftHideDividers by remember { mutableStateOf(hideDividersEnabled) }
 
@@ -143,41 +124,44 @@ object BeautifyConversationList : ClickableFeature() {
                     DefaultColumn {
                         ConversationListPreset.entries.forEach { preset ->
                             val label = when (preset) {
+                                ConversationListPreset.NO_LAYOUT -> "不修改卡片布局"
                                 ConversationListPreset.COMFORT_CARD -> "舒适卡片"
                                 ConversationListPreset.COMPACT_ROUNDED -> "紧凑圆角"
                                 ConversationListPreset.MINIMAL_LIST -> "简洁列表"
                             }
                             ListItem(
-                                modifier = Modifier.clickable { draftPreset = preset },
+                                modifier = Modifier.clickable {
+                                    draftPreset = preset
+                                    if (preset == ConversationListPreset.NO_LAYOUT) {
+                                        draftHighlightUnread = false
+                                    }
+                                },
                                 headlineContent = { Text(label) },
                                 trailingContent = {
                                     RadioButton(
                                         selected = draftPreset == preset,
-                                        onClick = { draftPreset = preset },
+                                        onClick = {
+                                            draftPreset = preset
+                                            if (preset == ConversationListPreset.NO_LAYOUT) {
+                                                draftHighlightUnread = false
+                                            }
+                                        },
                                     )
                                 },
                             )
                         }
-                        ListItem(
-                            modifier = Modifier.clickable { draftRoundAvatars = !draftRoundAvatars },
-                            headlineContent = { Text("圆角头像") },
-                            trailingContent = {
-                                Switch(
-                                    checked = draftRoundAvatars,
-                                    onCheckedChange = { draftRoundAvatars = it },
-                                )
-                            },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { draftHighlightUnread = !draftHighlightUnread },
-                            headlineContent = { Text("突出未读会话") },
-                            trailingContent = {
-                                Switch(
-                                    checked = draftHighlightUnread,
-                                    onCheckedChange = { draftHighlightUnread = it },
-                                )
-                            },
-                        )
+                        if (draftPreset != ConversationListPreset.NO_LAYOUT) {
+                            ListItem(
+                                modifier = Modifier.clickable { draftHighlightUnread = !draftHighlightUnread },
+                                headlineContent = { Text("突出未读会话") },
+                                trailingContent = {
+                                    Switch(
+                                        checked = draftHighlightUnread,
+                                        onCheckedChange = { draftHighlightUnread = it },
+                                    )
+                                },
+                            )
+                        }
                         ListItem(
                             modifier = Modifier.clickable { draftHideDividers = !draftHideDividers },
                             headlineContent = { Text("隐藏分隔线") },
@@ -196,8 +180,7 @@ object BeautifyConversationList : ClickableFeature() {
                 confirmButton = {
                     Button(onClick = {
                         presetName = draftPreset.name
-                        roundAvatarsEnabled = draftRoundAvatars
-                        highlightUnreadEnabled = draftHighlightUnread
+                        highlightUnreadEnabled = draftPreset != ConversationListPreset.NO_LAYOUT && draftHighlightUnread
                         hideDividersEnabled = draftHideDividers
                         updateDividerRequest()
                         WeConversationListViewApi.refresh()
@@ -223,6 +206,8 @@ object BeautifyConversationList : ClickableFeature() {
         restoreRowBaseline(row, state)
 
         val preset = selectedPreset
+        if (preset == ConversationListPreset.NO_LAYOUT) return
+
         val unread = highlightUnreadEnabled && isUnread(conversation)
         val backgroundKey = RowBackgroundKey(
             preset = preset,
@@ -245,9 +230,6 @@ object BeautifyConversationList : ClickableFeature() {
             state.baselinePaddingRight,
             state.baselinePaddingBottom,
         )
-
-        if (roundAvatarsEnabled) installAvatarOutline(row, state, preset)
-        else clearAvatarState(state)
     }
 
     private fun restoreRowBaseline(row: View, state: RowVisualState) {
@@ -268,17 +250,6 @@ object BeautifyConversationList : ClickableFeature() {
             state.moduleBackground = null
             state.backgroundKey = null
         }
-    }
-
-    private fun clearAvatarState(state: RowVisualState) {
-        val avatarState = state.avatar ?: return
-        val avatar = avatarState.view.get()
-        if (avatar?.outlineProvider === avatarState.moduleOutlineProvider) {
-            avatar.outlineProvider = avatarState.outlineProvider
-            avatar.clipToOutline = avatarState.clipToOutline
-            avatar.invalidateOutline()
-        }
-        state.avatar = null
     }
 
     private fun buildRowBackground(
@@ -341,82 +312,6 @@ object BeautifyConversationList : ClickableFeature() {
         if (!unreadFailuresLogged.add(modelClass)) return
         if (error == null) WeLogger.w(TAG, "$message on ${modelClass.name}")
         else WeLogger.w(TAG, "$message on ${modelClass.name}", error)
-    }
-
-    private fun installAvatarOutline(row: View, state: RowVisualState, preset: ConversationListPreset) {
-        val cachedState = state.avatar
-        val cachedAvatar = cachedState?.view?.get()
-        if (
-            cachedState != null && cachedAvatar != null &&
-            cachedAvatar.outlineProvider === cachedState.moduleOutlineProvider &&
-            cachedState.radiusPx == preset.avatarRadiusDp.dpToPx(cachedAvatar.context).toFloat() &&
-            isVisibleDescendant(cachedAvatar, row)
-        ) {
-            return
-        }
-
-        clearAvatarState(state)
-        val avatar = findAvatarCandidate(row) ?: return
-        val radiusPx = preset.avatarRadiusDp.dpToPx(avatar.context).toFloat()
-        val provider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, radiusPx)
-            }
-        }
-        state.avatar = AvatarVisualState(
-            WeakReference(avatar),
-            avatar.outlineProvider,
-            avatar.clipToOutline,
-            provider,
-            radiusPx,
-        )
-        avatar.outlineProvider = provider
-        avatar.clipToOutline = true
-        avatar.invalidateOutline()
-    }
-
-    private fun isVisibleDescendant(view: View, ancestor: View): Boolean {
-        var current: View? = view
-        while (current != null) {
-            if (current.visibility != View.VISIBLE) return false
-            if (current === ancestor) return true
-            current = current.parent as? View
-        }
-        return false
-    }
-
-    private fun findAvatarCandidate(root: View): ImageView? {
-        var best: ImageView? = null
-        var bestScore: Float? = null
-        val stack = ArrayDeque<Pair<View, Int>>()
-        stack += root to 0
-        while (stack.isNotEmpty()) {
-            val (view, depth) = stack.removeLast()
-            if (view.visibility != View.VISIBLE) continue
-            if (view is ImageView && view.isLaidOut) {
-                val density = view.resources.displayMetrics.density
-                val score = if (density > 0f && view.width > 0 && view.height > 0) {
-                    val shortSideDp = min(view.width, view.height) / density
-                    val longSideDp = max(view.width, view.height) / density
-                    val shapeDeviation = abs(view.width - view.height).toFloat() / max(view.width, view.height)
-                    if (shortSideDp >= 32f && longSideDp <= 84f && shapeDeviation <= 0.22f) {
-                        view.width.toFloat() * view.height - shapeDeviation
-                    } else {
-                        null
-                    }
-                } else {
-                    null
-                }
-                if (score != null && (bestScore == null || score > bestScore)) {
-                    best = view
-                    bestScore = score
-                }
-            }
-            if (depth < 8 && view is ViewGroup) {
-                for (index in 0 until view.childCount) stack += view.getChildAt(index) to depth + 1
-            }
-        }
-        return best
     }
 
     private fun updateDividerRequest() {
