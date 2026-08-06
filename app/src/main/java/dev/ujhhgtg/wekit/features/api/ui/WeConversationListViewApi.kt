@@ -26,8 +26,15 @@ import java.util.concurrent.CopyOnWriteArrayList
 @Feature(name = "会话列表 View 绑定监听服务", categories = ["API"], description = "提供会话列表 View 绑定监听能力")
 object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
+    data class BindContext(
+        val position: Int,
+        val itemCount: Int,
+        val previousConversation: Any?,
+        val nextConversation: Any?,
+    )
+
     fun interface IBindViewListener {
-        fun onBind(param: HookParam, row: View, conversation: Any)
+        fun onBind(param: HookParam, row: View, conversation: Any, context: BindContext)
     }
 
     private const val TAG = "WeConversationListViewApi"
@@ -104,6 +111,11 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         refresh()
     }
 
+    fun setRowDividerHidden(owner: Any, row: View, hidden: Boolean) {
+        dividerCoordinator.setRowHidden(owner, row, hidden)
+        dividerCoordinator.apply(row, latestListView?.get())
+    }
+
     fun removeDividerOwner(owner: Any) {
         dividerCoordinator.removeOwner(owner)
         refresh()
@@ -116,6 +128,12 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             val adapter = thisObject as BaseAdapter
             val position = args[0] as Int
             val conversation = adapter.getItem(position)!!
+            val bindContext = BindContext(
+                position = position,
+                itemCount = adapter.count,
+                previousConversation = if (position > 0) adapter.getItem(position - 1) else null,
+                nextConversation = if (position + 1 < adapter.count) adapter.getItem(position + 1) else null,
+            )
             if (latestAdapter?.get() !== adapter) latestAdapter = WeakReference(adapter)
             (args[2] as? ListView)?.let { listView ->
                 if (latestListView?.get() !== listView) latestListView = WeakReference(listView)
@@ -123,7 +141,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
             for (listener in listeners) {
                 try {
-                    listener.onBind(this, row, conversation)
+                    listener.onBind(this, row, conversation, bindContext)
                 } catch (error: Exception) {
                     WeLogger.e(TAG, "listener ${listener.javaClass.name} threw", error)
                 }
@@ -144,14 +162,33 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             Collections.newSetFromMap(IdentityHashMap<Any, Boolean>()),
         )
         private val rowStates = WeakHashMap<View, RowDividerState>()
+        private val rowHiddenOwners = WeakHashMap<View, MutableSet<Any>>()
         private val listStates = WeakHashMap<ListView, ListDividerState>()
 
         fun setHidden(owner: Any, hidden: Boolean) {
             if (hidden) hiddenOwners.add(owner) else hiddenOwners.remove(owner)
         }
 
+        fun setRowHidden(owner: Any, row: View, hidden: Boolean) {
+            val owners = rowHiddenOwners[row]
+            if (hidden) {
+                (owners ?: Collections.newSetFromMap(IdentityHashMap<Any, Boolean>()).also {
+                    rowHiddenOwners[row] = it
+                }).add(owner)
+            } else {
+                owners?.remove(owner)
+                if (owners != null && owners.isEmpty()) rowHiddenOwners.remove(row)
+            }
+        }
+
         fun removeOwner(owner: Any) {
             hiddenOwners.remove(owner)
+            val iterator = rowHiddenOwners.entries.iterator()
+            while (iterator.hasNext()) {
+                val entry = iterator.next()
+                entry.value.remove(owner)
+                if (entry.value.isEmpty()) iterator.remove()
+            }
         }
 
         fun apply(row: View, listView: ListView?) {
@@ -161,7 +198,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
         fun applyListView(listView: ListView?) {
             listView ?: return
-            if (isHidden()) {
+            if (hiddenOwners.isNotEmpty()) {
                 val state = listStates.getOrPut(listView) {
                     ListDividerState(listView.divider, listView.dividerHeight, ColorDrawable(Color.TRANSPARENT))
                 }
@@ -180,7 +217,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             val divider = row.findViewByChildIndexes(0, 1, 1, 1)
                 ?: row.findViewByChildIndexes(0, 1, 1)
                 ?: return
-            if (isHidden()) {
+            if (isHidden(row)) {
                 rowStates.getOrPut(divider) { RowDividerState(divider.visibility) }
                 if (divider.visibility != View.GONE) divider.visibility = View.GONE
             } else {
@@ -189,6 +226,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             }
         }
 
-        private fun isHidden(): Boolean = hiddenOwners.isNotEmpty()
+        private fun isHidden(row: View): Boolean =
+            hiddenOwners.isNotEmpty() || rowHiddenOwners[row]?.isNotEmpty() == true
     }
 }
