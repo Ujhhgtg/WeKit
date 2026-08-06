@@ -27,7 +27,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeUnsafeApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
@@ -41,7 +40,6 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
@@ -76,47 +74,117 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     }
 
     /** com.tencent.mm.plugin.multitalk.model.e3 —— SubCoreMultiTalk. */
-    private val classSubCoreMultiTalk by dexClass()
+    private val classSubCoreMultiTalk by dexClass {
+        matcher {
+            usingStrings("MicroMsg.SubCoreMultiTalk", "add , is running , forbid add")
+        }
+    }
 
     /** com.tencent.mm.plugin.multitalk.model.v0 —— MultiTalkManager. */
-    private val methodExitMultiTalk by dexMethod()
+    private val methodExitMultiTalk by dexMethod {
+        matcher {
+            usingStrings("exitCurrentMultiTalk: isReject %b isMissCall %b isPhoneCall %b isNetworkError %b")
+        }
+    }
 
     /** com.tencent.mm.plugin.multitalk.ilinkservice.i4 —— ILinkService (enum, 单例 INSTANCE). */
-    private val classILinkService by dexClass()
+    private val classILinkService by dexClass {
+        matcher {
+            usingStrings("steve: initsession : mIsInitedEngine :%b mIsInitingEngine %b mCurrentStatus %d mIsJoiningRoom %b")
+        }
+    }
 
     /** com.tencent.mm.plugin.multitalk.ilinkservice.w —— ILinkMember. */
-    private val classILinkMember by dexClass()
+    private val classILinkMember by dexClass {
+        matcher {
+            usingStrings("ILinkMember{memberId=")
+        }
+    }
 
     /** com.tencent.mm.plugin.multitalk.ilinkservice.n1 —— 邀请任务 (Runnable). */
-    private val classInviteTask by dexClass()
+    private val classInviteTask by dexClass {
+        matcher {
+            usingStrings("enter inviteSync. %s, %s, %d, %b")
+        }
+    }
 
     /** e3.Ri() —— 获取 MultiTalkManager 单例. */
-    private val methodGetMultiTalkManager by dexMethod()
+    private val methodGetMultiTalkManager by dexMethod {
+        matcher {
+            declaredClass = classSubCoreMultiTalk.getDescriptorString()!!
+            modifiers = ReflectModifier.STATIC or ReflectModifier.PUBLIC
+            returnType = methodExitMultiTalk.data.declaredClassName
+        }
+    }
 
     /** v0.D(e4) —— 设置通话状态 (onChangeMultiTalkStatus). */
-    private val methodSetStatus by dexMethod()
+    private val methodSetStatus by dexMethod {
+        matcher {
+            declaredClass = methodExitMultiTalk.data.declaredClassName
+            paramCount = 1
+            usingStrings("onChangeMultiTalkStatus is %s")
+        }
+    }
 
     /** v0.O(String, int) —— setCurrentMTSDKMode, 记录群 -> 通话模式. */
-    private val methodSetMtSdkMode by dexMethod()
+    private val methodSetMtSdkMode by dexMethod {
+        matcher {
+            declaredClass = methodExitMultiTalk.data.declaredClassName
+            paramCount = 2
+            usingStrings("setCurrentMTSDKMode groupid:%s, mode:%d")
+        }
+    }
 
     /** i4.N(long, String) —— 设置自身 uin 与用户名 (set name). */
-    private val methodSetName by dexMethod()
+    private val methodSetName by dexMethod {
+        matcher {
+            declaredClass = classILinkService.getDescriptorString()!!
+            paramCount = 2
+            usingStrings("set name=%s, uin=%d")
+        }
+    }
 
     /** i4.J(Runnable) —— 投递任务到 ILink 串行工作线程. */
-    private val methodPostTask by dexMethod()
+    private val methodPostTask by dexMethod {
+        matcher {
+            declaredClass = classILinkService.getDescriptorString()!!
+            paramCount = 1
+            paramTypes("java.lang.Runnable")
+        }
+    }
 
     /** n1(i4, ArrayList<w>, String) —— 邀请任务构造器. */
-    private val ctorInviteTask by dexConstructor()
+    private val ctorInviteTask by dexConstructor {
+        matcher {
+            declaredClass = classInviteTask.getDescriptorString()!!
+            paramCount = 3
+            paramTypes(classILinkService.getDescriptorString()!!, "java.util.ArrayList", "java.lang.String")
+        }
+    }
 
     /**
      * c1(i4, int) —— 挂断任务 (Runnable), run() 调用 native Hangup(int)。
      * c1 与 i4 都含有字符串 "Hangup ret:", 但 i4 (enum) 的构造器签名是 (String, int),
      * 因此用 (i4, int) 的参数签名即可唯一命中 c1 的构造器。
      */
-    private val ctorHangupTask by dexConstructor()
+    private val ctorHangupTask by dexConstructor {
+        matcher {
+            declaredClass {
+                usingStrings("Hangup ret:")
+            }
+            paramCount = 2
+            paramTypes(classILinkService.getDescriptorString()!!, "int")
+        }
+    }
 
     /** i4.INSTANCE —— ILinkService 单例. */
-    private val fieldILinkInstance by dexField()
+    private val fieldILinkInstance by dexField {
+        matcher {
+            declaredClass = classILinkService.getDescriptorString()!!
+            type = classILinkService.getDescriptorString()!!
+            modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC or ReflectModifier.FINAL
+        }
+    }
 
     /**
      * i4.f166883p1 —— 房间 ID (chatroom username) 字符串字段, 进入 native Invite。
@@ -127,169 +195,52 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private val fieldRoomId by dexField()
 
     /** TalkRoomServer.enterTalkRoom(String, int) —— 发起「实时对讲机」. */
-    private val methodEnterTalkRoom by dexMethod()
+    private val methodEnterTalkRoom by dexMethod {
+        matcher {
+            usingStrings("enterTalkRoom %s scene %d")
+            paramTypes("java.lang.String", "int")
+            returnType("void")
+        }
+    }
 
     /** TalkRoomServer.exitTalkRoom() —— 终止当前「实时对讲机」. */
-    private val methodExitTalkRoom by dexMethod()
+    private val methodExitTalkRoom by dexMethod {
+        matcher {
+            declaredClass = methodEnterTalkRoom.data.declaredClassName
+            usingStrings("exitTalkRoom", "exitTalkRoom: has exited")
+            paramCount = 0
+            returnType("void")
+        }
+    }
 
     /** SubCoreTalkRoom 上返回 TalkRoomServer 单例的静态方法. */
-    private val methodGetTalkRoomServer by dexMethod()
+    private val methodGetTalkRoomServer by dexMethod {
+        matcher {
+            modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC
+            paramCount = 0
+            returnType = methodEnterTalkRoom.data.declaredClassName
+        }
+    }
 
     /** TalkRoomServer 当前房间 ID; 空值表示没有正在进行的实时对讲. */
-    private val fieldCurrentTalkRoom by dexField()
+    private val fieldCurrentTalkRoom by dexField {
+        matcher {
+            declaredClass = methodEnterTalkRoom.data.declaredClassName
+            type = "java.lang.String"
+        }
+    }
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        if (DexResolutionContext.host.versionName == "8.0.77") {
-            val reason = "WeChat 8.0.77 removed the legacy MultiTalk and ILink resolver graph"
-            classSubCoreMultiTalk.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodExitMultiTalk.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            classILinkService.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            classILinkMember.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            classInviteTask.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodGetMultiTalkManager.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodSetStatus.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodSetMtSdkMode.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodSetName.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodPostTask.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            ctorInviteTask.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            ctorHangupTask.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            fieldILinkInstance.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            fieldRoomId.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodEnterTalkRoom.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodExitTalkRoom.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodGetTalkRoomServer.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            fieldCurrentTalkRoom.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            return
-        }
-
-        classSubCoreMultiTalk.find(dexKit) {
-            matcher {
-                usingStrings("MicroMsg.SubCoreMultiTalk", "add , is running , forbid add")
-            }
-        }
-        methodExitMultiTalk.find(dexKit) {
-            matcher {
-                usingStrings("exitCurrentMultiTalk: isReject %b isMissCall %b isPhoneCall %b isNetworkError %b")
-            }
-        }
-        classILinkService.find(dexKit) {
-            matcher {
-                usingStrings("steve: initsession : mIsInitedEngine :%b mIsInitingEngine %b mCurrentStatus %d mIsJoiningRoom %b")
-            }
-        }
-        classILinkMember.find(dexKit) {
-            matcher {
-                usingStrings("ILinkMember{memberId=")
-            }
-        }
-        classInviteTask.find(dexKit) {
-            matcher {
-                usingStrings("enter inviteSync. %s, %s, %d, %b")
-            }
-        }
-
-        val subCoreMultiTalkClassName = classSubCoreMultiTalk.data.name
-        val multiTalkManagerClassName = methodExitMultiTalk.data.declaredClassName
-        val iLinkServiceClassName = classILinkService.data.name
-
-        methodGetMultiTalkManager.find(dexKit) {
-            matcher {
-                declaredClass = subCoreMultiTalkClassName
-                modifiers = ReflectModifier.STATIC or ReflectModifier.PUBLIC
-                returnType = multiTalkManagerClassName
-            }
-        }
-        methodSetStatus.find(dexKit) {
-            matcher {
-                declaredClass = multiTalkManagerClassName
-                paramCount = 1
-                usingStrings("onChangeMultiTalkStatus is %s")
-            }
-        }
-        methodSetMtSdkMode.find(dexKit) {
-            matcher {
-                declaredClass = multiTalkManagerClassName
-                paramCount = 2
-                usingStrings("setCurrentMTSDKMode groupid:%s, mode:%d")
-            }
-        }
-        methodSetName.find(dexKit) {
-            matcher {
-                declaredClass = iLinkServiceClassName
-                paramCount = 2
-                usingStrings("set name=%s, uin=%d")
-            }
-        }
-        methodPostTask.find(dexKit) {
-            matcher {
-                declaredClass = iLinkServiceClassName
-                paramCount = 1
-                paramTypes("java.lang.Runnable")
-            }
-        }
-        ctorInviteTask.find(dexKit) {
-            matcher {
-                declaredClass = classInviteTask.data.name
-                paramCount = 3
-                paramTypes(iLinkServiceClassName, "java.util.ArrayList", "java.lang.String")
-            }
-        }
-        ctorHangupTask.find(dexKit) {
-            matcher {
-                declaredClass {
-                    usingStrings("Hangup ret:")
-                }
-                paramCount = 2
-                paramTypes(iLinkServiceClassName, "int")
-            }
-        }
-        fieldILinkInstance.find(dexKit) {
-            matcher {
-                declaredClass = iLinkServiceClassName
-                type = iLinkServiceClassName
-                modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC or ReflectModifier.FINAL
-            }
-        }
-
-        methodEnterTalkRoom.find(dexKit) {
-            matcher {
-                usingStrings("enterTalkRoom %s scene %d")
-                paramTypes("java.lang.String", "int")
-                returnType("void")
-            }
-        }
-        val talkRoomServerClassName = methodEnterTalkRoom.data.declaredClassName
-        methodExitTalkRoom.find(dexKit) {
-            matcher {
-                declaredClass = talkRoomServerClassName
-                usingStrings("exitTalkRoom", "exitTalkRoom: has exited")
-                paramCount = 0
-                returnType("void")
-            }
-        }
-        methodGetTalkRoomServer.find(dexKit) {
-            matcher {
-                modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC
-                paramCount = 0
-                returnType = talkRoomServerClassName
-            }
-        }
-        fieldCurrentTalkRoom.find(dexKit) {
-            matcher {
-                declaredClass = talkRoomServerClassName
-                type = "java.lang.String"
-            }
-        }
-
+        val iLinkServiceName = classILinkService.data.name
         val readerMethod = dexKit.findMethod {
             matcher {
-                declaredClass = iLinkServiceClassName
+                declaredClass = classILinkService.getDescriptorString()!!
                 usingStrings("start audio device failed")
             }
         }.single()
         val roomIdField = readerMethod.usingFields
             .map { it.field }
-            .single { it.className == iLinkServiceClassName && it.typeName == "java.lang.String" }
+            .single { it.className == iLinkServiceName && it.typeName == "java.lang.String" }
         fieldRoomId.setDescriptor(roomIdField)
     }
 
@@ -328,8 +279,6 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     }
 
     override fun onEnable() {
-        // TODO: Fix SplitGroupCall for WeChat 8.0.77's VoIPMP MultiTalk stack.
-        if (HostInfo.versionName == "8.0.77") return
         WeContactPrefsScreenApi.addProvider(this)
     }
 
@@ -523,7 +472,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
                         else -> error(
                             "talk room changed before exit: " +
-                                "expected=$fakeGroupId, active=$activeRoom",
+                                    "expected=$fakeGroupId, active=$activeRoom",
                         )
                     }
                 }

@@ -344,19 +344,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
         override fun restore() {
             val service = voipMpService ?: error("voipmp service is unavailable")
-            if (methodVoipMpLaunchPage.method.parameterCount == 4) {
-                // 8.0.77 launchPage(showActivity, fromBanner, fromIgnore) defaults to
-                // (true, false, false); restoring from PIP needs showActivity because VideoActivity is gone.
-                methodVoipMpLaunchPage.method.invoke(
-                    service,
-                    HostInfo.application,
-                    true,
-                    false,
-                    false,
-                )
-            } else {
-                methodVoipMpLaunchPage.method.invoke(service, HostInfo.application, false)
-            }
+            methodVoipMpLaunchPage.method.invoke(service, HostInfo.application, false)
         }
 
         private fun sendAppCmd(cmd: Int, value: Int) {
@@ -423,13 +411,13 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     // --------------------------------------------------------------- 新版 VoIPMP
 
-    private val classVoipMpService by dexClass(allowFailure = true) {
+    private val classVoipMpService by dexClass {
         matcher {
             usingEqStrings("MicroMsg.VoIPMP.Launcher", "dismissSmallWindow: ")
         }
     }
 
-    private val fieldVoipMpServiceInstance by dexField(allowFailure = true) {
+    private val fieldVoipMpServiceInstance by dexField {
         matcher {
             declaredClass(classVoipMpService.data.name)
             type(classVoipMpService.data.name)
@@ -437,11 +425,17 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
-    /** `launchPage(context, ...)`：把通话界面重新拉起来 */
-    private val methodVoipMpLaunchPage by dexMethod()
+    /** `launchPage(context, needAnimation)`：把通话界面重新拉起来 */
+    private val methodVoipMpLaunchPage by dexMethod(allowFailure = true)  {
+        matcher {
+            declaredClass(classVoipMpService.data.name)
+            paramTypes(Context::class.java.name, "boolean")
+            returnType = "void"
+        }
+    }
 
     /** `dismissSmallWindow()`：微信认为最小化界面该消失了 */
-    private val methodVoipMpDismissSmallWindow by dexMethod(allowFailure = true) {
+    private val methodVoipMpDismissSmallWindow by dexMethod {
         matcher {
             declaredClass(classVoipMpService.data.name)
             paramCount = 0
@@ -451,13 +445,13 @@ object PipVoip : SwitchFeature(), IResolveDex {
     }
 
     /** `voipmp.VoipmpCoreSdkService` 的 ZIDL 调用方 */
-    private val classVoipMpCore by dexClass(allowFailure = true) {
+    private val classVoipMpCore by dexClass {
         matcher {
             usingEqStrings("voipmp.VoipmpCoreSdkService@Get")
         }
     }
 
-    private val fieldVoipMpCoreInstance by dexField(allowFailure = true) {
+    private val fieldVoipMpCoreInstance by dexField {
         matcher {
             declaredClass(classVoipMpCore.data.name)
             type(classVoipMpCore.data.name)
@@ -466,7 +460,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
     }
 
     /** `SetAppCmd(cmd, payload, length)` */
-    private val methodVoipMpSetAppCmd by dexMethod(allowFailure = true) {
+    private val methodVoipMpSetAppCmd by dexMethod {
         matcher {
             declaredClass(classVoipMpCore.data.name)
             paramTypes("int", ByteBuffer::class.java.name, "int")
@@ -502,7 +496,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
     }
 
     /** `VoIPMPAudioController.muteMicrophone()`，同时用来定位音频控制器类 */
-    private val methodVoipMpMuteMic by dexMethod(allowFailure = true) {
+    private val methodVoipMpMuteMic by dexMethod {
         matcher {
             paramCount = 0
             returnType = "boolean"
@@ -510,7 +504,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val fieldVoipMpMicMuted by dexField(allowFailure = true) {
+    private val fieldVoipMpMicMuted by dexField {
         matcher {
             declaredClass(methodVoipMpMuteMic.data.declaredClassName)
             type = "boolean"
@@ -520,13 +514,13 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val classVoipMpAudioCapturer by dexClass(allowFailure = true) {
+    private val classVoipMpAudioCapturer by dexClass {
         matcher {
             usingEqStrings("MicroMsg.VoIPMPAudioCapturer", "release")
         }
     }
 
-    private val methodVoipMpAudioCapturer by dexMethod(allowFailure = true) {
+    private val methodVoipMpAudioCapturer by dexMethod {
         matcher {
             declaredClass(methodVoipMpMuteMic.data.declaredClassName)
             paramCount = 0
@@ -535,7 +529,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
     }
 
     /** `MMPcmRecorder.switchMute(mute)` */
-    private val methodVoipMpSwitchMute by dexMethod(allowFailure = true) {
+    private val methodVoipMpSwitchMute by dexMethod {
         matcher {
             paramTypes("boolean")
             returnType = "void"
@@ -543,7 +537,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val fieldVoipMpRecorder by dexField(allowFailure = true) {
+    private val fieldVoipMpRecorder by dexField {
         matcher {
             declaredClass(classVoipMpAudioCapturer.data.name)
             type(methodVoipMpSwitchMute.data.declaredClassName)
@@ -657,7 +651,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     // -------------------------------------------------------------------- 多人通话
 
-    private val classMultiTalkViewModel by dexClass(allowFailure = true) {
+    private val classMultiTalkViewModel by dexClass {
         matcher {
             usingEqStrings(
                 "MicroMsg.MT.MultiTalkUIViewModel",
@@ -666,7 +660,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val fieldMultiTalkViewModel by dexField(allowFailure = true) {
+    private val fieldMultiTalkViewModel by dexField {
         matcher {
             declaredClass(MultiTalkMainUI::class.java)
             type(classMultiTalkViewModel.data.name)
@@ -811,26 +805,6 @@ object PipVoip : SwitchFeature(), IResolveDex {
     }
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        val voipMpLaunchPage = dexKit.findMethod {
-            matcher {
-                declaredClass(classVoipMpService.data.name)
-                paramTypes(
-                    Context::class.java.name,
-                    "boolean",
-                    "boolean",
-                    "boolean",
-                )
-                returnType = "void"
-            }
-        }.singleOrNull() ?: dexKit.findMethod {
-            matcher {
-                declaredClass(classVoipMpService.data.name)
-                paramTypes(Context::class.java.name, "boolean")
-                returnType = "void"
-            }
-        }.single()
-        methodVoipMpLaunchPage.setDescriptor(voipMpLaunchPage)
-
         val directMicMethods = dexKit.findMethod {
             matcher {
                 declaredClass(classMultiTalkViewModel.data.name)
@@ -866,8 +840,6 @@ object PipVoip : SwitchFeature(), IResolveDex {
             return
         }
 
-        if (HostInfo.versionCode >= 3141) return
-
         // 新版实现的音频控制器是进程内单例，构造时抓一份，用来读/切麦克风状态。
         // 抓不到也只是画中画里控不了麦克风，不该影响别的
         runCatching {
@@ -898,13 +870,6 @@ object PipVoip : SwitchFeature(), IResolveDex {
                 }
                 .hookBefore { removeSession(thisObject as Activity) }
         }
-
-        VideoActivity::class.reflekt()
-            .firstMethod {
-                name = "onDestroy"
-                parameterCount = 0
-            }
-            .hookBefore { removeSession(thisObject as Activity) }
 
         // 用户按 home / 切走时提前进入画中画：此时微信还在前台，启动 Activity 不会被拦
         Activity::class.reflekt()
@@ -949,8 +914,8 @@ object PipVoip : SwitchFeature(), IResolveDex {
                     text = {
                         Text(
                             "画中画窗口必须由模块应用自己的 Activity 承载（清单里要声明 " +
-                                "supportsPictureInPicture，微信没有这样的 Activity）, " +
-                                "而 Zygisk 模式下模块应用并未安装, 因此本功能仅在 LSPosed 模式下可用!"
+                                    "supportsPictureInPicture，微信没有这样的 Activity）, " +
+                                    "而 Zygisk 模式下模块应用并未安装, 因此本功能仅在 LSPosed 模式下可用!"
                         )
                     },
                     confirmButton = { TextButton(onDismiss) { Text("取消") } })
@@ -1026,7 +991,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
                     action = PipVoipActivity.ACTION_CLOSE
                     addFlags(
                         Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP
                     )
                 }
             )
