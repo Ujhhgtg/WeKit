@@ -9,7 +9,7 @@ Expand WeKit's supported WeChat host range through 8.0.77. The current 8.0.77 de
 ## Compatibility contract
 
 - WeChat 8.0.65–8.0.76 remain compatibility gates and must continue to pass.
-- WeChat 8.0.77 becomes a compatibility gate after the repair.
+- WeChat 8.0.77 becomes a compatibility gate for Dex resolution and is documented to users as **preliminary support** until physical-device coverage is sufficient.
 - Required targets remain strict: no `allowFailure` is added merely to turn a required target into a placeholder.
 - Any remaining `UNEXPECTED_FAILURE`, `BLOCKED`, `INCOMPLETE`, initialization, worker, native-library, metadata, or report failure fails the desktop run.
 - Resolver-side version selection reads `DexResolutionContext.host`, never `HostInfo`, and all matcher dependencies use DexKit metadata rather than JVM reflection.
