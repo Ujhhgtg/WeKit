@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.ui.utils.ExposurePlus1Icon
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
-import dev.ujhhgtg.wekit.utils.serialization.XmlUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -100,10 +99,7 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
     }
 
     private fun repeatEmoji(msgInfo: MessageInfo): Boolean {
-        val md5 = msgInfo.imagePath
-            ?: XmlUtils.extractXmlAttr(msgInfo.content, "md5").takeIf { it.isNotBlank() }
-            ?: XmlUtils.extractXmlTag(msgInfo.content, "md5").takeIf { it.isNotBlank() }
-            ?: return false
+        val md5 = msgInfo.stickerMd5 ?: return false
         return WeMessageApi.sendEmojiByMd5(msgInfo.talker, md5)
     }
 }

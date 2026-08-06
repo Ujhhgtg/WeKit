@@ -32,12 +32,29 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+
+private enum class ConversationListPreset(
+    val rowRadiusDp: Int,
+    val horizontalInsetDp: Int,
+    val verticalInsetDp: Int,
+    val avatarRadiusDp: Int,
+    val lightBackgroundColor: Int,
+    val darkBackgroundColor: Int,
+) {
+    COMFORT_CARD(14, 10, 4, 12, 0xFFF7FAF9.toInt(), 0xFF252827.toInt()),
+    COMPACT_ROUNDED(10, 6, 2, 10, 0xFFF9FBFA.toInt(), 0xFF272928.toInt()),
+    MINIMAL_LIST(6, 0, 0, 8, 0xFFFCFCFC.toInt(), 0xFF232323.toInt()),
+}
 
 @Feature(
     name = "美化对话列表",
@@ -60,11 +77,19 @@ object BeautifyConversationList : ClickableFeature() {
         get() = ConversationListPreset.entries.firstOrNull { it.name == presetName }
             ?: ConversationListPreset.COMFORT_CARD
 
+    private data class RowBackgroundKey(
+        val preset: ConversationListPreset,
+        val unread: Boolean,
+        val isDark: Boolean,
+        val density: Float,
+    )
+
     private data class AvatarVisualState(
         val view: WeakReference<ImageView>,
         val outlineProvider: ViewOutlineProvider,
         val clipToOutline: Boolean,
         val moduleOutlineProvider: ViewOutlineProvider,
+        val radiusPx: Float,
     )
 
     private data class RowVisualState(
@@ -74,6 +99,7 @@ object BeautifyConversationList : ClickableFeature() {
         var baselinePaddingRight: Int,
         var baselinePaddingBottom: Int,
         var moduleBackground: Drawable? = null,
+        var backgroundKey: RowBackgroundKey? = null,
         var avatar: AvatarVisualState? = null,
     )
 
@@ -195,13 +221,23 @@ object BeautifyConversationList : ClickableFeature() {
             )
         }
         restoreRowBaseline(row, state)
-        clearAvatarState(state)
 
         val preset = selectedPreset
         val unread = highlightUnreadEnabled && isUnread(conversation)
-        val palette = conversationListPalette(preset, row.context.isDarkMode)
-        val background = buildRowBackground(row.context, preset, palette, unread)
-        state.moduleBackground = background
+        val backgroundKey = RowBackgroundKey(
+            preset = preset,
+            unread = unread,
+            isDark = row.context.isDarkMode,
+            density = row.resources.displayMetrics.density,
+        )
+        val background = if (state.backgroundKey == backgroundKey) {
+            state.moduleBackground!!
+        } else {
+            buildRowBackground(row.context, preset, unread).also {
+                state.backgroundKey = backgroundKey
+                state.moduleBackground = it
+            }
+        }
         row.background = background
         row.setPadding(
             state.baselinePaddingLeft,
@@ -211,6 +247,7 @@ object BeautifyConversationList : ClickableFeature() {
         )
 
         if (roundAvatarsEnabled) installAvatarOutline(row, state, preset)
+        else clearAvatarState(state)
     }
 
     private fun restoreRowBaseline(row: View, state: RowVisualState) {
@@ -228,6 +265,8 @@ object BeautifyConversationList : ClickableFeature() {
             state.baselinePaddingTop = row.paddingTop
             state.baselinePaddingRight = row.paddingRight
             state.baselinePaddingBottom = row.paddingBottom
+            state.moduleBackground = null
+            state.backgroundKey = null
         }
     }
 
@@ -245,19 +284,27 @@ object BeautifyConversationList : ClickableFeature() {
     private fun buildRowBackground(
         context: Context,
         preset: ConversationListPreset,
-        palette: ConversationListPalette,
         unread: Boolean,
     ): Drawable {
+        val isDark = context.isDarkMode
         val card = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dpToPx(preset.rowRadiusDp, context.resources.displayMetrics.density).toFloat()
-            setColor(if (unread) palette.unreadBackgroundColor else palette.backgroundColor)
-            setStroke(1.coerceAtLeast(1), palette.strokeColor)
+            cornerRadius = preset.rowRadiusDp.dpToPx(context).toFloat()
+            setColor(
+                when {
+                    unread && isDark -> 0xFF253E37.toInt()
+                    unread -> 0xFFEAF8F2.toInt()
+                    isDark -> preset.darkBackgroundColor
+                    else -> preset.lightBackgroundColor
+                },
+            )
+            setStroke(1.dpToPx(context).coerceAtLeast(1), if (isDark) 0x22FFFFFF else 0x16161D1C)
         }
-        val horizontalInset = dpToPx(preset.horizontalInsetDp, context.resources.displayMetrics.density)
-        val verticalInset = dpToPx(preset.verticalInsetDp, context.resources.displayMetrics.density)
+        val horizontalInset = preset.horizontalInsetDp.dpToPx(context)
+        val verticalInset = preset.verticalInsetDp.dpToPx(context)
         val inset = InsetDrawable(card, horizontalInset, verticalInset, horizontalInset, verticalInset)
-        return RippleDrawable(ColorStateList.valueOf(palette.rippleColor), inset, null)
+        val rippleColor = if (isDark) 0x2AFFFFFF else 0x18006A62
+        return RippleDrawable(ColorStateList.valueOf(rippleColor), inset, null)
     }
 
     private fun isUnread(conversation: Any): Boolean {
@@ -265,7 +312,9 @@ object BeautifyConversationList : ClickableFeature() {
         val accessor = unreadAccessorCache.computeIfAbsent(modelClass, ::findUnreadAccessor)
         if (accessor === UnreadAccessor.Missing) return false
         return try {
-            isUnreadConversation(((accessor as UnreadAccessor.Field).get(conversation) as? Number)?.toInt() ?: return false)
+            val unreadCount = ((accessor as UnreadAccessor.Field).get(conversation) as? Number)
+                ?.toInt() ?: return false
+            unreadCount > 0
         } catch (error: Exception) {
             logUnreadFailureOnce(modelClass, "could not read field_unReadCount", error)
             false
@@ -295,16 +344,23 @@ object BeautifyConversationList : ClickableFeature() {
     }
 
     private fun installAvatarOutline(row: View, state: RowVisualState, preset: ConversationListPreset) {
+        val cachedState = state.avatar
+        val cachedAvatar = cachedState?.view?.get()
+        if (
+            cachedState != null && cachedAvatar != null &&
+            cachedAvatar.outlineProvider === cachedState.moduleOutlineProvider &&
+            cachedState.radiusPx == preset.avatarRadiusDp.dpToPx(cachedAvatar.context).toFloat() &&
+            isVisibleDescendant(cachedAvatar, row)
+        ) {
+            return
+        }
+
+        clearAvatarState(state)
         val avatar = findAvatarCandidate(row) ?: return
+        val radiusPx = preset.avatarRadiusDp.dpToPx(avatar.context).toFloat()
         val provider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(
-                    0,
-                    0,
-                    view.width,
-                    view.height,
-                    dpToPx(preset.avatarRadiusDp, view.resources.displayMetrics.density).toFloat(),
-                )
+                outline.setRoundRect(0, 0, view.width, view.height, radiusPx)
             }
         }
         state.avatar = AvatarVisualState(
@@ -312,10 +368,21 @@ object BeautifyConversationList : ClickableFeature() {
             avatar.outlineProvider,
             avatar.clipToOutline,
             provider,
+            radiusPx,
         )
         avatar.outlineProvider = provider
         avatar.clipToOutline = true
         avatar.invalidateOutline()
+    }
+
+    private fun isVisibleDescendant(view: View, ancestor: View): Boolean {
+        var current: View? = view
+        while (current != null) {
+            if (current.visibility != View.VISIBLE) return false
+            if (current === ancestor) return true
+            current = current.parent as? View
+        }
+        return false
     }
 
     private fun findAvatarCandidate(root: View): ImageView? {
@@ -327,10 +394,19 @@ object BeautifyConversationList : ClickableFeature() {
             val (view, depth) = stack.removeLast()
             if (view.visibility != View.VISIBLE) continue
             if (view is ImageView && view.isLaidOut) {
-                val score = avatarCandidateScore(
-                    AvatarCandidateMetrics(view.width, view.height, depth),
-                    view.resources.displayMetrics.density,
-                )
+                val density = view.resources.displayMetrics.density
+                val score = if (density > 0f && view.width > 0 && view.height > 0) {
+                    val shortSideDp = min(view.width, view.height) / density
+                    val longSideDp = max(view.width, view.height) / density
+                    val shapeDeviation = abs(view.width - view.height).toFloat() / max(view.width, view.height)
+                    if (shortSideDp >= 32f && longSideDp <= 84f && shapeDeviation <= 0.22f) {
+                        view.width.toFloat() * view.height - shapeDeviation
+                    } else {
+                        null
+                    }
+                } else {
+                    null
+                }
                 if (score != null && (bestScore == null || score > bestScore)) {
                     best = view
                     bestScore = score

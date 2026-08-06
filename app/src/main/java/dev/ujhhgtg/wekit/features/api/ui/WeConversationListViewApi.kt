@@ -116,8 +116,10 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             val adapter = thisObject as BaseAdapter
             val position = args[0] as Int
             val conversation = adapter.getItem(position)!!
-            latestAdapter = WeakReference(adapter)
-            (args[2] as? ListView)?.let { latestListView = WeakReference(it) }
+            if (latestAdapter?.get() !== adapter) latestAdapter = WeakReference(adapter)
+            (args[2] as? ListView)?.let { listView ->
+                if (latestListView?.get() !== listView) latestListView = WeakReference(listView)
+            }
 
             for (listener in listeners) {
                 try {
@@ -138,16 +140,18 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             val moduleDivider: ColorDrawable,
         )
 
-        private val ownerRequests = Collections.synchronizedMap(IdentityHashMap<Any, Boolean>())
+        private val hiddenOwners = Collections.synchronizedSet(
+            Collections.newSetFromMap(IdentityHashMap<Any, Boolean>()),
+        )
         private val rowStates = WeakHashMap<View, RowDividerState>()
         private val listStates = WeakHashMap<ListView, ListDividerState>()
 
         fun setHidden(owner: Any, hidden: Boolean) {
-            ownerRequests[owner] = hidden
+            if (hidden) hiddenOwners.add(owner) else hiddenOwners.remove(owner)
         }
 
         fun removeOwner(owner: Any) {
-            ownerRequests.remove(owner)
+            hiddenOwners.remove(owner)
         }
 
         fun apply(row: View, listView: ListView?) {
@@ -161,8 +165,8 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
                 val state = listStates.getOrPut(listView) {
                     ListDividerState(listView.divider, listView.dividerHeight, ColorDrawable(Color.TRANSPARENT))
                 }
-                listView.divider = state.moduleDivider
-                listView.dividerHeight = 0
+                if (listView.divider !== state.moduleDivider) listView.divider = state.moduleDivider
+                if (listView.dividerHeight != 0) listView.dividerHeight = 0
             } else {
                 val state = listStates.remove(listView) ?: return
                 if (listView.divider === state.moduleDivider) {
@@ -178,15 +182,13 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
                 ?: return
             if (isHidden()) {
                 rowStates.getOrPut(divider) { RowDividerState(divider.visibility) }
-                divider.visibility = View.GONE
+                if (divider.visibility != View.GONE) divider.visibility = View.GONE
             } else {
                 val state = rowStates.remove(divider) ?: return
                 if (divider.visibility == View.GONE) divider.visibility = state.originalVisibility
             }
         }
 
-        private fun isHidden(): Boolean = synchronized(ownerRequests) {
-            ownerRequests.values.any { it }
-        }
+        private fun isHidden(): Boolean = hiddenOwners.isNotEmpty()
     }
 }

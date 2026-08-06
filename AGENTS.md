@@ -112,6 +112,16 @@
 - TDD and new automated tests are allowed only when all core logic under test lives in WeKit,
   has low coupling to WeChat, and does not depend on WeChat host classes, runtime state, UI, or
   behavior.
+- Do not add tests for simple logic that is easy to verify by static review, such as constants,
+  direct mappings, boolean expressions, identity functions, or straightforward arithmetic. Do not
+  add tests merely to satisfy a workflow or a skill such as Superpowers.
+- Do not increase production-code complexity to create a test seam. In particular, do not split a
+  simple object singleton into an interface plus implementation, introduce unnecessary wrappers or
+  dependency injection, or extract simple one-use logic into a standalone function solely so it can
+  be unit-tested.
+- Keep simple logic inline when it has only one use and does not form a meaningful reusable domain
+  boundary. Extract a helper only when it improves readability, is reused, or isolates genuinely
+  complex behavior; testability alone is not sufficient justification.
 - If work does not meet all of those conditions, do not use TDD and do not add low-value tests
   merely to satisfy a testing workflow. Host hooks, reflection/DexKit glue, and host UI behavior
   are normally in this category.

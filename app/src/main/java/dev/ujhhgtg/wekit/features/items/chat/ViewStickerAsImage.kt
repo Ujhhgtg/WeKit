@@ -6,7 +6,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
-import android.view.ViewGroup
 import android.widget.ImageView
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
@@ -16,6 +15,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.baseActivity
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
@@ -32,6 +32,7 @@ import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
+import kotlin.math.roundToInt
 import org.luckypray.dexkit.DexKitBridge
 
 @Feature(
@@ -133,7 +134,7 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
     }
 
     private fun resolveCachedGif(messageInfo: MessageInfo): Path? {
-        val md5 = resolveStickerMd5(messageInfo.imagePath, messageInfo.content) ?: run {
+        val md5 = messageInfo.stickerMd5 ?: run {
             WeLogger.e(TAG, "failed to resolve sticker md5")
             return null
         }
@@ -143,18 +144,16 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
             prunePreviewDirectory(directory, ".gif")
         }
         return WeMessageApi.decodeStickerToFile(md5, destination)
-            ?.takeIf { it.isRegularFile() && it.fileSize() > 0L }
     }
 
     private fun prunePreviewDirectory(directory: Path, extension: String) {
         try {
             Files.createDirectories(directory)
-            val staleFiles = directory.listDirectoryEntries()
+            directory.listDirectoryEntries()
                 .filter { it.isRegularFile() && it.name.endsWith(extension) }
-                .map { path -> PreviewFileMetadata(path.name, Files.getLastModifiedTime(path).toMillis()) }
-            previewFilesToDelete(staleFiles).forEach { metadata ->
-                (directory / metadata.name).deleteIfExists()
-            }
+                .sortedByDescending { Files.getLastModifiedTime(it).toMillis() }
+                .drop(10)
+                .forEach { it.deleteIfExists() }
         } catch (error: Exception) {
             WeLogger.w(TAG, "failed to prune sticker preview cache", error)
         }
@@ -168,22 +167,17 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         ?: resolveCachedGif(messageInfo)
         ?: createSnapshot(clickedView)
 
-    private fun findDrawableImageView(view: View): ImageView? {
-        if (view is ImageView && view.drawable != null) return view
-        if (view is ViewGroup) {
-            for (index in 0 until view.childCount) {
-                findDrawableImageView(view.getChildAt(index))?.let { return it }
-            }
-        }
-        return null
-    }
-
     private fun createSnapshot(clickedView: View): Path? {
-        val imageView = findDrawableImageView(clickedView) ?: return null
+        val imageView = clickedView.findViewWhich {
+            it is ImageView && it.drawable != null
+        } as? ImageView ?: return null
         val drawable = imageView.drawable
         val sourceWidth = imageView.width.takeIf { it > 0 } ?: drawable.intrinsicWidth
         val sourceHeight = imageView.height.takeIf { it > 0 } ?: drawable.intrinsicHeight
-        val outputSize = scaleStickerSnapshot(sourceWidth, sourceHeight) ?: return null
+        if (sourceWidth <= 0 || sourceHeight <= 0) return null
+        val scale = minOf(1.0, 2048.0 / maxOf(sourceWidth, sourceHeight))
+        val outputWidth = (sourceWidth * scale).roundToInt().coerceAtLeast(1)
+        val outputHeight = (sourceHeight * scale).roundToInt().coerceAtLeast(1)
         val directory = KnownPaths.moduleCache / "view-sticker-as-image" / "snapshots"
         var output: Path? = null
         var bitmap: Bitmap? = null
@@ -191,14 +185,14 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
             prunePreviewDirectory(directory, ".png")
             output = Files.createTempFile(directory, "sticker-preview-", ".png")
             bitmap = Bitmap.createBitmap(
-                outputSize.width,
-                outputSize.height,
+                outputWidth,
+                outputHeight,
                 Bitmap.Config.ARGB_8888,
             )
             val canvas = Canvas(bitmap)
             canvas.scale(
-                outputSize.width.toFloat() / sourceWidth,
-                outputSize.height.toFloat() / sourceHeight,
+                outputWidth.toFloat() / sourceWidth,
+                outputHeight.toFloat() / sourceHeight,
             )
             if (imageView.width > 0 && imageView.height > 0) {
                 imageView.draw(canvas)

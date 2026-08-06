@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
-import dev.ujhhgtg.wekit.utils.serialization.XmlUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -153,10 +152,7 @@ object ForwardMessages : SwitchFeature(),
     }
 
     private fun forwardEmoji(toUser: String, msgInfo: MessageInfo): Boolean {
-        val md5 = msgInfo.imagePath
-            ?: XmlUtils.extractXmlAttr(msgInfo.content, "md5").takeIf { it.isNotBlank() }
-            ?: XmlUtils.extractXmlTag(msgInfo.content, "md5").takeIf { it.isNotBlank() }
-            ?: return false
+        val md5 = msgInfo.stickerMd5 ?: return false
         return WeMessageApi.sendEmojiByMd5(toUser, md5)
     }
 }
