@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
@@ -44,6 +45,7 @@ internal class HomeSidePanelState(
     private val profile: HomeSidePanelProfileLoader,
     private val weather: HomeSidePanelWeather,
     private val hitokoto: HomeSidePanelHitokoto,
+    private val walletBalance: HomeSidePanelWalletBalanceSource,
     private val location: HomeSidePanelLocation,
     private val scope: CoroutineScope,
     private val closePanel: ((() -> Unit)?) -> Unit,
@@ -84,6 +86,14 @@ internal class HomeSidePanelState(
 
     fun startPreload() {
         if (!started.compareAndSet(false, true)) return
+        scope.launch {
+            walletBalance.updates.collect { balanceFen ->
+                _uiState.update { state ->
+                    state.copy(wallet = state.wallet.copy(balanceFen = balanceFen))
+                }
+            }
+        }
+        refreshWalletBalance()
         scheduleIdentitySync(
             waitForChange = false,
             maxAttempts = INITIAL_STATUS_SYNC_ATTEMPTS,
@@ -103,6 +113,7 @@ internal class HomeSidePanelState(
 
     fun onPanelOpened() {
         resetWalletDisplay()
+        refreshWalletBalance()
         scheduleIdentitySync(
             waitForChange = false,
             maxAttempts = PANEL_OPEN_STATUS_SYNC_ATTEMPTS,
@@ -320,6 +331,10 @@ internal class HomeSidePanelState(
     fun close() {
         resetWalletDisplay()
         scope.coroutineContext.cancel()
+    }
+
+    private fun refreshWalletBalance() {
+        walletBalance.refresh()
     }
 
     private fun resetWalletDisplay() {

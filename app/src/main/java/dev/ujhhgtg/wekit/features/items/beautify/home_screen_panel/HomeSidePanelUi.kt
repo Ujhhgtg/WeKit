@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 import android.graphics.PorterDuff
 import android.widget.ImageView
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -30,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -563,18 +565,13 @@ private fun HomeSidePanelWalletCard(
                     tint = contentColor,
                 )
                 Text(
-                    "钱包",
+                    "当前余额",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = contentColor,
                 )
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    "当前余额",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = contentColor.copy(alpha = 0.7f),
-                )
                 Text(
                     text = wallet.displayBalance,
                     style = MaterialTheme.typography.displaySmall,
@@ -590,6 +587,10 @@ private fun HomeSidePanelWalletCard(
                 OutlinedButton(
                     onClick = { panelState.runShortcut(HomeSidePanelShortcut.SCAN) },
                     modifier = Modifier.weight(1f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary,
+                    ),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
                 ) {
                     Icon(

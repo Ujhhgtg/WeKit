@@ -30,6 +30,10 @@ import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.CustomViewPager
 import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -93,7 +97,41 @@ private fun homeSidePanelShouldReparentExternalChrome(
 
 @Suppress("DEPRECATION")
 @Feature(name = "主页侧滑面板", categories = ["界面美化"], description = "在微信主页添加一个左划侧栏面板 (负一屏)")
-object HomeSidePanel : SwitchFeature() {
+object HomeSidePanel : SwitchFeature(), IResolveDex {
+
+    private val classWalletCache by dexClass {
+        matcher {
+            className = "com.tencent.mm.wallet_core.model.m1"
+        }
+    }
+
+    private val classWalletPayPlugin by dexClass {
+        matcher {
+            className = "com.tencent.mm.plugin.wxpay.g"
+            usingEqStrings("MicroMsg.PluginWxPay")
+            addMethod {
+                returnType(classWalletCache.data.name)
+            }
+        }
+    }
+
+    private val methodWalletCacheRead by dexMethod {
+        matcher {
+            declaredClass = "com.tencent.mm.wallet_core.model.m1"
+            name = "i"
+            paramCount = 2
+            returnType = "java.lang.Object"
+        }
+    }
+
+    private val methodWalletCacheWrite by dexMethod {
+        matcher {
+            declaredClass = "com.tencent.mm.wallet_core.model.m1"
+            name = "j"
+            paramCount = 2
+            returnType = "void"
+        }
+    }
 
     private const val TAG = "HomeSidePanel"
     private const val LAUNCHER_BOTTOM_TAB_VIEW_CLASS = "com.tencent.mm.ui.LauncherUIBottomTabView"
@@ -106,6 +144,15 @@ object HomeSidePanel : SwitchFeature() {
     private val pendingHostCancel = ThreadLocal<PendingHostCancel?>()
 
     override fun onEnable() {
+        HomeSidePanelWalletBalanceSource.install {
+            readHomeSidePanelWalletBalance(
+                walletCacheReadMethod = methodWalletCacheRead.method,
+                walletPayPluginClass = classWalletPayPlugin.clazz,
+            )
+        }
+        methodWalletCacheWrite.hookAfter {
+            HomeSidePanelWalletBalanceSource.onCacheWrite(args[0], args[1])
+        }
         LauncherUI::class.reflekt().firstMethodOrNull {
             name = "enableEdge2Edge"
             parameters()
@@ -198,6 +245,7 @@ object HomeSidePanel : SwitchFeature() {
     override fun onDisable() {
         sessions.values.mapNotNull { it.get() }.forEach { it.detach() }
         sessions.clear()
+        HomeSidePanelWalletBalanceSource.clear()
     }
 
     private fun removeSessionsForActivity(activity: Activity) {
@@ -302,6 +350,7 @@ object HomeSidePanel : SwitchFeature() {
                 client = homeSidePanelHttpClient,
             ),
             hitokoto = HomeSidePanelHitokoto(homeSidePanelHttpClient),
+            walletBalance = HomeSidePanelWalletBalanceSource,
             location = HomeSidePanelLocation(cityIndex),
             scope = stateScope,
             closePanel = { afterClosed ->
