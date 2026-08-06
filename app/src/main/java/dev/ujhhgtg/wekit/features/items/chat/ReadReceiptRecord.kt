@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import java.net.URI
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -67,11 +68,17 @@ object ReadReceiptRecordCodec {
         val cutoff = nowMillis - retentionMillis
         val retained = LinkedHashMap<RecordKey, ReadReceiptRecord>()
         for (record in records) {
-            if (record.createdAtMillis < cutoff) continue
-            val key = RecordKey(record.id, record.wxId, record.backend, record.endpoint)
+            val normalized = normalize(record)
+            if (normalized.createdAtMillis < cutoff) continue
+            val key = RecordKey(
+                normalized.id,
+                normalized.wxId,
+                normalized.backend,
+                normalized.endpoint,
+            )
             val previous = retained[key]
-            if (previous == null || record.createdAtMillis > previous.createdAtMillis) {
-                retained[key] = record
+            if (previous == null || normalized.createdAtMillis > previous.createdAtMillis) {
+                retained[key] = normalized
             }
         }
         return retained.values.toSet()
@@ -89,8 +96,10 @@ object ReadReceiptRecordCodec {
                 val normalized = record.endpoint.trimEnd('/')
                 require(normalized.isNotBlank() && normalized.length <= MAX_ENDPOINT_LENGTH)
                 require(normalized == normalized.trim())
-                require(normalized.startsWith("http://") || normalized.startsWith("https://"))
                 require(normalized.none(Char::isWhitespace))
+                val uri = URI(normalized)
+                require(uri.scheme == "http" || uri.scheme == "https")
+                require(!uri.host.isNullOrEmpty())
                 normalized
             }
 

@@ -36,10 +36,48 @@ class ReadReceiptRecordTest {
     }
 
     @Test
-    fun `rejects malformed id wxId backend endpoint and timestamp`() {
+    fun `rejects malformed id`() {
         assertNull(
             ReadReceiptRecordCodec.decode(
                 "{\"version\":1,\"id\":\"not-hex\",\"wxId\":\"wxid\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
+            )
+        )
+    }
+
+    @Test
+    fun `rejects malformed wxId`() {
+        assertNull(
+            ReadReceiptRecordCodec.decode(
+                "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
+            )
+        )
+    }
+
+    @Test
+    fun `rejects malformed backend`() {
+        assertNull(
+            ReadReceiptRecordCodec.decode(
+                "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"backend\":\"UNKNOWN\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
+            )
+        )
+    }
+
+    @Test
+    fun `rejects malformed third party endpoints`() {
+        for (endpoint in listOf("http://", "https:///path", "https://?query")) {
+            assertNull(
+                ReadReceiptRecordCodec.decode(
+                    "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"$endpoint\",\"createdAtMillis\":1}"
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `rejects malformed timestamp`() {
+        assertNull(
+            ReadReceiptRecordCodec.decode(
+                "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"https://x\",\"createdAtMillis\":0}"
             )
         )
     }
@@ -63,17 +101,42 @@ class ReadReceiptRecordTest {
     }
 
     @Test
-    fun `deduplicates records by backend wxId id endpoint`() {
-        val record = ReadReceiptRecord(
+    fun `normalizes trailing slash before pruning and deduplication`() {
+        val canonical = ReadReceiptRecord(
+            "0123456789abcdef",
+            "wxid",
+            ReadReceiptBackend.THIRD_PARTY,
+            "https://receipts.example",
+            1_700_000_000_000,
+        )
+        val trailingSlash = canonical.copy(endpoint = "https://receipts.example/")
+        assertEquals(
+            setOf(canonical),
+            ReadReceiptRecordCodec.prune(
+                listOf(trailingSlash, canonical),
+                1_700_000_000_001,
+                Long.MAX_VALUE,
+            ),
+        )
+    }
+
+    @Test
+    fun `deduplicates identity with differing timestamps and keeps newest`() {
+        val older = ReadReceiptRecord(
             "0123456789abcdef",
             "wxid",
             ReadReceiptBackend.BUILT_IN,
             "builtin://local",
             1_700_000_000_000,
         )
+        val newer = older.copy(createdAtMillis = 1_700_000_000_001)
         assertEquals(
-            setOf(record),
-            ReadReceiptRecordCodec.prune(listOf(record, record), 1_700_000_000_001, Long.MAX_VALUE),
+            setOf(newer),
+            ReadReceiptRecordCodec.prune(
+                listOf(newer, older),
+                1_700_000_000_002,
+                Long.MAX_VALUE,
+            ),
         )
     }
 }
