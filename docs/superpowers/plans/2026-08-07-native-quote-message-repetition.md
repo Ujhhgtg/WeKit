@@ -4,7 +4,7 @@
 
 **Goal:** Preserve WeChat quote messages when `RepeatMessages` repeats them by using WeChat's native quote/text builder for both referenced-message sends and existing type-57 retransmission.
 
-**Architecture:** Extend `WeMessageApi` with server-ID and local-ID native quote-send operations. Resolve WeChat's stable native builder factory/executor from the `MsgRetransmitUI` type-57 branch, derive host-specific obfuscated descriptors from Dex metadata, and pass destination, title, scene, and source local ID/talker to the builder. Route `RepeatMessages` quotes through the server-ID operation first and the local-ID retransmission operation second; never hand-build or resend stored AppMsg XML.
+**Architecture:** Extend `WeMessageApi` with server-ID and local-ID native quote-send operations. Resolve WeChat's native send-builder factory by stable strings from the type-57 retransmit caller, then derive its builder/task descriptors from Dex metadata. Pass destination, title, scene, and source local ID/talker to the builder and return the native executor's Boolean result. Route `RepeatMessages` quotes through the server-ID operation first and the local-ID retransmission operation second; never hand-build or resend stored AppMsg XML.
 
 **Tech Stack:** Kotlin, Android reflection through `reflekt`, DexKit DSL and `IResolveDex`, WeChat native send CGI builder, MMKV-independent message APIs, `./x dex-test`, Gradle/Rust build through `./x`.
 
@@ -57,7 +57,7 @@
   ./x dex-test --apk ~/coding/wechat_8069.apk --output-dir dex-test-results/native-quote-plan-8069
   ```
 
-  Expected: the WeMessageApi delegates resolve without `UNEXPECTED_FAILURE`, `BLOCKED`, or `INCOMPLETE`. If the candidate matcher is ambiguous, tighten it with the anchored caller's invocation graph and the derived builder return descriptor; do not add `allowFailure` or weaken the signature.
+  Expected: the WeMessageApi delegates resolve without `UNEXPECTED_FAILURE`, `BLOCKED`, or `INCOMPLETE`. The matcher must be anchored by the retransmit caller's invocation graph and the derived builder return descriptor; do not add `allowFailure` or weaken the signature.
 
 - [ ] **Step 3: Implement a private native-send wrapper with the exact native call order.**
 
