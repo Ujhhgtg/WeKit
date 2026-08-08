@@ -4,6 +4,7 @@
 //!
 //!   configure            Regenerate wekit-native/.cargo/config.toml from the local NDK.
 //!   build [OPTIONS]      Build the project (default: full Android debug build via Gradle).
+//!   cloudflared-build    Build the embedded cloudflared bridge for Android.
 //!   zygisk <COMMAND>     Build, package, and install the Zygisk module.
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
@@ -34,6 +35,8 @@ const MIN_SDK: u32 = 28;
 /// Minimum NDK major version accepted by `configure`; the pinned NDK must be at least this new.
 const MIN_NDK_MAJOR: u32 = 29;
 
+const CLOUDFLARED_COMMIT: &str = "8679787525edc8575b2948a7c4a50b6292c6d426";
+
 // ── ABI table ─────────────────────────────────────────────────────────────────
 
 struct AbiSpec {
@@ -47,6 +50,12 @@ struct AbiSpec {
     /// Prefix used for `CC_`, `CXX_`, `AR_` keys in `.cargo/config.toml`.
     /// Matches the hardcoded strings in `ConfigureCargoTask.kt`.
     env_key: &'static str,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct GoAndroidTarget {
+    arch: &'static str,
+    arm: Option<&'static str>,
 }
 
 // Order matches the template in ConfigureCargoTask.kt so that
@@ -117,6 +126,9 @@ enum Cmd {
     /// Default: runs `./gradlew assembleDebug` (full Android + Rust via Gradle).
     /// Pass --native-only to compile only the Rust .so and copy it to jniLibs/.
     Build(BuildArgs),
+
+    /// Build the pinned cloudflared C bridge and copy it to jniLibs.
+    CloudflaredBuild(NativeArgs),
 
     /// Install and launch the app on a connected device or emulator.
     ///
@@ -353,6 +365,7 @@ fn main() -> Result<()> {
     match cli.command {
         Cmd::Configure => task_configure()?,
         Cmd::Build(args) => task_build(args)?,
+        Cmd::CloudflaredBuild(args) => task_build_cloudflared(&args.abis)?,
         Cmd::Run(args) => task_run(args)?,
         Cmd::Zygisk(args) => task_zygisk(args)?,
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
@@ -384,6 +397,10 @@ fn workspace_root() -> PathBuf {
 
 fn native_crate_dir(root: &Path) -> PathBuf {
     root.join("app/src/main/rust/wekit-native")
+}
+
+fn cloudflared_bridge_dir(root: &Path) -> PathBuf {
+    root.join("app/src/main/go/wekit-cloudflared")
 }
 
 fn jni_libs_dir(root: &Path) -> PathBuf {
@@ -421,6 +438,20 @@ fn resolve_abis<'a>(names: &[String]) -> Result<Vec<&'a AbiSpec>> {
                 })
         })
         .collect()
+}
+
+fn go_android_target(spec: &AbiSpec) -> GoAndroidTarget {
+    match spec.android_name {
+        "arm64-v8a" => GoAndroidTarget {
+            arch: "arm64",
+            arm: None,
+        },
+        "armeabi-v7a" => GoAndroidTarget {
+            arch: "arm",
+            arm: Some("7"),
+        },
+        name => unreachable!("unsupported Android ABI {name}"),
+    }
 }
 
 fn resolve_zygisk_abis<'a>(names: &[String]) -> Result<Vec<&'a ZygiskAbiSpec>> {
@@ -615,6 +646,7 @@ fn gradle_variant_task(verb: &str, flavor: Option<&Flavor>, release: bool) -> St
 /// Full Android build via the Gradle wrapper (native lib compiled first).
 fn task_build_android(args: &BuildArgs) -> Result<()> {
     task_configure()?;
+    task_build_cloudflared(&args.native.abis)?;
     task_build_native(&args.native.abis)?;
     let root = workspace_root();
     let gradle_task = gradle_variant_task("assemble", args.flavor.as_ref(), args.release);
@@ -625,6 +657,7 @@ fn task_build_android(args: &BuildArgs) -> Result<()> {
 /// Install the app on a connected device or emulator via the Gradle wrapper (native lib compiled first).
 fn task_run(args: RunArgs) -> Result<()> {
     task_configure()?;
+    task_build_cloudflared(&[])?;
     task_build_native(&[])?;
     let root = workspace_root();
     let gradle_task = gradle_variant_task("install", Some(&args.flavor), args.is_release());
@@ -669,6 +702,105 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+fn verify_cloudflared_pin(root: &Path) -> Result<()> {
+    let source = root.join("third_party/cloudflared");
+    if !source.join("go.mod").is_file() {
+        bail!(
+            "cloudflared source is not initialized at {}; run `git submodule update --init --recursive`",
+            source.display()
+        );
+    }
+    let output = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(&source)
+        .output()
+        .with_context(|| {
+            format!(
+                "failed to inspect cloudflared source at {}",
+                source.display()
+            )
+        })?;
+    if !output.status.success() {
+        bail!("could not resolve cloudflared source revision");
+    }
+    let actual = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    if actual != CLOUDFLARED_COMMIT {
+        bail!("cloudflared source revision is {actual}, expected pinned {CLOUDFLARED_COMMIT}");
+    }
+    Ok(())
+}
+
+fn task_build_cloudflared(abi_args: &[String]) -> Result<()> {
+    let root = workspace_root();
+    verify_cloudflared_pin(&root)?;
+    let bridge_dir = cloudflared_bridge_dir(&root);
+    let ndk_bin_dir = PathBuf::from(find_ndk_bin_dir(&root)?);
+    let abis = resolve_abis(abi_args)?;
+
+    for spec in abis {
+        let target = go_android_target(spec);
+        let cc = ndk_bin_dir.join(format!("{}{MIN_SDK}-clang", spec.clang_prefix));
+        if !cc.is_file() {
+            bail!("Android C compiler not found: {}", cc.display());
+        }
+
+        let build_dir = root.join("target/cloudflared").join(spec.android_name);
+        fs::create_dir_all(&build_dir)
+            .with_context(|| format!("could not create {}", build_dir.display()))?;
+        let so_src = build_dir.join("libwekit_cloudflared.so");
+        println!(
+            "cloudflared-build: {} (android/{})",
+            spec.android_name, target.arch
+        );
+        let mut command = Command::new("go");
+        command
+            .args([
+                "build",
+                "-mod=readonly",
+                "-buildmode=c-shared",
+                "-trimpath",
+                "-ldflags=-s -w",
+                "-o",
+            ])
+            .arg(&so_src)
+            .arg(".")
+            .current_dir(&bridge_dir)
+            .env("CGO_ENABLED", "1")
+            .env("GOOS", "android")
+            .env("GOARCH", target.arch)
+            .env("CC", &cc);
+        if let Some(goarm) = target.arm {
+            command.env("GOARM", goarm);
+        }
+        let status = command.status().with_context(|| {
+            format!(
+                "failed to spawn Go cloudflared build for {}",
+                spec.android_name
+            )
+        })?;
+        if !status.success() {
+            bail!(
+                "Go cloudflared build for {} exited with {status}",
+                spec.android_name
+            );
+        }
+
+        let so_dst_dir = jni_libs_dir(&root).join(spec.android_name);
+        fs::create_dir_all(&so_dst_dir)
+            .with_context(|| format!("could not create {}", so_dst_dir.display()))?;
+        let so_dst = so_dst_dir.join("libwekit_cloudflared.so");
+        fs::copy(&so_src, &so_dst).with_context(|| {
+            format!("could not copy {} → {}", so_src.display(), so_dst.display())
+        })?;
+        println!(
+            "cloudflared-build:  {} → {}",
+            so_src.display(),
+            so_dst.display()
+        );
+    }
     Ok(())
 }
 
@@ -1610,6 +1742,36 @@ mod tests {
             Cmd::Run(args) => args,
             _ => unreachable!(),
         }
+    }
+
+    #[test]
+    fn cloudflared_build_accepts_both_android_abis() {
+        let command = Cli::try_parse_from([
+            "xtask",
+            "cloudflared-build",
+            "--abi",
+            "arm64-v8a",
+            "--abi",
+            "armeabi-v7a",
+        ])
+        .unwrap()
+        .command;
+
+        let Cmd::CloudflaredBuild(args) = command else {
+            panic!("expected cloudflared-build command");
+        };
+        assert_eq!(args.abis, ["arm64-v8a", "armeabi-v7a"]);
+    }
+
+    #[test]
+    fn cloudflared_build_maps_android_abis_to_go_targets() {
+        let arm64 = go_android_target(&ABI_TABLE[0]);
+        assert_eq!(arm64.arch, "arm64");
+        assert_eq!(arm64.arm, None);
+
+        let arm32 = go_android_target(&ABI_TABLE[1]);
+        assert_eq!(arm32.arch, "arm");
+        assert_eq!(arm32.arm, Some("7"));
     }
 
     #[test]
