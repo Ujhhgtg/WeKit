@@ -3267,10 +3267,14 @@ dependencies = [
  "mp3lame-encoder",
  "pkg-config",
  "rasterlottie",
+ "serde",
+ "serde_json",
  "sha2",
  "silk-v3-sys",
  "symphonia",
+ "tokio",
  "webm-iterable",
+ "wekit-read-receipts-server",
 ]
 
 [[package]]

@@ -35,6 +35,14 @@ rasterlottie = { version = "0.2", default-features = false, features = [
 ] }
 gif = "0.14"
 webm-iterable = "0.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", default-features = false, features = [
+    "rt-multi-thread",
+    "sync",
+    "time",
+] }
+wekit-read-receipts-server = { path = "../../../../../services/read-receipts", default-features = false }
 
 [build-dependencies]
 bindgen = "0.72"

@@ -5,7 +5,16 @@ edition = "2024"
 
 [features]
 default = ["cli"]
-cli = ["dep:rustyline", "dep:tracing-subscriber"]
+cli = [
+    "dep:rustyline",
+    "dep:tracing-subscriber",
+    "libsql/remote",
+    "libsql/replication",
+    "libsql/sync",
+    "libsql/tls",
+    "tokio/rt-multi-thread",
+    "tokio/signal",
+]
 
 [[bin]]
 name = "wekit-read-receipts-server"
@@ -14,8 +23,13 @@ required-features = ["cli"]
 
 [dependencies]
 axum = { version = "0.8", features = ["macros"] }
-tokio = { version = "1.0", features = ["full"] }
-libsql = { version = "0.9" }
+tokio = { version = "1.0", default-features = false, features = [
+    "macros",
+    "net",
+    "rt",
+    "sync",
+] }
+libsql = { version = "0.9", default-features = false, features = ["core"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4" }
@@ -26,4 +40,8 @@ hex = "0.4"
 rustyline = { version = "18.0.1", optional = true }
 
 [dev-dependencies]
+tokio = { version = "1.0", default-features = false, features = [
+    "io-util",
+    "rt-multi-thread",
+] }
 tower = { version = "0.5", features = ["util"] }
