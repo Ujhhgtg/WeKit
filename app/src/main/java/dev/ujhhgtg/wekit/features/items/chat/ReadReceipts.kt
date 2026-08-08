@@ -42,11 +42,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.json.buildJsonObject
@@ -258,7 +259,7 @@ object ReadReceipts : ClickableFeature(),
     private val pollWake = Channel<Unit>(Channel.CONFLATED)
 
     @Volatile
-    private var pollingScope: CoroutineScope? = null
+    private var featureScope: CoroutineScope? = null
 
     @Volatile
     private var pollJob: Job? = null
@@ -352,7 +353,7 @@ object ReadReceipts : ClickableFeature(),
 
     override fun onEnable() {
         loadRecords()
-        pollingScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        featureScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
         WeChatInputBarMenuApi.methodSendMessage.hookBefore(100) {
             val chatFooter = thisObject!!.reflekt().firstField {
@@ -361,12 +362,12 @@ object ReadReceipts : ClickableFeature(),
 
             val text = chatFooter.lastText
             if (!text.startsWith(prefix)) return@hookBefore
+            result = null
 
             val (backend, endpointError) = resolveBackend()
             if (backend == null) {
                 runtimeError = endpointError!!
                 showToast(chatFooter.context, "错误: $endpointError")
-                result = null
                 return@hookBefore
             }
 
@@ -375,16 +376,6 @@ object ReadReceipts : ClickableFeature(),
             // Assigned now (epoch millis) so two identical-text messages get distinct ids.
             val createTime = System.currentTimeMillis()
             val id = computeId(selfWxId, actualText, createTime)
-
-            val registrationError = runBlocking {
-                registerMessage(backend.requestEndpoint, selfWxId, actualText, createTime)
-            }
-            if (registrationError != null) {
-                runtimeError = registrationError
-                showToast(chatFooter.context, "错误: $registrationError")
-                result = null
-                return@hookBefore
-            }
 
             val pixelUrl = "${backend.pixelEndpoint}/pixel?wxId=$selfWxId&amp;id=$id"
 
@@ -418,27 +409,43 @@ object ReadReceipts : ClickableFeature(),
             </msg>
             """.trimIndent()
 
-            if (!WeMessageApi.sendXmlAppMsg(target, xml)) {
-                runtimeError = "消息发送失败"
-                showToast(chatFooter.context, "错误: 消息发送失败")
-                result = null
-                return@hookBefore
-            }
-            insertRecord(
-                ReadReceiptRecord(
-                    id = id,
-                    wxId = selfWxId,
-                    backend = backend.backend,
-                    endpoint = backend.recordEndpoint,
-                    createdAtMillis = createTime,
-                )
+            val record = ReadReceiptRecord(
+                id = id,
+                wxId = selfWxId,
+                backend = backend.backend,
+                endpoint = backend.recordEndpoint,
+                createdAtMillis = createTime,
             )
-            runtimeError = null
-            showToast(chatFooter.context, "已发送附带已读追踪的消息")
+            featureScope!!.launch {
+                val registrationError = registerMessage(
+                    backend.requestEndpoint,
+                    selfWxId,
+                    actualText,
+                    createTime,
+                )
+                if (registrationError != null) {
+                    withContext(Dispatchers.Main.immediate) {
+                        if (!ReadReceipts.isActive) return@withContext
+                        runtimeError = registrationError
+                        showToast(chatFooter.context, "错误: $registrationError")
+                    }
+                    return@launch
+                }
 
-            chatFooter.lastText = ""
-
-            result = null
+                withContext(Dispatchers.Main.immediate) {
+                    coroutineContext.ensureActive()
+                    if (!ReadReceipts.isActive) return@withContext
+                    if (!WeMessageApi.sendXmlAppMsg(target, xml)) {
+                        runtimeError = "消息发送失败"
+                        showToast(chatFooter.context, "错误: 消息发送失败")
+                        return@withContext
+                    }
+                    insertRecord(record)
+                    runtimeError = null
+                    if (chatFooter.lastText == text) chatFooter.lastText = ""
+                    showToast(chatFooter.context, "已发送附带已读追踪的消息")
+                }
+            }
         }
 
         WeChatMessageViewApi.addListener(this)
@@ -452,8 +459,8 @@ object ReadReceipts : ClickableFeature(),
         registrationCalls.clear()
         pollJob?.cancel()
         pollJob = null
-        pollingScope?.cancel()
-        pollingScope = null
+        featureScope?.cancel()
+        featureScope = null
         activeViews.clear()
         counts.clear()
         backoffs.clear()
@@ -600,7 +607,7 @@ object ReadReceipts : ClickableFeature(),
     // ── Poll loop ──────────────────────────────────────────────────────────────
 
     private fun ensurePolling() {
-        val scope = pollingScope ?: return
+        val scope = featureScope ?: return
         if (pollJob?.isActive == true) return
         pollJob = scope.launch {
             try {
