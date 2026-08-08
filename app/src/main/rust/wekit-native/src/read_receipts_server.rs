@@ -15,8 +15,10 @@ use wekit_read_receipts_server::{
 use crate::{loge, logi};
 
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(5);
+#[cfg(not(test))]
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
-const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(1);
+#[cfg(test)]
+const SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(50);
 const MAX_ERROR_CHARS: usize = 256;
 
 const DIFFERENT_CONFIG_ERROR: &str =
@@ -235,8 +237,6 @@ pub fn start(database_path: &str, port: u16) -> Result<BoundServer, String> {
                     thread_startup,
                     startup_sender,
                 );
-                #[cfg(test)]
-                wait_on_test_gate(&TEST_BEFORE_COMPLETE_GATE);
                 finish_owner(generation, terminal_status);
             });
         match server_thread {
@@ -360,16 +360,19 @@ fn run_server(
         route_profile: RouteProfile::Embedded,
     };
     #[cfg(test)]
+    spawn_test_runtime_task(&runtime);
+    #[cfg(test)]
     wait_on_test_gate(&TEST_BEFORE_BIND_GATE);
     let server = match runtime.block_on(bind_and_serve(server_config, future::pending())) {
         Ok(server) => server,
         Err(error) => {
             let message = server_error_message(&error, "startup");
             loge!("{message}");
-            runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
             let result = startup.publish(Err(message));
             let _ = startup_sender.send(result.clone());
-            return terminal_startup_failure(result);
+            let terminal_status = terminal_startup_failure(result);
+            drop(runtime);
+            return terminal_status;
         }
     };
     let bound_server = BoundServer {
@@ -411,7 +414,13 @@ fn shutdown_server(
 ) -> ServerStatus {
     let result = runtime.block_on(async {
         let _ = shutdown_receiver.await;
-        tokio::time::timeout(SHUTDOWN_TIMEOUT, server.shutdown()).await
+        tokio::time::timeout(SHUTDOWN_TIMEOUT, async {
+            let result = server.shutdown().await;
+            #[cfg(test)]
+            await_test_shutdown_gate().await;
+            result
+        })
+        .await
     });
     let completion = match result {
         Ok(Ok(())) => Ok(()),
@@ -421,12 +430,14 @@ fn shutdown_server(
             Err(message)
         }
         Err(_) => {
+            #[cfg(test)]
+            TEST_SHUTDOWN_TIMED_OUT.store(true, std::sync::atomic::Ordering::SeqCst);
             let message = bounded_error("read receipts server shutdown timed out");
             loge!("{message}");
             Err(message)
         }
     };
-    runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
+    drop(runtime);
     match completion {
         Ok(()) => ServerStatus::Stopped,
         Err(error) => ServerStatus::Failed { error },
@@ -516,10 +527,15 @@ type TestGate = (Arc<std::sync::Barrier>, Arc<std::sync::Barrier>);
 #[cfg(test)]
 static TEST_BEFORE_BIND_GATE: Mutex<Option<TestGate>> = Mutex::new(None);
 #[cfg(test)]
-static TEST_BEFORE_COMPLETE_GATE: Mutex<Option<TestGate>> = Mutex::new(None);
+static TEST_RUNTIME_TASK_GATE: Mutex<Option<TestGate>> = Mutex::new(None);
+#[cfg(test)]
+static TEST_SHUTDOWN_TIMEOUT_GATE: Mutex<Option<TestGate>> = Mutex::new(None);
 #[cfg(test)]
 static TEST_STARTUP_WAITERS: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(0);
+#[cfg(test)]
+static TEST_SHUTDOWN_TIMED_OUT: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 #[cfg(test)]
 fn wait_on_test_gate(gate: &Mutex<Option<TestGate>>) {
@@ -535,8 +551,40 @@ fn set_test_before_bind_gate(gate: Option<TestGate>) {
 }
 
 #[cfg(test)]
-fn set_test_before_complete_gate(gate: Option<TestGate>) {
-    *TEST_BEFORE_COMPLETE_GATE.lock().unwrap() = gate;
+fn set_test_runtime_task_gate(gate: Option<TestGate>) {
+    *TEST_RUNTIME_TASK_GATE.lock().unwrap() = gate;
+}
+
+#[cfg(test)]
+fn spawn_test_runtime_task(runtime: &tokio::runtime::Runtime) {
+    if let Some((entered, release)) = TEST_RUNTIME_TASK_GATE.lock().unwrap().clone() {
+        runtime.spawn_blocking(move || {
+            entered.wait();
+            release.wait();
+        });
+    }
+}
+
+#[cfg(test)]
+fn set_test_shutdown_timeout_gate(gate: Option<TestGate>) {
+    TEST_SHUTDOWN_TIMED_OUT.store(false, std::sync::atomic::Ordering::SeqCst);
+    *TEST_SHUTDOWN_TIMEOUT_GATE.lock().unwrap() = gate;
+}
+
+#[cfg(test)]
+async fn await_test_shutdown_gate() {
+    if let Some((entered, release)) = TEST_SHUTDOWN_TIMEOUT_GATE.lock().unwrap().clone() {
+        let _ = tokio::task::spawn_blocking(move || {
+            entered.wait();
+            release.wait();
+        })
+        .await;
+    }
+}
+
+#[cfg(test)]
+fn test_shutdown_timed_out() -> bool {
+    TEST_SHUTDOWN_TIMED_OUT.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 #[cfg(test)]
@@ -639,6 +687,14 @@ mod tests {
         }
     }
 
+    fn wait_until_shutdown_timed_out() {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !test_shutdown_timed_out() {
+            assert!(Instant::now() < deadline, "shutdown did not time out");
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+
     #[test]
     fn rejects_relative_database_paths() {
         let _guard = TEST_LOCK.lock().unwrap();
@@ -690,20 +746,21 @@ mod tests {
         let port = occupied.local_addr().unwrap().port();
         let before_bind_entered = Arc::new(Barrier::new(2));
         let before_bind_release = Arc::new(Barrier::new(2));
-        let before_complete_entered = Arc::new(Barrier::new(2));
-        let before_complete_release = Arc::new(Barrier::new(2));
+        let runtime_task_entered = Arc::new(Barrier::new(2));
+        let runtime_task_release = Arc::new(Barrier::new(2));
         set_test_before_bind_gate(Some((
             Arc::clone(&before_bind_entered),
             Arc::clone(&before_bind_release),
         )));
-        set_test_before_complete_gate(Some((
-            Arc::clone(&before_complete_entered),
-            Arc::clone(&before_complete_release),
+        set_test_runtime_task_gate(Some((
+            Arc::clone(&runtime_task_entered),
+            Arc::clone(&runtime_task_release),
         )));
         let initial_generation = lifecycle_generation();
 
         let first_path = database_path.clone();
         let first = thread::spawn(move || start(&first_path, port));
+        runtime_task_entered.wait();
         before_bind_entered.wait();
         let second_path = database_path.clone();
         let second = thread::spawn(move || start(&second_path, port));
@@ -713,18 +770,56 @@ mod tests {
         let first_error = first.join().unwrap().unwrap_err();
         let second_error = second.join().unwrap().unwrap_err();
         assert_eq!(second_error, first_error);
-        before_complete_entered.wait();
         assert_eq!(start(&database_path, port), Err(first_error));
         assert_eq!(lifecycle_generation(), initial_generation.wrapping_add(1));
         assert_eq!(status(), ServerStatus::Starting);
 
-        before_complete_release.wait();
+        runtime_task_release.wait();
         wait_until_failed();
         set_test_before_bind_gate(None);
-        set_test_before_complete_gate(None);
+        set_test_runtime_task_gate(None);
         drop(occupied);
         let restarted = start(&database_path, port).unwrap();
         assert_eq!(restarted.local_addr().port(), port);
+        stop();
+        wait_until_stopped();
+    }
+
+    #[test]
+    fn timed_out_shutdown_stays_nonrestartable_until_runtime_work_finishes() {
+        let _guard = TEST_LOCK.lock().unwrap();
+        let directory = TestDirectory::new();
+        let database_path = directory.database_path("read_receipts.db");
+        let database_path = database_path.to_str().unwrap();
+        let server = start(database_path, 0).unwrap();
+        let shutdown_entered = Arc::new(Barrier::new(2));
+        let shutdown_release = Arc::new(Barrier::new(2));
+        set_test_shutdown_timeout_gate(Some((
+            Arc::clone(&shutdown_entered),
+            Arc::clone(&shutdown_release),
+        )));
+
+        let stop_started = Instant::now();
+        stop();
+        assert!(stop_started.elapsed() < Duration::from_millis(100));
+        shutdown_entered.wait();
+        wait_until_shutdown_timed_out();
+        assert_eq!(
+            status(),
+            ServerStatus::Stopping {
+                port: Some(server.local_addr().port())
+            }
+        );
+        assert_eq!(
+            start(database_path, 0),
+            Err("read receipts server is stopping".to_owned())
+        );
+
+        shutdown_release.wait();
+        wait_until_failed();
+        set_test_shutdown_timeout_gate(None);
+        let restarted = start(database_path, 0).unwrap();
+        assert_ne!(restarted.local_addr().port(), 0);
         stop();
         wait_until_stopped();
     }
