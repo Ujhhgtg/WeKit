@@ -58,6 +58,19 @@ struct GoAndroidTarget {
     arm: Option<&'static str>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ApkNativeBuildStep {
+    Configure,
+    Cloudflared,
+    WeKitNative,
+}
+
+const APK_NATIVE_BUILD_STEPS: &[ApkNativeBuildStep] = &[
+    ApkNativeBuildStep::Configure,
+    ApkNativeBuildStep::Cloudflared,
+    ApkNativeBuildStep::WeKitNative,
+];
+
 // Order matches the template in ConfigureCargoTask.kt so that
 // `cargo xtask configure` and the Gradle task produce identical output.
 static ABI_TABLE: &[AbiSpec] = &[
@@ -645,9 +658,7 @@ fn gradle_variant_task(verb: &str, flavor: Option<&Flavor>, release: bool) -> St
 
 /// Full Android build via the Gradle wrapper (native lib compiled first).
 fn task_build_android(args: &BuildArgs) -> Result<()> {
-    task_configure()?;
-    task_build_cloudflared(&args.native.abis)?;
-    task_build_native(&args.native.abis)?;
+    task_prepare_apk_native_inputs(&args.native.abis)?;
     let root = workspace_root();
     let gradle_task = gradle_variant_task("assemble", args.flavor.as_ref(), args.release);
     println!("build: ./gradlew {gradle_task}");
@@ -656,13 +667,26 @@ fn task_build_android(args: &BuildArgs) -> Result<()> {
 
 /// Install the app on a connected device or emulator via the Gradle wrapper (native lib compiled first).
 fn task_run(args: RunArgs) -> Result<()> {
-    task_configure()?;
-    task_build_cloudflared(&[])?;
-    task_build_native(&[])?;
+    task_prepare_apk_native_inputs(&[])?;
     let root = workspace_root();
     let gradle_task = gradle_variant_task("install", Some(&args.flavor), args.is_release());
     println!("run: ./gradlew {gradle_task}");
     run_gradlew(&[&gradle_task], &root)
+}
+
+fn apk_native_build_steps() -> &'static [ApkNativeBuildStep] {
+    APK_NATIVE_BUILD_STEPS
+}
+
+fn task_prepare_apk_native_inputs(abi_args: &[String]) -> Result<()> {
+    for step in apk_native_build_steps() {
+        match step {
+            ApkNativeBuildStep::Configure => task_configure()?,
+            ApkNativeBuildStep::Cloudflared => task_build_cloudflared(abi_args)?,
+            ApkNativeBuildStep::WeKitNative => task_build_native(abi_args)?,
+        }
+    }
+    Ok(())
 }
 
 /// Native-only build: cargo build + copy .so to jniLibs/.
@@ -713,9 +737,13 @@ fn verify_cloudflared_pin(root: &Path) -> Result<()> {
             source.display()
         );
     }
+    verify_cloudflared_checkout(&source, CLOUDFLARED_COMMIT)
+}
+
+fn cloudflared_git_output(source: &Path, args: &[&str]) -> Result<String> {
     let output = Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(&source)
+        .args(args)
+        .current_dir(source)
         .output()
         .with_context(|| {
             format!(
@@ -724,11 +752,25 @@ fn verify_cloudflared_pin(root: &Path) -> Result<()> {
             )
         })?;
     if !output.status.success() {
-        bail!("could not resolve cloudflared source revision");
+        bail!("`git {}` failed in {}", args.join(" "), source.display());
     }
-    let actual = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    if actual != CLOUDFLARED_COMMIT {
-        bail!("cloudflared source revision is {actual}, expected pinned {CLOUDFLARED_COMMIT}");
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
+fn verify_cloudflared_checkout(source: &Path, expected_commit: &str) -> Result<()> {
+    let actual = cloudflared_git_output(source, &["rev-parse", "HEAD"])?;
+    if actual != expected_commit {
+        bail!("cloudflared source revision is {actual}, expected pinned {expected_commit}");
+    }
+
+    let changes = cloudflared_git_output(
+        source,
+        &["status", "--porcelain=v1", "--untracked-files=all"],
+    )?;
+    if !changes.is_empty() {
+        bail!(
+            "cloudflared source checkout is not clean; remove tracked or non-ignored untracked changes before building:\n{changes}"
+        );
     }
     Ok(())
 }
@@ -1053,8 +1095,7 @@ fn task_zygisk_build(args: &ZygiskBuildArgs) -> Result<PathBuf> {
         //
         // Both ABIs unconditionally: the module payload requires a universal APK (see
         // `resolve_zygisk_payload_apk`), so a single-ABI build would be rejected later anyway.
-        task_configure()?;
-        task_build_native(&[])?;
+        task_prepare_apk_native_inputs(&[])?;
 
         let gradle_task = gradle_variant_task(
             "assemble",
@@ -1721,6 +1762,7 @@ fn run_cmd(program: &str, args: &[&str], cwd: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     const VERSION_CATALOG_PATH: &str = "gradle/libs.versions.toml";
 
@@ -1742,6 +1784,71 @@ mod tests {
             Cmd::Run(args) => args,
             _ => unreachable!(),
         }
+    }
+
+    struct TestGitRepo {
+        path: PathBuf,
+        head: String,
+    }
+
+    impl Drop for TestGitRepo {
+        fn drop(&mut self) {
+            fs::remove_dir_all(&self.path).unwrap();
+        }
+    }
+
+    fn test_git_repo() -> TestGitRepo {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+        let path = env::temp_dir().join(format!(
+            "wekit-cloudflared-pin-test-{}-{}",
+            std::process::id(),
+            NEXT_ID.fetch_add(1, Ordering::Relaxed),
+        ));
+        fs::create_dir(&path).unwrap();
+        for args in [
+            vec!["init", "-q"],
+            vec!["config", "user.name", "WeKit Test"],
+            vec!["config", "user.email", "wekit-test@example.invalid"],
+        ] {
+            assert!(
+                Command::new("git")
+                    .args(args)
+                    .current_dir(&path)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        fs::write(path.join("go.mod"), "module example.invalid/pinned\n").unwrap();
+        fs::write(path.join(".gitignore"), "ignored-build/\n").unwrap();
+        assert!(
+            Command::new("git")
+                .args(["add", "go.mod", ".gitignore"])
+                .current_dir(&path)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            Command::new("git")
+                .args(["commit", "-q", "-m", "pin"])
+                .current_dir(&path)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let head = String::from_utf8(
+            Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(&path)
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+        .trim()
+        .to_owned();
+        TestGitRepo { path, head }
     }
 
     #[test]
@@ -1772,6 +1879,65 @@ mod tests {
         let arm32 = go_android_target(&ABI_TABLE[1]);
         assert_eq!(arm32.arch, "arm");
         assert_eq!(arm32.arm, Some("7"));
+    }
+
+    #[test]
+    fn apk_native_build_plan_refreshes_cloudflared_before_wekit_native() {
+        assert_eq!(
+            apk_native_build_steps(),
+            &[
+                ApkNativeBuildStep::Configure,
+                ApkNativeBuildStep::Cloudflared,
+                ApkNativeBuildStep::WeKitNative,
+            ],
+        );
+    }
+
+    #[test]
+    fn cloudflared_checkout_accepts_clean_pinned_revision() {
+        let repo = test_git_repo();
+        verify_cloudflared_checkout(&repo.path, &repo.head).unwrap();
+    }
+
+    #[test]
+    fn cloudflared_checkout_rejects_wrong_revision() {
+        let repo = test_git_repo();
+        let error =
+            verify_cloudflared_checkout(&repo.path, "0000000000000000000000000000000000000000")
+                .unwrap_err();
+        assert!(error.to_string().contains("expected pinned"));
+    }
+
+    #[test]
+    fn cloudflared_checkout_rejects_tracked_changes() {
+        let repo = test_git_repo();
+        fs::write(
+            repo.path.join("go.mod"),
+            "module example.invalid/modified\n",
+        )
+        .unwrap();
+        let error = verify_cloudflared_checkout(&repo.path, &repo.head).unwrap_err();
+        assert!(error.to_string().contains("not clean"));
+    }
+
+    #[test]
+    fn cloudflared_checkout_rejects_untracked_go_source() {
+        let repo = test_git_repo();
+        fs::write(repo.path.join("injected.go"), "package injected\n").unwrap();
+        let error = verify_cloudflared_checkout(&repo.path, &repo.head).unwrap_err();
+        assert!(error.to_string().contains("injected.go"));
+    }
+
+    #[test]
+    fn cloudflared_checkout_allows_ignored_build_artifacts() {
+        let repo = test_git_repo();
+        fs::create_dir(repo.path.join("ignored-build")).unwrap();
+        fs::write(
+            repo.path.join("ignored-build/generated.go"),
+            "package ignored\n",
+        )
+        .unwrap();
+        verify_cloudflared_checkout(&repo.path, &repo.head).unwrap();
     }
 
     #[test]

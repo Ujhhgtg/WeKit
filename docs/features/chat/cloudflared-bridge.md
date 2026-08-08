@@ -3,10 +3,10 @@
 ## Scope
 
 Task 8 proves that WeKit can embed Cloudflare's official Go tunnel transport as a separate Android
-shared library. The feasibility proof supports one Quick Tunnel session per process, forwarding to
-an HTTP or HTTPS loopback origin. A second session fails explicitly instead of reusing upstream
-process-global metric collectors; repeatable Android lifecycle support remains Task 9 work. This
-task does not add the Android foreground service, controller, or JNI runtime consumer.
+shared library. The feasibility proof supports repeated Quick Tunnel sessions, forwarding to an
+HTTP or HTTPS loopback origin. It owns and terminates each upstream observer dispatcher and gives
+each supervisor session an isolated metrics registry. This task does not add the Android foreground
+service, controller, or JNI runtime consumer.
 
 The token, browser-login, and existing-tunnel C symbols are present so consumers can compile
 against a stable ABI, but they deliberately return `WEKIT_TUNNEL_UNSUPPORTED` / `-2` in this
@@ -29,7 +29,8 @@ hostname configured by the user in Cloudflare.
 
 The bridge module repeats cloudflared's pinned `quic-go` and `urfave/cli` replacements because Go
 does not inherit replacements from dependency modules. xtask refuses to build if the submodule
-HEAD differs from the full pinned commit.
+HEAD differs from the full pinned commit or the checkout contains tracked or non-ignored untracked
+changes. Ignored generated artifacts do not invalidate the pin.
 
 cloudflared's Apache-2.0 `LICENSE` is in the submodule. Upstream does not ship a `NOTICE` file.
 The license and NOTICE files for packages linked into the bridge are retained under
@@ -46,11 +47,19 @@ does not parse CLI arguments, start the updater, install OS signal handlers, ini
 start diagnostic/readiness/metrics listeners, or launch a desktop browser. Upstream internal
 Prometheus collectors remain linked because the transport uses them, but no listener exposes them.
 
-Each public handle owns its cancellation context and wait group. `wekit_tunnel_stop` cancels the
-context, waits for the upstream supervisor to exit, emits the stopped callback, unregisters the
-handle, and frees its opaque C allocation. Callbacks contain only a numeric status, the bounded
-public URL (maximum 2048 bytes), and a bounded/redacted error (maximum 512 bytes). Quick credential
-fields are never included.
+Each public handle owns its cancellation context, worker wait group, and single-consumer callback
+queue. Producers never call foreign callbacks directly. An external `wekit_tunnel_stop` cancels
+the context, joins every producer, drains and joins callback dispatch, unregisters the handle, and
+then frees its opaque C allocation. If a callback calls stop reentrantly, callback-scope TLS avoids
+self-deadlock and handle release is deferred until that callback returns. Callbacks contain only a
+numeric status, the bounded public URL (maximum 2048 bytes), and a bounded/redacted error (maximum
+512 bytes). Quick credential fields are never included.
+
+cloudflared's `connection.Observer` has no public stop API. The bridge registers a first per-session
+sink that owns the dispatcher and terminates it after the supervisor exits. cloudflared also creates
+QUIC v3 collectors through Prometheus's process default during supervisor construction; the bridge
+temporarily installs a private session registry under a construction mutex and immediately restores
+the original process defaults. No metrics listener is created.
 
 ## C ABI
 
@@ -108,8 +117,9 @@ WEKIT_CLOUDFLARED_INTEGRATION=1 go test -v -count=1 -timeout 5m \
   ./app/src/main/go/wekit-cloudflared
 ```
 
-It creates a temporary loopback HTTP origin, obtains a real `trycloudflare.com` hostname, waits for
-the connected callback, verifies a public HTTPS request reaches that origin, stops the handle,
-checks the stopped callback, and checks for leaked goroutines. The verifier uses public DNS
-directly because the development host's configured system resolver filters newly allocated Quick
-Tunnel hostnames.
+It runs two sessions sequentially in one process. Each session creates a temporary loopback HTTP
+origin, obtains a real `trycloudflare.com` hostname, waits for the connected callback, verifies a
+public HTTPS request reaches that origin, stops the handle, and checks the stopped callback. Leak
+accounting begins before the first observer is created and covers both sessions. The verifier uses
+public DNS directly because the development host's configured system resolver filters newly
+allocated Quick Tunnel hostnames.

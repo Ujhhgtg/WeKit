@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -176,6 +177,146 @@ func TestStopDuringCredentialRequestDoesNotReportFailure(t *testing.T) {
 	}
 	if last := events[len(events)-1]; last.Status != statusStopped {
 		t.Fatalf("last event = %#v, want stopped", last)
+	}
+}
+
+func TestExternalStopWaitsForCallbackAndClosesDispatch(t *testing.T) {
+	callbackEntered := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	callbackReturned := make(chan struct{})
+	var callbackOnce sync.Once
+	var callbackInvocations atomic.Int32
+	callback := func(event bridgeEvent) {
+		if event.Status != statusConnected {
+			return
+		}
+		callbackInvocations.Add(1)
+		callbackOnce.Do(func() {
+			close(callbackEntered)
+			<-releaseCallback
+			close(callbackReturned)
+		})
+	}
+	run := func(ctx context.Context, _ string, quick quickTunnel, observer tunnelEventObserver) error {
+		observer.connected(quick.URL)
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	handle := startQuickTunnel(
+		"http://127.0.0.1:8080",
+		callback,
+		func(context.Context) (quickTunnel, error) {
+			return quickTunnel{URL: "https://example.trycloudflare.com", Credentials: testCredentials()}, nil
+		},
+		run,
+	)
+	<-callbackEntered
+
+	stopReturned := make(chan struct{})
+	go func() {
+		handle.stop()
+		close(stopReturned)
+	}()
+	select {
+	case <-stopReturned:
+		t.Fatal("external stop returned while a callback still owned user state")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(releaseCallback)
+	select {
+	case <-callbackReturned:
+	case <-time.After(time.Second):
+		t.Fatal("callback did not return")
+	}
+	select {
+	case <-stopReturned:
+	case <-time.After(time.Second):
+		t.Fatal("external stop did not drain callback dispatch")
+	}
+
+	handle.publish(bridgeEvent{Status: statusConnected, URL: "https://late.trycloudflare.com"})
+	time.Sleep(20 * time.Millisecond)
+	if got := callbackInvocations.Load(); got != 1 {
+		t.Fatalf("callback invocations after stop = %d, want 1", got)
+	}
+}
+
+func TestStopFromConnectedCallbackDoesNotDeadlock(t *testing.T) {
+	handleAssigned := make(chan struct{})
+	stopReturned := make(chan int, 1)
+	var handle *tunnelHandle
+	callback := func(event bridgeEvent) {
+		if event.Status == statusConnected {
+			<-handleAssigned
+			stopReturned <- handle.stopFromCallback()
+		}
+	}
+	run := func(ctx context.Context, _ string, quick quickTunnel, observer tunnelEventObserver) error {
+		observer.connected(quick.URL)
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	handle = startQuickTunnel(
+		"http://127.0.0.1:8080",
+		callback,
+		func(context.Context) (quickTunnel, error) {
+			return quickTunnel{URL: "https://example.trycloudflare.com", Credentials: testCredentials()}, nil
+		},
+		run,
+	)
+	close(handleAssigned)
+
+	select {
+	case result := <-stopReturned:
+		if result != resultOK {
+			t.Fatalf("reentrant stop result = %d, want %d", result, resultOK)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("stop called from connected callback deadlocked")
+	}
+	select {
+	case <-handle.callbacksDone():
+	case <-time.After(time.Second):
+		t.Fatal("callback dispatcher did not terminate after reentrant stop returned")
+	}
+}
+
+func TestLoginCallbackUsesOwnedDispatcher(t *testing.T) {
+	handle := newTunnelHandle(nil)
+	callbackEntered := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	beginReturned := make(chan int, 1)
+	go func() {
+		beginReturned <- handle.beginLogin(func(bridgeEvent) {
+			close(callbackEntered)
+			<-releaseCallback
+		})
+	}()
+	<-callbackEntered
+
+	select {
+	case result := <-beginReturned:
+		if result != resultUnsupported {
+			t.Fatalf("begin login result = %d, want %d", result, resultUnsupported)
+		}
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("begin login executed its callback inline")
+	}
+	stopReturned := make(chan struct{})
+	go func() {
+		handle.stop()
+		close(stopReturned)
+	}()
+	select {
+	case <-stopReturned:
+		t.Fatal("stop returned while login callback was active")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(releaseCallback)
+	select {
+	case <-stopReturned:
+	case <-time.After(time.Second):
+		t.Fatal("stop did not drain login callback")
 	}
 }
 

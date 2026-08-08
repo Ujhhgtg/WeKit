@@ -40,9 +40,7 @@ readiness, or metrics listeners, or launch a browser.
 
 Quick Tunnel is the only functioning connection mode in this milestone. Token start, browser login,
 and existing-tunnel selection expose the stable ABI but return explicit `UNSUPPORTED` state/result;
-they cannot report fake connector success and token input is never copied into Go memory. The proof
-permits one Quick Tunnel session per process because upstream transport metrics use process-global
-collectors. Repeatable lifecycle and authenticated flow are Task 9 work.
+they cannot report fake connector success and token input is never copied into Go memory.
 
 ## TDD and implementation evidence
 
@@ -56,6 +54,32 @@ collectors. Repeatable lifecycle and authenticated flow are Task 9 work.
   implementing `cloudflared-build`.
 - A stop-during-credential-request test initially observed a false `FAILED` callback after
   cancellation. Cancellation is now classified as a normal stop and the regression test passes.
+
+## Formal review hardening
+
+The follow-up lifecycle/build review was implemented as a focused Task 8 fix:
+
+- Every callback now runs through an owned per-handle queue. External stop first joins all event
+  producers, then drains and joins callback dispatch before freeing the opaque handle, so callback
+  `user` state is quiescent on return.
+- C callback scope is tracked with thread-local state. A callback may call `wekit_tunnel_stop`
+  without waiting on its own dispatcher; handle unregister/free runs only after that callback has
+  returned. A bounded Go regression and a compiled C ABI harness both returned without deadlock.
+- The package-init observer and global one-session guard were removed. Every session creates an
+  upstream observer with a first owned sink that explicitly terminates its otherwise-infinite
+  dispatcher after supervisor shutdown. Leak accounting begins before observer creation.
+- cloudflared constructs QUIC v3 metrics through Prometheus's process default on every supervisor.
+  Supervisor construction now runs under a short mutex with a private per-session registry and
+  restores both process defaults immediately. This made two real sessions in one process pass.
+- Normal APK build, run, and zygisk APK assembly now use the same ordered native-input plan:
+  configure, cloudflared dual-ABI build, then WeKit Rust native build.
+- The source-pin gate now requires both the exact commit and a clean `git status --porcelain` with
+  all non-ignored untracked files included. Temp-repository tests cover clean, wrong revision,
+  tracked modification, untracked Go source, and permitted ignored build artifacts.
+
+RED evidence included the missing callback lifecycle APIs, inline login callback timeout, missing
+xtask plan/pin helpers, and a real second Quick Tunnel panic from duplicate QUIC metric collector
+registration. All corresponding focused tests are green after the changes.
 
 ## Verification evidence
 
@@ -72,14 +96,17 @@ Real public integration gate against the pinned dependency graph:
 $ WEKIT_CLOUDFLARED_INTEGRATION=1 go test -v -count=1 -timeout 5m \
     -run TestRealQuickTunnelForwardsAndStopsWithoutLeaking \
     ./app/src/main/go/wekit-cloudflared
---- PASS: TestRealQuickTunnelForwardsAndStopsWithoutLeaking (15.12s)
+--- PASS: TestRealQuickTunnelForwardsAndStopsWithoutLeaking (37.12s)
+    --- PASS: .../session-1 (17.70s)
+    --- PASS: .../session-2 (19.42s)
 PASS
-ok  dev.ujhhgtg.wekit/cloudflared-bridge  15.119s
+ok  dev.ujhhgtg.wekit/cloudflared-bridge  37.124s
 ```
 
-The test starts a temporary loopback origin, obtains a real random `trycloudflare.com` hostname,
-waits for the upstream connected event, sends a public HTTPS request and verifies its exact origin
-response, stops the handle, observes the final stopped callback, and runs a goroutine leak check.
+The test runs two sequential sessions in one process. Each starts a temporary loopback origin,
+obtains a real random `trycloudflare.com` hostname, waits for the upstream connected event, sends a
+public HTTPS request and verifies its exact origin response, stops the handle, and observes the
+final stopped callback. One goroutine leak check spans observer creation and teardown for both.
 The development host's system resolver filtered newly allocated Quick Tunnel hostnames, so the
 verifier deliberately uses public DNS at `1.1.1.1`; the tunnel itself uses its normal upstream edge
 discovery.
@@ -101,10 +128,39 @@ $ file app/src/main/jniLibs/arm64-v8a/libwekit_cloudflared.so \
 artifacts. A full `./x build` also passed (`147 actionable tasks`) and assembled standard and legacy
 debug APKs with both bridge libraries. xtask's two new command/mapping tests pass.
 
+Post-review verification additionally passed:
+
+```text
+$ go test -race -count=1 ./app/src/main/go/wekit-cloudflared
+ok  dev.ujhhgtg.wekit/cloudflared-bridge  1.138s
+
+$ cargo test -p xtask
+22 passed; 0 failed
+
+$ timeout 5s /tmp/wekit-task8-reentrant/reentrant_stop
+reentrant callback stop returned without deadlock
+
+$ ./x zygisk build
+cloudflared-build: arm64-v8a (android/arm64)
+cloudflared-build: armeabi-v7a (android/arm)
+BUILD SUCCESSFUL
+zygisk(package): .../WeKit-1055-git+263f98da-release.zip
+
+$ ./x build
+BUILD SUCCESSFUL in 13s
+147 actionable tasks: 23 executed, 1 from cache, 123 up-to-date
+```
+
+The C harness links a host `c-shared` build, receives the unsupported login callback, calls
+`wekit_tunnel_stop` from inside that callback, and must exit within five seconds. The complete
+zygisk packaging gate was run rather than a reduced proxy; its output proves cloudflared was rebuilt
+for both ABIs before `assembleStandardDebug` and the module ZIP was produced.
+
 ## Files added or changed
 
 - `.gitmodules` and `third_party/cloudflared` pinned source gitlink
 - `app/src/main/go/wekit-cloudflared/` facade, header, module, and tests
+  (including `lifecycle.go` callback ownership)
 - `go.work` and `go.work.sum` for the required repository-root Go test command
 - `xtask/src/main.rs` build command, pin check, ABI mapping, and tests
 - `third_party/cloudflared-licenses/` transitive license/NOTICE archive
@@ -121,8 +177,11 @@ Generated `.so` files remain build artifacts and are not committed.
 - Authenticated token/browser login and existing-tunnel selection are intentionally unsupported in
   this milestone. Later work must connect only user-created tunnels and hostnames; WeKit must not
   create Cloudflare resources.
-- Repeatable start/stop within one Android process remains Task 9 work.
 - The bridge libraries are approximately 22 MB per ABI before APK compression. Packaging impact
   should be evaluated before release.
+- Pinned cloudflared hard-codes Prometheus's process default when it constructs supervisor QUIC
+  metrics. The bridge swaps in a private registry only for the serialized constructor call and
+  restores the original defaults immediately; this assumes no unrelated Go component registers a
+  collector during that short embedded-only critical section.
 - Device lifecycle and hook behavior still require manual Android/WeChat validation in Task 9; this
   task proves the native transport and cross-compilation boundary only.

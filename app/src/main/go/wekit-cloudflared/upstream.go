@@ -27,6 +27,7 @@ import (
 	"github.com/cloudflare/cloudflared/tlsconfig"
 	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 )
 
@@ -37,13 +38,8 @@ const (
 )
 
 var (
-	embeddedLog      = zerolog.Nop()
-	embeddedObserver = newEmbeddedObserver()
-	activeObserver   struct {
-		sync.Mutex
-		observer tunnelEventObserver
-		used     bool
-	}
+	embeddedLog         = zerolog.Nop()
+	supervisorMetricsMu sync.Mutex
 )
 
 type quickTunnelResponse struct {
@@ -112,10 +108,8 @@ func requestQuickTunnel(ctx context.Context) (quickTunnel, error) {
 }
 
 func runUpstreamTunnel(ctx context.Context, origin string, quick quickTunnel, observer tunnelEventObserver) error {
-	if err := setActiveObserver(observer); err != nil {
-		return err
-	}
-	defer clearActiveObserver(observer)
+	ownedObserver := newOwnedUpstreamObserver(observer)
+	defer ownedObserver.stop()
 
 	ingressConfig, warpConfig, originDialer, dnsService, err := prepareOrigin(origin)
 	if err != nil {
@@ -156,7 +150,7 @@ func runUpstreamTunnel(ctx context.Context, origin string, quick quickTunnel, ob
 		Tags:                                tags,
 		Log:                                 &embeddedLog,
 		LogTransport:                        &embeddedLog,
-		Observer:                            embeddedObserver,
+		Observer:                            ownedObserver.observer,
 		ReportedVersion:                     cloudflaredVersion,
 		Retries:                             5,
 		NamedTunnel:                         properties,
@@ -171,7 +165,7 @@ func runUpstreamTunnel(ctx context.Context, origin string, quick quickTunnel, ob
 		QUICStreamLevelFlowControlLimit:     6 * (1 << 20),
 	}
 	connectedSignal := signal.New(make(chan struct{}))
-	return supervisor.StartTunnelDaemon(
+	return runSupervisorWithSessionMetrics(
 		ctx,
 		config,
 		orchestrator,
@@ -179,6 +173,37 @@ func runUpstreamTunnel(ctx context.Context, origin string, quick quickTunnel, ob
 		make(chan supervisor.ReconnectSignal, 1),
 		make(chan struct{}),
 	)
+}
+
+func runSupervisorWithSessionMetrics(
+	ctx context.Context,
+	config *supervisor.TunnelConfig,
+	orchestrator *orchestration.Orchestrator,
+	connectedSignal *signal.Signal,
+	reconnectCh chan supervisor.ReconnectSignal,
+	graceShutdownC <-chan struct{},
+) error {
+	// NewSupervisor currently hard-codes prometheus.DefaultRegisterer for its
+	// QUIC v3 metrics. Give each embedded session an isolated registry while the
+	// supervisor is constructed, then restore the process defaults immediately.
+	registry := prometheus.NewRegistry()
+	tunnelSupervisor, err := func() (*supervisor.Supervisor, error) {
+		supervisorMetricsMu.Lock()
+		defer supervisorMetricsMu.Unlock()
+		previousRegisterer := prometheus.DefaultRegisterer
+		previousGatherer := prometheus.DefaultGatherer
+		prometheus.DefaultRegisterer = registry
+		prometheus.DefaultGatherer = registry
+		defer func() {
+			prometheus.DefaultRegisterer = previousRegisterer
+			prometheus.DefaultGatherer = previousGatherer
+		}()
+		return supervisor.NewSupervisor(config, orchestrator, reconnectCh, graceShutdownC)
+	}()
+	if err != nil {
+		return err
+	}
+	return tunnelSupervisor.Run(ctx, connectedSignal)
 }
 
 func prepareOrigin(origin string) (*ingress.Ingress, ingress.WarpRoutingConfig, *ingress.OriginDialerService, *origins.DNSResolverService, error) {
@@ -248,47 +273,61 @@ func (s *quickProtocolSelector) Fallback() (connection.Protocol, bool) {
 	return s.current, false
 }
 
-func newEmbeddedObserver() *connection.Observer {
-	observer := connection.NewObserver(&embeddedLog, &embeddedLog)
-	observer.RegisterSink(connection.EventSinkFunc(forwardUpstreamEvent))
-	return observer
+type ownedUpstreamObserver struct {
+	observer *connection.Observer
+	stopCh   chan struct{}
+	done     chan struct{}
+	stopOnce sync.Once
 }
 
-func forwardUpstreamEvent(event connection.Event) {
-	activeObserver.Lock()
-	observer := activeObserver.observer
-	activeObserver.Unlock()
-	if observer == nil {
-		return
+type ownedUpstreamSink struct {
+	target tunnelEventObserver
+	stopCh <-chan struct{}
+	done   chan<- struct{}
+	once   sync.Once
+}
+
+func newOwnedUpstreamObserver(target tunnelEventObserver) *ownedUpstreamObserver {
+	owned := &ownedUpstreamObserver{
+		observer: connection.NewObserver(&embeddedLog, &embeddedLog),
+		stopCh:   make(chan struct{}),
+		done:     make(chan struct{}),
+	}
+	owned.observer.RegisterSink(&ownedUpstreamSink{
+		target: target,
+		stopCh: owned.stopCh,
+		done:   owned.done,
+	})
+	return owned
+}
+
+func (o *ownedUpstreamObserver) stop() {
+	o.stopOnce.Do(func() {
+		close(o.stopCh)
+		for {
+			o.observer.SendDisconnect(0)
+			select {
+			case <-o.done:
+				return
+			case <-time.After(time.Millisecond):
+			}
+		}
+	})
+}
+
+func (s *ownedUpstreamSink) OnTunnelEvent(event connection.Event) {
+	select {
+	case <-s.stopCh:
+		s.once.Do(func() { close(s.done) })
+		runtime.Goexit()
+	default:
 	}
 	switch event.EventType {
 	case connection.Connected:
-		observer.connected("")
+		s.target.connected("")
 	case connection.Reconnecting, connection.RegisteringTunnel:
-		observer.reconnecting()
+		s.target.reconnecting()
 	case connection.Disconnected, connection.Unregistering:
-		observer.disconnected()
-	}
-}
-
-func setActiveObserver(observer tunnelEventObserver) error {
-	activeObserver.Lock()
-	defer activeObserver.Unlock()
-	if activeObserver.observer != nil {
-		return errors.New("only one embedded Cloudflare tunnel may run at a time")
-	}
-	if activeObserver.used {
-		return errors.New("this proof of concept supports one Quick Tunnel session per process")
-	}
-	activeObserver.observer = observer
-	activeObserver.used = true
-	return nil
-}
-
-func clearActiveObserver(observer tunnelEventObserver) {
-	activeObserver.Lock()
-	defer activeObserver.Unlock()
-	if activeObserver.observer == observer {
-		activeObserver.observer = nil
+		s.target.disconnected()
 	}
 }

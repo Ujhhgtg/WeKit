@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -19,7 +20,12 @@ func TestRealQuickTunnelForwardsAndStopsWithoutLeaking(t *testing.T) {
 		t.Skip("set WEKIT_CLOUDFLARED_INTEGRATION=1 to use the real trycloudflare.com service")
 	}
 	defer leaktest.CheckTimeout(t, 20*time.Second)()
+	for attempt := range 2 {
+		t.Run(fmt.Sprintf("session-%d", attempt+1), testRealQuickTunnelSession)
+	}
+}
 
+func testRealQuickTunnelSession(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != "/wekit-cloudflared-proof" {
 			http.NotFound(response, request)
@@ -89,6 +95,46 @@ func TestRealQuickTunnelForwardsAndStopsWithoutLeaking(t *testing.T) {
 		t.Fatalf("last callback = %#v, want stopped", events[len(events)-1])
 	}
 }
+
+func TestOwnedUpstreamObserverStopsItsDispatcherAndCanRepeat(t *testing.T) {
+	defer leaktest.CheckTimeout(t, 5*time.Second)()
+
+	for range 2 {
+		events := make(chan bridgeEvent, 1)
+		owned := newOwnedUpstreamObserver(observerFunc{
+			onReconnecting: func() {
+				events <- bridgeEvent{Status: statusReconnecting}
+			},
+		})
+		deadline := time.Now().Add(time.Second)
+		for {
+			owned.observer.SendReconnect(0)
+			select {
+			case event := <-events:
+				if event.Status != statusReconnecting {
+					t.Fatalf("observer event = %#v", event)
+				}
+				owned.stop()
+				goto stopped
+			case <-time.After(time.Millisecond):
+				if time.Now().After(deadline) {
+					t.Fatal("owned observer did not dispatch an event")
+				}
+			}
+		}
+	stopped:
+	}
+}
+
+type observerFunc struct {
+	onReconnecting func()
+}
+
+func (o observerFunc) connected(string) {}
+func (o observerFunc) reconnecting() {
+	o.onReconnecting()
+}
+func (o observerFunc) disconnected() {}
 
 type unexpectedPublicResponse struct {
 	status  int

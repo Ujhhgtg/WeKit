@@ -67,19 +67,20 @@ type tunnelHandle struct {
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 	stopOnce sync.Once
+	finalize sync.Once
 
-	mu       sync.Mutex
-	state    bridgeSnapshot
-	callback bridgeCallback
+	mu        sync.Mutex
+	state     bridgeSnapshot
+	callbacks *callbackDispatcher
 }
 
 func newTunnelHandle(callback bridgeCallback) *tunnelHandle {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &tunnelHandle{
-		ctx:      ctx,
-		cancel:   cancel,
-		state:    bridgeSnapshot{Status: statusStopped},
-		callback: callback,
+		ctx:       ctx,
+		cancel:    cancel,
+		state:     bridgeSnapshot{Status: statusStopped},
+		callbacks: newCallbackDispatcher(callback),
 	}
 }
 
@@ -139,7 +140,7 @@ func (h *tunnelHandle) beginLogin(callback bridgeCallback) int {
 		Error:  "browser login is not implemented in this Quick Tunnel proof of concept",
 	}
 	if callback != nil {
-		callback(event)
+		h.callbacks.enqueueWith(callback, event)
 	}
 	return resultUnsupported
 }
@@ -148,14 +149,30 @@ func (h *tunnelHandle) selectExisting(_, _ string) int {
 	return resultUnsupported
 }
 
-func (h *tunnelHandle) stop() int {
+func (h *tunnelHandle) requestStop() {
 	h.stopOnce.Do(func() {
 		h.publish(bridgeEvent{Status: statusStopping})
 		h.cancel()
 		h.wg.Wait()
 		h.publishStopped()
 	})
+}
+
+func (h *tunnelHandle) stop() int {
+	h.requestStop()
+	h.callbacks.close(false)
+	<-h.callbacks.done
 	return resultOK
+}
+
+func (h *tunnelHandle) stopFromCallback() int {
+	h.requestStop()
+	h.callbacks.close(true)
+	return resultOK
+}
+
+func (h *tunnelHandle) callbacksDone() <-chan struct{} {
+	return h.callbacks.done
 }
 
 func (h *tunnelHandle) wait() {
@@ -178,11 +195,8 @@ func (h *tunnelHandle) publish(event bridgeEvent) {
 
 	h.mu.Lock()
 	h.state = event
-	callback := h.callback
 	h.mu.Unlock()
-	if callback != nil {
-		callback(event)
-	}
+	h.callbacks.enqueue(event)
 }
 
 func (h *tunnelHandle) publishStopped() {
