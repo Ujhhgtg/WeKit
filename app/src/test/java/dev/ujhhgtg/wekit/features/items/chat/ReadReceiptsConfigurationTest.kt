@@ -59,6 +59,22 @@ class ReadReceiptsConfigurationTest {
     }
 
     @Test
+    fun `round trips legacy endpoint strings verbatim`() {
+        val configuration = ReadReceiptsConfiguration(
+            mode = ReadReceiptsServerMode.BUILT_IN,
+            thirdPartyUrl = "http://inactive.example/legacy/",
+            hostname = "HTTPS://例子.测试/路径/",
+        )
+
+        assertEquals(
+            configuration,
+            ReadReceiptsConfigurationCodec.decode(
+                ReadReceiptsConfigurationCodec.encode(configuration),
+            ),
+        )
+    }
+
+    @Test
     fun `rejects unsupported and malformed snapshots`() {
         assertNull(ReadReceiptsConfigurationCodec.decode("{\"version\":99}"))
         assertNull(ReadReceiptsConfigurationCodec.decode("not json"))

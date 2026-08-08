@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
-import java.net.URI
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -28,10 +27,9 @@ data class ReadReceiptsConfiguration(
 
 object ReadReceiptsConfigurationCodec {
     private const val SCHEMA_VERSION = 1
-    private const val MAX_URL_LENGTH = 2048
 
     fun encode(configuration: ReadReceiptsConfiguration): String {
-        val value = normalize(configuration)
+        val value = validate(configuration)
         return buildJsonObject {
             put("version", SCHEMA_VERSION)
             put("mode", value.mode.name)
@@ -57,7 +55,7 @@ object ReadReceiptsConfigurationCodec {
         val mode = ReadReceiptsServerMode.entries.firstOrNull { it.name == modeName }
             ?: error("unknown mode")
 
-        normalize(
+        validate(
             ReadReceiptsConfiguration(
                 mode = mode,
                 thirdPartyUrl = objectValue["thirdPartyUrl"]?.stringOrNull()
@@ -86,24 +84,11 @@ object ReadReceiptsConfigurationCodec {
         )
     }.getOrNull()
 
-    private fun normalize(value: ReadReceiptsConfiguration): ReadReceiptsConfiguration {
+    private fun validate(value: ReadReceiptsConfiguration): ReadReceiptsConfiguration {
         require(value.pollIntervalSecs > 0)
         require(value.builtInPort in 1..65535)
         require(value.tunnelMode.isNotBlank())
-
-        val thirdPartyUrl = normalizeHttpsUrl(value.thirdPartyUrl, allowBlank = true)
-        val hostname = normalizeHttpsUrl(value.hostname, allowBlank = true)
-        return value.copy(thirdPartyUrl = thirdPartyUrl, hostname = hostname)
-    }
-
-    private fun normalizeHttpsUrl(value: String, allowBlank: Boolean): String {
-        if (value.isEmpty() && allowBlank) return value
-        require(value.length <= MAX_URL_LENGTH)
-        val normalized = value.trimEnd('/')
-        require(normalized == normalized.trim() && normalized.none(Char::isWhitespace))
-        val uri = URI(normalized)
-        require(uri.scheme == "https" && !uri.host.isNullOrBlank())
-        return normalized
+        return value
     }
 
     private fun JsonElement.stringOrNull(): String? =
