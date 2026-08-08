@@ -1,100 +1,18 @@
-use axum::{
-    Json, Router,
-    extract::{ConnectInfo, Path, Query, State},
-    http::{StatusCode, header},
-    response::{IntoResponse, Response},
-    routing::{get, post},
-};
 use chrono::Utc;
-use libsql::{Builder, Connection};
+use libsql::Builder;
 use rustyline::completion::{Completer, Pair};
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use rustyline::{ExternalPrinter, Helper};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::io::Write;
 use std::sync::{Mutex, OnceLock};
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
-use tracing::{error, info, warn};
-
-// 1x1 transparent PNG file bytes to serve as the tracking pixel
-const TRACKING_PIXEL: &[u8] = &[
-    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
-    0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
-    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
-    0x42, 0x60, 0x82,
-];
-
-/// Computes the deterministic message id shared by client and server:
-/// `sha256(wx_id + '\0' + content + '\0' + create_time)` rendered as lowercase hex,
-/// where `create_time` is the client-supplied epoch-millis as a decimal string.
-/// The NUL separators prevent ambiguity between the fields; folding in create_time
-/// keeps two identical-text messages from colliding onto the same id.
-fn compute_msg_id(wx_id: &str, content: &str, create_time: i64) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(wx_id.as_bytes());
-    hasher.update([0u8]);
-    hasher.update(content.as_bytes());
-    hasher.update([0u8]);
-    hasher.update(create_time.to_string().as_bytes());
-    hex::encode(hasher.finalize())
-}
-
-/// Body of `POST /register`: the sender's wxId, the plaintext message content,
-/// and the client-assigned createTime. The server derives the id from all three.
-#[derive(Deserialize)]
-struct RegisterRequest {
-    #[serde(rename = "wxId")]
-    wx_id: String,
-    content: String,
-    #[serde(rename = "createTime")]
-    create_time: i64,
-}
-
-#[derive(Serialize)]
-struct RegisterResponse {
-    id: String,
-}
-
-/// Query parameters for the tracking pixel and count endpoints.
-/// Both carry the sender `wxId` and the message `id` (no more uuid/msg).
-#[derive(Deserialize)]
-struct ReadParams {
-    #[serde(rename = "wxId")]
-    wx_id: Option<String>,
-    id: Option<String>,
-}
-
-#[derive(Serialize)]
-struct CountResponse {
-    count: i64,
-}
-
-struct AppState {
-    db: Connection,
-}
-
-/// One registered message plus its deduped-by-IP read count, for the dashboard.
-#[derive(Serialize)]
-struct MessageRecord {
-    id: String,
-    #[serde(rename = "wxId")]
-    wx_id: String,
-    content: String,
-    reads: i64,
-    timestamp: String,
-}
-
-/// One individual read event (pixel hit) for a message's detail view.
-#[derive(Serialize)]
-struct ReadRecord {
-    ip: String,
-    timestamp: String,
-}
+use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use tracing::{error, info};
+use wekit_read_receipts_server::{
+    AppState, RouteProfile, ServerConfig, build_router, compute_msg_id, initialize_database,
+};
 
 struct LocalTimer;
 
@@ -685,6 +603,19 @@ async fn route_command(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::io::IsTerminal;
+    if std::env::args().any(|argument| argument == "--help" || argument == "-h") {
+        println!("WeKit read receipts reference server");
+        println!();
+        println!("Configuration is read from environment variables:");
+        println!("  BIND_ADDR              bind IP address (default: 0.0.0.0)");
+        println!("  PORT                   bind port (default: 8080)");
+        println!(
+            "  TURSO_DATABASE_URL     local or remote libSQL URL (default: file:read_receipts.db)"
+        );
+        println!("  TURSO_AUTH_TOKEN       remote Turso authentication token");
+        println!("  RUST_LOG               tracing filter (default: debug)");
+        return Ok(());
+    }
     let is_terminal = std::io::stdin().is_terminal();
 
     let rl = if is_terminal {
@@ -717,53 +648,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("TURSO_DATABASE_URL").unwrap_or_else(|_| "file:read_receipts.db".to_string());
     let auth_token = std::env::var("TURSO_AUTH_TOKEN").unwrap_or_default();
 
-    let db = if db_url.starts_with("file:") {
-        Builder::new_local(db_url.replace("file:", ""))
-            .build()
-            .await?
+    let database_path = db_url.strip_prefix("file:").map(PathBuf::from);
+    let db = if let Some(path) = &database_path {
+        Builder::new_local(path).build().await?
     } else {
         Builder::new_remote(db_url, auth_token).build().await?
     };
 
+    initialize_database(&db).await?;
     let conn = db.connect()?;
     let repl_conn = db.connect()?;
-
-    // messages: registered by the sender before tampering. PK = deterministic hash of (wx_id + content).
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS messages (
-            id        TEXT PRIMARY KEY,
-            wx_id     TEXT NOT NULL,
-            content   TEXT NOT NULL,
-            timestamp TEXT NOT NULL
-        );",
-        (),
-    )
-    .await?;
-
-    // reads: one row per tracking-pixel hit. Reader identity is approximated by distinct IP.
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS reads (
-            id        TEXT NOT NULL,
-            wx_id     TEXT NOT NULL,
-            ip        TEXT NOT NULL,
-            timestamp TEXT NOT NULL
-        );",
-        (),
-    )
-    .await?;
-
-    let app = Router::new()
-        .route("/", get(serve_index))
-        .route("/register", post(register_message))
-        .route("/pixel", get(serve_tracking_pixel))
-        .route("/count", get(read_count))
-        .route("/messages", get(list_messages).delete(delete_all_messages))
-        .route(
-            "/messages/{wx_id}",
-            get(list_messages_for_sender).delete(delete_messages_for_sender),
-        )
-        .route("/reads/{id}", get(list_reads_for_message))
-        .with_state(Arc::new(AppState { db: conn }));
 
     // Bind host/port are configurable via env vars, falling back to 0.0.0.0:8080.
     // BIND_ADDR must parse as an IP address; PORT as a u16.
@@ -776,6 +670,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => 8080,
     };
     let _ = PORT.set(bind_port);
+
+    let config = ServerConfig {
+        database_path: database_path.unwrap_or_default(),
+        bind_addr: bind_host,
+        bind_port,
+        route_profile: RouteProfile::Standalone,
+    };
+    let app = build_router(&config, Arc::new(AppState::new(conn)));
 
     let addr = SocketAddr::from((bind_host, bind_port));
     info!("server launching on http://{addr}");
@@ -867,337 +769,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = server_handle.await;
 
     Ok(())
-}
-
-/// Serves the static index HTML page.
-async fn serve_index() -> impl IntoResponse {
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-        .body(axum::body::Body::from(include_str!("../index.html")))
-        .unwrap()
-}
-
-/// Registers a message before it is tampered with. The server derives the
-/// deterministic id from `(wxId, content)`, upserts the row (keeping the
-/// original timestamp on re-registration), and returns the id to the client.
-async fn register_message(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<RegisterRequest>,
-) -> Result<Json<RegisterResponse>, (StatusCode, String)> {
-    if req.wx_id.is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "wxId must not be empty".to_string(),
-        ));
-    }
-
-    let id = compute_msg_id(&req.wx_id, &req.content, req.create_time);
-    let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-    info!(
-        "/register\nid = {id}, wxId = {}, createTime = {}, content = {}",
-        req.wx_id, req.create_time, req.content
-    );
-
-    state
-        .db
-        .execute(
-            "INSERT INTO messages (id, wx_id, content, timestamp) VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(id) DO NOTHING",
-            libsql::params![id.as_str(), req.wx_id.as_str(), req.content.as_str(), now],
-        )
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("register failed: {e}"),
-            )
-        })?;
-
-    Ok(Json(RegisterResponse { id }))
-}
-
-/// Serves the 1x1 transparent PNG and logs the reader's IP against the message
-/// id. The reader's wxId is never observable here, so identity is approximated
-/// by distinct IP at count time.
-async fn serve_tracking_pixel(
-    State(state): State<Arc<AppState>>,
-    Query(params): Query<ReadParams>,
-    ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
-) -> impl IntoResponse {
-    let client_ip = remote_addr.ip().to_string();
-    let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-    match (&params.wx_id, &params.id) {
-        (Some(wx_id), Some(id)) => {
-            info!("/pixel request\nid = {id}, wxId = {wx_id}, client_ip = {client_ip}");
-
-            if let Err(e) = state
-                .db
-                .execute(
-                    "INSERT INTO reads (id, wx_id, ip, timestamp) VALUES (?1, ?2, ?3, ?4)",
-                    libsql::params![id.as_str(), wx_id.as_str(), client_ip, now],
-                )
-                .await
-            {
-                error!("failed to log read: {e}");
-            }
-        }
-        _ => {
-            warn!("/pixel request missing 'wxId' or 'id' query parameter — read not logged");
-        }
-    }
-
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "image/png")
-        .header(header::CACHE_CONTROL, "no-cache, no-store, must-revalidate")
-        .header(header::PRAGMA, "no-cache")
-        .body(axum::body::Body::from(TRACKING_PIXEL))
-        .unwrap()
-}
-
-/// Returns the deduped-by-IP read count for a `(wxId, id)` pair. Polled by the
-/// sender's client to render the live "已读 x 人" indicator.
-async fn read_count(
-    State(state): State<Arc<AppState>>,
-    Query(params): Query<ReadParams>,
-) -> Result<Json<CountResponse>, (StatusCode, String)> {
-    let (wx_id, id) = match (params.wx_id, params.id) {
-        (Some(w), Some(i)) => (w, i),
-        _ => {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "wxId and id are required".to_string(),
-            ));
-        }
-    };
-
-    let mut rows = state
-        .db
-        .query(
-            "SELECT COUNT(DISTINCT ip) FROM reads WHERE id = ?1 AND wx_id = ?2",
-            libsql::params![id, wx_id],
-        )
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("query failed: {e}"),
-            )
-        })?;
-
-    let count = match rows.next().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("row read failed: {e}"),
-        )
-    })? {
-        Some(row) => match row.get_value(0) {
-            Ok(libsql::Value::Integer(n)) => n,
-            _ => 0,
-        },
-        None => 0,
-    };
-
-    Ok(Json(CountResponse { count }))
-}
-
-/// Returns every registered message with its deduped-by-IP read count, newest first.
-/// Supports optional `?q=` query parameter to filter by message content.
-async fn list_messages(
-    State(state): State<Arc<AppState>>,
-    Query(params): Query<HashMap<String, String>>,
-) -> Result<Json<Vec<MessageRecord>>, (StatusCode, String)> {
-    let q = params.get("q").map(|s| s.as_str()).unwrap_or("");
-
-    let mut rows = if q.is_empty() {
-        state
-            .db
-            .query(
-                "SELECT m.id, m.wx_id, m.content, m.timestamp,
-                        (SELECT COUNT(DISTINCT r.ip) FROM reads r WHERE r.id = m.id) AS reads
-                 FROM messages m ORDER BY m.timestamp DESC",
-                (),
-            )
-            .await
-    } else {
-        state
-            .db
-            .query(
-                "SELECT m.id, m.wx_id, m.content, m.timestamp,
-                        (SELECT COUNT(DISTINCT r.ip) FROM reads r WHERE r.id = m.id) AS reads
-                 FROM messages m WHERE m.content LIKE ?1 ORDER BY m.timestamp DESC",
-                libsql::params![format!("%{}%", q)],
-            )
-            .await
-    }
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("query failed: {e}"),
-        )
-    })?;
-
-    collect_messages(&mut rows).await
-}
-
-/// Returns all messages sent by a specific wxId with their read counts, newest first.
-/// Supports optional `?q=` query parameter to filter by message content.
-async fn list_messages_for_sender(
-    State(state): State<Arc<AppState>>,
-    Path(wx_id): Path<String>,
-    Query(params): Query<HashMap<String, String>>,
-) -> Result<Json<Vec<MessageRecord>>, (StatusCode, String)> {
-    let q = params.get("q").map(|s| s.as_str()).unwrap_or("");
-
-    let mut rows = if q.is_empty() {
-        state
-            .db
-            .query(
-                "SELECT m.id, m.wx_id, m.content, m.timestamp,
-                        (SELECT COUNT(DISTINCT r.ip) FROM reads r WHERE r.id = m.id) AS reads
-                 FROM messages m WHERE m.wx_id = ?1 ORDER BY m.timestamp DESC",
-                libsql::params![wx_id],
-            )
-            .await
-    } else {
-        state
-            .db
-            .query(
-                "SELECT m.id, m.wx_id, m.content, m.timestamp,
-                        (SELECT COUNT(DISTINCT r.ip) FROM reads r WHERE r.id = m.id) AS reads
-                 FROM messages m WHERE m.wx_id = ?1 AND m.content LIKE ?2 ORDER BY m.timestamp DESC",
-                libsql::params![wx_id, format!("%{}%", q)],
-            )
-            .await
-    }
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("query failed: {e}")))?;
-
-    collect_messages(&mut rows).await
-}
-
-/// Drains a message result set (5 columns: id, wx_id, content, timestamp, reads) into [`MessageRecord`]s.
-async fn collect_messages(
-    rows: &mut libsql::Rows,
-) -> Result<Json<Vec<MessageRecord>>, (StatusCode, String)> {
-    let mut messages = Vec::new();
-    while let Some(row) = rows.next().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("row read failed: {e}"),
-        )
-    })? {
-        messages.push(MessageRecord {
-            id: row.get_str(0).unwrap_or_default().to_string(),
-            wx_id: row.get_str(1).unwrap_or_default().to_string(),
-            content: row.get_str(2).unwrap_or_default().to_string(),
-            timestamp: row.get_str(3).unwrap_or_default().to_string(),
-            reads: match row.get_value(4) {
-                Ok(libsql::Value::Integer(n)) => n,
-                _ => 0,
-            },
-        });
-    }
-    Ok(Json(messages))
-}
-
-/// Returns the individual read events (distinct by IP, newest first) for one message id.
-async fn list_reads_for_message(
-    State(state): State<Arc<AppState>>,
-    Path(id): Path<String>,
-) -> Result<Json<Vec<ReadRecord>>, (StatusCode, String)> {
-    let mut rows = state
-        .db
-        .query(
-            "SELECT ip, MAX(timestamp) AS timestamp FROM reads WHERE id = ?1
-             GROUP BY ip ORDER BY timestamp DESC",
-            libsql::params![id],
-        )
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("query failed: {e}"),
-            )
-        })?;
-
-    let mut reads = Vec::new();
-    while let Some(row) = rows.next().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("row read failed: {e}"),
-        )
-    })? {
-        reads.push(ReadRecord {
-            ip: row.get_str(0).unwrap_or_default().to_string(),
-            timestamp: row.get_str(1).unwrap_or_default().to_string(),
-        });
-    }
-
-    Ok(Json(reads))
-}
-
-/// Deletes ALL messages and their reads from the database.
-async fn delete_all_messages(
-    State(state): State<Arc<AppState>>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    state
-        .db
-        .execute("DELETE FROM reads", ())
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("delete failed: {e}"),
-            )
-        })?;
-    state
-        .db
-        .execute("DELETE FROM messages", ())
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("delete failed: {e}"),
-            )
-        })?;
-
-    Ok(Json(serde_json::json!({"status": "ok"})))
-}
-
-/// Deletes all messages sent by a specific wxId and their associated reads.
-async fn delete_messages_for_sender(
-    State(state): State<Arc<AppState>>,
-    Path(wx_id): Path<String>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    state
-        .db
-        .execute(
-            "DELETE FROM reads WHERE id IN (SELECT id FROM messages WHERE wx_id = ?1)",
-            libsql::params![wx_id.clone()],
-        )
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("delete failed: {e}"),
-            )
-        })?;
-    state
-        .db
-        .execute(
-            "DELETE FROM messages WHERE wx_id = ?1",
-            libsql::params![wx_id],
-        )
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("delete failed: {e}"),
-            )
-        })?;
-
-    Ok(Json(serde_json::json!({"status": "ok"})))
 }

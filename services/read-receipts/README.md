@@ -21,6 +21,17 @@ WeKit「已读追踪」功能的配套服务端，通过透明追踪像素记录
 - 提供交互式 REPL 管理命令
 - 支持本地 SQLite/libSQL 数据库和远程 Turso 数据库
 
+## 可复用服务核心
+
+本 crate 同时提供不依赖桌面 REPL 的 Rust library target。默认的 `cli` feature 构建本页描述的独立参考服务；使用 `default-features = false` 依赖 library 时不会引入 `rustyline` 或 `tracing-subscriber`。
+
+library 提供两种路由配置：
+
+- `RouteProfile::Standalone` 保留管理页面、管理 API 和核心协议路由，独立二进制仍支持本地 libSQL 与远程 Turso。
+- `RouteProfile::Embedded` 仅提供 `/register`、`/pixel`、`/count` 和返回空 `204` 的 `/health`，供 WeKit 内嵌 origin 使用。
+
+内嵌配置限制 wxId 为 128 字节、内容为 16 KiB、HTTP 请求体为 20 KiB、query string 为 1 KiB；消息 ID 必须是 64 位小写十六进制 SHA-256。`/register` 和 `/count` 分别按来源 IP 限制为每分钟 30 次和 120 次。未知或格式错误的消息不会记录读取事件，但 `/pixel` 始终返回静态透明图片。
+
 ## 工作方式
 
 1. WeKit 在发送消息时调用 `POST /register` 注册消息。
@@ -178,7 +189,7 @@ cargo build --release
 
 ## 安全与隐私
 
-- 本实现没有身份认证、访问控制、速率限制或滥用防护，不应直接作为生产级公共服务部署。
+- 独立参考服务没有身份认证、访问控制、速率限制或完整滥用防护，不应直接作为生产级公共服务部署。仅内嵌路由配置包含上述轻量限制。
 - 服务会保存发送者 wxId、明文消息内容、读取请求来源 IP 和时间戳。部署者必须自行确认当地法律、隐私政策及用户授权要求。
 - 公网传输应使用 HTTPS，避免消息内容和标识符以明文形式经过网络。
 - `/pixel` 使用 TCP 对端地址作为读者 IP。若服务位于反向代理后方，所有请求可能会被记录为代理服务器的 IP；本参考实现不会读取 `X-Forwarded-For` 等请求头。

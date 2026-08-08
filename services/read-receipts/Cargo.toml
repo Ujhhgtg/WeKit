@@ -3,6 +3,15 @@ name = "wekit-read-receipts-server"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["cli"]
+cli = ["dep:rustyline", "dep:tracing-subscriber"]
+
+[[bin]]
+name = "wekit-read-receipts-server"
+path = "src/main.rs"
+required-features = ["cli"]
+
 [dependencies]
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1.0", features = ["full"] }
@@ -11,7 +20,10 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4" }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
 sha2 = "0.11"
 hex = "0.4"
-rustyline = "18.0.1"
+rustyline = { version = "18.0.1", optional = true }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
