@@ -360,7 +360,6 @@ async fn serve_tracking_pixel(
     let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
     match (&params.wx_id, &params.id) {
         (Some(wx_id), Some(id)) => {
-            info!("/pixel request\nid = {id}, wxId = {wx_id}, client_ip = {client_ip}");
             let should_log = match route_profile {
                 RouteProfile::Standalone => true,
                 RouteProfile::Embedded => {
@@ -369,16 +368,18 @@ async fn serve_tracking_pixel(
                         && message_exists(&state.db, wx_id, id).await
                 }
             };
-            if should_log
-                && let Err(error) = state
+            if should_log {
+                info!("/pixel request\nid = {id}, wxId = {wx_id}, client_ip = {client_ip}");
+                if let Err(error) = state
                     .db
                     .execute(
                         "INSERT INTO reads (id, wx_id, ip, timestamp) VALUES (?1, ?2, ?3, ?4)",
                         libsql::params![id.as_str(), wx_id.as_str(), client_ip, now],
                     )
                     .await
-            {
-                error!("failed to log read: {error}");
+                {
+                    error!("failed to log read: {error}");
+                }
             }
         }
         _ => warn!("/pixel request missing 'wxId' or 'id' query parameter — read not logged"),
