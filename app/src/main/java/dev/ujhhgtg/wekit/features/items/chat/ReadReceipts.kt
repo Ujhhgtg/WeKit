@@ -6,16 +6,23 @@ import android.os.Looper
 import android.view.View
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeApi
@@ -31,6 +38,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -42,6 +50,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
@@ -68,6 +77,7 @@ import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 
 @Feature(name = "已读追踪", categories = ["聊天"], description = "追踪文本消息已读人数, 并在自己发送的消息上实时显示\"已读 x 人\"")
@@ -78,11 +88,20 @@ object ReadReceipts : ClickableFeature(),
     private const val TAG = "ReadReceipts"
 
     // ── Preferences ─────────────────────────────────────────────────────────
-    private var backendMode by prefOption("read_receipts_backend_mode", ReadReceiptBackend.THIRD_PARTY.name)
+    private var backendMode by prefOption(
+        "read_receipts_backend_mode",
+        ReadReceiptsServerMode.THIRD_PARTY.name,
+    )
     private var thirdPartyUrl by prefOption("read_receipts_third_party_url", "")
     private var pollIntervalSecs by prefOption("read_receipts_poll_interval", 5)
     private var prefix by prefOption("read_receipts_prefix", "#")
-    private var builtInPort by prefOption("read_receipts_built_in_port", 0)
+    private var automaticPort by prefOption("read_receipts_automatic_port", true)
+    private var builtInPort by prefOption("read_receipts_built_in_port", 3000)
+    private var lastBuiltInPort by prefOption("read_receipts_last_built_in_port", 0)
+    private var lastBuiltInState by prefOption(
+        "read_receipts_last_built_in_state",
+        ReadReceiptsRuntimeState.STOPPED.name,
+    )
     private var tunnelMode by prefOption("read_receipts_tunnel_mode", "QUICK")
     private var hostname by prefOption("read_receipts_hostname", "")
     private var automaticLifecycle by prefOption("read_receipts_automatic_lifecycle", true)
@@ -96,6 +115,7 @@ object ReadReceipts : ClickableFeature(),
     private const val RECORD_RETENTION_MILLIS = 180L * 24 * 60 * 60 * 1000
     private const val MAX_POLL_WORKERS = 4
     private const val MAX_FAILURE_BACKOFF_MILLIS = 5L * 60 * 1000
+    private const val ORIGIN_STOP_TIMEOUT_MILLIS = 10_000L
 
     private data class ResolvedBackend(
         val backend: ReadReceiptBackend,
@@ -106,6 +126,10 @@ object ReadReceipts : ClickableFeature(),
 
     @Volatile
     private var runtimeError: String? = null
+
+    private val originController = NativeReadReceiptsServerController()
+    private val originScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val originGeneration = AtomicLong()
 
     // ── HTTP ────────────────────────────────────────────────────────────────
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -305,9 +329,11 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    private fun selectedBackend(): ReadReceiptBackend =
-        ReadReceiptBackend.entries.firstOrNull { it.name == backendMode }
-            ?: ReadReceiptBackend.THIRD_PARTY
+    private fun selectedServerMode(): ReadReceiptsServerMode =
+        ReadReceiptsServerMode.entries.firstOrNull { it.name == backendMode }
+            ?: ReadReceiptsServerMode.THIRD_PARTY
+
+    private fun requestedBuiltInPort(): Int = if (automaticPort) 0 else builtInPort
 
     private fun normalizedHttpsEndpoint(value: String): String? {
         val normalized = value.trimEnd('/')
@@ -317,8 +343,11 @@ object ReadReceipts : ClickableFeature(),
         return normalized
     }
 
-    private fun resolveBackend(): Pair<ResolvedBackend?, String?> = when (selectedBackend()) {
-        ReadReceiptBackend.THIRD_PARTY -> {
+    /** Task 9 will return a URL here only after its independently-owned tunnel is healthy. */
+    private fun verifiedTunnelEndpoint(): String? = null
+
+    private fun resolveBackend(): Pair<ResolvedBackend?, String?> = when (selectedServerMode()) {
+        ReadReceiptsServerMode.THIRD_PARTY -> {
             val endpoint = normalizedHttpsEndpoint(thirdPartyUrl)
                 ?: return null to "第三方服务器必须是有效的 HTTPS 地址"
             ResolvedBackend(
@@ -329,13 +358,20 @@ object ReadReceipts : ClickableFeature(),
             ) to null
         }
 
-        ReadReceiptBackend.BUILT_IN -> {
-            if (builtInPort !in 1..65535) return null to "内置服务器端口未就绪"
-            val publicEndpoint = normalizedHttpsEndpoint(hostname)
-                ?: return null to "Cloudflare Tunnel 公网地址未就绪"
+        ReadReceiptsServerMode.BUILT_IN -> {
+            val origin = originController.snapshot()
+            if (origin.state != ReadReceiptsRuntimeState.RUNNING || origin.port == null) {
+                return null to "内置服务器未运行"
+            }
+            if (normalizedHttpsEndpoint(hostname) == null) {
+                return null to "Cloudflare Tunnel 公网地址未就绪"
+            }
+
+            val publicEndpoint = verifiedTunnelEndpoint()
+                ?: return null to "Cloudflare Tunnel 状态暂不可验证, 请等待公网隧道功能接入"
             ResolvedBackend(
                 backend = ReadReceiptBackend.BUILT_IN,
-                requestEndpoint = "http://127.0.0.1:$builtInPort",
+                requestEndpoint = "http://127.0.0.1:${origin.port}",
                 pixelEndpoint = publicEndpoint,
                 recordEndpoint = BUILT_IN_RECORD_ENDPOINT,
             ) to null
@@ -345,15 +381,130 @@ object ReadReceipts : ClickableFeature(),
     private fun pollingEndpoint(record: ReadReceiptRecord): String? = when (record.backend) {
         ReadReceiptBackend.THIRD_PARTY -> record.endpoint
         ReadReceiptBackend.BUILT_IN -> {
-            if (builtInPort !in 1..65535) null else "http://127.0.0.1:$builtInPort"
+            val origin = originController.snapshot()
+            if (origin.state != ReadReceiptsRuntimeState.RUNNING || origin.port == null) {
+                null
+            } else {
+                "http://127.0.0.1:${origin.port}"
+            }
         }
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
+    private fun startOrigin(
+        requestedPort: Int,
+        onFinished: ((Result<Int>) -> Unit)? = null,
+    ) {
+        val generation = originGeneration.incrementAndGet()
+        lastBuiltInState = ReadReceiptsRuntimeState.STARTING.name
+        originScope.launch {
+            val result = originController.startBuiltIn(requestedPort)
+            if (originGeneration.get() != generation) return@launch
+
+            result.fold(
+                onSuccess = { port ->
+                    lastBuiltInPort = port
+                    lastBuiltInState = ReadReceiptsRuntimeState.RUNNING.name
+                    runtimeError = null
+                },
+                onFailure = { error ->
+                    lastBuiltInPort = 0
+                    lastBuiltInState = ReadReceiptsRuntimeState.FAILED.name
+                    runtimeError = error.message ?: error.javaClass.simpleName
+                },
+            )
+            if (onFinished != null) {
+                withContext(Dispatchers.Main.immediate) {
+                    if (originGeneration.get() == generation) onFinished(result)
+                }
+            }
+        }
+    }
+
+    private fun stopOrigin(onFinished: ((Result<Unit>) -> Unit)? = null) {
+        val generation = originGeneration.incrementAndGet()
+        lastBuiltInState = ReadReceiptsRuntimeState.STOPPING.name
+        originScope.launch {
+            originController.stopBuiltIn()
+            val stopped = awaitOriginTerminal() == ReadReceiptsRuntimeState.STOPPED
+            if (originGeneration.get() != generation) return@launch
+
+            val result = if (stopped) {
+                lastBuiltInPort = 0
+                lastBuiltInState = ReadReceiptsRuntimeState.STOPPED.name
+                Result.success(Unit)
+            } else {
+                val message = "内置服务器未能及时停止"
+                lastBuiltInState = originController.status().name
+                runtimeError = message
+                Result.failure(IllegalStateException(message))
+            }
+            if (onFinished != null) {
+                withContext(Dispatchers.Main.immediate) {
+                    if (originGeneration.get() == generation) onFinished(result)
+                }
+            }
+        }
+    }
+
+    private fun restartOrigin(requestedPort: Int) {
+        val generation = originGeneration.incrementAndGet()
+        lastBuiltInState = ReadReceiptsRuntimeState.STOPPING.name
+        originScope.launch {
+            originController.stopBuiltIn()
+            if (awaitOriginTerminal() == null) {
+                if (originGeneration.get() == generation) {
+                    lastBuiltInState = originController.status().name
+                    runtimeError = "内置服务器未能及时停止, 配置尚未应用"
+                }
+                return@launch
+            }
+            if (originGeneration.get() != generation) return@launch
+
+            lastBuiltInState = ReadReceiptsRuntimeState.STARTING.name
+            val result = originController.startBuiltIn(requestedPort)
+            if (originGeneration.get() != generation) return@launch
+            result.fold(
+                onSuccess = { port ->
+                    lastBuiltInPort = port
+                    lastBuiltInState = ReadReceiptsRuntimeState.RUNNING.name
+                    runtimeError = null
+                },
+                onFailure = { error ->
+                    lastBuiltInPort = 0
+                    lastBuiltInState = ReadReceiptsRuntimeState.FAILED.name
+                    runtimeError = error.message ?: error.javaClass.simpleName
+                },
+            )
+        }
+    }
+
+    private suspend fun awaitOriginTerminal(): ReadReceiptsRuntimeState? = withTimeoutOrNull(
+        ORIGIN_STOP_TIMEOUT_MILLIS,
+    ) {
+        while (true) {
+            val state = originController.status()
+            when (state) {
+                ReadReceiptsRuntimeState.STOPPED,
+                ReadReceiptsRuntimeState.FAILED,
+                -> return@withTimeoutOrNull state
+
+                else -> delay(50)
+            }
+        }
+        @Suppress("UNREACHABLE_CODE")
+        ReadReceiptsRuntimeState.FAILED
+    }
+
     override fun onEnable() {
         loadRecords()
         featureScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+        if (selectedServerMode() == ReadReceiptsServerMode.BUILT_IN && automaticLifecycle) {
+            // Task 9 must start the tunnel only after this origin callback succeeds.
+            startOrigin(requestedBuiltInPort())
+        }
 
         WeChatInputBarMenuApi.methodSendMessage.hookBefore(100) {
             val chatFooter = thisObject!!.reflekt().firstField {
@@ -453,6 +604,10 @@ object ReadReceipts : ClickableFeature(),
     }
 
     override fun onDisable() {
+        if (selectedServerMode() == ReadReceiptsServerMode.BUILT_IN && automaticLifecycle) {
+            // Task 9 must stop its tunnel leg first, then call this origin stop.
+            stopOrigin()
+        }
         WeChatMessageViewApi.removeListener(this)
         WeChatMessageViewApi.removeLifecycleListener(this)
         registrationCalls.forEach(Call::cancel)
@@ -700,22 +855,212 @@ object ReadReceipts : ClickableFeature(),
 
     // ── Settings dialog ─────────────────────────────────────────────────────────
 
+    private fun testThirdPartyEndpoint(context: ComponentActivity, value: String) {
+        val endpoint = normalizedHttpsEndpoint(value)
+        if (endpoint == null) {
+            showToast(context, "错误: 第三方服务器必须是有效的 HTTPS 地址")
+            return
+        }
+        originScope.launch {
+            val request = Request.Builder()
+                .url("$endpoint/count?wxId=wekit-health-check&id=${"0".repeat(64)}")
+                .get()
+                .build()
+            val result = runCatching {
+                httpClient.newCall(request).execute().use { response ->
+                    check(response.isSuccessful) { "HTTP ${response.code}" }
+                }
+            }
+            withContext(Dispatchers.Main.immediate) {
+                showToast(
+                    context,
+                    result.fold(
+                        onSuccess = { "服务器连接成功" },
+                        onFailure = { "服务器连接失败: ${it.message ?: it.javaClass.simpleName}" },
+                    ),
+                )
+            }
+        }
+    }
+
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            var modeInput by remember { mutableStateOf(selectedServerMode()) }
             var serverInput by remember { mutableStateOf(thirdPartyUrl) }
             var prefixInput by remember { mutableStateOf(prefix) }
             var intervalInput by remember { mutableStateOf(pollIntervalSecs.toString()) }
+            var automaticPortInput by remember { mutableStateOf(automaticPort) }
+            var builtInPortInput by remember { mutableStateOf(builtInPort.toString()) }
+            var automaticLifecycleInput by remember { mutableStateOf(automaticLifecycle) }
+            var originStatus by remember { mutableStateOf(originController.snapshot()) }
+
+            LaunchedEffect(Unit) {
+                while (true) {
+                    originStatus = withContext(Dispatchers.IO) { originController.snapshot() }
+                    delay(500)
+                }
+            }
 
             AlertDialogContent(
                 title = { Text("已读追踪") },
                 text = {
                     DefaultColumn {
-                        TextField(
-                            value = serverInput,
-                            onValueChange = { serverInput = it },
-                            label = { Text("服务器") },
-                            modifier = Modifier.fillMaxWidth()
+                        ListItem(
+                            modifier = Modifier.clickable {
+                                modeInput = ReadReceiptsServerMode.THIRD_PARTY
+                            },
+                            trailingContent = {
+                                RadioButton(
+                                    selected = modeInput == ReadReceiptsServerMode.THIRD_PARTY,
+                                    onClick = null,
+                                )
+                            },
+                            supportingContent = { Text("使用自行部署的 HTTPS 服务") },
+                            content = { Text("第三方服务器") },
                         )
+
+                        ListItem(
+                            modifier = Modifier.clickable {
+                                modeInput = ReadReceiptsServerMode.BUILT_IN
+                            },
+                            trailingContent = {
+                                RadioButton(
+                                    selected = modeInput == ReadReceiptsServerMode.BUILT_IN,
+                                    onClick = null,
+                                )
+                            },
+                            supportingContent = { Text("在微信进程中运行仅限回环访问的服务器") },
+                            content = { Text("内置服务器") },
+                        )
+
+                        when (modeInput) {
+                            ReadReceiptsServerMode.THIRD_PARTY -> {
+                                TextField(
+                                    value = serverInput,
+                                    onValueChange = { serverInput = it },
+                                    label = { Text("HTTPS 服务器地址") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Button(
+                                    onClick = { testThirdPartyEndpoint(context, serverInput) },
+                                ) { Text("测试连接") }
+                            }
+
+                            ReadReceiptsServerMode.BUILT_IN -> {
+                                ListItem(
+                                    modifier = Modifier.clickable {
+                                        automaticLifecycleInput = !automaticLifecycleInput
+                                    },
+                                    trailingContent = {
+                                        Switch(
+                                            checked = automaticLifecycleInput,
+                                            onCheckedChange = null,
+                                        )
+                                    },
+                                    supportingContent = {
+                                        Text("功能启用时启动内置服务器; 公网隧道将在后续版本接入")
+                                    },
+                                    content = { Text("自动管理服务器和隧道") },
+                                )
+
+                                ListItem(
+                                    modifier = Modifier.clickable {
+                                        automaticPortInput = !automaticPortInput
+                                    },
+                                    trailingContent = {
+                                        Switch(
+                                            checked = automaticPortInput,
+                                            onCheckedChange = null,
+                                        )
+                                    },
+                                    supportingContent = { Text("由系统选择空闲的回环端口") },
+                                    content = { Text("自动选择端口") },
+                                )
+
+                                if (!automaticPortInput) {
+                                    TextField(
+                                        value = builtInPortInput,
+                                        onValueChange = {
+                                            builtInPortInput = it.filter(Char::isDigit)
+                                        },
+                                        label = { Text("回环端口") },
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Number,
+                                        ),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+
+                                val stateText = when (originStatus.state) {
+                                    ReadReceiptsRuntimeState.STOPPED -> "已停止"
+                                    ReadReceiptsRuntimeState.STARTING -> "启动中"
+                                    ReadReceiptsRuntimeState.RUNNING -> "运行中"
+                                    ReadReceiptsRuntimeState.STOPPING -> "停止中"
+                                    ReadReceiptsRuntimeState.FAILED -> "失败"
+                                }
+                                Text("内置服务器状态: $stateText")
+                                Text(
+                                    "本地地址: " + if (
+                                        originStatus.state == ReadReceiptsRuntimeState.RUNNING &&
+                                        originStatus.port != null
+                                    ) {
+                                        "http://127.0.0.1:${originStatus.port}"
+                                    } else {
+                                        "尚未就绪"
+                                    },
+                                )
+                                val database = NativeReadReceiptsServerController.databaseFile()
+                                Text("数据库: ${database.absolutePath}")
+                                Text("数据库大小: ${if (database.isFile) database.length() else 0} 字节")
+                                if (originStatus.error != null) {
+                                    Text("错误: ${originStatus.error}")
+                                }
+                                Text("公网隧道: 尚未接入, 当前不能发送内置模式追踪消息")
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Button(
+                                        enabled = originStatus.state == ReadReceiptsRuntimeState.STOPPED ||
+                                            originStatus.state == ReadReceiptsRuntimeState.FAILED,
+                                        onClick = {
+                                            startOrigin(requestedBuiltInPort()) { result ->
+                                                originStatus = originController.snapshot()
+                                                showToast(
+                                                    context,
+                                                    result.fold(
+                                                        onSuccess = { "内置服务器已启动: 127.0.0.1:$it" },
+                                                        onFailure = {
+                                                            "内置服务器启动失败: ${it.message}"
+                                                        },
+                                                    ),
+                                                )
+                                            }
+                                        },
+                                    ) { Text("启动") }
+                                    Button(
+                                        enabled = originStatus.state == ReadReceiptsRuntimeState.STARTING ||
+                                            originStatus.state == ReadReceiptsRuntimeState.RUNNING,
+                                        onClick = {
+                                            stopOrigin { result ->
+                                                originStatus = originController.snapshot()
+                                                showToast(
+                                                    context,
+                                                    if (result.isSuccess) {
+                                                        "内置服务器已停止"
+                                                    } else {
+                                                        result.exceptionOrNull()!!.message!!
+                                                    },
+                                                )
+                                            }
+                                        },
+                                    ) { Text("停止") }
+                                }
+                                Text("手动控制使用上次保存的端口配置")
+                            }
+                        }
+
                         TextField(
                             value = prefixInput,
                             onValueChange = { prefixInput = it },
@@ -729,28 +1074,80 @@ object ReadReceipts : ClickableFeature(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
+                        if (runtimeError != null) {
+                            Text("最近错误: $runtimeError")
+                        }
                     }
                 },
                 dismissButton = { TextButton(onDismiss) { Text("取消") } },
                 confirmButton = {
                     Button(onClick = {
-                        if (serverInput.isBlank()) {
-                            showToast(context, "错误: 未设置服务器!")
-                            return@Button
+                        val normalizedThirdParty = if (
+                            modeInput == ReadReceiptsServerMode.THIRD_PARTY
+                        ) {
+                            normalizedHttpsEndpoint(serverInput) ?: run {
+                                showToast(context, "错误: 第三方服务器必须是有效的 HTTPS 地址")
+                                return@Button
+                            }
+                        } else {
+                            thirdPartyUrl
                         }
-                        thirdPartyUrl = serverInput
-
-                        if (prefixInput.isEmpty()) {
-                            showToast(context, "警告: 「触发前缀」为空, 所有文本消息将启用已读追踪!")
-                        }
-                        prefix = prefixInput
 
                         val interval = intervalInput.toIntOrNull()
                         if (interval == null || interval <= 0) {
                             showToast(context, "错误: 轮询间隔格式不正确!")
                             return@Button
                         }
+
+                        val configuredPort = if (
+                            modeInput != ReadReceiptsServerMode.BUILT_IN || automaticPortInput
+                        ) {
+                            builtInPort
+                        } else {
+                            builtInPortInput.toIntOrNull()?.takeIf { it in 1..65535 } ?: run {
+                                showToast(context, "错误: 回环端口必须在 1 到 65535 之间")
+                                return@Button
+                            }
+                        }
+
+                        val oldMode = selectedServerMode()
+                        val oldRequestedPort = requestedBuiltInPort()
+                        val originWasActive = originController.status() in setOf(
+                            ReadReceiptsRuntimeState.STARTING,
+                            ReadReceiptsRuntimeState.RUNNING,
+                            ReadReceiptsRuntimeState.STOPPING,
+                        )
+
+                        // All values are validated before the preference-backed configuration is
+                        // changed, so validation cannot leave a partially saved endpoint.
+                        backendMode = modeInput.name
+                        thirdPartyUrl = normalizedThirdParty
+                        prefix = prefixInput
                         pollIntervalSecs = interval
+                        automaticPort = automaticPortInput
+                        builtInPort = configuredPort
+                        automaticLifecycle = automaticLifecycleInput
+
+                        val newRequestedPort = requestedBuiltInPort()
+                        when {
+                            modeInput == ReadReceiptsServerMode.THIRD_PARTY && originWasActive -> {
+                                stopOrigin()
+                            }
+
+                            modeInput == ReadReceiptsServerMode.BUILT_IN && originWasActive &&
+                                (oldMode != modeInput || oldRequestedPort != newRequestedPort) -> {
+                                restartOrigin(newRequestedPort)
+                            }
+
+                            modeInput == ReadReceiptsServerMode.BUILT_IN && !originWasActive &&
+                                isActive && automaticLifecycle -> {
+                                startOrigin(newRequestedPort)
+                            }
+                        }
+
+                        if (prefixInput.isEmpty()) {
+                            showToast(context, "警告: 「触发前缀」为空, 所有文本消息将启用已读追踪!")
+                        }
 
                         onDismiss()
                     }) { Text("确定") }
