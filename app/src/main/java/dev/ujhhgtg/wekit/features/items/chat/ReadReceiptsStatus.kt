@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -25,9 +26,13 @@ internal data class ReadReceiptsStatus(
     val error: String? = null,
 ) {
     companion object {
+        private const val MAX_ERROR_CHARS = 256
+
         fun parse(value: String): Result<ReadReceiptsStatus> = runCatching {
             val status = DefaultJson.parseToJsonElement(value).jsonObject
-            val state = when (status["state"]?.jsonPrimitive?.content) {
+            val stateValue = status["state"] as? JsonPrimitive
+            require(stateValue?.isString == true)
+            val state = when (stateValue.content) {
                 "stopped" -> ReadReceiptsRuntimeState.STOPPED
                 "starting" -> ReadReceiptsRuntimeState.STARTING
                 "running" -> ReadReceiptsRuntimeState.RUNNING
@@ -35,23 +40,47 @@ internal data class ReadReceiptsStatus(
                 "failed" -> ReadReceiptsRuntimeState.FAILED
                 else -> error("embedded server returned an unknown state")
             }
-            val port = status["port"]?.jsonPrimitive?.intOrNull
-            val error = status["error"]
-                ?.takeUnless { it is JsonNull }
-                ?.jsonPrimitive
-                ?.content
+            require("port" in status && "error" in status)
+            val portElement = status.getValue("port")
+            val port = if (portElement is JsonNull) {
+                null
+            } else {
+                val primitive = portElement as? JsonPrimitive
+                require(primitive != null && !primitive.isString)
+                primitive.intOrNull ?: error("embedded server returned an invalid port")
+            }
+            val errorElement = status.getValue("error")
+            val error = if (errorElement is JsonNull) {
+                null
+            } else {
+                val primitive = errorElement as? JsonPrimitive
+                require(primitive?.isString == true)
+                primitive.content
+            }
 
             when (state) {
-                ReadReceiptsRuntimeState.RUNNING -> require(port in 1..65535) {
-                    "embedded server did not report its bound port"
+                ReadReceiptsRuntimeState.STOPPED,
+                ReadReceiptsRuntimeState.STARTING,
+                -> require(port == null && error == null) {
+                    "embedded server returned inconsistent inactive state"
                 }
 
-                ReadReceiptsRuntimeState.FAILED -> require(!error.isNullOrBlank()) {
-                    "embedded server did not report its failure"
+                ReadReceiptsRuntimeState.RUNNING -> require(
+                    port in 1..65535 && error == null,
+                ) {
+                    "embedded server returned inconsistent running state"
                 }
 
-                else -> require(port == null || port in 1..65535) {
-                    "embedded server reported an invalid port"
+                ReadReceiptsRuntimeState.STOPPING -> require(
+                    (port == null || port in 1..65535) && error == null,
+                ) {
+                    "embedded server returned inconsistent stopping state"
+                }
+
+                ReadReceiptsRuntimeState.FAILED -> require(
+                    port == null && !error.isNullOrBlank() && error.length <= MAX_ERROR_CHARS,
+                ) {
+                    "embedded server returned inconsistent failed state"
                 }
             }
             ReadReceiptsStatus(state, port, error)

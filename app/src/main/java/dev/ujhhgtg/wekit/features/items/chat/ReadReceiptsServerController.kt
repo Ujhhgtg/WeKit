@@ -70,7 +70,7 @@ internal class NativeReadReceiptsServerController : ReadReceiptsServerController
         val status = runCatching(::nativeStatus).getOrElse {
             ReadReceiptsStatus(
                 ReadReceiptsRuntimeState.FAILED,
-                error = it.message ?: it.javaClass.simpleName,
+                error = STATUS_READ_ERROR,
             )
         }
         updateStatus(expectedGeneration, status)
@@ -79,13 +79,15 @@ internal class NativeReadReceiptsServerController : ReadReceiptsServerController
 
     private fun nativeStatus(): ReadReceiptsStatus = ReadReceiptsStatus
         .parse(ReadReceiptsNative.serverStatus())
-        .getOrElse { error("无法读取内置服务器状态: ${it.message}") }
+        .getOrElse { error(STATUS_READ_ERROR) }
 
     private fun updateStatus(expectedGeneration: Long, status: ReadReceiptsStatus) {
         if (generation.get() == expectedGeneration) lastStatus.set(status)
     }
 
     internal companion object {
+        private const val STATUS_READ_ERROR = "无法读取内置服务器状态"
+
         fun databaseFile(): File = File(
             HostInfo.application.filesDir,
             "wekit-read-receipts/read_receipts.db",

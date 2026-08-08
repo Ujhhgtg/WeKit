@@ -33,6 +33,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -56,6 +57,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.Channel
@@ -88,28 +91,18 @@ object ReadReceipts : ClickableFeature(),
     private const val TAG = "ReadReceipts"
 
     // ── Preferences ─────────────────────────────────────────────────────────
-    private var backendMode by prefOption(
-        "read_receipts_backend_mode",
-        ReadReceiptsServerMode.THIRD_PARTY.name,
-    )
-    private var thirdPartyUrl by prefOption("read_receipts_third_party_url", "")
-    private var pollIntervalSecs by prefOption("read_receipts_poll_interval", 5)
-    private var prefix by prefOption("read_receipts_prefix", "#")
-    private var automaticPort by prefOption("read_receipts_automatic_port", true)
-    private var builtInPort by prefOption("read_receipts_built_in_port", 3000)
+    private var serializedConfiguration by prefOption("read_receipts_configuration", "")
     private var lastBuiltInPort by prefOption("read_receipts_last_built_in_port", 0)
     private var lastBuiltInState by prefOption(
         "read_receipts_last_built_in_state",
         ReadReceiptsRuntimeState.STOPPED.name,
     )
-    private var tunnelMode by prefOption("read_receipts_tunnel_mode", "QUICK")
-    private var hostname by prefOption("read_receipts_hostname", "")
-    private var automaticLifecycle by prefOption("read_receipts_automatic_lifecycle", true)
-    private var selectedAccountId by prefOption("read_receipts_selected_account_id", "")
-    private var selectedAccountName by prefOption("read_receipts_selected_account_name", "")
-    private var selectedTunnelId by prefOption("read_receipts_selected_tunnel_id", "")
-    private var selectedTunnelName by prefOption("read_receipts_selected_tunnel_name", "")
     private var serializedRecords by prefOption("read_receipts_records", emptySet())
+
+    private val configurationLock = Any()
+
+    @Volatile
+    private var loadedConfiguration: ReadReceiptsConfiguration? = null
 
     private const val BUILT_IN_RECORD_ENDPOINT = "builtin://local"
     private const val RECORD_RETENTION_MILLIS = 180L * 24 * 60 * 60 * 1000
@@ -130,6 +123,94 @@ object ReadReceipts : ClickableFeature(),
     private val originController = NativeReadReceiptsServerController()
     private val originScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val originGeneration = AtomicLong()
+    private val originLifecycleMutex = Mutex()
+
+    private data class OriginRequest(
+        val generation: Long,
+        val port: Int?,
+        val forceRestart: Boolean,
+    )
+
+    private fun configuration(): ReadReceiptsConfiguration {
+        loadedConfiguration?.let { return it }
+        return synchronized(configurationLock) {
+            loadedConfiguration?.let { return@synchronized it }
+            val serialized = serializedConfiguration
+            val persisted = serialized.takeIf(String::isNotBlank)
+                ?.let(ReadReceiptsConfigurationCodec::decode)
+            val value = when {
+                persisted != null -> persisted
+                serialized.isBlank() -> migrateLegacyConfiguration()
+                else -> ReadReceiptsConfiguration()
+            }
+            if (persisted == null) {
+                serializedConfiguration = ReadReceiptsConfigurationCodec.encode(value)
+            }
+            loadedConfiguration = value
+            value
+        }
+    }
+
+    private fun saveConfiguration(value: ReadReceiptsConfiguration) {
+        val encoded = ReadReceiptsConfigurationCodec.encode(value)
+        val canonical = ReadReceiptsConfigurationCodec.decode(encoded)!!
+        synchronized(configurationLock) {
+            serializedConfiguration = encoded
+            loadedConfiguration = canonical
+        }
+    }
+
+    private fun migrateLegacyConfiguration(): ReadReceiptsConfiguration {
+        val mode = WePrefs.getStringOrDef(
+            "read_receipts_backend_mode",
+            ReadReceiptsServerMode.THIRD_PARTY.name,
+        ).let { name ->
+            ReadReceiptsServerMode.entries.firstOrNull { it.name == name }
+                ?: ReadReceiptsServerMode.THIRD_PARTY
+        }
+        val legacyPort = WePrefs.getIntOrDef("read_receipts_built_in_port", 0)
+        val automaticPort = WePrefs.getBoolOrDef(
+            "read_receipts_automatic_port",
+            true,
+        )
+        return ReadReceiptsConfiguration(
+            mode = mode,
+            thirdPartyUrl = normalizedHttpsEndpoint(
+                WePrefs.getStringOrDef("read_receipts_third_party_url", ""),
+            ).orEmpty(),
+            prefix = WePrefs.getStringOrDef("read_receipts_prefix", "#"),
+            pollIntervalSecs = WePrefs.getIntOrDef("read_receipts_poll_interval", 5)
+                .takeIf { it > 0 } ?: 5,
+            automaticPort = automaticPort,
+            builtInPort = legacyPort.takeIf { it in 1..65535 } ?: 3000,
+            automaticLifecycle = WePrefs.getBoolOrDef(
+                "read_receipts_automatic_lifecycle",
+                true,
+            ),
+            tunnelMode = WePrefs.getStringOrDef("read_receipts_tunnel_mode", "QUICK")
+                .takeIf(String::isNotBlank)
+                ?: "QUICK",
+            hostname = normalizedHttpsEndpoint(
+                WePrefs.getStringOrDef("read_receipts_hostname", ""),
+            ).orEmpty(),
+            selectedAccountId = WePrefs.getStringOrDef(
+                "read_receipts_selected_account_id",
+                "",
+            ),
+            selectedAccountName = WePrefs.getStringOrDef(
+                "read_receipts_selected_account_name",
+                "",
+            ),
+            selectedTunnelId = WePrefs.getStringOrDef(
+                "read_receipts_selected_tunnel_id",
+                "",
+            ),
+            selectedTunnelName = WePrefs.getStringOrDef(
+                "read_receipts_selected_tunnel_name",
+                "",
+            ),
+        )
+    }
 
     // ── HTTP ────────────────────────────────────────────────────────────────
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -329,11 +410,8 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    private fun selectedServerMode(): ReadReceiptsServerMode =
-        ReadReceiptsServerMode.entries.firstOrNull { it.name == backendMode }
-            ?: ReadReceiptsServerMode.THIRD_PARTY
-
-    private fun requestedBuiltInPort(): Int = if (automaticPort) 0 else builtInPort
+    private fun requestedBuiltInPort(value: ReadReceiptsConfiguration = configuration()): Int =
+        if (value.automaticPort) 0 else value.builtInPort
 
     private fun normalizedHttpsEndpoint(value: String): String? {
         val normalized = value.trimEnd('/')
@@ -346,35 +424,38 @@ object ReadReceipts : ClickableFeature(),
     /** Task 9 will return a URL here only after its independently-owned tunnel is healthy. */
     private fun verifiedTunnelEndpoint(): String? = null
 
-    private fun resolveBackend(): Pair<ResolvedBackend?, String?> = when (selectedServerMode()) {
-        ReadReceiptsServerMode.THIRD_PARTY -> {
-            val endpoint = normalizedHttpsEndpoint(thirdPartyUrl)
-                ?: return null to "第三方服务器必须是有效的 HTTPS 地址"
-            ResolvedBackend(
-                backend = ReadReceiptBackend.THIRD_PARTY,
-                requestEndpoint = endpoint,
-                pixelEndpoint = endpoint,
-                recordEndpoint = endpoint,
-            ) to null
-        }
-
-        ReadReceiptsServerMode.BUILT_IN -> {
-            val origin = originController.snapshot()
-            if (origin.state != ReadReceiptsRuntimeState.RUNNING || origin.port == null) {
-                return null to "内置服务器未运行"
-            }
-            if (normalizedHttpsEndpoint(hostname) == null) {
-                return null to "Cloudflare Tunnel 公网地址未就绪"
+    private fun resolveBackend(): Pair<ResolvedBackend?, String?> {
+        val configuration = configuration()
+        return when (configuration.mode) {
+            ReadReceiptsServerMode.THIRD_PARTY -> {
+                val endpoint = normalizedHttpsEndpoint(configuration.thirdPartyUrl)
+                    ?: return null to "第三方服务器必须是有效的 HTTPS 地址"
+                ResolvedBackend(
+                    backend = ReadReceiptBackend.THIRD_PARTY,
+                    requestEndpoint = endpoint,
+                    pixelEndpoint = endpoint,
+                    recordEndpoint = endpoint,
+                ) to null
             }
 
-            val publicEndpoint = verifiedTunnelEndpoint()
-                ?: return null to "Cloudflare Tunnel 状态暂不可验证, 请等待公网隧道功能接入"
-            ResolvedBackend(
-                backend = ReadReceiptBackend.BUILT_IN,
-                requestEndpoint = "http://127.0.0.1:${origin.port}",
-                pixelEndpoint = publicEndpoint,
-                recordEndpoint = BUILT_IN_RECORD_ENDPOINT,
-            ) to null
+            ReadReceiptsServerMode.BUILT_IN -> {
+                val origin = originController.snapshot()
+                if (origin.state != ReadReceiptsRuntimeState.RUNNING || origin.port == null) {
+                    return null to "内置服务器未运行"
+                }
+                if (normalizedHttpsEndpoint(configuration.hostname) == null) {
+                    return null to "Cloudflare Tunnel 公网地址未就绪"
+                }
+
+                val publicEndpoint = verifiedTunnelEndpoint()
+                    ?: return null to "Cloudflare Tunnel 状态暂不可验证, 请等待公网隧道功能接入"
+                ResolvedBackend(
+                    backend = ReadReceiptBackend.BUILT_IN,
+                    requestEndpoint = "http://127.0.0.1:${origin.port}",
+                    pixelEndpoint = publicEndpoint,
+                    recordEndpoint = BUILT_IN_RECORD_ENDPOINT,
+                ) to null
+            }
         }
     }
 
@@ -396,89 +477,119 @@ object ReadReceipts : ClickableFeature(),
         requestedPort: Int,
         onFinished: ((Result<Int>) -> Unit)? = null,
     ) {
-        val generation = originGeneration.incrementAndGet()
+        val request = OriginRequest(
+            generation = originGeneration.incrementAndGet(),
+            port = requestedPort,
+            forceRestart = false,
+        )
         lastBuiltInState = ReadReceiptsRuntimeState.STARTING.name
-        originScope.launch {
-            val result = originController.startBuiltIn(requestedPort)
-            if (originGeneration.get() != generation) return@launch
-
-            result.fold(
-                onSuccess = { port ->
-                    lastBuiltInPort = port
-                    lastBuiltInState = ReadReceiptsRuntimeState.RUNNING.name
-                    runtimeError = null
-                },
-                onFailure = { error ->
-                    lastBuiltInPort = 0
-                    lastBuiltInState = ReadReceiptsRuntimeState.FAILED.name
-                    runtimeError = error.message ?: error.javaClass.simpleName
-                },
-            )
-            if (onFinished != null) {
-                withContext(Dispatchers.Main.immediate) {
-                    if (originGeneration.get() == generation) onFinished(result)
-                }
-            }
+        submitOriginRequest(request) { result ->
+            onFinished?.invoke(result.map { it!! })
         }
     }
 
     private fun stopOrigin(onFinished: ((Result<Unit>) -> Unit)? = null) {
-        val generation = originGeneration.incrementAndGet()
+        val request = OriginRequest(
+            generation = originGeneration.incrementAndGet(),
+            port = null,
+            forceRestart = false,
+        )
         lastBuiltInState = ReadReceiptsRuntimeState.STOPPING.name
-        originScope.launch {
-            originController.stopBuiltIn()
-            val stopped = awaitOriginTerminal() == ReadReceiptsRuntimeState.STOPPED
-            if (originGeneration.get() != generation) return@launch
-
-            val result = if (stopped) {
-                lastBuiltInPort = 0
-                lastBuiltInState = ReadReceiptsRuntimeState.STOPPED.name
-                Result.success(Unit)
-            } else {
-                val message = "内置服务器未能及时停止"
-                lastBuiltInState = originController.status().name
-                runtimeError = message
-                Result.failure(IllegalStateException(message))
-            }
-            if (onFinished != null) {
-                withContext(Dispatchers.Main.immediate) {
-                    if (originGeneration.get() == generation) onFinished(result)
-                }
-            }
+        submitOriginRequest(request) { result ->
+            onFinished?.invoke(result.map { Unit })
         }
     }
 
     private fun restartOrigin(requestedPort: Int) {
-        val generation = originGeneration.incrementAndGet()
+        val request = OriginRequest(
+            generation = originGeneration.incrementAndGet(),
+            port = requestedPort,
+            forceRestart = true,
+        )
         lastBuiltInState = ReadReceiptsRuntimeState.STOPPING.name
-        originScope.launch {
-            originController.stopBuiltIn()
-            if (awaitOriginTerminal() == null) {
-                if (originGeneration.get() == generation) {
-                    lastBuiltInState = originController.status().name
-                    runtimeError = "内置服务器未能及时停止, 配置尚未应用"
-                }
-                return@launch
-            }
-            if (originGeneration.get() != generation) return@launch
+        submitOriginRequest(request)
+    }
 
-            lastBuiltInState = ReadReceiptsRuntimeState.STARTING.name
-            val result = originController.startBuiltIn(requestedPort)
-            if (originGeneration.get() != generation) return@launch
+    private fun submitOriginRequest(
+        request: OriginRequest,
+        onFinished: ((Result<Int?>) -> Unit)? = null,
+    ) {
+        originScope.launch {
+            if (originGeneration.get() != request.generation) return@launch
+            val result = originLifecycleMutex.withLock {
+                if (originGeneration.get() != request.generation) return@withLock null
+                reconcileOrigin(request)
+            } ?: return@launch
+            if (originGeneration.get() != request.generation) return@launch
+
+            val status = originController.snapshot()
             result.fold(
                 onSuccess = { port ->
-                    lastBuiltInPort = port
-                    lastBuiltInState = ReadReceiptsRuntimeState.RUNNING.name
+                    lastBuiltInPort = port ?: 0
+                    lastBuiltInState = status.state.name
                     runtimeError = null
                 },
                 onFailure = { error ->
-                    lastBuiltInPort = 0
-                    lastBuiltInState = ReadReceiptsRuntimeState.FAILED.name
+                    lastBuiltInPort = status.port ?: 0
+                    lastBuiltInState = status.state.name
                     runtimeError = error.message ?: error.javaClass.simpleName
                 },
             )
+            if (onFinished != null) {
+                withContext(Dispatchers.Main.immediate) {
+                    if (originGeneration.get() == request.generation) onFinished(result)
+                }
+            }
         }
     }
+
+    /** Runs under [originLifecycleMutex]; null means a newer desired generation superseded it. */
+    private suspend fun reconcileOrigin(request: OriginRequest): Result<Int?>? {
+        if (originGeneration.get() != request.generation) return null
+        val requestedPort = request.port
+        if (requestedPort == null) {
+            val terminal = stopOriginAndAwait()
+            if (originGeneration.get() != request.generation) return null
+            return if (terminal == ReadReceiptsRuntimeState.STOPPED) {
+                Result.success(null)
+            } else {
+                Result.failure(IllegalStateException("内置服务器未能及时停止"))
+            }
+        }
+
+        val state = originController.status()
+        if (request.forceRestart) {
+            if (stopOriginAndAwait() == null) {
+                if (originGeneration.get() != request.generation) return null
+                return Result.failure(IllegalStateException("内置服务器未能及时停止, 配置尚未应用"))
+            }
+            if (originGeneration.get() != request.generation) return null
+        } else if (state == ReadReceiptsRuntimeState.STOPPING) {
+            if (awaitOriginTerminal() == null) {
+                if (originGeneration.get() != request.generation) return null
+                return Result.failure(IllegalStateException("内置服务器未能及时停止"))
+            }
+            if (originGeneration.get() != request.generation) return null
+        }
+
+        val result = originController.startBuiltIn(requestedPort).map { it as Int? }
+        return if (originGeneration.get() == request.generation) result else null
+    }
+
+    private suspend fun stopOriginAndAwait(): ReadReceiptsRuntimeState? =
+        when (val state = originController.status()) {
+            ReadReceiptsRuntimeState.STOPPED,
+            ReadReceiptsRuntimeState.FAILED,
+            -> state
+
+            ReadReceiptsRuntimeState.STOPPING -> awaitOriginTerminal()
+            ReadReceiptsRuntimeState.STARTING,
+            ReadReceiptsRuntimeState.RUNNING,
+            -> {
+                originController.stopBuiltIn()
+                awaitOriginTerminal()
+            }
+        }
 
     private suspend fun awaitOriginTerminal(): ReadReceiptsRuntimeState? = withTimeoutOrNull(
         ORIGIN_STOP_TIMEOUT_MILLIS,
@@ -501,9 +612,13 @@ object ReadReceipts : ClickableFeature(),
         loadRecords()
         featureScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-        if (selectedServerMode() == ReadReceiptsServerMode.BUILT_IN && automaticLifecycle) {
+        val configuration = configuration()
+        if (
+            configuration.mode == ReadReceiptsServerMode.BUILT_IN &&
+            configuration.automaticLifecycle
+        ) {
             // Task 9 must start the tunnel only after this origin callback succeeds.
-            startOrigin(requestedBuiltInPort())
+            startOrigin(requestedBuiltInPort(configuration))
         }
 
         WeChatInputBarMenuApi.methodSendMessage.hookBefore(100) {
@@ -512,7 +627,8 @@ object ReadReceipts : ClickableFeature(),
             }.get()!! as ChatFooter
 
             val text = chatFooter.lastText
-            if (!text.startsWith(prefix)) return@hookBefore
+            val configuration = configuration()
+            if (!text.startsWith(configuration.prefix)) return@hookBefore
             result = null
 
             val (backend, endpointError) = resolveBackend()
@@ -522,7 +638,7 @@ object ReadReceipts : ClickableFeature(),
                 return@hookBefore
             }
 
-            val actualText = text.removePrefix(prefix)
+            val actualText = text.removePrefix(configuration.prefix)
             val selfWxId = WeApi.selfWxId
             // Assigned now (epoch millis) so two identical-text messages get distinct ids.
             val createTime = System.currentTimeMillis()
@@ -604,7 +720,11 @@ object ReadReceipts : ClickableFeature(),
     }
 
     override fun onDisable() {
-        if (selectedServerMode() == ReadReceiptsServerMode.BUILT_IN && automaticLifecycle) {
+        val configuration = configuration()
+        if (
+            configuration.mode == ReadReceiptsServerMode.BUILT_IN &&
+            configuration.automaticLifecycle
+        ) {
             // Task 9 must stop its tunnel leg first, then call this origin stop.
             stopOrigin()
         }
@@ -815,7 +935,7 @@ object ReadReceipts : ClickableFeature(),
         if (count == null) {
             val failures = (backoffs[key]?.failures ?: 0) + 1
             val multiplier = 1L shl (failures - 1).coerceAtMost(6)
-            val retryDelay = (pollIntervalSecs.coerceAtLeast(1) * 1000L * multiplier)
+            val retryDelay = (configuration().pollIntervalSecs * 1000L * multiplier)
                 .coerceAtMost(MAX_FAILURE_BACKOFF_MILLIS)
             backoffs[key] = PollBackoff(failures, completedAt + retryDelay)
             return
@@ -823,7 +943,7 @@ object ReadReceipts : ClickableFeature(),
 
         backoffs[key] = PollBackoff(
             failures = 0,
-            nextAttemptAtMillis = completedAt + pollIntervalSecs.coerceAtLeast(1) * 1000L,
+            nextAttemptAtMillis = completedAt + configuration().pollIntervalSecs * 1000L,
         )
         counts[key] = count
         val targets = synchronized(activeViews) {
@@ -885,13 +1005,22 @@ object ReadReceipts : ClickableFeature(),
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var modeInput by remember { mutableStateOf(selectedServerMode()) }
-            var serverInput by remember { mutableStateOf(thirdPartyUrl) }
-            var prefixInput by remember { mutableStateOf(prefix) }
-            var intervalInput by remember { mutableStateOf(pollIntervalSecs.toString()) }
-            var automaticPortInput by remember { mutableStateOf(automaticPort) }
-            var builtInPortInput by remember { mutableStateOf(builtInPort.toString()) }
-            var automaticLifecycleInput by remember { mutableStateOf(automaticLifecycle) }
+            val initialConfiguration = remember { configuration() }
+            var modeInput by remember { mutableStateOf(initialConfiguration.mode) }
+            var serverInput by remember { mutableStateOf(initialConfiguration.thirdPartyUrl) }
+            var prefixInput by remember { mutableStateOf(initialConfiguration.prefix) }
+            var intervalInput by remember {
+                mutableStateOf(initialConfiguration.pollIntervalSecs.toString())
+            }
+            var automaticPortInput by remember {
+                mutableStateOf(initialConfiguration.automaticPort)
+            }
+            var builtInPortInput by remember {
+                mutableStateOf(initialConfiguration.builtInPort.toString())
+            }
+            var automaticLifecycleInput by remember {
+                mutableStateOf(initialConfiguration.automaticLifecycle)
+            }
             var originStatus by remember { mutableStateOf(originController.snapshot()) }
 
             LaunchedEffect(Unit) {
@@ -1090,7 +1219,7 @@ object ReadReceipts : ClickableFeature(),
                                 return@Button
                             }
                         } else {
-                            thirdPartyUrl
+                            initialConfiguration.thirdPartyUrl
                         }
 
                         val interval = intervalInput.toIntOrNull()
@@ -1102,7 +1231,7 @@ object ReadReceipts : ClickableFeature(),
                         val configuredPort = if (
                             modeInput != ReadReceiptsServerMode.BUILT_IN || automaticPortInput
                         ) {
-                            builtInPort
+                            initialConfiguration.builtInPort
                         } else {
                             builtInPortInput.toIntOrNull()?.takeIf { it in 1..65535 } ?: run {
                                 showToast(context, "错误: 回环端口必须在 1 到 65535 之间")
@@ -1110,37 +1239,41 @@ object ReadReceipts : ClickableFeature(),
                             }
                         }
 
-                        val oldMode = selectedServerMode()
-                        val oldRequestedPort = requestedBuiltInPort()
+                        val oldConfiguration = configuration()
+                        val oldRequestedPort = requestedBuiltInPort(oldConfiguration)
                         val originWasActive = originController.status() in setOf(
                             ReadReceiptsRuntimeState.STARTING,
                             ReadReceiptsRuntimeState.RUNNING,
                             ReadReceiptsRuntimeState.STOPPING,
                         )
 
-                        // All values are validated before the preference-backed configuration is
-                        // changed, so validation cannot leave a partially saved endpoint.
-                        backendMode = modeInput.name
-                        thirdPartyUrl = normalizedThirdParty
-                        prefix = prefixInput
-                        pollIntervalSecs = interval
-                        automaticPort = automaticPortInput
-                        builtInPort = configuredPort
-                        automaticLifecycle = automaticLifecycleInput
+                        val candidate = oldConfiguration.copy(
+                            mode = modeInput,
+                            thirdPartyUrl = normalizedThirdParty,
+                            prefix = prefixInput,
+                            pollIntervalSecs = interval,
+                            automaticPort = automaticPortInput,
+                            builtInPort = configuredPort,
+                            automaticLifecycle = automaticLifecycleInput,
+                        )
+                        // The versioned snapshot is one MMKV value; no legacy configuration key is
+                        // written after the complete selected-mode candidate has been validated.
+                        saveConfiguration(candidate)
 
-                        val newRequestedPort = requestedBuiltInPort()
+                        val newRequestedPort = requestedBuiltInPort(candidate)
                         when {
                             modeInput == ReadReceiptsServerMode.THIRD_PARTY && originWasActive -> {
                                 stopOrigin()
                             }
 
                             modeInput == ReadReceiptsServerMode.BUILT_IN && originWasActive &&
-                                (oldMode != modeInput || oldRequestedPort != newRequestedPort) -> {
+                                (oldConfiguration.mode != modeInput ||
+                                    oldRequestedPort != newRequestedPort) -> {
                                 restartOrigin(newRequestedPort)
                             }
 
                             modeInput == ReadReceiptsServerMode.BUILT_IN && !originWasActive &&
-                                isActive && automaticLifecycle -> {
+                                isActive && candidate.automaticLifecycle -> {
                                 startOrigin(newRequestedPort)
                             }
                         }
