@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.contacts
 
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -50,11 +49,10 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
     )
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        val parameterCount = if (DexResolutionContext.host.versionName == "8.0.65") 10 else 11
         val matches = dexKit.findMethod {
             matcher {
                 returnType = "boolean"
-                paramCount = parameterCount
+                paramCount(10, 11)
                 usingStrings("MicroMsg.ChatroomMembersLogic", "SyncAddChatroomMember")
             }
         }.filter { method ->
@@ -67,13 +65,13 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
                 params[6] == "java.lang.String" &&
                 params[8] == "boolean" &&
                 params[9] == "boolean" &&
-                (parameterCount == 10 || params[10] == "int") &&
+                (params.size == 10 || params[10] == "int") &&
                 params[2] !in PRIMITIVE_TYPE_NAMES &&
                 params[7] !in PRIMITIVE_TYPE_NAMES
         }
 
         check(matches.size == 1) {
-            "expected one ChatroomMembersLogic sync method for ${DexResolutionContext.host.versionName}, found ${matches.size}: " +
+            "expected one ChatroomMembersLogic sync method, found ${matches.size}: " +
                 matches.joinToString { it.descriptor }
         }
         methodSyncChatroomMembers.setDescriptor(matches.single())
