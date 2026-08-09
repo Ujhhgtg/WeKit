@@ -130,8 +130,8 @@ The first Task 9 review found six important and two minor defects. Their roots a
    the exact fixed port, waits for ACK before committing the candidate, rolls back/restarts the prior
    working configuration on immediate failure, and disables **确定** during the transaction.
 5. Binder death, STOPPED status, and timeout drained a shared callback list on different threads.
-   `TunnelStopCompletion` atomically matches one stop generation, keeps at most one origin callback,
-   and lets only the first terminal path drain it.
+   `TunnelStopCompletion` atomically matches one stop generation, retains every caller callback, and
+   lets only the first terminal path drain them; duplicate terminals match without returning callbacks.
 6. Android 13 notification permission was undeclared and a hidden FGS could connect without a visible
    stop action. `POST_NOTIFICATIONS` is declared; the module service rejects START when its own
    notifications are disabled and the WeChat-hosted UI opens WeKit's app-notification settings.
@@ -216,3 +216,94 @@ The following gates still require a device and, where noted, user-owned Cloudfla
 A live named-tunnel run cannot be automated or truthfully claimed without the user's Cloudflare token,
 hostname, and dashboard route; no credentials were embedded in tests or source. Device-level FGS,
 cross-process, network, and forwarding behavior likewise remains an explicit manual acceptance gate.
+
+## Scoped re-review follow-up
+
+The scoped re-review found three important defects and one minor ordering defect in the first formal
+review fix. All four remain within Task 9:
+
+1. Configuration generation alone did not invalidate an in-flight public-health result. A default
+   network event could publish `RECONNECTING` and queue native teardown while the same-generation
+   coroutine subsequently wrote the credential, cleared `pendingToken`, and republished `CONNECTED`.
+   `TunnelNativeLease` now owns an independently monotonic network epoch, active-request generation,
+   and native-session epoch. Every default-network `onAvailable`/`onLost` synchronously increments the
+   epoch before asynchronous reconnect work. A verification ticket captures all four identities, and
+   one synchronized commit rechecks the ticket immediately before credential write, pending-token
+   clear, and CONNECTED publication. The same monitor excludes a network invalidation from
+   interleaving those three steps. Cached public health is also tagged with the network epoch, so the
+   no-health-needed branch cannot reuse an earlier network's verification.
+2. `TunnelStopCompletion.register` retained only the first non-null callback. It now collects every
+   callback for the pending STOP generation; the first terminal drains all of them exactly once and
+   repeated terminals return no callbacks. Because those controller callbacks represent multiple
+   callers of the same stack shutdown, `ReadReceipts.stopBuiltInStack` uses a second synchronized
+   completion group: one tunnel STOP leads to one origin shutdown, whose single `Result<Unit>` is
+   delivered once to every caller. If a newer origin generation supersedes that shutdown, stale
+   success handling remains suppressed while a dedicated Main-thread terminal path releases the
+   completion group and delivers `Result.failure("内置服务器停止请求已被新请求取代")` once to every
+   caller; later STOP requests can therefore start a fresh shutdown.
+3. The connection button validated a token-mode hostname but constructed its transaction candidate
+   from the original text, while **确定** canonicalized it. Uppercase/trailing-slash spelling could
+   therefore look like a runtime change and tear down the new stack. Both actions now call the same
+   `canonicalPublicRoot`; the connection candidate is canonical before transaction construction,
+   ACK persistence saves only that canonical value, and `TunnelRuntimeIdentity` compares canonical
+   mode/hostname identities for replacement decisions. A legacy valid spelling such as
+   `HTTPS://RECEIPTS.EXAMPLE.COM/` compares equal to `https://receipts.example.com`.
+4. `startVisible` allocated its replacement generation before synchronously failing the old pending
+   handoff. The old completion could start rollback/STOP and allocate a higher generation, making the
+   replacement START stale before send. A completion could also call `startVisible` recursively and
+   have its pending callback silently overwritten by the outer request. `TunnelHandoffGate`
+   now repeatedly drains every pending handoff created during synchronous completion, then calls the
+   generation factory and installs the outer replacement. In the regression, generation 100 creates
+   nested generation 101, both callbacks terminate once, and the outer generation 102 is the final
+   winner. Old ACK/timeout events still cannot clear generation 102.
+
+Focused RED/GREEN evidence:
+
+- The network tests were RED with unresolved epoch/ticket APIs. They now block health, invalidate the
+  network, release a successful result, and observe `STALE` with zero credential writes, zero pending
+  clears, and zero CONNECTED publications. A separate cached/no-health-needed test observes the same
+  zero-side-effect result; a current ticket commits all three effects once.
+- After adding the higher-layer coalescer scaffold, the corrected 16-caller STOP race was RED with
+  `expected: <16> but was: <1>`. It now races 16 registrations and 16 terminal paths, observing one
+  STOP send/generation allocation, every caller callback exactly once, and no callbacks from duplicate
+  terminals. The origin coalescing test separately observes one origin side effect and 16 results.
+- Canonical identity and reentrant START tests were RED with unresolved production APIs. They now
+  verify that both runtime-change consumers share uppercase/trailing-slash equivalence, and that an
+  old generation-100 completion can create nested generation 101, which is completed before the
+  outer replacement installs generation 102; late old ACK/timeout cannot clear generation 102.
+- An independent read-only diff review then found one remaining raw Confirm comparison, a permanently
+  occupied higher-layer callback group when origin stop was superseded, and the nested-START overwrite
+  case. The shared predicate, dedicated superseded terminal path, and drain-all handoff gate above
+  closed those paths; their focused regressions are included in the final 11-test suite.
+
+Scoped re-review verification:
+
+```text
+./gradlew testStandardDebugUnitTest \
+  --tests dev.ujhhgtg.wekit.features.items.chat.ReadReceiptsTunnelCoordinationTest
+BUILD SUCCESSFUL; 11 focused tests
+
+./gradlew testStandardDebugUnitTest
+BUILD SUCCESSFUL in 7s (64 actionable tasks: 8 executed, 1 from cache, 55 up-to-date)
+
+go test -race -count=1 ./app/src/main/go/wekit-cloudflared
+ok dev.ujhhgtg.wekit/cloudflared-bridge 1.157s
+
+cargo test --workspace
+PASS: wekit-native 9; service library 15; pixel logging 1; zygisk 10; xtask 22
+
+./x build
+BUILD SUCCESSFUL in 14s (144 actionable tasks: 15 executed, 1 from cache, 128 up-to-date)
+```
+
+Both final debug APKs again contain `libwekit_cloudflared.so` and `libwekit_native.so` for arm64-v8a
+and armeabi-v7a. Symbol inspection found the exact six C ABI and four direct JNI exports in each
+connector library. Generated JNI inputs were moved out of the worktree to
+`/tmp/wekit-task9-rereview-final-jni.3AVv3V/jniLibs` after inspection. A second independent
+read-only review reported no Critical, Important, or Minor findings and a Ready verdict.
+
+The existing device checklist remains required. In particular, exercise a network event while public
+health is in flight and shortly after cached verification, issue multiple concurrent disconnect
+requests and confirm each caller completes while origin shutdown occurs once, reconnect with an
+uppercase/trailing-slash spelling without teardown on **确定**, and force a superseded START completion
+to allocate rollback work before the replacement command.

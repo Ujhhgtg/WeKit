@@ -74,9 +74,16 @@ internal object ReadReceiptsTunnelController {
         onHandoff: (Result<Unit>) -> Unit,
     ) {
         val context = HostInfo.application
-        val nextGeneration = nextGeneration()
-        failPendingStart(IllegalStateException("连接请求已被新配置取代"))
-        handoffGate.begin(nextGeneration)
+        val nextGeneration = handoffGate.beginAfterSuperseding(
+            pendingGeneration = { pendingStart?.generation },
+            supersede = { supersededGeneration ->
+                failPendingStart(
+                    supersededGeneration,
+                    IllegalStateException("连接请求已被新配置取代"),
+                )
+            },
+            generationFactory = ::nextGeneration,
+        )
         status = ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING)
         val startIntent = serviceIntent(context).apply {
             action = ReadReceiptsTunnelService.ACTION_START

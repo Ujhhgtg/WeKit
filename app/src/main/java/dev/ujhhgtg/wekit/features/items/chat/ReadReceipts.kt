@@ -129,6 +129,7 @@ object ReadReceipts : ClickableFeature(),
     private val originGeneration = AtomicLong()
     private val originLifecycleMutex = Mutex()
     private val originMetadataLock = Any()
+    private val builtInStopCallbacks = CoalescedResultCallbacks<Unit>()
 
     private data class OriginRequest(
         val generation: Long,
@@ -522,6 +523,18 @@ object ReadReceipts : ClickableFeature(),
         onFinished: (Result<Unit>) -> Unit,
     ) {
         val previous = configuration()
+        val candidateIdentity = TunnelRuntimeIdentity.create(
+            tunnelMode(candidate),
+            candidate.hostname,
+        ) ?: run {
+            onFinished(Result.failure(IllegalArgumentException("Token 模式需要根路径 HTTPS 主机名")))
+            return
+        }
+        val canonicalCandidate = if (candidateIdentity.mode == ReadReceiptsTunnelMode.TOKEN) {
+            candidate.copy(hostname = candidateIdentity.hostname!!)
+        } else {
+            candidate
+        }
         val previousWasActive = originController.status() in setOf(
             ReadReceiptsRuntimeState.STARTING,
             ReadReceiptsRuntimeState.RUNNING,
@@ -529,9 +542,13 @@ object ReadReceipts : ClickableFeature(),
         )
         val needsReplacement = previousWasActive && (
             previous.mode != ReadReceiptsServerMode.BUILT_IN ||
-                requestedBuiltInPort(previous) != requestedBuiltInPort(candidate) ||
-                previous.tunnelMode != candidate.tunnelMode ||
-                previous.hostname != candidate.hostname
+                requestedBuiltInPort(previous) != requestedBuiltInPort(canonicalCandidate) ||
+                tunnelRuntimeChanged(
+                    tunnelMode(previous),
+                    previous.hostname,
+                    candidateIdentity.mode,
+                    canonicalCandidate.hostname,
+                )
         )
 
         fun restore(error: Throwable) {
@@ -556,10 +573,10 @@ object ReadReceipts : ClickableFeature(),
         }
 
         fun startCandidate() {
-            startBuiltInStack(candidate, token) { result ->
+            startBuiltInStack(canonicalCandidate, token) { result ->
                 result.fold(
                     onSuccess = {
-                        saveConfiguration(candidate)
+                        saveConfiguration(canonicalCandidate)
                         onFinished(Result.success(Unit))
                     },
                     onFailure = ::restore,
@@ -580,8 +597,16 @@ object ReadReceipts : ClickableFeature(),
     }
 
     private fun stopBuiltInStack(onFinished: ((Result<Unit>) -> Unit)? = null) {
+        if (!builtInStopCallbacks.register(onFinished)) return
         ReadReceiptsTunnelController.stop {
-            stopOrigin(onFinished)
+            stopOrigin(
+                onFinished = { result -> builtInStopCallbacks.complete(result) },
+                onSuperseded = {
+                    builtInStopCallbacks.complete(
+                        Result.failure(IllegalStateException("内置服务器停止请求已被新请求取代")),
+                    )
+                },
+            )
         }
     }
 
@@ -603,13 +628,16 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    private fun stopOrigin(onFinished: ((Result<Unit>) -> Unit)? = null) {
+    private fun stopOrigin(
+        onFinished: ((Result<Unit>) -> Unit)? = null,
+        onSuperseded: (() -> Unit)? = null,
+    ) {
         val request = newOriginRequest(
             port = null,
             forceRestart = false,
             desiredState = ReadReceiptsRuntimeState.STOPPING,
         )
-        submitOriginRequest(request) { result ->
+        submitOriginRequest(request, onSuperseded) { result ->
             onFinished?.invoke(result.map { Unit })
         }
     }
@@ -630,18 +658,37 @@ object ReadReceipts : ClickableFeature(),
 
     private fun submitOriginRequest(
         request: OriginRequest,
+        onSuperseded: (() -> Unit)? = null,
         onFinished: ((Result<Int?>) -> Unit)? = null,
     ) {
         originScope.launch {
-            if (originGeneration.get() != request.generation) return@launch
+            suspend fun completeSuperseded() {
+                if (onSuperseded != null) {
+                    withContext(Dispatchers.Main.immediate) { onSuperseded() }
+                }
+            }
+
+            if (originGeneration.get() != request.generation) {
+                completeSuperseded()
+                return@launch
+            }
             val result = originLifecycleMutex.withLock {
                 if (originGeneration.get() != request.generation) return@withLock null
                 reconcileOrigin(request)
-            } ?: return@launch
-            if (originGeneration.get() != request.generation) return@launch
+            } ?: run {
+                completeSuperseded()
+                return@launch
+            }
+            if (originGeneration.get() != request.generation) {
+                completeSuperseded()
+                return@launch
+            }
 
             val status = originController.snapshot()
-            if (originGeneration.get() != request.generation) return@launch
+            if (originGeneration.get() != request.generation) {
+                completeSuperseded()
+                return@launch
+            }
             val published = synchronized(originMetadataLock) {
                 if (originGeneration.get() != request.generation) {
                     false
@@ -661,12 +708,19 @@ object ReadReceipts : ClickableFeature(),
                     true
                 }
             }
-            if (!published) return@launch
-            if (onFinished != null) {
-                withContext(Dispatchers.Main.immediate) {
-                    if (originGeneration.get() == request.generation) onFinished(result)
+            if (!published) {
+                completeSuperseded()
+                return@launch
+            }
+            val callbackCurrent = withContext(Dispatchers.Main.immediate) {
+                if (originGeneration.get() == request.generation) {
+                    onFinished?.invoke(result)
+                    true
+                } else {
+                    false
                 }
             }
+            if (!callbackCurrent) completeSuperseded()
         }
     }
 
@@ -1494,13 +1548,6 @@ object ReadReceipts : ClickableFeature(),
                                                         return@Button
                                                     }
                                             }
-                                            val candidate = configuration().copy(
-                                                mode = ReadReceiptsServerMode.BUILT_IN,
-                                                automaticPort = automaticPortInput,
-                                                builtInPort = port,
-                                                tunnelMode = tunnelModeInput.name,
-                                                hostname = hostnameInput,
-                                            )
                                             if (
                                                 tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
                                                 automaticPortInput
@@ -1508,13 +1555,24 @@ object ReadReceipts : ClickableFeature(),
                                                 showToast(context, "错误: Token 模式必须关闭自动端口")
                                                 return@Button
                                             }
-                                            if (
-                                                tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
-                                                ReadReceiptsTunnelService.normalizePublicRoot(hostnameInput) == null
+                                            val canonicalHostname = if (
+                                                tunnelModeInput == ReadReceiptsTunnelMode.TOKEN
                                             ) {
-                                                showToast(context, "错误: 请输入根路径 HTTPS 主机名")
-                                                return@Button
+                                                ReadReceiptsTunnelService.canonicalPublicRoot(hostnameInput)
+                                                    ?: run {
+                                                        showToast(context, "错误: 请输入根路径 HTTPS 主机名")
+                                                        return@Button
+                                                    }
+                                            } else {
+                                                hostnameInput
                                             }
+                                            val candidate = configuration().copy(
+                                                mode = ReadReceiptsServerMode.BUILT_IN,
+                                                automaticPort = automaticPortInput,
+                                                builtInPort = port,
+                                                tunnelMode = tunnelModeInput.name,
+                                                hostname = canonicalHostname,
+                                            )
                                             connectionTransactionActive = true
                                             applyAndStartBuiltInStack(
                                                 candidate,
@@ -1623,8 +1681,7 @@ object ReadReceipts : ClickableFeature(),
                             modeInput == ReadReceiptsServerMode.BUILT_IN &&
                             tunnelModeInput == ReadReceiptsTunnelMode.TOKEN
                         ) {
-                            ReadReceiptsTunnelService.normalizePublicRoot(hostnameInput)
-                                ?.toString()?.trimEnd('/') ?: run {
+                            ReadReceiptsTunnelService.canonicalPublicRoot(hostnameInput) ?: run {
                                 showToast(context, "错误: 请输入根路径 HTTPS 主机名")
                                 return@Button
                             }
@@ -1664,8 +1721,12 @@ object ReadReceipts : ClickableFeature(),
                             modeInput == ReadReceiptsServerMode.BUILT_IN && originWasActive &&
                                 (oldConfiguration.mode != modeInput ||
                                     oldRequestedPort != newRequestedPort ||
-                                    oldConfiguration.tunnelMode != candidate.tunnelMode ||
-                                    oldConfiguration.hostname != candidate.hostname) -> {
+                                    tunnelRuntimeChanged(
+                                        tunnelMode(oldConfiguration),
+                                        oldConfiguration.hostname,
+                                        tunnelMode(candidate),
+                                        candidate.hostname,
+                                    )) -> {
                                 stopBuiltInStack()
                             }
 

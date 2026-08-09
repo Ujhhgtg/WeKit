@@ -6,10 +6,104 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicIntegerArray
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class ReadReceiptsTunnelCoordinationTest {
+
+    @Test
+    fun `network invalidation while health is blocked prevents verified side effects`() {
+        val lease = TunnelNativeLease()
+        val healthStarted = CountDownLatch(1)
+        val finishHealth = CountDownLatch(1)
+        val credentialWrites = AtomicInteger()
+        val pendingTokenClears = AtomicInteger()
+        val connectedPublishes = AtomicInteger()
+        val commit = AtomicReference<TunnelVerificationCommit>()
+
+        assertTrue(lease.advance(20))
+        assertTrue(lease.activateRequest(20))
+        assertTrue(lease.startIfCurrent(20) { true })
+        val verification = lease.captureVerification(20)!!
+        val health = thread {
+            healthStarted.countDown()
+            finishHealth.await()
+            commit.set(
+                lease.commitVerification(
+                    verification,
+                    writeCredential = { credentialWrites.incrementAndGet(); true },
+                    clearPendingToken = { pendingTokenClears.incrementAndGet() },
+                    publishConnected = { connectedPublishes.incrementAndGet() },
+                ),
+            )
+        }
+
+        healthStarted.await()
+        assertEquals(20, lease.invalidateNetwork())
+        finishHealth.countDown()
+        health.join()
+
+        assertEquals(TunnelVerificationCommit.STALE, commit.get())
+        assertEquals(0, credentialWrites.get())
+        assertEquals(0, pendingTokenClears.get())
+        assertEquals(0, connectedPublishes.get())
+    }
+
+    @Test
+    fun `network invalidation prevents no-health-needed fast path from republishing connected`() {
+        val lease = TunnelNativeLease()
+        val credentialWrites = AtomicInteger()
+        val pendingTokenClears = AtomicInteger()
+        val connectedPublishes = AtomicInteger()
+
+        assertTrue(lease.advance(21))
+        assertTrue(lease.activateRequest(21))
+        assertTrue(lease.startIfCurrent(21) { true })
+        val cachedVerification = lease.captureVerification(21)!!
+
+        assertEquals(21, lease.invalidateNetwork())
+        assertEquals(
+            TunnelVerificationCommit.STALE,
+            lease.commitVerification(
+                cachedVerification,
+                writeCredential = { credentialWrites.incrementAndGet(); true },
+                clearPendingToken = { pendingTokenClears.incrementAndGet() },
+                publishConnected = { connectedPublishes.incrementAndGet() },
+            ),
+        )
+
+        assertEquals(0, credentialWrites.get())
+        assertEquals(0, pendingTokenClears.get())
+        assertEquals(0, connectedPublishes.get())
+    }
+
+    @Test
+    fun `current verification commits credential clear and connected atomically once`() {
+        val lease = TunnelNativeLease()
+        val credentialWrites = AtomicInteger()
+        val pendingTokenClears = AtomicInteger()
+        val connectedPublishes = AtomicInteger()
+
+        assertTrue(lease.advance(22))
+        assertTrue(lease.activateRequest(22))
+        assertTrue(lease.startIfCurrent(22) { true })
+
+        assertEquals(
+            TunnelVerificationCommit.COMMITTED,
+            lease.commitVerification(
+                lease.captureVerification(22)!!,
+                writeCredential = { credentialWrites.incrementAndGet(); true },
+                clearPendingToken = { pendingTokenClears.incrementAndGet() },
+                publishConnected = { connectedPublishes.incrementAndGet() },
+            ),
+        )
+        assertEquals(1, credentialWrites.get())
+        assertEquals(1, pendingTokenClears.get())
+        assertEquals(1, connectedPublishes.get())
+    }
 
     @Test
     fun `delayed old cleanup cannot stop a newer native lease`() {
@@ -51,36 +145,128 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
-    fun `stop completion drains one generation exactly once under a race`() {
+    fun `sixteen stop callers each complete once while terminal races drain once`() {
         val completions = TunnelStopCompletion()
-        val callbacks = AtomicInteger()
-        val unmatchedTerminals = AtomicInteger()
-        val registration = completions.register({ callbacks.incrementAndGet() }) { 41 }
-        val joined = completions.register({ callbacks.incrementAndGet() }) { 42 }
+        val callbackCounts = AtomicIntegerArray(16)
+        val stopSends = AtomicInteger()
+        val registrations = ConcurrentLinkedQueue<StopRegistration>()
+        val registrationReady = CountDownLatch(16)
+        val register = CountDownLatch(1)
+        val registrars = List(16) { index ->
+            thread {
+                registrationReady.countDown()
+                register.await()
+                registrations += completions.register(
+                    { callbackCounts.incrementAndGet(index) },
+                ) {
+                    stopSends.incrementAndGet()
+                    41
+                }
+            }
+        }
+
+        registrationReady.await()
+        register.countDown()
+        registrars.forEach(Thread::join)
+
+        val terminalReturnedCallbacks = AtomicInteger()
+        val matchedTerminals = AtomicInteger()
+        val terminalReady = CountDownLatch(16)
+        val terminate = CountDownLatch(1)
+        val terminals = List(16) {
+            thread {
+                terminalReady.countDown()
+                terminate.await()
+                val drain = completions.complete(41)
+                if (drain.matched) matchedTerminals.incrementAndGet()
+                terminalReturnedCallbacks.addAndGet(drain.callbacks.size)
+                drain.callbacks.forEach { it() }
+            }
+        }
+
+        terminalReady.await()
+        terminate.countDown()
+        terminals.forEach(Thread::join)
+
+        assertEquals(1, registrations.count(StopRegistration::shouldSend))
+        assertTrue(registrations.all { it.generation == 41L })
+        assertEquals(1, stopSends.get())
+        assertEquals(16, matchedTerminals.get())
+        assertEquals(16, terminalReturnedCallbacks.get())
+        repeat(16) { assertEquals(1, callbackCounts.get(it), "callback $it") }
+        assertTrue(completions.complete(41).callbacks.isEmpty())
+        assertNull(completions.pendingGeneration())
+    }
+
+    @Test
+    fun `origin stop is coalesced once and completes every caller`() {
+        val completions = CoalescedResultCallbacks<Unit>()
+        val callbackCounts = AtomicIntegerArray(16)
+        val originStops = AtomicInteger()
         val ready = CountDownLatch(16)
-        val run = CountDownLatch(1)
-        val workers = List(16) {
+        val register = CountDownLatch(1)
+        val callers = List(16) { index ->
             thread {
                 ready.countDown()
-                run.await()
-                val drain = completions.complete(registration.generation)
-                if (!drain.matched) unmatchedTerminals.incrementAndGet()
-                drain.callbacks.forEach { callback ->
-                    callback()
+                register.await()
+                if (
+                    completions.register { result ->
+                        if (result.isSuccess) callbackCounts.incrementAndGet(index)
+                    }
+                ) {
+                    originStops.incrementAndGet()
                 }
             }
         }
 
         ready.await()
-        run.countDown()
-        workers.forEach(Thread::join)
+        register.countDown()
+        callers.forEach(Thread::join)
+        completions.complete(Result.success(Unit))
 
-        assertTrue(registration.shouldSend)
-        assertFalse(joined.shouldSend)
-        assertEquals(41, joined.generation)
-        assertEquals(1, callbacks.get())
-        assertEquals(0, unmatchedTerminals.get())
-        assertNull(completions.pendingGeneration())
+        assertEquals(1, originStops.get())
+        repeat(16) { assertEquals(1, callbackCounts.get(it), "callback $it") }
+        assertEquals(0, completions.complete(Result.success(Unit)))
+    }
+
+    @Test
+    fun `superseded origin stop fails callers and releases the next stop`() {
+        val completions = CoalescedResultCallbacks<Unit>()
+        val firstFailure = AtomicInteger()
+
+        assertTrue(
+            completions.register { result ->
+                if (result.isFailure) firstFailure.incrementAndGet()
+            },
+        )
+        val superseded = Result.failure<Unit>(IllegalStateException("origin stop superseded"))
+        assertEquals(1, completions.complete(superseded))
+
+        assertEquals(1, firstFailure.get())
+        assertTrue(completions.register(null))
+    }
+
+    @Test
+    fun `uppercase trailing slash hostname has the same runtime identity`() {
+        val persisted = TunnelRuntimeIdentity.create(
+            ReadReceiptsTunnelMode.TOKEN,
+            "HTTPS://RECEIPTS.EXAMPLE.COM/",
+        )
+        val candidate = TunnelRuntimeIdentity.create(
+            ReadReceiptsTunnelMode.TOKEN,
+            "https://receipts.example.com",
+        )
+
+        assertEquals(candidate, persisted)
+        assertEquals("https://receipts.example.com", candidate!!.hostname)
+        assertFalse(
+            tunnelRuntimeChanged(
+                ReadReceiptsTunnelMode.TOKEN,
+                "HTTPS://RECEIPTS.EXAMPLE.COM/",
+                ReadReceiptsTunnelMode.TOKEN,
+                "https://receipts.example.com",
+            ),
+        )
     }
 
     @Test
@@ -93,5 +279,40 @@ class ReadReceiptsTunnelCoordinationTest {
         assertFalse(handoff.fail(101))
         assertTrue(handoff.complete(102))
         assertNull(handoff.pendingGeneration())
+    }
+
+    @Test
+    fun `replacement drains nested start callback before allocating its generation`() {
+        val handoff = TunnelHandoffGate()
+        val issuedGeneration = AtomicInteger(100)
+        var pendingGeneration: Long? = 100
+        val oldCompletions = AtomicInteger()
+        val nestedCompletions = AtomicInteger()
+        handoff.begin(100)
+
+        val replacementGeneration = handoff.beginAfterSuperseding(
+            pendingGeneration = { pendingGeneration },
+            supersede = { supersededGeneration ->
+                assertTrue(handoff.fail(supersededGeneration))
+                pendingGeneration = null
+                if (supersededGeneration == 100L) {
+                    oldCompletions.incrementAndGet()
+                    val nestedGeneration = issuedGeneration.incrementAndGet().toLong()
+                    handoff.begin(nestedGeneration)
+                    pendingGeneration = nestedGeneration
+                } else {
+                    nestedCompletions.incrementAndGet()
+                }
+            },
+            generationFactory = { issuedGeneration.incrementAndGet().toLong() },
+        )
+
+        assertEquals(1, oldCompletions.get())
+        assertEquals(1, nestedCompletions.get())
+        assertEquals(102L, replacementGeneration)
+        assertEquals(102L, handoff.pendingGeneration())
+        assertFalse(handoff.complete(100))
+        assertFalse(handoff.fail(100))
+        assertEquals(102L, handoff.pendingGeneration())
     }
 }

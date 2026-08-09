@@ -95,13 +95,11 @@ class ReadReceiptsTunnelService : Service() {
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            val replaced = synchronized(networkLock) {
-                val previous = currentDefaultNetwork
+            synchronized(networkLock) {
                 currentDefaultNetwork = network
                 networkAvailable = true
-                previous != null && previous != network
             }
-            if (replaced) invalidateForNetworkChange(activeRequest?.generation)
+            invalidateForNetworkChange(nativeLease.invalidateNetwork())
         }
 
         override fun onLost(network: Network) {
@@ -113,7 +111,7 @@ class ReadReceiptsTunnelService : Service() {
             }
             // A default-network replacement may already have a non-null activeNetwork here. The
             // old route is still invalid and must lose its verified URL/native connection.
-            invalidateForNetworkChange(activeRequest?.generation)
+            invalidateForNetworkChange(nativeLease.invalidateNetwork())
         }
     }
 
@@ -208,6 +206,8 @@ class ReadReceiptsTunnelService : Service() {
             return
         }
         generation = requestedGeneration
+        activeRequest = null
+        nativeLease.clearRequest(requestedGeneration)
         if (!foregroundActive) {
             publish(
                 requestedGeneration,
@@ -304,6 +304,7 @@ class ReadReceiptsTunnelService : Service() {
 
         val request = TunnelRequest(requestedGeneration, mode, origin, publicRoot, suppliedToken)
         activeRequest = request
+        check(nativeLease.activateRequest(requestedGeneration))
         replaceLifecycle(requestedGeneration, request)
         // The authorized service has copied the request and removed the secret from the Binder
         // Bundle. Connector/public-health success remains asynchronous service-owned status.
@@ -386,6 +387,7 @@ class ReadReceiptsTunnelService : Service() {
 
             var terminalError: String? = null
             var verifiedRoot: HttpUrl? = null
+            var verifiedNetworkEpoch: Long? = null
             var lastPublicHealthAt = 0L
             var publicHealthAttempts = 0
             var publicHealthTerminal = false
@@ -396,51 +398,87 @@ class ReadReceiptsTunnelService : Service() {
                 val native = ReadReceiptsTunnelNative.status()
                 when (native.state) {
                     ReadReceiptsTunnelState.CONNECTED -> {
+                        val verification = nativeLease.captureVerification(request.generation)
+                        if (verification == null) {
+                            delay(NATIVE_STATUS_POLL_MILLIS)
+                            continue
+                        }
                         val candidate = request.publicRoot ?: normalizePublicRoot(native.publicUrl.orEmpty())
                         if (candidate == null) {
                             terminalError = "Cloudflare 未返回有效的公网地址"
                             break
                         }
                         val needsHealthCheck = verifiedRoot != candidate ||
+                            verifiedNetworkEpoch != verification.networkEpoch ||
                             SystemClock.elapsedRealtime() - lastPublicHealthAt >=
                             PUBLIC_HEALTH_RECHECK_MILLIS
                         if (!needsHealthCheck || checkHealth(candidate)) {
-                            if (request.pendingToken != null) {
-                                if (credentialStore.write(request.pendingToken!!).isFailure) {
-                                    publish(
-                                        request.generation,
-                                        ReadReceiptsTunnelStatus(
-                                            ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                                            error = "隧道已验证, 但无法安全保存 Tunnel token",
-                                        ),
-                                    )
+                            val pendingToken = request.pendingToken
+                            when (
+                                nativeLease.commitVerification(
+                                    verification,
+                                    writeCredential = pendingToken?.let { token ->
+                                        { credentialStore.write(token).isSuccess }
+                                    },
+                                    clearPendingToken = pendingToken?.let {
+                                        { request.pendingToken = null }
+                                    },
+                                    publishConnected = {
+                                        verifiedRoot = candidate
+                                        verifiedNetworkEpoch = verification.networkEpoch
+                                        if (needsHealthCheck) {
+                                            lastPublicHealthAt = SystemClock.elapsedRealtime()
+                                        }
+                                        publicHealthAttempts = 0
+                                        attempt = 0
+                                        publish(
+                                            request.generation,
+                                            ReadReceiptsTunnelStatus(
+                                                ReadReceiptsTunnelState.CONNECTED,
+                                                publicUrl = candidate.toString().trimEnd('/'),
+                                            ),
+                                        )
+                                    },
+                                )
+                            ) {
+                                TunnelVerificationCommit.CREDENTIAL_FAILURE -> {
+                                    nativeLease.runIfVerificationCurrent(verification) {
+                                        publish(
+                                            request.generation,
+                                            ReadReceiptsTunnelStatus(
+                                                ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                                                error = "隧道已验证, 但无法安全保存 Tunnel token",
+                                            ),
+                                        )
+                                    }
                                     nativeLease.stopIfOwner(request.generation) {
                                         ReadReceiptsTunnelNative.stop().getOrThrow()
                                     }
                                     return
                                 }
-                                request.pendingToken = null
+                                TunnelVerificationCommit.STALE -> {
+                                    delay(NATIVE_STATUS_POLL_MILLIS)
+                                    continue
+                                }
+                                TunnelVerificationCommit.COMMITTED -> Unit
                             }
-                            verifiedRoot = candidate
-                            if (needsHealthCheck) {
-                                lastPublicHealthAt = SystemClock.elapsedRealtime()
-                            }
-                            publicHealthAttempts = 0
-                            attempt = 0
-                            publish(
-                                request.generation,
-                                ReadReceiptsTunnelStatus(
-                                    ReadReceiptsTunnelState.CONNECTED,
-                                    publicUrl = candidate.toString().trimEnd('/'),
-                                ),
-                            )
                         } else {
-                            verifiedRoot = null
-                            publicHealthAttempts++
-                            publish(
-                                request.generation,
-                                ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.RECONNECTING),
-                            )
+                            if (
+                                !nativeLease.runIfVerificationCurrent(verification) {
+                                    verifiedRoot = null
+                                    verifiedNetworkEpoch = null
+                                    publicHealthAttempts++
+                                    publish(
+                                        request.generation,
+                                        ReadReceiptsTunnelStatus(
+                                            ReadReceiptsTunnelState.RECONNECTING,
+                                        ),
+                                    )
+                                }
+                            ) {
+                                delay(NATIVE_STATUS_POLL_MILLIS)
+                                continue
+                            }
                             if (publicHealthAttempts >= MAX_PUBLIC_HEALTH_ATTEMPTS) {
                                 terminalError = "公网 /health 验证失败, 请检查主机名与 ingress"
                                 publicHealthTerminal = true
@@ -452,6 +490,7 @@ class ReadReceiptsTunnelService : Service() {
                     ReadReceiptsTunnelState.STARTING,
                     -> {
                         verifiedRoot = null
+                        verifiedNetworkEpoch = null
                         lastPublicHealthAt = 0L
                         publicHealthAttempts = 0
                         publish(request.generation, native.copy(publicUrl = null, error = null))
@@ -504,6 +543,7 @@ class ReadReceiptsTunnelService : Service() {
         generation = requestedGeneration
         val stoppedGeneration = generation
         activeRequest = null
+        nativeLease.clearRequest(stoppedGeneration)
         val previous = lifecycleJob
         lifecycleJob = scope.launch {
             publish(stoppedGeneration, ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPING))
@@ -527,7 +567,10 @@ class ReadReceiptsTunnelService : Service() {
         if (request?.mode == ReadReceiptsTunnelMode.TOKEN) {
             stopTunnel(requestedGeneration)
         } else {
-            if (request != null) request.generation = requestedGeneration
+            if (request != null) {
+                request.generation = requestedGeneration
+                check(nativeLease.activateRequest(requestedGeneration))
+            }
             publish(requestedGeneration, status)
         }
     }
@@ -742,6 +785,9 @@ class ReadReceiptsTunnelService : Service() {
             }
             return url
         }
+
+        internal fun canonicalPublicRoot(value: String): String? =
+            normalizePublicRoot(value)?.toString()?.trimEnd('/')
 
         internal fun normalizeLoopbackRoot(value: String): HttpUrl? {
             val url = value.toHttpUrlOrNull() ?: return null

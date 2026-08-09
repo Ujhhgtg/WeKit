@@ -7,13 +7,42 @@ package dev.ujhhgtg.wekit.features.items.chat
 internal class TunnelNativeLease {
     private var currentGeneration = 0L
     private var ownerGeneration: Long? = null
+    private var activeRequestGeneration: Long? = null
+    private var networkEpoch = 0L
+    private var nativeSessionEpoch = 0L
 
     @Synchronized
     fun advance(generation: Long): Boolean {
         if (generation < currentGeneration) return false
-        if (ownerGeneration == currentGeneration) ownerGeneration = generation
+        if (generation > currentGeneration) {
+            if (ownerGeneration == currentGeneration) ownerGeneration = generation
+            activeRequestGeneration = null
+        }
         currentGeneration = generation
         return true
+    }
+
+    @Synchronized
+    fun activateRequest(generation: Long): Boolean {
+        if (currentGeneration != generation) return false
+        activeRequestGeneration = generation
+        networkEpoch++
+        return true
+    }
+
+    @Synchronized
+    fun clearRequest(generation: Long): Boolean {
+        if (currentGeneration != generation || activeRequestGeneration != generation) return false
+        activeRequestGeneration = null
+        networkEpoch++
+        return true
+    }
+
+    /** Invalidates all verification work synchronously, before callback teardown is dispatched. */
+    @Synchronized
+    fun invalidateNetwork(): Long? {
+        networkEpoch++
+        return activeRequestGeneration?.takeIf { it == currentGeneration }
     }
 
     @Synchronized
@@ -21,6 +50,7 @@ internal class TunnelNativeLease {
         if (currentGeneration != generation || ownerGeneration != null) return false
         if (!start()) return false
         ownerGeneration = generation
+        nativeSessionEpoch++
         return true
     }
 
@@ -28,6 +58,7 @@ internal class TunnelNativeLease {
     fun stopIfOwner(generation: Long, stop: () -> Unit): Boolean {
         if (currentGeneration != generation || ownerGeneration != generation) return false
         ownerGeneration = null
+        nativeSessionEpoch++
         stop()
         return true
     }
@@ -38,14 +69,104 @@ internal class TunnelNativeLease {
         if (currentGeneration != generation) return false
         if (ownerGeneration != null) {
             ownerGeneration = null
+            nativeSessionEpoch++
             stop()
         }
         return true
     }
 
     @Synchronized
+    fun captureVerification(generation: Long): TunnelVerificationTicket? {
+        if (
+            currentGeneration != generation || activeRequestGeneration != generation ||
+            ownerGeneration != generation
+        ) {
+            return null
+        }
+        return TunnelVerificationTicket(generation, networkEpoch, nativeSessionEpoch)
+    }
+
+    @Synchronized
+    fun isVerificationCurrent(ticket: TunnelVerificationTicket): Boolean =
+        verificationMatches(ticket)
+
+    @Synchronized
+    fun runIfVerificationCurrent(ticket: TunnelVerificationTicket, action: () -> Unit): Boolean {
+        if (!verificationMatches(ticket)) return false
+        action()
+        return true
+    }
+
+    /**
+     * Commits verified state under the same monitor used by network invalidation. The repeated
+     * checks document each security-sensitive boundary and also protect against reentrant actions.
+     */
+    @Synchronized
+    fun commitVerification(
+        ticket: TunnelVerificationTicket,
+        writeCredential: (() -> Boolean)?,
+        clearPendingToken: (() -> Unit)?,
+        publishConnected: () -> Unit,
+    ): TunnelVerificationCommit {
+        if (!verificationMatches(ticket)) return TunnelVerificationCommit.STALE
+        if (writeCredential != null) {
+            if (!verificationMatches(ticket)) return TunnelVerificationCommit.STALE
+            if (!writeCredential()) return TunnelVerificationCommit.CREDENTIAL_FAILURE
+            if (!verificationMatches(ticket)) return TunnelVerificationCommit.STALE
+            clearPendingToken!!()
+        }
+        if (!verificationMatches(ticket)) return TunnelVerificationCommit.STALE
+        publishConnected()
+        return TunnelVerificationCommit.COMMITTED
+    }
+
+    private fun verificationMatches(ticket: TunnelVerificationTicket): Boolean =
+        currentGeneration == ticket.generation &&
+            activeRequestGeneration == ticket.generation &&
+            ownerGeneration == ticket.generation &&
+            networkEpoch == ticket.networkEpoch &&
+            nativeSessionEpoch == ticket.nativeSessionEpoch
+
+    @Synchronized
     fun ownerGeneration(): Long? = ownerGeneration
 }
+
+internal data class TunnelVerificationTicket(
+    val generation: Long,
+    val networkEpoch: Long,
+    val nativeSessionEpoch: Long,
+)
+
+internal enum class TunnelVerificationCommit {
+    COMMITTED,
+    STALE,
+    CREDENTIAL_FAILURE,
+}
+
+/** Canonical identity used by runtime replacement decisions; TOKEN hostnames compare semantically. */
+internal data class TunnelRuntimeIdentity(
+    val mode: ReadReceiptsTunnelMode,
+    val hostname: String?,
+) {
+    companion object {
+        fun create(mode: ReadReceiptsTunnelMode, hostname: String): TunnelRuntimeIdentity? =
+            if (mode == ReadReceiptsTunnelMode.TOKEN) {
+                ReadReceiptsTunnelService.canonicalPublicRoot(hostname)?.let {
+                    TunnelRuntimeIdentity(mode, it)
+                }
+            } else {
+                TunnelRuntimeIdentity(mode, null)
+            }
+    }
+}
+
+internal fun tunnelRuntimeChanged(
+    previousMode: ReadReceiptsTunnelMode,
+    previousHostname: String,
+    candidateMode: ReadReceiptsTunnelMode,
+    candidateHostname: String,
+): Boolean = TunnelRuntimeIdentity.create(previousMode, previousHostname) !=
+    TunnelRuntimeIdentity.create(candidateMode, candidateHostname)
 
 internal data class StopRegistration(
     val generation: Long,
@@ -73,7 +194,7 @@ internal class TunnelStopCompletion {
         generationFactory: () -> Long,
     ): StopRegistration {
         pending?.let { current ->
-            if (callback != null && current.callbacks.isEmpty()) current.callbacks += callback
+            if (callback != null) current.callbacks += callback
             return StopRegistration(current.generation, shouldSend = false)
         }
         val generation = generationFactory()
@@ -97,6 +218,34 @@ internal class TunnelStopCompletion {
     fun pendingGeneration(): Long? = pending?.generation
 }
 
+/** Coalesces one higher-layer operation while preserving every caller's result callback. */
+internal class CoalescedResultCallbacks<T> {
+    private var callbacks: MutableList<(Result<T>) -> Unit>? = null
+
+    @Synchronized
+    fun register(callback: ((Result<T>) -> Unit)?): Boolean {
+        val current = callbacks
+        if (current != null) {
+            if (callback != null) current += callback
+            return false
+        }
+        callbacks = mutableListOf<(Result<T>) -> Unit>().apply {
+            if (callback != null) add(callback)
+        }
+        return true
+    }
+
+    fun complete(result: Result<T>): Int {
+        val completed = synchronized(this) {
+            val current = callbacks ?: return 0
+            callbacks = null
+            current.toList()
+        }
+        completed.forEach { callback -> callback(result) }
+        return completed.size
+    }
+}
+
 /** Prevents late ACK/timeout events from completing or clearing a replacement START command. */
 internal class TunnelHandoffGate {
     private var pendingGeneration: Long? = null
@@ -104,6 +253,19 @@ internal class TunnelHandoffGate {
     @Synchronized
     fun begin(generation: Long): Long? = pendingGeneration.also {
         pendingGeneration = generation
+    }
+
+    /** Lets synchronous rollback allocate its generation before the replacement is numbered. */
+    fun beginAfterSuperseding(
+        pendingGeneration: () -> Long?,
+        supersede: (Long) -> Unit,
+        generationFactory: () -> Long,
+    ): Long {
+        while (true) {
+            val pending = pendingGeneration() ?: break
+            supersede(pending)
+        }
+        return generationFactory().also(::begin)
     }
 
     @Synchronized
