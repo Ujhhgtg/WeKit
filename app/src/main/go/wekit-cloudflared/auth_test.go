@@ -1,15 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/cloudflare/cloudflared/connection"
+	"github.com/google/uuid"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -103,6 +108,49 @@ func TestLoginCancellationQuiescesPollAndCannotPublishAuthorized(t *testing.T) {
 	}
 }
 
+func TestLoginPollContinuesAfterEmptyOKResponses(t *testing.T) {
+	wantCertificate := originCertificate(t, "abcdabcdabcdabcd1234567890abcdef", "api-secret")
+	calls := 0
+	client := roundTripFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		if calls == 1 {
+			return response(http.StatusOK, ""), nil
+		}
+		return response(http.StatusOK, string(wantCertificate)), nil
+	})
+	transfer, err := newLoginTransfer(client, bytesReader32(4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificate, err := transfer.wait(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wipe(certificate)
+	if calls != 2 || !bytes.Equal(certificate, wantCertificate) {
+		t.Fatalf("calls = %d, certificate matched = %v", calls, bytes.Equal(certificate, wantCertificate))
+	}
+}
+
+func TestLoginPollTimesOutAfterTenEmptyOKResponses(t *testing.T) {
+	calls := 0
+	client := roundTripFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return response(http.StatusOK, ""), nil
+	})
+	transfer, err := newLoginTransfer(client, bytesReader32(5))
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificate, err := transfer.wait(context.Background())
+	if err == nil || certificate != nil {
+		t.Fatalf("wait returned certificate %q with error %v", certificate, err)
+	}
+	if calls != loginPollAttempts {
+		t.Fatalf("poll calls = %d, want %d", calls, loginPollAttempts)
+	}
+}
+
 func TestLoginRejectsOversizedAndMalformedOriginCertificateWithoutLeakingIt(t *testing.T) {
 	secrets := []string{"api-secret-value", strings.Repeat("x", maxOriginCertificateBytes+1)}
 	certificates := [][]byte{
@@ -126,6 +174,105 @@ func TestLoginRejectsOversizedAndMalformedOriginCertificateWithoutLeakingIt(t *t
 			}
 		}
 		session.close()
+	}
+}
+
+func TestDecodeAuthCredentialAcceptsRealAccountTagAndRejectsPathEscapes(t *testing.T) {
+	validAccountID := "abcdabcdabcdabcd1234567890abcdef"
+	credential, err := decodeAuthCredential(originCertificate(t, validAccountID, "api-secret"))
+	if err != nil {
+		t.Fatalf("real account tag was rejected: %v", err)
+	}
+	if credential.account() != validAccountID {
+		t.Fatalf("account ID = %q", credential.account())
+	}
+	credential.clear()
+
+	for _, accountID := range []string{
+		"../account",
+		"account/child",
+		"account?query",
+		strings.Repeat("a", 33),
+	} {
+		t.Run(accountID, func(t *testing.T) {
+			credential, err := decodeAuthCredential(originCertificate(t, accountID, "api-secret"))
+			if credential != nil {
+				credential.clear()
+			}
+			if err == nil {
+				t.Fatalf("unsafe account ID %q was accepted", accountID)
+			}
+		})
+	}
+}
+
+func TestDecodeAuthCredentialRequiresExactlyOneModernPEMBlock(t *testing.T) {
+	certificate := originCertificate(t, "abcdabcdabcdabcd1234567890abcdef", "api-secret")
+	legacy := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("legacy")})
+	tests := map[string][]byte{
+		"trailing garbage": append(append([]byte(nil), certificate...), []byte("not-pem")...),
+		"legacy block":     append(append([]byte(nil), legacy...), certificate...),
+		"second token":     append(append([]byte(nil), certificate...), certificate...),
+	}
+	for name, input := range tests {
+		t.Run(name, func(t *testing.T) {
+			credential, err := decodeAuthCredential(input)
+			if credential != nil {
+				credential.clear()
+			}
+			if err == nil {
+				t.Fatal("non-unique modern origin certificate was accepted")
+			}
+		})
+	}
+}
+
+func TestAuthHTTPClientRejectsRedirectsBeforeForwardingAuthorization(t *testing.T) {
+	targetHit := make(chan string, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		targetHit <- request.Header.Get("Authorization")
+		writer.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		http.Redirect(writer, &http.Request{}, target.URL, http.StatusFound)
+	}))
+	defer source.Close()
+
+	client := newAuthHTTPClient()
+	client.Transport = http.DefaultTransport
+	request, err := http.NewRequest(http.MethodGet, source.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer account-secret")
+	response, err := client.Do(request)
+	if response != nil {
+		response.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("redirect was followed")
+	}
+	select {
+	case authorization := <-targetHit:
+		t.Fatalf("redirect target received Authorization %q", authorization)
+	default:
+	}
+}
+
+func TestReadBoundedBodyWipesPartialPayloadOnReadError(t *testing.T) {
+	reader := &partialErrorReader{payload: []byte("partial-secret")}
+	payload, err := readBoundedBody(reader, maxAPIResponseBytes)
+	if err == nil || payload != nil {
+		t.Fatalf("read returned payload %q with error %v", payload, err)
+	}
+	if len(reader.exposed) == 0 {
+		t.Fatal("reader did not expose the destination buffer")
+	}
+	for index, value := range reader.exposed {
+		if value != 0 {
+			t.Fatalf("partial payload byte %d was not wiped: %q", index, reader.exposed)
+		}
 	}
 }
 
@@ -244,8 +391,51 @@ func TestReadOnlyAPIRejectsNonSuccessAndRedactsTokenResponses(t *testing.T) {
 	}
 }
 
+func TestReadOnlyAPIRejectsTunnelTokensForAnotherTunnelOrAccount(t *testing.T) {
+	requestedTunnelID := uuid.MustParse("d8d8fa75-d6cb-4615-a09b-187ae29908fa")
+	tests := []struct {
+		name   string
+		mutate func(*connection.TunnelToken)
+	}{
+		{
+			name: "tunnel mismatch",
+			mutate: func(token *connection.TunnelToken) {
+				token.TunnelID = uuid.MustParse("9ab45016-f95d-4d41-b4a6-3c7495ec0f42")
+			},
+		},
+		{
+			name: "account mismatch",
+			mutate: func(token *connection.TunnelToken) {
+				token.AccountTag = "another-account"
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rawToken := encodedTestToken(t, test.mutate)
+			client := roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return response(http.StatusOK, `{"success":true,"result":"`+rawToken+`"}`), nil
+			})
+			credential := newTestAuthCredential("account-secret", "api-secret")
+			defer credential.clear()
+			_, err := newReadOnlyTunnelAPI(client, cloudflareAPIURL, credential).
+				getTunnelToken(context.Background(), requestedTunnelID.String())
+			if err == nil {
+				t.Fatal("mismatched tunnel token was accepted")
+			}
+			for _, secret := range []string{rawToken, "another-account", "api-secret"} {
+				if strings.Contains(err.Error(), secret) {
+					t.Fatalf("error leaked %q: %q", secret, err)
+				}
+			}
+		})
+	}
+}
+
 func TestAuthSessionReplacementAndSelectionKeepTokenOutOfSnapshot(t *testing.T) {
-	selectedRunToken := encodedTestToken(t, nil)
+	selectedRunToken := encodedTestToken(t, func(token *connection.TunnelToken) {
+		token.AccountTag = "account-id"
+	})
 	firstRelease := make(chan struct{})
 	firstExited := make(chan struct{})
 	firstTransfer := fakeLoginTransfer{
@@ -345,6 +535,176 @@ func TestAuthCloseCancelsAndDrainsInFlightAPIWork(t *testing.T) {
 	}
 }
 
+func TestAuthSessionManagerConcurrentOlderReplaceCannotOverwriteNewer(t *testing.T) {
+	initialEntered := make(chan struct{})
+	initialCancelled := make(chan struct{})
+	releaseInitial := make(chan struct{})
+	manager := newAuthSessionManager(defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})))
+	manager.replace(1, fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/initial",
+		poll: func(ctx context.Context) ([]byte, error) {
+			close(initialEntered)
+			<-ctx.Done()
+			close(initialCancelled)
+			<-releaseInitial
+			return nil, ctx.Err()
+		},
+	})
+	<-initialEntered
+
+	olderReturned := make(chan *authSession, 1)
+	go func() {
+		olderReturned <- manager.replace(2, fakeLoginTransfer{
+			authorizationURL: "https://dash.cloudflare.com/older",
+			poll: func(context.Context) ([]byte, error) {
+				return originCertificate(t, "abcdabcdabcdabcd1234567890abcdef", "older-secret"), nil
+			},
+		})
+	}()
+	<-initialCancelled
+
+	newerBegan := make(chan struct{})
+	allowNewerBegin := make(chan struct{})
+	newerReturned := make(chan *authSession, 1)
+	go func() {
+		newerReturned <- manager.replace(3, observedLoginTransfer{
+			authorize: func() string {
+				close(newerBegan)
+				<-allowNewerBegin
+				return "https://dash.cloudflare.com/newer"
+			},
+			poll: func(context.Context) ([]byte, error) {
+				return originCertificate(t, "abcdabcdabcdabcd1234567890abcdef", "newer-secret"), nil
+			},
+		})
+	}()
+
+	select {
+	case <-newerBegan:
+		close(allowNewerBegin)
+	case <-time.After(100 * time.Millisecond):
+		close(allowNewerBegin)
+	}
+	close(releaseInitial)
+	older := receiveSession(t, olderReturned)
+	newer := receiveSession(t, newerReturned)
+	current := manager.current()
+	if current == nil || current.generation != 3 {
+		if current == nil {
+			t.Fatal("manager has no current session")
+		}
+		t.Fatalf("current generation = %d, want 3", current.generation)
+	}
+	if newer == nil {
+		t.Fatal("newer replacement was rejected")
+	}
+	if older != nil && older.snapshot().State != authStopped {
+		t.Fatalf("older state = %v, want stopped", older.snapshot().State)
+	}
+	manager.close()
+}
+
+func TestAuthSessionManagerRejectsLowerGenerationWithoutStartingTransfer(t *testing.T) {
+	manager := newAuthSessionManager(defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})))
+	higher := manager.replace(8, fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/higher",
+		poll: func(ctx context.Context) ([]byte, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	})
+	if higher == nil {
+		t.Fatal("higher generation was rejected")
+	}
+	lowerStarted := make(chan struct{}, 1)
+	lower := manager.replace(7, observedLoginTransfer{
+		authorize: func() string {
+			lowerStarted <- struct{}{}
+			return "https://dash.cloudflare.com/lower"
+		},
+		poll: func(context.Context) ([]byte, error) {
+			return nil, errors.New("lower transfer unexpectedly polled")
+		},
+	})
+	if lower != nil {
+		t.Fatal("lower generation was published")
+	}
+	select {
+	case <-lowerStarted:
+		t.Fatal("rejected transfer was started")
+	default:
+	}
+	if current := manager.current(); current != higher || current.generation != 8 {
+		t.Fatal("lower generation replaced current session")
+	}
+	manager.close()
+}
+
+func TestAuthSessionManagerCloseCannotRaceWithReplacementPublication(t *testing.T) {
+	initialEntered := make(chan struct{})
+	initialCancelled := make(chan struct{})
+	releaseInitial := make(chan struct{})
+	manager := newAuthSessionManager(defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})))
+	manager.replace(1, fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/initial",
+		poll: func(ctx context.Context) ([]byte, error) {
+			close(initialEntered)
+			<-ctx.Done()
+			close(initialCancelled)
+			<-releaseInitial
+			return nil, ctx.Err()
+		},
+	})
+	<-initialEntered
+
+	closeReturned := make(chan struct{})
+	go func() {
+		manager.close()
+		close(closeReturned)
+	}()
+	<-initialCancelled
+
+	replacementBegan := make(chan struct{})
+	allowReplacementBegin := make(chan struct{})
+	replacementReturned := make(chan *authSession, 1)
+	go func() {
+		replacementReturned <- manager.replace(2, observedLoginTransfer{
+			authorize: func() string {
+				close(replacementBegan)
+				<-allowReplacementBegin
+				return "https://dash.cloudflare.com/replacement"
+			},
+			poll: func(context.Context) ([]byte, error) {
+				return originCertificate(t, "abcdabcdabcdabcd1234567890abcdef", "replacement-secret"), nil
+			},
+		})
+	}()
+	select {
+	case <-replacementBegan:
+		close(allowReplacementBegin)
+	case <-time.After(100 * time.Millisecond):
+		close(allowReplacementBegin)
+	}
+	close(releaseInitial)
+	select {
+	case <-closeReturned:
+	case <-time.After(time.Second):
+		t.Fatal("manager close did not return")
+	}
+	if replacement := receiveSession(t, replacementReturned); replacement != nil {
+		t.Fatal("replacement was published after manager close")
+	}
+	if manager.current() != nil {
+		t.Fatal("manager published a session after close returned")
+	}
+}
+
 func bytesReader32(value byte) io.Reader {
 	return strings.NewReader(strings.Repeat(string([]byte{value}), 32))
 }
@@ -385,3 +745,39 @@ type fakeLoginTransfer struct {
 func (t fakeLoginTransfer) authorization() string { return t.authorizationURL }
 
 func (t fakeLoginTransfer) wait(ctx context.Context) ([]byte, error) { return t.poll(ctx) }
+
+type observedLoginTransfer struct {
+	authorize func() string
+	poll      func(context.Context) ([]byte, error)
+}
+
+func (t observedLoginTransfer) authorization() string { return t.authorize() }
+
+func (t observedLoginTransfer) wait(ctx context.Context) ([]byte, error) { return t.poll(ctx) }
+
+type partialErrorReader struct {
+	payload []byte
+	exposed []byte
+	read    bool
+}
+
+func (r *partialErrorReader) Read(destination []byte) (int, error) {
+	if r.read {
+		return 0, io.EOF
+	}
+	r.read = true
+	count := copy(destination, r.payload)
+	r.exposed = destination[:count]
+	return count, errors.New("injected read failure")
+}
+
+func receiveSession(t *testing.T, sessions <-chan *authSession) *authSession {
+	t.Helper()
+	select {
+	case session := <-sessions:
+		return session
+	case <-time.After(time.Second):
+		t.Fatal("manager operation did not return")
+		return nil
+	}
+}

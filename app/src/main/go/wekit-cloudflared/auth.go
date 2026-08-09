@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -28,7 +29,13 @@ func newAuthHTTPClient() *http.Client {
 		TLSHandshakeTimeout:   15 * time.Second,
 		ResponseHeaderTimeout: 60 * time.Second,
 	}
-	return &http.Client{Transport: transport, Timeout: 60 * time.Second}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   60 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return errors.New("authentication redirects are disabled")
+		},
+	}
 }
 
 const (
@@ -44,7 +51,10 @@ const (
 	loginPollAttempts         = 10
 )
 
-var dnsLabelPattern = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$`)
+var (
+	dnsLabelPattern      = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$`)
+	authAccountIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
+)
 
 type httpDoer interface {
 	Do(*http.Request) (*http.Response, error)
@@ -120,7 +130,7 @@ func (t *loginTransfer) wait(ctx context.Context) ([]byte, error) {
 		}
 		if response.StatusCode == http.StatusOK {
 			if len(body) == 0 {
-				return nil, errors.New("browser login returned an empty certificate")
+				continue
 			}
 			return body, nil
 		}
@@ -173,6 +183,14 @@ func decodeAuthCredential(certificate []byte) (*authCredential, error) {
 	if len(certificate) == 0 || len(certificate) > maxOriginCertificateBytes {
 		return nil, errors.New("origin certificate is invalid")
 	}
+	trimmedCertificate := bytes.TrimSpace(certificate)
+	if !bytes.HasPrefix(trimmedCertificate, []byte("-----BEGIN ARGO TUNNEL TOKEN-----")) {
+		return nil, errors.New("origin certificate is invalid")
+	}
+	block, rest := pem.Decode(trimmedCertificate)
+	if block == nil || block.Type != "ARGO TUNNEL TOKEN" || len(bytes.TrimSpace(rest)) != 0 {
+		return nil, errors.New("origin certificate is invalid")
+	}
 	decoded, err := credentials.DecodeOriginCert(certificate)
 	if err != nil {
 		return nil, errors.New("origin certificate is invalid")
@@ -183,7 +201,7 @@ func decodeAuthCredential(certificate []byte) (*authCredential, error) {
 		decoded.APIToken = ""
 		decoded.Endpoint = ""
 	}()
-	if len(decoded.AccountID) == 0 || len(decoded.AccountID) > 32 ||
+	if !authAccountIDPattern.MatchString(decoded.AccountID) ||
 		len(decoded.APIToken) == 0 || len(decoded.APIToken) > maxTokenBytes ||
 		(decoded.Endpoint != "" && decoded.Endpoint != credentials.FedEndpoint) {
 		return nil, errors.New("origin certificate is invalid")
@@ -413,6 +431,8 @@ type authSessionManager struct {
 	mu         sync.Mutex
 	currentV   *authSession
 	apiFactory authAPIFactory
+	generation uint64
+	closed     bool
 }
 
 func newAuthSessionManager(apiFactory authAPIFactory) *authSessionManager {
@@ -421,16 +441,16 @@ func newAuthSessionManager(apiFactory authAPIFactory) *authSessionManager {
 
 func (m *authSessionManager) replace(generation uint64, transfer preparedLoginTransfer) *authSession {
 	m.mu.Lock()
-	previous := m.currentV
-	m.currentV = nil
-	m.mu.Unlock()
-	if previous != nil {
-		previous.close()
+	defer m.mu.Unlock()
+	if m.closed || generation == 0 || generation <= m.generation {
+		return nil
+	}
+	m.generation = generation
+	if m.currentV != nil {
+		m.currentV.close()
 	}
 	session := beginAuthSession(generation, transfer, m.apiFactory)
-	m.mu.Lock()
 	m.currentV = session
-	m.mu.Unlock()
 	return session
 }
 
@@ -442,12 +462,15 @@ func (m *authSessionManager) current() *authSession {
 
 func (m *authSessionManager) close() {
 	m.mu.Lock()
-	current := m.currentV
-	m.currentV = nil
-	m.mu.Unlock()
-	if current != nil {
-		current.close()
+	defer m.mu.Unlock()
+	if m.closed {
+		return
 	}
+	m.closed = true
+	if m.currentV != nil {
+		m.currentV.close()
+	}
+	m.currentV = nil
 }
 
 type readOnlyTunnelAPI struct {
@@ -600,7 +623,12 @@ func (a *readOnlyTunnelAPI) getTunnelToken(ctx context.Context, tunnelID string)
 		len(envelope.Result) == 0 || len(envelope.Result) > maxTokenBytes {
 		return "", errors.New("Cloudflare tunnel token response is invalid")
 	}
-	if _, err := parseTunnelToken(envelope.Result); err != nil {
+	parsedToken, err := parseTunnelToken(envelope.Result)
+	if err != nil {
+		return "", errors.New("Cloudflare tunnel token response is invalid")
+	}
+	defer wipe(parsedToken.TunnelSecret)
+	if parsedToken.TunnelID != id || parsedToken.AccountTag != a.credential.account() {
 		return "", errors.New("Cloudflare tunnel token response is invalid")
 	}
 	return envelope.Result, nil
@@ -690,6 +718,7 @@ func readBoundedBody(body io.Reader, limit int) ([]byte, error) {
 	reader := io.LimitReader(body, int64(limit)+1)
 	payload, err := io.ReadAll(reader)
 	if err != nil {
+		wipe(payload)
 		return nil, err
 	}
 	if len(payload) > limit {
