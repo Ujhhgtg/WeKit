@@ -9,3 +9,4 @@ Task 3: user ruling — generic auto-generated EXPECTED_FAILURE reasons are acce
 Task 3: complete (matrix/build PASS at 4c27f905; rule commit 3e1eacc8; review finding addressed, re-review approved)
 Final review: Important open — native quote builder constructor selector is not set to 4 before build; scoped fix wave started from 3e1eacc8
 Final review fix: selector resolved structurally and set to 4; full 7-APK matrix and ./x build PASS at run 2026-08-09T11-15-43Z; awaiting scoped re-review
+Final review fix: scoped re-review APPROVED (prior Important ADDRESSED; 0 Critical, 0 Important, 0 Minor); implementation complete, device validation remains outstanding
