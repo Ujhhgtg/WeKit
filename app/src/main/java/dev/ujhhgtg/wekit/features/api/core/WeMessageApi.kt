@@ -631,25 +631,30 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         val taskClassName = methodImageSendEntry.data.paramTypeNames[1]
         classImageTask.setDescriptor(taskClassName)
 
-        val imageFeatureServiceMethods = dexKit.findMethod {
+        val imageFeatureServiceNewPathProbes = dexKit.findMethod {
             matcher {
-                declaredClass {
-                    usingEqStrings(
-                        "MicroMsg.ImgUpload.MsgImgFeatureService",
-                        "taskListener",
-                        "params",
-                    )
-                }
-                paramCount(1)
-                usingEqStrings("params")
+                usingEqStrings("sendRawImgAsyncWithPreBuild[", "send_group_id")
             }
         }
 
-        when (imageFeatureServiceMethods.size) {
+        when (imageFeatureServiceNewPathProbes.size) {
             1 -> {
-                methodImgUploadFeatureServiceSendImage.setDescriptor(
-                    imageFeatureServiceMethods.single()
+                methodImgUploadFeatureServiceNewPathProbe.setDescriptor(
+                    imageFeatureServiceNewPathProbes.single()
                 )
+                methodImgUploadFeatureServiceSendImage.find(dexKit) {
+                    matcher {
+                        declaredClass {
+                            usingEqStrings(
+                                "MicroMsg.ImgUpload.MsgImgFeatureService",
+                                "taskListener",
+                                "params",
+                            )
+                        }
+                        paramCount(1)
+                        usingEqStrings("params")
+                    }
+                }
                 methodAppInfoSetAppId.find(dexKit) {
                     matcher {
                         declaredClass {
@@ -675,9 +680,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
 
             0 -> {
+                methodImgUploadFeatureServiceNewPathProbe.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "send_group_id image path is absent; using legacy NetSceneUploadMsgImg",
+                )
                 methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor(
                     expectedFailure = true,
-                    reason = "ImgUploadFeatureService is absent; using legacy NetSceneUploadMsgImg",
+                    reason = "legacy NetSceneUploadMsgImg path is active",
                 )
                 methodAppInfoSetAppId.setPlaceholderDescriptor(
                     expectedFailure = true,
@@ -711,8 +720,8 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
 
             else -> error(
-                "multiple ImgUploadFeatureService send methods found: " +
-                    imageFeatureServiceMethods.joinToString { it.descriptor }
+                "multiple send_group_id image path probes found: " +
+                    imageFeatureServiceNewPathProbes.joinToString { it.descriptor }
             )
         }
 
@@ -1313,12 +1322,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private val methodImgUploadFeatureServiceNewPathProbe by dexMethod()
     private val methodImgUploadFeatureServiceSendImage by dexMethod()
     private val methodAppInfoSetAppId by dexMethod()
     private val ctorNetSceneUploadMsgImg by dexConstructor()
 
     fun sendImageByMd5(toUser: String, md5: String, appMsgAppId: String? = null) {
-        if (!methodImgUploadFeatureServiceSendImage.isPlaceholder) {
+        if (!methodImgUploadFeatureServiceNewPathProbe.isPlaceholder) {
             val sendImageMethod = methodImgUploadFeatureServiceSendImage.method
             val paramsClass = sendImageMethod.parameterTypes[0]
             val crossParamsClass = paramsClass.reflekt()

@@ -30,7 +30,7 @@
 
 **Interfaces:**
 - Consumes: `DexKitBridge.findMethod`, `DexMethodDelegate.setDescriptor`, `setPlaceholderDescriptor(expectedFailure, reason)`, and `isPlaceholder`.
-- Produces: `methodImgUploadFeatureServiceSendImage` as the single new-path probe used by both `resolveDex()` and `sendImageByMd5()`.
+- Produces: `methodImgUploadFeatureServiceNewPathProbe` as the single new-path probe used by both `resolveDex()` and `sendImageByMd5()`; the existing Feature Service send method is a strict new-path companion because it also exists on 8.0.65 and cannot distinguish the paths.
 
 - [ ] **Step 1: Remove version-only imports from `WeMessageApi`**
 
@@ -48,25 +48,30 @@ Keep `HostInfo`; unrelated APIs in this file still use its application and files
 Replace the `DexResolutionContext.host` threshold block with a query whose result count explicitly controls the path:
 
 ```kotlin
-val imageFeatureServiceMethods = dexKit.findMethod {
+val imageFeatureServiceNewPathProbes = dexKit.findMethod {
     matcher {
-        declaredClass {
-            usingEqStrings(
-                "MicroMsg.ImgUpload.MsgImgFeatureService",
-                "taskListener",
-                "params",
-            )
-        }
-        paramCount(1)
-        usingEqStrings("params")
+        usingEqStrings("sendRawImgAsyncWithPreBuild[", "send_group_id")
     }
 }
 
-when (imageFeatureServiceMethods.size) {
+when (imageFeatureServiceNewPathProbes.size) {
     1 -> {
-        methodImgUploadFeatureServiceSendImage.setDescriptor(
-            imageFeatureServiceMethods.single()
+        methodImgUploadFeatureServiceNewPathProbe.setDescriptor(
+            imageFeatureServiceNewPathProbes.single()
         )
+        methodImgUploadFeatureServiceSendImage.find(dexKit) {
+            matcher {
+                declaredClass {
+                    usingEqStrings(
+                        "MicroMsg.ImgUpload.MsgImgFeatureService",
+                        "taskListener",
+                        "params",
+                    )
+                }
+                paramCount(1)
+                usingEqStrings("params")
+            }
+        }
         methodAppInfoSetAppId.find(dexKit) {
             matcher {
                 declaredClass {
@@ -92,9 +97,13 @@ when (imageFeatureServiceMethods.size) {
     }
 
     0 -> {
+        methodImgUploadFeatureServiceNewPathProbe.setPlaceholderDescriptor(
+            expectedFailure = true,
+            reason = "send_group_id image path is absent; using legacy NetSceneUploadMsgImg",
+        )
         methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor(
             expectedFailure = true,
-            reason = "ImgUploadFeatureService is absent; using legacy NetSceneUploadMsgImg",
+            reason = "legacy NetSceneUploadMsgImg path is active",
         )
         methodAppInfoSetAppId.setPlaceholderDescriptor(
             expectedFailure = true,
@@ -128,8 +137,8 @@ when (imageFeatureServiceMethods.size) {
     }
 
     else -> error(
-        "multiple ImgUploadFeatureService send methods found: " +
-            imageFeatureServiceMethods.joinToString { it.descriptor }
+        "multiple send_group_id image path probes found: " +
+            imageFeatureServiceNewPathProbes.joinToString { it.descriptor }
     )
 }
 ```
@@ -142,7 +151,7 @@ Change only the condition around the existing two send bodies:
 
 ```kotlin
 fun sendImageByMd5(toUser: String, md5: String, appMsgAppId: String? = null) {
-    if (!methodImgUploadFeatureServiceSendImage.isPlaceholder) {
+    if (!methodImgUploadFeatureServiceNewPathProbe.isPlaceholder) {
         val sendImageMethod = methodImgUploadFeatureServiceSendImage.method
         val paramsClass = sendImageMethod.parameterTypes[0]
         val crossParamsClass = paramsClass.reflekt()
@@ -208,7 +217,7 @@ Run:
   --output-dir dex-test-results/host-structure-fallback-image
 ```
 
-Expected: command exits 0. For `WeMessageApi`, 8.0.65 reports the Feature Service probe and companion method as expected failures while the legacy constructor succeeds; 8.0.67 and 8.0.69 Play resolve the new path and report the legacy constructor as an expected failure. No unexpected, blocked, or incomplete delegate remains.
+Expected: command exits 0. For `WeMessageApi`, 8.0.65 reports the `send_group_id` probe and both new-path companion methods as expected failures while the legacy constructor succeeds; 8.0.67 and 8.0.69 Play resolve the new path and report the legacy constructor as an expected failure. No unexpected, blocked, or incomplete delegate remains.
 
 - [ ] **Step 5: Commit the image-path change**
 

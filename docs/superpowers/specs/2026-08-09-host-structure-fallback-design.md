@@ -55,14 +55,16 @@
 
 ### 探针
 
-使用 `methodImgUploadFeatureServiceSendImage` 作为新图片发送路径探针。它属于 `ImgUploadFeatureService` 新路径，旧版 `NetSceneUploadMsgImg` 路径不存在该方法。
+使用包含 `sendRawImgAsyncWithPreBuild[` 与 `send_group_id` 的方法作为新图片发送路径探针，并记录到 `methodImgUploadFeatureServiceNewPathProbe`。`send_group_id` 及其对应的图片发送分组字段从 8.0.67 普通版路径开始存在，在 8.0.65 中不存在。不能使用 `methodImgUploadFeatureServiceSendImage` 本身作为探针，因为该 Feature Service 方法在 8.0.65 中也已经存在。
 
 ### Dex 解析
 
 - 探针存在：
+  - 严格解析 `methodImgUploadFeatureServiceSendImage`；
   - 严格解析 `methodAppInfoSetAppId`；
   - 将 `ctorNetSceneUploadMsgImg` 标记为“新图片服务路径生效”的预期 placeholder。
 - 探针不存在：
+  - 将 `methodImgUploadFeatureServiceSendImage` 标记为“旧图片上传路径生效”的预期 placeholder；
   - 将 `methodAppInfoSetAppId` 标记为“旧图片上传路径生效”的预期 placeholder；
   - 严格解析 `ctorNetSceneUploadMsgImg`。
 
@@ -70,7 +72,7 @@
 
 ### 实际发送
 
-`sendImageByMd5()` 检查 `methodImgUploadFeatureServiceSendImage.isPlaceholder`：
+`sendImageByMd5()` 检查 `methodImgUploadFeatureServiceNewPathProbe.isPlaceholder`：
 
 - 非 placeholder：构造 Feature Service 参数并调用新图片服务；
 - placeholder：构造 `NetSceneUploadMsgImg` 并提交旧网络场景。
