@@ -610,6 +610,111 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
+    fun `coalesced stop revalidates remaining owners after current callback reenters`() {
+        val callbacks = CoalescedOriginCallbacks<Unit>()
+        val originGeneration = AtomicLong(70)
+        val currentTerminal = AtomicReference<OriginRequestTerminal<Unit>>()
+        val staleTerminal = AtomicReference<OriginRequestTerminal<Unit>>()
+        val staleSaves = AtomicInteger()
+        val staleRestarts = AtomicInteger()
+        val staleStarts = AtomicInteger()
+
+        assertTrue(
+            callbacks.register { terminal ->
+                staleTerminal.set(terminal)
+                when (terminal) {
+                    is OriginRequestTerminal.Completed -> {
+                        staleSaves.incrementAndGet()
+                        staleRestarts.incrementAndGet()
+                        staleStarts.incrementAndGet()
+                    }
+
+                    OriginRequestTerminal.Superseded -> Unit
+                }
+            },
+        )
+        assertFalse(
+            callbacks.register { terminal ->
+                currentTerminal.set(terminal)
+                when (terminal) {
+                    is OriginRequestTerminal.Completed -> originGeneration.incrementAndGet()
+                    OriginRequestTerminal.Superseded -> Unit
+                }
+            },
+        )
+
+        assertEquals(
+            2,
+            callbacks.complete(
+                OriginRequestTerminal.Completed(Result.success(Unit)),
+                isCurrent = { originGeneration.get() == 70L },
+            ),
+        )
+        assertTrue(currentTerminal.get() is OriginRequestTerminal.Completed)
+        assertSame(OriginRequestTerminal.Superseded, staleTerminal.get())
+        assertEquals(0, staleSaves.get())
+        assertEquals(0, staleRestarts.get())
+        assertEquals(0, staleStarts.get())
+    }
+
+    @Test
+    fun `coalesced stop completes only the newest owner without reentry`() {
+        val callbacks = CoalescedOriginCallbacks<Unit>()
+        val oldTerminal = AtomicReference<OriginRequestTerminal<Unit>>()
+        val newestTerminal = AtomicReference<OriginRequestTerminal<Unit>>()
+
+        assertTrue(callbacks.register(oldTerminal::set))
+        assertFalse(callbacks.register(newestTerminal::set))
+
+        assertEquals(
+            2,
+            callbacks.complete(
+                OriginRequestTerminal.Completed(Result.success(Unit)),
+                isCurrent = { true },
+            ),
+        )
+        assertTrue(newestTerminal.get() is OriginRequestTerminal.Completed)
+        assertSame(OriginRequestTerminal.Superseded, oldTerminal.get())
+    }
+
+    @Test
+    fun `newer connection owner survives old release and clears only its own success token`() {
+        val activeChanges = mutableListOf<Boolean>()
+        val ownership = ConnectionTransactionOwnership(activeChanges::add)
+        val tokenClears = AtomicInteger()
+        val oldOwner = ownership.acquire()
+        val currentOwner = ownership.acquire()
+
+        oldOwner.finish(
+            terminal = OriginRequestTerminal.Superseded,
+            onCompletedSuccess = { tokenClears.incrementAndGet() },
+            onCompletedFailure = {},
+            onSuperseded = {},
+        )
+        assertEquals(listOf(true), activeChanges)
+
+        currentOwner.finish(
+            terminal = OriginRequestTerminal.Completed(
+                Result.failure<Unit>(IllegalStateException("failed")),
+            ),
+            onCompletedSuccess = { tokenClears.incrementAndGet() },
+            onCompletedFailure = {},
+            onSuperseded = {},
+        )
+        assertEquals(listOf(true, false), activeChanges)
+        assertEquals(0, tokenClears.get())
+
+        ownership.acquire().finish(
+            terminal = OriginRequestTerminal.Completed(Result.success(Unit)),
+            onCompletedSuccess = { tokenClears.incrementAndGet() },
+            onCompletedFailure = {},
+            onSuperseded = {},
+        )
+        assertEquals(listOf(true, false, true, false), activeChanges)
+        assertEquals(1, tokenClears.get())
+    }
+
+    @Test
     fun `superseded notification rejection restore only releases the old UI transaction`() {
         val ownershipReleases = AtomicInteger()
         val saves = AtomicInteger()
@@ -693,6 +798,34 @@ class ReadReceiptsTunnelCoordinationTest {
         assertTrue(failed.complete(Result.failure(failure)))
         val completed = failedTerminals.single() as OriginRequestTerminal.Completed
         assertSame(failure, completed.result.exceptionOrNull())
+    }
+
+    @Test
+    fun `stop drains callback-created replacement before allocating its command`() {
+        val handoff = TunnelHandoffGate()
+        val events = mutableListOf<String>()
+        var pendingGeneration: Long? = 100
+        handoff.begin(100)
+
+        handoff.drainPending(
+            pendingGeneration = { pendingGeneration },
+            supersede = { generation ->
+                assertTrue(handoff.fail(generation))
+                pendingGeneration = null
+                events += "superseded:$generation"
+                if (generation == 100L) {
+                    handoff.begin(101)
+                    pendingGeneration = 101
+                }
+            },
+        )
+        events += "stop-allocated"
+
+        assertEquals(
+            listOf("superseded:100", "superseded:101", "stop-allocated"),
+            events,
+        )
+        assertNull(pendingGeneration)
     }
 
     @Test

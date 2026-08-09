@@ -388,11 +388,18 @@ internal class TunnelHandoffGate {
         supersede: (Long) -> Unit,
         generationFactory: () -> Long,
     ): Long {
+        drainPending(pendingGeneration, supersede)
+        return generationFactory().also(::begin)
+    }
+
+    fun drainPending(
+        pendingGeneration: () -> Long?,
+        supersede: (Long) -> Unit,
+    ) {
         while (true) {
             val pending = pendingGeneration() ?: break
             supersede(pending)
         }
-        return generationFactory().also(::begin)
     }
 
     @Synchronized

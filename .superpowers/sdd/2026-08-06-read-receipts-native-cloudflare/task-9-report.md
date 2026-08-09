@@ -307,3 +307,66 @@ health is in flight and shortly after cached verification, issue multiple concur
 requests and confirm each caller completes while origin shutdown occurs once, reconnect with an
 uppercase/trailing-slash spelling without teardown on **确定**, and force a superseded START completion
 to allocate rollback work before the replacement command.
+
+## Final real-call-chain review follow-up
+
+A later review of the complete callback chain found three additional ownership races after
+`abc2105f`:
+
+1. The higher-layer stack-stop coalescer copied every owner and broadcast the same `Completed`
+   terminal. It now drains owners newest-first, gives the original terminal only to the newest owner
+   when the captured origin generation is still current, and gives every older owner a fieldless
+   `Superseded`. Each owner still completes once, while the underlying tunnel and origin stop execute
+   once. This remains true when the newest callback does not create another origin generation; if it
+   does reenter and start a replacement, the generation check also prevents any remaining stale work.
+2. `ReadReceiptsTunnelController.stop()` previously superseded only the pending START visible on entry.
+   Its synchronous completion could install a replacement START before STOP generation allocation.
+   STOP now repeatedly drains every callback-created pending START, then allocates and publishes the
+   final STOP generation, so callback reentry cannot survive and be stopped by an older command.
+3. Compose represented connection ownership with one Boolean. A stale completion could clear it while
+   a newer transaction still owned the UI and could run stale success effects. A monotonic owner ID now
+   atomically releases only the current owner; a stale owner's terminal is treated as `Superseded`, so
+   it cannot clear the token. Both **验证并连接** and **确定** use the same active-owner gate.
+
+Focused TDD evidence:
+
+- The supplied three regressions were initially RED at compilation because the current-aware
+  coalescer, connection ownership, and STOP drain APIs did not exist.
+- A separate no-reentry regression was RED with one assertion failure because an older coalesced
+  owner still received `Completed` while the generation stayed unchanged.
+- After the production call sites were connected, the focused class passed 29 tests with zero
+  failures or errors.
+
+Fresh verification after the fixes:
+
+```text
+./gradlew testStandardDebugUnitTest \
+  --tests dev.ujhhgtg.wekit.features.items.chat.ReadReceiptsTunnelCoordinationTest
+BUILD SUCCESSFUL; 29 focused tests
+
+./gradlew testStandardDebugUnitTest
+BUILD SUCCESSFUL in 9s
+
+go test -race -count=1 ./app/src/main/go/wekit-cloudflared
+ok dev.ujhhgtg.wekit/cloudflared-bridge 1.155s
+
+cargo test --workspace
+PASS: wekit-native 9; service library 15; pixel logging 1; zygisk 10; xtask 22
+
+./x cloudflared-build --abi arm64-v8a --abi armeabi-v7a
+PASS
+
+./x build
+BUILD SUCCESSFUL in 8s (144 actionable tasks: 18 executed, 1 from cache, 125 up-to-date)
+```
+
+Both Standard and Legacy APKs contain `libwekit_cloudflared.so` and `libwekit_native.so` for
+arm64-v8a and armeabi-v7a. Each connector library exports the exact six C ABI and four direct JNI
+symbols. Generated JNI inputs were moved out of the worktree to
+`/tmp/wekit-task9-finalfix-final-jni.0qUyLW/jniLibs` after inspection. `git diff --check` passed.
+
+The existing real-device checklist remains mandatory. The final callback-ownership cases to exercise
+are a coalesced disconnect followed by immediate reconnect, a STOP whose superseded callback starts a
+replacement, and an old connection completion arriving while a newer connection transaction owns the
+dialog. External scoped review of this follow-up is still pending; this report does not claim Task 9
+acceptance by itself.

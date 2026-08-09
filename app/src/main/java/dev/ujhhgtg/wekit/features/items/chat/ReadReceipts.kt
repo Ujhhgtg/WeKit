@@ -89,6 +89,7 @@ import kotlin.coroutines.resume
 /** Runs one connection owner's terminal policy exactly once. */
 internal class ConnectionTransactionOwner(
     private val releaseOwnership: () -> Unit,
+    private val finishOwnership: (() -> Boolean)? = null,
 ) {
     private var finished = false
 
@@ -102,15 +103,46 @@ internal class ConnectionTransactionOwner(
             if (finished) return false
             finished = true
         }
-        releaseOwnership()
-        when (terminal) {
-            is OriginRequestTerminal.Completed -> terminal.result.fold(
+        val wasCurrent = finishOwnership?.invoke() ?: run {
+            releaseOwnership()
+            true
+        }
+        val effectiveTerminal = if (wasCurrent) terminal else OriginRequestTerminal.Superseded
+        when (effectiveTerminal) {
+            is OriginRequestTerminal.Completed -> effectiveTerminal.result.fold(
                 onSuccess = onCompletedSuccess,
                 onFailure = onCompletedFailure,
             )
 
             OriginRequestTerminal.Superseded -> onSuperseded()
         }
+        return true
+    }
+}
+
+/** Keeps connection UI ownership bound to the latest transaction. */
+internal class ConnectionTransactionOwnership(
+    private val onActiveChanged: (Boolean) -> Unit,
+) {
+    private var nextOwnerId = 0L
+    private var currentOwnerId: Long? = null
+
+    @Synchronized
+    fun acquire(): ConnectionTransactionOwner {
+        val ownerId = ++nextOwnerId
+        if (currentOwnerId == null) onActiveChanged(true)
+        currentOwnerId = ownerId
+        return ConnectionTransactionOwner(
+            releaseOwnership = {},
+            finishOwnership = { releaseIfCurrent(ownerId) },
+        )
+    }
+
+    @Synchronized
+    private fun releaseIfCurrent(ownerId: Long): Boolean {
+        if (currentOwnerId != ownerId) return false
+        currentOwnerId = null
+        onActiveChanged(false)
         return true
     }
 }
@@ -135,7 +167,7 @@ internal fun finishNotificationRejectionRestore(
 }
 
 /** Coalesces a stack stop without collapsing [OriginRequestTerminal.Superseded] into failure. */
-private class CoalescedOriginCallbacks<T> {
+internal class CoalescedOriginCallbacks<T> {
     private var callbacks: MutableList<(OriginRequestTerminal<T>) -> Unit>? = null
 
     @Synchronized
@@ -151,13 +183,20 @@ private class CoalescedOriginCallbacks<T> {
         return true
     }
 
-    fun complete(terminal: OriginRequestTerminal<T>): Int {
+    fun complete(
+        terminal: OriginRequestTerminal<T>,
+        isCurrent: () -> Boolean = { true },
+    ): Int {
         val completed = synchronized(this) {
             val current = callbacks ?: return 0
             callbacks = null
             current.toList()
         }
-        completed.forEach { callback -> callback(terminal) }
+        completed.asReversed().forEachIndexed { index, callback ->
+            callback(
+                if (index == 0 && isCurrent()) terminal else OriginRequestTerminal.Superseded,
+            )
+        }
         return completed.size
     }
 }
@@ -757,10 +796,13 @@ object ReadReceipts : ClickableFeature(),
     ) {
         if (!builtInStopCallbacks.register(onFinished)) return
         ReadReceiptsTunnelController.stop {
-            stopOrigin { terminal ->
+            stopOriginTracked { generation, terminal ->
                 when (terminal) {
                     is OriginRequestTerminal.Completed -> {
-                        builtInStopCallbacks.complete(terminal)
+                        builtInStopCallbacks.complete(
+                            terminal = terminal,
+                            isCurrent = { originGeneration.get() == generation },
+                        )
                     }
 
                     OriginRequestTerminal.Superseded -> {
@@ -801,6 +843,10 @@ object ReadReceipts : ClickableFeature(),
 
     private fun stopOrigin(
         onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
+    ) = stopOriginTracked { _, terminal -> onFinished?.invoke(terminal) }
+
+    private fun stopOriginTracked(
+        onFinished: (Long, OriginRequestTerminal<Unit>) -> Unit,
     ) {
         val request = newOriginRequest(
             port = null,
@@ -810,13 +856,14 @@ object ReadReceipts : ClickableFeature(),
         submitOriginRequest(request) { terminal ->
             when (terminal) {
                 is OriginRequestTerminal.Completed -> {
-                    onFinished?.invoke(
+                    onFinished(
+                        request.generation,
                         OriginRequestTerminal.Completed(terminal.result.map { Unit }),
                     )
                 }
 
                 OriginRequestTerminal.Superseded -> {
-                    onFinished?.invoke(OriginRequestTerminal.Superseded)
+                    onFinished(request.generation, OriginRequestTerminal.Superseded)
                 }
             }
         }
@@ -1467,6 +1514,9 @@ object ReadReceipts : ClickableFeature(),
             var tokenInput by remember { mutableStateOf("") }
             var revealToken by remember { mutableStateOf(false) }
             var connectionTransactionActive by remember { mutableStateOf(false) }
+            val connectionTransactionOwnership = remember {
+                ConnectionTransactionOwnership { connectionTransactionActive = it }
+            }
             var originStatus by remember { mutableStateOf(originController.snapshot()) }
             var tunnelStatus by remember { mutableStateOf(ReadReceiptsTunnelController.status) }
             var credentialExists by remember {
@@ -1720,7 +1770,7 @@ object ReadReceipts : ClickableFeature(),
                                             ReadReceiptsTunnelState.STOPPED,
                                             ReadReceiptsTunnelState.FAILED,
                                             ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                                        ),
+                                        ) && !connectionTransactionActive,
                                         onClick = {
                                             val port = if (automaticPortInput) {
                                                 initialConfiguration.builtInPort
@@ -1757,10 +1807,8 @@ object ReadReceipts : ClickableFeature(),
                                                 tunnelMode = tunnelModeInput.name,
                                                 hostname = canonicalHostname,
                                             )
-                                            connectionTransactionActive = true
-                                            val transactionOwner = ConnectionTransactionOwner {
-                                                connectionTransactionActive = false
-                                            }
+                                            val transactionOwner =
+                                                connectionTransactionOwnership.acquire()
                                             applyAndStartBuiltInStack(
                                                 candidate,
                                                 tokenInput.takeIf(String::isNotBlank),

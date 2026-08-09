@@ -120,7 +120,10 @@ internal object ReadReceiptsTunnelController {
     }
 
     fun stop(onStopped: (() -> Unit)? = null) {
-        supersedePendingStart()
+        handoffGate.drainPending(
+            pendingGeneration = { pendingStart?.generation },
+            supersede = ::supersedePendingStart,
+        )
         val registration = stopCompletion.register(onStopped, ::nextGeneration)
         if (!registration.shouldSend) return
         val nextGeneration = registration.generation
