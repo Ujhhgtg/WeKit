@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -66,6 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Contacts
 import com.composables.icons.materialsymbols.outlined.Drag_handle
@@ -83,6 +85,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -117,15 +120,15 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         val wechatIndex: Int,
         val outlined: ImageVector,
         val filled: ImageVector,
-        val label: String
+        @StringRes val labelRes: Int,
     )
 
     @Stable
     private val TAB_ITEMS = listOf(
-        NavItem(0, MaterialSymbols.Outlined.Home, MaterialSymbols.OutlinedFilled.Home, "主页"),
-        NavItem(1, MaterialSymbols.Outlined.Contacts, MaterialSymbols.OutlinedFilled.Contacts, "通讯录"),
-        NavItem(2, MaterialSymbols.Outlined.Explore, MaterialSymbols.OutlinedFilled.Explore, "发现"),
-        NavItem(3, MaterialSymbols.Outlined.Person, MaterialSymbols.OutlinedFilled.Person, "我")
+        NavItem(0, MaterialSymbols.Outlined.Home, MaterialSymbols.OutlinedFilled.Home, R.string.nav_tab_home),
+        NavItem(1, MaterialSymbols.Outlined.Contacts, MaterialSymbols.OutlinedFilled.Contacts, R.string.nav_tab_contacts),
+        NavItem(2, MaterialSymbols.Outlined.Explore, MaterialSymbols.OutlinedFilled.Explore, R.string.nav_tab_discover),
+        NavItem(3, MaterialSymbols.Outlined.Person, MaterialSymbols.OutlinedFilled.Person, R.string.nav_tab_me),
     )
 
     private var useFloating by prefOption("nav_bar_use_floating", true)
@@ -452,6 +455,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     containerColor = backgroundColor
                                 ) {
                                     visibleTabItems.forEachIndexed { index, item ->
+                                        val label = stringResource(item.labelRes)
                                         val isSelected = index == selectedIndex
                                         val isNext = index == selectedIndex + 1
 
@@ -486,14 +490,14 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                         if (index == 0 && unreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
                                                                 Text(
-                                                                    if (unreadCount <= 99) unreadCount.toString() else "99+",
+                                                                    if (unreadCount <= 99) unreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
                                                             }
                                                         } else if (item.wechatIndex == 1 && contactUnreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
                                                                 Text(
-                                                                    if (contactUnreadCount <= 99) contactUnreadCount.toString() else "99+",
+                                                                    if (contactUnreadCount <= 99) contactUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
                                                             }
@@ -501,7 +505,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                             if (finderUnreadCount > 0) {
                                                                 Badge(containerColor = Color(0xFFFF3B30)) {
                                                                     Text(
-                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else "99+",
+                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                         color = Color.White, fontSize = 10.sp
                                                                     )
                                                                 }
@@ -518,7 +522,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                     ) { filled ->
                                                         Icon(
                                                             imageVector = if (filled) item.filled else item.outlined,
-                                                            contentDescription = item.label,
+                                                            contentDescription = label,
                                                             tint = tint
                                                         )
                                                     }
@@ -595,6 +599,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         )
                                     ) {
                                         visibleTabItems.forEachIndexed { index, item ->
+                                            val label = stringResource(item.labelRes)
                                             // Key the fill crossfade to the target page (the same
                                             // driver as the pill), not the settled page: target
                                             // flips immediately on a tab tap and on finger release
@@ -618,14 +623,14 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                         if (index == 0 && unreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
                                                                 Text(
-                                                                    if (unreadCount <= 99) unreadCount.toString() else "99+",
+                                                                    if (unreadCount <= 99) unreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
                                                             }
                                                         } else if (item.wechatIndex == 1 && contactUnreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
                                                                 Text(
-                                                                    if (contactUnreadCount <= 99) contactUnreadCount.toString() else "99+",
+                                                                    if (contactUnreadCount <= 99) contactUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
                                                             }
@@ -633,7 +638,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                             if (finderUnreadCount > 0) {
                                                                 Badge(containerColor = Color(0xFFFF3B30)) {
                                                                     Text(
-                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else "99+",
+                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                         color = Color.White, fontSize = 10.sp
                                                                     )
                                                                 }
@@ -650,13 +655,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                     ) { selected ->
                                                         Icon(
                                                             imageVector = if (selected) item.filled else item.outlined,
-                                                            contentDescription = item.label
+                                                            contentDescription = label
                                                         )
                                                     }
                                                 }
                                                 if (!hideLabels) {
                                                     Text(
-                                                        text = item.label,
+                                                        text = label,
                                                         fontSize = 11.sp,
                                                         lineHeight = 14.sp,
                                                         maxLines = 1,
@@ -788,7 +793,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             }
 
             AlertDialogContent(
-                title = { Text("美化首页底部导航栏") },
+                title = { Text(stringResource(R.string.feature_replace_navigation_bar_name)) },
                 text = {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         ListItem(
@@ -801,8 +806,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     contentDescription = null,
                                 )
                             },
-                            content = { Text("页面管理") },
-                            supportingContent = { Text("开关页面及调整顺序, 下次启动微信生效") },
+                            content = { Text(stringResource(R.string.nav_page_management)) },
+                            supportingContent = { Text(stringResource(R.string.nav_page_management_summary)) },
                         )
                         ListItem(
                             trailingContent = {
@@ -810,8 +815,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     animatePageChangeInput,
                                     { animatePageChangeInput = it })
                             },
-                            supportingContent = { Text("点击标签时滑动切换页面, 而非直接跳转") },
-                            content = { Text("启用页面切换动画") },
+                            supportingContent = { Text(stringResource(R.string.nav_page_animation_summary)) },
+                            content = { Text(stringResource(R.string.nav_page_animation)) },
                         )
                         ListItem(
                             trailingContent = {
@@ -819,7 +824,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     useFloatingInput,
                                     { useFloatingInput = it })
                             },
-                            content = { Text("使用悬浮底栏") },
+                            content = { Text(stringResource(R.string.nav_use_floating_bar)) },
                         )
                         ListItem(
                             trailingContent = {
@@ -827,8 +832,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     useBackdropInput,
                                     { useBackdropInput = it })
                             },
-                            supportingContent = { Text("需启用「使用悬浮底栏」") },
-                            content = { Text("启用液态玻璃效果") },
+                            supportingContent = { Text(stringResource(R.string.nav_requires_floating_bar)) },
+                            content = { Text(stringResource(R.string.nav_use_liquid_glass)) },
                         )
                         if (useBackdropInput) {
                             ListItem(
@@ -842,7 +847,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                 },
                                 content = {
                                     val r = blurRadiusInput.roundToInt()
-                                    Text(if (r <= 0) "模糊半径: 关闭 (完全透明)" else "模糊半径: $r")
+                                    Text(
+                                        if (r <= 0) stringResource(R.string.nav_blur_radius_off)
+                                        else stringResource(R.string.nav_blur_radius, r)
+                                    )
                                 },
                             )
                         }
@@ -852,8 +860,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     hideLabelsInput,
                                     { hideLabelsInput = it })
                             },
-                            supportingContent = { Text("需启用「使用悬浮底栏」") },
-                            content = { Text("隐藏标签文本") },
+                            supportingContent = { Text(stringResource(R.string.nav_requires_floating_bar)) },
+                            content = { Text(stringResource(R.string.nav_hide_labels)) },
                         )
                         ListItem(
                             supportingContent = {
@@ -864,7 +872,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     steps = (MAX_BAR_SCALE - MIN_BAR_SCALE) / BAR_SCALE_STEP - 1
                                 )
                             },
-                            content = { Text("底栏缩放: ${barScaleInput.roundToInt()}%") },
+                            content = { Text(stringResource(R.string.nav_bar_scale, barScaleInput.roundToInt())) },
                         )
                         ListItem(
                             modifier = Modifier,
@@ -874,12 +882,12 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     showFinderBadgeInput,
                                     { showFinderBadgeInput = it })
                             },
-                            supportingContent = { Text("包含朋友圈新通知数量等") },
-                            content = { Text("显示「发现」标签角标") },
+                            supportingContent = { Text(stringResource(R.string.nav_discover_badge_summary)) },
+                            content = { Text(stringResource(R.string.nav_show_discover_badge)) },
                         )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         useFloating = useFloatingInput
@@ -890,7 +898,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         blurRadius = blurRadiusInput.roundToInt()
                         barScalePercent = barScaleInput.roundToInt()
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }
@@ -906,13 +914,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text("页面管理") },
+                title = { Text(stringResource(R.string.nav_page_management)) },
                 text = {
                     DefaultColumn {
                         Column {
-                            Text("显示与顺序", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.nav_display_and_order), style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "长按拖动手柄调整顺序，至少保留一个页面",
+                                stringResource(R.string.nav_reorder_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -927,6 +935,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                 .fillMaxWidth()
                                 .heightIn(max = 360.dp),
                         ) { item, dragHandleModifier ->
+                            val label = stringResource(item.labelRes)
                             val checked = item.wechatIndex in currentEnabled
                             Row(
                                 modifier = Modifier
@@ -942,7 +951,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                 ) {
                                     Icon(
                                         imageVector = MaterialSymbols.Outlined.Drag_handle,
-                                        contentDescription = "拖动${item.label}",
+                                        contentDescription = stringResource(R.string.nav_drag_tab_description, label),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -953,7 +962,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
                                 Text(
-                                    text = item.label,
+                                    text = label,
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(horizontal = 12.dp),
@@ -976,13 +985,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         tabOrder = currentOrder.joinToString(",") { it.wechatIndex.toString() }
                         enabledTabs = currentEnabled.map(Int::toString).toSet()
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
             )
         }

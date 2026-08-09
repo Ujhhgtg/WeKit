@@ -8,7 +8,9 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.miuixAppBarBlur
 import dev.ujhhgtg.wekit.ui.content.miuixAppBarColor
 import dev.ujhhgtg.wekit.ui.content.rememberMiuixBlurBackdrop
@@ -50,7 +52,11 @@ fun AgentSettingsScaffold(
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
-                            Icon(MiuixIcons.Back, contentDescription = "返回", tint = MiuixTheme.colorScheme.onBackground)
+                            Icon(
+                                MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.accessibility_back),
+                                tint = MiuixTheme.colorScheme.onBackground,
+                            )
                         }
                     }
                 },

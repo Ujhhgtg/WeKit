@@ -41,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -54,6 +56,7 @@ import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Person
 import com.composables.icons.materialsymbols.outlined.Search
 import com.composables.icons.materialsymbols.outlined.Send
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import kotlin.math.exp
@@ -113,7 +116,7 @@ fun PanelAutoCloseSetting(
 ) {
     ListItem(
         colors = panelListItemColors(),
-        content = { Text("发送后自动关闭面板") },
+        content = { Text(stringResource(R.string.panel_setting_auto_close)) },
         trailingContent = {
             Switch(
                 checked = checked,
@@ -130,8 +133,8 @@ fun PanelActionWrapSetting(
 ) {
     ListItem(
         colors = panelListItemColors(),
-        content = { Text("操作栏内容自动换行") },
-        supportingContent = { Text("内容超出屏幕宽度时换行显示") },
+        content = { Text(stringResource(R.string.panel_setting_wrap_actions)) },
+        supportingContent = { Text(stringResource(R.string.panel_setting_wrap_actions_summary)) },
         trailingContent = {
             Switch(
                 checked = checked,
@@ -148,8 +151,8 @@ fun PanelNavigationMemorySetting(
 ) {
     ListItem(
         colors = panelListItemColors(),
-        content = { Text("记忆面板导航位置") },
-        supportingContent = { Text("关闭面板后，在本次微信运行期间恢复原页面") },
+        content = { Text(stringResource(R.string.panel_setting_remember_navigation)) },
+        supportingContent = { Text(stringResource(R.string.panel_setting_remember_navigation_summary)) },
         trailingContent = {
             Switch(
                 checked = checked,
@@ -168,8 +171,8 @@ fun PanelHistorySetting(
     ListItem(
         modifier = Modifier.clickable(onClick = onCustomValue),
         colors = panelListItemColors(),
-        content = { Text("最大历史数量") },
-        supportingContent = { Text("$value · 点击输入自定义数量") },
+        content = { Text(stringResource(R.string.panel_setting_max_history)) },
+        supportingContent = { Text(stringResource(R.string.panel_setting_custom_number_summary, value)) },
     )
     Slider(
         value = panelHistoryToSlider(value),
@@ -191,7 +194,9 @@ fun PanelConcurrencySetting(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
         content = { Text(title) },
-        supportingContent = { Text("同时运行 $value 个任务 · 点击修改") },
+        supportingContent = {
+            Text(pluralStringResource(R.plurals.panel_concurrency_summary, value, value))
+        },
     )
 }
 
@@ -201,7 +206,7 @@ fun PanelFunBoxApiClientIdSetting(onClick: () -> Unit) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
-        content = { Text("伪装 FunBox API 客户端微信 ID") },
+        content = { Text(stringResource(R.string.panel_funbox_client_id)) },
         supportingContent = { Text(current) },
     )
 }
@@ -214,9 +219,9 @@ fun PanelTelegramBotTokenSetting(
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
-        content = { Text("Telegram Bot Token") },
+        content = { Text(stringResource(R.string.panel_telegram_bot_token)) },
         supportingContent = {
-            Text(if (configured) "已设置" else "未设置")
+            Text(stringResource(if (configured) R.string.panel_value_set else R.string.panel_value_not_set))
         },
     )
 }
@@ -231,17 +236,17 @@ fun PanelTelegramBotTokenPrompt(
     val normalized = input.trim()
     val valid = normalized.isBlank() || PanelSettings.isValidTelegramBotToken(normalized)
     PanelFullOverlay(onDismiss = onDismiss) {
-        Text("Telegram Bot Token", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.panel_telegram_bot_token), style = MaterialTheme.typography.titleMedium)
         Text(
-            "Token 仅保存在本机，用于从 Telegram Bot API 导入表情包。清空可停用此功能。",
+            stringResource(R.string.panel_telegram_bot_token_summary),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
         OutlinedTextField(
             value = input,
             onValueChange = { input = it },
-            label = { Text("Bot Token") },
-            supportingText = if (valid) null else ({ Text("请输入有效的 Telegram Bot Token") }),
+            label = { Text(stringResource(R.string.panel_telegram_bot_token_label)) },
+            supportingText = if (valid) null else ({ Text(stringResource(R.string.panel_telegram_bot_token_invalid)) }),
             isError = !valid,
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
@@ -249,8 +254,10 @@ fun PanelTelegramBotTokenPrompt(
         )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f))
-            TextButton(onClick = onDismiss) { Text("取消") }
-            TextButton(onClick = { onConfirm(normalized) }, enabled = valid) { Text("确定") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+            TextButton(onClick = { onConfirm(normalized) }, enabled = valid) {
+                Text(stringResource(R.string.dialog_confirm))
+            }
         }
     }
 }
@@ -303,26 +310,26 @@ fun PanelFunBoxApiClientIdPrompt(
     val normalized = input.trim()
     val valid = PanelSettings.isValidFunBoxApiClientWxId(normalized)
     PanelFullOverlay(onDismiss = onDismiss) {
-        Text("伪装 FunBox API 客户端微信 ID", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.panel_funbox_client_id), style = MaterialTheme.typography.titleMedium)
         Text(
-            "该 ID 仅用于 FunBox API 请求，不会修改微信账号信息。",
+            stringResource(R.string.panel_funbox_client_id_summary),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
         OutlinedTextField(
             value = input,
             onValueChange = { input = it },
-            label = { Text("微信 ID") },
-            supportingText = if (valid) null else ({ Text("请输入 6-64 位字母、数字、下划线或连字符") }),
+            label = { Text(stringResource(R.string.panel_wechat_id)) },
+            supportingText = if (valid) null else ({ Text(stringResource(R.string.panel_wechat_id_invalid)) }),
             isError = !valid,
             singleLine = true,
             trailingIcon = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { input = WeApi.selfWxId }) {
-                        Icon(MaterialSymbols.Outlined.Person, "填入当前微信 ID")
+                        Icon(MaterialSymbols.Outlined.Person, stringResource(R.string.panel_wechat_id_use_current))
                     }
                     IconButton(onClick = { input = PanelSettings.randomFunBoxApiClientWxId() }) {
-                        Icon(MaterialSymbols.Outlined.Autorenew, "随机生成微信 ID")
+                        Icon(MaterialSymbols.Outlined.Autorenew, stringResource(R.string.panel_wechat_id_generate))
                     }
                 }
             },
@@ -330,8 +337,10 @@ fun PanelFunBoxApiClientIdPrompt(
         )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f))
-            TextButton(onClick = onDismiss) { Text("取消") }
-            TextButton(onClick = { onConfirm(normalized) }, enabled = valid) { Text("确定") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+            TextButton(onClick = { onConfirm(normalized) }, enabled = valid) {
+                Text(stringResource(R.string.dialog_confirm))
+            }
         }
     }
 }
@@ -361,14 +370,14 @@ fun LazyListScope.panelCollectionSettings(
     }
     item {
         PanelConcurrencySetting(
-            title = "下载并发",
+            title = stringResource(R.string.panel_setting_download_concurrency),
             value = downloadConcurrency,
             onClick = onCustomDownloadConcurrency,
         )
     }
     item {
         PanelConcurrencySetting(
-            title = "转换并发",
+            title = stringResource(R.string.panel_setting_conversion_concurrency),
             value = conversionConcurrency,
             onClick = onCustomConversionConcurrency,
         )
@@ -417,11 +426,11 @@ fun PanelSearchField(
                     extraTrailingIcon?.invoke()
                     if (onSearch != null) {
                         IconButton(onClick = onSearch, enabled = enabled && value.isNotBlank()) {
-                            Icon(MaterialSymbols.Outlined.Send, "搜索")
+                            Icon(MaterialSymbols.Outlined.Send, stringResource(R.string.search_hint))
                         }
                     } else if (value.isNotEmpty()) {
                         IconButton(onClick = { onValueChange("") }) {
-                            Icon(MaterialSymbols.Outlined.Close, "清除搜索")
+                            Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.panel_search_clear))
                         }
                     }
                 }
@@ -429,7 +438,7 @@ fun PanelSearchField(
 
             value.isNotEmpty() -> ({
                 IconButton(onClick = { onValueChange("") }) {
-                    Icon(MaterialSymbols.Outlined.Close, "清除搜索")
+                    Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.panel_search_clear))
                 }
             })
 
@@ -460,7 +469,7 @@ fun RecentModeTitle(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            "最近使用",
+            stringResource(R.string.panel_recent),
             color = recentColor,
             fontSize = recentSize.sp,
             fontWeight = if (!mostUsed) FontWeight.Medium else FontWeight.Normal,
@@ -470,7 +479,7 @@ fun RecentModeTitle(
         )
         Text(" / ", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
-            "最常使用",
+            stringResource(R.string.panel_most_used),
             color = mostColor,
             fontSize = mostSize.sp,
             fontWeight = if (mostUsed) FontWeight.Medium else FontWeight.Normal,

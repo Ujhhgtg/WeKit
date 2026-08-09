@@ -35,15 +35,17 @@ object WorkspaceStore {
     /** Result of validating a proposed workspace name. */
     sealed interface NameValidation {
         object Ok : NameValidation
-        data class Invalid(val reason: String) : NameValidation
+        data class Invalid(val reason: InvalidNameReason) : NameValidation
     }
+
+    enum class InvalidNameReason { EMPTY, DOT_PATH, ILLEGAL_CHARACTER }
 
     fun validateWorkspaceName(name: String): NameValidation {
         val trimmed = name.trim()
         return when {
-            trimmed.isEmpty() -> NameValidation.Invalid("名称不能为空")
-            trimmed == "." || trimmed == ".." -> NameValidation.Invalid("名称不能为 '.' 或 '..'")
-            ILLEGAL_CHARS.containsMatchIn(trimmed) -> NameValidation.Invalid("名称不能包含 / \\ : * ? \" < > | 等字符")
+            trimmed.isEmpty() -> NameValidation.Invalid(InvalidNameReason.EMPTY)
+            trimmed == "." || trimmed == ".." -> NameValidation.Invalid(InvalidNameReason.DOT_PATH)
+            ILLEGAL_CHARS.containsMatchIn(trimmed) -> NameValidation.Invalid(InvalidNameReason.ILLEGAL_CHARACTER)
             else -> NameValidation.Ok
         }
     }

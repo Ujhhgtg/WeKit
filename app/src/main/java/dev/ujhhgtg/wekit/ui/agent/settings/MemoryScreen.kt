@@ -9,7 +9,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore
@@ -42,12 +44,12 @@ fun MemoryScreen(onBack: () -> Unit) {
         loaded = true
     }
 
-    AgentSettingsScaffold(title = "记忆", onBack = onBack) {
+    AgentSettingsScaffold(title = stringResource(R.string.agent_memory_title), onBack = onBack) {
         item {
             Card(Modifier.padding(bottom = 6.dp)) {
                 SwitchPreference(
-                    title = "启用记忆",
-                    summary = "允许 AI 通过 /memory/ 读写持久记忆（MEMORY.md 索引 + 记忆文件）",
+                    title = stringResource(R.string.agent_memory_enable_title),
+                    summary = stringResource(R.string.agent_memory_enable_summary),
                     checked = enabled,
                     onCheckedChange = { on ->
                         enabled = on
@@ -61,23 +63,23 @@ fun MemoryScreen(onBack: () -> Unit) {
         }
 
         if (!loaded) {
-            item { EmptyHint("加载中…") }; return@AgentSettingsScaffold
+            item { EmptyHint(stringResource(R.string.common_loading)) }; return@AgentSettingsScaffold
         }
 
-        item { SmallTitle("记忆索引（MEMORY.md）") }
+        item { SmallTitle(stringResource(R.string.agent_memory_index_title)) }
         val idx = index
         when {
             idx == null || idx.parseFailed -> item {
                 Card(Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET)) {
                     Text(
-                        "⚠ 记忆索引解析失败，仅影响此处的展示，不影响 AI 使用记忆的能力。",
+                        stringResource(R.string.agent_memory_index_parse_failed),
                         color = MiuixTheme.colorScheme.onSurfaceSecondary,
                         modifier = Modifier.padding(12.dp),
                     )
                 }
             }
 
-            idx.entries.isEmpty() -> item { EmptyHint("记忆索引为空。AI 会在需要时自行写入记忆。") }
+            idx.entries.isEmpty() -> item { EmptyHint(stringResource(R.string.agent_memory_index_empty)) }
             else -> item {
                 Card(Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET)) {
                     idx.entries.forEach { e ->

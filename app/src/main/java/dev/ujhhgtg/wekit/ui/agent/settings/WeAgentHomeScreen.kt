@@ -13,7 +13,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.agent.AgentSettingsScreen
 import dev.ujhhgtg.wekit.agent.data.OverlayMode
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
@@ -36,6 +38,11 @@ import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 @Composable
 fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
     val scope = rememberCoroutineScope()
+    val overlayModeLabels = mapOf(
+        OverlayMode.DISABLED to stringResource(R.string.agent_overlay_mode_disabled),
+        OverlayMode.FOREGROUND_ONLY to stringResource(R.string.agent_overlay_mode_foreground_only),
+        OverlayMode.ALWAYS to stringResource(R.string.agent_overlay_mode_always),
+    )
 
     var loaded by remember { mutableStateOf(false) }
     var dynamicTools by remember { mutableStateOf(false) }
@@ -67,16 +74,16 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
         loaded = true
     }
 
-    AgentSettingsScaffold(title = "WeAgent 设置", onBack = null) {
+    AgentSettingsScaffold(title = stringResource(R.string.agent_settings_title), onBack = null) {
         // ---------- 界面 ----------
-        item { MiuixSmallTitle("界面") }
+        item { MiuixSmallTitle(stringResource(R.string.settings_section_interface)) }
         item {
             Card(Modifier.padding(bottom = 6.dp)) {
                 if (loaded) {
                     WindowDropdownPreference(
-                        title = "悬浮窗模式",
-                        summary = "悬浮球何时显示（禁用后仍可从聊天工具栏唤起）",
-                        items = OverlayMode.entries.map { it.label },
+                        title = stringResource(R.string.agent_overlay_mode_title),
+                        summary = stringResource(R.string.agent_overlay_mode_summary),
+                        items = OverlayMode.entries.map(overlayModeLabels::getValue),
                         selectedIndex = OverlayMode.entries.indexOf(overlayMode),
                         onSelectedIndexChange = {
                             val mode = OverlayMode.entries[it]
@@ -90,18 +97,18 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
         }
 
         // ---------- 模型 ----------
-        item { MiuixSmallTitle("模型") }
+        item { MiuixSmallTitle(stringResource(R.string.agent_section_models)) }
         item {
             Card(Modifier.padding(bottom = 6.dp)) {
                 ArrowPreference(
-                    title = "模型提供方",
-                    summary = "配置 OpenAI / Anthropic / Gemini 服务器、API Key、模型",
+                    title = stringResource(R.string.agent_model_providers_title),
+                    summary = stringResource(R.string.agent_model_providers_summary),
                     onClick = { onOpen(AgentSettingsScreen.ModelProviders) },
                 )
                 if (loaded) {
                     // 文本在左，短输入框在右
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("每轮请求上限", modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.agent_max_requests_per_turn), modifier = Modifier.weight(1f))
                         TextField(
                             value = maxRequests,
                             onValueChange = { v -> maxRequests = v.filter { it.isDigit() }.take(3) },
@@ -112,17 +119,20 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
                         )
                     }
                     ModelDropdown(
-                        title = "审批 / 标题小模型",
+                        title = stringResource(R.string.agent_small_model_title),
                         models = models,
                         selectedId = smallModelId,
-                        noneLabel = "（与主模型相同）",
+                        noneLabel = stringResource(R.string.agent_same_as_primary_model),
                     ) { id ->
                         smallModelId = id
                         scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SMALL_MODEL_ID, id.orEmpty()) }
                     }
                     WindowDropdownPreference(
-                        title = "运行中发送行为",
-                        items = listOf("队列（本轮结束后发送）", "引导（下次请求前插入）"),
+                        title = stringResource(R.string.agent_send_while_running_title),
+                        items = listOf(
+                            stringResource(R.string.agent_send_queue_after_turn),
+                            stringResource(R.string.agent_send_steer_next_request),
+                        ),
                         selectedIndex = if (sendWhileRunning == "QUEUE_AS_STEER") 1 else 0,
                         onSelectedIndexChange = {
                             val mode = if (it == 1) "QUEUE_AS_STEER" else "QUEUE_AFTER_TURN"
@@ -138,23 +148,23 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
         }
 
         // ---------- 工具 ----------
-        item { MiuixSmallTitle("工具") }
+        item { MiuixSmallTitle(stringResource(R.string.agent_section_tools)) }
         item {
             Card(Modifier.padding(bottom = 6.dp)) {
                 ArrowPreference(
-                    title = "内置工具",
-                    summary = "微信操作 / 数据库 SQL / 文件与技能，逐项设置权限",
+                    title = stringResource(R.string.agent_builtin_tools_title),
+                    summary = stringResource(R.string.agent_builtin_tools_summary),
                     onClick = { onOpen(AgentSettingsScreen.BuiltinTools) },
                 )
                 ArrowPreference(
-                    title = "MCP 服务器",
-                    summary = "添加 Streamable HTTP / SSE 服务器",
+                    title = stringResource(R.string.agent_mcp_servers_title),
+                    summary = stringResource(R.string.agent_mcp_servers_summary),
                     onClick = { onOpen(AgentSettingsScreen.McpServers) },
                 )
                 if (loaded) {
                     SwitchPreference(
-                        title = "动态工具发现",
-                        summary = "仅提供 discover_tools 元工具，按需暴露其余工具（工具很多时省 token）",
+                        title = stringResource(R.string.agent_dynamic_tools_title),
+                        summary = stringResource(R.string.agent_dynamic_tools_summary),
                         checked = dynamicTools,
                         onCheckedChange = {
                             dynamicTools = it
@@ -163,40 +173,40 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
                     )
                 }
                 ArrowPreference(
-                    title = "工作区",
-                    summary = "文件工作区目录管理",
+                    title = stringResource(R.string.agent_workspaces_title),
+                    summary = stringResource(R.string.agent_workspaces_summary),
                     onClick = { onOpen(AgentSettingsScreen.Workspaces) },
                 )
                 ArrowPreference(
-                    title = "记忆",
-                    summary = "全局开关与记忆索引查看",
+                    title = stringResource(R.string.agent_memory_title),
+                    summary = stringResource(R.string.agent_memory_summary),
                     onClick = { onOpen(AgentSettingsScreen.Memory) },
                 )
                 ArrowPreference(
-                    title = "外部服务",
-                    summary = "Exa Search、Brave Search 等网络工具的 API Key",
+                    title = stringResource(R.string.agent_external_services_title),
+                    summary = stringResource(R.string.agent_external_services_summary),
                     onClick = { onOpen(AgentSettingsScreen.ExternalServices) },
                 )
             }
         }
 
         // ---------- 上下文 ----------
-        item { MiuixSmallTitle("上下文") }
+        item { MiuixSmallTitle(stringResource(R.string.agent_section_context)) }
         item {
             Card(Modifier.padding(bottom = 6.dp)) {
                 ArrowPreference(
-                    title = "提示词",
-                    summary = "系统 / 每轮 / 条件 / 预设 提示词",
+                    title = stringResource(R.string.agent_prompts_title),
+                    summary = stringResource(R.string.agent_prompts_summary),
                     onClick = { onOpen(AgentSettingsScreen.Prompts) },
                 )
                 ArrowPreference(
-                    title = "技能",
-                    summary = "任务操作手册, 可被 LLM 动态发现并按需加载",
+                    title = stringResource(R.string.agent_skills_title),
+                    summary = stringResource(R.string.agent_skills_summary),
                     onClick = { onOpen(AgentSettingsScreen.Skills) },
                 )
                 ArrowPreference(
-                    title = "触发器",
-                    summary = "定时 / 新消息 / 数据库事件自动唤起 AI, 支持会话级与全局触发器",
+                    title = stringResource(R.string.agent_triggers_title),
+                    summary = stringResource(R.string.agent_triggers_summary),
                     onClick = { onOpen(AgentSettingsScreen.Triggers) },
                 )
             }
@@ -204,32 +214,32 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
 
         // ---------- 默认 ----------
         if (loaded) {
-            item { MiuixSmallTitle("默认") }
+            item { MiuixSmallTitle(stringResource(R.string.agent_section_defaults)) }
             item {
                 Card(Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET)) {
                     ModelDropdown(
-                        title = "默认模型",
+                        title = stringResource(R.string.agent_default_model_title),
                         models = models,
                         selectedId = defaultModelId,
-                        noneLabel = "（使用第一个模型）",
+                        noneLabel = stringResource(R.string.agent_use_first_model),
                     ) { id ->
                         defaultModelId = id
                         scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_MODEL_ID, id.orEmpty()) }
                     }
                     GenericDropdown(
-                        title = "默认系统提示词",
+                        title = stringResource(R.string.agent_default_system_prompt_title),
                         items = systemPrompts.map { it.id to it.name },
                         selectedId = defaultSystemPromptId,
-                        noneLabel = "（无）",
+                        noneLabel = stringResource(R.string.common_none_parenthesized),
                     ) { id ->
                         defaultSystemPromptId = id
                         scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_SYSTEM_PROMPT_ID, id.orEmpty()) }
                     }
                     GenericDropdown(
-                        title = "默认工作区",
+                        title = stringResource(R.string.agent_default_workspace_title),
                         items = workspaces.map { it.id to it.name },
                         selectedId = defaultWorkspaceId,
-                        noneLabel = "（无）",
+                        noneLabel = stringResource(R.string.common_none_parenthesized),
                     ) { id ->
                         defaultWorkspaceId = id
                         scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_WORKSPACE_ID, id.orEmpty()) }

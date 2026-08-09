@@ -13,6 +13,7 @@ import android.widget.GridView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.view.children
@@ -81,6 +83,7 @@ import com.tencent.mm.pluginsdk.ui.chat.AppPanel
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
@@ -116,10 +119,13 @@ import java.util.WeakHashMap
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
-private enum class ToolbarDisplayMode(val preferenceValue: String, val label: String) {
-    ICON_AND_TEXT("icon_and_text", "图标+文字"),
-    ICON_ONLY("icon_only", "仅图标"),
-    TEXT_ONLY("text_only", "仅文字");
+private enum class ToolbarDisplayMode(
+    val preferenceValue: String,
+    @StringRes val labelRes: Int,
+) {
+    ICON_AND_TEXT("icon_and_text", R.string.chat_toolbar_mode_icon_and_text),
+    ICON_ONLY("icon_only", R.string.chat_toolbar_mode_icon_only),
+    TEXT_ONLY("text_only", R.string.chat_toolbar_mode_text_only);
 
     companion object {
         fun fromPreference(value: String): ToolbarDisplayMode =
@@ -246,6 +252,32 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         QUICK_REPLY_NAME -> MaterialSymbols.Outlined.Chat
         WEAGENT_NAME -> MaterialSymbols.Outlined.Smart_toy
         else -> NAME_TO_ICON_MAP.getValue(name)
+    }
+
+    /**
+     * The keys remain the exact host labels and legacy preference identities. Only presentation is
+     * localized, so changing WeKit's language never rewrites the saved order or host matching.
+     */
+    @StringRes
+    private fun labelResFor(name: String): Int = when (name) {
+        "相册" -> R.string.chat_toolbar_tool_album
+        "拍摄" -> R.string.chat_toolbar_tool_camera
+        "系统拍摄" -> R.string.chat_toolbar_tool_system_camera
+        "视频通话" -> R.string.chat_toolbar_tool_video_call
+        "语音通话" -> R.string.chat_toolbar_tool_voice_call
+        "位置" -> R.string.chat_toolbar_tool_location
+        "红包" -> R.string.chat_toolbar_tool_red_packet
+        "礼物" -> R.string.chat_toolbar_tool_gift
+        "转账" -> R.string.chat_toolbar_tool_transfer
+        "语音输入" -> R.string.chat_toolbar_tool_voice_input
+        "收藏" -> R.string.chat_toolbar_tool_favorites
+        "接龙" -> R.string.chat_toolbar_tool_solitaire
+        "文件" -> R.string.chat_toolbar_tool_file
+        "个人名片" -> R.string.chat_toolbar_tool_contact_card
+        "音乐" -> R.string.chat_toolbar_tool_music
+        QUICK_REPLY_NAME -> R.string.chat_toolbar_quick_reply
+        WEAGENT_NAME -> R.string.feature_we_agent_name
+        else -> error("unsupported toolbar item: $name")
     }
 
     // Ensures every supported item is present while preserving the user's saved order. Legacy
@@ -493,7 +525,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         ) {
                             items(sortedVisibleItems, key = { it.first }) { (name, onClick) ->
                                 val icon = iconFor(name)
-                                FeatureChip(name, icon, displayMode, onClick)
+                                FeatureChip(stringResource(labelResFor(name)), icon, displayMode, onClick)
                             }
                         }
                     }
@@ -523,7 +555,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text("聊天工具栏") },
+                title = { Text(stringResource(R.string.feature_chat_toolbar_name)) },
                 text = {
                     DefaultColumn {
                         Box(modifier = Modifier.fillMaxWidth()) {
@@ -531,12 +563,12 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { displayModeMenuExpanded = true },
-                                content = { Text("显示样式") },
-                                supportingContent = { Text(currentDisplayMode.label) },
+                                content = { Text(stringResource(R.string.chat_toolbar_display_style)) },
+                                supportingContent = { Text(stringResource(currentDisplayMode.labelRes)) },
                                 trailingContent = {
                                     Icon(
                                         MaterialSymbols.Outlined.Arrow_drop_down,
-                                        contentDescription = "选择显示样式",
+                                        contentDescription = stringResource(R.string.chat_toolbar_select_display_style_description),
                                     )
                                 },
                             )
@@ -546,7 +578,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             ) {
                                 ToolbarDisplayMode.entries.forEach { mode ->
                                     DropdownMenuItem(
-                                        text = { Text(mode.label) },
+                                        text = { Text(stringResource(mode.labelRes)) },
                                         trailingIcon = if (mode == currentDisplayMode) ({
                                             Icon(
                                                 MaterialSymbols.Outlined.Check,
@@ -562,9 +594,9 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             }
                         }
                         Column {
-                            Text("显示与顺序", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.chat_toolbar_display_order), style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "长按拖动手柄调整顺序，使用开关控制是否显示",
+                                stringResource(R.string.chat_toolbar_reorder_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -579,6 +611,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 .fillMaxWidth()
                                 .heightIn(max = 480.dp),
                         ) { name, dragHandleModifier ->
+                            val label = stringResource(labelResFor(name))
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -593,7 +626,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 ) {
                                     Icon(
                                         MaterialSymbols.Outlined.Drag_handle,
-                                        contentDescription = "拖动 $name",
+                                        contentDescription = stringResource(R.string.chat_toolbar_drag_item_description, label),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -609,7 +642,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                     )
                                 }
                                 Text(
-                                    text = name,
+                                    text = label,
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(horizontal = 8.dp),
@@ -622,7 +655,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                     IconButton(onClick = { showQuickReplyConfig(context) }) {
                                         Icon(
                                             MaterialSymbols.Outlined.Settings,
-                                            contentDescription = "配置快捷回复",
+                                            contentDescription = stringResource(R.string.chat_toolbar_configure_quick_reply_description),
                                         )
                                     }
                                 }
@@ -647,12 +680,12 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         displayModeValue = currentDisplayMode.preferenceValue
                         onDismiss()
                     }) {
-                        Text("确定")
+                        Text(stringResource(R.string.dialog_confirm))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = onDismiss) {
-                        Text("取消")
+                        Text(stringResource(R.string.dialog_cancel))
                     }
                 }
             )
@@ -666,10 +699,10 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text(QUICK_REPLY_NAME) },
+                title = { Text(stringResource(R.string.chat_toolbar_quick_reply)) },
                 text = {
                     if (replies.isEmpty()) {
-                        Text("暂无快捷回复, 请在「聊天工具栏」设置中配置")
+                        Text(stringResource(R.string.chat_toolbar_quick_reply_empty_picker))
                     } else {
                         LazyColumn {
                             items(replies) { reply ->
@@ -686,7 +719,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 },
                 confirmButton = {
                     TextButton(onClick = onDismiss) {
-                        Text("关闭")
+                        Text(stringResource(R.string.dialog_close))
                     }
                 }
             )
@@ -695,7 +728,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
     private fun showQuickReplyEditor(
         context: Context,
-        title: String,
+        @StringRes titleRes: Int,
         initialValue: String = "",
         onSave: (String) -> Unit,
     ) {
@@ -703,18 +736,18 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             var value by remember { mutableStateOf(initialValue) }
 
             AlertDialogContent(
-                title = { Text(title) },
+                title = { Text(stringResource(titleRes)) },
                 text = {
                     TextField(
                         value = value,
                         onValueChange = { value = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("输入回复内容") },
+                        placeholder = { Text(stringResource(R.string.chat_toolbar_reply_placeholder)) },
                         minLines = 3,
                         maxLines = 8,
                     )
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -722,7 +755,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             onDismiss()
                         },
                         enabled = value.isNotBlank(),
-                    ) { Text("保存") }
+                    ) { Text(stringResource(R.string.action_save)) }
                 },
             )
         }
@@ -738,7 +771,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text(QUICK_REPLY_NAME) },
+                title = { Text(stringResource(R.string.chat_toolbar_quick_reply)) },
                 text = {
                     DefaultColumn {
                         Row(
@@ -747,28 +780,28 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("回复内容", style = MaterialTheme.typography.titleSmall)
+                                Text(stringResource(R.string.chat_toolbar_reply_contents), style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    "点击编辑，长按手柄调整顺序",
+                                    stringResource(R.string.chat_toolbar_reply_reorder_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             TextButton(
                                 onClick = {
-                                    showQuickReplyEditor(context, "添加快捷回复") { text ->
+                                    showQuickReplyEditor(context, R.string.chat_toolbar_add_quick_reply) { text ->
                                         replies.add(QuickReplyDraft(text = text))
                                     }
                                 }
                             ) {
                                 Icon(MaterialSymbols.Outlined.Add, contentDescription = null)
-                                Text("添加")
+                                Text(stringResource(R.string.action_add))
                             }
                         }
 
                         if (replies.isEmpty()) {
                             Text(
-                                "暂无快捷回复，点击右上角“添加”创建。",
+                                stringResource(R.string.chat_toolbar_quick_reply_empty_config),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(vertical = 28.dp),
                             )
@@ -786,7 +819,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 val editReply = {
                                     showQuickReplyEditor(
                                         context = context,
-                                        title = "编辑快捷回复",
+                                        titleRes = R.string.chat_toolbar_edit_quick_reply,
                                         initialValue = reply.text,
                                     ) { text ->
                                         val index = replies.indexOfFirst { it.id == reply.id }
@@ -808,7 +841,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                     ) {
                                         Icon(
                                             MaterialSymbols.Outlined.Drag_handle,
-                                            contentDescription = "拖动快捷回复",
+                                            contentDescription = stringResource(R.string.chat_toolbar_drag_quick_reply_description),
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
@@ -824,13 +857,13 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                     IconButton(onClick = editReply) {
                                         Icon(
                                             MaterialSymbols.Outlined.Edit,
-                                            contentDescription = "编辑快捷回复",
+                                            contentDescription = stringResource(R.string.chat_toolbar_edit_quick_reply_description),
                                         )
                                     }
                                     IconButton(onClick = { replies.removeAll { it.id == reply.id } }) {
                                         Icon(
                                             MaterialSymbols.Outlined.Delete,
-                                            contentDescription = "删除快捷回复",
+                                            contentDescription = stringResource(R.string.chat_toolbar_delete_quick_reply_description),
                                             tint = MaterialTheme.colorScheme.error,
                                         )
                                     }
@@ -844,12 +877,12 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         saveQuickReplies(replies.map { it.text.trim() }.filter { it.isNotEmpty() })
                         onDismiss()
                     }) {
-                        Text("确定")
+                        Text(stringResource(R.string.dialog_confirm))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = onDismiss) {
-                        Text("取消")
+                        Text(stringResource(R.string.dialog_cancel))
                     }
                 }
             )

@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -30,11 +33,15 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
@@ -56,6 +63,7 @@ import java.util.UUID
 @Composable
 fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var provider by remember { mutableStateOf<ModelProviderEntity?>(null) }
 
     // Connection fields are hoisted to screen scope so both "保存" and "自动导入模型" read the live,
@@ -83,24 +91,24 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
 
     val p = provider
 
-    AgentSettingsScaffold(title = p?.name ?: "提供方", onBack = onBack) {
+    AgentSettingsScaffold(title = p?.name ?: stringResource(R.string.agent_provider_fallback_title), onBack = onBack) {
         if (p == null) {
-            item { EmptyHint("加载中…") }
+            item { EmptyHint(stringResource(R.string.agent_loading)) }
             return@AgentSettingsScaffold
         }
 
-        item { SmallTitle("连接") }
+        item { SmallTitle(stringResource(R.string.agent_section_connection)) }
         item {
             Card(Modifier.padding(bottom = 6.dp)) {
                 Column(Modifier.padding(12.dp)) {
-                    TextField(value = name, onValueChange = { name = it }, label = "名称", useLabelAsPlaceholder = true, singleLine = true)
+                    TextField(value = name, onValueChange = { name = it }, label = stringResource(R.string.agent_field_name), useLabelAsPlaceholder = true, singleLine = true)
                     Spacer(Modifier.height(8.dp))
-                    TextField(value = baseUrl, onValueChange = { baseUrl = it }, label = "Base URL", useLabelAsPlaceholder = true, singleLine = true)
+                    TextField(value = baseUrl, onValueChange = { baseUrl = it }, label = stringResource(R.string.agent_base_url), useLabelAsPlaceholder = true, singleLine = true)
                     Spacer(Modifier.height(8.dp))
                     TextField(
                         value = apiKey,
                         onValueChange = { apiKey = it },
-                        label = "API Key",
+                        label = stringResource(R.string.agent_api_key_label),
                         useLabelAsPlaceholder = true,
                         singleLine = true,
                         visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
@@ -110,7 +118,7 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                                 Icon(
                                     imageVector = if (showApiKey) MaterialSymbols.Outlined.Visibility_off
                                     else MaterialSymbols.Outlined.Visibility,
-                                    contentDescription = if (showApiKey) "隐藏" else "显示",
+                                    contentDescription = stringResource(if (showApiKey) R.string.accessibility_hide else R.string.accessibility_show),
                                 )
                             }
                         },
@@ -118,13 +126,13 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth()) {
                         TextButton(
-                            text = "删除提供方",
+                            text = stringResource(R.string.agent_delete_provider),
                             onClick = { scope.launch { WeAgentRepository.deleteModelProvider(p.id); onBack() } },
                             modifier = Modifier.weight(1f),
                         )
                         Spacer(Modifier.width(12.dp))
                         TextButton(
-                            text = "保存",
+                            text = stringResource(R.string.action_save),
                             onClick = {
                                 scope.launch {
                                     val updated = p.copy(name = name, baseUrl = baseUrl, apiKey = apiKey)
@@ -143,8 +151,8 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
             }
         }
 
-        item { SmallTitle("模型") }
-        if (models.isEmpty()) item { EmptyHint("还没有模型。") }
+        item { SmallTitle(stringResource(R.string.agent_section_models)) }
+        if (models.isEmpty()) item { EmptyHint(stringResource(R.string.agent_models_empty)) }
         items(models.size, key = { models[it].id }) { i ->
             val m = models[i]
             Card(Modifier.padding(bottom = 6.dp)) {
@@ -154,7 +162,7 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                             (m.reasoningEffort?.let { " · effort=$it" } ?: "") +
                             (m.contextWindow?.let { " · ctx=$it" } ?: "") +
                             (m.maxTokens?.let { " · max=$it" } ?: "") +
-                            if (m.supportsVision) " · 视觉" else "",
+                            if (m.supportsVision) " · ${stringResource(R.string.agent_model_supports_vision_badge)}" else "",
                     onClick = { editingModel = m }
                 )
             }
@@ -165,13 +173,13 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-            ) { Text("添加模型") }
+            ) { Text(stringResource(R.string.agent_add_model)) }
         }
         // Auto-import is only meaningful for the OpenAI-style /models endpoint.
         if (p.type != ModelProviderType.ANTHROPIC_MESSAGES) {
             item {
                 TextButton(
-                    text = if (importing) "获取模型列表中…" else "自动导入模型",
+                    text = stringResource(if (importing) R.string.agent_fetching_models else R.string.agent_auto_import_models),
                     enabled = !importing,
                     onClick = {
                         importing = true
@@ -183,7 +191,14 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                             importing = false
                             result.fold(
                                 onSuccess = { importCandidates = it },
-                                onFailure = { showToast("获取失败：${it.message}") },
+                                onFailure = {
+                                    showToast(
+                                        currentAgentLocalizedContext(context).getString(
+                                            R.string.agent_fetch_models_failed,
+                                            it.message,
+                                        )
+                                    )
+                                },
                             )
                         }
                     },
@@ -203,7 +218,7 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
         onImport = { picked ->
             scope.launch {
                 val added = WeAgentRepository.importModels(providerId, picked)
-                showToast("已导入 $added 个模型")
+                showToast(currentAgentLocalizedContext(context).getString(R.string.agent_models_imported, added))
             }
             importCandidates = null
         },
@@ -240,6 +255,27 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
 /** Reasoning-effort gears. "off" means omit the field entirely. */
 private val EFFORT_GEARS = listOf("off", "minimal", "low", "medium", "high", "xhigh", "max")
 
+@Composable
+private fun effortGearLabel(value: String): String = stringResource(
+    when (value) {
+        "off" -> R.string.agent_reasoning_effort_off
+        "minimal" -> R.string.agent_reasoning_effort_minimal
+        "low" -> R.string.agent_reasoning_effort_low
+        "medium" -> R.string.agent_reasoning_effort_medium
+        "high" -> R.string.agent_reasoning_effort_high
+        "xhigh" -> R.string.agent_reasoning_effort_extra_high
+        "max" -> R.string.agent_reasoning_effort_maximum
+        else -> error("Unknown reasoning effort: $value")
+    }
+)
+
+private fun currentAgentLocalizedContext(base: Context): Context =
+    LocalizedContextFactory.create(
+        base,
+        WeKitLocaleController.resolvedLocale,
+        LocaleResourceMode.InjectedHost,
+    )
+
 /**
  * Model-import picker: lists ids fetched from the provider's `/models` endpoint. Ids already added
  * are shown checked+disabled; the rest start selected. Confirming imports the selected new ones.
@@ -259,10 +295,10 @@ private fun ImportModelsDialog(
         mutableStateListOf<String>().apply { addAll(candidates.filter { it !in existingRemoteIds }) }
     }
 
-    WindowDialog(show = show, title = "导入模型（${candidates.size}）", onDismissRequest = onDismiss) {
+    WindowDialog(show = show, title = stringResource(R.string.agent_import_models_title, candidates.size), onDismissRequest = onDismiss) {
         Column {
             if (candidates.isEmpty()) {
-                Text("该提供方未返回任何模型。")
+                Text(stringResource(R.string.agent_provider_returned_no_models))
             } else {
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(candidates.size, key = { candidates[it] }) { i ->
@@ -278,7 +314,7 @@ private fun ImportModelsDialog(
                         ) {
                             Text(if (checked) "☑" else "☐", modifier = Modifier.width(28.dp))
                             Text(
-                                id + if (already) "（已添加）" else "",
+                                if (already) stringResource(R.string.agent_model_already_added, id) else id,
                                 modifier = Modifier.weight(1f),
                                 maxLines = 1,
                             )
@@ -288,10 +324,10 @@ private fun ImportModelsDialog(
             }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
-                TextButton(text = "取消", onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(text = stringResource(R.string.dialog_cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    text = "导入（${selected.size}）",
+                    text = stringResource(R.string.agent_import_selected_models, selected.size),
                     onClick = { onImport(selected.toList()) },
                     enabled = selected.isNotEmpty(),
                     colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -321,15 +357,19 @@ private fun ModelDialog(
     var supportsVision by remember(existing, show) { mutableStateOf(existing.supportsVision) }
     var effortIndex by remember(existing, show) { mutableIntStateOf(EFFORT_GEARS.indexOf(existing.reasoningEffort ?: "off").coerceAtLeast(0)) }
 
-    WindowDialog(show = show, title = if (existing.id.isEmpty()) "添加模型" else "编辑模型", onDismissRequest = onDismiss) {
+    WindowDialog(
+        show = show,
+        title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_model else R.string.agent_edit_model),
+        onDismissRequest = onDismiss,
+    ) {
         Column {
-            TextField(value = remoteId, onValueChange = { remoteId = it }, label = "模型 ID（传给 API）", useLabelAsPlaceholder = true, singleLine = true)
+            TextField(value = remoteId, onValueChange = { remoteId = it }, label = stringResource(R.string.agent_model_id_label), useLabelAsPlaceholder = true, singleLine = true)
             Spacer(Modifier.height(8.dp))
-            TextField(value = display, onValueChange = { display = it }, label = "显示名称（可选）", useLabelAsPlaceholder = true, singleLine = true)
+            TextField(value = display, onValueChange = { display = it }, label = stringResource(R.string.agent_model_display_name_label), useLabelAsPlaceholder = true, singleLine = true)
             Spacer(Modifier.height(8.dp))
             WindowDropdownPreference(
-                title = "思考强度",
-                items = EFFORT_GEARS,
+                title = stringResource(R.string.agent_reasoning_effort),
+                items = EFFORT_GEARS.map { effortGearLabel(it) },
                 selectedIndex = effortIndex,
                 onSelectedIndexChange = { effortIndex = it },
             )
@@ -337,7 +377,7 @@ private fun ModelDialog(
             TextField(
                 value = contextWindow,
                 onValueChange = { v -> contextWindow = v.filter { it.isDigit() }.take(9) },
-                label = "上下文窗口（token，可选，用于显示占用百分比）",
+                label = stringResource(R.string.agent_context_window_label),
                 useLabelAsPlaceholder = true,
                 singleLine = true,
             )
@@ -345,29 +385,29 @@ private fun ModelDialog(
             TextField(
                 value = maxTokens,
                 onValueChange = { v -> maxTokens = v.filter { it.isDigit() }.take(9) },
-                label = "最大输出 token（可选，限制单次回复长度）",
+                label = stringResource(R.string.agent_max_output_tokens_label),
                 useLabelAsPlaceholder = true,
                 singleLine = true,
             )
             Spacer(Modifier.height(8.dp))
-            TextField(value = customJson, onValueChange = { customJson = it }, label = "自定义 JSON 透传（可选）", useLabelAsPlaceholder = true, maxLines = 4)
+            TextField(value = customJson, onValueChange = { customJson = it }, label = stringResource(R.string.agent_custom_json_label), useLabelAsPlaceholder = true, maxLines = 4)
             Spacer(Modifier.height(8.dp))
             SwitchPreference(
-                title = "支持视觉（图片输入）",
-                summary = "开启后 AI 才能使用 ui-screenshot 截图工具查看界面",
+                title = stringResource(R.string.agent_supports_vision),
+                summary = stringResource(R.string.agent_supports_vision_summary),
                 checked = supportsVision,
                 onCheckedChange = { supportsVision = it },
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
                 if (onDelete != null) {
-                    TextButton(text = "删除", onClick = onDelete, modifier = Modifier.weight(1f))
+                    TextButton(text = stringResource(R.string.action_delete), onClick = onDelete, modifier = Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
                 }
-                TextButton(text = "取消", onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(text = stringResource(R.string.dialog_cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 TextButton(
-                    text = "保存",
+                    text = stringResource(R.string.action_save),
                     onClick = {
                         val effort = EFFORT_GEARS[effortIndex].takeIf { it != "off" }
                         onSave(remoteId, display, effort, customJson.ifBlank { null }, contextWindow.toIntOrNull(), maxTokens.toIntOrNull(), supportsVision)

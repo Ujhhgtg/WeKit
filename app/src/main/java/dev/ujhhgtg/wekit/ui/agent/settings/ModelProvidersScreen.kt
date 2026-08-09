@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
@@ -51,16 +53,16 @@ fun ModelProvidersScreen(
     val scope = rememberCoroutineScope()
     val showAdd = remember { mutableStateOf(false) }
 
-    AgentSettingsScaffold(title = "模型提供方", onBack = onBack) {
+    AgentSettingsScaffold(title = stringResource(R.string.agent_model_providers_title), onBack = onBack) {
         if (providers.isEmpty()) {
-            item { EmptyHint("还没有模型提供方，点击下方按钮添加。") }
+            item { EmptyHint(stringResource(R.string.agent_model_providers_empty)) }
         }
         items(providers.size, key = { providers[it].id }) { i ->
             val p = providers[i]
             Card(Modifier.padding(bottom = 6.dp)) {
                 ArrowPreference(
                     title = p.name.ifBlank { p.baseUrl },
-                    summary = "${p.type.label()} · ${p.baseUrl}",
+                    summary = stringResource(R.string.agent_provider_summary, p.type.label(), p.baseUrl),
                     onClick = { onOpenProvider(p.id) },
                 )
             }
@@ -71,7 +73,7 @@ fun ModelProvidersScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
-            ) { Text("添加提供方") }
+            ) { Text(stringResource(R.string.agent_add_provider)) }
         }
     }
 
@@ -109,17 +111,34 @@ private fun AddProviderDialog(
         ModelProviderType.GEMINI_INTERACTIONS
     )
     val selectedType = types[typeIndex]
+    val typeLabels = types.map { it.label() }
+    val selectedTypeLabel = typeLabels[typeIndex]
 
-    WindowDialog(show = show.value, title = "添加模型提供方", onDismissRequest = { show.value = false }) {
+    WindowDialog(
+        show = show.value,
+        title = stringResource(R.string.agent_add_model_provider),
+        onDismissRequest = { show.value = false },
+    ) {
         Column {
-            TextField(value = name, onValueChange = { name = it }, label = "名称", useLabelAsPlaceholder = true)
+            TextField(
+                value = name,
+                onValueChange = { name = it },
+                label = stringResource(R.string.common_name),
+                useLabelAsPlaceholder = true,
+            )
             Spacer(Modifier.height(8.dp))
-            TextField(value = baseUrl, onValueChange = { baseUrl = it }, label = "Base URL", useLabelAsPlaceholder = true, singleLine = true)
+            TextField(
+                value = baseUrl,
+                onValueChange = { baseUrl = it },
+                label = stringResource(R.string.agent_base_url),
+                useLabelAsPlaceholder = true,
+                singleLine = true,
+            )
             Spacer(Modifier.height(8.dp))
             TextField(
                 value = apiKey,
                 onValueChange = { apiKey = it },
-                label = "API Key",
+                label = stringResource(R.string.external_service_api_key),
                 useLabelAsPlaceholder = true,
                 singleLine = true,
                 visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
@@ -129,26 +148,32 @@ private fun AddProviderDialog(
                         Icon(
                             imageVector = if (showApiKey) MaterialSymbols.Outlined.Visibility_off
                             else MaterialSymbols.Outlined.Visibility,
-                            contentDescription = if (showApiKey) "隐藏" else "显示",
+                            contentDescription = stringResource(
+                                if (showApiKey) R.string.accessibility_hide else R.string.accessibility_show,
+                            ),
                         )
                     }
                 },
             )
             Spacer(Modifier.height(8.dp))
             WindowDropdownPreference(
-                title = "接口类型",
-                items = types.map { it.label() },
+                title = stringResource(R.string.agent_provider_api_type),
+                items = typeLabels,
                 selectedIndex = typeIndex,
                 onSelectedIndexChange = { typeIndex = it },
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
-                TextButton(text = "取消", onClick = { show.value = false }, modifier = Modifier.weight(1f))
+                TextButton(
+                    text = stringResource(R.string.dialog_cancel),
+                    onClick = { show.value = false },
+                    modifier = Modifier.weight(1f),
+                )
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    text = "添加",
+                    text = stringResource(R.string.action_add),
                     onClick = {
-                        onConfirm(name.ifBlank { selectedType.label() }, selectedType, baseUrl, apiKey)
+                        onConfirm(name.ifBlank { selectedTypeLabel }, selectedType, baseUrl, apiKey)
                         show.value = false
                     },
                     enabled = baseUrl.isNotBlank(),
@@ -160,10 +185,11 @@ private fun AddProviderDialog(
     }
 }
 
-fun ModelProviderType.label(): String = when (this) {
-    ModelProviderType.OPENAI_CHAT_COMPLETION -> "OpenAI Chat Completion"
-    ModelProviderType.OPENAI_RESPONSES -> "OpenAI Responses"
-    ModelProviderType.ANTHROPIC_MESSAGES -> "Anthropic Messages"
-    ModelProviderType.GEMINI_GENERATE_CONTENT -> "Gemini generateContent (legacy)"
-    ModelProviderType.GEMINI_INTERACTIONS -> "Gemini Interactions"
-}
+@Composable
+fun ModelProviderType.label(): String = stringResource(when (this) {
+    ModelProviderType.OPENAI_CHAT_COMPLETION -> R.string.agent_provider_type_openai_chat_completion
+    ModelProviderType.OPENAI_RESPONSES -> R.string.agent_provider_type_openai_responses
+    ModelProviderType.ANTHROPIC_MESSAGES -> R.string.agent_provider_type_anthropic_messages
+    ModelProviderType.GEMINI_GENERATE_CONTENT -> R.string.agent_provider_type_gemini_generate_content
+    ModelProviderType.GEMINI_INTERACTIONS -> R.string.agent_provider_type_gemini_interactions
+})

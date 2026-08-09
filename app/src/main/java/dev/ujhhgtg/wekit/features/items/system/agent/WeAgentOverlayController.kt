@@ -13,8 +13,12 @@ import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.platform.ComposeView
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.OverlayMode
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.agent.WeAgentBall
 import dev.ujhhgtg.wekit.ui.agent.WeAgentPanel
@@ -77,7 +81,7 @@ object WeAgentOverlayController {
         desiredVisible = true
         if (mode == OverlayMode.DISABLED) return
         if (!canDrawOverlays()) {
-            showToast("请在系统设置中为微信开启「显示在其他应用上层」")
+            showOverlayPermissionToast()
             WeLogger.w(TAG, "no SYSTEM_ALERT_WINDOW permission for host process")
             return
         }
@@ -205,7 +209,7 @@ object WeAgentOverlayController {
     fun openPanel() {
         if (panelView != null) return
         if (!canDrawOverlays()) {
-            showToast("请在系统设置中为微信开启「显示在其他应用上层」")
+            showOverlayPermissionToast()
             WeLogger.w(TAG, "no SYSTEM_ALERT_WINDOW permission for host process")
             return
         }
@@ -248,6 +252,15 @@ object WeAgentOverlayController {
     private fun removePanel() {
         panelView?.let { runCatching { wm.removeView(it) } }
         panelView = null
+    }
+
+    private fun showOverlayPermissionToast() {
+        val localized = LocalizedContextFactory.create(
+            HostInfo.application,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.InjectedHost,
+        )
+        showToast(localized.getString(R.string.agent_overlay_permission_required))
     }
 
     // -----------------------------------------------------------------------------------------

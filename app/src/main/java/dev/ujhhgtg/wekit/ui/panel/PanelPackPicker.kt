@@ -23,14 +23,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Close
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.launch
 
@@ -82,6 +86,7 @@ private fun PanelPackPickerContent(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val currentLocalizedContext by rememberUpdatedState(LocalContext.current)
     var creating by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf(false) }
 
@@ -106,7 +111,7 @@ private fun PanelPackPickerContent(
                 ) {
                     Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     IconButton(onClick = onDismiss) {
-                        Icon(MaterialSymbols.Outlined.Close, "关闭")
+                        Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.dialog_close))
                     }
                 }
                 HorizontalDivider()
@@ -117,7 +122,7 @@ private fun PanelPackPickerContent(
                             colors = panelListItemColors(),
                             leadingContent = { Icon(MaterialSymbols.Outlined.Add, null) },
                             content = { Text(createLabel) },
-                            supportingContent = { Text("创建一个新包后保存到其中") },
+                            supportingContent = { Text(stringResource(R.string.panel_pack_picker_create_hint)) },
                         )
                     }
                     items(packs, key = { it.id }) { pack ->
@@ -132,7 +137,7 @@ private fun PanelPackPickerContent(
                     if (packs.isEmpty()) {
                         item {
                             Text(
-                                "暂无现有包，请先新建一个包",
+                                stringResource(R.string.panel_pack_picker_empty),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(24.dp),
                             )
@@ -144,8 +149,8 @@ private fun PanelPackPickerContent(
             if (prompt) {
                 PanelTextPrompt(
                     title = createLabel,
-                    label = "包名称",
-                    confirmText = "创建",
+                    label = stringResource(R.string.panel_pack_name),
+                    confirmText = stringResource(R.string.panel_action_create),
                     onDismiss = { if (!creating) prompt = false },
                     onConfirm = { name ->
                         if (creating) return@PanelTextPrompt
@@ -159,7 +164,10 @@ private fun PanelPackPickerContent(
                                     selectPack(packId)
                                 },
                                 onFailure = { error ->
-                                    showPanelErrorToast(error.message ?: "创建包失败")
+                                    showPanelErrorToast(
+                                        error.message
+                                            ?: currentLocalizedContext.getString(R.string.panel_pack_create_failed),
+                                    )
                                 },
                             )
                         }

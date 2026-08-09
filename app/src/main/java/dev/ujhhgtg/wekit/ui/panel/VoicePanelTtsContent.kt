@@ -24,11 +24,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Play_arrow
 import com.composables.icons.materialsymbols.outlined.Send
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.EDGE_TTS_VOICES
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
 
@@ -57,20 +59,22 @@ internal fun TtsContent(
     ) {
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { TtsModeOption("系统 TTS", mode == TtsMode.SYSTEM) { onModeChange(TtsMode.SYSTEM) } }
-                item { TtsModeOption("Edge TTS", mode == TtsMode.EDGE) { onModeChange(TtsMode.EDGE) } }
-                item { TtsModeOption("克隆语音", mode == TtsMode.CLONE) { onModeChange(TtsMode.CLONE) } }
+                item { TtsModeOption(stringResource(R.string.tts_mode_system), mode == TtsMode.SYSTEM) { onModeChange(TtsMode.SYSTEM) } }
+                item { TtsModeOption(stringResource(R.string.tts_mode_edge), mode == TtsMode.EDGE) { onModeChange(TtsMode.EDGE) } }
+                item { TtsModeOption(stringResource(R.string.tts_mode_clone), mode == TtsMode.CLONE) { onModeChange(TtsMode.CLONE) } }
             }
         }
         item {
             OutlinedTextField(
                 value = text,
                 onValueChange = onTextChange,
-                label = { Text("转换的文字") },
-                supportingText = { Text("${text.codePointCount(0, text.length)}/256") },
+                label = { Text(stringResource(R.string.tts_text_label)) },
+                supportingText = {
+                    Text(stringResource(R.string.tts_text_counter, text.codePointCount(0, text.length), 256))
+                },
                 trailingIcon = if (text.isNotEmpty()) ({
                     IconButton(onClick = { onTextChange("") }) {
-                        Icon(MaterialSymbols.Outlined.Close, "清除文字")
+                        Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.tts_clear_text))
                     }
                 }) else null,
                 minLines = 3,
@@ -78,7 +82,7 @@ internal fun TtsContent(
             )
         }
         if (mode == TtsMode.EDGE) {
-            item { Text("选择音色", style = MaterialTheme.typography.titleSmall) }
+            item { Text(stringResource(R.string.tts_choose_voice), style = MaterialTheme.typography.titleSmall) }
             items(EDGE_TTS_VOICES) { (id, title) ->
                 ListItem(
                     modifier = Modifier.clickable { onSelectEdgeVoice(id) },
@@ -95,8 +99,8 @@ internal fun TtsContent(
         } else if (mode == TtsMode.CLONE) {
             item {
                 Column {
-                    Text("当前音色", style = MaterialTheme.typography.titleSmall)
-                    Text(selectedClone?.name ?: "无", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.tts_current_voice), style = MaterialTheme.typography.titleSmall)
+                    Text(selectedClone?.name ?: stringResource(R.string.panel_none), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             item {
@@ -104,7 +108,7 @@ internal fun TtsContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    OutlinedButton(onClick = onChooseOrManage) { Text("选择或管理音色") }
+                    OutlinedButton(onClick = onChooseOrManage) { Text(stringResource(R.string.tts_choose_or_manage_voice)) }
                 }
             }
         }
@@ -116,19 +120,19 @@ internal fun TtsContent(
                 if (converted) {
                     OutlinedButton(onClick = onPreviewConverted, modifier = Modifier.weight(1f)) {
                         Icon(MaterialSymbols.Outlined.Play_arrow, null, Modifier.size(18.dp))
-                        Text("预览", Modifier.padding(start = 8.dp))
+                        Text(stringResource(R.string.panel_action_preview), Modifier.padding(start = 8.dp))
                     }
                     Button(onClick = onSendConverted, modifier = Modifier.weight(1f)) {
                         Icon(MaterialSymbols.Outlined.Send, null, Modifier.size(18.dp))
-                        Text("发送", Modifier.padding(start = 8.dp))
+                        Text(stringResource(R.string.panel_action_send), Modifier.padding(start = 8.dp))
                     }
                 } else {
                     OutlinedButton(onClick = onConvert, modifier = Modifier.weight(1f)) {
-                        Text("转换")
+                        Text(stringResource(R.string.tts_convert))
                     }
                     Button(onClick = onSynthesize, modifier = Modifier.weight(1f)) {
                         Icon(MaterialSymbols.Outlined.Send, null, Modifier.size(18.dp))
-                        Text("转换并发送", Modifier.padding(start = 8.dp))
+                        Text(stringResource(R.string.tts_convert_and_send), Modifier.padding(start = 8.dp))
                     }
                 }
             }

@@ -14,8 +14,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.skill.SkillStore
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,6 +44,7 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 @Composable
 fun SkillsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     // SkillStore is filesystem-backed (no Flow); reload via a tick after each mutation.
     var reloadTick by remember { mutableStateOf(0) }
     var skills by remember { mutableStateOf<List<SkillStore.Skill>>(emptyList()) }
@@ -49,14 +56,14 @@ fun SkillsScreen(onBack: () -> Unit) {
     var editing by remember { mutableStateOf<SkillStore.Skill?>(null) }
     var showEditor by remember { mutableStateOf(false) }
 
-    AgentSettingsScaffold(title = "技能", onBack = onBack) {
-        if (skills.isEmpty()) item { EmptyHint("还没有技能。技能是针对特定任务的操作手册，LLM 会按需加载。") }
+    AgentSettingsScaffold(title = stringResource(R.string.agent_skills_title), onBack = onBack) {
+        if (skills.isEmpty()) item { EmptyHint(stringResource(R.string.agent_skills_empty)) }
         items(skills.size, key = { skills[it].name }) { i ->
             val s = skills[i]
             Card(Modifier.padding(bottom = 6.dp)) {
                 SwitchPreference(
                     title = s.name,
-                    summary = s.description.ifBlank { "（无简介）" },
+                    summary = s.description.ifBlank { stringResource(R.string.agent_no_description) },
                     checked = s.enabled,
                     onCheckedChange = { on ->
                         scope.launch {
@@ -66,10 +73,10 @@ fun SkillsScreen(onBack: () -> Unit) {
                     },
                 )
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    TextButton(text = "编辑", onClick = { editing = s; showEditor = true }, modifier = Modifier.weight(1f))
+                    TextButton(text = stringResource(R.string.action_edit), onClick = { editing = s; showEditor = true }, modifier = Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
                     TextButton(
-                        text = "删除",
+                        text = stringResource(R.string.action_delete),
                         onClick = { scope.launch { withContext(Dispatchers.IO) { SkillStore.delete(s.name) }; reloadTick++ } },
                         modifier = Modifier.weight(1f),
                     )
@@ -82,7 +89,7 @@ fun SkillsScreen(onBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
-            ) { Text("添加技能") }
+            ) { Text(stringResource(R.string.agent_add_skill)) }
         }
     }
 
@@ -95,7 +102,14 @@ fun SkillsScreen(onBack: () -> Unit) {
         onSave = { name, description, body ->
             scope.launch {
                 val ok = withContext(Dispatchers.IO) { SkillStore.save(name, description, body) }
-                if (ok == null) showToast("技能名称无效")
+                if (ok == null) {
+                    val localized = LocalizedContextFactory.create(
+                        context,
+                        WeKitLocaleController.resolvedLocale,
+                        LocaleResourceMode.InjectedHost,
+                    )
+                    showToast(localized.getString(R.string.agent_invalid_skill_name))
+                }
                 else {
                     // Renaming isn't in-place: if the dir name changed, drop the old one.
                     editing?.name?.takeIf { it != ok }?.let { old ->
@@ -120,25 +134,29 @@ private fun SkillEditorDialog(
     var description by remember(existing) { mutableStateOf(existing?.description.orEmpty()) }
     var body by remember(existing) { mutableStateOf(existing?.body.orEmpty()) }
 
-    WindowDialog(show = show, title = if (existing == null) "添加技能" else "编辑技能", onDismissRequest = onDismiss) {
+    WindowDialog(
+        show = show,
+        title = stringResource(if (existing == null) R.string.agent_add_skill else R.string.agent_edit_skill),
+        onDismissRequest = onDismiss,
+    ) {
         Column {
-            TextField(value = name, onValueChange = { name = it }, label = "技能名称（同时作为目录名）", useLabelAsPlaceholder = true, singleLine = true)
+            TextField(value = name, onValueChange = { name = it }, label = stringResource(R.string.agent_skill_name_label), useLabelAsPlaceholder = true, singleLine = true)
             Spacer(Modifier.height(8.dp))
             TextField(
                 value = description,
                 onValueChange = { description = it },
-                label = "简介（决定 LLM 何时加载此技能）",
+                label = stringResource(R.string.agent_skill_description_label),
                 useLabelAsPlaceholder = true,
                 maxLines = 3
             )
             Spacer(Modifier.height(8.dp))
-            TextField(value = body, onValueChange = { body = it }, label = "技能正文（SKILL.md 指令内容）", useLabelAsPlaceholder = true, maxLines = 12)
+            TextField(value = body, onValueChange = { body = it }, label = stringResource(R.string.agent_skill_body_label), useLabelAsPlaceholder = true, maxLines = 12)
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
-                TextButton(text = "取消", onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(text = stringResource(R.string.dialog_cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    text = "保存",
+                    text = stringResource(R.string.action_save),
                     onClick = { onSave(name, description, body) },
                     enabled = name.isNotBlank() && body.isNotBlank(),
                     colors = ButtonDefaults.textButtonColorsPrimary(),

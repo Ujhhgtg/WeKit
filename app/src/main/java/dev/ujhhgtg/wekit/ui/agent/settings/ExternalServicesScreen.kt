@@ -19,6 +19,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.net.ExternalServiceId
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
@@ -57,16 +59,16 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
         loaded = true
     }
 
-    AgentSettingsScaffold(title = "外部服务", onBack = onBack) {
+    AgentSettingsScaffold(title = stringResource(R.string.agent_external_services_title), onBack = onBack) {
         if (!loaded) {
-            item { EmptyHint("加载中…") }
+            item { EmptyHint(stringResource(R.string.common_loading)) }
             return@AgentSettingsScaffold
         }
 
         item {
             ServiceKeyCard(
-                title = "Exa Search",
-                description = "AI 语义搜索，需要 Exa API Key（exa.ai）",
+                title = stringResource(R.string.external_service_exa_name),
+                description = stringResource(R.string.external_service_exa_description),
                 key = exaKey,
                 onKeyChange = { exaKey = it },
                 onSave = {
@@ -81,8 +83,8 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
 
         item {
             ServiceKeyCard(
-                title = "Brave Search",
-                description = "隐私优先的网络搜索，需要 Brave Search API Key（api.search.brave.com）",
+                title = stringResource(R.string.external_service_brave_name),
+                description = stringResource(R.string.external_service_brave_description),
                 key = braveKey,
                 onKeyChange = { braveKey = it },
                 onSave = {
@@ -122,7 +124,7 @@ private fun ServiceKeyCard(
             OutlinedTextField(
                 value = key,
                 onValueChange = onKeyChange,
-                label = { androidx.compose.material3.Text("API Key") },
+                label = { androidx.compose.material3.Text(stringResource(R.string.external_service_api_key)) },
                 singleLine = true,
                 visualTransformation = if (showKey) VisualTransformation.None
                 else PasswordVisualTransformation(),
@@ -132,7 +134,9 @@ private fun ServiceKeyCard(
                         Icon(
                             imageVector = if (showKey) MaterialSymbols.Outlined.Visibility_off
                             else MaterialSymbols.Outlined.Visibility,
-                            contentDescription = if (showKey) "隐藏" else "显示",
+                            contentDescription = stringResource(
+                                if (showKey) R.string.accessibility_hide else R.string.accessibility_show,
+                            ),
                         )
                     }
                 },
@@ -151,13 +155,13 @@ private fun ServiceKeyCard(
                             onSave()
                         },
                         modifier = Modifier.width(80.dp),
-                    ) { Text("清除") }
+                    ) { Text(stringResource(R.string.action_clear)) }
                     Spacer(Modifier.width(8.dp))
                 }
                 Button(
                     onClick = onSave,
                     modifier = Modifier.width(80.dp),
-                ) { Text("保存") }
+                ) { Text(stringResource(R.string.action_save)) }
             }
         }
     }

@@ -25,6 +25,7 @@ import dev.ujhhgtg.wekit.ui.agent.settings.TriggersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WeAgentHomeScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WorkspacesScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderTools
+import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderDisplayName
 import dev.ujhhgtg.wekit.ui.content.MiuixStackNavigator
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
@@ -66,7 +67,7 @@ sealed interface AgentSettingsScreen {
     data object ModelProviders : AgentSettingsScreen
     data class ModelProviderDetail(val providerId: String) : AgentSettingsScreen
     data object BuiltinTools : AgentSettingsScreen
-    data class BuiltinToolPermissions(val providerId: String, val name: String) : AgentSettingsScreen
+    data class BuiltinToolPermissions(val providerId: String) : AgentSettingsScreen
     data object McpServers : AgentSettingsScreen
     data class McpServerDetail(val serverId: String) : AgentSettingsScreen
     data object Prompts : AgentSettingsScreen
@@ -107,11 +108,11 @@ private fun RenderScreen(
 
         AgentSettingsScreen.BuiltinTools -> BuiltinProvidersScreen(
             onBack = pop,
-            onOpenProvider = { id, name -> push(AgentSettingsScreen.BuiltinToolPermissions(id, name)) },
+            onOpenProvider = { push(AgentSettingsScreen.BuiltinToolPermissions(it)) },
         )
 
         is AgentSettingsScreen.BuiltinToolPermissions -> ToolPermissionListScreen(
-            title = screen.name,
+            title = builtinProviderDisplayName(screen.providerId),
             providerId = screen.providerId,
             tools = builtinProviderTools(screen.providerId),
             onBack = pop,
