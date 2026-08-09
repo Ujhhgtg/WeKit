@@ -1048,7 +1048,7 @@ object JavaEngine {
                     val content = it[1] as String
                     val msgId = it[2] as Long
                     return@BshMethod runCatchingBsh("sendQuoteMsg") {
-                        WeMessageApi.sendQuoteMsgByMsgId(talker, msgId, content)
+                        WeMessageApi.sendQuoteTextByMsgId(talker, msgId, content)
                     }.getOrDefault(false)
                 })
 

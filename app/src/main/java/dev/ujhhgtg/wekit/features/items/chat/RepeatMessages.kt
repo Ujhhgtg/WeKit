@@ -71,7 +71,12 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
                 MessageType.VIDEO, MessageType.MICRO_VIDEO -> repeatVideo(msgInfo)
                 MessageType.STICKER, MessageType.SO_GOU_EMOJI -> repeatEmoji(msgInfo)
                 MessageType.APP -> WeMessageApi.sendXmlAppMsg(msgInfo.talker, msgInfo.actualContent)
-                MessageType.QUOTE -> WeMessageApi.sendText(msgInfo.talker, msgInfo.quoteMsgActualContent!!)
+                MessageType.QUOTE -> {
+                    val quote = msgInfo.toQuoteMessage()!!
+                    val content = quote.title
+                    WeMessageApi.sendQuoteText(msgInfo.talker, quote.svrid, content) ||
+                        WeMessageApi.sendQuoteTextByMsgId(msgInfo.talker, msgInfo.id, content)
+                }
                 else -> false
             }
         }.getOrElse {
