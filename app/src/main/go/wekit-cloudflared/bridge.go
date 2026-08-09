@@ -190,19 +190,37 @@ func (h *tunnelHandle) snapshot() bridgeSnapshot {
 }
 
 func (h *tunnelHandle) publish(event bridgeEvent) {
+	h.publishTransition(event, false)
+}
+
+func (h *tunnelHandle) publishObserverTransition(event bridgeEvent) bool {
+	return h.publishTransition(event, true)
+}
+
+func (h *tunnelHandle) publishTransition(event bridgeEvent, rejectAfterStop bool) bool {
 	event.URL = boundText(event.URL, maxURLBytes)
 	event.Error = boundText(event.Error, maxErrorBytes)
 
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	if rejectAfterStop &&
+		(h.state.Status == statusStopping || h.state.Status == statusStopped || h.ctx.Err() != nil) {
+		return false
+	}
 	h.state = event
-	h.mu.Unlock()
 	h.callbacks.enqueue(event)
+	return true
 }
 
 func (h *tunnelHandle) publishStopped() {
-	if h.snapshotValue().Status != statusStopped {
-		h.publish(bridgeEvent{Status: statusStopped})
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.state.Status == statusStopped {
+		return
 	}
+	event := bridgeEvent{Status: statusStopped}
+	h.state = event
+	h.callbacks.enqueue(event)
 }
 
 func (h *tunnelHandle) fail(message string, secrets []string) {
@@ -218,18 +236,18 @@ func (o handleObserver) connected(url string) {
 	if url == "" {
 		url = o.url
 	}
-	o.handle.publish(bridgeEvent{Status: statusConnected, URL: url})
+	o.handle.publishObserverTransition(bridgeEvent{Status: statusConnected, URL: url})
 }
 
 func (o handleObserver) reconnecting() {
-	o.handle.publish(bridgeEvent{Status: statusReconnecting})
+	o.handle.publishObserverTransition(bridgeEvent{Status: statusReconnecting})
 }
 
 func (o handleObserver) disconnected() {
 	if o.handle.ctx.Err() != nil {
 		o.handle.publishStopped()
 	} else {
-		o.handle.publish(bridgeEvent{Status: statusReconnecting})
+		o.handle.publishObserverTransition(bridgeEvent{Status: statusReconnecting})
 	}
 }
 

@@ -180,6 +180,78 @@ func TestStopDuringCredentialRequestDoesNotReportFailure(t *testing.T) {
 	}
 }
 
+func TestObserverTransitionsAreRejectedAfterStoppingBegins(t *testing.T) {
+	recorder := newEventRecorder()
+	stopBegan := make(chan struct{})
+	var stopOnce sync.Once
+	callback := func(event bridgeEvent) {
+		recorder.record(event)
+		if event.Status == statusStopping {
+			stopOnce.Do(func() { close(stopBegan) })
+		}
+	}
+	observerReady := make(chan tunnelEventObserver, 1)
+	allowTransportExit := make(chan struct{})
+	run := func(ctx context.Context, _ string, _ quickTunnel, observer tunnelEventObserver) error {
+		observerReady <- observer
+		<-ctx.Done()
+		<-allowTransportExit
+		return ctx.Err()
+	}
+	handle := startQuickTunnel(
+		"http://127.0.0.1:8080",
+		callback,
+		func(context.Context) (quickTunnel, error) {
+			return quickTunnel{URL: "https://example.trycloudflare.com", Credentials: testCredentials()}, nil
+		},
+		run,
+	)
+	observer := <-observerReady
+	stopReturned := make(chan struct{})
+	go func() {
+		handle.stop()
+		close(stopReturned)
+	}()
+	select {
+	case <-stopBegan:
+	case <-time.After(time.Second):
+		t.Fatal("stop did not publish STOPPING")
+	}
+
+	observerCalls := sync.WaitGroup{}
+	observerCalls.Add(2)
+	go func() {
+		defer observerCalls.Done()
+		observer.connected("https://late.trycloudflare.com")
+	}()
+	go func() {
+		defer observerCalls.Done()
+		observer.reconnecting()
+	}()
+	observerCalls.Wait()
+	close(allowTransportExit)
+	select {
+	case <-stopReturned:
+	case <-time.After(time.Second):
+		t.Fatal("stop did not return")
+	}
+
+	events := recorder.snapshot()
+	stoppingSeen := false
+	for _, event := range events {
+		if event.Status == statusStopping {
+			stoppingSeen = true
+			continue
+		}
+		if stoppingSeen && (event.Status == statusConnected || event.Status == statusReconnecting) {
+			t.Fatalf("non-terminal observer transition after STOPPING: %#v", events)
+		}
+	}
+	if last := events[len(events)-1]; last.Status != statusStopped {
+		t.Fatalf("last event = %#v, want stopped", last)
+	}
+}
+
 func TestExternalStopWaitsForCallbackAndClosesDispatch(t *testing.T) {
 	callbackEntered := make(chan struct{})
 	releaseCallback := make(chan struct{})

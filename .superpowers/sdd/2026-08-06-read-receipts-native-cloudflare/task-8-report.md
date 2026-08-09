@@ -81,6 +81,15 @@ RED evidence included the missing callback lifecycle APIs, inline login callback
 xtask plan/pin helpers, and a real second Quick Tunnel panic from duplicate QUIC metric collector
 registration. All corresponding focused tests are green after the changes.
 
+The scoped re-review found one callback-ordering race: an in-flight observer event could publish
+`CONNECTED` or `RECONNECTING` after stop had already queued `STOPPING`. The regression is
+deterministically RED on `440175ee`: the observed run produced
+`STARTING → STOPPING → CONNECTED → RECONNECTING → STOPPED` (the order of the two concurrent
+observer calls is intentionally immaterial). State acceptance, state update, and callback enqueue
+now occur in one handle-mutex critical section. Observer transitions reject once the state is
+`STOPPING`/`STOPPED` or the context is canceled, so an event either commits before `STOPPING` or is
+suppressed after it; it cannot pass a stale cancellation check.
+
 ## Verification evidence
 
 Host unit gate:
@@ -96,11 +105,11 @@ Real public integration gate against the pinned dependency graph:
 $ WEKIT_CLOUDFLARED_INTEGRATION=1 go test -v -count=1 -timeout 5m \
     -run TestRealQuickTunnelForwardsAndStopsWithoutLeaking \
     ./app/src/main/go/wekit-cloudflared
---- PASS: TestRealQuickTunnelForwardsAndStopsWithoutLeaking (37.12s)
-    --- PASS: .../session-1 (17.70s)
-    --- PASS: .../session-2 (19.42s)
+--- PASS: TestRealQuickTunnelForwardsAndStopsWithoutLeaking (27.44s)
+    --- PASS: .../session-1 (11.66s)
+    --- PASS: .../session-2 (15.78s)
 PASS
-ok  dev.ujhhgtg.wekit/cloudflared-bridge  37.124s
+ok  dev.ujhhgtg.wekit/cloudflared-bridge  27.445s
 ```
 
 The test runs two sequential sessions in one process. Each starts a temporary loopback origin,
@@ -132,7 +141,7 @@ Post-review verification additionally passed:
 
 ```text
 $ go test -race -count=1 ./app/src/main/go/wekit-cloudflared
-ok  dev.ujhhgtg.wekit/cloudflared-bridge  1.138s
+ok  dev.ujhhgtg.wekit/cloudflared-bridge  1.140s
 
 $ cargo test -p xtask
 22 passed; 0 failed
