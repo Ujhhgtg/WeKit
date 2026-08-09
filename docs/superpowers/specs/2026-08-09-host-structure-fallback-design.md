@@ -43,6 +43,14 @@
 - Hook 中共同参数位置相同则不需要运行时分支；
 - 如实际调用或读取参数确实不同，使用已解析的 `Method.parameterCount` 或 `Constructor.parameterCount` 选择调用参数，不读取宿主版本。
 
+### 宿主版本判断审批
+
+上述“先尝试再回退”和“判断实际再选择”是仓库默认兼容策略，应尽量避免根据 WeChat 宿主的 `versionCode`、`versionName`、硬编码版本字符串或等价版本常量分流。
+
+如果已经穷尽稳定 Dex 结构、实际反射签名和直接相关运行时属性，仍然必须使用宿主版本判断，则在添加或保留该判断前询问用户并取得明确确认。未经确认，不得用版本判断替代结构探测。
+
+通过 `isHostGooglePlay`/`isGooglePlay` 区分 Google Play 构建不属于宿主版本判断，不受上述确认要求限制；但 resolver 内仍必须从 `DexResolutionContext.host` 读取该元数据。
+
 ## `WeMessageApi` 图片发送
 
 ### 探针
@@ -127,6 +135,7 @@ paramCount(10, 11)
 
 ## 源码约束
 
+- 将总体规则同步写入仓库根目录 `AGENTS.md`，作为后续兼容代码的默认要求。
 - 删除上述四个文件中不再使用的 `DexResolutionContext` import。
 - 不引入新的宿主版本常量或版本比较帮助函数。
 - Resolver 阶段只使用 DexKit metadata，不访问 `.method`、`.clazz`、`.field` 或 `.constructor`。

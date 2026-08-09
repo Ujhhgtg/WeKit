@@ -91,21 +91,43 @@
   derive the required descriptor from `target.data` while resolving instead. Reflection properties
   remain valid after resolution for actual hook-time Android behavior; this rule applies only to
   declaration and resolution paths.
-- Version, build-tag, and Google Play branches inside resolution must read
-  `DexResolutionContext.host`, rather than `HostInfo`, so `./x dex-test` uses metadata belonging
-  to the APK under test. Android resolution receives equivalent current-host metadata through the
-  same context.
+- An explicitly user-approved host-version branch, or any build-tag/Google Play branch, inside
+  resolution must read `DexResolutionContext.host`, rather than `HostInfo`, so `./x dex-test` uses
+  metadata belonging to the APK under test. Android resolution receives equivalent current-host
+  metadata through the same context.
 - A metadata migration must preserve the intended descriptor/matcher constraints. Do not loosen
   strings, signatures, or structural predicates merely to make a desktop test pass; use stable
   DexKit evidence as normal.
 - For an intentional supported-version absence, use `allowFailure = true` only as documented
-  below and record the placeholder explicitly with `expectedFailure = true` plus a version reason.
-  Do not convert exceptions or uncertain matches into placeholders just to obtain a green report.
+  below and record the placeholder explicitly with `expectedFailure = true` plus a precise
+  structural-absence reason. Do not convert exceptions or uncertain matches into placeholders just
+  to obtain a green report.
 - Resolver source is part of the device cache key: even a mechanically equivalent rewrite from
   reflection to `.data` changes the generated `methodHash` and invalidates that feature's old
   cache. Expect one device re-resolution after such a change; never retain or hand-edit an old
   hash to suppress it. Avoid unrelated formatting/refactors in resolver and inline matcher bodies
   when a cache invalidation is not intended.
+
+### Host compatibility path selection
+
+- Prefer structure-based compatibility over host-version checks. In Dex resolution, first probe
+  one stable class, method, field, or constructor that exists only on the newer path. If that probe
+  produces zero results, record its expected placeholder and fall back to the older path. If it is
+  present, keep every other required target on that path strict. Multiple results, matcher errors,
+  and failures after the probe must remain visible failures; they are not fallback conditions.
+- At hook time or when invoking resolved host members, choose the path from the actual resolved
+  structure. Use the new-path probe's `isPlaceholder`, inspect the resolved member's reflection
+  signature, or test another directly relevant runtime property. Do not repeat the resolver's
+  compatibility decision with a host-version comparison.
+- If old and new hosts expose the same semantic member with only a signature difference, accept
+  the confirmed signatures structurally (for example, `paramCount(10, 11)`). When invocation
+  arguments differ, inspect `Method.parameterCount` or `Constructor.parameterCount` and construct
+  the arguments from that actual signature.
+- Avoid branches based on the WeChat host's `versionCode`, `versionName`, hard-coded WeChat version
+  strings, or equivalent version constants. If a host-version check is genuinely unavoidable, ask
+  the user for explicit confirmation before adding or retaining it. Distinguishing a Google Play
+  build through `isHostGooglePlay`/`isGooglePlay` is **not** a host-version check and does not require
+  that confirmation.
 
 ## Testing Strategy
 
