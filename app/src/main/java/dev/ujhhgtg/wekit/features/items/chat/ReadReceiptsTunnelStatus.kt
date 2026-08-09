@@ -42,6 +42,28 @@ data class CloudflareLoginState(
     }
 }
 
+internal data class NativeCloudflareLoginStatus(
+    val generation: Long,
+    val loginState: CloudflareLoginState,
+    val accountId: String,
+    val selectedTunnelId: String?,
+    val selectedHostname: String?,
+) {
+    init {
+        require(generation > 0)
+    }
+}
+
+internal data class NativeExistingTunnelList(
+    val generation: Long,
+    val tunnels: List<ExistingTunnel>,
+    val error: String?,
+) {
+    init {
+        require(generation > 0)
+    }
+}
+
 @ConsistentCopyVisibility
 data class ExistingTunnel private constructor(
     val id: String,
@@ -81,6 +103,8 @@ data class ExistingTunnel private constructor(
                 Collections.unmodifiableList(ArrayList(canonicalHostnames)),
             )
         }
+
+        internal fun isCanonicalId(value: String): Boolean = canonicalTunnelId(value) == value
 
         private fun canonicalTunnelId(value: String): String? {
             if (!UUID_PATTERN.matches(value)) return null

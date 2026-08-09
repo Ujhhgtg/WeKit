@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -818,6 +819,149 @@ internal sealed interface TunnelCredentialDecode {
     data object Invalid : TunnelCredentialDecode
 }
 
+/** Strict RFC JSON reader that rejects escaped-equivalent duplicate keys at every object depth. */
+internal object StrictJsonReader {
+    private val json = Json {
+        ignoreUnknownKeys = false
+        isLenient = false
+        explicitNulls = true
+    }
+    private val jsonNumberPattern =
+        Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
+
+    fun parse(text: String): JsonElement? {
+        val start = text.skipJsonWhitespace(0)
+        if (start == text.length) return null
+        var end = text.length
+        while (end > start && text[end - 1].isJsonWhitespace()) end--
+        val validLexeme = when (text[start]) {
+            '{', '[', '"' -> true
+            't' -> end - start == 4 && text.regionMatches(start, "true", 0, 4)
+            'f' -> end - start == 5 && text.regionMatches(start, "false", 0, 5)
+            'n' -> end - start == 4 && text.regionMatches(start, "null", 0, 4)
+            '-', in '0'..'9' -> jsonNumberPattern.matches(text.substring(start, end))
+            else -> false
+        }
+        if (!validLexeme) return null
+        val parsed = runCatching { json.parseToJsonElement(text) }.getOrNull() ?: return null
+        if (hasDuplicateObjectKeys(text)) return null
+        return parsed
+    }
+
+    private fun hasDuplicateObjectKeys(text: String): Boolean = runCatching {
+        DuplicateKeyScanner(text, json).scan()
+    }.getOrElse { true }
+
+    private class DuplicateKeyScanner(
+        private val text: String,
+        private val json: Json,
+    ) {
+        private var index = 0
+
+        fun scan(): Boolean {
+            val duplicate = scanValue()
+            index = text.skipJsonWhitespace(index)
+            check(index == text.length)
+            return duplicate
+        }
+
+        private fun scanValue(): Boolean {
+            index = text.skipJsonWhitespace(index)
+            return when (text[index]) {
+                '{' -> scanObject()
+                '[' -> scanArray()
+                '"' -> {
+                    index = text.jsonStringEnd(index)
+                    false
+                }
+                else -> {
+                    while (index < text.length && text[index] !in VALUE_DELIMITERS) index++
+                    false
+                }
+            }
+        }
+
+        private fun scanObject(): Boolean {
+            index++
+            val keys = mutableSetOf<String>()
+            var duplicate = false
+            index = text.skipJsonWhitespace(index)
+            if (text[index] == '}') {
+                index++
+                return false
+            }
+            while (true) {
+                index = text.skipJsonWhitespace(index)
+                val keyEnd = text.jsonStringEnd(index)
+                val key = json.parseToJsonElement(text.substring(index, keyEnd))
+                    .jsonPrimitive.content
+                duplicate = !keys.add(key) || duplicate
+                index = text.skipJsonWhitespace(keyEnd)
+                check(text[index] == ':')
+                index++
+                duplicate = scanValue() || duplicate
+                index = text.skipJsonWhitespace(index)
+                when (text[index]) {
+                    ',' -> index++
+                    '}' -> {
+                        index++
+                        return duplicate
+                    }
+                    else -> error("invalid object boundary")
+                }
+            }
+        }
+
+        private fun scanArray(): Boolean {
+            index++
+            var duplicate = false
+            index = text.skipJsonWhitespace(index)
+            if (text[index] == ']') {
+                index++
+                return false
+            }
+            while (true) {
+                duplicate = scanValue() || duplicate
+                index = text.skipJsonWhitespace(index)
+                when (text[index]) {
+                    ',' -> index++
+                    ']' -> {
+                        index++
+                        return duplicate
+                    }
+                    else -> error("invalid array boundary")
+                }
+            }
+        }
+
+        private companion object {
+            val VALUE_DELIMITERS = setOf(' ', '\t', '\r', '\n', ',', ']', '}')
+        }
+    }
+
+    private fun String.skipJsonWhitespace(start: Int): Int {
+        var index = start
+        while (index < length && this[index].isJsonWhitespace()) index++
+        return index
+    }
+
+    private fun Char.isJsonWhitespace(): Boolean =
+        this == ' ' || this == '\t' || this == '\r' || this == '\n'
+
+    private fun String.jsonStringEnd(start: Int): Int {
+        check(start < length && this[start] == '"')
+        var index = start + 1
+        while (index < length) {
+            when (this[index]) {
+                '\\' -> index += 2
+                '"' -> return index + 1
+                else -> index++
+            }
+        }
+        error("unterminated JSON string")
+    }
+}
+
 internal object TunnelCredentialPayloadCodec {
     const val VERSION = 2
     const val MAX_BYTES = 32 * 1024
@@ -831,13 +975,6 @@ internal object TunnelCredentialPayloadCodec {
         "canonicalHostname",
         "fixedOriginPort",
     )
-    private val strictJson = Json {
-        ignoreUnknownKeys = false
-        isLenient = false
-        explicitNulls = true
-    }
-    private val jsonNumberPattern =
-        Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
 
     fun encode(payload: TunnelCredentialPayload): ByteArray {
         val encoded = buildJsonObject {
@@ -857,10 +994,9 @@ internal object TunnelCredentialPayloadCodec {
     fun decode(plaintext: ByteArray): TunnelCredentialDecode {
         if (plaintext.isEmpty() || plaintext.size > MAX_BYTES) return TunnelCredentialDecode.Invalid
         val text = decodeUtf8(plaintext) ?: return TunnelCredentialDecode.Invalid
-        val parsed = parseCompleteStrictJson(text)
+        val parsed = StrictJsonReader.parse(text)
         if (parsed != null) {
             val objectValue = parsed as? JsonObject ?: return TunnelCredentialDecode.Invalid
-            if (hasDuplicateTopLevelKeys(text)) return TunnelCredentialDecode.Invalid
             return decodeVersioned(objectValue)
         }
         if (text.firstOrNull { !it.isWhitespace() } == '{') return TunnelCredentialDecode.Invalid
@@ -890,99 +1026,6 @@ internal object TunnelCredentialPayloadCodec {
                 ?: return TunnelCredentialDecode.Invalid,
         ) ?: return TunnelCredentialDecode.Invalid
         return TunnelCredentialDecode.Decoded(payload, migratedLegacy = false)
-    }
-
-    /** kotlinx JSON accepts bare literals in DOM mode, so enforce the RFC top-level lexeme first. */
-    private fun parseCompleteStrictJson(text: String) = run {
-        val start = text.skipJsonWhitespace(0)
-        if (start == text.length) return@run null
-        var end = text.length
-        while (end > start && text[end - 1].isJsonWhitespace()) end--
-        val lexeme = text.substring(start, end)
-        val validLexeme = when (lexeme.first()) {
-            '{', '[', '"' -> true
-            't' -> lexeme == "true"
-            'f' -> lexeme == "false"
-            'n' -> lexeme == "null"
-            '-', in '0'..'9' -> jsonNumberPattern.matches(lexeme)
-            else -> false
-        }
-        if (!validLexeme) return@run null
-        runCatching { strictJson.parseToJsonElement(text) }.getOrNull()
-    }
-
-    /** Scans only object-member boundaries; string decoding handles escaped-equivalent key names. */
-    private fun hasDuplicateTopLevelKeys(text: String): Boolean = runCatching {
-        var index = text.skipJsonWhitespace(0)
-        check(text[index] == '{')
-        index++
-        val keys = mutableSetOf<String>()
-        while (true) {
-            index = text.skipJsonWhitespace(index)
-            if (text[index] == '}') return@runCatching false
-            val keyEnd = text.jsonStringEnd(index)
-            val key = strictJson.parseToJsonElement(text.substring(index, keyEnd))
-                .jsonPrimitive.content
-            if (!keys.add(key)) return@runCatching true
-            index = text.skipJsonWhitespace(keyEnd)
-            check(text[index] == ':')
-            index = text.jsonTopLevelValueEnd(index + 1)
-            index = text.skipJsonWhitespace(index)
-            when (text[index]) {
-                ',' -> index++
-                '}' -> return@runCatching false
-                else -> error("invalid top-level object boundary")
-            }
-        }
-        @Suppress("UNREACHABLE_CODE")
-        false
-    }.getOrElse { true }
-
-    private fun String.skipJsonWhitespace(start: Int): Int {
-        var index = start
-        while (index < length && this[index].isJsonWhitespace()) index++
-        return index
-    }
-
-    private fun Char.isJsonWhitespace(): Boolean =
-        this == ' ' || this == '\t' || this == '\r' || this == '\n'
-
-    private fun String.jsonStringEnd(start: Int): Int {
-        check(start < length && this[start] == '"')
-        var index = start + 1
-        while (index < length) {
-            when (this[index]) {
-                '\\' -> index += 2
-                '"' -> return index + 1
-                else -> index++
-            }
-        }
-        error("unterminated JSON string")
-    }
-
-    private fun String.jsonTopLevelValueEnd(start: Int): Int {
-        var index = skipJsonWhitespace(start)
-        var containerDepth = 0
-        var inString = false
-        while (index < length) {
-            val current = this[index]
-            if (inString) {
-                when (current) {
-                    '\\' -> index++
-                    '"' -> inString = false
-                }
-            } else {
-                when (current) {
-                    '"' -> inString = true
-                    '{', '[' -> containerDepth++
-                    ']' -> containerDepth--
-                    '}' -> if (containerDepth == 0) return index else containerDepth--
-                    ',' -> if (containerDepth == 0) return index
-                }
-            }
-            index++
-        }
-        error("unterminated JSON value")
     }
 
     private fun JsonObject.string(name: String): String? =
@@ -1052,6 +1095,25 @@ internal data class CommittedBrowserTunnelMetadata(
     val canonicalHostname: String,
     val fixedOriginPort: Int,
 )
+
+internal data class CommittedTunnelCredentialMetadata(
+    val source: TunnelCredentialSource,
+    val accountId: String,
+    val tunnelId: String,
+    val tunnelName: String,
+    val canonicalHostname: String,
+    val fixedOriginPort: Int,
+)
+
+internal fun TunnelCredentialPayload.committedMetadata(): CommittedTunnelCredentialMetadata =
+    CommittedTunnelCredentialMetadata(
+        source = source,
+        accountId = accountId,
+        tunnelId = tunnelId,
+        tunnelName = tunnelName,
+        canonicalHostname = canonicalHostname,
+        fixedOriginPort = fixedOriginPort,
+    )
 
 internal sealed interface TunnelCredentialSnapshot {
     data class Authoritative(val payload: TunnelCredentialPayload) : TunnelCredentialSnapshot

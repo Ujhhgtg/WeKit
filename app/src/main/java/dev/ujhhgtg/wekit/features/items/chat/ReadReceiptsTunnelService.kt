@@ -41,7 +41,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.security.KeyStore
@@ -380,7 +379,7 @@ class ReadReceiptsTunnelService : Service() {
                         ),
                     )
                     return
-                }
+                }.runToken
             } else {
                 null
             }
@@ -433,7 +432,15 @@ class ReadReceiptsTunnelService : Service() {
                                 nativeLease.commitVerification(
                                     verification,
                                     writeCredential = pendingToken?.let { token ->
-                                        { credentialStore.write(token).isSuccess }
+                                        {
+                                            val payload = TunnelCredentialPayload.create(
+                                                runToken = token,
+                                                source = TunnelCredentialSource.TOKEN,
+                                                canonicalHostname = candidate.toString().trimEnd('/'),
+                                                fixedOriginPort = originRoot.port,
+                                            )
+                                            payload != null && credentialStore.write(payload).isSuccess
+                                        }
                                     },
                                     clearPendingToken = pendingToken?.let {
                                         { request.pendingToken = null }
@@ -865,54 +872,94 @@ private class TunnelCredentialStore(context: Context) {
 
     fun exists(): Boolean = file.baseFile.isFile
 
-    fun write(token: String): Result<Unit> = runCatching {
-        require(token.length in 1..MAX_TOKEN_CHARS)
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
-        val encrypted = cipher.doFinal(token.toByteArray(Charsets.UTF_8))
-        val payload = listOf(
-            VERSION,
-            Base64.encodeToString(cipher.iv, Base64.NO_WRAP),
-            Base64.encodeToString(encrypted, Base64.NO_WRAP),
-        ).joinToString("\n").toByteArray(Charsets.US_ASCII)
-        require(payload.size <= MAX_FILE_BYTES)
-        file.baseFile.parentFile!!.mkdirs()
-        val output = file.startWrite()
+    fun write(credential: TunnelCredentialPayload): Result<Unit> = runCatching {
+        var plaintext: ByteArray? = null
+        var iv: ByteArray? = null
+        var encrypted: ByteArray? = null
+        var filePayload: ByteArray? = null
         try {
-            output.write(payload)
-            output.fd.sync()
-            file.finishWrite(output)
-        } catch (error: Throwable) {
-            file.failWrite(output)
-            throw error
+            plaintext = TunnelCredentialPayloadCodec.encode(credential)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+            iv = cipher.iv
+            encrypted = cipher.doFinal(plaintext)
+            filePayload = listOf(
+                VERSION,
+                Base64.encodeToString(iv, Base64.NO_WRAP),
+                Base64.encodeToString(encrypted, Base64.NO_WRAP),
+            ).joinToString("\n").toByteArray(Charsets.US_ASCII)
+            require(filePayload.size <= MAX_FILE_BYTES)
+            file.baseFile.parentFile!!.mkdirs()
+            val output = file.startWrite()
+            try {
+                output.write(filePayload)
+                output.fd.sync()
+                file.finishWrite(output)
+            } catch (error: Throwable) {
+                file.failWrite(output)
+                throw error
+            }
+        } finally {
+            plaintext?.fill(0)
+            iv?.fill(0)
+            encrypted?.fill(0)
+            filePayload?.fill(0)
         }
     }
 
-    fun read(): Result<String> = runCatching {
-        val payload = file.openRead().use { input ->
-            val output = ByteArrayOutputStream()
-            val buffer = ByteArray(4096)
-            while (true) {
-                val count = input.read(buffer)
-                if (count < 0) break
-                require(output.size() + count <= MAX_FILE_BYTES)
-                output.write(buffer, 0, count)
-            }
-            output.toByteArray()
-        }.toString(Charsets.US_ASCII).split('\n')
-        require(payload.size == 3 && payload[0] == VERSION)
-        val iv = Base64.decode(payload[1], Base64.NO_WRAP)
-        val encrypted = Base64.decode(payload[2], Base64.NO_WRAP)
-        require(iv.size == 12 && encrypted.size <= MAX_TOKEN_CHARS + 32)
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
-        String(cipher.doFinal(encrypted), Charsets.UTF_8).also {
-            require(it.length in 1..MAX_TOKEN_CHARS)
+    fun read(): Result<TunnelCredentialPayload> = runCatching {
+        var filePayload: ByteArray? = null
+        var iv: ByteArray? = null
+        var encrypted: ByteArray? = null
+        var plaintext: ByteArray? = null
+        try {
+            filePayload = readFileBytes()
+            val envelope = filePayload.toString(Charsets.US_ASCII).split('\n')
+            require(
+                envelope.size == 3 &&
+                    (envelope[0] == VERSION || envelope[0] == LEGACY_VERSION),
+            )
+            iv = Base64.decode(envelope[1], Base64.NO_WRAP)
+            encrypted = Base64.decode(envelope[2], Base64.NO_WRAP)
+            require(iv.size == IV_BYTES)
+            require(encrypted.size in GCM_TAG_BYTES..TunnelCredentialPayloadCodec.MAX_BYTES + GCM_TAG_BYTES)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
+            plaintext = cipher.doFinal(encrypted)
+            val decoded = TunnelCredentialPayloadCodec.decode(plaintext)
+            require(decoded is TunnelCredentialDecode.Decoded)
+            decoded.payload
+        } finally {
+            filePayload?.fill(0)
+            iv?.fill(0)
+            encrypted?.fill(0)
+            plaintext?.fill(0)
         }
     }.onFailure { clear() }
 
+    fun readMetadata(): Result<CommittedTunnelCredentialMetadata> =
+        read().map(TunnelCredentialPayload::committedMetadata)
+
     fun clear() {
         file.delete()
+    }
+
+    private fun readFileBytes(): ByteArray {
+        val scratch = ByteArray(MAX_FILE_BYTES + 1)
+        try {
+            var size = 0
+            file.openRead().use { input ->
+                while (size < scratch.size) {
+                    val count = input.read(scratch, size, scratch.size - size)
+                    if (count < 0) break
+                    size += count
+                }
+                require(size <= MAX_FILE_BYTES && input.read() < 0)
+            }
+            return scratch.copyOf(size)
+        } finally {
+            scratch.fill(0)
+        }
     }
 
     private fun secretKey(): SecretKey {
@@ -935,9 +982,11 @@ private class TunnelCredentialStore(context: Context) {
 
     companion object {
         private const val FILE_PATH = "read_receipts/tunnel_credential.v1"
-        private const val VERSION = "1"
-        private const val MAX_TOKEN_CHARS = 16 * 1024
-        private const val MAX_FILE_BYTES = 32 * 1024
+        private const val VERSION = "2"
+        private const val LEGACY_VERSION = "1"
+        private const val MAX_FILE_BYTES = 64 * 1024
+        private const val IV_BYTES = 12
+        private const val GCM_TAG_BYTES = 16
         private const val KEY_ALIAS = "wekit_read_receipts_tunnel_v1"
         private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
