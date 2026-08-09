@@ -574,14 +574,39 @@ internal class AuthOperationRegistry {
 
     private val pending = linkedMapOf<AuthOperationKey, Entry>()
     private var currentGeneration: Long? = null
+    private var preparedGeneration: Long? = null
 
     fun replaceGeneration(generation: Long): Boolean {
         require(generation > 0)
         val deliveries = synchronized(this) {
-            val current = currentGeneration
-            if (current != null && generation <= current) return false
+            val latest = maxOf(currentGeneration ?: 0, preparedGeneration ?: 0)
+            if (generation <= latest) return false
             currentGeneration = generation
+            preparedGeneration = null
             pending.values.map { it to AuthOperationTerminal.Superseded }.also { pending.clear() }
+        }
+        deliverAll(deliveries)
+        return true
+    }
+
+    @Synchronized
+    fun prepareGeneration(generation: Long): Boolean {
+        require(generation > 0)
+        val latest = maxOf(currentGeneration ?: 0, preparedGeneration ?: 0)
+        if (generation <= latest) return false
+        preparedGeneration = generation
+        return true
+    }
+
+    fun finishPreparedGeneration(generation: Long): Boolean {
+        val deliveries = synchronized(this) {
+            if (preparedGeneration != generation) return false
+            preparedGeneration = null
+            currentGeneration = generation
+            pending.entries
+                .filter { it.key.authGeneration != generation }
+                .map { it.value to AuthOperationTerminal.Superseded }
+                .also { pending.keys.removeAll { it.authGeneration != generation } }
         }
         deliverAll(deliveries)
         return true
@@ -594,8 +619,12 @@ internal class AuthOperationRegistry {
     ): Boolean {
         var accepted = true
         synchronized(this) {
-            if (currentGeneration == null) currentGeneration = key.authGeneration
-            if (key.authGeneration != currentGeneration || pending.containsKey(key)) {
+            if (currentGeneration == null && preparedGeneration == null) {
+                currentGeneration = key.authGeneration
+            }
+            val acceptsGeneration =
+                key.authGeneration == currentGeneration || key.authGeneration == preparedGeneration
+            if (!acceptsGeneration || pending.containsKey(key)) {
                 accepted = false
             } else {
                 pending[key] = Entry(kind) { terminal ->
@@ -632,6 +661,24 @@ internal class AuthOperationRegistry {
     fun <T> cancel(key: AuthOperationKey, expectedKind: AuthOperationKind<T>): Boolean =
         complete(key, expectedKind, AuthOperationTerminal.Cancelled)
 
+    fun <T> completeAndCancelGeneration(
+        key: AuthOperationKey,
+        expectedKind: AuthOperationKind<T>,
+        terminal: AuthOperationTerminal<T>,
+    ): Boolean {
+        val deliveries = synchronized(this) {
+            val target = pending[key] ?: return false
+            if (target.kind !== expectedKind) return false
+            val siblings = pending.entries
+                .filter { it.key != key && it.key.authGeneration == key.authGeneration }
+                .map { it.value to AuthOperationTerminal.Cancelled }
+            pending.keys.removeAll { it.authGeneration == key.authGeneration }
+            listOf(target to terminal) + siblings
+        }
+        deliverAll(deliveries)
+        return true
+    }
+
     fun cancelGeneration(generation: Long): Int {
         val deliveries = synchronized(this) {
             pending.entries
@@ -666,6 +713,396 @@ internal class AuthOperationRegistry {
             }
         }
         firstFailure?.let { throw it }
+    }
+}
+
+internal enum class ServiceAuthRejectReason {
+    STALE_GENERATION,
+    DUPLICATE_REQUEST,
+    SESSION_UNAVAILABLE,
+    INVALID_KIND,
+}
+
+internal sealed interface ServiceAuthAdmission {
+    data object Accepted : ServiceAuthAdmission
+
+    data class Rejected(val reason: ServiceAuthRejectReason) : ServiceAuthAdmission
+}
+
+internal enum class ServiceAuthSessionPhase {
+    IDLE,
+    REPLACING,
+    WAITING,
+    AUTHORIZED,
+    CANCELLING,
+    RESTART_REQUIRED,
+}
+
+internal enum class ServiceAuthOperationPhase {
+    NATIVE_BLOCKING,
+    SELECT_VALIDATING,
+    CLEANING,
+}
+
+internal enum class ServiceAuthFailure {
+    API_RETURNED,
+    TIMEOUT,
+    COROUTINE_CANCELLED,
+    STORAGE,
+}
+
+internal enum class ServiceAuthCleanupAction {
+    PRESERVE_AUTH,
+    STOP_CANDIDATE_AND_PRESERVE_AUTH,
+    CANCEL_AUTH_AND_RESTART_REQUIRED,
+}
+
+internal data class ServiceAuthSnapshot(
+    val authGeneration: Long,
+    val phase: ServiceAuthSessionPhase,
+)
+
+internal class ServiceAuthFailurePlan<T> internal constructor(
+    internal val key: AuthOperationKey,
+    internal val kind: AuthOperationKind<T>,
+    internal val terminal: AuthOperationTerminal<T>,
+    val action: ServiceAuthCleanupAction,
+)
+
+internal class ServiceAuthSessionClearPlan<T> internal constructor(
+    internal val key: AuthOperationKey,
+    internal val kind: AuthOperationKind<T>,
+    internal val terminal: AuthOperationTerminal<T>,
+)
+
+/**
+ * Main-authority admission and phase state for auth commands.
+ * [AuthOperationRegistry] remains the sole owner of terminal delivery.
+ */
+internal class ServiceAuthCoordinator {
+    private val operations = AuthOperationRegistry()
+    private val operationPhases = mutableMapOf<AuthOperationKey, ServiceAuthOperationPhase>()
+    private val ackKinds = mutableMapOf<AuthOperationKey, AuthOperationKind<*>>()
+    private val seenRequests = mutableSetOf<AuthOperationKey>()
+    private val plannedFailures = mutableMapOf<AuthOperationKey, ServiceAuthFailurePlan<*>>()
+    private var plannedSessionClear: ServiceAuthSessionClearPlan<*>? = null
+    private var lastAcceptedGeneration = 0L
+    private var activeGeneration = 0L
+    private var sessionPhase = ServiceAuthSessionPhase.IDLE
+
+    fun begin(
+        key: AuthOperationKey,
+        callback: (AuthOperationTerminal<CloudflareLoginState>) -> Unit,
+    ): ServiceAuthAdmission {
+        if (key.authGeneration <= lastAcceptedGeneration) {
+            return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.STALE_GENERATION)
+        }
+        if (
+            sessionPhase == ServiceAuthSessionPhase.REPLACING ||
+            sessionPhase == ServiceAuthSessionPhase.CANCELLING
+        ) {
+            return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.SESSION_UNAVAILABLE)
+        }
+
+        lastAcceptedGeneration = key.authGeneration
+        sessionPhase = ServiceAuthSessionPhase.REPLACING
+        operationPhases.replaceAll { _, _ -> ServiceAuthOperationPhase.CLEANING }
+        ackKinds.clear()
+        seenRequests.clear()
+        plannedFailures.clear()
+        plannedSessionClear = null
+        check(operations.prepareGeneration(key.authGeneration))
+        check(operations.register(key, AuthOperationKind.BEGIN, callback))
+        operationPhases[key] = ServiceAuthOperationPhase.NATIVE_BLOCKING
+        ackKinds[key] = AuthOperationKind.BEGIN
+        seenRequests += key
+        return ServiceAuthAdmission.Accepted
+    }
+
+    fun <T> admit(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+        phase: ServiceAuthOperationPhase,
+        callback: (AuthOperationTerminal<T>) -> Unit,
+    ): ServiceAuthAdmission {
+        if (key.authGeneration != activeGeneration) {
+            return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.STALE_GENERATION)
+        }
+        if (sessionPhase != ServiceAuthSessionPhase.AUTHORIZED) {
+            return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.SESSION_UNAVAILABLE)
+        }
+        if (kind === AuthOperationKind.BEGIN) {
+            return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.INVALID_KIND)
+        }
+        if (key in seenRequests) {
+            return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.DUPLICATE_REQUEST)
+        }
+        check(operations.register(key, kind, callback))
+        operationPhases[key] = phase
+        ackKinds[key] = kind
+        seenRequests += key
+        return ServiceAuthAdmission.Accepted
+    }
+
+    fun <T> claimAck(key: AuthOperationKey, kind: AuthOperationKind<T>): Boolean {
+        if (operations.pendingKind(key) !== kind || ackKinds[key] !== kind) return false
+        ackKinds.remove(key)
+        return true
+    }
+
+    fun finishBeginBarrier(key: AuthOperationKey): Boolean {
+        if (
+            key.authGeneration != lastAcceptedGeneration ||
+            sessionPhase != ServiceAuthSessionPhase.REPLACING ||
+            operations.pendingKind(key) !== AuthOperationKind.BEGIN
+        ) {
+            return false
+        }
+        operationPhases.keys.removeAll { it.authGeneration != key.authGeneration }
+        ackKinds.keys.removeAll { it.authGeneration != key.authGeneration }
+        activeGeneration = key.authGeneration
+        sessionPhase = ServiceAuthSessionPhase.WAITING
+        return operations.finishPreparedGeneration(key.authGeneration)
+    }
+
+    fun markAuthorized(authGeneration: Long): Boolean {
+        if (
+            authGeneration != activeGeneration ||
+            sessionPhase != ServiceAuthSessionPhase.WAITING
+        ) {
+            return false
+        }
+        sessionPhase = ServiceAuthSessionPhase.AUTHORIZED
+        return true
+    }
+
+    fun markSelectValidating(key: AuthOperationKey): Boolean {
+        if (
+            key.authGeneration != activeGeneration ||
+            sessionPhase != ServiceAuthSessionPhase.AUTHORIZED ||
+            operations.pendingKind(key) !== AuthOperationKind.SELECT ||
+            operationPhases[key] != ServiceAuthOperationPhase.NATIVE_BLOCKING
+        ) {
+            return false
+        }
+        operationPhases[key] = ServiceAuthOperationPhase.SELECT_VALIDATING
+        return true
+    }
+
+    fun <T> canPublish(key: AuthOperationKey, kind: AuthOperationKind<T>): Boolean =
+        key.authGeneration == activeGeneration &&
+            operations.pendingKind(key) === kind &&
+            operationPhases[key] != ServiceAuthOperationPhase.CLEANING &&
+            sessionPhase != ServiceAuthSessionPhase.CANCELLING &&
+            !(kind === AuthOperationKind.BEGIN && sessionPhase == ServiceAuthSessionPhase.REPLACING)
+
+    fun <T> complete(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+        terminal: AuthOperationTerminal<T>,
+    ): Boolean {
+        if (operationPhases[key] == ServiceAuthOperationPhase.CLEANING) return false
+        val completed = operations.complete(key, kind, terminal)
+        if (completed) {
+            operationPhases.remove(key)
+            ackKinds.remove(key)
+        }
+        return completed
+    }
+
+    fun <T> planFailure(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+        failure: ServiceAuthFailure,
+        message: String,
+    ): ServiceAuthFailurePlan<T>? {
+        if (
+            key.authGeneration != activeGeneration ||
+            operations.pendingKind(key) !== kind ||
+            operationPhases[key] == ServiceAuthOperationPhase.CLEANING
+        ) {
+            return null
+        }
+
+        val operationPhase = operationPhases[key] ?: return null
+        val cleanup = when {
+            operationPhase == ServiceAuthOperationPhase.SELECT_VALIDATING ->
+                ServiceAuthCleanupAction.STOP_CANDIDATE_AND_PRESERVE_AUTH
+
+            failure == ServiceAuthFailure.TIMEOUT ||
+                failure == ServiceAuthFailure.COROUTINE_CANCELLED ->
+                ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED
+
+            else -> ServiceAuthCleanupAction.PRESERVE_AUTH
+        }
+        if (cleanup == ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED) {
+            sessionPhase = ServiceAuthSessionPhase.CANCELLING
+            operationPhases.replaceAll { operationKey, phase ->
+                if (operationKey.authGeneration == key.authGeneration) {
+                    ServiceAuthOperationPhase.CLEANING
+                } else {
+                    phase
+                }
+            }
+        } else {
+            operationPhases[key] = ServiceAuthOperationPhase.CLEANING
+        }
+
+        val terminal: AuthOperationTerminal<T> = when (failure) {
+            ServiceAuthFailure.TIMEOUT -> AuthOperationTerminal.TimedOut
+            ServiceAuthFailure.COROUTINE_CANCELLED -> AuthOperationTerminal.Cancelled
+            ServiceAuthFailure.API_RETURNED,
+            ServiceAuthFailure.STORAGE,
+            -> AuthOperationTerminal.Failed(message)
+        }
+        return ServiceAuthFailurePlan(key, kind, terminal, cleanup).also {
+            plannedFailures[key] = it
+        }
+    }
+
+    fun <T> finishFailure(plan: ServiceAuthFailurePlan<T>): Boolean {
+        if (plannedFailures[plan.key] !== plan) return false
+        plannedFailures.remove(plan.key)
+
+        if (plan.action == ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED) {
+            if (
+                activeGeneration != plan.key.authGeneration ||
+                sessionPhase != ServiceAuthSessionPhase.CANCELLING
+            ) {
+                return false
+            }
+            activeGeneration = 0
+            sessionPhase = ServiceAuthSessionPhase.RESTART_REQUIRED
+            plannedFailures.keys.removeAll { it.authGeneration == plan.key.authGeneration }
+            operationPhases.keys.removeAll { it.authGeneration == plan.key.authGeneration }
+            ackKinds.keys.removeAll { it.authGeneration == plan.key.authGeneration }
+            return operations.completeAndCancelGeneration(plan.key, plan.kind, plan.terminal)
+        }
+
+        operationPhases.remove(plan.key)
+        ackKinds.remove(plan.key)
+        return operations.complete(plan.key, plan.kind, plan.terminal)
+    }
+
+    fun <T> planSessionClear(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+        ownerTerminal: AuthOperationTerminal<T>,
+    ): ServiceAuthSessionClearPlan<T>? {
+        val clearsSession =
+            kind === AuthOperationKind.SELECT ||
+                kind === AuthOperationKind.CANCEL ||
+                kind === AuthOperationKind.LOGOUT
+        if (
+            key.authGeneration != activeGeneration ||
+            operations.pendingKind(key) !== kind ||
+            sessionPhase != ServiceAuthSessionPhase.AUTHORIZED ||
+            operationPhases[key] == ServiceAuthOperationPhase.CLEANING ||
+            !clearsSession ||
+            plannedSessionClear != null
+        ) {
+            return null
+        }
+        operationPhases.replaceAll { operationKey, phase ->
+            if (operationKey.authGeneration == key.authGeneration) {
+                ServiceAuthOperationPhase.CLEANING
+            } else {
+                phase
+            }
+        }
+        sessionPhase = ServiceAuthSessionPhase.CANCELLING
+        return ServiceAuthSessionClearPlan(key, kind, ownerTerminal).also {
+            plannedSessionClear = it
+        }
+    }
+
+    fun <T> finishSessionClear(
+        plan: ServiceAuthSessionClearPlan<T>,
+        restartRequired: Boolean,
+    ): Boolean {
+        if (
+            plannedSessionClear !== plan ||
+            activeGeneration != plan.key.authGeneration ||
+            sessionPhase != ServiceAuthSessionPhase.CANCELLING
+        ) {
+            return false
+        }
+        plannedSessionClear = null
+        activeGeneration = 0
+        sessionPhase = if (restartRequired) {
+            ServiceAuthSessionPhase.RESTART_REQUIRED
+        } else {
+            ServiceAuthSessionPhase.IDLE
+        }
+        plannedFailures.keys.removeAll { it.authGeneration == plan.key.authGeneration }
+        operationPhases.keys.removeAll { it.authGeneration == plan.key.authGeneration }
+        ackKinds.keys.removeAll { it.authGeneration == plan.key.authGeneration }
+        return operations.completeAndCancelGeneration(plan.key, plan.kind, plan.terminal)
+    }
+
+    /** Teardown-only clearing when no command owns a successful terminal. */
+    fun clearSession(expectedGeneration: Long, restartRequired: Boolean): Boolean {
+        if (expectedGeneration <= 0 || activeGeneration != expectedGeneration) return false
+        activeGeneration = 0
+        sessionPhase = if (restartRequired) {
+            ServiceAuthSessionPhase.RESTART_REQUIRED
+        } else {
+            ServiceAuthSessionPhase.IDLE
+        }
+        plannedSessionClear = null
+        plannedFailures.keys.removeAll { it.authGeneration == expectedGeneration }
+        operationPhases.keys.removeAll { it.authGeneration == expectedGeneration }
+        ackKinds.keys.removeAll { it.authGeneration == expectedGeneration }
+        operations.cancelGeneration(expectedGeneration)
+        return true
+    }
+
+    fun snapshot(): ServiceAuthSnapshot = ServiceAuthSnapshot(activeGeneration, sessionPhase)
+}
+
+/** Hard rejection budget applied before any auth snapshot is written to Bundle or Parcel. */
+internal object AuthSnapshotBounds {
+    private const val MAX_TUNNELS = 100
+    private const val MAX_HOSTNAMES = 512
+    private const val MAX_DYNAMIC_TEXT_BYTES = 128 * 1024
+
+    fun isValid(
+        loginState: CloudflareLoginState,
+        accountId: String,
+        tunnels: List<ExistingTunnel>,
+        metadata: CommittedTunnelCredentialMetadata?,
+    ): Boolean {
+        if (tunnels.size > MAX_TUNNELS) return false
+        var hostnameCount = 0
+        var textBytes = 0
+
+        fun include(value: String?): Boolean {
+            if (value == null) return true
+            textBytes += value.toByteArray(StandardCharsets.UTF_8).size
+            return textBytes <= MAX_DYNAMIC_TEXT_BYTES
+        }
+
+        if (!include(loginState.authorizationUrl) || !include(loginState.error) || !include(accountId)) {
+            return false
+        }
+        for (tunnel in tunnels) {
+            hostnameCount += tunnel.hostnames.size
+            if (hostnameCount > MAX_HOSTNAMES || !include(tunnel.id) || !include(tunnel.name)) return false
+            for (hostname in tunnel.hostnames) {
+                if (!include(hostname)) return false
+            }
+        }
+        if (metadata != null) {
+            if (
+                !include(metadata.accountId) ||
+                !include(metadata.tunnelId) ||
+                !include(metadata.tunnelName) ||
+                !include(metadata.canonicalHostname)
+            ) {
+                return false
+            }
+        }
+        return true
     }
 }
 
