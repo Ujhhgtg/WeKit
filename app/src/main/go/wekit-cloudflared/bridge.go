@@ -147,6 +147,7 @@ func startQuickTunnel(
 			handle.fail("quick tunnel request failed: "+err.Error(), nil)
 			return
 		}
+		defer wipe(quick.Credentials.TunnelSecret)
 		quick.URL = boundText(quick.URL, maxURLBytes)
 		observer := handleObserver{handle: handle, url: quick.URL}
 		if err := run(handle.ctx, origin, quick, observer); err != nil && !errors.Is(err, context.Canceled) {
@@ -174,6 +175,7 @@ func startTokenTunnel(token, origin string, callback bridgeCallback, run tunnelR
 			handle.fail("tunnel token is invalid", []string{token})
 			return
 		}
+		defer wipe(credentials.TunnelSecret)
 		if run == nil {
 			handle.fail("authenticated tunnel runtime is unavailable", append(credentialStrings(credentials), token))
 			return
@@ -214,17 +216,31 @@ func validateOwnedTunnelTokenPayload(payload []byte, decodeErr error) ([]byte, e
 func parseDecodedTunnelToken(payload []byte) (connection.Credentials, error) {
 	defer wipe(payload)
 	var token connection.TunnelToken
+	if err := decodeTunnelTokenJSON(payload, &token); err != nil {
+		return connection.Credentials{}, err
+	}
+	return validateDecodedTunnelToken(&token)
+}
+
+func decodeTunnelTokenJSON(payload []byte, token *connection.TunnelToken) error {
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&token); err != nil {
-		return connection.Credentials{}, errors.New("tunnel token is invalid")
+	if err := decoder.Decode(token); err != nil {
+		wipe(token.TunnelSecret)
+		return errors.New("tunnel token is invalid")
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return connection.Credentials{}, errors.New("tunnel token is invalid")
+		wipe(token.TunnelSecret)
+		return errors.New("tunnel token is invalid")
 	}
+	return nil
+}
+
+func validateDecodedTunnelToken(token *connection.TunnelToken) (connection.Credentials, error) {
 	if !tokenAccountPattern.MatchString(token.AccountTag) ||
 		len(token.TunnelSecret) != 32 || token.TunnelID == uuid.Nil ||
 		(token.Endpoint != "" && !tokenEndpointPattern.MatchString(token.Endpoint)) {
+		wipe(token.TunnelSecret)
 		return connection.Credentials{}, errors.New("tunnel token is invalid")
 	}
 	return token.Credentials(), nil

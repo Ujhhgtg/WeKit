@@ -433,6 +433,67 @@ func TestReadOnlyAPIListsRemoteTunnelsWithValidatedIngressEvidence(t *testing.T)
 	}
 }
 
+func TestIndependentAuthListJSONOmitsInternalServiceEvidence(t *testing.T) {
+	client := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch {
+		case strings.Contains(request.URL.Host, "login.cloudflareaccess.org"):
+			return response(http.StatusOK, string(originCertificate(t, "account-id", "api-secret"))), nil
+		case strings.HasSuffix(request.URL.Path, "/configurations"):
+			return response(http.StatusOK, `{
+                    "success":true,
+                    "result":{"config":{"ingress":[
+                        {"hostname":"Receipts.Example.COM","service":"http://user:password@localhost:3000/path?token=service-secret"},
+                        {"service":"http_status:404"}
+                    ]}}
+                }`), nil
+		default:
+			return response(http.StatusOK, `{
+                    "success":true,
+                    "result":[{"id":"d8d8fa75-d6cb-4615-a09b-187ae29908fa","name":"receipts","deleted_at":null,"remote_config":true,"config_src":"cloudflare"}],
+                    "result_info":{"page":1,"per_page":100,"count":1,"total_count":1}
+                }`), nil
+		}
+	})
+	transfer, err := newLoginTransfer(client, bytesReader32(15))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle := newIndependentAuthHandle(transfer, defaultAuthAPIFactory(client), nil)
+	defer handle.close()
+	waitForAuthState(t, handle.session, authAuthorized)
+	payload, err := handle.listJSON(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"service", "user", "password", "service-secret"} {
+		if strings.Contains(string(payload), forbidden) {
+			t.Fatalf("public tunnel JSON leaked %q: %s", forbidden, payload)
+		}
+	}
+	var decoded struct {
+		Generation uint64 `json:"generation"`
+		Tunnels    []struct {
+			ID        string   `json:"id"`
+			Name      string   `json:"name"`
+			Hostnames []string `json:"hostnames"`
+		} `json:"tunnels"`
+	}
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Generation != handle.generation || len(decoded.Tunnels) != 1 {
+		t.Fatalf("public tunnel list = %#v", decoded)
+	}
+	tunnel := decoded.Tunnels[0]
+	if tunnel.ID != "d8d8fa75-d6cb-4615-a09b-187ae29908fa" || tunnel.Name != "receipts" ||
+		len(tunnel.Hostnames) != 1 || tunnel.Hostnames[0] != "receipts.example.com" {
+		t.Fatalf("public tunnel = %#v", tunnel)
+	}
+	if len(payload) > maxAuthJSONBytes {
+		t.Fatalf("public tunnel JSON length = %d", len(payload))
+	}
+}
+
 func TestReadOnlyAPIRejectsDuplicateHostnamesAndOversizedPagination(t *testing.T) {
 	tunnelEnvelope := `{
         "success":true,

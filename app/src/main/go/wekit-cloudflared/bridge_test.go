@@ -83,6 +83,7 @@ func testCredentials() connection.Credentials {
 func TestQuickHandlePublishesConnectedURLAndStopWaitsForTransport(t *testing.T) {
 	recorder := newEventRecorder()
 	transportExited := make(chan struct{})
+	var runnerSecretAlias []byte
 	request := func(context.Context) (quickTunnel, error) {
 		return quickTunnel{
 			URL:         "https://example.trycloudflare.com",
@@ -90,6 +91,7 @@ func TestQuickHandlePublishesConnectedURLAndStopWaitsForTransport(t *testing.T) 
 		}, nil
 	}
 	run := func(ctx context.Context, _ string, quick quickTunnel, observer tunnelEventObserver) error {
+		runnerSecretAlias = quick.Credentials.TunnelSecret
 		observer.connected(quick.URL)
 		<-ctx.Done()
 		close(transportExited)
@@ -131,6 +133,32 @@ func TestQuickHandlePublishesConnectedURLAndStopWaitsForTransport(t *testing.T) 
 	snapshot := handle.snapshot()
 	if snapshot.Status != statusStopped || snapshot.URL != "" || snapshot.Error != "" {
 		t.Fatalf("snapshot after stop = %#v", snapshot)
+	}
+	for index, value := range runnerSecretAlias {
+		if value != 0 {
+			t.Fatalf("quick-stop tunnel secret byte %d was not wiped", index)
+		}
+	}
+}
+
+func TestQuickHandleWipesRunnerCredentialAliasOnNormalReturn(t *testing.T) {
+	var runnerSecretAlias []byte
+	handle := startQuickTunnel(
+		"http://127.0.0.1:8080",
+		nil,
+		func(context.Context) (quickTunnel, error) {
+			return quickTunnel{URL: "https://normal.example.com", Credentials: testCredentials()}, nil
+		},
+		func(_ context.Context, _ string, quick quickTunnel, _ tunnelEventObserver) error {
+			runnerSecretAlias = quick.Credentials.TunnelSecret
+			return nil
+		},
+	)
+	handle.wait()
+	for index, value := range runnerSecretAlias {
+		if value != 0 {
+			t.Fatalf("quick-normal tunnel secret byte %d was not wiped", index)
+		}
 	}
 }
 
@@ -408,6 +436,7 @@ func TestLoginCallbackUsesOwnedDispatcher(t *testing.T) {
 func TestQuickHandleRedactsAndBoundsCredentialBearingErrors(t *testing.T) {
 	recorder := newEventRecorder()
 	credentials := testCredentials()
+	var runnerSecretAlias []byte
 	encodedSecret := base64.StdEncoding.EncodeToString(credentials.TunnelSecret)
 	request := func(context.Context) (quickTunnel, error) {
 		return quickTunnel{
@@ -415,7 +444,8 @@ func TestQuickHandleRedactsAndBoundsCredentialBearingErrors(t *testing.T) {
 			Credentials: credentials,
 		}, nil
 	}
-	run := func(context.Context, string, quickTunnel, tunnelEventObserver) error {
+	run := func(_ context.Context, _ string, quick quickTunnel, _ tunnelEventObserver) error {
+		runnerSecretAlias = quick.Credentials.TunnelSecret
 		return errors.New("account-secret tunnel-secret " + encodedSecret + " " + strings.Repeat("x", maxErrorBytes))
 	}
 
@@ -437,6 +467,11 @@ func TestQuickHandleRedactsAndBoundsCredentialBearingErrors(t *testing.T) {
 	for _, event := range recorder.snapshot() {
 		if len(event.Error) > maxErrorBytes {
 			t.Fatalf("callback error length = %d, max = %d", len(event.Error), maxErrorBytes)
+		}
+	}
+	for index, value := range runnerSecretAlias {
+		if value != 0 {
+			t.Fatalf("quick-error tunnel secret byte %d was not wiped", index)
 		}
 	}
 }
@@ -1010,6 +1045,65 @@ func TestParseDecodedTunnelTokenWipesOwnedJSONPayload(t *testing.T) {
 	}
 }
 
+func TestDecodeTunnelTokenJSONWipesPopulatedSecretOnUnknownField(t *testing.T) {
+	payload := []byte(`{
+        "a":"account-secret",
+        "s":"MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+        "unknown":true,
+        "t":"d8d8fa75-d6cb-4615-a09b-187ae29908fa"
+    }`)
+	var token connection.TunnelToken
+	if err := decodeTunnelTokenJSON(payload, &token); err == nil {
+		t.Fatal("token JSON with unknown field was accepted")
+	}
+	if len(token.TunnelSecret) != 32 {
+		t.Fatalf("test secret was not populated before decode failure: len=%d", len(token.TunnelSecret))
+	}
+	for index, value := range token.TunnelSecret {
+		if value != 0 {
+			t.Fatalf("decode-error tunnel secret byte %d was not wiped", index)
+		}
+	}
+}
+
+func TestValidateDecodedTunnelTokenWipesSecretOnIdentityFailure(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*connection.TunnelToken)
+	}{
+		{
+			name: "invalid endpoint",
+			mutate: func(token *connection.TunnelToken) {
+				token.Endpoint = "bad endpoint/secret"
+			},
+		},
+		{
+			name: "invalid account",
+			mutate: func(token *connection.TunnelToken) {
+				token.AccountTag = "bad account"
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			secret := []byte("0123456789abcdef0123456789abcdef")
+			token := connection.TunnelToken{
+				AccountTag:   "account-secret",
+				TunnelSecret: secret,
+				TunnelID:     uuid.MustParse("d8d8fa75-d6cb-4615-a09b-187ae29908fa"),
+			}
+			test.mutate(&token)
+			if _, err := validateDecodedTunnelToken(&token); err == nil {
+				t.Fatal("invalid decoded token was accepted")
+			}
+			for index, value := range secret {
+				if value != 0 {
+					t.Fatalf("validation-error tunnel secret byte %d was not wiped", index)
+				}
+			}
+		})
+	}
+}
+
 func TestValidateOwnedTunnelTokenPayloadWipesPartialDecodeError(t *testing.T) {
 	validRaw := encodedTestToken(t, nil)
 	partialPayload, decodeErr := base64.StdEncoding.Strict().DecodeString(validRaw[:len(validRaw)-2] + "!")
@@ -1060,6 +1154,11 @@ func TestTokenHandleRunsDecodedCredentialsAndCancels(t *testing.T) {
 	default:
 		t.Fatal("stop returned before token runner exited")
 	}
+	for index, value := range credentials.TunnelSecret {
+		if value != 0 {
+			t.Fatalf("normal-stop tunnel secret byte %d was not wiped", index)
+		}
+	}
 	for _, event := range recorder.snapshot() {
 		if strings.Contains(event.Error, token) || strings.Contains(event.Error, "account-secret") {
 			t.Fatalf("event leaked credentials: %#v", event)
@@ -1070,11 +1169,13 @@ func TestTokenHandleRunsDecodedCredentialsAndCancels(t *testing.T) {
 func TestTokenHandleRedactsCredentialsFromRunnerFailure(t *testing.T) {
 	recorder := newEventRecorder()
 	token := encodedTestToken(t, nil)
+	var runnerSecretAlias []byte
 	handle := startTokenTunnel(
 		token,
 		"http://127.0.0.1:3000",
 		recorder.record,
-		func(context.Context, string, quickTunnel, tunnelEventObserver) error {
+		func(_ context.Context, _ string, tunnel quickTunnel, _ tunnelEventObserver) error {
+			runnerSecretAlias = tunnel.Credentials.TunnelSecret
 			return errors.New("account-secret 0123456789abcdef0123456789abcdef " + token)
 		},
 	)
@@ -1086,6 +1187,26 @@ func TestTokenHandleRedactsCredentialsFromRunnerFailure(t *testing.T) {
 	for _, secret := range []string{"account-secret", "0123456789abcdef0123456789abcdef", token} {
 		if strings.Contains(snapshot.Error, secret) {
 			t.Fatalf("failure leaked %q: %q", secret, snapshot.Error)
+		}
+	}
+	for index, value := range runnerSecretAlias {
+		if value != 0 {
+			t.Fatalf("runner-error tunnel secret byte %d was not wiped", index)
+		}
+	}
+}
+
+func TestTokenHandleNilRunnerTerminatesWithRedactedFailure(t *testing.T) {
+	token := encodedTestToken(t, nil)
+	handle := startTokenTunnel(token, "http://127.0.0.1:3000", nil, nil)
+	handle.wait()
+	snapshot := handle.snapshot()
+	if snapshot.Status != statusFailed || !strings.Contains(snapshot.Error, "unavailable") {
+		t.Fatalf("nil-runner snapshot = %#v", snapshot)
+	}
+	for _, secret := range []string{"account-secret", "0123456789abcdef0123456789abcdef", token} {
+		if strings.Contains(snapshot.Error, secret) {
+			t.Fatalf("nil-runner failure leaked %q: %q", secret, snapshot.Error)
 		}
 	}
 }

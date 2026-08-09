@@ -182,6 +182,12 @@ type independentAuthHandle struct {
 	closeOnce      sync.Once
 }
 
+type publicExistingTunnel struct {
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Hostnames []string `json:"hostnames"`
+}
+
 var independentAuthGeneration atomic.Uint64
 
 func newIndependentAuthHandle(
@@ -235,10 +241,22 @@ func (h *independentAuthHandle) listJSON(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	publicTunnels := make([]publicExistingTunnel, len(tunnels))
+	for index, tunnel := range tunnels {
+		hostnames := make([]string, len(tunnel.Ingress))
+		for ingressIndex, ingress := range tunnel.Ingress {
+			hostnames[ingressIndex] = ingress.Hostname
+		}
+		publicTunnels[index] = publicExistingTunnel{
+			ID:        tunnel.ID,
+			Name:      tunnel.Name,
+			Hostnames: hostnames,
+		}
+	}
 	return marshalBoundedAuthJSON(struct {
-		Generation uint64           `json:"generation"`
-		Tunnels    []existingTunnel `json:"tunnels"`
-	}{Generation: h.generation, Tunnels: tunnels})
+		Generation uint64                 `json:"generation"`
+		Tunnels    []publicExistingTunnel `json:"tunnels"`
+	}{Generation: h.generation, Tunnels: publicTunnels})
 }
 
 func (h *independentAuthHandle) selectToken(
