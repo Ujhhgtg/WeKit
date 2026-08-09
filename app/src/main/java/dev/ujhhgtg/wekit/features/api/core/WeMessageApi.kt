@@ -278,6 +278,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private val methodQuoteBuilderBuild by dexMethod()
     private val methodQuoteTaskExecute by dexMethod()
     private val methodQuoteNativeTextScene by dexMethod()
+    private val fieldQuoteBuilderConstructorId by dexField()
     private val fieldQuoteForwardInfoMsgId by dexField()
     private val fieldQuoteForwardInfoTalker by dexField()
 
@@ -532,6 +533,30 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         val quoteBuilderName = quoteBuilderFactory.returnTypeName
         val quoteBuilder = quoteBuilderFactory.returnType!!
         classQuoteBuilder.setDescriptor(quoteBuilder)
+
+        val quoteBuilderIntWrites = quoteRetransmit.usingFields
+            .filter { it.usingType == FieldUsingType.Write }
+            .map { it.field }
+            .filter { it.className == quoteBuilderName && it.typeName == "int" }
+            .distinctBy { it.descriptor }
+        // The constructor selector is dispatched independently by another builder interceptor;
+        // the payload int is only read together with the selector and other builder arguments.
+        fieldQuoteBuilderConstructorId.setDescriptor(
+            quoteBuilderIntWrites.single { candidate ->
+                candidate.readers.any { reader ->
+                    reader.paramTypeNames == listOf(quoteBuilderName) &&
+                        reader.usingFields
+                            .filter { it.usingType == FieldUsingType.Read }
+                            .map { it.field }
+                            .filter {
+                                it.className == quoteBuilderName && it.typeName == "int"
+                            }
+                            .distinctBy { it.descriptor }
+                            .singleOrNull()
+                            ?.descriptor == candidate.descriptor
+                }
+            }
+        )
 
         val anchoredStringSetters = quoteInvokes.filter {
             it.className == quoteBuilderName &&
@@ -847,6 +872,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         methodQuoteBuilderSetDestination.method.invoke(builder, talker)
         methodQuoteBuilderSetContent.method.invoke(builder, content)
         methodQuoteBuilderSetScene.method.invoke(builder, nativeTextScene(talker))
+        fieldQuoteBuilderConstructorId.field.setInt(builder, 4)
         val source = classQuoteForwardInfo.clazz.createInstance()
         fieldQuoteForwardInfoMsgId.field.set(source, sourceMsgId)
         fieldQuoteForwardInfoTalker.field.set(source, sourceTalker)
