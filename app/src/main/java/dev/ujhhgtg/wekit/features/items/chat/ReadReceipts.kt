@@ -62,7 +62,6 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.Channel
@@ -623,8 +622,14 @@ object ReadReceipts : ClickableFeature(),
             forceRestart = false,
             desiredState = ReadReceiptsRuntimeState.STARTING,
         )
-        submitOriginRequest(request) { result ->
-            onFinished?.invoke(result.map { it!! })
+        submitOriginRequest(request) { terminal ->
+            when (terminal) {
+                is OriginRequestTerminal.Completed -> {
+                    onFinished?.invoke(terminal.result.map { it!! })
+                }
+
+                OriginRequestTerminal.Superseded -> Unit
+            }
         }
     }
 
@@ -637,8 +642,14 @@ object ReadReceipts : ClickableFeature(),
             forceRestart = false,
             desiredState = ReadReceiptsRuntimeState.STOPPING,
         )
-        submitOriginRequest(request, onSuperseded) { result ->
-            onFinished?.invoke(result.map { Unit })
+        submitOriginRequest(request) { terminal ->
+            when (terminal) {
+                is OriginRequestTerminal.Completed -> {
+                    onFinished?.invoke(terminal.result.map { Unit })
+                }
+
+                OriginRequestTerminal.Superseded -> onSuperseded?.invoke()
+            }
         }
     }
 
@@ -658,94 +669,69 @@ object ReadReceipts : ClickableFeature(),
 
     private fun submitOriginRequest(
         request: OriginRequest,
-        onSuperseded: (() -> Unit)? = null,
-        onFinished: ((Result<Int?>) -> Unit)? = null,
+        onTerminal: ((OriginRequestTerminal<Int?>) -> Unit)? = null,
     ) {
+        val delivery = onTerminal?.let(::OriginTerminalDelivery)
         originScope.launch {
-            suspend fun completeSuperseded() {
-                if (onSuperseded != null) {
-                    withContext(Dispatchers.Main.immediate) { onSuperseded() }
-                }
+            val execution = OriginRequestExecution<Int?, ReadReceiptsStatus>(
+                isCurrent = { request.isCurrent() },
+                lifecycleMutex = originLifecycleMutex,
+            )
+            val terminal = execution.execute(
+                reconcile = { reconcileOrigin(request) },
+                snapshot = originController::snapshot,
+                publish = { result, status ->
+                    synchronized(originMetadataLock) {
+                        if (!request.isCurrent()) return@synchronized false
+                        result.fold(
+                            onSuccess = { port ->
+                                lastBuiltInPort = port ?: 0
+                                lastBuiltInState = status.state.name
+                                runtimeError = null
+                            },
+                            onFailure = { error ->
+                                lastBuiltInPort = status.port ?: 0
+                                lastBuiltInState = status.state.name
+                                runtimeError = error.message ?: error.javaClass.simpleName
+                            },
+                        )
+                        true
+                    }
+                },
+            )
+            withContext(Dispatchers.Main.immediate) {
+                delivery?.deliver(execution.terminalForDelivery(terminal))
             }
-
-            if (originGeneration.get() != request.generation) {
-                completeSuperseded()
-                return@launch
-            }
-            val result = originLifecycleMutex.withLock {
-                if (originGeneration.get() != request.generation) return@withLock null
-                reconcileOrigin(request)
-            } ?: run {
-                completeSuperseded()
-                return@launch
-            }
-            if (originGeneration.get() != request.generation) {
-                completeSuperseded()
-                return@launch
-            }
-
-            val status = originController.snapshot()
-            if (originGeneration.get() != request.generation) {
-                completeSuperseded()
-                return@launch
-            }
-            val published = synchronized(originMetadataLock) {
-                if (originGeneration.get() != request.generation) {
-                    false
-                } else {
-                    result.fold(
-                        onSuccess = { port ->
-                            lastBuiltInPort = port ?: 0
-                            lastBuiltInState = status.state.name
-                            runtimeError = null
-                        },
-                        onFailure = { error ->
-                            lastBuiltInPort = status.port ?: 0
-                            lastBuiltInState = status.state.name
-                            runtimeError = error.message ?: error.javaClass.simpleName
-                        },
-                    )
-                    true
-                }
-            }
-            if (!published) {
-                completeSuperseded()
-                return@launch
-            }
-            val callbackCurrent = withContext(Dispatchers.Main.immediate) {
-                if (originGeneration.get() == request.generation) {
-                    onFinished?.invoke(result)
-                    true
-                } else {
-                    false
-                }
-            }
-            if (!callbackCurrent) completeSuperseded()
         }
     }
 
-    /** Runs under [originLifecycleMutex]; null means a newer desired generation superseded it. */
-    private suspend fun reconcileOrigin(request: OriginRequest): Result<Int?>? {
-        if (!request.isCurrent()) return null
+    /** Runs under [originLifecycleMutex] and returns one typed execution terminal. */
+    private suspend fun reconcileOrigin(request: OriginRequest): OriginRequestTerminal<Int?> {
+        if (!request.isCurrent()) return OriginRequestTerminal.Superseded
         val requestedPort = request.port
         if (requestedPort == null) {
             val terminal = stopOriginAndAwait(request)
-            if (!request.isCurrent()) return null
-            return if (terminal == ReadReceiptsRuntimeState.STOPPED) {
-                Result.success(null)
+            if (!request.isCurrent()) return OriginRequestTerminal.Superseded
+            val result = if (terminal == ReadReceiptsRuntimeState.STOPPED) {
+                Result.success<Int?>(null)
             } else {
                 Result.failure(IllegalStateException("内置服务器未能及时停止"))
             }
+            return OriginRequestTerminal.Completed(result)
         }
 
         val status = originController.snapshot()
-        if (!request.isCurrent()) return null
+        if (!request.isCurrent()) return OriginRequestTerminal.Superseded
         if (request.forceRestart) {
             if (stopOriginAndAwait(request) == null) {
-                if (!request.isCurrent()) return null
-                return Result.failure(IllegalStateException("内置服务器未能及时停止, 配置尚未应用"))
+                if (!request.isCurrent()) return OriginRequestTerminal.Superseded
+                return OriginRequestTerminal.Completed(
+                    Result.failure(
+                        IllegalStateException("内置服务器未能及时停止, 配置尚未应用"),
+                    ),
+                )
             }
-            if (!request.isCurrent()) return null
+            if (!request.isCurrent()) return OriginRequestTerminal.Superseded
             return startOriginNative(request, requestedPort)
         }
 
@@ -756,25 +742,31 @@ object ReadReceipts : ClickableFeature(),
         request: OriginRequest,
         requestedPort: Int,
         status: ReadReceiptsStatus,
-    ): Result<Int?>? = when (status.state) {
+    ): OriginRequestTerminal<Int?> = when (status.state) {
         ReadReceiptsRuntimeState.RUNNING -> {
             if (requestedPort == 0 || status.port == requestedPort) {
-                Result.success(status.port!!)
+                OriginRequestTerminal.Completed(Result.success(status.port!!))
             } else {
                 val terminal = stopOriginAndAwait(request)
-                if (!request.isCurrent()) return null
+                if (!request.isCurrent()) return OriginRequestTerminal.Superseded
                 if (terminal == ReadReceiptsRuntimeState.STOPPED) {
                     startOriginNative(request, requestedPort)
                 } else {
-                    Result.failure(IllegalStateException("内置服务器未能切换到指定端口"))
+                    OriginRequestTerminal.Completed(
+                        Result.failure(
+                            IllegalStateException("内置服务器未能切换到指定端口"),
+                        ),
+                    )
                 }
             }
         }
         ReadReceiptsRuntimeState.STARTING -> {
             val settled = awaitOriginStartSettlement(request)
-            if (!request.isCurrent()) return null
+            if (!request.isCurrent()) return OriginRequestTerminal.Superseded
             if (settled == null) {
-                Result.failure(IllegalStateException("内置服务器未能及时完成启动"))
+                OriginRequestTerminal.Completed(
+                    Result.failure(IllegalStateException("内置服务器未能及时完成启动")),
+                )
             } else {
                 startOriginFromStatus(request, requestedPort, settled)
             }
@@ -782,9 +774,11 @@ object ReadReceipts : ClickableFeature(),
 
         ReadReceiptsRuntimeState.STOPPING -> {
             val terminal = awaitOriginTerminal(request)
-            if (!request.isCurrent()) return null
+            if (!request.isCurrent()) return OriginRequestTerminal.Superseded
             if (terminal == null) {
-                Result.failure(IllegalStateException("内置服务器未能及时停止"))
+                OriginRequestTerminal.Completed(
+                    Result.failure(IllegalStateException("内置服务器未能及时停止")),
+                )
             } else {
                 startOriginNative(request, requestedPort)
             }
@@ -795,10 +789,17 @@ object ReadReceipts : ClickableFeature(),
         -> startOriginNative(request, requestedPort)
     }
 
-    private fun startOriginNative(request: OriginRequest, requestedPort: Int): Result<Int?>? {
-        if (!request.isCurrent()) return null
+    private fun startOriginNative(
+        request: OriginRequest,
+        requestedPort: Int,
+    ): OriginRequestTerminal<Int?> {
+        if (!request.isCurrent()) return OriginRequestTerminal.Superseded
         val result = originController.startBuiltIn(requestedPort).map { it as Int? }
-        return if (request.isCurrent()) result else null
+        return if (request.isCurrent()) {
+            OriginRequestTerminal.Completed(result)
+        } else {
+            OriginRequestTerminal.Superseded
+        }
     }
 
     private suspend fun stopOriginAndAwait(request: OriginRequest): ReadReceiptsRuntimeState? {

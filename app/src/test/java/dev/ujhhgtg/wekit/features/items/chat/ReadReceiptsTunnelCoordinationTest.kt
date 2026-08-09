@@ -3,16 +3,35 @@ package dev.ujhhgtg.wekit.features.items.chat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicIntegerArray
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
 
 class ReadReceiptsTunnelCoordinationTest {
+
+    enum class OriginStaleCheckpoint {
+        PRE_QUEUE,
+        PRE_RECONCILE,
+        POST_RECONCILE,
+        PRE_SNAPSHOT,
+        PRE_PUBLISH,
+        PRE_MAIN_DELIVERY,
+    }
+
+    private enum class OriginOperation {
+        START,
+        STOP,
+    }
 
     @Test
     fun `network invalidation keeps an existing native owner unverifiable until it restarts`() {
@@ -336,6 +355,141 @@ class ReadReceiptsTunnelCoordinationTest {
 
         assertEquals(1, firstFailure.get())
         assertTrue(completions.register(null))
+    }
+
+    @Test
+    fun `completed and superseded delivery attempts invoke the origin owner once`() {
+        val ownerTerminals = ConcurrentLinkedQueue<OriginRequestTerminal<Int>>()
+        val delivery = OriginTerminalDelivery<Int>(ownerTerminals::add)
+        val ready = CountDownLatch(16)
+        val deliver = CountDownLatch(1)
+        val attempts = List(16) { index ->
+            thread {
+                ready.countDown()
+                deliver.await()
+                if (index % 2 == 0) {
+                    delivery.deliver(OriginRequestTerminal.Completed(Result.success(index)))
+                } else {
+                    delivery.deliver(OriginRequestTerminal.Superseded)
+                }
+            }
+        }
+
+        ready.await()
+        deliver.countDown()
+        attempts.forEach(Thread::join)
+
+        assertEquals(1, ownerTerminals.size)
+        assertFalse(
+            delivery.deliver(OriginRequestTerminal.Completed(Result.success(99))),
+        )
+        assertFalse(delivery.deliver(OriginRequestTerminal.Superseded))
+        assertEquals(1, ownerTerminals.size)
+    }
+
+    @ParameterizedTest
+    @EnumSource(OriginStaleCheckpoint::class)
+    fun `each stale origin checkpoint supersedes old start and stop owners once`(
+        staleCheckpoint: OriginStaleCheckpoint,
+    ) = runBlocking {
+        OriginOperation.entries.forEach { operation ->
+            val currentChecks = AtomicInteger()
+            val rollbacks = AtomicInteger()
+            val saves = AtomicInteger()
+            val starts = AtomicInteger()
+            val stops = AtomicInteger()
+            val reconciles = AtomicInteger()
+            val snapshots = AtomicInteger()
+            val publishes = AtomicInteger()
+            val oldOwnerTerminals = ConcurrentLinkedQueue<OriginRequestTerminal<Int?>>()
+            val execution = OriginRequestExecution<Int?, String>(
+                isCurrent = {
+                    currentChecks.getAndIncrement() < staleCheckpoint.ordinal
+                },
+                lifecycleMutex = Mutex(),
+            )
+            val terminal = execution.execute(
+                reconcile = {
+                    reconciles.incrementAndGet()
+                    OriginRequestTerminal.Completed(Result.success(8123))
+                },
+                snapshot = {
+                    snapshots.incrementAndGet()
+                    "running:8123"
+                },
+                publish = { _, _ ->
+                    publishes.incrementAndGet()
+                    true
+                },
+            )
+            val delivery = OriginTerminalDelivery<Int?> { delivered ->
+                oldOwnerTerminals += delivered
+                when (delivered) {
+                    is OriginRequestTerminal.Completed -> {
+                        rollbacks.incrementAndGet()
+                        saves.incrementAndGet()
+                        when (operation) {
+                            OriginOperation.START -> starts.incrementAndGet()
+                            OriginOperation.STOP -> stops.incrementAndGet()
+                        }
+                    }
+
+                    OriginRequestTerminal.Superseded -> Unit
+                }
+            }
+
+            assertTrue(delivery.deliver(execution.terminalForDelivery(terminal)))
+            assertEquals(1, oldOwnerTerminals.size, "$operation at $staleCheckpoint")
+            assertSame(
+                OriginRequestTerminal.Superseded,
+                oldOwnerTerminals.single(),
+                "$operation at $staleCheckpoint",
+            )
+            assertEquals(0, rollbacks.get(), "$operation at $staleCheckpoint")
+            assertEquals(0, saves.get(), "$operation at $staleCheckpoint")
+            assertEquals(0, starts.get(), "$operation at $staleCheckpoint")
+            assertEquals(0, stops.get(), "$operation at $staleCheckpoint")
+            assertEquals(
+                if (staleCheckpoint == OriginStaleCheckpoint.PRE_QUEUE ||
+                    staleCheckpoint == OriginStaleCheckpoint.PRE_RECONCILE
+                ) 0 else 1,
+                reconciles.get(),
+                "$operation at $staleCheckpoint",
+            )
+            assertEquals(
+                if (staleCheckpoint >= OriginStaleCheckpoint.PRE_PUBLISH) 1 else 0,
+                snapshots.get(),
+                "$operation at $staleCheckpoint",
+            )
+            assertEquals(
+                if (staleCheckpoint == OriginStaleCheckpoint.PRE_MAIN_DELIVERY) 1 else 0,
+                publishes.get(),
+                "$operation at $staleCheckpoint",
+            )
+        }
+
+        val replacementOwnerTerminals = ConcurrentLinkedQueue<OriginRequestTerminal<Int?>>()
+        val replacementExecution = OriginRequestExecution<Int?, String>(
+            isCurrent = { true },
+            lifecycleMutex = Mutex(),
+        )
+        val replacementTerminal = replacementExecution.execute(
+            reconcile = {
+                OriginRequestTerminal.Completed(Result.success(9123))
+            },
+            snapshot = { "running:9123" },
+            publish = { _, _ -> true },
+        )
+        val replacementDelivery = OriginTerminalDelivery<Int?>(replacementOwnerTerminals::add)
+
+        assertTrue(
+            replacementDelivery.deliver(
+                replacementExecution.terminalForDelivery(replacementTerminal),
+            ),
+        )
+        val completed = replacementOwnerTerminals.single()
+            as OriginRequestTerminal.Completed<Int?>
+        assertEquals(9123, completed.result.getOrThrow())
     }
 
     @Test

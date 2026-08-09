@@ -1,5 +1,67 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+internal sealed interface OriginRequestTerminal<out T> {
+    data class Completed<T>(val result: Result<T>) : OriginRequestTerminal<T>
+
+    data object Superseded : OriginRequestTerminal<Nothing>
+}
+
+/** Delivers the terminal owned by one origin request at most once. */
+internal class OriginTerminalDelivery<T>(
+    private val owner: (OriginRequestTerminal<T>) -> Unit,
+) {
+    private var delivered = false
+
+    fun deliver(terminal: OriginRequestTerminal<T>): Boolean {
+        synchronized(this) {
+            if (delivered) return false
+            delivered = true
+        }
+        owner(terminal)
+        return true
+    }
+}
+
+/** Computes one typed origin terminal across the worker-side staleness checkpoints. */
+internal class OriginRequestExecution<T, S>(
+    private val isCurrent: () -> Boolean,
+    private val lifecycleMutex: Mutex,
+) {
+    suspend fun execute(
+        reconcile: suspend () -> OriginRequestTerminal<T>,
+        snapshot: () -> S,
+        publish: (Result<T>, S) -> Boolean,
+    ): OriginRequestTerminal<T> {
+        if (!isCurrent()) return OriginRequestTerminal.Superseded // Pre-queue.
+        val reconciled = lifecycleMutex.withLock {
+            if (!isCurrent()) return@withLock OriginRequestTerminal.Superseded
+            reconcile()
+        }
+        val completed = when (reconciled) {
+            is OriginRequestTerminal.Completed -> reconciled
+            OriginRequestTerminal.Superseded -> return OriginRequestTerminal.Superseded
+        }
+        if (!isCurrent()) return OriginRequestTerminal.Superseded // Post-reconcile.
+        if (!isCurrent()) return OriginRequestTerminal.Superseded // Pre-snapshot.
+        val status = snapshot()
+        if (!isCurrent()) return OriginRequestTerminal.Superseded // Pre-publish.
+        if (!publish(completed.result, status)) return OriginRequestTerminal.Superseded
+        return completed
+    }
+
+    /** Must be called on Main immediately before [OriginTerminalDelivery.deliver]. */
+    fun terminalForDelivery(
+        terminal: OriginRequestTerminal<T>,
+    ): OriginRequestTerminal<T> = if (isCurrent()) {
+        terminal
+    } else {
+        OriginRequestTerminal.Superseded
+    }
+}
+
 /**
  * Serializes ownership of the process-global native handle by configuration generation.
  * Native operations execute while holding this monitor, so a stale cleanup cannot race a new start.
