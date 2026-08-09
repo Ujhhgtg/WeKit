@@ -70,10 +70,6 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
         }
 
         when (chatLiveBottomBarLayers.size) {
-            1 -> classMediaGalleryChatLiveBottomBarLayer.setDescriptor(
-                chatLiveBottomBarLayers.single()
-            )
-
             0 -> {
                 classMediaGalleryChatLiveBottomBarLayer.setPlaceholderDescriptor(
                     expectedFailure = true,
@@ -90,19 +86,14 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 return
             }
 
+            1 -> classMediaGalleryChatLiveBottomBarLayer.setDescriptor(
+                chatLiveBottomBarLayers.single()
+            )
+
             else -> error(
                 "multiple MediaGallery.ChatLiveBottomBarLayer classes found: " +
                     chatLiveBottomBarLayers.joinToString { it.name }
             )
-        }
-
-        methodUpdateMediaGalleryVideoOriginButton.find(dexKit) {
-            matcher {
-                declaredClass(classMediaGalleryVideoBottomBarLayer.data.name)
-                paramTypes("java.lang.String", "boolean")
-                returnType = "void"
-                usingEqStrings("getString(...)")
-            }
         }
 
         methodBindMediaGalleryChatLiveBottomBar.find(dexKit) {
@@ -112,6 +103,31 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 returnType = "void"
                 usingEqStrings("bindContext", "msgInfo")
             }
+        }
+
+        val updateVideoOriginButtonMethods = dexKit.findMethod {
+            matcher {
+                declaredClass(classMediaGalleryVideoBottomBarLayer.data.name)
+                paramTypes("java.lang.String", "boolean")
+                returnType = "void"
+                usingEqStrings("getString(...)")
+            }
+        }
+
+        when (updateVideoOriginButtonMethods.size) {
+            0 -> methodUpdateMediaGalleryVideoOriginButton.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "layered original-video controls are absent",
+            )
+
+            1 -> methodUpdateMediaGalleryVideoOriginButton.setDescriptor(
+                updateVideoOriginButtonMethods.single()
+            )
+
+            else -> error(
+                "multiple layered original-video update methods found: " +
+                    updateVideoOriginButtonMethods.joinToString { it.descriptor }
+            )
         }
     }
 
@@ -127,7 +143,7 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             }
         }
 
-        if (!classMediaGalleryChatLiveBottomBarLayer.isPlaceholder) {
+        if (!methodUpdateMediaGalleryVideoOriginButton.isPlaceholder) {
             methodUpdateMediaGalleryVideoOriginButton.hookAfter {
                 if (args[1] as Boolean) return@hookAfter
 

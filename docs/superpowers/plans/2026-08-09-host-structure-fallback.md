@@ -226,7 +226,7 @@ git commit -m "refactor: select image send path by host structure"
 
 **Interfaces:**
 - Consumes: `DexKitBridge.findClass`, Dex class/method delegates, `ClassData.name`, and hook-time `isPlaceholder`.
-- Produces: `classMediaGalleryChatLiveBottomBarLayer` as the one new-layout probe controlling both new hooks.
+- Produces: `methodUpdateMediaGalleryVideoOriginButton` as the one complete-new-layout probe controlling both new hooks.
 
 - [ ] **Step 1: Remove the exact-version declaration**
 
@@ -295,14 +295,17 @@ methodBindMediaGalleryChatLiveBottomBar.find(dexKit) {
 }
 ```
 
-This order ensures that successful probe selection makes both new methods mandatory.
+8.0.74 validation showed that the class and bind method appear before the complete new path. Resolve
+both as prerequisites when present, then query `methodUpdateMediaGalleryVideoOriginButton`
+explicitly. Its zero result selects the common-controls fallback; its unique result selects the
+complete layered path.
 
-- [ ] **Step 3: Gate both layered hooks with the class probe**
+- [ ] **Step 3: Gate both layered hooks with the original-video update probe**
 
 Replace the two independent method-placeholder conditions with one probe condition while preserving the bodies:
 
 ```kotlin
-if (!classMediaGalleryChatLiveBottomBarLayer.isPlaceholder) {
+if (!methodUpdateMediaGalleryVideoOriginButton.isPlaceholder) {
     methodUpdateMediaGalleryVideoOriginButton.hookAfter {
         if (args[1] as Boolean) return@hookAfter
 

@@ -81,20 +81,28 @@ Dex 解析和运行时以同一个探针为唯一选择依据，避免两份版�
 
 ### 探针
 
-使用只在新分层媒体布局中存在的 `classMediaGalleryChatLiveBottomBarLayer` 作为探针。
+使用只在完整新分层媒体布局中存在的
+`methodUpdateMediaGalleryVideoOriginButton` 作为探针。8.0.74 已经出现
+`classMediaGalleryChatLiveBottomBarLayer` 及其带 `bindContext`、`msgInfo` 锚点的绑定方法，
+但还没有更新原视频按钮的方法，因此类和绑定方法都不能用于选择完整新路径。
 
 ### Dex 解析
 
-所有版本共有的原图/原视频入口继续严格解析。随后尝试解析探针：
+所有版本共有的原图/原视频入口继续严格解析。随后尝试解析声明类、绑定方法和探针：
 
-- 探针存在：严格解析 `methodBindMediaGalleryChatLiveBottomBar` 和 `methodUpdateMediaGalleryVideoOriginButton`；
-- 探针不存在：将上述两个新路径方法标记为预期 placeholder，不解析新路径的依赖结构。
+- 声明类不存在：将声明类和两个新路径方法标记为预期 placeholder；
+- 声明类存在：严格解析 `methodBindMediaGalleryChatLiveBottomBar`；
+- 探针不存在：只将探针标记为预期 placeholder，保留实际存在的声明类和绑定方法；
+- 探针存在：保存其唯一结果。
 
 `classMediaGalleryVideoBottomBarLayer` 属于 `methodUpdateMediaGalleryVideoOriginButton` 的声明类依赖，保持严格解析；它本身不作为版本选择条件。
 
 ### Hook 安装
 
-共有原图/原视频 Hook 始终安装。只有当 `classMediaGalleryChatLiveBottomBarLayer.isPlaceholder == false` 时，才安装分层原视频按钮和实况照片底栏 Hook。新路径中的任一必需方法若解析失败，应在 Dex 阶段失败，而不是在 Hook 阶段分别跳过。
+共有原图/原视频 Hook 始终安装。只有当
+`methodUpdateMediaGalleryVideoOriginButton.isPlaceholder == false` 时，才安装分层原视频按钮
+和实况照片底栏 Hook。新路径中的任一必需方法若解析失败，应在 Dex 阶段失败，而不是
+在 Hook 阶段分别跳过。
 
 ## `AutoDndAfterJoinGroup`
 
