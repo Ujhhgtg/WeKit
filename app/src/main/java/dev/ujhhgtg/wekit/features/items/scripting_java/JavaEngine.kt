@@ -1045,8 +1045,8 @@ object JavaEngine {
                     "sendQuoteMsg", arrayOf(BString, java.lang.Long.TYPE, BString)
                 ) {
                     val talker = it[0] as String
-                    val content = it[1] as String
-                    val msgId = it[2] as Long
+                    val msgId = it[1] as Long
+                    val content = it[2] as String
                     return@BshMethod runCatchingBsh("sendQuoteMsg") {
                         WeMessageApi.sendQuoteTextByMsgId(talker, msgId, content)
                     }.getOrDefault(false)
