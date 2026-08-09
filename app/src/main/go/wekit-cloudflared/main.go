@@ -11,6 +11,8 @@ typedef void *jobject;
 typedef void *jstring;
 typedef long long jlong;
 typedef int jint;
+typedef int jsize;
+typedef unsigned short jchar;
 #endif
 
 typedef void (*wekit_callback)(void *user, int status, const char *url, const char *error);
@@ -37,7 +39,7 @@ static int wekit_callback_is_for(void *handle) {
 	return wekit_active_callback_handle == handle;
 }
 
-static char *wekit_copy_jstring(JNIEnv *env, jstring value) {
+static char *wekit_copy_jstring_bounded(JNIEnv *env, jstring value, size_t max_len) {
 #ifdef __ANDROID__
 	if (value == NULL) {
 		return NULL;
@@ -46,12 +48,32 @@ static char *wekit_copy_jstring(JNIEnv *env, jstring value) {
 	if (characters == NULL) {
 		return NULL;
 	}
-	char *copy = strdup(characters);
+	size_t length = strnlen(characters, max_len + 1);
+	if (length > max_len) {
+		(*env)->ReleaseStringUTFChars(env, value, characters);
+		return NULL;
+	}
+	char *copy = malloc(length + 1);
+	if (copy != NULL) {
+		memcpy(copy, characters, length);
+		copy[length] = '\0';
+	}
 	(*env)->ReleaseStringUTFChars(env, value, characters);
 	return copy;
 #else
 	return NULL;
 #endif
+}
+
+static void wekit_free_secret(char *value) {
+	if (value == NULL) {
+		return;
+	}
+	volatile unsigned char *cursor = (volatile unsigned char *)value;
+	while (*cursor != 0) {
+		*cursor++ = 0;
+	}
+	free(value);
 }
 
 static jstring wekit_new_jstring(JNIEnv *env, const char *value) {
@@ -61,11 +83,26 @@ static jstring wekit_new_jstring(JNIEnv *env, const char *value) {
 	return NULL;
 #endif
 }
+
+static jstring wekit_new_jstring_utf16(JNIEnv *env, const jchar *value, jsize length) {
+#ifdef __ANDROID__
+	if (value == NULL || length < 0) {
+		return NULL;
+	}
+	return (*env)->NewString(env, value, length);
+#else
+	return NULL;
+#endif
+}
 */
 import "C"
 
 import (
+	"context"
+	"errors"
 	"sync"
+	"unicode/utf16"
+	"unicode/utf8"
 	"unsafe"
 )
 
@@ -73,6 +110,12 @@ var handleRegistry = struct {
 	sync.Mutex
 	handles map[unsafe.Pointer]*tunnelHandle
 }{handles: make(map[unsafe.Pointer]*tunnelHandle)}
+
+var authHandleRegistry = struct {
+	sync.Mutex
+	nextID  uint64
+	handles map[uint64]*independentAuthHandle
+}{handles: make(map[uint64]*independentAuthHandle)}
 
 type callbackIdentity struct {
 	ready   chan struct{}
@@ -130,7 +173,18 @@ func wekit_tunnel_begin_login(pointer unsafe.Pointer, callback C.wekit_callback,
 	if handle == nil {
 		return C.int(resultInvalid)
 	}
-	return C.int(handle.beginLogin(cCallback(callback, user, readyCallbackIdentity(pointer))))
+	client := newAuthHTTPClient()
+	transfer, err := newLoginTransfer(client, nil)
+	if err != nil {
+		client.CloseIdleConnections()
+		return C.int(resultInvalid)
+	}
+	return C.int(handle.beginLogin(
+		cCallback(callback, user, readyCallbackIdentity(pointer)),
+		transfer,
+		defaultAuthAPIFactory(client),
+		client.CloseIdleConnections,
+	))
 }
 
 //export wekit_tunnel_select_existing
@@ -142,7 +196,7 @@ func wekit_tunnel_select_existing(pointer unsafe.Pointer, tunnelID *C.char, host
 	if handle == nil {
 		return C.int(resultInvalid)
 	}
-	return C.int(handle.selectExisting("", ""))
+	return C.int(handle.selectExisting(C.GoString(tunnelID), C.GoString(hostname)))
 }
 
 //export wekit_tunnel_stop
@@ -193,7 +247,7 @@ func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeS
 	origin C.jstring,
 ) C.jlong {
 	_ = receiver
-	rawOrigin := C.wekit_copy_jstring(env, origin)
+	rawOrigin := C.wekit_copy_jstring_bounded(env, origin, C.size_t(maxURLBytes))
 	if rawOrigin == nil {
 		return 0
 	}
@@ -211,12 +265,12 @@ func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeS
 	origin C.jstring,
 ) C.jlong {
 	_ = receiver
-	rawToken := C.wekit_copy_jstring(env, token)
+	rawToken := C.wekit_copy_jstring_bounded(env, token, C.size_t(maxTokenBytes))
 	if rawToken == nil {
 		return 0
 	}
-	defer C.free(unsafe.Pointer(rawToken))
-	rawOrigin := C.wekit_copy_jstring(env, origin)
+	defer C.wekit_free_secret(rawToken)
+	rawOrigin := C.wekit_copy_jstring_bounded(env, origin, C.size_t(maxURLBytes))
 	if rawOrigin == nil {
 		return 0
 	}
@@ -259,6 +313,125 @@ func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeS
 	cPayload := C.CString(string(payload))
 	defer C.free(unsafe.Pointer(cPayload))
 	return C.wekit_new_jstring(env, cPayload)
+}
+
+//export Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthBegin
+func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthBegin(
+	env *C.JNIEnv,
+	receiver C.jobject,
+) C.jlong {
+	_ = env
+	_ = receiver
+	client := newAuthHTTPClient()
+	transfer, err := newLoginTransfer(client, nil)
+	if err != nil {
+		client.CloseIdleConnections()
+		return 0
+	}
+	handle := newIndependentAuthHandle(
+		transfer,
+		defaultAuthAPIFactory(client),
+		client.CloseIdleConnections,
+	)
+	id := registerAuthHandle(handle)
+	return C.jlong(id)
+}
+
+//export Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthStatus
+func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthStatus(
+	env *C.JNIEnv,
+	receiver C.jobject,
+	pointer C.jlong,
+) C.jstring {
+	_ = receiver
+	handle := lookupAuthHandle(authID(pointer))
+	if handle == nil {
+		return newJNIString(env, []byte(`{"generation":0,"authorizationUrl":"","state":"FAILED","accountId":"","error":"invalid browser login handle","selectedTunnelId":"","selectedHostname":""}`))
+	}
+	payload, err := handle.statusJSON()
+	if err != nil {
+		return newJNIString(env, []byte(`{"generation":0,"authorizationUrl":"","state":"FAILED","accountId":"","error":"could not encode browser login status","selectedTunnelId":"","selectedHostname":""}`))
+	}
+	return newJNIString(env, payload)
+}
+
+//export Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthList
+func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthList(
+	env *C.JNIEnv,
+	receiver C.jobject,
+	pointer C.jlong,
+) C.jstring {
+	_ = receiver
+	handle := lookupAuthHandle(authID(pointer))
+	if handle == nil {
+		return newJNIString(env, []byte(`{"generation":0,"tunnels":[],"error":"invalid browser login handle"}`))
+	}
+	payload, err := handle.listJSON(context.Background())
+	if err != nil {
+		failure, marshalErr := marshalBoundedAuthJSON(struct {
+			Generation uint64           `json:"generation"`
+			Tunnels    []existingTunnel `json:"tunnels"`
+			Error      string           `json:"error"`
+		}{Generation: handle.generation, Tunnels: []existingTunnel{}, Error: "could not list Cloudflare tunnels"})
+		if marshalErr != nil {
+			return nil
+		}
+		return newJNIString(env, failure)
+	}
+	return newJNIString(env, payload)
+}
+
+//export Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthSelect
+func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthSelect(
+	env *C.JNIEnv,
+	receiver C.jobject,
+	pointer C.jlong,
+	tunnelID C.jstring,
+	hostname C.jstring,
+) C.jstring {
+	_ = receiver
+	handle := lookupAuthHandle(authID(pointer))
+	if handle == nil {
+		return nil
+	}
+	rawTunnelID := C.wekit_copy_jstring_bounded(env, tunnelID, 64)
+	if rawTunnelID == nil {
+		return nil
+	}
+	defer C.free(unsafe.Pointer(rawTunnelID))
+	rawHostname := C.wekit_copy_jstring_bounded(env, hostname, C.size_t(maxURLBytes))
+	if rawHostname == nil {
+		return nil
+	}
+	defer C.free(unsafe.Pointer(rawHostname))
+	token, err := handle.selectToken(
+		context.Background(),
+		C.GoString(rawTunnelID),
+		C.GoString(rawHostname),
+	)
+	if err != nil || len(token) == 0 || len(token) > maxTokenBytes {
+		return nil
+	}
+	cToken := C.CString(token)
+	if cToken == nil {
+		return nil
+	}
+	defer C.wekit_free_secret(cToken)
+	return C.wekit_new_jstring(env, cToken)
+}
+
+//export Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthCancel
+func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeAuthCancel(
+	env *C.JNIEnv,
+	receiver C.jobject,
+	pointer C.jlong,
+) C.jint {
+	_ = env
+	_ = receiver
+	if !closeRegisteredAuthHandle(authID(pointer)) {
+		return C.jint(resultInvalid)
+	}
+	return C.jint(resultOK)
 }
 
 func registerHandle(handle *tunnelHandle, identity *callbackIdentity) unsafe.Pointer {
@@ -309,6 +482,56 @@ func unregisterHandle(pointer unsafe.Pointer, expected *tunnelHandle) bool {
 	return true
 }
 
+func registerAuthHandle(handle *independentAuthHandle) uint64 {
+	if handle == nil {
+		return 0
+	}
+	authHandleRegistry.Lock()
+	if authHandleRegistry.nextID == uint64(^uint64(0)>>1) {
+		authHandleRegistry.Unlock()
+		handle.close()
+		return 0
+	}
+	authHandleRegistry.nextID++
+	id := authHandleRegistry.nextID
+	authHandleRegistry.handles[id] = handle
+	authHandleRegistry.Unlock()
+	return id
+}
+
+func lookupAuthHandle(id uint64) *independentAuthHandle {
+	if id == 0 {
+		return nil
+	}
+	authHandleRegistry.Lock()
+	defer authHandleRegistry.Unlock()
+	return authHandleRegistry.handles[id]
+}
+
+func closeRegisteredAuthHandle(id uint64) bool {
+	if id == 0 {
+		return false
+	}
+	authHandleRegistry.Lock()
+	handle := authHandleRegistry.handles[id]
+	if handle != nil {
+		delete(authHandleRegistry.handles, id)
+	}
+	authHandleRegistry.Unlock()
+	if handle == nil {
+		return false
+	}
+	handle.close()
+	return true
+}
+
+func authID(value C.jlong) uint64 {
+	if value <= 0 {
+		return 0
+	}
+	return uint64(value)
+}
+
 func cCallback(callback C.wekit_callback, user unsafe.Pointer, identity *callbackIdentity) bridgeCallback {
 	if callback == nil {
 		return nil
@@ -320,6 +543,29 @@ func cCallback(callback C.wekit_callback, user unsafe.Pointer, identity *callbac
 		defer C.free(unsafe.Pointer(failure))
 		C.wekit_invoke_callback(callback, identity.get(), user, C.int(event.Status), url, failure)
 	}
+}
+
+func newJNIString(env *C.JNIEnv, payload []byte) C.jstring {
+	encoded, err := encodeJNIUTF16(payload)
+	if err != nil {
+		return nil
+	}
+	return C.wekit_new_jstring_utf16(
+		env,
+		(*C.jchar)(unsafe.Pointer(&encoded[0])),
+		C.jsize(len(encoded)),
+	)
+}
+
+func encodeJNIUTF16(payload []byte) ([]uint16, error) {
+	if len(payload) == 0 || len(payload) > maxAuthJSONBytes || !utf8.Valid(payload) {
+		return nil, errors.New("JNI string payload is invalid")
+	}
+	encoded := utf16.Encode([]rune(string(payload)))
+	if len(encoded) == 0 || len(encoded) > maxAuthJSONBytes {
+		return nil, errors.New("JNI string payload exceeds supported bounds")
+	}
+	return encoded, nil
 }
 
 func main() {}

@@ -82,6 +82,29 @@ type tunnelHandle struct {
 	mu        sync.Mutex
 	state     bridgeSnapshot
 	callbacks *callbackDispatcher
+
+	authMu         sync.Mutex
+	auth           *attachedAuth
+	authGeneration uint64
+}
+
+type attachedAuth struct {
+	generation     uint64
+	session        *authSession
+	closeTransport func()
+	closeOnce      sync.Once
+}
+
+func (a *attachedAuth) close() {
+	if a == nil {
+		return
+	}
+	a.closeOnce.Do(func() {
+		a.session.close()
+		if a.closeTransport != nil {
+			a.closeTransport()
+		}
+	})
 }
 
 func newTunnelHandle(callback bridgeCallback) *tunnelHandle {
@@ -173,9 +196,23 @@ func parseTunnelToken(raw string) (connection.Credentials, error) {
 		return connection.Credentials{}, errors.New("tunnel token is invalid")
 	}
 	payload, err := base64.StdEncoding.Strict().DecodeString(raw)
-	if err != nil || len(payload) == 0 || len(payload) > maxTokenBytes {
-		return connection.Credentials{}, errors.New("tunnel token is invalid")
+	payload, err = validateOwnedTunnelTokenPayload(payload, err)
+	if err != nil {
+		return connection.Credentials{}, err
 	}
+	return parseDecodedTunnelToken(payload)
+}
+
+func validateOwnedTunnelTokenPayload(payload []byte, decodeErr error) ([]byte, error) {
+	if decodeErr != nil || len(payload) == 0 || len(payload) > maxTokenBytes {
+		wipe(payload)
+		return nil, errors.New("tunnel token is invalid")
+	}
+	return payload, nil
+}
+
+func parseDecodedTunnelToken(payload []byte) (connection.Credentials, error) {
+	defer wipe(payload)
 	var token connection.TunnelToken
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.DisallowUnknownFields()
@@ -193,25 +230,116 @@ func parseTunnelToken(raw string) (connection.Credentials, error) {
 	return token.Credentials(), nil
 }
 
-func (h *tunnelHandle) beginLogin(callback bridgeCallback) int {
-	event := bridgeEvent{
-		Status: statusUnsupported,
-		Error:  "browser login is not implemented in this Quick Tunnel proof of concept",
+func (h *tunnelHandle) beginLogin(
+	callback bridgeCallback,
+	transfer preparedLoginTransfer,
+	apiFactory authAPIFactory,
+	closeTransport func(),
+) int {
+	if transfer == nil || apiFactory == nil {
+		if closeTransport != nil {
+			closeTransport()
+		}
+		return resultInvalid
 	}
+	h.authMu.Lock()
+	if h.ctx.Err() != nil {
+		h.authMu.Unlock()
+		if closeTransport != nil {
+			closeTransport()
+		}
+		return resultInvalid
+	}
+	previous := h.auth
+	h.auth = nil
+	if previous != nil {
+		previous.close()
+	}
+	if h.ctx.Err() != nil {
+		h.authMu.Unlock()
+		if closeTransport != nil {
+			closeTransport()
+		}
+		return resultInvalid
+	}
+	h.authGeneration++
+	session := beginAuthSession(h.authGeneration, transfer, apiFactory)
+	attached := &attachedAuth{
+		generation:     h.authGeneration,
+		session:        session,
+		closeTransport: closeTransport,
+	}
+	h.auth = attached
+	h.wg.Add(1)
+	h.authMu.Unlock()
 	if callback != nil {
-		h.callbacks.enqueueWith(callback, event)
+		h.callbacks.enqueueWith(callback, authBridgeEvent(session.snapshot()))
 	}
-	return resultUnsupported
+	go func() {
+		defer h.wg.Done()
+		session.waitLogin()
+		h.authMu.Lock()
+		ownsCurrent := h.auth == attached && h.authGeneration == attached.generation && h.ctx.Err() == nil
+		h.authMu.Unlock()
+		if ownsCurrent && callback != nil {
+			h.callbacks.enqueueWith(callback, authBridgeEvent(session.snapshot()))
+		}
+	}()
+	return resultOK
 }
 
-func (h *tunnelHandle) selectExisting(_, _ string) int {
-	return resultUnsupported
+func (h *tunnelHandle) selectExisting(tunnelID, hostname string) int {
+	session := h.authSnapshot()
+	if session == nil {
+		return resultInvalid
+	}
+	token, err := session.selectToken(h.ctx, tunnelID, hostname)
+	if err != nil {
+		return resultInvalid
+	}
+	// The compatibility C adapter records selection state only. Its signature has no safe token
+	// output or origin input, so it intentionally does not replace the active connector.
+	_ = token
+	return resultOK
+}
+
+func (h *tunnelHandle) authSnapshot() *authSession {
+	h.authMu.Lock()
+	defer h.authMu.Unlock()
+	if h.auth == nil {
+		return nil
+	}
+	return h.auth.session
+}
+
+func (h *tunnelHandle) detachAuth() *attachedAuth {
+	h.authMu.Lock()
+	defer h.authMu.Unlock()
+	session := h.auth
+	h.auth = nil
+	return session
+}
+
+func authBridgeEvent(snapshot authSnapshot) bridgeEvent {
+	switch snapshot.State {
+	case authWaiting:
+		return bridgeEvent{Status: statusStarting, URL: snapshot.AuthorizationURL}
+	case authAuthorized:
+		return bridgeEvent{Status: statusConnected, URL: snapshot.AuthorizationURL}
+	case authFailed:
+		return bridgeEvent{Status: statusFailed, Error: snapshot.Error}
+	default:
+		return bridgeEvent{Status: statusStopped}
+	}
 }
 
 func (h *tunnelHandle) requestStop() {
 	h.stopOnce.Do(func() {
 		h.publish(bridgeEvent{Status: statusStopping})
 		h.cancel()
+		if session := h.detachAuth(); session != nil {
+			session.close()
+		}
 		h.wg.Wait()
 		h.publishStopped()
 	})

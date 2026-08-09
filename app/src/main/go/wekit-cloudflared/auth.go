@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cloudflare/cloudflared/credentials"
@@ -49,6 +50,7 @@ const (
 	maxTunnelNameBytes        = 128
 	maxServiceBytes           = 2048
 	loginPollAttempts         = 10
+	maxAuthJSONBytes          = 512 * 1024
 )
 
 var (
@@ -173,6 +175,104 @@ type authSnapshot struct {
 	SelectedHostname string           `json:"selectedHostname"`
 }
 
+type independentAuthHandle struct {
+	generation     uint64
+	session        *authSession
+	closeTransport func()
+	closeOnce      sync.Once
+}
+
+var independentAuthGeneration atomic.Uint64
+
+func newIndependentAuthHandle(
+	transfer preparedLoginTransfer,
+	apiFactory authAPIFactory,
+	closeTransport func(),
+) *independentAuthHandle {
+	if transfer == nil || apiFactory == nil {
+		if closeTransport != nil {
+			closeTransport()
+		}
+		return nil
+	}
+	generation := independentAuthGeneration.Add(1)
+	return &independentAuthHandle{
+		generation:     generation,
+		session:        beginAuthSession(generation, transfer, apiFactory),
+		closeTransport: closeTransport,
+	}
+}
+
+func (h *independentAuthHandle) statusJSON() ([]byte, error) {
+	if h == nil || h.session == nil {
+		return nil, errors.New("browser login handle is invalid")
+	}
+	snapshot := h.session.snapshot()
+	return marshalBoundedAuthJSON(struct {
+		Generation       uint64    `json:"generation"`
+		AuthorizationURL string    `json:"authorizationUrl"`
+		State            authState `json:"state"`
+		AccountID        string    `json:"accountId"`
+		Error            string    `json:"error"`
+		SelectedTunnelID string    `json:"selectedTunnelId"`
+		SelectedHostname string    `json:"selectedHostname"`
+	}{
+		Generation:       h.generation,
+		AuthorizationURL: boundText(snapshot.AuthorizationURL, maxURLBytes),
+		State:            snapshot.State,
+		AccountID:        snapshot.AccountID,
+		Error:            boundText(snapshot.Error, maxErrorBytes),
+		SelectedTunnelID: snapshot.SelectedTunnelID,
+		SelectedHostname: snapshot.SelectedHostname,
+	})
+}
+
+func (h *independentAuthHandle) listJSON(ctx context.Context) ([]byte, error) {
+	if h == nil || h.session == nil {
+		return nil, errors.New("browser login handle is invalid")
+	}
+	tunnels, err := h.session.list(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return marshalBoundedAuthJSON(struct {
+		Generation uint64           `json:"generation"`
+		Tunnels    []existingTunnel `json:"tunnels"`
+	}{Generation: h.generation, Tunnels: tunnels})
+}
+
+func (h *independentAuthHandle) selectToken(
+	ctx context.Context,
+	tunnelID string,
+	hostname string,
+) (string, error) {
+	if h == nil || h.session == nil {
+		return "", errors.New("browser login handle is invalid")
+	}
+	return h.session.selectToken(ctx, tunnelID, hostname)
+}
+
+func (h *independentAuthHandle) close() {
+	if h == nil {
+		return
+	}
+	h.closeOnce.Do(func() {
+		h.session.close()
+		if h.closeTransport != nil {
+			h.closeTransport()
+		}
+	})
+}
+
+func marshalBoundedAuthJSON(value any) ([]byte, error) {
+	payload, err := json.Marshal(value)
+	if err != nil || len(payload) == 0 || len(payload) > maxAuthJSONBytes {
+		wipe(payload)
+		return nil, errors.New("browser login response exceeds supported bounds")
+	}
+	return payload, nil
+}
+
 type authCredential struct {
 	accountID []byte
 	apiToken  []byte
@@ -263,6 +363,7 @@ type authSession struct {
 	generation uint64
 	ctx        context.Context
 	cancel     context.CancelFunc
+	loginDone  chan struct{}
 	wg         sync.WaitGroup
 	closeOnce  sync.Once
 
@@ -283,6 +384,7 @@ func beginAuthSession(
 		generation: generation,
 		ctx:        ctx,
 		cancel:     cancel,
+		loginDone:  make(chan struct{}),
 		apiFactory: apiFactory,
 		snapshotV: authSnapshot{
 			Generation:       generation,
@@ -293,6 +395,7 @@ func beginAuthSession(
 	session.wg.Add(1)
 	go func() {
 		defer session.wg.Done()
+		defer close(session.loginDone)
 		certificate, err := transfer.wait(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
@@ -320,6 +423,10 @@ func beginAuthSession(
 		session.snapshotV.Error = ""
 	}()
 	return session
+}
+
+func (s *authSession) waitLogin() {
+	<-s.loginDone
 }
 
 func (s *authSession) fail(message string) {

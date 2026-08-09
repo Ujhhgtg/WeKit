@@ -5,11 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf16"
 
 	"github.com/cloudflare/cloudflared/connection"
 	"github.com/google/uuid"
@@ -357,19 +360,29 @@ func TestLoginCallbackUsesOwnedDispatcher(t *testing.T) {
 	handle := newTunnelHandle(nil)
 	callbackEntered := make(chan struct{})
 	releaseCallback := make(chan struct{})
+	var callbackOnce sync.Once
 	beginReturned := make(chan int, 1)
 	go func() {
 		beginReturned <- handle.beginLogin(func(bridgeEvent) {
-			close(callbackEntered)
-			<-releaseCallback
-		})
+			callbackOnce.Do(func() {
+				close(callbackEntered)
+				<-releaseCallback
+			})
+		}, fakeLoginTransfer{
+			authorizationURL: "https://dash.cloudflare.com/login-test",
+			poll: func(context.Context) ([]byte, error) {
+				return originCertificate(t, "account-id", "api-secret"), nil
+			},
+		}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return nil, errors.New("not used")
+		})), nil)
 	}()
 	<-callbackEntered
 
 	select {
 	case result := <-beginReturned:
-		if result != resultUnsupported {
-			t.Fatalf("begin login result = %d, want %d", result, resultUnsupported)
+		if result != resultOK {
+			t.Fatalf("begin login result = %d, want %d", result, resultOK)
 		}
 	case <-time.After(50 * time.Millisecond):
 		t.Fatal("begin login executed its callback inline")
@@ -428,15 +441,507 @@ func TestQuickHandleRedactsAndBoundsCredentialBearingErrors(t *testing.T) {
 	}
 }
 
-func TestAuthenticatedFacadeOperationsAreExplicitlyUnsupported(t *testing.T) {
+func TestAuthenticatedFacadeUsesSelectedTunnelAndHostnameWithoutSwitchingConnector(t *testing.T) {
+	selectedRunToken := encodedTestToken(t, func(token *connection.TunnelToken) {
+		token.AccountTag = "account-id"
+	})
+	var requestedTokenPath string
+	var tokenBodyClosed atomic.Bool
+	client := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(request.URL.Path, "/token") {
+			requestedTokenPath = request.URL.Path
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body: &observedReadCloser{
+					Reader: strings.NewReader(`{"success":true,"result":"` + selectedRunToken + `"}`),
+					closed: &tokenBodyClosed,
+				},
+			}, nil
+		}
+		return response(http.StatusOK, `{
+            "success":true,
+            "result":[{"id":"d8d8fa75-d6cb-4615-a09b-187ae29908fa","name":"receipts","deleted_at":null,"remote_config":false}],
+            "result_info":{"page":1,"per_page":100,"count":1,"total_count":1}
+        }`), nil
+	})
 	handle := newTunnelHandle(nil)
-	if got := handle.beginLogin(nil); got != resultUnsupported {
-		t.Fatalf("beginLogin result = %d, want unsupported", got)
+	if got := handle.beginLogin(nil, fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/login-test",
+		poll: func(context.Context) ([]byte, error) {
+			return originCertificate(t, "account-id", "api-secret"), nil
+		},
+	}, defaultAuthAPIFactory(client), nil); got != resultOK {
+		t.Fatalf("beginLogin result = %d, want OK", got)
 	}
-	if got := handle.selectExisting("tunnel-id", "public.example.com"); got != resultUnsupported {
-		t.Fatalf("selectExisting result = %d, want unsupported", got)
+	waitForAuthState(t, handle.authSnapshot(), authAuthorized)
+	if got := handle.selectExisting(
+		"d8d8fa75-d6cb-4615-a09b-187ae29908fa",
+		"https://Receipts.Example.com/",
+	); got != resultOK {
+		t.Fatalf("selectExisting result = %d, want OK", got)
+	}
+	if requestedTokenPath != "/client/v4/accounts/account-id/cfd_tunnel/d8d8fa75-d6cb-4615-a09b-187ae29908fa/token" {
+		t.Fatalf("token path = %q", requestedTokenPath)
+	}
+	if !tokenBodyClosed.Load() {
+		t.Fatal("token response body was not closed")
+	}
+	auth := handle.authSnapshot().snapshot()
+	if auth.SelectedTunnelID != "d8d8fa75-d6cb-4615-a09b-187ae29908fa" ||
+		auth.SelectedHostname != "https://receipts.example.com" {
+		t.Fatalf("selection state = %#v", auth)
+	}
+	if snapshot := handle.snapshot(); snapshot.Status != statusStopped {
+		t.Fatalf("connector status changed during auth selection: %#v", snapshot)
+	}
+	for _, snapshot := range []any{handle.snapshot(), auth} {
+		payload, err := json.Marshal(snapshot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(payload), selectedRunToken) || strings.Contains(string(payload), "api-secret") {
+			t.Fatalf("public snapshot leaked auth secret: %s", payload)
+		}
 	}
 	handle.stop()
+}
+
+func TestAttachedAuthReplacementSuppressesLateOldTerminalCallback(t *testing.T) {
+	handle := newTunnelHandle(nil)
+	oldPollEntered := make(chan struct{})
+	oldPollCancelled := make(chan struct{})
+	releaseOldPoll := make(chan struct{})
+	oldEvents := make(chan bridgeEvent, 4)
+	if got := handle.beginLogin(func(event bridgeEvent) {
+		oldEvents <- event
+	}, fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/old-login",
+		poll: func(ctx context.Context) ([]byte, error) {
+			close(oldPollEntered)
+			<-ctx.Done()
+			close(oldPollCancelled)
+			<-releaseOldPoll
+			return nil, ctx.Err()
+		},
+	}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})), nil); got != resultOK {
+		t.Fatalf("old begin result = %d", got)
+	}
+	<-oldPollEntered
+	if event := receiveBridgeEvent(t, oldEvents); event.Status != statusStarting {
+		t.Fatalf("old initial event = %#v", event)
+	}
+
+	replacementReturned := make(chan int, 1)
+	newAuthorizationStarted := make(chan struct{})
+	go func() {
+		replacementReturned <- handle.beginLogin(nil, observedLoginTransfer{
+			authorize: func() string {
+				close(newAuthorizationStarted)
+				return "https://dash.cloudflare.com/new-login"
+			},
+			poll: func(ctx context.Context) ([]byte, error) {
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return nil, errors.New("unexpected API request")
+		})), nil)
+	}()
+	<-oldPollCancelled
+	select {
+	case <-newAuthorizationStarted:
+		t.Fatal("new auth started before prior poll exited")
+	default:
+	}
+	close(releaseOldPoll)
+	if result := <-replacementReturned; result != resultOK {
+		t.Fatalf("replacement result = %d", result)
+	}
+	select {
+	case <-newAuthorizationStarted:
+	default:
+		t.Fatal("new auth did not start after prior poll exited")
+	}
+	select {
+	case event := <-oldEvents:
+		t.Fatalf("old auth callback published after replacement: %#v", event)
+	case <-time.After(50 * time.Millisecond):
+	}
+	handle.stop()
+}
+
+func TestAttachedAuthPublishesStartingBeforeTerminalForEachGeneration(t *testing.T) {
+	handle := newTunnelHandle(nil)
+	events := make(chan bridgeEvent, 4)
+	if got := handle.beginLogin(func(event bridgeEvent) {
+		events <- event
+	}, fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/fast-login",
+		poll: func(context.Context) ([]byte, error) {
+			return originCertificate(t, "account-id", "api-secret"), nil
+		},
+	}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})), nil); got != resultOK {
+		t.Fatalf("begin result = %d", got)
+	}
+	if first := receiveBridgeEvent(t, events); first.Status != statusStarting {
+		t.Fatalf("first auth event = %#v, want STARTING", first)
+	}
+	if second := receiveBridgeEvent(t, events); second.Status != statusConnected {
+		t.Fatalf("terminal auth event = %#v, want CONNECTED", second)
+	}
+	handle.stop()
+}
+
+func TestAttachedAuthStopRacingReplacementCannotPublishNewGeneration(t *testing.T) {
+	handle := newTunnelHandle(nil)
+	oldCancelled := make(chan struct{})
+	releaseOld := make(chan struct{})
+	if got := handle.beginLogin(nil, fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/old",
+		poll: func(ctx context.Context) ([]byte, error) {
+			<-ctx.Done()
+			close(oldCancelled)
+			<-releaseOld
+			return nil, ctx.Err()
+		},
+	}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})), nil); got != resultOK {
+		t.Fatalf("old begin result = %d", got)
+	}
+	newStarted := make(chan struct{})
+	replacementReturned := make(chan int, 1)
+	go func() {
+		replacementReturned <- handle.beginLogin(nil, observedLoginTransfer{
+			authorize: func() string {
+				close(newStarted)
+				return "https://dash.cloudflare.com/new"
+			},
+			poll: func(ctx context.Context) ([]byte, error) {
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return nil, errors.New("unexpected API request")
+		})), nil)
+	}()
+	<-oldCancelled
+	stopReturned := make(chan struct{})
+	go func() {
+		handle.stop()
+		close(stopReturned)
+	}()
+	<-handle.ctx.Done()
+	close(releaseOld)
+	if result := <-replacementReturned; result != resultInvalid {
+		t.Fatalf("replacement result = %d, want invalid", result)
+	}
+	select {
+	case <-newStarted:
+		t.Fatal("replacement published a new auth after stop began")
+	default:
+	}
+	select {
+	case <-stopReturned:
+	case <-time.After(time.Second):
+		t.Fatal("stop did not return")
+	}
+}
+
+func TestAttachedAuthStopDrainsPollAndClosesHTTPTransport(t *testing.T) {
+	handle := newTunnelHandle(nil)
+	pollEntered := make(chan struct{})
+	pollExited := make(chan struct{})
+	transportClosed := make(chan struct{})
+	if got := handle.beginLogin(nil, fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/login",
+		poll: func(ctx context.Context) ([]byte, error) {
+			close(pollEntered)
+			<-ctx.Done()
+			close(pollExited)
+			return nil, ctx.Err()
+		},
+	}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})), func() { close(transportClosed) }); got != resultOK {
+		t.Fatalf("begin result = %d", got)
+	}
+	<-pollEntered
+	if got := handle.stop(); got != resultOK {
+		t.Fatalf("stop result = %d", got)
+	}
+	select {
+	case <-pollExited:
+	default:
+		t.Fatal("stop returned before auth poll exited")
+	}
+	select {
+	case <-transportClosed:
+	default:
+		t.Fatal("stop returned before auth HTTP transport closed")
+	}
+}
+
+func TestIndependentAuthRegistryIsTypeIsolatedFromConnectorRegistry(t *testing.T) {
+	connector := newTunnelHandle(nil)
+	connectorPointer := registerHandle(connector, newCallbackIdentity())
+	if connectorPointer == nil {
+		t.Fatal("connector registration failed")
+	}
+	auth := newIndependentAuthHandle(fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/independent",
+		poll: func(ctx context.Context) ([]byte, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})), nil)
+	authPointer := registerAuthHandle(auth)
+	if authPointer == 0 {
+		connector.stop()
+		finalizeHandle(connectorPointer, connector)
+		t.Fatal("auth registration failed")
+	}
+	if lookupAuthHandle(uint64(uintptr(connectorPointer))) != nil {
+		t.Fatal("connector pointer resolved through auth registry")
+	}
+	if lookupHandle(connectorPointer) != connector || lookupAuthHandle(authPointer) != auth {
+		t.Fatal("registered handle did not resolve through its own typed registry")
+	}
+	if !closeRegisteredAuthHandle(authPointer) {
+		t.Fatal("auth close failed")
+	}
+	connector.stop()
+	finalizeHandle(connectorPointer, connector)
+}
+
+func TestIndependentAuthCancelAndConnectorStopAreIsolated(t *testing.T) {
+	connectorExited := make(chan struct{})
+	connector := startQuickTunnel(
+		"http://127.0.0.1:8080",
+		nil,
+		func(context.Context) (quickTunnel, error) {
+			return quickTunnel{URL: "https://connector.example.com", Credentials: testCredentials()}, nil
+		},
+		func(ctx context.Context, _ string, _ quickTunnel, _ tunnelEventObserver) error {
+			<-ctx.Done()
+			close(connectorExited)
+			return ctx.Err()
+		},
+	)
+	authExited := make(chan struct{})
+	auth := newIndependentAuthHandle(fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/independent",
+		poll: func(ctx context.Context) ([]byte, error) {
+			<-ctx.Done()
+			close(authExited)
+			return nil, ctx.Err()
+		},
+	}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})), nil)
+	authPointer := registerAuthHandle(auth)
+	if !closeRegisteredAuthHandle(authPointer) {
+		t.Fatal("auth cancel failed")
+	}
+	select {
+	case <-authExited:
+	default:
+		t.Fatal("auth cancel returned before auth poll exited")
+	}
+	select {
+	case <-connectorExited:
+		t.Fatal("auth cancel stopped connector")
+	default:
+	}
+	connector.stop()
+	select {
+	case <-connectorExited:
+	default:
+		t.Fatal("connector stop did not drain connector")
+	}
+
+	secondAuthExited := make(chan struct{})
+	secondAuth := newIndependentAuthHandle(fakeLoginTransfer{
+		authorizationURL: "https://dash.cloudflare.com/second",
+		poll: func(ctx context.Context) ([]byte, error) {
+			<-ctx.Done()
+			close(secondAuthExited)
+			return nil, ctx.Err()
+		},
+	}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected API request")
+	})), nil)
+	secondPointer := registerAuthHandle(secondAuth)
+	secondConnector := newTunnelHandle(nil)
+	secondConnector.stop()
+	select {
+	case <-secondAuthExited:
+		t.Fatal("connector stop cancelled independent auth")
+	default:
+	}
+	if !closeRegisteredAuthHandle(secondPointer) {
+		t.Fatal("second auth cancel failed")
+	}
+}
+
+func TestIndependentAuthJSONIsBoundedSecretFreeAndSelectAloneReturnsToken(t *testing.T) {
+	runToken := encodedTestToken(t, func(token *connection.TunnelToken) {
+		token.AccountTag = "account-id"
+	})
+	client := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch {
+		case strings.Contains(request.URL.Host, "login.cloudflareaccess.org"):
+			return response(http.StatusOK, string(originCertificate(t, "account-id", "api-secret"))), nil
+		case strings.HasSuffix(request.URL.Path, "/token"):
+			return response(http.StatusOK, `{"success":true,"result":"`+runToken+`"}`), nil
+		default:
+			return response(http.StatusOK, `{
+                    "success":true,
+                    "result":[{"id":"d8d8fa75-d6cb-4615-a09b-187ae29908fa","name":"receipts","deleted_at":null,"remote_config":false}],
+                    "result_info":{"page":1,"per_page":100,"count":1,"total_count":1}
+                }`), nil
+		}
+	})
+	transfer, err := newLoginTransfer(client, bytesReader32(13))
+	if err != nil {
+		t.Fatal(err)
+	}
+	transportClosed := atomic.Bool{}
+	auth := newIndependentAuthHandle(transfer, defaultAuthAPIFactory(client), func() {
+		transportClosed.Store(true)
+	})
+	waitForAuthState(t, auth.session, authAuthorized)
+	statusPayload, err := auth.statusJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	listPayload, err := auth.listJSON(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, payload := range [][]byte{statusPayload, listPayload} {
+		if len(payload) == 0 || len(payload) > maxAuthJSONBytes {
+			t.Fatalf("auth JSON length = %d", len(payload))
+		}
+		for _, secret := range []string{"api-secret", runToken, "0123456789abcdef0123456789abcdef"} {
+			if strings.Contains(string(payload), secret) {
+				t.Fatalf("auth JSON leaked %q: %s", secret, payload)
+			}
+		}
+	}
+	selected, err := auth.selectToken(
+		context.Background(),
+		"d8d8fa75-d6cb-4615-a09b-187ae29908fa",
+		"https://receipts.example.com",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected != runToken {
+		t.Fatal("private select did not return the run token")
+	}
+	auth.close()
+	if !transportClosed.Load() {
+		t.Fatal("auth close did not close HTTP transport")
+	}
+}
+
+func TestIndependentAuthRegistryCancelDrainsInFlightListBeforeFree(t *testing.T) {
+	listEntered := make(chan struct{})
+	listExited := make(chan struct{})
+	client := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.Contains(request.URL.Host, "login.cloudflareaccess.org") {
+			return response(http.StatusOK, string(originCertificate(t, "account-id", "api-secret"))), nil
+		}
+		close(listEntered)
+		<-request.Context().Done()
+		close(listExited)
+		return nil, request.Context().Err()
+	})
+	transfer, err := newLoginTransfer(client, bytesReader32(14))
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth := newIndependentAuthHandle(transfer, defaultAuthAPIFactory(client), nil)
+	waitForAuthState(t, auth.session, authAuthorized)
+	pointer := registerAuthHandle(auth)
+	listReturned := make(chan struct{})
+	go func() {
+		_, _ = lookupAuthHandle(pointer).listJSON(context.Background())
+		close(listReturned)
+	}()
+	<-listEntered
+	if !closeRegisteredAuthHandle(pointer) {
+		t.Fatal("auth cancel failed")
+	}
+	select {
+	case <-listExited:
+	default:
+		t.Fatal("cancel returned before list transport exited")
+	}
+	select {
+	case <-listReturned:
+	case <-time.After(time.Second):
+		t.Fatal("cancelled list did not return")
+	}
+	if lookupAuthHandle(pointer) != nil {
+		t.Fatal("cancelled auth remained registered")
+	}
+}
+
+func TestIndependentAuthRegistryNeverReusesClosedOpaqueID(t *testing.T) {
+	newWaitingAuth := func() *independentAuthHandle {
+		return newIndependentAuthHandle(fakeLoginTransfer{
+			authorizationURL: "https://dash.cloudflare.com/opaque-id",
+			poll: func(ctx context.Context) ([]byte, error) {
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		}, defaultAuthAPIFactory(roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return nil, errors.New("unexpected API request")
+		})), nil)
+	}
+	first := newWaitingAuth()
+	var staleID uint64 = registerAuthHandle(first)
+	if !closeRegisteredAuthHandle(staleID) {
+		t.Fatal("first auth close failed")
+	}
+	second := newWaitingAuth()
+	var currentID uint64 = registerAuthHandle(second)
+	if currentID == staleID {
+		t.Fatal("closed auth opaque ID was reused")
+	}
+	if lookupAuthHandle(staleID) != nil || closeRegisteredAuthHandle(staleID) {
+		t.Fatal("stale auth ID resolved or closed the replacement")
+	}
+	if lookupAuthHandle(currentID) != second {
+		t.Fatal("stale ID operation disturbed current auth")
+	}
+	if !closeRegisteredAuthHandle(currentID) {
+		t.Fatal("second auth close failed")
+	}
+}
+
+func TestEncodeJNIUTF16PreservesSupplementaryPlaneJSON(t *testing.T) {
+	payload := []byte(`{"name":"隧道🚀"}`)
+	encoded, err := encodeJNIUTF16(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded := string(utf16.Decode(encoded))
+	if decoded != string(payload) {
+		t.Fatalf("UTF-16 round trip = %q, want %q", decoded, payload)
+	}
+	if len(encoded) <= len([]rune(string(payload))) {
+		t.Fatal("supplementary-plane rune was not encoded as a surrogate pair")
+	}
 }
 
 func encodedTestToken(t *testing.T, mutate func(*connection.TunnelToken)) string {
@@ -474,6 +979,51 @@ func TestParseTunnelTokenRejectsMalformedAndOversizeInputWithoutEchoingIt(t *tes
 		}
 		if strings.Contains(err.Error(), raw) || strings.Contains(err.Error(), "account-secret") {
 			t.Fatalf("parse error leaked token material: %q", err)
+		}
+	}
+}
+
+func TestParseDecodedTunnelTokenWipesOwnedJSONPayload(t *testing.T) {
+	validPayload, err := base64.StdEncoding.Strict().DecodeString(encodedTestToken(t, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := parseDecodedTunnelToken(validPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wipe(credentials.TunnelSecret)
+	for index, value := range validPayload {
+		if value != 0 {
+			t.Fatalf("valid decoded token byte %d was not wiped", index)
+		}
+	}
+
+	invalidPayload := []byte(`{"a":"account-secret","s":"not-base64"}`)
+	if _, err := parseDecodedTunnelToken(invalidPayload); err == nil {
+		t.Fatal("invalid decoded token was accepted")
+	}
+	for index, value := range invalidPayload {
+		if value != 0 {
+			t.Fatalf("invalid decoded token byte %d was not wiped", index)
+		}
+	}
+}
+
+func TestValidateOwnedTunnelTokenPayloadWipesPartialDecodeError(t *testing.T) {
+	validRaw := encodedTestToken(t, nil)
+	partialPayload, decodeErr := base64.StdEncoding.Strict().DecodeString(validRaw[:len(validRaw)-2] + "!")
+	if decodeErr == nil || len(partialPayload) == 0 {
+		t.Fatalf("test setup did not produce partial decode: len=%d err=%v", len(partialPayload), decodeErr)
+	}
+	owned := partialPayload
+	payload, err := validateOwnedTunnelTokenPayload(owned, decodeErr)
+	if err == nil || payload != nil {
+		t.Fatalf("partial decode returned payload %q with error %v", payload, err)
+	}
+	for index, value := range owned {
+		if value != 0 {
+			t.Fatalf("partial decoded token byte %d was not wiped", index)
 		}
 	}
 }
@@ -562,5 +1112,26 @@ func TestTokenHandleCanRepeatStartAndStop(t *testing.T) {
 		if snapshot := handle.snapshot(); snapshot.Status != statusStopped {
 			t.Fatalf("iteration %d snapshot = %#v", iteration, snapshot)
 		}
+	}
+}
+
+type observedReadCloser struct {
+	io.Reader
+	closed *atomic.Bool
+}
+
+func (r *observedReadCloser) Close() error {
+	r.closed.Store(true)
+	return nil
+}
+
+func receiveBridgeEvent(t *testing.T, events <-chan bridgeEvent) bridgeEvent {
+	t.Helper()
+	select {
+	case event := <-events:
+		return event
+	case <-time.After(time.Second):
+		t.Fatal("callback event was not delivered")
+		return bridgeEvent{}
 	}
 }
