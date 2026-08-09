@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.util.WeakHashMap
@@ -20,7 +19,6 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
     private const val MEDIA_DOWNLOAD_TEXT_CLASS =
         "com.tencent.mm.plugin.media.view.download.MediaDownloadText"
-    private const val LAYERED_ORIGINAL_MEDIA_VERSION = "8.0.76"
 
     private val methodSetImageHdImgBtnVisibility by dexMethod()
     private val methodCheckNeedShowOriginVideoBtn by dexMethod()
@@ -65,20 +63,37 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             }
         }
 
-        if (DexResolutionContext.host.versionName != LAYERED_ORIGINAL_MEDIA_VERSION) {
-            methodUpdateMediaGalleryVideoOriginButton.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "the layered original-video button is absent before WeChat 8.0.76",
+        val chatLiveBottomBarLayers = dexKit.findClass {
+            matcher {
+                usingEqStrings("MediaGallery.ChatLiveBottomBarLayer")
+            }
+        }
+
+        when (chatLiveBottomBarLayers.size) {
+            1 -> classMediaGalleryChatLiveBottomBarLayer.setDescriptor(
+                chatLiveBottomBarLayers.single()
             )
-            classMediaGalleryChatLiveBottomBarLayer.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "the chat live-photo bottom bar is absent before WeChat 8.0.76",
+
+            0 -> {
+                classMediaGalleryChatLiveBottomBarLayer.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "chat live-photo bottom bar is absent; using common media controls",
+                )
+                methodUpdateMediaGalleryVideoOriginButton.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "layered original-video controls are absent",
+                )
+                methodBindMediaGalleryChatLiveBottomBar.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "chat live-photo bottom bar is absent",
+                )
+                return
+            }
+
+            else -> error(
+                "multiple MediaGallery.ChatLiveBottomBarLayer classes found: " +
+                    chatLiveBottomBarLayers.joinToString { it.name }
             )
-            methodBindMediaGalleryChatLiveBottomBar.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "the chat live-photo bottom bar is absent before WeChat 8.0.76",
-            )
-            return
         }
 
         methodUpdateMediaGalleryVideoOriginButton.find(dexKit) {
@@ -87,12 +102,6 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 paramTypes("java.lang.String", "boolean")
                 returnType = "void"
                 usingEqStrings("getString(...)")
-            }
-        }
-
-        classMediaGalleryChatLiveBottomBarLayer.find(dexKit) {
-            matcher {
-                usingEqStrings("MediaGallery.ChatLiveBottomBarLayer")
             }
         }
 
@@ -118,7 +127,7 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             }
         }
 
-        if (!methodUpdateMediaGalleryVideoOriginButton.isPlaceholder) {
+        if (!classMediaGalleryChatLiveBottomBarLayer.isPlaceholder) {
             methodUpdateMediaGalleryVideoOriginButton.hookAfter {
                 if (args[1] as Boolean) return@hookAfter
 
@@ -130,9 +139,6 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 }.get() as Button
                 clickOriginalMediaButton(originalVideoButton)
             }
-        }
-
-        if (!methodBindMediaGalleryChatLiveBottomBar.isPlaceholder) {
             methodBindMediaGalleryChatLiveBottomBar.hookAfter {
                 val layer = thisObject!!
                 val bindContext = args[0]!!
