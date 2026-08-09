@@ -461,6 +461,134 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
     }
 
     @Test
+    fun `WAITING admits CANCEL but still rejects LIST and SELECT`() {
+        val coordinator = ServiceAuthCoordinator()
+        val beginKey = AuthOperationKey(75, 1)
+        val beginTerminals = mutableListOf<AuthOperationTerminal<CloudflareLoginState>>()
+        assertTrue(coordinator.begin(beginKey, beginTerminals::add) is ServiceAuthAdmission.Accepted)
+        assertTrue(coordinator.finishBeginBarrier(beginKey))
+
+        var rejectedCallbacks = 0
+        assertTrue(
+            coordinator.admit(
+                AuthOperationKey(75, 2),
+                AuthOperationKind.LIST,
+                ServiceAuthOperationPhase.NATIVE_BLOCKING,
+            ) { rejectedCallbacks++ } is ServiceAuthAdmission.Rejected,
+        )
+        assertTrue(
+            coordinator.admit(
+                AuthOperationKey(75, 3),
+                AuthOperationKind.SELECT,
+                ServiceAuthOperationPhase.NATIVE_BLOCKING,
+            ) { rejectedCallbacks++ } is ServiceAuthAdmission.Rejected,
+        )
+        assertEquals(0, rejectedCallbacks)
+
+        val cancelKey = AuthOperationKey(75, 4)
+        val cancelTerminals = mutableListOf<AuthOperationTerminal<Unit>>()
+        assertTrue(
+            coordinator.admit(
+                cancelKey,
+                AuthOperationKind.CANCEL,
+                ServiceAuthOperationPhase.NATIVE_BLOCKING,
+                cancelTerminals::add,
+            ) is ServiceAuthAdmission.Accepted,
+        )
+        val plan = coordinator.planSessionClear(
+            cancelKey,
+            AuthOperationKind.CANCEL,
+            AuthOperationTerminal.Completed(Unit),
+        )!!
+        assertTrue(cancelTerminals.isEmpty())
+        assertTrue(beginTerminals.isEmpty())
+        assertTrue(coordinator.finishSessionClear(plan, restartRequired = false))
+        assertEquals(listOf(AuthOperationTerminal.Completed(Unit)), cancelTerminals)
+        assertEquals(listOf(AuthOperationTerminal.Cancelled), beginTerminals)
+        assertEquals(ServiceAuthSessionPhase.IDLE, coordinator.snapshot().phase)
+        assertEquals(0L, coordinator.snapshot().authGeneration)
+    }
+
+    @Test
+    fun `ownerless teardown freezes generation until native cleanup finishes`() {
+        val coordinator = ServiceAuthCoordinator()
+        val beginKey = AuthOperationKey(76, 1)
+        val beginTerminals = mutableListOf<AuthOperationTerminal<CloudflareLoginState>>()
+        assertTrue(coordinator.begin(beginKey, beginTerminals::add) is ServiceAuthAdmission.Accepted)
+        assertTrue(coordinator.finishBeginBarrier(beginKey))
+        assertTrue(coordinator.markAuthorized(76))
+        val listKey = AuthOperationKey(76, 2)
+        val listTerminals = mutableListOf<AuthOperationTerminal<List<ExistingTunnel>>>()
+        assertTrue(
+            coordinator.admit(
+                listKey,
+                AuthOperationKind.LIST,
+                ServiceAuthOperationPhase.NATIVE_BLOCKING,
+                listTerminals::add,
+            ) is ServiceAuthAdmission.Accepted,
+        )
+
+        val plan = coordinator.planSessionTeardown(76)!!
+        assertEquals(ServiceAuthSessionPhase.CANCELLING, coordinator.snapshot().phase)
+        assertEquals(76L, coordinator.snapshot().authGeneration)
+        assertTrue(beginTerminals.isEmpty())
+        assertTrue(listTerminals.isEmpty())
+        assertFalse(
+            coordinator.complete(
+                listKey,
+                AuthOperationKind.LIST,
+                AuthOperationTerminal.Completed(emptyList()),
+            ),
+        )
+        var rejectedCallbacks = 0
+        val replacement = coordinator.begin(AuthOperationKey(77, 1)) { rejectedCallbacks++ }
+        assertEquals(
+            ServiceAuthRejectReason.SESSION_UNAVAILABLE,
+            (replacement as ServiceAuthAdmission.Rejected).reason,
+        )
+        assertEquals(0, rejectedCallbacks)
+
+        assertTrue(coordinator.finishSessionTeardown(plan, restartRequired = true))
+        assertEquals(listOf(AuthOperationTerminal.Cancelled), beginTerminals)
+        assertEquals(listOf(AuthOperationTerminal.Cancelled), listTerminals)
+        assertEquals(ServiceAuthSessionPhase.RESTART_REQUIRED, coordinator.snapshot().phase)
+        assertEquals(0L, coordinator.snapshot().authGeneration)
+        assertFalse(coordinator.finishSessionTeardown(plan, restartRequired = true))
+    }
+
+    @Test
+    fun `broken BEGIN fails only after auth cleanup finishes`() {
+        val coordinator = ServiceAuthCoordinator()
+        val key = AuthOperationKey(78, 1)
+        val terminals = mutableListOf<AuthOperationTerminal<CloudflareLoginState>>()
+        assertTrue(coordinator.begin(key, terminals::add) is ServiceAuthAdmission.Accepted)
+        assertTrue(coordinator.finishBeginBarrier(key))
+
+        val plan = coordinator.planFailure(
+            key,
+            AuthOperationKind.BEGIN,
+            ServiceAuthFailure.SESSION_BROKEN,
+            "login failed",
+        )!!
+        assertEquals(
+            ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED,
+            plan.action,
+        )
+        assertTrue(terminals.isEmpty())
+        assertFalse(
+            coordinator.complete(
+                key,
+                AuthOperationKind.BEGIN,
+                AuthOperationTerminal.Completed(waitingLoginState()),
+            ),
+        )
+        assertTrue(coordinator.finishFailure(plan))
+        assertEquals(listOf(AuthOperationTerminal.Failed("login failed")), terminals)
+        assertEquals(ServiceAuthSessionPhase.RESTART_REQUIRED, coordinator.snapshot().phase)
+        assertEquals(0L, coordinator.snapshot().authGeneration)
+    }
+
+    @Test
     fun `rejected admission does not deliver a terminal before negative ACK`() {
         val coordinator = authorizedCoordinator(60)
         var callbackCount = 0

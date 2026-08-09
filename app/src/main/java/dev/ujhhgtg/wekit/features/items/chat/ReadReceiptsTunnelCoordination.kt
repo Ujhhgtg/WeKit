@@ -749,6 +749,7 @@ internal enum class ServiceAuthFailure {
     TIMEOUT,
     COROUTINE_CANCELLED,
     STORAGE,
+    SESSION_BROKEN,
 }
 
 internal enum class ServiceAuthCleanupAction {
@@ -775,6 +776,10 @@ internal class ServiceAuthSessionClearPlan<T> internal constructor(
     internal val terminal: AuthOperationTerminal<T>,
 )
 
+internal class ServiceAuthSessionTeardownPlan internal constructor(
+    internal val authGeneration: Long,
+)
+
 /**
  * Main-authority admission and phase state for auth commands.
  * [AuthOperationRegistry] remains the sole owner of terminal delivery.
@@ -786,6 +791,7 @@ internal class ServiceAuthCoordinator {
     private val seenRequests = mutableSetOf<AuthOperationKey>()
     private val plannedFailures = mutableMapOf<AuthOperationKey, ServiceAuthFailurePlan<*>>()
     private var plannedSessionClear: ServiceAuthSessionClearPlan<*>? = null
+    private var plannedSessionTeardown: ServiceAuthSessionTeardownPlan? = null
     private var lastAcceptedGeneration = 0L
     private var activeGeneration = 0L
     private var sessionPhase = ServiceAuthSessionPhase.IDLE
@@ -811,6 +817,7 @@ internal class ServiceAuthCoordinator {
         seenRequests.clear()
         plannedFailures.clear()
         plannedSessionClear = null
+        plannedSessionTeardown = null
         check(operations.prepareGeneration(key.authGeneration))
         check(operations.register(key, AuthOperationKind.BEGIN, callback))
         operationPhases[key] = ServiceAuthOperationPhase.NATIVE_BLOCKING
@@ -828,11 +835,19 @@ internal class ServiceAuthCoordinator {
         if (key.authGeneration != activeGeneration) {
             return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.STALE_GENERATION)
         }
-        if (sessionPhase != ServiceAuthSessionPhase.AUTHORIZED) {
-            return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.SESSION_UNAVAILABLE)
-        }
         if (kind === AuthOperationKind.BEGIN) {
             return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.INVALID_KIND)
+        }
+        val acceptsSession = when (kind) {
+            AuthOperationKind.CANCEL,
+            AuthOperationKind.LOGOUT,
+            -> sessionPhase == ServiceAuthSessionPhase.WAITING ||
+                sessionPhase == ServiceAuthSessionPhase.AUTHORIZED
+
+            else -> sessionPhase == ServiceAuthSessionPhase.AUTHORIZED
+        }
+        if (!acceptsSession) {
+            return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.SESSION_UNAVAILABLE)
         }
         if (key in seenRequests) {
             return ServiceAuthAdmission.Rejected(ServiceAuthRejectReason.DUPLICATE_REQUEST)
@@ -930,7 +945,8 @@ internal class ServiceAuthCoordinator {
                 ServiceAuthCleanupAction.STOP_CANDIDATE_AND_PRESERVE_AUTH
 
             failure == ServiceAuthFailure.TIMEOUT ||
-                failure == ServiceAuthFailure.COROUTINE_CANCELLED ->
+                failure == ServiceAuthFailure.COROUTINE_CANCELLED ||
+                failure == ServiceAuthFailure.SESSION_BROKEN ->
                 ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED
 
             else -> ServiceAuthCleanupAction.PRESERVE_AUTH
@@ -953,6 +969,7 @@ internal class ServiceAuthCoordinator {
             ServiceAuthFailure.COROUTINE_CANCELLED -> AuthOperationTerminal.Cancelled
             ServiceAuthFailure.API_RETURNED,
             ServiceAuthFailure.STORAGE,
+            ServiceAuthFailure.SESSION_BROKEN,
             -> AuthOperationTerminal.Failed(message)
         }
         return ServiceAuthFailurePlan(key, kind, terminal, cleanup).also {
@@ -989,14 +1006,18 @@ internal class ServiceAuthCoordinator {
         kind: AuthOperationKind<T>,
         ownerTerminal: AuthOperationTerminal<T>,
     ): ServiceAuthSessionClearPlan<T>? {
-        val clearsSession =
-            kind === AuthOperationKind.SELECT ||
-                kind === AuthOperationKind.CANCEL ||
-                kind === AuthOperationKind.LOGOUT
+        val clearsSession = when (kind) {
+            AuthOperationKind.SELECT -> sessionPhase == ServiceAuthSessionPhase.AUTHORIZED
+            AuthOperationKind.CANCEL,
+            AuthOperationKind.LOGOUT,
+            -> sessionPhase == ServiceAuthSessionPhase.WAITING ||
+                sessionPhase == ServiceAuthSessionPhase.AUTHORIZED
+
+            else -> false
+        }
         if (
             key.authGeneration != activeGeneration ||
             operations.pendingKind(key) !== kind ||
-            sessionPhase != ServiceAuthSessionPhase.AUTHORIZED ||
             operationPhases[key] == ServiceAuthOperationPhase.CLEANING ||
             !clearsSession ||
             plannedSessionClear != null
@@ -1040,6 +1061,57 @@ internal class ServiceAuthCoordinator {
         return operations.completeAndCancelGeneration(plan.key, plan.kind, plan.terminal)
     }
 
+    fun planSessionTeardown(expectedGeneration: Long): ServiceAuthSessionTeardownPlan? {
+        val hasLiveSession =
+            sessionPhase == ServiceAuthSessionPhase.WAITING ||
+                sessionPhase == ServiceAuthSessionPhase.AUTHORIZED
+        if (
+            expectedGeneration <= 0 ||
+            activeGeneration != expectedGeneration ||
+            !hasLiveSession ||
+            plannedSessionClear != null ||
+            plannedSessionTeardown != null
+        ) {
+            return null
+        }
+        operationPhases.replaceAll { operationKey, phase ->
+            if (operationKey.authGeneration == expectedGeneration) {
+                ServiceAuthOperationPhase.CLEANING
+            } else {
+                phase
+            }
+        }
+        sessionPhase = ServiceAuthSessionPhase.CANCELLING
+        return ServiceAuthSessionTeardownPlan(expectedGeneration).also {
+            plannedSessionTeardown = it
+        }
+    }
+
+    fun finishSessionTeardown(
+        plan: ServiceAuthSessionTeardownPlan,
+        restartRequired: Boolean,
+    ): Boolean {
+        if (
+            plannedSessionTeardown !== plan ||
+            activeGeneration != plan.authGeneration ||
+            sessionPhase != ServiceAuthSessionPhase.CANCELLING
+        ) {
+            return false
+        }
+        plannedSessionTeardown = null
+        activeGeneration = 0
+        sessionPhase = if (restartRequired) {
+            ServiceAuthSessionPhase.RESTART_REQUIRED
+        } else {
+            ServiceAuthSessionPhase.IDLE
+        }
+        plannedFailures.keys.removeAll { it.authGeneration == plan.authGeneration }
+        operationPhases.keys.removeAll { it.authGeneration == plan.authGeneration }
+        ackKinds.keys.removeAll { it.authGeneration == plan.authGeneration }
+        operations.cancelGeneration(plan.authGeneration)
+        return true
+    }
+
     /** Teardown-only clearing when no command owns a successful terminal. */
     fun clearSession(expectedGeneration: Long, restartRequired: Boolean): Boolean {
         if (expectedGeneration <= 0 || activeGeneration != expectedGeneration) return false
@@ -1050,6 +1122,7 @@ internal class ServiceAuthCoordinator {
             ServiceAuthSessionPhase.IDLE
         }
         plannedSessionClear = null
+        plannedSessionTeardown = null
         plannedFailures.keys.removeAll { it.authGeneration == expectedGeneration }
         operationPhases.keys.removeAll { it.authGeneration == expectedGeneration }
         ackKinds.keys.removeAll { it.authGeneration == expectedGeneration }

@@ -24,7 +24,10 @@ import android.util.Base64
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -34,6 +37,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl
@@ -45,6 +49,7 @@ import java.io.File
 import java.io.IOException
 import java.security.KeyStore
 import java.security.SecureRandom
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -57,9 +62,12 @@ import kotlin.coroutines.resume
 /** Module-process owner of the embedded Cloudflare connector and retained run credential. */
 class ReadReceiptsTunnelService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val authControlScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val listeners = ConcurrentHashMap<IBinder, StatusListener>()
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val messenger = Messenger(IncomingHandler(Looper.getMainLooper()))
     private val credentialStore by lazy { TunnelCredentialStore(this) }
+    private val credentialFileLock = Any()
     private val nativeLease = TunnelNativeLease()
     private val connectivityManager by lazy {
         getSystemService(ConnectivityManager::class.java)
@@ -97,6 +105,25 @@ class ReadReceiptsTunnelService : Service() {
     private var authorizationTimeout: Job? = null
     private var authorizedCommandSeen = false
     private var foregroundActive = false
+    private val authCoordinator = ServiceAuthCoordinator()
+    private val authOperationJobs = mutableMapOf<AuthOperationKey, AuthOperationJobs>()
+    private var authCleanupJob: Job? = null
+    private var authPollJob: Job? = null
+    private var authLoginState: CloudflareLoginState? = null
+    private var authAccountId = ""
+    private var authTunnels: List<ExistingTunnel> = emptyList()
+    private var authSnapshotRevision = SystemClock.elapsedRealtimeNanos().coerceAtLeast(1L)
+    private var credentialMetadataLoading = true
+    private var cachedCredentialMetadata: CommittedTunnelCredentialMetadata? = null
+
+    @Volatile
+    private var cachedCredentialExists = false
+    private var appliedCredentialRevision = 0L
+    private var credentialFileRevision = 0L
+
+    @Volatile
+    private var nativeAuthGeneration = 0L
+
     private val notificationStopNonce = ByteArray(24).also(SecureRandom()::nextBytes)
         .let { Base64.encodeToString(it, Base64.NO_WRAP) }
 
@@ -130,6 +157,12 @@ class ReadReceiptsTunnelService : Service() {
             currentDefaultNetwork = connectivityManager.activeNetwork
             networkAvailable = currentDefaultNetwork != null
         }
+        scope.launch {
+            val update = loadCredentialMetadataOnIo()
+            withContext(Dispatchers.Main.immediate) {
+                applyCredentialCacheUpdate(update)
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -159,6 +192,24 @@ class ReadReceiptsTunnelService : Service() {
         authorizationTimeout?.cancel()
         activeRequest = null
         lifecycleJob?.cancel()
+        val (priorProcessTeardown, processTeardown) = registerProcessAuthTeardown()
+        val authJobs = authOperationJobs.values.flatMap { jobs ->
+            listOfNotNull(jobs.worker, jobs.watchdog)
+        } + listOfNotNull(authPollJob, authCleanupJob)
+        authControlScope.launch {
+            try {
+                priorProcessTeardown?.join()
+                runCatching { ReadReceiptsTunnelNative.cancelLogin() }
+                authJobs.forEach(Job::cancel)
+                for (job in authJobs) job.join()
+                runCatching { ReadReceiptsTunnelNative.cancelLogin() }
+            } finally {
+                processTeardown.complete(Unit)
+                clearProcessAuthTeardown(processTeardown)
+                authControlScope.cancel()
+            }
+        }
+        authOperationJobs.clear()
         scope.cancel()
         ReadReceiptsTunnelNative.stop()
         runCatching { connectivityManager.unregisterNetworkCallback(networkCallback) }
@@ -169,23 +220,34 @@ class ReadReceiptsTunnelService : Service() {
     private inner class IncomingHandler(looper: Looper) : Handler(looper) {
         override fun handleMessage(message: Message) {
             if (!isAuthorizedUid(message.sendingUid)) return
-            authorizedCommandSeen = true
-            authorizationTimeout?.cancel()
             when (message.what) {
-                ReadReceiptsTunnelProtocol.REGISTER -> register(
-                    message.replyTo,
-                    message.data.getString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE),
-                )
-                ReadReceiptsTunnelProtocol.START -> handleStart(
-                    message.data,
-                    message.replyTo,
-                )
-                ReadReceiptsTunnelProtocol.STOP -> stopTunnel(
-                    message.data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION),
-                )
-                ReadReceiptsTunnelProtocol.DELETE_CREDENTIAL -> deleteCredential(
-                    message.data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION),
-                )
+                ReadReceiptsTunnelProtocol.REGISTER -> runCatching {
+                    register(message.replyTo, message.data)
+                }
+                ReadReceiptsTunnelProtocol.START -> {
+                    markAuthorizedCommand()
+                    handleStart(message.data, message.replyTo)
+                }
+                ReadReceiptsTunnelProtocol.STOP -> {
+                    markAuthorizedCommand()
+                    stopTunnel(message.data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION))
+                }
+                ReadReceiptsTunnelProtocol.DELETE_CREDENTIAL -> {
+                    markAuthorizedCommand()
+                    deleteCredential(
+                        message.data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION),
+                    )
+                }
+                ReadReceiptsTunnelProtocol.BEGIN_LOGIN ->
+                    handleAuthMessage(message, ServiceAuthWireKind.BEGIN)
+                ReadReceiptsTunnelProtocol.LIST_TUNNELS ->
+                    handleAuthMessage(message, ServiceAuthWireKind.LIST)
+                ReadReceiptsTunnelProtocol.SELECT_TUNNEL ->
+                    handleAuthMessage(message, ServiceAuthWireKind.SELECT)
+                ReadReceiptsTunnelProtocol.CANCEL_LOGIN ->
+                    handleAuthMessage(message, ServiceAuthWireKind.CANCEL)
+                ReadReceiptsTunnelProtocol.LOGOUT ->
+                    handleAuthMessage(message, ServiceAuthWireKind.LOGOUT)
                 else -> super.handleMessage(message)
             }
         }
@@ -196,11 +258,574 @@ class ReadReceiptsTunnelService : Service() {
         return packageManager.getPackagesForUid(uid)?.contains(WECHAT_PACKAGE) == true
     }
 
-    private fun register(client: Messenger?, nonce: String?) {
-        if (client == null || nonce == null || nonce.length !in 16..128) return
-        val listener = StatusListener(client, nonce)
-        listeners[client.binder] = listener
+    private fun register(client: Messenger?, data: Bundle) {
+        val parsed = parseRegister(client, data) ?: return
+        markAuthorizedCommand()
+        val listener = StatusListener(parsed.client, parsed.nonce, parsed.lastSeenAuthGeneration)
+        listeners[parsed.client.binder] = listener
         sendStatus(listener)
+        sendAuthSnapshot(listener)
+    }
+
+    private fun parseRegister(client: Messenger?, data: Bundle): AuthRegistration? = runCatching {
+        client ?: return null
+        val keys = data.keySet()
+        if (
+            ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE !in keys ||
+            keys.any { it !in ReadReceiptsTunnelProtocol.REGISTER_KEYS }
+        ) {
+            return null
+        }
+        val nonce = data.strictString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE) ?: return null
+        if (!isValidClientNonce(nonce)) return null
+        val lastSeen = if (ReadReceiptsTunnelProtocol.KEY_LAST_SEEN_AUTH_GENERATION in keys) {
+            data.strictLong(ReadReceiptsTunnelProtocol.KEY_LAST_SEEN_AUTH_GENERATION)
+                ?.takeIf { it > 0 } ?: return null
+        } else {
+            0L
+        }
+        AuthRegistration(client, nonce, lastSeen)
+    }.getOrNull()
+
+    private fun handleAuthMessage(message: Message, expectedKind: ServiceAuthWireKind) {
+        val envelope = parseAuthEnvelope(message, expectedKind) ?: return
+        markAuthorizedCommand()
+        when (expectedKind) {
+            ServiceAuthWireKind.BEGIN -> beginLogin(envelope)
+            ServiceAuthWireKind.LIST -> listTunnels(envelope)
+            ServiceAuthWireKind.SELECT -> {
+                sendAuthAck(envelope, accepted = false)
+                sendAuthTerminal(envelope, AuthOperationTerminal.Failed(AUTH_SELECT_DEFERRED))
+            }
+            ServiceAuthWireKind.CANCEL -> clearLogin(envelope, AuthOperationKind.CANCEL)
+            ServiceAuthWireKind.LOGOUT -> clearLogin(envelope, AuthOperationKind.LOGOUT)
+        }
+    }
+
+    private fun parseAuthEnvelope(
+        message: Message,
+        expectedKind: ServiceAuthWireKind,
+    ): ServiceAuthEnvelope? = runCatching {
+        val client = message.replyTo ?: return null
+        val listener = listeners[client.binder] ?: return null
+        val data = message.data
+        val expectedKeys = if (expectedKind == ServiceAuthWireKind.SELECT) {
+            ReadReceiptsTunnelProtocol.AUTH_OPERATION_KEYS +
+                ReadReceiptsTunnelProtocol.SELECT_OPERATION_KEYS
+        } else {
+            ReadReceiptsTunnelProtocol.AUTH_OPERATION_KEYS
+        }
+        if (data.keySet() != expectedKeys) return null
+        val nonce = data.strictString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE) ?: return null
+        if (nonce != listener.nonce || !isValidClientNonce(nonce)) return null
+        val kind = data.strictString(ReadReceiptsTunnelProtocol.KEY_AUTH_KIND) ?: return null
+        if (kind != expectedKind.wireName) return null
+        val authGeneration = data.strictLong(ReadReceiptsTunnelProtocol.KEY_AUTH_GENERATION)
+            ?.takeIf { it > 0 } ?: return null
+        val requestId = data.strictLong(ReadReceiptsTunnelProtocol.KEY_AUTH_REQUEST_ID)
+            ?.takeIf { it > 0 } ?: return null
+        val selection = if (expectedKind == ServiceAuthWireKind.SELECT) {
+            parseSelection(data) ?: return null
+        } else {
+            null
+        }
+        ServiceAuthEnvelope(
+            listener = listener,
+            key = AuthOperationKey(authGeneration, requestId),
+            wireKind = expectedKind,
+            selection = selection,
+        )
+    }.getOrNull()
+
+    private fun parseSelection(data: Bundle): DeferredAuthSelection? {
+        val tunnelId = data.strictString(ReadReceiptsTunnelProtocol.KEY_TUNNEL_ID) ?: return null
+        if (!ExistingTunnel.isCanonicalId(tunnelId)) return null
+        val canonicalRoot = data.strictString(ReadReceiptsTunnelProtocol.KEY_HOSTNAME) ?: return null
+        if (canonicalPublicRoot(canonicalRoot) != canonicalRoot) return null
+        val originPort = data.strictInt(ReadReceiptsTunnelProtocol.KEY_FIXED_ORIGIN_PORT)
+            ?.takeIf { it in 1..65535 } ?: return null
+        val connectorGeneration = data.strictLong(
+            ReadReceiptsTunnelProtocol.KEY_CONNECTOR_GENERATION,
+        )?.takeIf { it > 0 } ?: return null
+        return DeferredAuthSelection(tunnelId, canonicalRoot, originPort, connectorGeneration)
+    }
+
+    private fun Bundle.strictString(key: String): String? = get(key) as? String
+
+    private fun Bundle.strictLong(key: String): Long? = get(key) as? Long
+
+    private fun Bundle.strictInt(key: String): Int? = get(key) as? Int
+
+    private fun isValidClientNonce(value: String): Boolean =
+        value.length in 16..128 && value.all { it.code in 0x20..0x7e }
+
+    private fun markAuthorizedCommand() {
+        authorizedCommandSeen = true
+        authorizationTimeout?.cancel()
+    }
+
+    private fun beginLogin(envelope: ServiceAuthEnvelope) {
+        val admission = authCoordinator.begin(envelope.key) { terminal ->
+            sendAuthTerminal(envelope, terminal)
+        }
+        if (admission is ServiceAuthAdmission.Rejected) {
+            rejectAuthAdmission(envelope, admission)
+            return
+        }
+        check(authCoordinator.claimAck(envelope.key, AuthOperationKind.BEGIN))
+        sendAuthAck(envelope, accepted = true)
+
+        val processTeardown = captureProcessAuthTeardown()
+        val previousJobs = authOperationJobs.values.flatMap { jobs ->
+            listOfNotNull(jobs.worker, jobs.watchdog)
+        } + listOfNotNull(authPollJob, authCleanupJob)
+        authOperationJobs.clear()
+        authPollJob = null
+        authCleanupJob = authControlScope.launch {
+            processTeardown?.join()
+            var cancelled = ReadReceiptsTunnelNative.cancelLogin().isSuccess
+            previousJobs.forEach(Job::cancel)
+            for (job in previousJobs) job.join()
+            cancelled = ReadReceiptsTunnelNative.cancelLogin().isSuccess && cancelled
+            val barrierFinished = withContext(Dispatchers.Main.immediate) {
+                if (!authCoordinator.finishBeginBarrier(envelope.key)) return@withContext false
+                nativeAuthGeneration = 0
+                clearTransientAuthState()
+                true
+            }
+            if (!barrierFinished) return@launch
+            if (!cancelled) {
+                withContext(Dispatchers.Main.immediate) {
+                    failBeginAfterBarrier(envelope, AUTH_CLEANUP_FAILED)
+                }
+                return@launch
+            }
+
+            val result = ReadReceiptsTunnelNative.beginLogin()
+            val initial = result.getOrNull()
+            if (
+                initial != null &&
+                initial.loginState.state != ReadReceiptsTunnelState.STARTING &&
+                initial.loginState.state != ReadReceiptsTunnelState.CONNECTED
+            ) {
+                val failurePlan = withContext(Dispatchers.Main.immediate) {
+                    if (!authCoordinator.canPublish(envelope.key, AuthOperationKind.BEGIN)) {
+                        return@withContext null
+                    }
+                    checkNotNull(
+                        authCoordinator.planFailure(
+                            envelope.key,
+                            AuthOperationKind.BEGIN,
+                            ServiceAuthFailure.SESSION_BROKEN,
+                            AUTH_BEGIN_FAILED,
+                        ),
+                    )
+                } ?: return@launch
+                ReadReceiptsTunnelNative.cancelLogin()
+                withContext(Dispatchers.Main.immediate) {
+                    finishBrokenBegin(failurePlan)
+                }
+                return@launch
+            }
+            withContext(Dispatchers.Main.immediate) {
+                authCleanupJob = null
+                if (!authCoordinator.canPublish(envelope.key, AuthOperationKind.BEGIN)) {
+                    return@withContext
+                }
+                val native = result.getOrNull()
+                if (native == null) {
+                    failBeginAfterBarrier(envelope, AUTH_BEGIN_FAILED)
+                    return@withContext
+                }
+                nativeAuthGeneration = native.generation
+                authLoginState = native.loginState
+                authAccountId = native.accountId
+                authTunnels = emptyList()
+                if (native.loginState.state == ReadReceiptsTunnelState.CONNECTED) {
+                    check(authCoordinator.markAuthorized(envelope.key.authGeneration))
+                }
+                check(
+                    authCoordinator.complete(
+                        envelope.key,
+                        AuthOperationKind.BEGIN,
+                        AuthOperationTerminal.Completed(native.loginState),
+                    ),
+                )
+                broadcastAuthSnapshot()
+                if (native.loginState.state == ReadReceiptsTunnelState.STARTING) {
+                    startAuthPolling(envelope.key.authGeneration, native.generation)
+                }
+            }
+        }
+    }
+
+    private fun failBeginAfterBarrier(envelope: ServiceAuthEnvelope, message: String) {
+        val plan = checkNotNull(
+            authCoordinator.planFailure(
+                envelope.key,
+                AuthOperationKind.BEGIN,
+                ServiceAuthFailure.SESSION_BROKEN,
+                message,
+            ),
+        )
+        finishBrokenBegin(plan)
+    }
+
+    private fun finishBrokenBegin(
+        plan: ServiceAuthFailurePlan<CloudflareLoginState>,
+    ) {
+        authCleanupJob = null
+        nativeAuthGeneration = 0
+        clearTransientAuthState()
+        check(authCoordinator.finishFailure(plan))
+        broadcastAuthSnapshot()
+    }
+
+    private fun startAuthPolling(authGeneration: Long, expectedNativeGeneration: Long) {
+        authPollJob?.cancel()
+        authPollJob = scope.launch {
+            repeat(AUTH_LOGIN_POLL_LIMIT) {
+                delay(NATIVE_STATUS_POLL_MILLIS)
+                val result = ReadReceiptsTunnelNative.loginStatus()
+                val keepPolling = withContext(Dispatchers.Main.immediate) {
+                    applyAuthPollResult(authGeneration, expectedNativeGeneration, result)
+                }
+                if (!keepPolling) return@launch
+            }
+            withContext(Dispatchers.Main.immediate) {
+                val snapshot = authCoordinator.snapshot()
+                if (
+                    nativeAuthGeneration == expectedNativeGeneration &&
+                    snapshot.authGeneration == authGeneration &&
+                    snapshot.phase == ServiceAuthSessionPhase.WAITING
+                ) {
+                    val plan = checkNotNull(authCoordinator.planSessionTeardown(authGeneration))
+                    scheduleBrokenAuthTeardown(plan, preserveLoginFailure = false)
+                }
+            }
+        }
+    }
+
+    private fun applyAuthPollResult(
+        authGeneration: Long,
+        expectedNativeGeneration: Long,
+        result: Result<NativeCloudflareLoginStatus>,
+    ): Boolean {
+        if (
+            nativeAuthGeneration != expectedNativeGeneration ||
+            authCoordinator.snapshot().let { snapshot ->
+                snapshot.authGeneration != authGeneration ||
+                    snapshot.phase != ServiceAuthSessionPhase.WAITING
+            }
+        ) {
+            return false
+        }
+        val native = result.getOrNull()
+        if (native == null || native.generation != expectedNativeGeneration) {
+            val plan = checkNotNull(authCoordinator.planSessionTeardown(authGeneration))
+            scheduleBrokenAuthTeardown(plan, preserveLoginFailure = false)
+            return false
+        }
+        val changed = authLoginState != native.loginState || authAccountId != native.accountId
+        authLoginState = native.loginState
+        authAccountId = native.accountId
+        return when (native.loginState.state) {
+            ReadReceiptsTunnelState.CONNECTED -> {
+                check(authCoordinator.markAuthorized(authGeneration))
+                if (changed) broadcastAuthSnapshot()
+                authPollJob = null
+                false
+            }
+            ReadReceiptsTunnelState.STARTING -> {
+                if (changed) broadcastAuthSnapshot()
+                true
+            }
+            else -> {
+                val plan = checkNotNull(authCoordinator.planSessionTeardown(authGeneration))
+                scheduleBrokenAuthTeardown(plan, preserveLoginFailure = true)
+                false
+            }
+        }
+    }
+
+    private fun scheduleBrokenAuthTeardown(
+        plan: ServiceAuthSessionTeardownPlan,
+        preserveLoginFailure: Boolean,
+    ) {
+        val jobsToDrain = authOperationJobs.values.flatMap { jobs ->
+            listOfNotNull(jobs.worker, jobs.watchdog)
+        } + listOfNotNull(authPollJob)
+        authOperationJobs.clear()
+        authPollJob = null
+        authCleanupJob = authControlScope.launch {
+            ReadReceiptsTunnelNative.cancelLogin()
+            jobsToDrain.forEach(Job::cancel)
+            for (job in jobsToDrain) job.join()
+            ReadReceiptsTunnelNative.cancelLogin()
+            withContext(Dispatchers.Main.immediate) {
+                authCleanupJob = null
+                nativeAuthGeneration = 0
+                if (preserveLoginFailure) {
+                    authAccountId = ""
+                    authTunnels = emptyList()
+                } else {
+                    clearTransientAuthState()
+                }
+                check(authCoordinator.finishSessionTeardown(plan, restartRequired = true))
+                broadcastAuthSnapshot()
+            }
+        }
+    }
+
+    private fun listTunnels(envelope: ServiceAuthEnvelope) {
+        val admission = authCoordinator.admit(
+            envelope.key,
+            AuthOperationKind.LIST,
+            ServiceAuthOperationPhase.NATIVE_BLOCKING,
+        ) { terminal -> sendAuthTerminal(envelope, terminal) }
+        if (admission is ServiceAuthAdmission.Rejected) {
+            rejectAuthAdmission(envelope, admission)
+            return
+        }
+        check(authCoordinator.claimAck(envelope.key, AuthOperationKind.LIST))
+        sendAuthAck(envelope, accepted = true)
+
+        lateinit var worker: Job
+        worker = scope.launch(start = CoroutineStart.LAZY) {
+            val result = ReadReceiptsTunnelNative.listExistingTunnels()
+            withContext(Dispatchers.Main.immediate) {
+                finishList(envelope, result)
+            }
+        }
+        val watchdog = authControlScope.launch {
+            delay(AUTH_OPERATION_TIMEOUT_MILLIS)
+            val plan = withContext(Dispatchers.Main.immediate) {
+                authCoordinator.planFailure(
+                    envelope.key,
+                    AuthOperationKind.LIST,
+                    ServiceAuthFailure.TIMEOUT,
+                    AUTH_LIST_FAILED,
+                )
+            } ?: return@launch
+            val jobsToDrain = withContext(Dispatchers.Main.immediate) {
+                authOperationJobs.values.flatMap { jobs ->
+                    listOfNotNull(jobs.worker, jobs.watchdog)
+                }.also { authOperationJobs.clear() }
+            }
+            ReadReceiptsTunnelNative.cancelLogin()
+            val watchdogJob = currentCoroutineContext()[Job]
+            val otherJobs = jobsToDrain.filterNot { it === watchdogJob }
+            otherJobs.forEach(Job::cancel)
+            for (job in otherJobs) job.join()
+            withContext(Dispatchers.Main.immediate) {
+                nativeAuthGeneration = 0
+                clearTransientAuthState()
+                check(authCoordinator.finishFailure(plan))
+                broadcastAuthSnapshot()
+            }
+        }
+        authOperationJobs[envelope.key] = AuthOperationJobs(worker, watchdog)
+        worker.start()
+    }
+
+    private fun finishList(
+        envelope: ServiceAuthEnvelope,
+        result: Result<NativeExistingTunnelList>,
+    ) {
+        if (!authCoordinator.canPublish(envelope.key, AuthOperationKind.LIST)) return
+        val native = result.getOrNull()
+        val login = authLoginState
+        if (
+            native == null || login == null || native.generation != nativeAuthGeneration
+        ) {
+            val plan = checkNotNull(
+                authCoordinator.planFailure(
+                    envelope.key,
+                    AuthOperationKind.LIST,
+                    ServiceAuthFailure.SESSION_BROKEN,
+                    AUTH_LIST_FAILED,
+                ),
+            )
+            scheduleBrokenListTeardown(plan)
+            return
+        }
+        val jobs = authOperationJobs.remove(envelope.key)
+        jobs?.watchdog?.cancel()
+        if (
+            native.error != null ||
+            !AuthSnapshotBounds.isValid(
+                login,
+                authAccountId,
+                native.tunnels,
+                cachedCredentialMetadata,
+            )
+        ) {
+            val plan = checkNotNull(
+                authCoordinator.planFailure(
+                    envelope.key,
+                    AuthOperationKind.LIST,
+                    ServiceAuthFailure.API_RETURNED,
+                    AUTH_LIST_FAILED,
+                ),
+            )
+            check(authCoordinator.finishFailure(plan))
+            return
+        }
+        authTunnels = Collections.unmodifiableList(ArrayList(native.tunnels))
+        broadcastAuthSnapshot()
+        check(
+            authCoordinator.complete(
+                envelope.key,
+                AuthOperationKind.LIST,
+                AuthOperationTerminal.Completed(authTunnels),
+            ),
+        )
+    }
+
+    private fun scheduleBrokenListTeardown(
+        plan: ServiceAuthFailurePlan<List<ExistingTunnel>>,
+    ) {
+        val jobsToDrain = authOperationJobs.values.flatMap { jobs ->
+            listOfNotNull(jobs.worker, jobs.watchdog)
+        } + listOfNotNull(authPollJob)
+        authOperationJobs.clear()
+        authPollJob = null
+        authCleanupJob = authControlScope.launch {
+            runCatching { ReadReceiptsTunnelNative.cancelLogin() }
+            jobsToDrain.forEach(Job::cancel)
+            for (job in jobsToDrain) job.join()
+            runCatching { ReadReceiptsTunnelNative.cancelLogin() }
+            withContext(Dispatchers.Main.immediate) {
+                authCleanupJob = null
+                nativeAuthGeneration = 0
+                clearTransientAuthState()
+                check(authCoordinator.finishFailure(plan))
+                broadcastAuthSnapshot()
+            }
+        }
+    }
+
+    private fun clearLogin(
+        envelope: ServiceAuthEnvelope,
+        kind: AuthOperationKind<Unit>,
+    ) {
+        val admission = authCoordinator.admit(
+            envelope.key,
+            kind,
+            ServiceAuthOperationPhase.NATIVE_BLOCKING,
+        ) { terminal -> sendAuthTerminal(envelope, terminal) }
+        if (admission is ServiceAuthAdmission.Rejected) {
+            rejectAuthAdmission(envelope, admission)
+            return
+        }
+        check(authCoordinator.claimAck(envelope.key, kind))
+        sendAuthAck(envelope, accepted = true)
+        val plan = checkNotNull(
+            authCoordinator.planSessionClear(
+                envelope.key,
+                kind,
+                AuthOperationTerminal.Completed(Unit),
+            ),
+        )
+        val previousJobs = authOperationJobs.values.flatMap { jobs ->
+            listOfNotNull(jobs.worker, jobs.watchdog)
+        } + listOfNotNull(authPollJob, authCleanupJob)
+        authOperationJobs.clear()
+        authPollJob = null
+        authCleanupJob = authControlScope.launch {
+            var cleaned = ReadReceiptsTunnelNative.cancelLogin().isSuccess
+            previousJobs.forEach(Job::cancel)
+            for (job in previousJobs) job.join()
+            cleaned = ReadReceiptsTunnelNative.cancelLogin().isSuccess && cleaned
+            withContext(Dispatchers.Main.immediate) {
+                authCleanupJob = null
+                nativeAuthGeneration = 0
+                clearTransientAuthState()
+                check(authCoordinator.finishSessionClear(plan, restartRequired = !cleaned))
+                broadcastAuthSnapshot(resetClientExpectation = true)
+            }
+        }
+    }
+
+    private fun rejectAuthAdmission(
+        envelope: ServiceAuthEnvelope,
+        rejection: ServiceAuthAdmission.Rejected,
+    ) {
+        sendAuthAck(envelope, accepted = false)
+        val terminal = when (rejection.reason) {
+            ServiceAuthRejectReason.STALE_GENERATION,
+            ServiceAuthRejectReason.DUPLICATE_REQUEST,
+            -> AuthOperationTerminal.Superseded
+            ServiceAuthRejectReason.SESSION_UNAVAILABLE,
+            ServiceAuthRejectReason.INVALID_KIND,
+            -> AuthOperationTerminal.Failed(AUTH_REJECTED)
+        }
+        sendAuthTerminal(envelope, terminal)
+    }
+
+    private fun clearTransientAuthState() {
+        authLoginState = null
+        authAccountId = ""
+        authTunnels = emptyList()
+    }
+
+    private fun loadCredentialMetadataOnIo(): CredentialCacheUpdate =
+        synchronized(credentialFileLock) {
+            val metadata = if (credentialStore.exists()) {
+                credentialStore.readMetadata().getOrNull()
+            } else {
+                null
+            }
+            CredentialCacheUpdate(++credentialFileRevision, metadata)
+        }
+
+    private fun readCredentialOnIo(): Result<TunnelCredentialPayload> {
+        var update: CredentialCacheUpdate? = null
+        val result = synchronized(credentialFileLock) {
+            credentialStore.read().also {
+                if (it.isFailure) {
+                    update = CredentialCacheUpdate(++credentialFileRevision, null)
+                }
+            }
+        }
+        update?.let(::postCredentialCacheUpdate)
+        return result
+    }
+
+    private fun writeCredentialOnIo(payload: TunnelCredentialPayload): Boolean {
+        var update: CredentialCacheUpdate? = null
+        val succeeded = synchronized(credentialFileLock) {
+            credentialStore.write(payload).isSuccess.also { success ->
+                if (success) {
+                    update = CredentialCacheUpdate(
+                        ++credentialFileRevision,
+                        payload.committedMetadata(),
+                    )
+                }
+            }
+        }
+        update?.let(::postCredentialCacheUpdate)
+        return succeeded
+    }
+
+    private fun clearCredentialOnIo(): CredentialCacheUpdate =
+        synchronized(credentialFileLock) {
+            credentialStore.clear()
+            CredentialCacheUpdate(++credentialFileRevision, null)
+        }
+
+    private fun postCredentialCacheUpdate(update: CredentialCacheUpdate) {
+        mainHandler.post { applyCredentialCacheUpdate(update) }
+    }
+
+    private fun applyCredentialCacheUpdate(update: CredentialCacheUpdate) {
+        if (update.revision < appliedCredentialRevision) return
+        appliedCredentialRevision = update.revision
+        cachedCredentialMetadata = update.metadata
+        cachedCredentialExists = update.metadata != null
+        credentialMetadataLoading = false
+        broadcastAuthSnapshot()
+        listeners.values.forEach(::sendStatus)
     }
 
     private fun handleStart(data: Bundle, client: Messenger?) {
@@ -301,7 +926,7 @@ class ReadReceiptsTunnelService : Service() {
         if (
             mode == ReadReceiptsTunnelMode.TOKEN &&
             suppliedToken == null &&
-            !credentialStore.exists()
+            !cachedCredentialExists
         ) {
             publish(
                 requestedGeneration,
@@ -370,7 +995,7 @@ class ReadReceiptsTunnelService : Service() {
             currentCoroutineContext().ensureActive()
 
             val token = if (request.mode == ReadReceiptsTunnelMode.TOKEN) {
-                request.pendingToken ?: credentialStore.read().getOrElse {
+                request.pendingToken ?: readCredentialOnIo().getOrElse {
                     publish(
                         request.generation,
                         ReadReceiptsTunnelStatus(
@@ -439,7 +1064,7 @@ class ReadReceiptsTunnelService : Service() {
                                                 canonicalHostname = candidate.toString().trimEnd('/'),
                                                 fixedOriginPort = originRoot.port,
                                             )
-                                            payload != null && credentialStore.write(payload).isSuccess
+                                            payload != null && writeCredentialOnIo(payload)
                                         }
                                     },
                                     clearPendingToken = pendingToken?.let {
@@ -591,12 +1216,24 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private fun deleteCredential(requestedGeneration: Long) {
-        nativeLease.withCurrentGeneration(requestedGeneration) { sessionState ->
-            credentialStore.clear()
-            if (activeRequest?.mode == ReadReceiptsTunnelMode.TOKEN) {
-                stopTunnel(requestedGeneration)
-            } else {
-                publish(requestedGeneration, status.forAdministrativePublish(sessionState))
+        scope.launch {
+            var capturedState: TunnelNativeSessionState? = null
+            var update: CredentialCacheUpdate? = null
+            val accepted = nativeLease.withCurrentGeneration(requestedGeneration) { sessionState ->
+                update = clearCredentialOnIo()
+                capturedState = sessionState
+            }
+            if (!accepted) return@launch
+            withContext(Dispatchers.Main.immediate) {
+                applyCredentialCacheUpdate(update!!)
+                if (activeRequest?.mode == ReadReceiptsTunnelMode.TOKEN) {
+                    stopTunnel(requestedGeneration)
+                } else {
+                    publish(
+                        requestedGeneration,
+                        status.forAdministrativePublish(capturedState!!),
+                    )
+                }
             }
         }
     }
@@ -689,7 +1326,7 @@ class ReadReceiptsTunnelService : Service() {
                 putString(ReadReceiptsTunnelProtocol.KEY_STATE, value.state.name)
                 putString(ReadReceiptsTunnelProtocol.KEY_PUBLIC_URL, value.publicUrl)
                 putString(ReadReceiptsTunnelProtocol.KEY_ERROR, value.error)
-                putBoolean(ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_EXISTS, credentialStore.exists())
+                putBoolean(ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_EXISTS, cachedCredentialExists)
                 putBoolean(
                     ReadReceiptsTunnelProtocol.KEY_NEEDS_NOTIFICATION_SETTINGS,
                     value.needsNotificationSettings,
@@ -700,6 +1337,183 @@ class ReadReceiptsTunnelService : Service() {
         runCatching { listener.messenger.send(message) }
             .onFailure { listeners.remove(listener.messenger.binder) }
     }
+
+    private fun broadcastAuthSnapshot(resetClientExpectation: Boolean = false) {
+        if (resetClientExpectation) {
+            listeners.values.forEach { it.lastSeenAuthGeneration = 0 }
+        }
+        authSnapshotRevision++
+        listeners.values.forEach(::sendAuthSnapshot)
+    }
+
+    private fun sendAuthSnapshot(listener: StatusListener) {
+        val coordinatorSnapshot = authCoordinator.snapshot()
+        val login = authLoginState ?: CloudflareLoginState(
+            authorizationUrl = null,
+            state = ReadReceiptsTunnelState.STOPPED,
+            error = null,
+        )
+        if (
+            !AuthSnapshotBounds.isValid(
+                login,
+                authAccountId,
+                authTunnels,
+                cachedCredentialMetadata,
+            )
+        ) {
+            return
+        }
+        val metadata = cachedCredentialMetadata
+        val publishedAuthGeneration = if (nativeAuthGeneration != 0L) {
+            coordinatorSnapshot.authGeneration
+        } else {
+            0L
+        }
+        val beginInProgress =
+            coordinatorSnapshot.phase == ServiceAuthSessionPhase.REPLACING ||
+                coordinatorSnapshot.phase == ServiceAuthSessionPhase.WAITING &&
+                authLoginState == null
+        val restartRequired =
+            coordinatorSnapshot.phase == ServiceAuthSessionPhase.RESTART_REQUIRED ||
+                !beginInProgress &&
+                publishedAuthGeneration == 0L &&
+                listener.lastSeenAuthGeneration > 0
+        val message = Message.obtain(null, ReadReceiptsTunnelProtocol.AUTH_SNAPSHOT).apply {
+            data = Bundle().apply {
+                putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, listener.nonce)
+                putLong(
+                    ReadReceiptsTunnelProtocol.KEY_AUTH_SNAPSHOT_REVISION,
+                    authSnapshotRevision,
+                )
+                putLong(
+                    ReadReceiptsTunnelProtocol.KEY_AUTH_GENERATION,
+                    publishedAuthGeneration,
+                )
+                putBoolean(ReadReceiptsTunnelProtocol.KEY_AUTH_RESTART_REQUIRED, restartRequired)
+                putString(ReadReceiptsTunnelProtocol.KEY_STATE, login.state.name)
+                putString(
+                    ReadReceiptsTunnelProtocol.KEY_AUTHORIZATION_URL,
+                    login.authorizationUrl,
+                )
+                putString(ReadReceiptsTunnelProtocol.KEY_ERROR, login.error)
+                putString(ReadReceiptsTunnelProtocol.KEY_ACCOUNT_ID, authAccountId)
+                putParcelableArrayList(
+                    ReadReceiptsTunnelProtocol.KEY_TUNNELS,
+                    tunnelBundles(authTunnels),
+                )
+                putBoolean(
+                    ReadReceiptsTunnelProtocol.KEY_METADATA_LOADING,
+                    credentialMetadataLoading,
+                )
+                putString(
+                    ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_SOURCE,
+                    metadata?.source?.name,
+                )
+                putString(
+                    ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_ACCOUNT_ID,
+                    metadata?.accountId,
+                )
+                putString(
+                    ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_TUNNEL_ID,
+                    metadata?.tunnelId,
+                )
+                putString(
+                    ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_TUNNEL_NAME,
+                    metadata?.tunnelName,
+                )
+                putString(
+                    ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_HOSTNAME,
+                    metadata?.canonicalHostname,
+                )
+                putInt(
+                    ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_ORIGIN_PORT,
+                    metadata?.fixedOriginPort ?: 0,
+                )
+            }
+        }
+        runCatching { listener.messenger.send(message) }
+            .onFailure { listeners.remove(listener.messenger.binder) }
+    }
+
+    private fun sendAuthAck(
+        envelope: ServiceAuthEnvelope,
+        accepted: Boolean,
+    ) {
+        val message = Message.obtain(null, ReadReceiptsTunnelProtocol.AUTH_ACK).apply {
+            data = authIdentityBundle(envelope).apply {
+                putBoolean(ReadReceiptsTunnelProtocol.KEY_ACCEPTED, accepted)
+            }
+        }
+        runCatching { envelope.listener.messenger.send(message) }
+            .onFailure { listeners.remove(envelope.listener.messenger.binder) }
+    }
+
+    private fun sendAuthTerminal(
+        envelope: ServiceAuthEnvelope,
+        terminal: AuthOperationTerminal<*>,
+    ) {
+        val message = Message.obtain(null, ReadReceiptsTunnelProtocol.AUTH_TERMINAL).apply {
+            data = authIdentityBundle(envelope).apply {
+                val terminalName = when (terminal) {
+                    is AuthOperationTerminal.Completed<*> -> "COMPLETED"
+                    is AuthOperationTerminal.Failed -> "FAILED"
+                    AuthOperationTerminal.Superseded -> "SUPERSEDED"
+                    AuthOperationTerminal.TimedOut -> "TIMED_OUT"
+                    AuthOperationTerminal.Cancelled -> "CANCELLED"
+                }
+                putString(ReadReceiptsTunnelProtocol.KEY_AUTH_TERMINAL, terminalName)
+                if (terminal is AuthOperationTerminal.Failed) {
+                    putString(ReadReceiptsTunnelProtocol.KEY_ERROR, terminal.error)
+                }
+                if (terminal is AuthOperationTerminal.Completed<*>) {
+                    when (envelope.wireKind) {
+                        ServiceAuthWireKind.BEGIN -> {
+                            val value = terminal.value as CloudflareLoginState
+                            putString(ReadReceiptsTunnelProtocol.KEY_STATE, value.state.name)
+                            putString(
+                                ReadReceiptsTunnelProtocol.KEY_AUTHORIZATION_URL,
+                                value.authorizationUrl,
+                            )
+                        }
+                        ServiceAuthWireKind.LIST -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val tunnels = terminal.value as List<ExistingTunnel>
+                            putParcelableArrayList(
+                                ReadReceiptsTunnelProtocol.KEY_TUNNELS,
+                                tunnelBundles(tunnels),
+                            )
+                        }
+                        ServiceAuthWireKind.CANCEL,
+                        ServiceAuthWireKind.LOGOUT,
+                        -> check(terminal.value === Unit)
+
+                        ServiceAuthWireKind.SELECT -> error("SELECT is not implemented")
+                    }
+                }
+            }
+        }
+        runCatching { envelope.listener.messenger.send(message) }
+            .onFailure { listeners.remove(envelope.listener.messenger.binder) }
+    }
+
+    private fun authIdentityBundle(envelope: ServiceAuthEnvelope): Bundle = Bundle().apply {
+        putLong(ReadReceiptsTunnelProtocol.KEY_AUTH_GENERATION, envelope.key.authGeneration)
+        putLong(ReadReceiptsTunnelProtocol.KEY_AUTH_REQUEST_ID, envelope.key.requestId)
+        putString(ReadReceiptsTunnelProtocol.KEY_AUTH_KIND, envelope.wireKind.wireName)
+        putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, envelope.listener.nonce)
+    }
+
+    private fun tunnelBundles(tunnels: List<ExistingTunnel>): ArrayList<Bundle> =
+        ArrayList(tunnels.map { tunnel ->
+            Bundle().apply {
+                putString(ReadReceiptsTunnelProtocol.KEY_TUNNEL_ID, tunnel.id)
+                putString(ReadReceiptsTunnelProtocol.KEY_TUNNEL_NAME, tunnel.name)
+                putStringArrayList(
+                    ReadReceiptsTunnelProtocol.KEY_HOSTNAMES,
+                    ArrayList(tunnel.hostnames),
+                )
+            }
+        })
 
     private fun sendStartAck(
         client: Messenger?,
@@ -789,7 +1603,46 @@ class ReadReceiptsTunnelService : Service() {
     private data class StatusListener(
         val messenger: Messenger,
         val nonce: String,
+        var lastSeenAuthGeneration: Long,
     )
+
+    private data class AuthRegistration(
+        val client: Messenger,
+        val nonce: String,
+        val lastSeenAuthGeneration: Long,
+    )
+
+    private data class DeferredAuthSelection(
+        val tunnelId: String,
+        val canonicalRoot: String,
+        val fixedOriginPort: Int,
+        val connectorGeneration: Long,
+    )
+
+    private data class ServiceAuthEnvelope(
+        val listener: StatusListener,
+        val key: AuthOperationKey,
+        val wireKind: ServiceAuthWireKind,
+        val selection: DeferredAuthSelection?,
+    )
+
+    private data class AuthOperationJobs(
+        val worker: Job,
+        val watchdog: Job?,
+    )
+
+    private data class CredentialCacheUpdate(
+        val revision: Long,
+        val metadata: CommittedTunnelCredentialMetadata?,
+    )
+
+    private enum class ServiceAuthWireKind(val wireName: String) {
+        BEGIN("BEGIN"),
+        LIST("LIST"),
+        SELECT("SELECT"),
+        CANCEL("CANCEL"),
+        LOGOUT("LOGOUT"),
+    }
 
     private data class AuthoritativeTunnelState(
         val generation: Long,
@@ -797,6 +1650,26 @@ class ReadReceiptsTunnelService : Service() {
     )
 
     companion object {
+        private val processAuthTeardownLock = Any()
+        private var processAuthTeardown: CompletableDeferred<Unit>? = null
+
+        private fun registerProcessAuthTeardown(): Pair<Deferred<Unit>?, CompletableDeferred<Unit>> =
+            synchronized(processAuthTeardownLock) {
+                val prior = processAuthTeardown
+                val current = CompletableDeferred<Unit>()
+                processAuthTeardown = current
+                prior to current
+            }
+
+        private fun captureProcessAuthTeardown(): Deferred<Unit>? =
+            synchronized(processAuthTeardownLock) { processAuthTeardown }
+
+        private fun clearProcessAuthTeardown(completed: CompletableDeferred<Unit>) {
+            synchronized(processAuthTeardownLock) {
+                if (processAuthTeardown === completed) processAuthTeardown = null
+            }
+        }
+
         const val ACTION_START = "dev.ujhhgtg.wekit.action.START_READ_RECEIPTS_TUNNEL"
         const val ACTION_STOP = "dev.ujhhgtg.wekit.action.STOP_READ_RECEIPTS_TUNNEL"
         private const val EXTRA_STOP_NONCE = "notification_stop_nonce"
@@ -812,6 +1685,13 @@ class ReadReceiptsTunnelService : Service() {
         private const val MAX_TOKEN_CHARS = 16 * 1024
         private const val MAX_URL_CHARS = 2048
         private const val MAX_ERROR_CHARS = 256
+        private const val AUTH_OPERATION_TIMEOUT_MILLIS = 30_000L
+        private const val AUTH_LOGIN_POLL_LIMIT = 1_200
+        private const val AUTH_SELECT_DEFERRED = "当前版本尚未启用隧道选择"
+        private const val AUTH_REJECTED = "认证请求已被拒绝"
+        private const val AUTH_BEGIN_FAILED = "无法启动 Cloudflare 登录"
+        private const val AUTH_LIST_FAILED = "无法读取 Cloudflare Tunnel 列表"
+        private const val AUTH_CLEANUP_FAILED = "认证清理未完成，请重新启动登录"
         private val RECONNECT_DELAYS_MILLIS = longArrayOf(1_000, 2_000, 4_000, 8_000, 16_000)
 
         internal fun normalizePublicRoot(value: String): HttpUrl? {
@@ -850,8 +1730,16 @@ internal object ReadReceiptsTunnelProtocol {
     const val START = 2
     const val STOP = 3
     const val DELETE_CREDENTIAL = 4
+    const val BEGIN_LOGIN = 5
+    const val LIST_TUNNELS = 6
+    const val SELECT_TUNNEL = 7
+    const val CANCEL_LOGIN = 8
+    const val LOGOUT = 9
     const val STATUS = 100
     const val START_ACK = 101
+    const val AUTH_ACK = 102
+    const val AUTH_TERMINAL = 103
+    const val AUTH_SNAPSHOT = 104
 
     const val KEY_GENERATION = "generation"
     const val KEY_MODE = "mode"
@@ -865,6 +1753,42 @@ internal object ReadReceiptsTunnelProtocol {
     const val KEY_CLIENT_NONCE = "client_nonce"
     const val KEY_ACCEPTED = "accepted"
     const val KEY_NEEDS_NOTIFICATION_SETTINGS = "needs_notification_settings"
+    const val KEY_LAST_SEEN_AUTH_GENERATION = "last_seen_auth_generation"
+    const val KEY_AUTH_GENERATION = "auth_generation"
+    const val KEY_AUTH_REQUEST_ID = "auth_request_id"
+    const val KEY_AUTH_KIND = "auth_kind"
+    const val KEY_AUTH_TERMINAL = "auth_terminal"
+    const val KEY_AUTH_SNAPSHOT_REVISION = "auth_snapshot_revision"
+    const val KEY_AUTH_RESTART_REQUIRED = "auth_restart_required"
+    const val KEY_AUTHORIZATION_URL = "authorization_url"
+    const val KEY_ACCOUNT_ID = "account_id"
+    const val KEY_TUNNELS = "tunnels"
+    const val KEY_TUNNEL_ID = "tunnel_id"
+    const val KEY_TUNNEL_NAME = "tunnel_name"
+    const val KEY_HOSTNAMES = "hostnames"
+    const val KEY_FIXED_ORIGIN_PORT = "fixed_origin_port"
+    const val KEY_CONNECTOR_GENERATION = "connector_generation"
+    const val KEY_METADATA_LOADING = "metadata_loading"
+    const val KEY_CREDENTIAL_SOURCE = "credential_source"
+    const val KEY_CREDENTIAL_ACCOUNT_ID = "credential_account_id"
+    const val KEY_CREDENTIAL_TUNNEL_ID = "credential_tunnel_id"
+    const val KEY_CREDENTIAL_TUNNEL_NAME = "credential_tunnel_name"
+    const val KEY_CREDENTIAL_HOSTNAME = "credential_hostname"
+    const val KEY_CREDENTIAL_ORIGIN_PORT = "credential_origin_port"
+
+    val REGISTER_KEYS = setOf(KEY_CLIENT_NONCE, KEY_LAST_SEEN_AUTH_GENERATION)
+    val AUTH_OPERATION_KEYS = setOf(
+        KEY_AUTH_GENERATION,
+        KEY_AUTH_REQUEST_ID,
+        KEY_AUTH_KIND,
+        KEY_CLIENT_NONCE,
+    )
+    val SELECT_OPERATION_KEYS = setOf(
+        KEY_TUNNEL_ID,
+        KEY_HOSTNAME,
+        KEY_FIXED_ORIGIN_PORT,
+        KEY_CONNECTOR_GENERATION,
+    )
 }
 
 private class TunnelCredentialStore(context: Context) {
