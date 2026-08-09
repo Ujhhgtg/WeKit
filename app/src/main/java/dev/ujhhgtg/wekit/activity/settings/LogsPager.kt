@@ -43,6 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +62,7 @@ import com.composables.icons.materialsymbols.outlined.Share
 import com.composables.icons.materialsymbols.outlined.Vertical_align_bottom
 import com.composables.icons.materialsymbols.outlined.Vertical_align_top
 import dev.ujhhgtg.wekit.activity.TransparentActivity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.miuixAppBarBlur
 import dev.ujhhgtg.wekit.ui.content.miuixAppBarColor
 import dev.ujhhgtg.wekit.ui.content.rememberMiuixBlurBackdrop
@@ -212,7 +215,7 @@ private fun parseCrashLog(text: String): List<CrashSection> {
  * (`<host>.external.fileprovider`, whose paths cover external + root storage) since this activity
  * runs inside the host process. Falls back to sharing the file's text inline if the provider throws.
  */
-private fun shareLogFile(context: Context, file: Path) {
+private fun shareLogFile(context: Context, localizedContext: Context, file: Path) {
     val f = file.toFile()
     val authority = "${HostInfo.packageName}.external.fileprovider"
     val sendIntent = runCatching {
@@ -231,7 +234,10 @@ private fun shareLogFile(context: Context, file: Path) {
             putExtra(Intent.EXTRA_TEXT, runCatching { file.readText() }.getOrDefault(""))
         }
     }
-    val chooser = Intent.createChooser(sendIntent, "分享日志")
+    val chooser = Intent.createChooser(
+        sendIntent,
+        localizedContext.getString(R.string.logs_share_chooser),
+    )
         .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
     runCatching { context.startActivity(chooser) }
         .onFailure { WeLogger.e(LOGS_TAG, "failed to launch share chooser", it) }
@@ -241,7 +247,7 @@ private fun shareLogFile(context: Context, file: Path) {
  * Opens the system document creator so the user can save a copy of [file] wherever they choose,
  * mirroring the config-export flow in SettingsActivity.
  */
-private fun saveLogFile(context: Context, file: Path) {
+private fun saveLogFile(context: Context, localizedContext: Context, file: Path) {
     TransparentActivity.launch(context) {
         val launcher = registerForActivityResult(
             ActivityResultContracts.CreateDocument("text/plain"),
@@ -256,8 +262,10 @@ private fun saveLogFile(context: Context, file: Path) {
                     }
                 }.onFailure {
                     WeLogger.e(LOGS_TAG, "failed to save log", it)
-                    showToastSuspend("保存失败!")
-                }.onSuccess { showToastSuspend("保存成功") }
+                    showToastSuspend(localizedContext.getString(R.string.logs_save_failed))
+                }.onSuccess {
+                    showToastSuspend(localizedContext.getString(R.string.logs_save_success))
+                }
                 withContext(Dispatchers.Main) { finish() }
             }
         }
@@ -268,7 +276,7 @@ private fun saveLogFile(context: Context, file: Path) {
 // Bottom padding so scrollable content clears the floating bar (mirrors SettingsActivity's inset).
 private val LOGS_BOTTOM_INSET = 88.dp
 
-private val LOG_TABS = listOf("运行日志" to LogKind.RUN, "崩溃日志" to LogKind.CRASH)
+private val LOG_TABS = listOf(LogKind.RUN, LogKind.CRASH)
 
 // ---------------------------------------------------------------------------
 //  Page 2 — Logs
@@ -277,10 +285,11 @@ private val LOG_TABS = listOf("运行日志" to LogKind.RUN, "崩溃日志" to L
 @Composable
 fun LogsPager() {
     val context = LocalComponentActivity.current
+    val localizedContext = LocalContext.current
     val scope = rememberCoroutineScope()
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    val kind = LOG_TABS[selectedTab].second
+    val kind = LOG_TABS[selectedTab]
 
     // One LazyListState per tab, retained across refreshes so scroll position survives a reload.
     val runListState = rememberLazyListState()
@@ -301,45 +310,53 @@ fun LogsPager() {
             TopAppBar(
                 modifier = Modifier.miuixAppBarBlur(barBackdrop),
                 color = barBackdrop.miuixAppBarColor(),
-                title = "日志",
+                title = stringResource(R.string.nav_logs),
                 scrollBehavior = scrollBehavior,
                 actions = {
                     IconButton(onClick = {
-                        currentFile?.let { shareLogFile(context, it) }
-                            ?: scope.launch { showToastSuspend("暂无可分享的日志") }
+                        currentFile?.let { shareLogFile(context, localizedContext, it) }
+                            ?: scope.launch {
+                                showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_share))
+                            }
                     }) {
                         Icon(
                             imageVector = MaterialSymbols.Outlined.Share,
-                            contentDescription = "分享",
+                            contentDescription = stringResource(R.string.logs_share),
                             tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                     IconButton(onClick = {
-                        currentFile?.let { saveLogFile(context, it) }
-                            ?: scope.launch { showToastSuspend("暂无可保存的日志") }
+                        currentFile?.let { saveLogFile(context, localizedContext, it) }
+                            ?: scope.launch {
+                                showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_save))
+                            }
                     }) {
                         Icon(
                             imageVector = MaterialSymbols.Outlined.Save,
-                            contentDescription = "保存",
+                            contentDescription = stringResource(R.string.logs_save),
                             tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                     // Native miuix overflow menu (ListPopup), matching the Settings-page dropdown style.
-                    val menuEntry = remember(listState) {
+                    val refreshLabel = stringResource(R.string.logs_refresh)
+                    val goTopLabel = stringResource(R.string.logs_go_top)
+                    val goBottomLabel = stringResource(R.string.logs_go_bottom)
+                    val clearLabel = stringResource(R.string.logs_clear)
+                    val menuEntry = remember(listState, refreshLabel, goTopLabel, goBottomLabel, clearLabel) {
                         DropdownEntry(
                             items = listOf(
                                 DropdownItem(
-                                    text = "刷新",
+                                    text = refreshLabel,
                                     icon = { m -> Icon(MaterialSymbols.Outlined.Refresh, null, m) },
                                     onClick = { refreshKey++ },
                                 ),
                                 DropdownItem(
-                                    text = "转到顶部",
+                                    text = goTopLabel,
                                     icon = { m -> Icon(MaterialSymbols.Outlined.Vertical_align_top, null, m) },
                                     onClick = { scope.launch { listState.animateScrollToItem(0) } },
                                 ),
                                 DropdownItem(
-                                    text = "转到底部",
+                                    text = goBottomLabel,
                                     icon = { m -> Icon(MaterialSymbols.Outlined.Vertical_align_bottom, null, m) },
                                     onClick = {
                                         scope.launch {
@@ -349,7 +366,7 @@ fun LogsPager() {
                                     },
                                 ),
                                 DropdownItem(
-                                    text = "清空",
+                                    text = clearLabel,
                                     icon = { m -> Icon(MaterialSymbols.Outlined.Delete_sweep, null, m) },
                                     onClick = {
                                         scope.launch {
@@ -371,7 +388,7 @@ fun LogsPager() {
                     WindowIconDropdownMenu(entry = menuEntry) {
                         Icon(
                             imageVector = MaterialSymbols.Outlined.More_vert,
-                            contentDescription = "菜单",
+                            contentDescription = stringResource(R.string.accessibility_overflow_menu),
                             tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
@@ -383,7 +400,10 @@ fun LogsPager() {
                             .padding(bottom = 8.dp),
                     ) {
                         TabRow(
-                            tabs = LOG_TABS.map { it.first },
+                            tabs = listOf(
+                                stringResource(R.string.logs_tab_runtime),
+                                stringResource(R.string.logs_tab_crash),
+                            ),
                             selectedTabIndex = selectedTab,
                             onTabSelected = { selectedTab = it },
                             colors = TabRowDefaults.tabRowColors(backgroundColor = Color.Transparent),
@@ -424,6 +444,7 @@ private fun LogTabContent(
     onRefreshRequested: () -> Unit,
     onCurrentFileChange: (Path?) -> Unit,
 ) {
+    val context = LocalContext.current
     // Files available for this tab, newest first.
     var files by remember(kind) { mutableStateOf<List<Path>>(emptyList()) }
     var selectedIndex by rememberSaveable(kind) { mutableIntStateOf(0) }
@@ -464,7 +485,7 @@ private fun LogTabContent(
             }
             return@LaunchedEffect
         }
-        val text = withContext(Dispatchers.IO) { readLog(selectedFile) }
+        val text = withContext(Dispatchers.IO) { readLog(context, selectedFile) }
         when (kind) {
             LogKind.RUN -> runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
             LogKind.CRASH -> crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }
@@ -508,19 +529,25 @@ private fun LogTabContent(
             if (files.isEmpty()) {
                 // Only announce "no logs" once listing has finished, so it doesn't flash under the spinner.
                 if (listed) {
-                    item(key = "empty-files") { LogsEmpty(if (kind == LogKind.RUN) "暂无运行日志" else "暂无崩溃日志") }
+                    item(key = "empty-files") {
+                        LogsEmpty(
+                            stringResource(
+                                if (kind == LogKind.RUN) R.string.logs_no_runtime else R.string.logs_no_crash
+                            )
+                        )
+                    }
                 }
             } else when (kind) {
                 LogKind.RUN -> {
                     if (runEntries.isEmpty() && !loading) {
-                        item(key = "empty-run") { LogsEmpty("此日志文件为空") }
+                        item(key = "empty-run") { LogsEmpty(stringResource(R.string.logs_file_empty)) }
                     }
                     items(runEntries.size, key = { "run-$it" }) { i -> RunLogCard(runEntries[i]) }
                 }
 
                 LogKind.CRASH -> {
                     if (crashSections.isEmpty() && !loading) {
-                        item(key = "empty-crash") { LogsEmpty("此日志文件为空") }
+                        item(key = "empty-crash") { LogsEmpty(stringResource(R.string.logs_file_empty)) }
                     }
                     items(crashSections.size, key = { "crash-$it" }) { i -> CrashSectionCard(crashSections[i]) }
                 }
@@ -532,8 +559,9 @@ private fun LogTabContent(
 }
 
 /** Reads the full log file (modern devices handle multi-MB logs fine). */
-private fun readLog(file: Path): String =
-    runCatching { file.readText() }.getOrElse { "读取日志失败: ${it.message}" }
+private fun readLog(context: Context, file: Path): String =
+    runCatching { file.readText() }
+        .getOrElse { context.getString(R.string.logs_read_failed, it.message.orEmpty()) }
 // ---------------------------------------------------------------------------
 //  File selector + cards + empty state
 // ---------------------------------------------------------------------------
@@ -551,7 +579,7 @@ private fun FileSelector(
     }
     Card(modifier = modifier.fillMaxWidth()) {
         WindowDropdownPreference(
-            title = "选择日志文件",
+            title = stringResource(R.string.logs_select_file),
             summary = files.getOrNull(selectedIndex)?.let {
                 formatEpoch(it.getLastModifiedTime().toMillis(), true)
             },
@@ -615,7 +643,9 @@ private fun RunLogCard(entry: RunLogEntry) {
                     ) {
                         Icon(
                             imageVector = MaterialSymbols.Outlined.Expand_more,
-                            contentDescription = if (expanded) "折叠" else "展开",
+                            contentDescription = stringResource(
+                                if (expanded) R.string.logs_collapse else R.string.logs_expand
+                            ),
                             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             modifier = Modifier
                                 .size(20.dp)

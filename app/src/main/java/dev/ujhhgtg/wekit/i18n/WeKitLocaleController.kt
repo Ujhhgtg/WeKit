@@ -12,8 +12,8 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import java.util.Locale
 
 object WeKitLocaleController : ComponentCallbacks {
-    private lateinit var application: Application
     private var initialized = false
+    private var hostPreferencesAvailable = false
     private var systemLocales by mutableStateOf(emptyList<Locale>())
 
     var selection by mutableStateOf(LanguageSelection.SYSTEM)
@@ -22,17 +22,33 @@ object WeKitLocaleController : ComponentCallbacks {
     val resolvedLocale: SupportedLocale
         get() = LocaleResolver.resolve(selection, systemLocales)
 
-    fun initialize(application: Application) {
+    /** The standalone module UID cannot access MMKV initialized inside WeChat's UID. */
+    fun initializeModuleProcess(application: Application) {
+        initialize(application, useHostPreferences = false)
+    }
+
+    /** Called only after the injected host process has initialized its MMKV storage. */
+    fun initializeInjectedHost(application: Application) {
+        initialize(application, useHostPreferences = true)
+    }
+
+    private fun initialize(application: Application, useHostPreferences: Boolean) {
         if (initialized) return
-        this.application = application
-        selection = LanguageSelection.fromStored(WePrefs.getString(Preferences.UI_LANGUAGE))
+        hostPreferencesAvailable = useHostPreferences
+        selection = if (useHostPreferences) {
+            LanguageSelection.fromStored(WePrefs.getString(Preferences.UI_LANGUAGE))
+        } else {
+            LanguageSelection.SYSTEM
+        }
         systemLocales = application.resources.configuration.locales.toLocaleList()
         application.registerComponentCallbacks(this)
         initialized = true
     }
 
     fun updateSelection(value: LanguageSelection) {
-        WePrefs.putString(Preferences.UI_LANGUAGE, value.storedValue)
+        if (hostPreferencesAvailable) {
+            WePrefs.putString(Preferences.UI_LANGUAGE, value.storedValue)
+        }
         selection = value
     }
 

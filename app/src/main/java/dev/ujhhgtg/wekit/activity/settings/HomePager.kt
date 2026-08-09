@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Check_circle
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -94,7 +96,7 @@ fun HomePager(onOpenFeatures: () -> Unit) {
     }
     val totalCount = remember { FeaturesProvider.ALL_HOOK_ITEMS.size }
 
-    MiuixListScaffold(title = "WeKit") {
+    MiuixListScaffold(title = stringResource(R.string.app_name)) {
         item {
             Column(
                 modifier = Modifier.padding(top = 12.dp),
@@ -162,7 +164,11 @@ private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> 
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
-                    Text(text = "模块已激活", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = stringResource(R.string.home_module_activated),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                     Spacer(Modifier.height(2.dp))
                     Text(text = BuildConfig.VERSION_NAME, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 }
@@ -178,7 +184,7 @@ private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> 
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                label = "已启用功能", value = enabledCount.toString(),
+                label = stringResource(R.string.home_enabled_features), value = enabledCount.toString(),
                 onClick = onOpenFeatures,
             )
             Spacer(Modifier.height(12.dp))
@@ -186,7 +192,7 @@ private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> 
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                label = "全部功能", value = totalCount.toString(),
+                label = stringResource(R.string.home_all_features), value = totalCount.toString(),
                 onClick = onOpenFeatures,
             )
         }
@@ -227,18 +233,30 @@ private fun SystemInfoCard() {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            InfoText("微信版本", "${HostInfo.versionName} (${HostInfo.versionCode})")
-            InfoText("模块版本", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-            InfoText("构建时间", formatEpoch(BuildConfig.BUILD_TIMESTAMP, true))
-            InfoText("设备型号", "${Build.MANUFACTURER} ${Build.MODEL}")
-            InfoText("Android 版本", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
             InfoText(
-                title = "加载环境",
-                content = buildString {
-                    append("当前加载器：${StartupInfo.loaderService.loaderName}")
-                    append("\n当前 Hook 桥接：")
-                    append(StartupInfo.hookBridge?.hookBridgeName ?: "未提供")
-                },
+                stringResource(R.string.home_wechat_version),
+                stringResource(R.string.home_version_value, HostInfo.versionName, HostInfo.versionCode),
+            )
+            InfoText(
+                stringResource(R.string.home_module_version),
+                stringResource(R.string.home_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+            )
+            InfoText(stringResource(R.string.home_build_time), formatEpoch(BuildConfig.BUILD_TIMESTAMP, true))
+            InfoText(
+                stringResource(R.string.home_device_model),
+                stringResource(R.string.home_device_model_value, Build.MANUFACTURER, Build.MODEL),
+            )
+            InfoText(
+                stringResource(R.string.home_android_version),
+                stringResource(R.string.home_android_version_value, Build.VERSION.RELEASE, Build.VERSION.SDK_INT),
+            )
+            InfoText(
+                title = stringResource(R.string.home_loading_environment),
+                content = stringResource(
+                    R.string.home_loading_environment_value,
+                    StartupInfo.loaderService.loaderName,
+                    StartupInfo.hookBridge?.hookBridgeName ?: stringResource(R.string.common_not_provided),
+                ),
                 bottomPadding = 0.dp,
             )
         }

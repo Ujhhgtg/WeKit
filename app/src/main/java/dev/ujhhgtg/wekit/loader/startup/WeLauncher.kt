@@ -29,7 +29,7 @@ object WeLauncher {
 
         val appContext = context.applicationContext ?: context
         ResourcesInjector.injectModuleRes(appContext.resources)
-        WeKitLocaleController.initialize(HostInfo.application)
+        WeKitLocaleController.initializeInjectedHost(HostInfo.application)
 
         if (TargetProcesses.isInMain) {
             ActivityProxy.init(appContext)

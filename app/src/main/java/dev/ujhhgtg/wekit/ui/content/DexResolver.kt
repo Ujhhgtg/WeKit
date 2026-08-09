@@ -25,8 +25,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.dexkit.resolution.resolveAllDex
@@ -78,7 +80,7 @@ fun DexResolver(
     dismiss: () -> Unit
 ) {
     var phase by remember { mutableStateOf<DialogPhase>(DialogPhase.Idle) }
-    var currentTask by remember { mutableStateOf("正在适配...") }
+    var currentTask by remember { mutableStateOf<ScanProgress?>(null) }
     var completed by remember { mutableIntStateOf(0) }
     val scanResults = remember { mutableStateMapOf<String, ScanResult>() }
 
@@ -87,13 +89,13 @@ fun DexResolver(
             is ScanProgress.Complete -> {
                 scanResults[progress.displayName] = ScanResult.Success(progress.displayName)
                 completed = scanResults.size
-                currentTask = "已完成: ${progress.displayName}"
+                currentTask = progress
             }
 
             is ScanProgress.Failed -> {
                 scanResults[progress.displayName] = ScanResult.Failed(progress.displayName, progress.error)
                 completed = scanResults.size
-                currentTask = "失败: ${progress.displayName}"
+                currentTask = progress
             }
 
             else -> {}
@@ -155,7 +157,7 @@ fun DexResolver(
                 phase = DialogPhase.Done(failed)
             } catch (e: Exception) {
                 WeLogger.e(TAG, "scanning failed", e)
-                phase = DialogPhase.Error("扫描过程中发生未知错误: ${e.message}")
+                phase = DialogPhase.Error(e.message.orEmpty())
             }
         }
     }
@@ -180,7 +182,7 @@ fun DexResolver(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "DEX 缓存更新",
+                    text = stringResource(R.string.dex_cache_update_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -205,17 +207,22 @@ fun DexResolver(
             HorizontalDivider()
 
             // Tip text
+            val unknownError = stringResource(R.string.error_unknown)
             val tipText = when (val p = phase) {
-                is DialogPhase.Idle ->
-                    "检测到 ${outdatedItems.size} 个功能需要更新 DEX 缓存, 开始适配后将自动扫描并更新。" +
-                            "若直接关闭对话框, 相关功能将不会被加载"
+                is DialogPhase.Idle -> stringResource(
+                    R.string.dex_cache_update_required_message,
+                    outdatedItems.size,
+                )
 
                 is DialogPhase.Scanning -> null
                 is DialogPhase.Done ->
-                    if (p.failed.isEmpty()) "适配完成! 所有功能已成功更新 DEX 缓存"
-                    else "适配完成, 但有 ${p.failed.size} 个功能失败 (不影响其他功能使用)"
+                    if (p.failed.isEmpty()) stringResource(R.string.dex_cache_update_success)
+                    else stringResource(R.string.dex_cache_update_partial_failure, p.failed.size)
 
-                is DialogPhase.Error -> p.message
+                is DialogPhase.Error -> stringResource(
+                    R.string.dex_cache_unknown_error,
+                    p.message.ifBlank { unknownError },
+                )
             }
             if (tipText != null) {
                 Text(text = tipText, style = MaterialTheme.typography.bodyMedium)
@@ -224,7 +231,18 @@ fun DexResolver(
             // Progress
             AnimatedVisibility(visible = phase is DialogPhase.Scanning) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = currentTask, style = MaterialTheme.typography.bodyMedium)
+                    val currentTaskText = when (val task = currentTask) {
+                        is ScanProgress.Complete -> stringResource(
+                            R.string.dex_cache_status_completed,
+                            task.displayName,
+                        )
+                        is ScanProgress.Failed -> stringResource(
+                            R.string.dex_cache_status_failed,
+                            task.displayName,
+                        )
+                        else -> stringResource(R.string.dex_cache_status_adapting)
+                    }
+                    Text(text = currentTaskText, style = MaterialTheme.typography.bodyMedium)
                     LinearWavyProgressIndicator(
                         progress = { if (outdatedItems.isEmpty()) 0f else completed.toFloat() / outdatedItems.size },
                         modifier = Modifier.fillMaxWidth(),
@@ -237,7 +255,11 @@ fun DexResolver(
                         }
                     )
                     Text(
-                        text = "总进度: $completed/${outdatedItems.size}",
+                        text = stringResource(
+                            R.string.dex_cache_total_progress,
+                            completed,
+                            outdatedItems.size,
+                        ),
                         style = MaterialTheme.typography.labelSmall
                     )
                     LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth()) // indeterminate sub-bar
@@ -251,9 +273,9 @@ fun DexResolver(
                     ErrorDetailsSection(
                         failedResults = failed,
                         onCopy = {
-                            val report = buildErrorReport(failed)
+                            val report = buildErrorReport(context, failed)
                             copyToClipboard(context, report)
-                            showToast(context, "已复制")
+                            showToast(context, context.getString(R.string.clipboard_copied))
                         }
                     )
                 }
@@ -265,16 +287,18 @@ fun DexResolver(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
             ) {
                 if (phase !is DialogPhase.Scanning) {
-                    TextButton(onClick = dismiss) { Text("关闭") }
+                    TextButton(onClick = dismiss) { Text(stringResource(R.string.dialog_close)) }
                 }
                 if (phase is DialogPhase.Idle) {
-                    Button(onClick = ::startScanning) { Text("开始适配") }
+                    Button(onClick = ::startScanning) {
+                        Text(stringResource(R.string.dex_cache_start_adaptation))
+                    }
                 }
                 if (phase is DialogPhase.Done || phase is DialogPhase.Error) {
                     Button(onClick = {
                         dismiss()
                         restartHost()
-                    }) { Text("重启微信") }
+                    }) { Text(stringResource(R.string.restart_wechat)) }
                 }
             }
         }
@@ -295,12 +319,15 @@ private fun ErrorDetailsSection(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val errorText = buildString {
-                failedResults.forEachIndexed { i, r ->
-                    append("${i + 1}. ${r.displayName}\n")
-                    append("   错误: ${r.error.message}\n\n")
-                }
-            }
+            val unknownError = stringResource(R.string.error_unknown)
+            val errorText = failedResults.mapIndexed { index, result ->
+                stringResource(
+                    R.string.dex_cache_failure_detail,
+                    index + 1,
+                    result.displayName,
+                    result.error.message ?: unknownError,
+                )
+            }.joinToString("")
             Text(
                 text = errorText,
                 style = MaterialTheme.typography.bodySmall,
@@ -310,20 +337,26 @@ private fun ErrorDetailsSection(
                     .heightIn(max = 160.dp)
                     .verticalScroll(rememberScrollState())
             )
-            TextButton(onClick = onCopy) { Text("复制错误信息") }
+            TextButton(onClick = onCopy) {
+                Text(stringResource(R.string.dex_cache_copy_error_information))
+            }
         }
     }
 }
 
-private fun buildErrorReport(failedResults: List<ScanResult.Failed>) = buildString {
-    append("=== WeKit Dex 扫描错误报告 ===\n\n")
+private fun buildErrorReport(context: Context, failedResults: List<ScanResult.Failed>) = buildString {
+    append(context.getString(R.string.dex_error_report_title)).append("\n\n")
     failedResults.forEachIndexed { i, r ->
-        append("${i + 1}. ${r.displayName}\n")
-        append("   错误信息: ${r.error.message}\n")
-        append("   堆栈跟踪:\n")
         val sw = StringWriter()
         r.error.printStackTrace(PrintWriter(sw))
-        append(sw.toString())
-        append("\n\n")
+        append(
+            context.getString(
+                R.string.dex_error_report_entry,
+                i + 1,
+                r.displayName,
+                r.error.message ?: context.getString(R.string.error_unknown),
+                sw.toString(),
+            ),
+        )
     }
 }

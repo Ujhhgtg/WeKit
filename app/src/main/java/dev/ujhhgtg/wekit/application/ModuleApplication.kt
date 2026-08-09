@@ -9,6 +9,6 @@ class ModuleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         HostInfo.init(this)
-        WeKitLocaleController.initialize(this)
+        WeKitLocaleController.initializeModuleProcess(this)
     }
 }

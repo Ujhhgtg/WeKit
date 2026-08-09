@@ -46,6 +46,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -339,11 +340,11 @@ private fun MainPagerScreen(
                     ) { selected ->
                         M3Icon(
                             imageVector = if (selected) item.filled else item.outlined,
-                            contentDescription = item.label,
+                            contentDescription = stringResource(item.labelRes),
                         )
                     }
                     M3Text(
-                        text = item.label,
+                        text = stringResource(item.labelRes),
                         fontSize = 11.sp,
                         lineHeight = 14.sp,
                         maxLines = 1,
@@ -356,13 +357,17 @@ private fun MainPagerScreen(
     }
 }
 
-private data class NavItem(val label: String, val outlined: ImageVector, val filled: ImageVector)
+private data class NavItem(
+    @StringRes val labelRes: Int,
+    val outlined: ImageVector,
+    val filled: ImageVector,
+)
 
 private val TAB_ITEMS = listOf(
-    NavItem("主页", MaterialSymbols.Outlined.Home, MaterialSymbols.OutlinedFilled.Home),
-    NavItem("功能", MaterialSymbols.Outlined.Tune, MaterialSymbols.OutlinedFilled.Tune),
-    NavItem("日志", MaterialSymbols.Outlined.Article, MaterialSymbols.OutlinedFilled.Article),
-    NavItem("设置", MaterialSymbols.Outlined.Settings, MaterialSymbols.OutlinedFilled.Settings),
+    NavItem(R.string.nav_home, MaterialSymbols.Outlined.Home, MaterialSymbols.OutlinedFilled.Home),
+    NavItem(R.string.nav_features, MaterialSymbols.Outlined.Tune, MaterialSymbols.OutlinedFilled.Tune),
+    NavItem(R.string.nav_logs, MaterialSymbols.Outlined.Article, MaterialSymbols.OutlinedFilled.Article),
+    NavItem(R.string.nav_settings, MaterialSymbols.Outlined.Settings, MaterialSymbols.OutlinedFilled.Settings),
 )
 
 /** Bottom padding so scrollable content clears the floating bar. */
@@ -488,7 +493,7 @@ fun FeatureRow(
                 Spacer(Modifier.width(4.dp))
                 Icon(
                     imageVector = MaterialSymbols.Outlined.Settings,
-                    contentDescription = "Configurable",
+                    contentDescription = stringResource(R.string.accessibility_configurable),
                     modifier = Modifier
                         .padding(end = if (!item.noSwitchWidget) 8.dp else 0.dp)
                         .size(20.dp),

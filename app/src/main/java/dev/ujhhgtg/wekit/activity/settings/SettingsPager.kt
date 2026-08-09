@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -124,6 +126,8 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 @Composable
 fun SettingsPager(onOpenLicense: () -> Unit) {
     val context = LocalComponentActivity.current
+    val localizedContext = LocalContext.current
+    val currentLocalizedContext = rememberUpdatedState(localizedContext)
 
     var showClearConfirm by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateResult.UpdateAvailable?>(null) }
@@ -153,25 +157,25 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 调试
         item {
-            MiuixSmallTitle(text = "调试", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = stringResource(R.string.settings_section_debug), modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 SecuritySwitch(context)
                 PrefSwitch(
                     key = Preferences.VERBOSE_LOG,
-                    title = "详细日志",
-                    summary = "输出高频日志 (这可能会暴露你的隐私信息）",
+                    title = stringResource(R.string.settings_verbose_log_title),
+                    summary = stringResource(R.string.settings_verbose_log_summary),
                     icon = MaterialSymbols.Outlined.Frame_bug,
                 )
                 PrefSwitch(
                     key = Preferences.SHOW_STARTUP_TOAST,
-                    title = "显示加载完成 Toast",
-                    summary = "全部功能加载完成后显示 Toast 提示",
+                    title = stringResource(R.string.settings_startup_toast_title),
+                    summary = stringResource(R.string.settings_startup_toast_summary),
                     icon = MaterialSymbols.Outlined.Notifications,
                 )
                 PrefSwitch(
                     key = Preferences.MATCH_GENERIC_WXID_EXP,
-                    title = "清理消息内容微信 ID 前缀时允许非标准 ID",
-                    summary = "允许处理不带 'wxid_' 前缀的微信 ID, 可能导致误伤消息原始内容 (实验性)",
+                    title = stringResource(R.string.settings_generic_wxid_title),
+                    summary = stringResource(R.string.settings_generic_wxid_summary),
                     icon = MaterialSymbols.Outlined.Rule_settings,
                     default = true,
                 )
@@ -180,24 +184,24 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 兼容
         item {
-            MiuixSmallTitle(text = "兼容", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = stringResource(R.string.settings_section_compatibility), modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 PrefSwitch(
                     key = Preferences.NO_DEX_RESOLVE,
-                    title = "禁用版本适配",
-                    summary = "不弹出 DEX 查找对话框，未适配功能将不会被加载",
+                    title = stringResource(R.string.settings_disable_adaptation_title),
+                    summary = stringResource(R.string.settings_disable_adaptation_summary),
                     icon = MaterialSymbols.Outlined.Block,
                 )
                 PrefArrow(
-                    title = "重置适配信息",
-                    summary = "清除 DEX 缓存, 等待下次启动时重新适配",
+                    title = stringResource(R.string.settings_reset_adaptation_title),
+                    summary = stringResource(R.string.settings_reset_adaptation_summary),
                     icon = MaterialSymbols.Outlined.Build_circle,
                     onClick = { ResetDexCache.onClick(context) },
                 )
                 PrefSwitch(
                     key = Preferences.RESET_DEX_ON_HOT_UPDATE,
-                    title = "宿主热更新时重新适配",
-                    summary = "宿主热更新时是否重置 DEX 缓存, 可能导致频繁重新适配 (实验性)",
+                    title = stringResource(R.string.settings_hot_update_adaptation_title),
+                    summary = stringResource(R.string.settings_hot_update_adaptation_summary),
                     icon = MaterialSymbols.Outlined.Auto_delete,
                 )
             }
@@ -205,23 +209,23 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 配置
         item {
-            MiuixSmallTitle(text = "配置", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = stringResource(R.string.settings_section_configuration), modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 PrefArrow(
-                    title = "导出配置",
-                    summary = "将模块配置导出为 JSON",
+                    title = stringResource(R.string.settings_export_config_title),
+                    summary = stringResource(R.string.settings_export_config_summary),
                     icon = MaterialSymbols.Outlined.Upload,
-                    onClick = { SettingsConfigActions.export(context) },
+                    onClick = { SettingsConfigActions.export(localizedContext) },
                 )
                 PrefArrow(
-                    title = "导入配置",
-                    summary = "从 JSON 导入模块配置; JSON 中的配置将会与现有配置合并, 覆盖所有已存在的配置",
+                    title = stringResource(R.string.settings_import_config_title),
+                    summary = stringResource(R.string.settings_import_config_summary),
                     icon = MaterialSymbols.Outlined.Download,
-                    onClick = { SettingsConfigActions.importFromDocument(context) },
+                    onClick = { SettingsConfigActions.importFromDocument(localizedContext) },
                 )
                 PrefArrow(
-                    title = "清除配置",
-                    summary = "清除全部模块配置 (警告: 此操作不可逆!)",
+                    title = stringResource(R.string.settings_clear_config_title),
+                    summary = stringResource(R.string.settings_clear_config_summary),
                     icon = MaterialSymbols.Outlined.Delete_forever,
                     onClick = { showClearConfirm = true },
                 )
@@ -230,14 +234,15 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 更新
         item {
-            MiuixSmallTitle(text = "更新", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = stringResource(R.string.settings_section_update), modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 PrefArrow(
-                    title = "检查更新",
-                    summary = "立即检查模块是否有新版本并自动下载",
+                    title = stringResource(R.string.settings_check_update_title),
+                    summary = stringResource(R.string.settings_check_update_summary),
                     icon = MaterialSymbols.Outlined.Update,
                     onClick = {
                         checkForUpdate(
+                            context = { currentLocalizedContext.value },
                             onAvailable = { updateInfo = it },
                             onError = { updateError = it },
                         )
@@ -248,18 +253,18 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 关于
         item {
-            MiuixSmallTitle(text = "关于", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = stringResource(R.string.settings_section_about), modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
-                PrefArrow(title = "版本", summary = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", icon = MaterialSymbols.Outlined.Label)
-                PrefArrow(title = "构建提交时间", summary = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true), icon = MaterialSymbols.Outlined.Build_circle)
+                PrefArrow(title = stringResource(R.string.settings_version_title), summary = stringResource(R.string.home_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE), icon = MaterialSymbols.Outlined.Label)
+                PrefArrow(title = stringResource(R.string.settings_build_commit_time_title), summary = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true), icon = MaterialSymbols.Outlined.Build_circle)
                 PrefArrow(
-                    title = "提示",
-                    summary = "牙膏要一点一点挤, 显卡要一刀一刀切, PPT 要一张一张放, 代码要一行一行写, 单个功能预计自出现在 commit 之日起, 三年内开发完毕",
+                    title = stringResource(R.string.settings_tip_title),
+                    summary = stringResource(R.string.settings_tip_summary),
                     icon = MaterialSymbols.Outlined.Lightbulb_2,
                 )
                 PrefArrow(
-                    title = "捐赠",
-                    summary = "支持项目开发 (模块完全开源免费, 捐赠无特权)",
+                    title = stringResource(R.string.settings_donate_title),
+                    summary = stringResource(R.string.settings_donate_summary),
                     icon = MaterialSymbols.Outlined.Volunteer_activism,
                     onClick = {
 //                        context.startActivity(Intent().apply {
@@ -271,18 +276,18 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                     },
                 )
                 PrefArrow(
-                    title = "开放源代码许可",
-                    summary = "本项目使用的开放源代码库许可",
+                    title = stringResource(R.string.settings_open_source_licenses_title),
+                    summary = stringResource(R.string.settings_open_source_licenses_summary),
                     icon = MaterialSymbols.Outlined.License,
                     onClick = onOpenLicense,
                 )
                 PrefArrow(
-                    title = "GitHub",
+                    title = stringResource(R.string.brand_github),
                     summary = "Ujhhgtg/WeKit",
                     icon = GitHubIcon,
                     onClick = { "https://github.com/Ujhhgtg/WeKit".toUri().openInSystem(context, true) })
                 PrefArrow(
-                    title = "Telegram",
+                    title = stringResource(R.string.brand_telegram),
                     summary = "https://t.me/+7j5dJ6g16B43OWVl",
                     icon = TelegramIcon,
                     onClick = { "https://t.me/+7j5dJ6g16B43OWVl".toUri().openInSystem(context, true) })
@@ -405,6 +410,7 @@ private fun <T> EnumDropdown(
 
 @Composable
 private fun ThemeSection() {
+    val context = LocalContext.current
     val selectedLanguage = WeKitLocaleController.selection
     val resolvedLanguage = WeKitLocaleController.resolvedLocale
     val languageLabels = mapOf(
@@ -422,6 +428,30 @@ private fun ThemeSection() {
     } else {
         stringResource(selectedLanguage.labelRes)
     }
+    val themeModeLabels = mapOf(
+        AppThemeMode.SYSTEM to stringResource(R.string.theme_mode_system),
+        AppThemeMode.LIGHT to stringResource(R.string.theme_mode_light),
+        AppThemeMode.DARK to stringResource(R.string.theme_mode_dark),
+    )
+    val uiEngineLabels = mapOf(
+        SettingsUiEngine.MIUIX to stringResource(R.string.ui_engine_miuix),
+        SettingsUiEngine.NUKE to stringResource(R.string.ui_engine_nuke),
+    )
+    val paletteStyleLabels = mapOf(
+        AppPaletteStyle.TONAL_SPOT to stringResource(R.string.palette_style_tonal_spot),
+        AppPaletteStyle.NEUTRAL to stringResource(R.string.palette_style_neutral),
+        AppPaletteStyle.VIBRANT to stringResource(R.string.palette_style_vibrant),
+        AppPaletteStyle.EXPRESSIVE to stringResource(R.string.palette_style_expressive),
+        AppPaletteStyle.RAINBOW to stringResource(R.string.palette_style_rainbow),
+        AppPaletteStyle.FRUIT_SALAD to stringResource(R.string.palette_style_fruit_salad),
+        AppPaletteStyle.MONOCHROME to stringResource(R.string.palette_style_monochrome),
+        AppPaletteStyle.FIDELITY to stringResource(R.string.palette_style_fidelity),
+        AppPaletteStyle.CONTENT to stringResource(R.string.palette_style_content),
+    )
+    val colorSpecLabels = mapOf(
+        AppColorSpec.SPEC_2021 to stringResource(R.string.color_spec_material_2021),
+        AppColorSpec.SPEC_2025 to stringResource(R.string.color_spec_expressive_2025),
+    )
     EnumDropdown(
         title = stringResource(R.string.settings_language_title),
         entries = LanguageSelection.entries,
@@ -433,27 +463,27 @@ private fun ThemeSection() {
     )
 
     EnumDropdown(
-        title = "UI 组件引擎",
+        title = stringResource(R.string.settings_ui_engine_title),
         entries = SettingsUiEngine.entries,
         selected = ThemeSettings.uiEngine,
-        labelOf = { it.displayName },
+        labelOf = uiEngineLabels::getValue,
         onSelected = { ThemeSettings.updateUiEngine(it) },
         icon = MaterialSymbols.Outlined.Style,
     )
 
     EnumDropdown(
-        title = "主题模式",
+        title = stringResource(R.string.settings_theme_mode_title),
         entries = AppThemeMode.entries,
         selected = ThemeSettings.themeMode,
-        labelOf = { it.displayName },
+        labelOf = themeModeLabels::getValue,
         onSelected = { ThemeSettings.updateThemeMode(it) },
         icon = MaterialSymbols.Outlined.Brightness_medium,
     )
 
     var customColor by remember { mutableStateOf(ThemeSettings.customColor) }
     SwitchPreference(
-        title = "自定义颜色",
-        summary = "使用调色板样式生成配色, 而非 Miuix 默认蓝",
+        title = stringResource(R.string.settings_custom_color_title),
+        summary = stringResource(R.string.settings_custom_color_summary),
         startAction = { PrefIcon(MaterialSymbols.Outlined.Palette) },
         checked = customColor,
         onCheckedChange = {
@@ -469,8 +499,8 @@ private fun ThemeSection() {
         Column {
             var dynamicWallpaper by remember { mutableStateOf(ThemeSettings.dynamicWallpaper) }
             SwitchPreference(
-                title = "动态壁纸取色",
-                summary = "使用系统壁纸的强调色作为种子\n需系统 Android SDK >= 31",
+                title = stringResource(R.string.settings_dynamic_wallpaper_title),
+                summary = stringResource(R.string.settings_dynamic_wallpaper_summary),
                 startAction = { PrefIcon(MaterialSymbols.Outlined.Wallpaper) },
                 checked = dynamicWallpaper,
                 onCheckedChange = {
@@ -480,8 +510,8 @@ private fun ThemeSection() {
             )
             AnimatedVisibility(visible = !dynamicWallpaper) {
                 BasicComponent(
-                    title = "种子颜色",
-                    summary = "点击选择配色的种子颜色",
+                    title = stringResource(R.string.settings_seed_color_title),
+                    summary = stringResource(R.string.settings_seed_color_summary),
                     startAction = { PrefIcon(MaterialSymbols.Outlined.Colorize) },
                     onClick = { showColorPicker = true },
                     endActions = {
@@ -495,10 +525,10 @@ private fun ThemeSection() {
                 )
             }
             EnumDropdown(
-                title = "调色板样式",
+                title = stringResource(R.string.settings_palette_style_title),
                 entries = AppPaletteStyle.entries,
                 selected = ThemeSettings.paletteStyle,
-                labelOf = { it.displayName },
+                labelOf = paletteStyleLabels::getValue,
                 onSelected = {
                     ThemeSettings.updatePaletteStyle(it)
                     // Keep the stored spec valid for the new style.
@@ -510,26 +540,30 @@ private fun ThemeSection() {
             )
             val spec2025Supported = ThemeSettings.paletteStyle.supportsSpec2025
             EnumDropdown(
-                title = "颜色规格",
+                title = stringResource(R.string.settings_color_spec_title),
                 entries = if (spec2025Supported) AppColorSpec.entries else listOf(AppColorSpec.SPEC_2021),
                 selected = ThemeSettings.effectiveColorSpec,
-                labelOf = { it.displayName },
+                labelOf = colorSpecLabels::getValue,
                 onSelected = { ThemeSettings.updateColorSpec(it) },
                 enabled = spec2025Supported,
-                summary = if (!spec2025Supported) "当前调色板样式仅支持 Material 3 (2021)" else null,
+                summary = if (!spec2025Supported) {
+                    stringResource(R.string.settings_color_spec_unsupported)
+                } else null,
                 icon = MaterialSymbols.Outlined.Contrast,
             )
 
             var applyToWechat by remember { mutableStateOf(ThemeSettings.applyToWechat) }
             SwitchPreference(
-                title = "同时对微信生效",
-                summary = "将自定义配色应用到微信本身",
+                title = stringResource(R.string.settings_apply_to_wechat_title),
+                summary = stringResource(R.string.settings_apply_to_wechat_summary),
                 startAction = { PrefIcon(MaterialSymbols.Outlined.Sync) },
                 checked = applyToWechat,
                 onCheckedChange = {
                     applyToWechat = it
                     ThemeSettings.updateApplyToWechat(it)
-                    CoroutineScope(Dispatchers.Main).launch { showToastSuspend("重启微信生效") }
+                    CoroutineScope(Dispatchers.Main).launch {
+                        showToastSuspend(context.getString(R.string.restart_wechat))
+                    }
                 },
             )
         }
@@ -541,7 +575,11 @@ private fun ThemeSection() {
 private fun SeedColorPickerDialog(show: Boolean, onDismiss: () -> Unit) {
     var picked by remember(show) { mutableStateOf(Color(ThemeSettings.seedColor)) }
 
-    WindowDialog(show = show, title = "自定义颜色", onDismissRequest = onDismiss) {
+    WindowDialog(
+        show = show,
+        title = stringResource(R.string.settings_custom_color_title),
+        onDismissRequest = onDismiss,
+    ) {
         Column {
             ColorPicker(
                 color = picked,
@@ -550,15 +588,19 @@ private fun SeedColorPickerDialog(show: Boolean, onDismiss: () -> Unit) {
             Spacer(Modifier.height(20.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
                 TextButton(
-                    text = "重置",
+                    text = stringResource(R.string.action_reset),
                     onClick = { picked = Color(ThemeSettings.DEFAULT_SEED_COLOR) },
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(20.dp))
-                TextButton(text = "取消", onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(
+                    text = stringResource(R.string.dialog_cancel),
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                )
                 Spacer(Modifier.width(20.dp))
                 TextButton(
-                    text = "确定",
+                    text = stringResource(R.string.dialog_confirm),
                     onClick = {
                         ThemeSettings.updateSeedColor(picked.toArgb())
                         onDismiss()
@@ -636,8 +678,8 @@ private fun PrefIcon(icon: ImageVector) {
 private fun SecuritySwitch(context: Context) {
     var checked by remember { mutableStateOf(SafeMode.isEnabled) }
     SwitchPreference(
-        title = SafeMode.TITLE,
-        summary = SafeMode.DESCRIPTION,
+        title = stringResource(R.string.settings_safe_mode_title),
+        summary = stringResource(R.string.settings_safe_mode_summary),
         startAction = { PrefIcon(MaterialSymbols.Outlined.Shield) },
         checked = checked,
         onCheckedChange = {
@@ -658,17 +700,18 @@ private fun SecuritySwitch(context: Context) {
 // ---------------------------------------------------------------------------
 
 private fun checkForUpdate(
+    context: () -> Context,
     onAvailable: (UpdateResult.UpdateAvailable) -> Unit,
     onError: (String) -> Unit,
 ) {
     CoroutineScope(Dispatchers.Main).launch {
-        showToastSuspend("正在检查更新...")
+        showToastSuspend(context().getString(R.string.update_checking))
         when (val result = AppUpdater.checkForUpdate()) {
-            UpdateResult.UpToDate -> showToastSuspend("已是最新版本")
+            UpdateResult.UpToDate -> showToastSuspend(context().getString(R.string.update_up_to_date))
             is UpdateResult.UpdateAvailable -> onAvailable(result)
             is UpdateResult.Error -> {
                 WeLogger.e("AppUpdater", "failed to check for updates", result.cause)
-                onError(result.cause.message ?: "未知错误")
+                onError(result.cause.message ?: context().getString(R.string.error_unknown))
             }
         }
     }
@@ -680,18 +723,19 @@ private fun checkForUpdate(
 
 @Composable
 private fun ClearConfigDialog(show: Boolean, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     MiuixConfirmDialog(
         show = show,
-        title = "清除模块配置",
-        message = "确定清除配置? (警告: 此操作不可逆!)",
-        confirmText = "清除",
+        title = stringResource(R.string.clear_config_dialog_title),
+        message = stringResource(R.string.clear_config_dialog_message),
+        confirmText = stringResource(R.string.action_clear),
         onDismiss = onDismiss,
         onConfirm = {
             onDismiss()
             CoroutineScope(Dispatchers.IO).launch {
-                showToastSuspend("正在清除...")
+                showToastSuspend(context.getString(R.string.config_clearing))
                 SettingsConfigActions.clear()
-                showToastSuspend("清除成功!")
+                showToastSuspend(context.getString(R.string.config_clear_success))
             }
         },
     )
@@ -703,13 +747,18 @@ private fun UpdateAvailableDialog(
     onDismiss: () -> Unit,
     context: ComponentActivity,
 ) {
+    val currentLocalizedContext = rememberUpdatedState(LocalContext.current)
     MiuixConfirmDialog(
         show = info != null,
-        title = "检测到新版本",
+        title = stringResource(R.string.update_available_title),
         message = if (info != null) {
-            "当前版本: ${BuildConfig.VERSION_NAME}\n新版本: ${info.info.versionName}\n是否下载并安装?"
+            stringResource(
+                R.string.update_available_message,
+                BuildConfig.VERSION_NAME,
+                info.info.versionName,
+            )
         } else "",
-        confirmText = "确定",
+        confirmText = stringResource(R.string.dialog_confirm),
         onDismiss = onDismiss,
         onConfirm = {
             val target = info ?: return@MiuixConfirmDialog
@@ -723,7 +772,14 @@ private fun UpdateAvailableDialog(
                     .onFailure { e ->
                         if (e is CancellationException) throw e
                         WeLogger.e("AppUpdater", "failed to download update", e)
-                        showToastSuspend(context, "下载更新失败: ${e.message ?: "未知错误"}")
+                        val localizedContext = currentLocalizedContext.value
+                        showToastSuspend(
+                            context,
+                            localizedContext.getString(
+                                R.string.update_download_failed,
+                                e.message ?: localizedContext.getString(R.string.error_unknown),
+                            ),
+                        )
                     }
             }
         },
@@ -734,9 +790,9 @@ private fun UpdateAvailableDialog(
 private fun UpdateErrorDialog(message: String?, onDismiss: () -> Unit) {
     MiuixMessageDialog(
         show = message != null,
-        title = "检查更新失败",
-        message = "错误信息: ${message.orEmpty()}",
-        dismissText = "关闭",
+        title = stringResource(R.string.update_check_failed_title),
+        message = stringResource(R.string.update_error_message, message.orEmpty()),
+        dismissText = stringResource(R.string.dialog_close),
         onDismiss = onDismiss,
     )
 }
@@ -750,14 +806,18 @@ private fun MiuixConfirmDialog(
     confirmText: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
-    dismissText: String = "取消",
+    dismissText: String? = null,
 ) {
     WindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
         Column {
             Text(text = message)
             Spacer(Modifier.height(20.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                TextButton(text = dismissText, onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(
+                    text = dismissText ?: stringResource(R.string.dialog_cancel),
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                )
                 Spacer(Modifier.width(20.dp))
                 TextButton(
                     text = confirmText,
@@ -820,12 +880,12 @@ fun LicenseScreen(onBack: () -> Unit) {
     }
 
     MiuixListScaffold(
-        title = "开放源代码库",
+        title = stringResource(R.string.licenses_title),
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = MaterialSymbols.Outlined.Arrow_back,
-                    contentDescription = "返回",
+                    contentDescription = stringResource(R.string.accessibility_back),
                     tint = MiuixTheme.colorScheme.onBackground,
                 )
             }
@@ -837,7 +897,7 @@ fun LicenseScreen(onBack: () -> Unit) {
                 modifier = Modifier
                     .padding(top = 12.dp)
                     .fillMaxWidth(),
-                label = "搜索库",
+                label = stringResource(R.string.licenses_search_hint),
                 leadingIcon = {
                     Icon(
                         imageVector = MaterialSymbols.Outlined.Search,
@@ -851,7 +911,7 @@ fun LicenseScreen(onBack: () -> Unit) {
                         IconButton(onClick = { queryState.clearText() }) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Close,
-                                contentDescription = "清除",
+                                contentDescription = stringResource(R.string.action_clear),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
@@ -862,7 +922,11 @@ fun LicenseScreen(onBack: () -> Unit) {
 
         item {
             MiuixSmallTitle(
-                text = if (query.isBlank()) "${libraries.size} 个库" else "${filtered.size}/${libraries.size} 个库",
+                text = if (query.isBlank()) {
+                    stringResource(R.string.licenses_count, libraries.size)
+                } else {
+                    stringResource(R.string.licenses_filtered_count, filtered.size, libraries.size)
+                },
                 modifier = Modifier.padding(top = 6.dp),
             )
         }
@@ -876,7 +940,7 @@ fun LicenseScreen(onBack: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "找不到「$query」的结果",
+                        text = stringResource(R.string.licenses_no_results, query),
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }

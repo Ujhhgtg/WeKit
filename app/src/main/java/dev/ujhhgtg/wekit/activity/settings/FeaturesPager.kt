@@ -25,6 +25,7 @@ import com.composables.icons.materialsymbols.outlined.Arrow_back
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Fiber_new
 import com.composables.icons.materialsymbols.outlined.Search
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.NewFeatures
@@ -99,14 +100,14 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
     // back has dismissed the keyboard) rather than exiting the module settings.
     BackHandler(enabled = searching) { queryState.clearText() }
 
-    MiuixListScaffold(title = "功能") {
+    MiuixListScaffold(title = stringResource(R.string.nav_features)) {
         item {
             TextField(
                 state = queryState,
                 modifier = Modifier
                     .padding(top = 12.dp)
                     .fillMaxWidth(),
-                label = "搜索功能",
+                label = stringResource(R.string.features_search_hint),
                 leadingIcon = {
                     Icon(
                         imageVector = MaterialSymbols.Outlined.Search,
@@ -120,7 +121,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                         IconButton(onClick = { queryState.clearText() }) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Close,
-                                contentDescription = "Clear query",
+                                contentDescription = stringResource(R.string.features_clear_search),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
@@ -140,7 +141,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "未匹配到任何相关功能",
+                            text = stringResource(R.string.features_no_results),
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
@@ -171,7 +172,11 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                     ) {
                         ArrowPreference(
                             title = stringResource(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
-                            summary = "最近 ${NewFeatures.WINDOW_DAYS} 天新增 ${NEW_FEATURE_ITEMS.size} 项",
+                            summary = stringResource(
+                                R.string.features_new_summary,
+                                NewFeatures.WINDOW_DAYS,
+                                NEW_FEATURE_ITEMS.size,
+                            ),
                             startAction = {
                                 Icon(
                                     imageVector = MaterialSymbols.Outlined.Fiber_new,
@@ -240,7 +245,7 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = MaterialSymbols.Outlined.Arrow_back,
-                    contentDescription = "返回",
+                    contentDescription = stringResource(R.string.accessibility_back),
                     tint = MiuixTheme.colorScheme.onBackground,
                 )
             }

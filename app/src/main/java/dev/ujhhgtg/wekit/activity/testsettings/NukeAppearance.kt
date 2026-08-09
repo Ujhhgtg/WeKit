@@ -23,7 +23,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeAnimatedVisibility
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeButton
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
@@ -69,22 +71,22 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
         SettingsUiEngine.NUKE to "Nuke",
     )
     val themeLabels = mapOf(
-        AppThemeMode.SYSTEM to "系统默认",
-        AppThemeMode.LIGHT to "浅色主题",
-        AppThemeMode.DARK to "深色主题",
+        AppThemeMode.SYSTEM to stringResource(R.string.theme_mode_system),
+        AppThemeMode.LIGHT to stringResource(R.string.theme_mode_light),
+        AppThemeMode.DARK to stringResource(R.string.theme_mode_dark),
     )
     val popupAnimationLabels = mapOf(
-        NukePopupAnimationMode.Vanilla to "原版",
-        NukePopupAnimationMode.ExitAlignedToEnter to "exit 对齐 enter",
-        NukePopupAnimationMode.EnterAlignedToExit to "enter 对齐 exit",
+        NukePopupAnimationMode.Vanilla to stringResource(R.string.nuke_popup_animation_vanilla),
+        NukePopupAnimationMode.ExitAlignedToEnter to stringResource(R.string.nuke_popup_animation_exit_to_enter),
+        NukePopupAnimationMode.EnterAlignedToExit to stringResource(R.string.nuke_popup_animation_enter_to_exit),
     )
 
-    NukePageScaffold(title = "界面设置", onBack = onBack) {
+    NukePageScaffold(title = stringResource(R.string.nuke_appearance_title), onBack = onBack) {
         item(key = "ui_engine") {
-            NukeSettingGroup(title = "界面") {
+            NukeSettingGroup(title = stringResource(R.string.settings_section_interface)) {
                 NukeSelectPreference(
-                    title = "UI 组件引擎",
-                    description = "选择模块设置界面使用的组件库。",
+                    title = stringResource(R.string.settings_ui_engine_title),
+                    description = stringResource(R.string.nuke_ui_engine_summary),
                     options = SettingsUiEngine.entries,
                     selected = ThemeSettings.uiEngine,
                     optionLabel = { engineLabels.getValue(it) },
@@ -93,10 +95,10 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
             }
         }
         item(key = "theme_mode") {
-            NukeSettingGroup(title = "主题") {
+            NukeSettingGroup(title = stringResource(R.string.nuke_section_theme)) {
                 NukeSelectPreference(
-                    title = "主题",
-                    description = "选择设置界面的明暗表现。",
+                    title = stringResource(R.string.settings_theme_mode_title),
+                    description = stringResource(R.string.nuke_theme_mode_summary),
                     options = AppThemeMode.entries,
                     selected = ThemeSettings.themeMode,
                     optionLabel = { themeLabels.getValue(it) },
@@ -105,10 +107,10 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
             }
         }
         item(key = "click_haptic") {
-            NukeSettingGroup(title = "交互") {
+            NukeSettingGroup(title = stringResource(R.string.nuke_section_interaction)) {
                 NukePreferenceRow(
-                    title = "触觉反馈",
-                    description = "点击按钮和设置项时提供触觉反馈",
+                    title = stringResource(R.string.nuke_haptics_title),
+                    description = stringResource(R.string.nuke_haptics_summary),
                     trailing = {
                         NukeSwitch(
                             checked = ThemeSettings.nukeHaptics,
@@ -120,10 +122,10 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
             }
         }
         item(key = "color") {
-            NukeSettingGroup(title = "颜色") {
+            NukeSettingGroup(title = stringResource(R.string.nuke_section_colors)) {
                 NukePreferenceRow(
-                    title = "自定义颜色",
-                    description = "启用后使用共享主题颜色，而非 Nuke 默认粉色",
+                    title = stringResource(R.string.settings_custom_color_title),
+                    description = stringResource(R.string.nuke_custom_color_summary),
                     trailing = {
                         NukeSwitch(
                             checked = ThemeSettings.customColor,
@@ -139,8 +141,8 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                     Column {
                         NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
                         NukePreferenceRow(
-                            title = "动态壁纸取色",
-                            description = "使用系统壁纸的强调色作为种子，需要 Android 12 或更高版本",
+                            title = stringResource(R.string.settings_dynamic_wallpaper_title),
+                            description = stringResource(R.string.nuke_dynamic_wallpaper_summary),
                             trailing = {
                                 NukeSwitch(
                                     checked = ThemeSettings.dynamicWallpaper,
@@ -155,8 +157,8 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                             Column {
                                 NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
                                 NukePreferenceRow(
-                                    title = "种子颜色",
-                                    description = "点击选择配色的种子颜色",
+                                    title = stringResource(R.string.settings_seed_color_title),
+                                    description = stringResource(R.string.settings_seed_color_summary),
                                     trailing = {
                                         val seedColor = Color(ThemeSettings.seedColor)
                                         NukeColorSwatch(color = seedColor, selected = false)
@@ -177,20 +179,20 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                         }
                         NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
                         NukePreferenceRow(
-                            title = "同时对微信生效",
-                            description = "将自定义配色应用到微信本身，重启微信后生效",
+                            title = stringResource(R.string.settings_apply_to_wechat_title),
+                            description = stringResource(R.string.nuke_apply_to_wechat_summary),
                             trailing = {
                                 NukeSwitch(
                                     checked = ThemeSettings.applyToWechat,
                                     onCheckedChange = { value ->
                                         ThemeSettings.updateApplyToWechat(value)
-                                        scope.launch { showToastSuspend(context, "重启微信生效") }
+                                        scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat)) }
                                     },
                                 )
                             },
                             onClick = {
                                 ThemeSettings.updateApplyToWechat(!ThemeSettings.applyToWechat)
-                                scope.launch { showToastSuspend(context, "重启微信生效") }
+                                scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat)) }
                             },
                         )
                     }
@@ -199,17 +201,17 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
         }
         item(key = "fine_tuning") {
             Column {
-                NukeSettingGroup(title = "微调") {
+                NukeSettingGroup(title = stringResource(R.string.nuke_section_fine_tuning)) {
                     NukePreferenceRow(
-                        title = "套用推荐设置",
-                        description = "使用推荐的按压、页面返回和 Popup 动画组合",
+                        title = stringResource(R.string.nuke_apply_recommended_title),
+                        description = stringResource(R.string.nuke_apply_recommended_summary),
                         leading = { NukeCategoryIcon(NukeGlyphKind.CheckCircle) },
                         onClick = { ThemeSettings.applyNukeRecommendedFineTuning() },
                     )
                     NukeDivider()
                     NukePreferenceRow(
-                        title = "恢复原版设置",
-                        description = "恢复这些微调项的原版默认行为",
+                        title = stringResource(R.string.nuke_restore_original_title),
+                        description = stringResource(R.string.nuke_restore_original_summary),
                         leading = { NukeCategoryIcon(NukeGlyphKind.Restart) },
                         onClick = { ThemeSettings.restoreNukeOriginalFineTuning() },
                     )
@@ -217,8 +219,8 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 NukeSettingGroup(title = null) {
                     NukePreferenceRow(
-                        title = "即时按压反馈",
-                        description = "移除按压反馈延迟，使快速轻点也立即触发缩放和倾斜动画",
+                        title = stringResource(R.string.nuke_immediate_press_title),
+                        description = stringResource(R.string.nuke_immediate_press_summary),
                         trailing = {
                             NukeSwitch(
                                 checked = ThemeSettings.nukeImmediatePressFeedback,
@@ -235,8 +237,8 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 NukeSettingGroup(title = null) {
                     NukePreferenceRow(
-                        title = "页面 exit 动画语义逻辑优化",
-                        description = "根据返回来源收缩到手势边缘、导航栏返回键或左上角返回键",
+                        title = stringResource(R.string.nuke_page_exit_title),
+                        description = stringResource(R.string.nuke_page_exit_summary),
                         trailing = {
                             NukeSwitch(
                                 checked = ThemeSettings.nukePageExitOptimization,
@@ -253,8 +255,8 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 NukeSettingGroup(title = null) {
                     NukeSelectPreference(
-                        title = "Popup 动画",
-                        description = "调整原版 Popup 出现与消失动画的配对方式",
+                        title = stringResource(R.string.nuke_popup_animation_title),
+                        description = stringResource(R.string.nuke_popup_animation_summary),
                         options = NukePopupAnimationMode.entries,
                         selected = ThemeSettings.nukePopupAnimation,
                         optionLabel = { popupAnimationLabels.getValue(it) },
@@ -262,8 +264,8 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                     )
                     NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
                     NukePreferenceRow(
-                        title = "Popup 使用 Dialog 作为宿主",
-                        description = "改用与 Miuix Popup 相同的窗口宿主，以支持完整的返回手势分发",
+                        title = stringResource(R.string.nuke_popup_dialog_host_title),
+                        description = stringResource(R.string.nuke_popup_dialog_host_summary),
                         trailing = {
                             NukeSwitch(
                                 checked = ThemeSettings.nukePopupDialogHost,
@@ -281,8 +283,8 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                         Column {
                             NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
                             NukePreferenceRow(
-                                title = "Popup exit 动画预见性返回",
-                                description = "返回手势进行时，Popup 会提前跟随手势播放部分消失动画",
+                                title = stringResource(R.string.nuke_popup_predictive_exit_title),
+                                description = stringResource(R.string.nuke_popup_predictive_exit_summary),
                                 trailing = {
                                     NukeSwitch(
                                         checked = ThemeSettings.nukePopupPredictiveExit,
@@ -329,12 +331,12 @@ private fun NukeThemeColorDialog(
     }
 
     NukeDialogSurface(
-        title = "选择主题色",
+        title = stringResource(R.string.nuke_choose_theme_color),
         onDismiss = onDismiss,
         actions = { dismiss ->
-            NukeButton("取消", modifier = Modifier.weight(1f), onClick = dismiss)
+            NukeButton(stringResource(R.string.dialog_cancel), modifier = Modifier.weight(1f), onClick = dismiss)
             NukeButton(
-                "保存",
+                stringResource(R.string.logs_save),
                 modifier = Modifier.weight(1f),
                 primary = true,
                 enabled = parsedCustom != null,
@@ -350,7 +352,7 @@ private fun NukeThemeColorDialog(
                 .heightIn(max = 420.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            NukeDialogSectionTitle("预制颜色")
+            NukeDialogSectionTitle(stringResource(R.string.nuke_preset_colors))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 nukePresetColors.chunked(6).forEach { row ->
                     Row(
@@ -377,7 +379,7 @@ private fun NukeThemeColorDialog(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            NukeDialogSectionTitle("自定义色值")
+            NukeDialogSectionTitle(stringResource(R.string.nuke_custom_color_value))
             NukeTextField(
                 value = customHex,
                 onValueChange = { input ->
@@ -397,13 +399,13 @@ private fun NukeThemeColorDialog(
             )
             Spacer(Modifier.height(8.dp))
             NukeText(
-                text = parsedCustom?.toNukeHex() ?: "无效颜色，请输入 #RRGGBB",
+                text = parsedCustom?.toNukeHex() ?: stringResource(R.string.nuke_invalid_color),
                 color = if (parsedCustom == null) NukeTheme.colors.accent else NukeTheme.colors.textSecondary,
                 fontSize = 12,
                 lineHeight = 16,
             )
             Spacer(Modifier.height(16.dp))
-            NukeDialogSectionTitle("调色板")
+            NukeDialogSectionTitle(stringResource(R.string.settings_palette_style_title))
             NukeSaturationValuePalette(
                 hue = hue,
                 saturation = saturation,

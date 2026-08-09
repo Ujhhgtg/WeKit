@@ -13,6 +13,329 @@
     <string name="language_simplified_chinese" translatable="false">简体中文</string>
     <string name="language_traditional_chinese" translatable="false">繁體中文</string>
 
+    <!-- Shared module UI -->
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_confirm">Confirm</string>
+    <string name="dialog_close">Close</string>
+    <string name="accessibility_overflow_menu">More options</string>
+    <string name="brand_github" translatable="false">GitHub</string>
+    <string name="brand_telegram" translatable="false">Telegram</string>
+    <string name="module_app_sticker_import_invalid_caller">This action can only be started from the WeKit panel inside WeChat.</string>
+    <string name="module_app_activation_active">Activated</string>
+    <string name="module_app_activation_inactive">Not activated</string>
+    <string name="module_app_activation_framework_details">%1$s %2$s (%3$d), API %4$d</string>
+    <string name="module_app_activation_xposed_not_detected">No Xposed framework was detected. Make sure the module is enabled in the manager and WeChat is selected.</string>
+    <!-- Compact subtitle below the app name; keep this to one line. -->
+    <string name="module_app_version_summary" translatable="false">%1$s (%2$d)</string>
+    <string name="module_app_set_host_package_title">Set host package name</string>
+    <string name="module_app_repair_loading_title">Repair module loading</string>
+    <string name="module_app_clear_data_title">Clear module data</string>
+    <string name="module_app_hide_launcher_icon">Hide launcher icon</string>
+    <string name="module_app_show_launcher_icon">Show launcher icon</string>
+    <string name="module_app_about_title">About</string>
+    <string name="module_app_build_info_title">Build information</string>
+    <string name="module_app_build_commit_hash_label">Build commit hash</string>
+    <string name="module_app_build_commit_time_label">Build commit time</string>
+    <string name="module_app_force_start_wechat_failed">Unable to launch WeChat (package: %1$s)</string>
+    <string name="module_app_open_wechat_title">Open WeChat</string>
+    <string name="module_app_open_wechat_summary">Force-stop and launch WeChat</string>
+    <string name="module_app_open_wechat_failed">Unable to open WeChat (package: %1$s)</string>
+    <string name="module_app_open_settings_title">Open module settings</string>
+    <string name="module_app_open_settings_summary">Open the module settings inside WeChat</string>
+    <string name="module_app_host_package_explanation">Controls the target WeChat package used by the three shortcuts on this screen. This is intended for installations cloned by changing the package name instead of using multiple users.</string>
+    <string name="module_app_host_package_label">Host package name (default: %1$s)</string>
+    <!-- Destructive repair warning. %1$s is a newline-separated path list. -->
+    <string name="module_app_repair_loading_message">This operation attempts to repair module loading broken by a WeChat hot update. Restart WeChat afterward.\nThe following paths will be cleared and recursively set to permission 000 to prevent WeChat from reading or writing them again. Verify them before continuing:\n%1$s</string>
+    <string name="module_app_repair_loading_success">Operation succeeded!</string>
+    <!-- Destructive data-reset warning. %1$s is a newline-separated path list. -->
+    <string name="module_app_clear_data_message">This operation deletes the feature configuration for the module to recover from repeated WeChat crashes caused by some features. Restart WeChat afterward.\nVerify the following files before deleting them:\n%1$s</string>
+    <string name="module_app_clear_data_success">Deleted successfully!</string>
+    <string name="module_app_root_required_title">Root access not granted</string>
+    <string name="module_app_root_required_message">Grant root access to perform this operation.</string>
+    <string name="module_app_operation_failed_title">Operation failed</string>
+    <string name="module_app_about_description">%1$s is a free and open-source Xposed module for WeChat.</string>
+    <string name="module_app_about_version">Version: %1$s</string>
+    <string name="module_app_about_version_code">Version code: %1$d</string>
+    <string name="module_app_about_authors">Authors: Ujhhgtg@github, cwuom@github</string>
+    <string name="contact_filter_all">All</string>
+    <string name="contact_filter_friends">Friends</string>
+    <string name="contact_filter_groups">Groups</string>
+    <string name="contact_filter_official_accounts">Official accounts</string>
+    <string name="contact_filter_others">Others</string>
+    <string name="contact_sort_alphabetical_ascending" translatable="false">A–Z</string>
+    <string name="contact_sort_alphabetical_descending" translatable="false">Z–A</string>
+    <string name="contact_sort_newest_first">Newest first</string>
+    <string name="contact_sort_oldest_first">Oldest first</string>
+    <string name="contact_filter_database_unavailable">The database is not initialized; filters are unavailable.</string>
+    <string name="contact_sort_database_unavailable">The database is not initialized; sorting by time is unavailable.</string>
+    <string name="contact_search_hint">Search by name or WeChat ID</string>
+    <string name="contact_search_content_description">Search contacts</string>
+    <string name="contact_filters_collapse">Collapse filters</string>
+    <string name="contact_filters_expand">Expand filters</string>
+    <string name="contact_filter_with_count">%1$s (%2$d)</string>
+    <string name="contact_labels_content_description">Labels</string>
+    <string name="contact_label_filter_all">All labels</string>
+    <string name="contact_label_with_count">%1$s (%2$d)</string>
+    <string name="contact_sort_direction_toggle">Reverse sort order</string>
+    <string name="contact_select_all">Select all</string>
+    <string name="contact_deselect_all">Deselect all</string>
+    <string name="contact_invert_selection">Invert selection</string>
+    <string name="contact_no_matches">No matching contacts</string>
+    <string name="contact_selected_section">Selected</string>
+    <string name="contact_confirm_selected_count">Confirm (%1$d)</string>
+    <string name="error_unknown">Unknown error</string>
+    <string name="clipboard_copied">Copied</string>
+    <string name="restart_wechat">Restart WeChat</string>
+    <string name="dex_cache_status_adapting">Adapting…</string>
+    <string name="dex_cache_status_completed">Completed: %1$s</string>
+    <string name="dex_cache_status_failed">Failed: %1$s</string>
+    <string name="dex_cache_unknown_error">An unknown error occurred while scanning: %1$s</string>
+    <string name="dex_cache_update_title">DEX cache update</string>
+    <!-- Warning shown before a potentially long DEX scan. -->
+    <string name="dex_cache_update_required_message">%1$d features need their DEX caches updated. Starting adaptation will scan and update them automatically. If you close this dialog, those features will not be loaded.</string>
+    <string name="dex_cache_update_success">Adaptation complete. All DEX caches were updated successfully.</string>
+    <string name="dex_cache_update_partial_failure">Adaptation complete, but %1$d features failed. Other features are unaffected.</string>
+    <string name="dex_cache_total_progress">Total progress: %1$d/%2$d</string>
+    <string name="dex_cache_start_adaptation">Start adaptation</string>
+    <string name="dex_cache_failure_detail">%1$d. %2$s\n   Error: %3$s\n\n</string>
+    <string name="dex_cache_copy_error_information">Copy error information</string>
+    <string name="dex_error_report_title">=== WeKit DEX Scan Error Report ===</string>
+    <string name="dex_error_report_entry">%1$d. %2$s\n   Error: %3$s\n   Stack trace:\n%4$s\n\n</string>
+    <string name="location_picker_instruction">Tap the map or the coordinates below to choose a virtual location.</string>
+    <string name="location_picker_title">Choose location on map</string>
+    <string name="location_latitude">Latitude</string>
+    <string name="location_longitude">Longitude</string>
+    <string name="common_not_available" translatable="false">N/A</string>
+    <string name="location_manual_coordinates_title">Enter coordinates manually</string>
+    <string name="location_latitude_range_label">Latitude (-90 to 90)</string>
+    <string name="location_longitude_range_label">Longitude (-180 to 180)</string>
+    <string name="voip_hang_up">Hang up</string>
+    <string name="voip_turn_on_microphone">Turn on microphone</string>
+    <string name="voip_turn_off_microphone">Turn off microphone</string>
+    <string name="voip_turn_on_video">Turn on video</string>
+    <string name="voip_turn_off_video">Turn off video</string>
+    <string name="color_picker_title">Choose color</string>
+    <string name="color_picker_hue">Hue</string>
+    <string name="color_picker_saturation">Saturation</string>
+    <string name="color_picker_value">Value</string>
+    <string name="color_picker_opacity">Opacity</string>
+    <string name="color_picker_hex_value">Hex color</string>
+    <string name="color_picker_invalid_argb">Invalid color format (#AARRGGBB)</string>
+    <string name="date_time_invalid_format">Invalid time format (%1$s)</string>
+    <string name="date_time_choose_time">Choose time</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_features">Features</string>
+    <string name="nav_logs">Logs</string>
+    <string name="nav_settings">Settings</string>
+    <string name="search_hint">Search</string>
+    <string name="accessibility_back">Back</string>
+    <string name="features_search_hint">Search features</string>
+    <string name="features_clear_search">Clear search</string>
+    <string name="features_no_results">No matching features</string>
+    <string name="features_new_summary">%2$d added in the last %1$d days</string>
+    <string name="home_module_activated">Module activated</string>
+    <string name="home_enabled_features">Enabled features</string>
+    <string name="home_all_features">All features</string>
+    <string name="home_wechat_version">WeChat version</string>
+    <string name="home_module_version">Module version</string>
+    <string name="home_build_time">Build time</string>
+    <string name="home_device_model">Device model</string>
+    <string name="home_android_version">Android version</string>
+    <string name="home_loading_environment">Loading environment</string>
+    <string name="home_version_value" translatable="false">%1$s (%2$d)</string>
+    <string name="home_device_model_value" translatable="false">%1$s %2$s</string>
+    <string name="home_android_version_value" translatable="false">%1$s (API %2$d)</string>
+    <string name="home_loading_environment_value">Current loader: %1$s\nCurrent hook bridge: %2$s</string>
+    <string name="common_not_provided">Not provided</string>
+    <string name="config_export_failed">Export failed!</string>
+    <string name="config_export_success">Export successful</string>
+    <string name="config_import_failed">Import failed!</string>
+    <string name="config_import_success">Import successful</string>
+    <string name="logs_share_chooser">Share log</string>
+    <string name="logs_save_failed">Save failed!</string>
+    <string name="logs_save_success">Saved successfully</string>
+    <string name="logs_tab_runtime">Runtime logs</string>
+    <string name="logs_tab_crash">Crash logs</string>
+    <string name="logs_nothing_to_share">No log available to share</string>
+    <string name="logs_nothing_to_save">No log available to save</string>
+    <string name="logs_share">Share</string>
+    <string name="logs_save">Save</string>
+    <string name="logs_refresh">Refresh</string>
+    <string name="logs_go_top">Go to top</string>
+    <string name="logs_go_bottom">Go to bottom</string>
+    <string name="logs_clear">Clear</string>
+    <string name="logs_no_runtime">No runtime logs</string>
+    <string name="logs_no_crash">No crash logs</string>
+    <string name="logs_file_empty">This log file is empty</string>
+    <string name="logs_read_failed">Failed to read log: %1$s</string>
+    <string name="logs_select_file">Select log file</string>
+    <string name="logs_collapse">Collapse</string>
+    <string name="logs_expand">Expand</string>
+    <string name="settings_section_debug">Debug</string>
+    <string name="settings_verbose_log_title">Verbose logging</string>
+    <string name="settings_verbose_log_summary">Output high-frequency logs (this may expose private information)</string>
+    <string name="settings_startup_toast_title">Show startup completion toast</string>
+    <string name="settings_startup_toast_summary">Show a toast after all features finish loading</string>
+    <string name="settings_generic_wxid_title">Allow nonstandard IDs when removing WeChat ID prefixes from messages</string>
+    <string name="settings_generic_wxid_summary">Allow IDs without the wxid_ prefix. This may accidentally modify original message content (experimental).</string>
+    <string name="settings_section_compatibility">Compatibility</string>
+    <string name="settings_disable_adaptation_title">Disable version adaptation</string>
+    <string name="settings_disable_adaptation_summary">Do not show the DEX lookup dialog; unsupported features will not be loaded</string>
+    <string name="settings_reset_adaptation_title">Reset adaptation data</string>
+    <string name="settings_reset_adaptation_summary">Clear the DEX cache and adapt again on the next startup</string>
+    <string name="settings_hot_update_adaptation_title">Readapt after host hot updates</string>
+    <string name="settings_hot_update_adaptation_summary">Reset the DEX cache after host hot updates. This may cause frequent readaptation (experimental).</string>
+    <string name="settings_section_configuration">Configuration</string>
+    <string name="settings_export_config_title">Export configuration</string>
+    <string name="settings_export_config_summary">Export the module configuration as JSON</string>
+    <string name="settings_import_config_title">Import configuration</string>
+    <string name="settings_import_config_summary">Import configuration from JSON and overwrite matching existing entries</string>
+    <string name="settings_clear_config_title">Clear configuration</string>
+    <string name="settings_clear_config_summary">Clear all module configuration (this cannot be undone)</string>
+    <string name="settings_section_update">Updates</string>
+    <string name="settings_check_update_title">Check for updates</string>
+    <string name="settings_check_update_summary">Check for a new module version and download it automatically</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_version_title">Version</string>
+    <string name="settings_build_commit_time_title">Build commit time</string>
+    <string name="settings_tip_title">A word from the developers</string>
+    <string name="settings_tip_summary">Toothpaste is squeezed a little at a time, GPUs are trimmed one cut at a time, slides are presented one by one, and code is written line by line. Each feature should be finished within three years of first appearing in a commit.</string>
+    <string name="settings_donate_title">Donate</string>
+    <string name="settings_donate_summary">Support project development (the module is completely free and open source; donations grant no privileges)</string>
+    <string name="settings_open_source_licenses_title">Open-source licenses</string>
+    <string name="settings_open_source_licenses_summary">Licenses of the open-source libraries used by this project</string>
+    <string name="settings_ui_engine_title">UI component engine</string>
+    <string name="ui_engine_miuix" translatable="false">Miuix</string>
+    <string name="ui_engine_nuke" translatable="false">Nuke</string>
+    <string name="settings_theme_mode_title">Theme mode</string>
+    <string name="theme_mode_system">Follow system</string>
+    <string name="theme_mode_light">Light mode</string>
+    <string name="theme_mode_dark">Dark mode</string>
+    <string name="settings_custom_color_title">Custom colors</string>
+    <string name="settings_custom_color_summary">Generate colors from a palette instead of using Miuix blue</string>
+    <string name="settings_dynamic_wallpaper_title">Dynamic wallpaper colors</string>
+    <string name="settings_dynamic_wallpaper_summary">Use the system wallpaper accent as the seed color\nRequires Android SDK 31 or later</string>
+    <string name="settings_seed_color_title">Seed color</string>
+    <string name="settings_seed_color_summary">Tap to choose the palette seed color</string>
+    <string name="settings_palette_style_title">Palette style</string>
+    <string name="palette_style_tonal_spot" translatable="false">Tonal Spot</string>
+    <string name="palette_style_neutral" translatable="false">Neutral</string>
+    <string name="palette_style_vibrant" translatable="false">Vibrant</string>
+    <string name="palette_style_expressive" translatable="false">Expressive</string>
+    <string name="palette_style_rainbow" translatable="false">Rainbow</string>
+    <string name="palette_style_fruit_salad" translatable="false">Fruit Salad</string>
+    <string name="palette_style_monochrome" translatable="false">Monochrome</string>
+    <string name="palette_style_fidelity" translatable="false">Fidelity</string>
+    <string name="palette_style_content" translatable="false">Content</string>
+    <string name="color_spec_material_2021" translatable="false">Material 3 (2021)</string>
+    <string name="color_spec_expressive_2025" translatable="false">Expressive (2025)</string>
+    <string name="settings_color_spec_title">Color specification</string>
+    <string name="settings_color_spec_unsupported">The current palette style only supports Material 3 (2021)</string>
+    <string name="settings_apply_to_wechat_title">Also apply to WeChat</string>
+    <string name="settings_apply_to_wechat_summary">Apply the custom color scheme to WeChat itself</string>
+    <string name="settings_safe_mode_title">Safe mode</string>
+    <string name="settings_safe_mode_summary">Load module capabilities conservatively in unstable environments.</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_clear">Clear</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_up_to_date">You already have the latest version</string>
+    <string name="clear_config_dialog_title">Clear module configuration</string>
+    <string name="clear_config_dialog_message">Clear all module configuration? This action cannot be undone.</string>
+    <string name="config_clearing">Clearing…</string>
+    <string name="config_clear_success">Cleared successfully!</string>
+    <string name="update_available_title">New version available</string>
+    <string name="update_available_message">Current version: %1$s\nNew version: %2$s\nDownload and install it?</string>
+    <string name="update_download_failed">Failed to download update: %1$s</string>
+    <string name="update_check_failed_title">Update check failed</string>
+    <string name="update_error_message">Error details: %1$s</string>
+    <string name="licenses_title">Open-source libraries</string>
+    <string name="licenses_search_hint">Search libraries</string>
+    <string name="licenses_count">%1$d libraries</string>
+    <string name="licenses_filtered_count">%1$d/%2$d libraries</string>
+    <string name="licenses_no_results">No results for “%1$s”</string>
+    <string name="nuke_module_debug_title">Module settings and debugging</string>
+    <string name="nuke_update_title">Check for updates</string>
+    <string name="nuke_general_settings_title">General settings</string>
+    <string name="nuke_appearance_title">Appearance</string>
+    <string name="nuke_about_title">About the module</string>
+    <string name="nuke_support_us_title">Support us</string>
+    <string name="nuke_settings_title">WeKit Settings</string>
+    <string name="nuke_section_security">Security</string>
+    <string name="nuke_section_general">General</string>
+    <string name="nuke_wechat_account">WeChat account</string>
+    <string name="nuke_account_unavailable">Account information is currently unavailable</string>
+    <string name="nuke_search_results">Search results</string>
+    <string name="nuke_no_matching_results">No matching results</string>
+    <string name="nuke_try_other_keywords">Try another feature name or keyword</string>
+    <string name="nuke_no_features">No features</string>
+    <string name="nuke_no_features_in_group">There are no features to show in this group</string>
+    <string name="nuke_popup_animation_vanilla">Original</string>
+    <string name="nuke_popup_animation_exit_to_enter" translatable="false">exit → enter</string>
+    <string name="nuke_popup_animation_enter_to_exit" translatable="false">enter → exit</string>
+    <string name="nuke_ui_engine_summary">Choose the component library used by the module settings.</string>
+    <string name="nuke_section_theme">Theme</string>
+    <string name="nuke_theme_mode_summary">Choose the light or dark appearance of the settings.</string>
+    <string name="nuke_section_interaction">Interaction</string>
+    <string name="nuke_haptics_title">Haptic feedback</string>
+    <string name="nuke_haptics_summary">Provide haptic feedback when buttons and settings are tapped</string>
+    <string name="nuke_section_colors">Colors</string>
+    <string name="nuke_custom_color_summary">Use the shared theme color instead of Nuke pink</string>
+    <string name="nuke_dynamic_wallpaper_summary">Use the system wallpaper accent as the seed color; requires Android 12 or later</string>
+    <string name="nuke_apply_to_wechat_summary">Apply the custom color scheme to WeChat itself; takes effect after restarting WeChat</string>
+    <string name="nuke_section_fine_tuning">Fine tuning</string>
+    <string name="nuke_apply_recommended_title">Apply recommended settings</string>
+    <string name="nuke_apply_recommended_summary">Use the recommended combination of press, page-back, and popup animations</string>
+    <string name="nuke_restore_original_title">Restore original settings</string>
+    <string name="nuke_restore_original_summary">Restore the original defaults for these fine-tuning options</string>
+    <string name="nuke_immediate_press_title">Immediate press feedback</string>
+    <string name="nuke_immediate_press_summary">Remove the press-feedback delay so quick taps immediately trigger scale and tilt animations</string>
+    <string name="nuke_page_exit_title">Improve page exit animation semantics</string>
+    <string name="nuke_page_exit_summary">Shrink toward the gesture edge, navigation-bar back button, or top-left back button according to the source</string>
+    <string name="nuke_popup_animation_title">Popup animation</string>
+    <string name="nuke_popup_animation_summary">Adjust how the original popup enter and exit animations are paired</string>
+    <string name="nuke_popup_dialog_host_title">Use a dialog as the popup host</string>
+    <string name="nuke_popup_dialog_host_summary">Use the same window host as Miuix Popup to support complete back-gesture dispatch</string>
+    <string name="nuke_popup_predictive_exit_title">Predictive back for popup exit</string>
+    <string name="nuke_popup_predictive_exit_summary">While a back gesture is in progress, the popup follows it by playing part of its exit animation early</string>
+    <string name="nuke_choose_theme_color">Choose theme color</string>
+    <string name="nuke_preset_colors">Preset colors</string>
+    <string name="nuke_custom_color_value">Custom color value</string>
+    <string name="nuke_invalid_color">Invalid color; enter #RRGGBB</string>
+    <string name="nuke_section_actions">Actions</string>
+    <string name="nuke_restart_host_title">Restart host</string>
+    <string name="nuke_restart_host_summary">Restart the current WeChat process.</string>
+    <string name="nuke_status_overview">Status overview</string>
+    <string name="nuke_status_normal_count">Normal %1$d</string>
+    <string name="nuke_status_normal">Normal</string>
+    <string name="nuke_feature_kind_configurable">Configurable feature</string>
+    <string name="nuke_feature_kind_switch">Switch feature</string>
+    <string name="nuke_feature_kind_base">Core module capability</string>
+    <string name="nuke_feature_status_line">Status: %1$s</string>
+    <string name="nuke_feature_type_line">Type: %1$s</string>
+    <string name="nuke_uncategorized">Uncategorized</string>
+    <string name="nuke_feature_categories_line">Categories: %1$s</string>
+    <string name="nuke_update_not_checked">Updates have not been checked</string>
+    <string name="nuke_update_available_summary">New version %1$s available</string>
+    <string name="nuke_update_installed">Installed</string>
+    <string name="nuke_installed_version_details">Version code %1$d\nBuild time %2$s</string>
+    <string name="nuke_update_checking">Checking for updates</string>
+    <string name="nuke_update_check_summary">Check whether a new version of WeKit is available.</string>
+    <string name="nuke_update_check_again">Check again</string>
+    <string name="nuke_download_install">Download and install</string>
+    <string name="nuke_about_project">Project</string>
+    <string name="nuke_about_description_one">WeKit is a free and open-source Xposed module.</string>
+    <string name="nuke_about_description_two">It provides optional feature enhancements and interface improvements for WeChat.</string>
+    <string name="nuke_about_developers">Developers</string>
+    <string name="nuke_about_links">Links</string>
+    <string name="nuke_github_contributions">%1$d GitHub contributions</string>
+    <string name="nuke_wekit_developer">WeKit developer</string>
+    <string name="nuke_github_avatar">GitHub avatar for %1$s</string>
+    <string name="licenses_unknown_author">Unknown author</string>
+    <string name="licenses_version">Version %1$s</string>
+    <string name="licenses_license_names">Licenses: %1$s</string>
+    <string name="accessibility_configurable">Configurable</string>
+    <string name="nuke_features_heading" translatable="false">FEATURES</string>
+
     <!-- Feature categories -->
     <string name="feature_category_chat_title">Chat</string>
     <string name="feature_category_contacts_groups_title">Contacts and groups</string>
