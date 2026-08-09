@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_description">微信增强模块\nUjhhgtg@github</string>
+    <string name="settings_title">设置</string>
+    <string name="settings_section_interface">界面</string>
+    <string name="settings_general_title">通用设置</string>
+    <string name="settings_language_title">语言</string>
+    <string name="settings_language_summary">%1$s · %2$s</string>
+    <string name="language_follow_system">跟随系统</string>
+</resources>

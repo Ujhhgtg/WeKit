@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,7 @@ import com.composables.icons.materialsymbols.outlined.Delete_forever
 import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Frame_bug
 import com.composables.icons.materialsymbols.outlined.Label
+import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.License
 import com.composables.icons.materialsymbols.outlined.Lightbulb_2
 import com.composables.icons.materialsymbols.outlined.Notifications
@@ -78,6 +80,8 @@ import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
+import dev.ujhhgtg.wekit.i18n.LanguageSelection
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
@@ -129,7 +133,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
     UpdateAvailableDialog(info = updateInfo, onDismiss = { updateInfo = null }, context = context)
     UpdateErrorDialog(message = updateError, onDismiss = { updateError = null })
 
-    MiuixListScaffold(title = "设置") {
+    MiuixListScaffold(title = stringResource(R.string.settings_title)) {
         // Account info card.
         item {
             Spacer(Modifier.height(12.dp))
@@ -138,7 +142,10 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 界面
         item {
-            MiuixSmallTitle(text = "界面", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(
+                text = stringResource(R.string.settings_section_interface),
+                modifier = Modifier.padding(top = 12.dp),
+            )
             Card(modifier = Modifier.fillMaxWidth()) {
                 ThemeSection()
             }
@@ -398,6 +405,33 @@ private fun <T> EnumDropdown(
 
 @Composable
 private fun ThemeSection() {
+    val selectedLanguage = WeKitLocaleController.selection
+    val resolvedLanguage = WeKitLocaleController.resolvedLocale
+    val languageLabels = mapOf(
+        LanguageSelection.SYSTEM to stringResource(R.string.language_follow_system),
+        LanguageSelection.ENGLISH to stringResource(R.string.language_english),
+        LanguageSelection.SIMPLIFIED_CHINESE to stringResource(R.string.language_simplified_chinese),
+        LanguageSelection.TRADITIONAL_CHINESE to stringResource(R.string.language_traditional_chinese),
+    )
+    val languageSummary = if (selectedLanguage == LanguageSelection.SYSTEM) {
+        stringResource(
+            R.string.settings_language_summary,
+            stringResource(selectedLanguage.labelRes),
+            stringResource(resolvedLanguage.labelRes),
+        )
+    } else {
+        stringResource(selectedLanguage.labelRes)
+    }
+    EnumDropdown(
+        title = stringResource(R.string.settings_language_title),
+        entries = LanguageSelection.entries,
+        selected = selectedLanguage,
+        labelOf = languageLabels::getValue,
+        onSelected = WeKitLocaleController::updateSelection,
+        summary = languageSummary,
+        icon = MaterialSymbols.Outlined.Language,
+    )
+
     EnumDropdown(
         title = "UI 组件引擎",
         entries = SettingsUiEngine.entries,

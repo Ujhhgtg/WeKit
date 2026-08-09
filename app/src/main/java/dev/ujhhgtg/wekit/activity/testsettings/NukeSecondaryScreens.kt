@@ -33,6 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -63,6 +64,8 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
+import dev.ujhhgtg.wekit.i18n.LanguageSelection
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeButton
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
@@ -74,6 +77,7 @@ import dev.ujhhgtg.wekit.ui.content.nukex.NukeGlyphKind
 import dev.ujhhgtg.wekit.ui.content.nukex.NukePageScaffold
 import dev.ujhhgtg.wekit.ui.content.nukex.NukePreferenceRow
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSearchField
+import dev.ujhhgtg.wekit.ui.content.nukex.NukeSelectPreference
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroup
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroupTitle
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeSquircleShape
@@ -221,7 +225,36 @@ private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
     val activity = LocalComponentActivity.current
     var showClearConfirmation by remember { mutableStateOf(false) }
 
-    NukePageScaffold(title = "通用设置", onBack = onBack) {
+    NukePageScaffold(title = stringResource(R.string.settings_general_title), onBack = onBack) {
+        item(key = "language") {
+            val selectedLanguage = WeKitLocaleController.selection
+            val resolvedLanguage = WeKitLocaleController.resolvedLocale
+            val languageLabels = mapOf(
+                LanguageSelection.SYSTEM to stringResource(R.string.language_follow_system),
+                LanguageSelection.ENGLISH to stringResource(R.string.language_english),
+                LanguageSelection.SIMPLIFIED_CHINESE to stringResource(R.string.language_simplified_chinese),
+                LanguageSelection.TRADITIONAL_CHINESE to stringResource(R.string.language_traditional_chinese),
+            )
+            val languageSummary = if (selectedLanguage == LanguageSelection.SYSTEM) {
+                stringResource(
+                    R.string.settings_language_summary,
+                    stringResource(selectedLanguage.labelRes),
+                    stringResource(resolvedLanguage.labelRes),
+                )
+            } else {
+                stringResource(selectedLanguage.labelRes)
+            }
+            NukeSettingGroup(title = null) {
+                NukeSelectPreference(
+                    title = stringResource(R.string.settings_language_title),
+                    description = languageSummary,
+                    options = LanguageSelection.entries,
+                    selected = selectedLanguage,
+                    optionLabel = languageLabels::getValue,
+                    onSelected = WeKitLocaleController::updateSelection,
+                )
+            }
+        }
         item(key = "debug") {
             NukeSettingGroup(title = "调试") {
                 NukeBooleanPreference(
