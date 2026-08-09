@@ -71,16 +71,14 @@ internal object ReadReceiptsTunnelController {
         originPort: Int,
         hostname: String,
         token: String?,
-        onHandoff: (Result<Unit>) -> Unit,
+        onHandoff: (OriginRequestTerminal<Unit>) -> Unit,
     ) {
         val context = HostInfo.application
+        val handoffDelivery = TunnelHandoffTerminalDelivery(onHandoff)
         val nextGeneration = handoffGate.beginAfterSuperseding(
             pendingGeneration = { pendingStart?.generation },
             supersede = { supersededGeneration ->
-                failPendingStart(
-                    supersededGeneration,
-                    IllegalStateException("连接请求已被新配置取代"),
-                )
+                supersedePendingStart(supersededGeneration)
             },
             generationFactory = ::nextGeneration,
         )
@@ -95,7 +93,7 @@ internal object ReadReceiptsTunnelController {
                 error = "系统阻止了前台服务启动, 请保持微信在前台后重试",
             )
             handoffGate.fail(nextGeneration)
-            onHandoff(Result.failure(started.exceptionOrNull()!!))
+            handoffDelivery.complete(Result.failure(started.exceptionOrNull()!!))
             return
         }
 
@@ -113,7 +111,7 @@ internal object ReadReceiptsTunnelController {
                 if (token != null) putString(ReadReceiptsTunnelProtocol.KEY_TOKEN, token)
             }
         }
-        pendingStart = PendingStart(nextGeneration, command, onHandoff)
+        pendingStart = PendingStart(nextGeneration, command, handoffDelivery)
         sendPendingOrBind(context)
         mainHandler.postDelayed(
             { failPendingStart(nextGeneration, IllegalStateException("隧道服务接管请求超时")) },
@@ -122,7 +120,7 @@ internal object ReadReceiptsTunnelController {
     }
 
     fun stop(onStopped: (() -> Unit)? = null) {
-        failPendingStart(IllegalStateException("连接请求已取消"))
+        supersedePendingStart()
         val registration = stopCompletion.register(onStopped, ::nextGeneration)
         if (!registration.shouldSend) return
         val nextGeneration = registration.generation
@@ -338,7 +336,7 @@ internal object ReadReceiptsTunnelController {
         if (!completed) return
         pending.command.data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
         pendingStart = null
-        pending.completion(
+        pending.completion.complete(
             if (accepted) {
                 Result.success(Unit)
             } else {
@@ -357,7 +355,20 @@ internal object ReadReceiptsTunnelController {
         if (pending.generation != expectedGeneration || !handoffGate.fail(expectedGeneration)) return
         pending.command.data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
         pendingStart = null
-        pending.completion(Result.failure(error))
+        pending.completion.complete(Result.failure(error))
+    }
+
+    private fun supersedePendingStart() {
+        val pending = pendingStart ?: return
+        supersedePendingStart(pending.generation)
+    }
+
+    private fun supersedePendingStart(expectedGeneration: Long) {
+        val pending = pendingStart ?: return
+        if (pending.generation != expectedGeneration || !handoffGate.fail(expectedGeneration)) return
+        pending.command.data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
+        pendingStart = null
+        pending.completion.supersede()
     }
 
     private fun completeStop(expectedGeneration: Long) {
@@ -391,7 +402,7 @@ internal object ReadReceiptsTunnelController {
     private data class PendingStart(
         val generation: Long,
         val command: Message,
-        val completion: (Result<Unit>) -> Unit,
+        val completion: TunnelHandoffTerminalDelivery,
         var sent: Boolean = false,
     )
 }

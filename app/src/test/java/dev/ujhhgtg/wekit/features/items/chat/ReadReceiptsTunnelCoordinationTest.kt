@@ -567,6 +567,82 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
+    fun `connection transaction distinguishes completed success failure and superseded effects`() {
+        listOf(
+            OriginRequestTerminal.Completed(Result.success(Unit)),
+            OriginRequestTerminal.Completed(Result.failure<Unit>(IllegalStateException("failed"))),
+            OriginRequestTerminal.Superseded,
+        ).forEachIndexed { index, terminal ->
+            val ownershipReleases = AtomicInteger()
+            val saves = AtomicInteger()
+            val rollbacks = AtomicInteger()
+            val starts = AtomicInteger()
+            val stops = AtomicInteger()
+            val tokenClears = AtomicInteger()
+            val owner = ConnectionTransactionOwner(ownershipReleases::incrementAndGet)
+
+            owner.finish(
+                terminal = terminal,
+                onCompletedSuccess = {
+                    saves.incrementAndGet()
+                    tokenClears.incrementAndGet()
+                },
+                onCompletedFailure = {
+                    rollbacks.incrementAndGet()
+                    stops.incrementAndGet()
+                },
+                onSuperseded = {},
+            )
+            owner.finish(
+                terminal = terminal,
+                onCompletedSuccess = { starts.incrementAndGet() },
+                onCompletedFailure = { starts.incrementAndGet() },
+                onSuperseded = { starts.incrementAndGet() },
+            )
+
+            assertEquals(1, ownershipReleases.get(), "terminal $index ownership")
+            assertEquals(if (index == 0) 1 else 0, saves.get(), "terminal $index save")
+            assertEquals(if (index == 1) 1 else 0, rollbacks.get(), "terminal $index rollback")
+            assertEquals(0, starts.get(), "terminal $index start")
+            assertEquals(if (index == 1) 1 else 0, stops.get(), "terminal $index stop")
+            assertEquals(if (index == 0) 1 else 0, tokenClears.get(), "terminal $index token")
+        }
+    }
+
+    @Test
+    fun `superseded notification rejection restore only releases the old UI transaction`() {
+        val ownershipReleases = AtomicInteger()
+        val saves = AtomicInteger()
+        val rollbacks = AtomicInteger()
+        val starts = AtomicInteger()
+        val stops = AtomicInteger()
+        val tokenClears = AtomicInteger()
+        val owner = ConnectionTransactionOwner(ownershipReleases::incrementAndGet)
+
+        finishNotificationRejectionRestore(
+            stopTerminal = OriginRequestTerminal.Superseded,
+            originalFailure = IllegalStateException("notifications rejected"),
+            savePrevious = saves::incrementAndGet,
+            restartPrevious = starts::incrementAndGet,
+            onFinished = { terminal ->
+                owner.finish(
+                    terminal = terminal,
+                    onCompletedSuccess = { tokenClears.incrementAndGet() },
+                    onCompletedFailure = { rollbacks.incrementAndGet(); stops.incrementAndGet() },
+                    onSuperseded = {},
+                )
+            },
+        )
+
+        assertEquals(1, ownershipReleases.get())
+        assertEquals(0, saves.get())
+        assertEquals(0, rollbacks.get())
+        assertEquals(0, starts.get())
+        assertEquals(0, stops.get())
+        assertEquals(0, tokenClears.get())
+    }
+
+    @Test
     fun `uppercase trailing slash hostname has the same runtime identity`() {
         val persisted = TunnelRuntimeIdentity.create(
             ReadReceiptsTunnelMode.TOKEN,
@@ -599,6 +675,24 @@ class ReadReceiptsTunnelCoordinationTest {
         assertFalse(handoff.fail(101))
         assertTrue(handoff.complete(102))
         assertNull(handoff.pendingGeneration())
+    }
+
+    @Test
+    fun `handoff replacement is superseded while genuine failure stays completed`() {
+        val replacedTerminals = ConcurrentLinkedQueue<OriginRequestTerminal<Unit>>()
+        val replaced = TunnelHandoffTerminalDelivery(replacedTerminals::add)
+
+        assertTrue(replaced.supersede())
+        assertFalse(replaced.complete(Result.failure(IllegalStateException("late failure"))))
+        assertSame(OriginRequestTerminal.Superseded, replacedTerminals.single())
+
+        val failure = IllegalStateException("service rejected")
+        val failedTerminals = ConcurrentLinkedQueue<OriginRequestTerminal<Unit>>()
+        val failed = TunnelHandoffTerminalDelivery(failedTerminals::add)
+
+        assertTrue(failed.complete(Result.failure(failure)))
+        val completed = failedTerminals.single() as OriginRequestTerminal.Completed
+        assertSame(failure, completed.result.exceptionOrNull())
     }
 
     @Test

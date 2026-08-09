@@ -86,6 +86,82 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 
+/** Runs one connection owner's terminal policy exactly once. */
+internal class ConnectionTransactionOwner(
+    private val releaseOwnership: () -> Unit,
+) {
+    private var finished = false
+
+    fun <T> finish(
+        terminal: OriginRequestTerminal<T>,
+        onCompletedSuccess: (T) -> Unit,
+        onCompletedFailure: (Throwable) -> Unit,
+        onSuperseded: () -> Unit,
+    ): Boolean {
+        synchronized(this) {
+            if (finished) return false
+            finished = true
+        }
+        releaseOwnership()
+        when (terminal) {
+            is OriginRequestTerminal.Completed -> terminal.result.fold(
+                onSuccess = onCompletedSuccess,
+                onFailure = onCompletedFailure,
+            )
+
+            OriginRequestTerminal.Superseded -> onSuperseded()
+        }
+        return true
+    }
+}
+
+/** Restores a notification-rejected current transaction, or only propagates replacement. */
+internal fun finishNotificationRejectionRestore(
+    stopTerminal: OriginRequestTerminal<Unit>,
+    originalFailure: Throwable,
+    savePrevious: () -> Unit,
+    restartPrevious: () -> Unit,
+    onFinished: (OriginRequestTerminal<Unit>) -> Unit,
+) {
+    when (stopTerminal) {
+        is OriginRequestTerminal.Completed -> {
+            savePrevious()
+            restartPrevious()
+            onFinished(OriginRequestTerminal.Completed(Result.failure(originalFailure)))
+        }
+
+        OriginRequestTerminal.Superseded -> onFinished(OriginRequestTerminal.Superseded)
+    }
+}
+
+/** Coalesces a stack stop without collapsing [OriginRequestTerminal.Superseded] into failure. */
+private class CoalescedOriginCallbacks<T> {
+    private var callbacks: MutableList<(OriginRequestTerminal<T>) -> Unit>? = null
+
+    @Synchronized
+    fun register(callback: ((OriginRequestTerminal<T>) -> Unit)?): Boolean {
+        val current = callbacks
+        if (current != null) {
+            if (callback != null) current += callback
+            return false
+        }
+        callbacks = mutableListOf<(OriginRequestTerminal<T>) -> Unit>().apply {
+            if (callback != null) add(callback)
+        }
+        return true
+    }
+
+    fun complete(terminal: OriginRequestTerminal<T>): Int {
+        val completed = synchronized(this) {
+            val current = callbacks ?: return 0
+            callbacks = null
+            current.toList()
+        }
+        completed.forEach { callback -> callback(terminal) }
+        return completed.size
+    }
+}
+
 @Feature(name = "已读追踪", categories = ["聊天"], description = "追踪文本消息已读人数, 并在自己发送的消息上实时显示\"已读 x 人\"")
 object ReadReceipts : ClickableFeature(),
     WeChatMessageViewApi.ICreateViewListener,
@@ -128,7 +204,7 @@ object ReadReceipts : ClickableFeature(),
     private val originGeneration = AtomicLong()
     private val originLifecycleMutex = Mutex()
     private val originRequestBoundary = OriginRequestBoundary()
-    private val builtInStopCallbacks = CoalescedResultCallbacks<Unit>()
+    private val builtInStopCallbacks = CoalescedOriginCallbacks<Unit>()
 
     private data class OriginRequest(
         val generation: Long,
@@ -477,14 +553,16 @@ object ReadReceipts : ClickableFeature(),
     private fun startBuiltInStack(
         configuration: ReadReceiptsConfiguration,
         token: String? = null,
-        onFinished: ((Result<Unit>) -> Unit)? = null,
+        onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
     ) {
         val mode = tunnelMode(configuration)
         if (mode == ReadReceiptsTunnelMode.TOKEN && configuration.automaticPort) {
             onFinished?.invoke(
-                Result.failure(
-                    IllegalArgumentException(
-                        "Token 模式必须使用固定回环端口, 并在 Cloudflare 控制台将路由指向该端口",
+                OriginRequestTerminal.Completed(
+                    Result.failure(
+                        IllegalArgumentException(
+                            "Token 模式必须使用固定回环端口, 并在 Cloudflare 控制台将路由指向该端口",
+                        ),
                     ),
                 ),
             )
@@ -492,22 +570,50 @@ object ReadReceipts : ClickableFeature(),
         }
         if (mode == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
             ReadReceiptsTunnelController.needsVisibleStart()
-            onFinished?.invoke(Result.failure(IllegalStateException("浏览器登录将在下一阶段提供")))
+            onFinished?.invoke(
+                OriginRequestTerminal.Completed(
+                    Result.failure(IllegalStateException("浏览器登录将在下一阶段提供")),
+                ),
+            )
             return
         }
-        startOrigin(requestedBuiltInPort(configuration)) { originResult ->
-            originResult.fold(
-                onSuccess = { port ->
-                    ReadReceiptsTunnelController.startVisible(
-                        mode = mode,
-                        originPort = port,
-                        hostname = configuration.hostname,
-                        token = token,
-                        onHandoff = { result -> onFinished?.invoke(result) },
-                    )
-                },
-                onFailure = { error -> onFinished?.invoke(Result.failure(error)) },
-            )
+        startOrigin(requestedBuiltInPort(configuration)) { terminal ->
+            when (terminal) {
+                is OriginRequestTerminal.Completed -> terminal.result.fold(
+                    onSuccess = { port ->
+                        ReadReceiptsTunnelController.startVisible(
+                            mode = mode,
+                            originPort = port,
+                            hostname = configuration.hostname,
+                            token = token,
+                            onHandoff = { handoffTerminal ->
+                                when (handoffTerminal) {
+                                    is OriginRequestTerminal.Completed -> {
+                                        onFinished?.invoke(
+                                            OriginRequestTerminal.Completed(
+                                                handoffTerminal.result,
+                                            ),
+                                        )
+                                    }
+
+                                    OriginRequestTerminal.Superseded -> {
+                                        onFinished?.invoke(OriginRequestTerminal.Superseded)
+                                    }
+                                }
+                            },
+                        )
+                    },
+                    onFailure = { error ->
+                        onFinished?.invoke(
+                            OriginRequestTerminal.Completed(Result.failure(error)),
+                        )
+                    },
+                )
+
+                OriginRequestTerminal.Superseded -> {
+                    onFinished?.invoke(OriginRequestTerminal.Superseded)
+                }
+            }
         }
     }
 
@@ -519,14 +625,18 @@ object ReadReceipts : ClickableFeature(),
     private fun applyAndStartBuiltInStack(
         candidate: ReadReceiptsConfiguration,
         token: String?,
-        onFinished: (Result<Unit>) -> Unit,
+        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
     ) {
         val previous = configuration()
         val candidateIdentity = TunnelRuntimeIdentity.create(
             tunnelMode(candidate),
             candidate.hostname,
         ) ?: run {
-            onFinished(Result.failure(IllegalArgumentException("Token 模式需要根路径 HTTPS 主机名")))
+            onFinished(
+                OriginRequestTerminal.Completed(
+                    Result.failure(IllegalArgumentException("Token 模式需要根路径 HTTPS 主机名")),
+                ),
+            )
             return
         }
         val canonicalCandidate = if (candidateIdentity.mode == ReadReceiptsTunnelMode.TOKEN) {
@@ -555,57 +665,109 @@ object ReadReceipts : ClickableFeature(),
                 !previousWasActive &&
                 ReadReceiptsTunnelController.status.needsNotificationSettings
             ) {
-                stopOrigin {
-                    saveConfiguration(previous)
-                    onFinished(Result.failure(error))
+                stopOrigin { stopTerminal ->
+                    finishNotificationRejectionRestore(
+                        stopTerminal = stopTerminal,
+                        originalFailure = error,
+                        savePrevious = { saveConfiguration(previous) },
+                        restartPrevious = {},
+                        onFinished = onFinished,
+                    )
                 }
                 return
             }
-            stopBuiltInStack {
-                saveConfiguration(previous)
-                if (previousWasActive) {
-                    startBuiltInStack(previous) { onFinished(Result.failure(error)) }
-                } else {
-                    onFinished(Result.failure(error))
+            stopBuiltInStack { stopTerminal ->
+                when (stopTerminal) {
+                    is OriginRequestTerminal.Completed -> {
+                        saveConfiguration(previous)
+                        if (previousWasActive) {
+                            startBuiltInStack(previous) { restartTerminal ->
+                                when (restartTerminal) {
+                                    is OriginRequestTerminal.Completed -> {
+                                        onFinished(
+                                            OriginRequestTerminal.Completed(
+                                                Result.failure(error),
+                                            ),
+                                        )
+                                    }
+
+                                    OriginRequestTerminal.Superseded -> {
+                                        onFinished(OriginRequestTerminal.Superseded)
+                                    }
+                                }
+                            }
+                        } else {
+                            onFinished(
+                                OriginRequestTerminal.Completed(Result.failure(error)),
+                            )
+                        }
+                    }
+
+                    OriginRequestTerminal.Superseded -> {
+                        onFinished(OriginRequestTerminal.Superseded)
+                    }
                 }
             }
         }
 
         fun startCandidate() {
-            startBuiltInStack(canonicalCandidate, token) { result ->
-                result.fold(
-                    onSuccess = {
-                        saveConfiguration(canonicalCandidate)
-                        onFinished(Result.success(Unit))
-                    },
-                    onFailure = ::restore,
-                )
+            startBuiltInStack(canonicalCandidate, token) { terminal ->
+                when (terminal) {
+                    is OriginRequestTerminal.Completed -> terminal.result.fold(
+                        onSuccess = {
+                            saveConfiguration(canonicalCandidate)
+                            onFinished(
+                                OriginRequestTerminal.Completed(Result.success(Unit)),
+                            )
+                        },
+                        onFailure = ::restore,
+                    )
+
+                    OriginRequestTerminal.Superseded -> {
+                        onFinished(OriginRequestTerminal.Superseded)
+                    }
+                }
             }
         }
 
         if (needsReplacement) {
-            stopBuiltInStack { stopResult ->
-                stopResult.fold(
-                    onSuccess = { startCandidate() },
-                    onFailure = { error -> onFinished(Result.failure(error)) },
-                )
+            stopBuiltInStack { terminal ->
+                when (terminal) {
+                    is OriginRequestTerminal.Completed -> terminal.result.fold(
+                        onSuccess = { startCandidate() },
+                        onFailure = { error ->
+                            onFinished(
+                                OriginRequestTerminal.Completed(Result.failure(error)),
+                            )
+                        },
+                    )
+
+                    OriginRequestTerminal.Superseded -> {
+                        onFinished(OriginRequestTerminal.Superseded)
+                    }
+                }
             }
         } else {
             startCandidate()
         }
     }
 
-    private fun stopBuiltInStack(onFinished: ((Result<Unit>) -> Unit)? = null) {
+    private fun stopBuiltInStack(
+        onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
+    ) {
         if (!builtInStopCallbacks.register(onFinished)) return
         ReadReceiptsTunnelController.stop {
-            stopOrigin(
-                onFinished = { result -> builtInStopCallbacks.complete(result) },
-                onSuperseded = {
-                    builtInStopCallbacks.complete(
-                        Result.failure(IllegalStateException("内置服务器停止请求已被新请求取代")),
-                    )
-                },
-            )
+            stopOrigin { terminal ->
+                when (terminal) {
+                    is OriginRequestTerminal.Completed -> {
+                        builtInStopCallbacks.complete(terminal)
+                    }
+
+                    OriginRequestTerminal.Superseded -> {
+                        builtInStopCallbacks.complete(OriginRequestTerminal.Superseded)
+                    }
+                }
+            }
         }
     }
 
@@ -615,7 +777,7 @@ object ReadReceipts : ClickableFeature(),
 
     private fun startOrigin(
         requestedPort: Int,
-        onFinished: ((Result<Int>) -> Unit)? = null,
+        onFinished: ((OriginRequestTerminal<Int>) -> Unit)? = null,
     ) {
         val request = newOriginRequest(
             port = requestedPort,
@@ -625,17 +787,20 @@ object ReadReceipts : ClickableFeature(),
         submitOriginRequest(request) { terminal ->
             when (terminal) {
                 is OriginRequestTerminal.Completed -> {
-                    onFinished?.invoke(terminal.result.map { it!! })
+                    onFinished?.invoke(
+                        OriginRequestTerminal.Completed(terminal.result.map { it!! }),
+                    )
                 }
 
-                OriginRequestTerminal.Superseded -> Unit
+                OriginRequestTerminal.Superseded -> {
+                    onFinished?.invoke(OriginRequestTerminal.Superseded)
+                }
             }
         }
     }
 
     private fun stopOrigin(
-        onFinished: ((Result<Unit>) -> Unit)? = null,
-        onSuperseded: (() -> Unit)? = null,
+        onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
     ) {
         val request = newOriginRequest(
             port = null,
@@ -645,10 +810,14 @@ object ReadReceipts : ClickableFeature(),
         submitOriginRequest(request) { terminal ->
             when (terminal) {
                 is OriginRequestTerminal.Completed -> {
-                    onFinished?.invoke(terminal.result.map { Unit })
+                    onFinished?.invoke(
+                        OriginRequestTerminal.Completed(terminal.result.map { Unit }),
+                    )
                 }
 
-                OriginRequestTerminal.Superseded -> onSuperseded?.invoke()
+                OriginRequestTerminal.Superseded -> {
+                    onFinished?.invoke(OriginRequestTerminal.Superseded)
+                }
             }
         }
     }
@@ -879,8 +1048,16 @@ object ReadReceipts : ClickableFeature(),
             configuration.automaticLifecycle
         ) {
             ReadReceiptsTunnelController.refresh()
-            startOrigin(requestedBuiltInPort(configuration)) { result ->
-                if (result.isSuccess) ReadReceiptsTunnelController.needsVisibleStart()
+            startOrigin(requestedBuiltInPort(configuration)) { terminal ->
+                when (terminal) {
+                    is OriginRequestTerminal.Completed -> {
+                        if (terminal.result.isSuccess) {
+                            ReadReceiptsTunnelController.needsVisibleStart()
+                        }
+                    }
+
+                    OriginRequestTerminal.Superseded -> Unit
+                }
             }
         }
 
@@ -1581,21 +1758,31 @@ object ReadReceipts : ClickableFeature(),
                                                 hostname = canonicalHostname,
                                             )
                                             connectionTransactionActive = true
+                                            val transactionOwner = ConnectionTransactionOwner {
+                                                connectionTransactionActive = false
+                                            }
                                             applyAndStartBuiltInStack(
                                                 candidate,
                                                 tokenInput.takeIf(String::isNotBlank),
-                                            ) { result ->
-                                                connectionTransactionActive = false
-                                                if (result.isSuccess) tokenInput = ""
-                                                originStatus = originController.snapshot()
-                                                showToast(
-                                                    context,
-                                                    result.fold(
-                                                        onSuccess = { "隧道启动请求已提交" },
-                                                        onFailure = {
-                                                            "连接失败: ${it.message}"
-                                                        },
-                                                    ),
+                                            ) { terminal ->
+                                                transactionOwner.finish(
+                                                    terminal = terminal,
+                                                    onCompletedSuccess = {
+                                                        tokenInput = ""
+                                                        originStatus = originController.snapshot()
+                                                        showToast(context, "隧道启动请求已提交")
+                                                    },
+                                                    onCompletedFailure = { error ->
+                                                        originStatus = originController.snapshot()
+                                                        showToast(
+                                                            context,
+                                                            "连接失败: ${error.message}",
+                                                        )
+                                                    },
+                                                    onSuperseded = {
+                                                        originStatus = originController.snapshot()
+                                                        showToast(context, "连接请求已被新请求取代")
+                                                    },
                                                 )
                                             }
                                         },
@@ -1609,16 +1796,28 @@ object ReadReceipts : ClickableFeature(),
                                             ReadReceiptsRuntimeState.STOPPING,
                                         ),
                                         onClick = {
-                                            stopBuiltInStack { result ->
-                                                originStatus = originController.snapshot()
-                                                showToast(
-                                                    context,
-                                                    if (result.isSuccess) {
-                                                        "隧道与内置服务器已停止"
-                                                    } else {
-                                                        result.exceptionOrNull()!!.message!!
-                                                    },
-                                                )
+                                            stopBuiltInStack { terminal ->
+                                                when (terminal) {
+                                                    is OriginRequestTerminal.Completed -> {
+                                                        originStatus = originController.snapshot()
+                                                        showToast(
+                                                            context,
+                                                            terminal.result.fold(
+                                                                onSuccess = {
+                                                                    "隧道与内置服务器已停止"
+                                                                },
+                                                                onFailure = { error ->
+                                                                    error.message!!
+                                                                },
+                                                            ),
+                                                        )
+                                                    }
+
+                                                    OriginRequestTerminal.Superseded -> {
+                                                        originStatus = originController.snapshot()
+                                                        showToast(context, "断开请求已被新请求取代")
+                                                    }
+                                                }
                                             }
                                         },
                                     ) { Text("断开") }
@@ -1739,9 +1938,15 @@ object ReadReceipts : ClickableFeature(),
 
                             modeInput == ReadReceiptsServerMode.BUILT_IN && !originWasActive &&
                                 isActive && candidate.automaticLifecycle -> {
-                                startOrigin(newRequestedPort) { result ->
-                                    if (result.isSuccess) {
-                                        ReadReceiptsTunnelController.needsVisibleStart()
+                                startOrigin(newRequestedPort) { terminal ->
+                                    when (terminal) {
+                                        is OriginRequestTerminal.Completed -> {
+                                            if (terminal.result.isSuccess) {
+                                                ReadReceiptsTunnelController.needsVisibleStart()
+                                            }
+                                        }
+
+                                        OriginRequestTerminal.Superseded -> Unit
                                     }
                                 }
                             }

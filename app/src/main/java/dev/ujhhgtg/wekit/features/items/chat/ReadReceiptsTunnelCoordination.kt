@@ -27,6 +27,18 @@ internal class OriginTerminalDelivery<T>(
     }
 }
 
+/** Keeps visible-tunnel replacement distinct from genuine handoff completion. */
+internal class TunnelHandoffTerminalDelivery(
+    owner: (OriginRequestTerminal<Unit>) -> Unit,
+) {
+    private val delivery = OriginTerminalDelivery(owner)
+
+    fun complete(result: Result<Unit>): Boolean =
+        delivery.deliver(OriginRequestTerminal.Completed(result))
+
+    fun supersede(): Boolean = delivery.deliver(OriginRequestTerminal.Superseded)
+}
+
 /**
  * Linearizes request mutation with the final Main delivery without running the owner under a lock.
  * External mutators wait for the callback to finish; callback-thread mutation remains reentrant.
