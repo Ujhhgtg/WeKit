@@ -32,11 +32,16 @@ func response(status int, body string) *http.Response {
 }
 
 func originCertificate(t *testing.T, accountID, apiToken string) []byte {
+	return originCertificateWithEndpoint(t, accountID, apiToken, "")
+}
+
+func originCertificateWithEndpoint(t *testing.T, accountID, apiToken, endpoint string) []byte {
 	t.Helper()
 	payload, err := json.Marshal(map[string]string{
 		"zoneID":    "zone-id",
 		"accountID": accountID,
 		"apiToken":  apiToken,
+		"endpoint":  endpoint,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -258,6 +263,76 @@ func TestConsumeStrictOriginCertificateWipesDecodedPEMPayload(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConsumeDecodedOriginCertificateBlockWipesPayloadOnStructuralFailure(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		blockType string
+		rest      []byte
+	}{
+		{name: "wrong block type", blockType: "PRIVATE KEY"},
+		{name: "trailing or second block", blockType: "ARGO TUNNEL TOKEN", rest: []byte("trailing")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			decodedPayload := []byte(`{"zoneID":"zone-id","apiToken":"api-secret"}`)
+			block := &pem.Block{Type: test.blockType, Bytes: decodedPayload}
+			consumerCalled := false
+			err := consumeDecodedOriginCertificateBlock(block, test.rest, func([]byte) error {
+				consumerCalled = true
+				return nil
+			})
+			if err == nil {
+				t.Fatal("structurally invalid PEM block was accepted")
+			}
+			if consumerCalled {
+				t.Fatal("consumer was called for structurally invalid PEM block")
+			}
+			for index, value := range decodedPayload {
+				if value != 0 {
+					t.Fatalf("decoded PEM byte %d was not wiped: %q", index, decodedPayload)
+				}
+			}
+		})
+	}
+}
+
+func TestDecodeAuthCredentialPreservesOriginCertJSONSemantics(t *testing.T) {
+	validAccountID := "abcdabcdabcdabcd1234567890abcdef"
+	t.Run("malformed JSON", func(t *testing.T) {
+		certificate := pem.EncodeToMemory(&pem.Block{
+			Type:  "ARGO TUNNEL TOKEN",
+			Bytes: []byte(`{"zoneID":"zone-id","apiToken":`),
+		})
+		if credential, err := decodeAuthCredential(certificate); err == nil || credential != nil {
+			t.Fatal("malformed origin certificate JSON was accepted")
+		}
+	})
+	t.Run("missing zone", func(t *testing.T) {
+		payload, err := json.Marshal(map[string]string{
+			"accountID": validAccountID,
+			"apiToken":  "api-secret",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		certificate := pem.EncodeToMemory(&pem.Block{Type: "ARGO TUNNEL TOKEN", Bytes: payload})
+		if credential, err := decodeAuthCredential(certificate); err == nil || credential != nil {
+			t.Fatal("origin certificate without zoneID was accepted")
+		}
+	})
+	t.Run("endpoint lowercase", func(t *testing.T) {
+		credential, err := decodeAuthCredential(
+			originCertificateWithEndpoint(t, validAccountID, "api-secret", "FED"),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer credential.clear()
+		if string(credential.endpoint) != "fed" {
+			t.Fatalf("endpoint = %q, want fed", credential.endpoint)
+		}
+	})
 }
 
 func TestAuthHTTPClientRejectsRedirectsBeforeForwardingAuthorization(t *testing.T) {
