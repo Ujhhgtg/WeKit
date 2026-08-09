@@ -146,7 +146,7 @@ android {
 
     @Suppress("UnstableApiUsage")
     androidResources {
-        localeFilters += setOf("zh")
+        localeFilters += setOf("zh-rCN", "zh-rTW")
         additionalParameters += listOf("--allow-reserved-package-id", "--package-id", "0x69")
     }
 
