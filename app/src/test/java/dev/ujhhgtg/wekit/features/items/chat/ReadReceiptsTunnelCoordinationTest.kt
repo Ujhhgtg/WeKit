@@ -10,8 +10,11 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicIntegerArray
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 import kotlinx.coroutines.runBlocking
@@ -387,6 +390,65 @@ class ReadReceiptsTunnelCoordinationTest {
         assertEquals(1, ownerTerminals.size)
     }
 
+    @Test
+    fun `replacement allocation cannot interleave final check and old owner callback`() =
+        runBlocking {
+            val generation = AtomicLong(1)
+            val ownerTerminals = ConcurrentLinkedQueue<OriginRequestTerminal<Int>>()
+            val execution = OriginRequestExecution<Int, String>(
+                isCurrent = { generation.get() == 1L },
+                lifecycleMutex = Mutex(),
+            )
+            val terminal = execution.execute(
+                reconcile = {
+                    OriginRequestTerminal.Completed(Result.success(8123))
+                },
+                snapshot = { "running:8123" },
+                publish = { _, _ -> true },
+            )
+            val boundary = OriginRequestBoundary()
+            val callbackStarted = CountDownLatch(1)
+            val finishCallback = CountDownLatch(1)
+            val replacementAttempting = CountDownLatch(1)
+            val replacementAllocated = CountDownLatch(1)
+            val callbackFinished = AtomicBoolean()
+            val replacementObservedFinishedCallback = AtomicBoolean()
+            val delivery = OriginTerminalDelivery<Int> { delivered ->
+                callbackStarted.countDown()
+                finishCallback.await()
+                ownerTerminals += delivered
+                callbackFinished.set(true)
+            }
+            val deliveryThread = thread {
+                boundary.deliverCurrent(
+                    delivery = delivery,
+                    terminal = terminal,
+                    isCurrent = { generation.get() == 1L },
+                )
+            }
+
+            callbackStarted.await()
+            val replacementThread = thread {
+                replacementAttempting.countDown()
+                boundary.mutate {
+                    replacementObservedFinishedCallback.set(callbackFinished.get())
+                    generation.incrementAndGet()
+                    replacementAllocated.countDown()
+                }
+            }
+            replacementAttempting.await()
+            val allocatedDuringCallback = replacementAllocated.await(250, TimeUnit.MILLISECONDS)
+            finishCallback.countDown()
+            deliveryThread.join()
+            replacementThread.join()
+
+            assertFalse(allocatedDuringCallback)
+            assertTrue(replacementObservedFinishedCallback.get())
+            val completed = ownerTerminals.single() as OriginRequestTerminal.Completed
+            assertEquals(8123, completed.result.getOrThrow())
+            assertEquals(2, generation.get())
+        }
+
     @ParameterizedTest
     @EnumSource(OriginStaleCheckpoint::class)
     fun `each stale origin checkpoint supersedes old start and stop owners once`(
@@ -437,8 +499,17 @@ class ReadReceiptsTunnelCoordinationTest {
                     OriginRequestTerminal.Superseded -> Unit
                 }
             }
+            val boundary = OriginRequestBoundary()
 
-            assertTrue(delivery.deliver(execution.terminalForDelivery(terminal)))
+            assertTrue(
+                boundary.deliverCurrent(
+                    delivery = delivery,
+                    terminal = terminal,
+                    isCurrent = {
+                        currentChecks.getAndIncrement() < staleCheckpoint.ordinal
+                    },
+                ),
+            )
             assertEquals(1, oldOwnerTerminals.size, "$operation at $staleCheckpoint")
             assertSame(
                 OriginRequestTerminal.Superseded,
@@ -481,10 +552,13 @@ class ReadReceiptsTunnelCoordinationTest {
             publish = { _, _ -> true },
         )
         val replacementDelivery = OriginTerminalDelivery<Int?>(replacementOwnerTerminals::add)
+        val replacementBoundary = OriginRequestBoundary()
 
         assertTrue(
-            replacementDelivery.deliver(
-                replacementExecution.terminalForDelivery(replacementTerminal),
+            replacementBoundary.deliverCurrent(
+                delivery = replacementDelivery,
+                terminal = replacementTerminal,
+                isCurrent = { true },
             ),
         )
         val completed = replacementOwnerTerminals.single()

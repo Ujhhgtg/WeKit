@@ -127,7 +127,7 @@ object ReadReceipts : ClickableFeature(),
     private val originScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val originGeneration = AtomicLong()
     private val originLifecycleMutex = Mutex()
-    private val originMetadataLock = Any()
+    private val originRequestBoundary = OriginRequestBoundary()
     private val builtInStopCallbacks = CoalescedResultCallbacks<Unit>()
 
     private data class OriginRequest(
@@ -657,7 +657,7 @@ object ReadReceipts : ClickableFeature(),
         port: Int?,
         forceRestart: Boolean,
         desiredState: ReadReceiptsRuntimeState,
-    ): OriginRequest = synchronized(originMetadataLock) {
+    ): OriginRequest = originRequestBoundary.mutate {
         OriginRequest(
             generation = originGeneration.incrementAndGet(),
             port = port,
@@ -681,8 +681,8 @@ object ReadReceipts : ClickableFeature(),
                 reconcile = { reconcileOrigin(request) },
                 snapshot = originController::snapshot,
                 publish = { result, status ->
-                    synchronized(originMetadataLock) {
-                        if (!request.isCurrent()) return@synchronized false
+                    originRequestBoundary.mutate {
+                        if (!request.isCurrent()) return@mutate false
                         result.fold(
                             onSuccess = { port ->
                                 lastBuiltInPort = port ?: 0
@@ -700,7 +700,13 @@ object ReadReceipts : ClickableFeature(),
                 },
             )
             withContext(Dispatchers.Main.immediate) {
-                delivery?.deliver(execution.terminalForDelivery(terminal))
+                if (delivery != null) {
+                    originRequestBoundary.deliverCurrent(
+                        delivery = delivery,
+                        terminal = terminal,
+                        isCurrent = { request.isCurrent() },
+                    )
+                }
             }
         }
     }

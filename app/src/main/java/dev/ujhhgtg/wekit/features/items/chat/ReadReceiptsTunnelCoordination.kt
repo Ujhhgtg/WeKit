@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock as withThreadLock
 
 internal sealed interface OriginRequestTerminal<out T> {
     data class Completed<T>(val result: Result<T>) : OriginRequestTerminal<T>
@@ -22,6 +24,59 @@ internal class OriginTerminalDelivery<T>(
         }
         owner(terminal)
         return true
+    }
+}
+
+/**
+ * Linearizes request mutation with the final Main delivery without running the owner under a lock.
+ * External mutators wait for the callback to finish; callback-thread mutation remains reentrant.
+ */
+internal class OriginRequestBoundary {
+    private val lock = ReentrantLock()
+    private val deliveryFinished = lock.newCondition()
+    private var deliveryThread: Thread? = null
+    private var deliveryDepth = 0
+
+    fun <R> mutate(action: () -> R): R = lock.withThreadLock {
+        awaitExternalDelivery()
+        action()
+    }
+
+    fun <T> deliverCurrent(
+        delivery: OriginTerminalDelivery<T>,
+        terminal: OriginRequestTerminal<T>,
+        isCurrent: () -> Boolean,
+    ): Boolean {
+        val thread = Thread.currentThread()
+        var deliveryStarted = false
+        return try {
+            val checkedTerminal = lock.withThreadLock {
+                awaitExternalDelivery()
+                deliveryThread = thread
+                deliveryDepth++
+                deliveryStarted = true
+                if (isCurrent()) terminal else OriginRequestTerminal.Superseded
+            }
+            delivery.deliver(checkedTerminal)
+        } finally {
+            if (deliveryStarted) {
+                lock.withThreadLock {
+                    check(deliveryThread === thread)
+                    deliveryDepth--
+                    if (deliveryDepth == 0) {
+                        deliveryThread = null
+                        deliveryFinished.signalAll()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun awaitExternalDelivery() {
+        val thread = Thread.currentThread()
+        while (deliveryThread != null && deliveryThread !== thread) {
+            deliveryFinished.awaitUninterruptibly()
+        }
     }
 }
 
@@ -50,15 +105,6 @@ internal class OriginRequestExecution<T, S>(
         if (!isCurrent()) return OriginRequestTerminal.Superseded // Pre-publish.
         if (!publish(completed.result, status)) return OriginRequestTerminal.Superseded
         return completed
-    }
-
-    /** Must be called on Main immediately before [OriginTerminalDelivery.deliver]. */
-    fun terminalForDelivery(
-        terminal: OriginRequestTerminal<T>,
-    ): OriginRequestTerminal<T> = if (isCurrent()) {
-        terminal
-    } else {
-        OriginRequestTerminal.Superseded
     }
 }
 
