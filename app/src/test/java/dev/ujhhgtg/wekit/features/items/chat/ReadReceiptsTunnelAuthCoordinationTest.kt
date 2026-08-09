@@ -164,6 +164,32 @@ class ReadReceiptsTunnelAuthCoordinationTest {
     }
 
     @Test
+    fun `shared callback failure instance cannot interrupt later terminal delivery`() {
+        val registry = AuthOperationRegistry()
+        registry.replaceGeneration(46)
+        val sharedFailure = IllegalStateException("shared callback failure")
+        val thirdCallbackCount = AtomicInteger()
+        registry.register<Unit>(AuthOperationKey(46, 1), AuthOperationKind.SELECT) {
+            throw sharedFailure
+        }
+        registry.register<Unit>(AuthOperationKey(46, 2), AuthOperationKind.SELECT) {
+            throw sharedFailure
+        }
+        registry.register<Unit>(AuthOperationKey(46, 3), AuthOperationKind.SELECT) {
+            thirdCallbackCount.incrementAndGet()
+        }
+
+        assertSame(
+            sharedFailure,
+            assertThrows(IllegalStateException::class.java) {
+                registry.replaceGeneration(47)
+            },
+        )
+        assertEquals(1, thirdCallbackCount.get())
+        assertEquals(0, registry.pendingCount())
+    }
+
+    @Test
     fun `duplicate key is rejected without transferring old terminal ownership`() {
         val registry = AuthOperationRegistry()
         registry.replaceGeneration(47)
@@ -278,16 +304,22 @@ class ReadReceiptsTunnelAuthCoordinationTest {
 
     @Test
     fun `public tunnel model canonicalizes bounded native input`() {
+        val mutableHostnames = mutableListOf("Tunnel.Example.COM.", "api.example.com")
         val tunnel = ExistingTunnel.create(
             id = "550E8400-E29B-41D4-A716-446655440000",
             name = "  production  ",
-            hostnames = listOf("Tunnel.Example.COM.", "api.example.com"),
+            hostnames = mutableHostnames,
         )
 
         assertNotNull(tunnel)
         assertEquals("550e8400-e29b-41d4-a716-446655440000", tunnel!!.id)
         assertEquals("production", tunnel.name)
         assertEquals(listOf("tunnel.example.com", "api.example.com"), tunnel.hostnames)
+        mutableHostnames.clear()
+        assertEquals(listOf("tunnel.example.com", "api.example.com"), tunnel.hostnames)
+        assertThrows(UnsupportedOperationException::class.java) {
+            (tunnel.hostnames as MutableList<String>).add("mutated.example.com")
+        }
         assertNull(
             ExistingTunnel.create(
                 id = tunnel.id,
@@ -345,6 +377,12 @@ class ReadReceiptsTunnelAuthCoordinationTest {
                 """{"version":1,"runToken":"must-not-fallback"}""".toByteArray(),
             ),
         )
+        listOf("[]", "\"secret\"", "123", "true", "null").forEach { validJson ->
+            assertEquals(
+                TunnelCredentialDecode.Invalid,
+                TunnelCredentialPayloadCodec.decode(validJson.toByteArray()),
+            )
+        }
     }
 
     @Test
@@ -365,6 +403,28 @@ class ReadReceiptsTunnelAuthCoordinationTest {
             TunnelCredentialDecode.Invalid,
             TunnelCredentialPayloadCodec.decode(byteArrayOf(0xc3.toByte(), 0x28)),
         )
+    }
+
+    @Test
+    fun `strict codec rejects semantic duplicate top level keys`() {
+        val valid = TunnelCredentialPayloadCodec.encode(browserPayload("duplicate-token"))
+            .toString(Charsets.UTF_8)
+        val duplicateVersion = valid.replaceFirst(
+            "\"version\":2",
+            "\"version\":2,\"version\":2",
+        )
+        val duplicateEscapedRunToken = valid.replaceFirst(
+            "\"runToken\":\"duplicate-token\"",
+            """"runToken":"text with fake \"version\":2 and {[]} value","\u0072unToken":"replacement"""",
+        )
+        assertTrue(duplicateEscapedRunToken.contains("\\u0072unToken"))
+
+        listOf(duplicateVersion, duplicateEscapedRunToken).forEach { duplicate ->
+            assertEquals(
+                TunnelCredentialDecode.Invalid,
+                TunnelCredentialPayloadCodec.decode(duplicate.toByteArray()),
+            )
+        }
     }
 
     @Test

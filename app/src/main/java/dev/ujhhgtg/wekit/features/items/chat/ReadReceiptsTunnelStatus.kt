@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import java.util.Collections
 import java.util.UUID
 
 enum class ReadReceiptsTunnelMode {
@@ -74,7 +75,11 @@ data class ExistingTunnel private constructor(
             }
             val canonicalHostnames = hostnames.map { canonicalConfiguredHostname(it) ?: return null }
             if (canonicalHostnames.distinct().size != canonicalHostnames.size) return null
-            return ExistingTunnel(canonicalId, canonicalName, canonicalHostnames)
+            return ExistingTunnel(
+                canonicalId,
+                canonicalName,
+                Collections.unmodifiableList(ArrayList(canonicalHostnames)),
+            )
         }
 
         private fun canonicalTunnelId(value: String): String? {
