@@ -2,4 +2,8 @@
     <string name="app_name">WeKit</string>
     <string name="app_description">WeChat, now with superpowers\nUjhhgtg@github</string>
     <string name="res_inject_success">Resources injection success</string>
+    <string name="language_follow_system">Follow system</string>
+    <string name="language_english">English</string>
+    <string name="language_simplified_chinese">Simplified Chinese</string>
+    <string name="language_traditional_chinese">Traditional Chinese</string>
 </resources>
