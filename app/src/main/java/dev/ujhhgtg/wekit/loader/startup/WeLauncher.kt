@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.FeaturesLoader
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.loader.utils.ActivityProxy
 import dev.ujhhgtg.wekit.loader.utils.ParcelableFixer
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
@@ -28,6 +29,7 @@ object WeLauncher {
 
         val appContext = context.applicationContext ?: context
         ResourcesInjector.injectModuleRes(appContext.resources)
+        WeKitLocaleController.initialize(HostInfo.application)
 
         if (TargetProcesses.isInMain) {
             ActivityProxy.init(appContext)
