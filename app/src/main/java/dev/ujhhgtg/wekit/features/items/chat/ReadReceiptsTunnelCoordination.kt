@@ -145,7 +145,19 @@ internal class TunnelNativeLease {
     private var verifiableNativeSessionEpoch: Long? = null
 
     @Synchronized
-    fun advance(generation: Long, transition: () -> Unit): Boolean {
+    fun advance(generation: Long, transition: () -> Unit): Boolean =
+        advanceLocked(generation, transition)
+
+    @Synchronized
+    fun advanceAndReserve(
+        generation: Long,
+        transition: () -> Unit,
+    ): TunnelCandidateReservation? {
+        if (!advanceLocked(generation, transition)) return null
+        return TunnelCandidateReservation(generation, networkEpoch)
+    }
+
+    private fun advanceLocked(generation: Long, transition: () -> Unit): Boolean {
         if (generation < currentGeneration) return false
         if (generation > currentGeneration) {
             if (ownerGeneration == currentGeneration) ownerGeneration = generation
@@ -154,6 +166,18 @@ internal class TunnelNativeLease {
         networkEpoch++
         currentGeneration = generation
         transition()
+        return true
+    }
+
+    @Synchronized
+    fun isReservationCurrent(reservation: TunnelCandidateReservation): Boolean =
+        reservationMatches(reservation)
+
+    @Synchronized
+    fun activateReservedRequest(reservation: TunnelCandidateReservation): Boolean {
+        if (!reservationMatches(reservation)) return false
+        activeRequestGeneration = reservation.generation
+        verifiableNativeSessionEpoch = null
         return true
     }
 
@@ -235,6 +259,25 @@ internal class TunnelNativeLease {
     }
 
     @Synchronized
+    fun startReservedIfCurrent(
+        reservation: TunnelCandidateReservation,
+        start: () -> Boolean,
+    ): Boolean {
+        if (
+            !reservationMatches(reservation) ||
+            activeRequestGeneration != reservation.generation ||
+            ownerGeneration != null
+        ) {
+            return false
+        }
+        if (!start()) return false
+        ownerGeneration = reservation.generation
+        nativeSessionEpoch++
+        verifiableNativeSessionEpoch = nativeSessionEpoch
+        return true
+    }
+
+    @Synchronized
     fun stopIfOwner(generation: Long, stop: () -> Unit): Boolean {
         if (currentGeneration != generation || ownerGeneration != generation) return false
         ownerGeneration = null
@@ -266,6 +309,25 @@ internal class TunnelNativeLease {
             return null
         }
         return TunnelVerificationTicket(generation, networkEpoch, nativeSessionEpoch)
+    }
+
+    @Synchronized
+    fun captureReservedVerification(
+        reservation: TunnelCandidateReservation,
+    ): TunnelVerificationTicket? {
+        if (
+            !reservationMatches(reservation) ||
+            activeRequestGeneration != reservation.generation ||
+            ownerGeneration != reservation.generation ||
+            verifiableNativeSessionEpoch != nativeSessionEpoch
+        ) {
+            return null
+        }
+        return TunnelVerificationTicket(
+            reservation.generation,
+            reservation.networkEpoch,
+            nativeSessionEpoch,
+        )
     }
 
     @Synchronized
@@ -310,9 +372,17 @@ internal class TunnelNativeLease {
             nativeSessionEpoch == ticket.nativeSessionEpoch &&
             verifiableNativeSessionEpoch == ticket.nativeSessionEpoch
 
+    private fun reservationMatches(reservation: TunnelCandidateReservation): Boolean =
+        currentGeneration == reservation.generation && networkEpoch == reservation.networkEpoch
+
     @Synchronized
     fun ownerGeneration(): Long? = ownerGeneration
 }
+
+internal data class TunnelCandidateReservation(
+    val generation: Long,
+    val networkEpoch: Long,
+)
 
 internal data class TunnelVerificationTicket(
     val generation: Long,
@@ -770,6 +840,37 @@ internal class ServiceAuthFailurePlan<T> internal constructor(
     val action: ServiceAuthCleanupAction,
 )
 
+internal class ServiceAuthTerminalPlan<T> internal constructor(
+    internal val key: AuthOperationKey,
+    internal val kind: AuthOperationKind<T>,
+    internal val terminal: AuthOperationTerminal<T>,
+)
+
+internal class SelectCommitGate {
+    private var claim = Claim.PENDING
+
+    @Synchronized
+    fun tryCommit(): Boolean = tryClaim(Claim.COMMIT)
+
+    @Synchronized
+    fun tryTerminal(): Boolean = tryClaim(Claim.TERMINAL)
+
+    @Synchronized
+    fun isCommitClaimed(): Boolean = claim == Claim.COMMIT
+
+    private fun tryClaim(candidate: Claim): Boolean {
+        if (claim != Claim.PENDING) return false
+        claim = candidate
+        return true
+    }
+
+    private enum class Claim {
+        PENDING,
+        COMMIT,
+        TERMINAL,
+    }
+}
+
 internal class ServiceAuthSessionClearPlan<T> internal constructor(
     internal val key: AuthOperationKey,
     internal val kind: AuthOperationKind<T>,
@@ -790,6 +891,7 @@ internal class ServiceAuthCoordinator {
     private val ackKinds = mutableMapOf<AuthOperationKey, AuthOperationKind<*>>()
     private val seenRequests = mutableSetOf<AuthOperationKey>()
     private val plannedFailures = mutableMapOf<AuthOperationKey, ServiceAuthFailurePlan<*>>()
+    private val plannedTerminals = mutableMapOf<AuthOperationKey, ServiceAuthTerminalPlan<*>>()
     private var plannedSessionClear: ServiceAuthSessionClearPlan<*>? = null
     private var plannedSessionTeardown: ServiceAuthSessionTeardownPlan? = null
     private var lastAcceptedGeneration = 0L
@@ -816,6 +918,7 @@ internal class ServiceAuthCoordinator {
         ackKinds.clear()
         seenRequests.clear()
         plannedFailures.clear()
+        plannedTerminals.clear()
         plannedSessionClear = null
         plannedSessionTeardown = null
         check(operations.prepareGeneration(key.authGeneration))
@@ -977,6 +1080,32 @@ internal class ServiceAuthCoordinator {
         }
     }
 
+    fun <T> planTerminal(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+        terminal: AuthOperationTerminal<T>,
+    ): ServiceAuthTerminalPlan<T>? {
+        if (
+            key.authGeneration != activeGeneration ||
+            operations.pendingKind(key) !== kind ||
+            operationPhases[key] == ServiceAuthOperationPhase.CLEANING
+        ) {
+            return null
+        }
+        operationPhases[key] = ServiceAuthOperationPhase.CLEANING
+        return ServiceAuthTerminalPlan(key, kind, terminal).also {
+            plannedTerminals[key] = it
+        }
+    }
+
+    fun <T> finishTerminal(plan: ServiceAuthTerminalPlan<T>): Boolean {
+        if (plannedTerminals[plan.key] !== plan) return false
+        plannedTerminals.remove(plan.key)
+        operationPhases.remove(plan.key)
+        ackKinds.remove(plan.key)
+        return operations.complete(plan.key, plan.kind, plan.terminal)
+    }
+
     fun <T> finishFailure(plan: ServiceAuthFailurePlan<T>): Boolean {
         if (plannedFailures[plan.key] !== plan) return false
         plannedFailures.remove(plan.key)
@@ -991,6 +1120,7 @@ internal class ServiceAuthCoordinator {
             activeGeneration = 0
             sessionPhase = ServiceAuthSessionPhase.RESTART_REQUIRED
             plannedFailures.keys.removeAll { it.authGeneration == plan.key.authGeneration }
+            plannedTerminals.keys.removeAll { it.authGeneration == plan.key.authGeneration }
             operationPhases.keys.removeAll { it.authGeneration == plan.key.authGeneration }
             ackKinds.keys.removeAll { it.authGeneration == plan.key.authGeneration }
             return operations.completeAndCancelGeneration(plan.key, plan.kind, plan.terminal)
@@ -1056,6 +1186,7 @@ internal class ServiceAuthCoordinator {
             ServiceAuthSessionPhase.IDLE
         }
         plannedFailures.keys.removeAll { it.authGeneration == plan.key.authGeneration }
+        plannedTerminals.keys.removeAll { it.authGeneration == plan.key.authGeneration }
         operationPhases.keys.removeAll { it.authGeneration == plan.key.authGeneration }
         ackKinds.keys.removeAll { it.authGeneration == plan.key.authGeneration }
         return operations.completeAndCancelGeneration(plan.key, plan.kind, plan.terminal)
@@ -1106,6 +1237,7 @@ internal class ServiceAuthCoordinator {
             ServiceAuthSessionPhase.IDLE
         }
         plannedFailures.keys.removeAll { it.authGeneration == plan.authGeneration }
+        plannedTerminals.keys.removeAll { it.authGeneration == plan.authGeneration }
         operationPhases.keys.removeAll { it.authGeneration == plan.authGeneration }
         ackKinds.keys.removeAll { it.authGeneration == plan.authGeneration }
         operations.cancelGeneration(plan.authGeneration)
@@ -1124,6 +1256,7 @@ internal class ServiceAuthCoordinator {
         plannedSessionClear = null
         plannedSessionTeardown = null
         plannedFailures.keys.removeAll { it.authGeneration == expectedGeneration }
+        plannedTerminals.keys.removeAll { it.authGeneration == expectedGeneration }
         operationPhases.keys.removeAll { it.authGeneration == expectedGeneration }
         ackKinds.keys.removeAll { it.authGeneration == expectedGeneration }
         operations.cancelGeneration(expectedGeneration)
@@ -1644,18 +1777,27 @@ internal enum class TunnelCredentialStartupDecision {
 
 internal fun decideCredentialStartup(
     payload: TunnelCredentialPayload,
+    requestedMode: ReadReceiptsTunnelMode,
     requestedHostname: String,
     requestedOriginPort: Int,
 ): TunnelCredentialStartupDecision {
-    if (payload.source == TunnelCredentialSource.TOKEN) return TunnelCredentialStartupDecision.START
-    val canonicalRequested = ReadReceiptsTunnelService.canonicalPublicRoot(requestedHostname)
-    return if (
-        canonicalRequested == payload.canonicalHostname &&
-        requestedOriginPort == payload.fixedOriginPort
-    ) {
-        TunnelCredentialStartupDecision.START
-    } else {
-        TunnelCredentialStartupDecision.NEEDS_USER_ACTION
+    return when (requestedMode) {
+        ReadReceiptsTunnelMode.QUICK -> TunnelCredentialStartupDecision.NEEDS_USER_ACTION
+        ReadReceiptsTunnelMode.TOKEN -> if (payload.source == TunnelCredentialSource.TOKEN) {
+            TunnelCredentialStartupDecision.START
+        } else {
+            TunnelCredentialStartupDecision.NEEDS_USER_ACTION
+        }
+        ReadReceiptsTunnelMode.BROWSER_LOGIN -> if (
+            payload.source == TunnelCredentialSource.BROWSER_LOGIN &&
+            ReadReceiptsTunnelService.canonicalPublicRoot(requestedHostname) == requestedHostname &&
+            requestedHostname == payload.canonicalHostname &&
+            requestedOriginPort == payload.fixedOriginPort
+        ) {
+            TunnelCredentialStartupDecision.START
+        } else {
+            TunnelCredentialStartupDecision.NEEDS_USER_ACTION
+        }
     }
 }
 

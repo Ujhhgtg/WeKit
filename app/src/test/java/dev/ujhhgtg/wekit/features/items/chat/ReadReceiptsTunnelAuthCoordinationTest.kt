@@ -523,20 +523,53 @@ class ReadReceiptsTunnelAuthCoordinationTest {
     }
 
     @Test
-    fun `browser unattended startup requires exact canonical hostname and fixed port`() {
+    fun `browser unattended startup requires browser source exact canonical hostname and fixed port`() {
         val payload = browserPayload("startup-token")
 
         assertEquals(
             TunnelCredentialStartupDecision.START,
-            decideCredentialStartup(payload, "https://TUNNEL.example.com/", 18443),
+            decideCredentialStartup(
+                payload,
+                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                "https://tunnel.example.com",
+                18443,
+            ),
         )
         assertEquals(
             TunnelCredentialStartupDecision.NEEDS_USER_ACTION,
-            decideCredentialStartup(payload, "https://other.example.com", 18443),
+            decideCredentialStartup(
+                payload,
+                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                "https://TUNNEL.example.com/",
+                18443,
+            ),
         )
         assertEquals(
             TunnelCredentialStartupDecision.NEEDS_USER_ACTION,
-            decideCredentialStartup(payload, "https://tunnel.example.com", 18444),
+            decideCredentialStartup(
+                payload,
+                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                "https://other.example.com",
+                18443,
+            ),
+        )
+        assertEquals(
+            TunnelCredentialStartupDecision.NEEDS_USER_ACTION,
+            decideCredentialStartup(
+                payload,
+                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                "https://tunnel.example.com",
+                18444,
+            ),
+        )
+        assertEquals(
+            TunnelCredentialStartupDecision.NEEDS_USER_ACTION,
+            decideCredentialStartup(
+                payload,
+                ReadReceiptsTunnelMode.TOKEN,
+                "https://tunnel.example.com",
+                18443,
+            ),
         )
     }
 
@@ -555,11 +588,30 @@ class ReadReceiptsTunnelAuthCoordinationTest {
 
         assertEquals(
             TunnelCredentialStartupDecision.START,
-            decideCredentialStartup(legacy, "https://different.example.com", 65535),
+            decideCredentialStartup(
+                legacy,
+                ReadReceiptsTunnelMode.TOKEN,
+                "https://different.example.com",
+                65535,
+            ),
         )
         assertEquals(
             TunnelCredentialStartupDecision.START,
-            decideCredentialStartup(versionedToken, "https://different.example.com", 1),
+            decideCredentialStartup(
+                versionedToken,
+                ReadReceiptsTunnelMode.TOKEN,
+                "https://different.example.com",
+                1,
+            ),
+        )
+        assertEquals(
+            TunnelCredentialStartupDecision.NEEDS_USER_ACTION,
+            decideCredentialStartup(
+                versionedToken,
+                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                "https://token.example.com",
+                18080,
+            ),
         )
     }
 

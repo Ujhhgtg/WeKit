@@ -8,6 +8,40 @@ import org.junit.jupiter.api.Test
 
 class ReadReceiptsTunnelServiceAuthCoordinationTest {
     @Test
+    fun `select commit and timeout claims are mutually exclusive`() {
+        val committed = SelectCommitGate()
+        assertTrue(committed.tryCommit())
+        assertFalse(committed.tryTerminal())
+
+        val timedOut = SelectCommitGate()
+        assertTrue(timedOut.tryTerminal())
+        assertFalse(timedOut.tryCommit())
+    }
+
+    @Test
+    fun `planned superseded terminal freezes operation until workers drain`() {
+        val coordinator = authorizedCoordinator(9)
+        val key = AuthOperationKey(9, 2)
+        val terminals = mutableListOf<AuthOperationTerminal<Unit>>()
+        coordinator.admit(
+            key,
+            AuthOperationKind.SELECT,
+            ServiceAuthOperationPhase.NATIVE_BLOCKING,
+            terminals::add,
+        )
+
+        val plan = coordinator.planTerminal(
+            key,
+            AuthOperationKind.SELECT,
+            AuthOperationTerminal.Superseded,
+        )!!
+        assertFalse(coordinator.canPublish(key, AuthOperationKind.SELECT))
+        assertTrue(terminals.isEmpty())
+        assertTrue(coordinator.finishTerminal(plan))
+        assertEquals(listOf(AuthOperationTerminal.Superseded), terminals)
+    }
+
+    @Test
     fun `service admission claims one ACK and delegates exactly one terminal`() {
         val coordinator = ServiceAuthCoordinator()
         val key = AuthOperationKey(10, 1)

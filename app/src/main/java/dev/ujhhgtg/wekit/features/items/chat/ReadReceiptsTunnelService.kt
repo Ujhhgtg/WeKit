@@ -26,9 +26,11 @@ import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
@@ -193,9 +195,9 @@ class ReadReceiptsTunnelService : Service() {
         activeRequest = null
         lifecycleJob?.cancel()
         val (priorProcessTeardown, processTeardown) = registerProcessAuthTeardown()
-        val authJobs = authOperationJobs.values.flatMap { jobs ->
-            listOfNotNull(jobs.worker, jobs.watchdog)
-        } + listOfNotNull(authPollJob, authCleanupJob)
+        claimPendingSelectTerminals()
+        val authJobs = authOperationJobs.values.flatMap(AuthOperationJobs::all) +
+            listOfNotNull(authPollJob, authCleanupJob)
         authControlScope.launch {
             try {
                 priorProcessTeardown?.join()
@@ -293,10 +295,7 @@ class ReadReceiptsTunnelService : Service() {
         when (expectedKind) {
             ServiceAuthWireKind.BEGIN -> beginLogin(envelope)
             ServiceAuthWireKind.LIST -> listTunnels(envelope)
-            ServiceAuthWireKind.SELECT -> {
-                sendAuthAck(envelope, accepted = false)
-                sendAuthTerminal(envelope, AuthOperationTerminal.Failed(AUTH_SELECT_DEFERRED))
-            }
+            ServiceAuthWireKind.SELECT -> selectTunnel(envelope)
             ServiceAuthWireKind.CANCEL -> clearLogin(envelope, AuthOperationKind.CANCEL)
             ServiceAuthWireKind.LOGOUT -> clearLogin(envelope, AuthOperationKind.LOGOUT)
         }
@@ -376,9 +375,9 @@ class ReadReceiptsTunnelService : Service() {
         sendAuthAck(envelope, accepted = true)
 
         val processTeardown = captureProcessAuthTeardown()
-        val previousJobs = authOperationJobs.values.flatMap { jobs ->
-            listOfNotNull(jobs.worker, jobs.watchdog)
-        } + listOfNotNull(authPollJob, authCleanupJob)
+        claimPendingSelectTerminals()
+        val previousJobs = authOperationJobs.values.flatMap(AuthOperationJobs::all) +
+            listOfNotNull(authPollJob, authCleanupJob)
         authOperationJobs.clear()
         authPollJob = null
         authCleanupJob = authControlScope.launch {
@@ -552,9 +551,9 @@ class ReadReceiptsTunnelService : Service() {
         plan: ServiceAuthSessionTeardownPlan,
         preserveLoginFailure: Boolean,
     ) {
-        val jobsToDrain = authOperationJobs.values.flatMap { jobs ->
-            listOfNotNull(jobs.worker, jobs.watchdog)
-        } + listOfNotNull(authPollJob)
+        claimPendingSelectTerminals()
+        val jobsToDrain = authOperationJobs.values.flatMap(AuthOperationJobs::all) +
+            listOfNotNull(authPollJob)
         authOperationJobs.clear()
         authPollJob = null
         authCleanupJob = authControlScope.launch {
@@ -608,9 +607,9 @@ class ReadReceiptsTunnelService : Service() {
                 )
             } ?: return@launch
             val jobsToDrain = withContext(Dispatchers.Main.immediate) {
-                authOperationJobs.values.flatMap { jobs ->
-                    listOfNotNull(jobs.worker, jobs.watchdog)
-                }.also { authOperationJobs.clear() }
+                claimPendingSelectTerminals()
+                authOperationJobs.values.flatMap(AuthOperationJobs::all)
+                    .also { authOperationJobs.clear() }
             }
             ReadReceiptsTunnelNative.cancelLogin()
             val watchdogJob = currentCoroutineContext()[Job]
@@ -685,9 +684,329 @@ class ReadReceiptsTunnelService : Service() {
     private fun scheduleBrokenListTeardown(
         plan: ServiceAuthFailurePlan<List<ExistingTunnel>>,
     ) {
-        val jobsToDrain = authOperationJobs.values.flatMap { jobs ->
-            listOfNotNull(jobs.worker, jobs.watchdog)
-        } + listOfNotNull(authPollJob)
+        claimPendingSelectTerminals()
+        val jobsToDrain = authOperationJobs.values.flatMap(AuthOperationJobs::all) +
+            listOfNotNull(authPollJob)
+        authOperationJobs.clear()
+        authPollJob = null
+        authCleanupJob = authControlScope.launch {
+            runCatching { ReadReceiptsTunnelNative.cancelLogin() }
+            jobsToDrain.forEach(Job::cancel)
+            for (job in jobsToDrain) job.join()
+            runCatching { ReadReceiptsTunnelNative.cancelLogin() }
+            withContext(Dispatchers.Main.immediate) {
+                authCleanupJob = null
+                nativeAuthGeneration = 0
+                clearTransientAuthState()
+                check(authCoordinator.finishFailure(plan))
+                broadcastAuthSnapshot()
+            }
+        }
+    }
+
+    private fun selectTunnel(envelope: ServiceAuthEnvelope) {
+        val admission = authCoordinator.admit(
+            envelope.key,
+            AuthOperationKind.SELECT,
+            ServiceAuthOperationPhase.NATIVE_BLOCKING,
+        ) { terminal -> sendAuthTerminal(envelope, terminal) }
+        if (admission is ServiceAuthAdmission.Rejected) {
+            rejectAuthAdmission(envelope, admission)
+            return
+        }
+        check(authCoordinator.claimAck(envelope.key, AuthOperationKind.SELECT))
+        sendAuthAck(envelope, accepted = true)
+
+        val selection = checkNotNull(envelope.selection)
+        val tunnel = authTunnels.firstOrNull { it.id == selection.tunnelId }
+        if (tunnel == null) {
+            finishSelectApiFailure(envelope)
+            return
+        }
+        val expectedNativeGeneration = nativeAuthGeneration
+        val commitGate = SelectCommitGate()
+        lateinit var worker: Job
+        worker = scope.launch(start = CoroutineStart.LAZY) {
+            try {
+                val result = ReadReceiptsTunnelNative.selectExistingTunnelForService(
+                    selection.tunnelId,
+                    selection.canonicalRoot,
+                )
+                val prepared = withContext(Dispatchers.Main.immediate) {
+                    prepareSelectedCandidate(
+                        envelope,
+                        selection,
+                        tunnel.name,
+                        expectedNativeGeneration,
+                        result,
+                        commitGate,
+                    )
+                } ?: return@launch
+                val outcome = prepared.firstVerification.await()
+                if (outcome != SelectCandidateOutcome.COMMITTED) {
+                    prepared.candidate.join()
+                }
+                withContext(Dispatchers.Main.immediate) {
+                    finishSelectOutcome(envelope, outcome)
+                }
+            } catch (cancelled: CancellationException) {
+                authControlScope.launch { finishCancelledSelect(envelope) }
+                throw cancelled
+            }
+        }
+        val watchdog = authControlScope.launch {
+            delay(AUTH_OPERATION_TIMEOUT_MILLIS)
+            if (!commitGate.tryTerminal()) return@launch
+            val plan = withContext(Dispatchers.Main.immediate) {
+                authCoordinator.planFailure(
+                    envelope.key,
+                    AuthOperationKind.SELECT,
+                    ServiceAuthFailure.TIMEOUT,
+                    AUTH_SELECT_FAILED,
+                )
+            } ?: return@launch
+            withContext(Dispatchers.Main.immediate) {
+                when (plan.action) {
+                    ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED ->
+                        scheduleBrokenAuthFailure(plan)
+                    ServiceAuthCleanupAction.STOP_CANDIDATE_AND_PRESERVE_AUTH ->
+                        scheduleSelectCandidateFailure(envelope, plan)
+                    ServiceAuthCleanupAction.PRESERVE_AUTH ->
+                        error("invalid SELECT timeout cleanup")
+                }
+            }
+        }
+        authOperationJobs[envelope.key] = AuthOperationJobs(worker, watchdog, commitGate = commitGate)
+        worker.start()
+    }
+
+    private fun prepareSelectedCandidate(
+        envelope: ServiceAuthEnvelope,
+        selection: DeferredAuthSelection,
+        tunnelName: String,
+        expectedNativeGeneration: Long,
+        result: Result<String>,
+        commitGate: SelectCommitGate,
+    ): PreparedSelectCandidate? {
+        if (!authCoordinator.canPublish(envelope.key, AuthOperationKind.SELECT)) return null
+        if (
+            expectedNativeGeneration == 0L ||
+            nativeAuthGeneration != expectedNativeGeneration
+        ) {
+            val plan = checkNotNull(
+                authCoordinator.planFailure(
+                    envelope.key,
+                    AuthOperationKind.SELECT,
+                    ServiceAuthFailure.SESSION_BROKEN,
+                    AUTH_SELECT_FAILED,
+                ),
+            )
+            scheduleBrokenAuthFailure(plan)
+            return null
+        }
+        val token = result.getOrNull()
+        val payload = token?.let {
+            TunnelCredentialPayload.create(
+                runToken = it,
+                source = TunnelCredentialSource.BROWSER_LOGIN,
+                accountId = authAccountId,
+                tunnelId = selection.tunnelId,
+                tunnelName = tunnelName,
+                canonicalHostname = selection.canonicalRoot,
+                fixedOriginPort = selection.fixedOriginPort,
+            )
+        }
+        if (payload == null) {
+            finishSelectApiFailure(envelope, commitGate)
+            return null
+        }
+        check(authCoordinator.markSelectValidating(envelope.key))
+        val request = TunnelRequest(
+            generation = selection.connectorGeneration,
+            mode = ReadReceiptsTunnelMode.BROWSER_LOGIN,
+            origin = "http://127.0.0.1:${selection.fixedOriginPort}/",
+            publicRoot = selection.canonicalRoot.toHttpUrlOrNull()!!,
+            pendingToken = null,
+            browserCredential = payload,
+            browserCredentialNeedsCommit = true,
+            selectCommitGate = commitGate,
+        )
+        val reservation = nativeLease.advanceAndReserve(selection.connectorGeneration) {
+            activeRequest = request
+            authoritativeState.set(
+                AuthoritativeTunnelState(
+                    selection.connectorGeneration,
+                    ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING),
+                ),
+            )
+        }
+        if (reservation == null) {
+            check(commitGate.tryTerminal())
+            val plan = checkNotNull(
+                authCoordinator.planTerminal(
+                    envelope.key,
+                    AuthOperationKind.SELECT,
+                    AuthOperationTerminal.Superseded,
+                ),
+            )
+            scheduleSelectTerminal(envelope, plan)
+            return null
+        }
+        val firstVerification = CompletableDeferred<SelectCandidateOutcome>()
+        val candidate = replaceLifecycleForSelect(request, reservation, firstVerification)
+        checkNotNull(authOperationJobs[envelope.key]).candidate = candidate
+        return PreparedSelectCandidate(firstVerification, candidate)
+    }
+
+    private fun finishSelectOutcome(
+        envelope: ServiceAuthEnvelope,
+        outcome: SelectCandidateOutcome,
+    ) {
+        if (!authCoordinator.canPublish(envelope.key, AuthOperationKind.SELECT)) return
+        when (outcome) {
+            SelectCandidateOutcome.COMMITTED -> finishCommittedSelect(envelope)
+            SelectCandidateOutcome.STALE -> {
+                val jobs = checkNotNull(authOperationJobs[envelope.key])
+                if (!jobs.commitGate!!.tryTerminal()) return
+                val candidateGeneration = checkNotNull(envelope.selection).connectorGeneration
+                if (activeRequest?.generation == candidateGeneration) {
+                    activeRequest = null
+                    nativeLease.clearRequest(candidateGeneration)
+                    publishFailure(candidateGeneration, AUTH_SELECT_STALE)
+                }
+                val plan = checkNotNull(
+                    authCoordinator.planTerminal(
+                        envelope.key,
+                        AuthOperationKind.SELECT,
+                        AuthOperationTerminal.Superseded,
+                    ),
+                )
+                scheduleSelectTerminal(envelope, plan)
+            }
+            SelectCandidateOutcome.FAILED -> {
+                val jobs = checkNotNull(authOperationJobs[envelope.key])
+                val gate = checkNotNull(jobs.commitGate)
+                if (!gate.isCommitClaimed() && !gate.tryTerminal()) return
+                val plan = checkNotNull(
+                    authCoordinator.planFailure(
+                        envelope.key,
+                        AuthOperationKind.SELECT,
+                        ServiceAuthFailure.API_RETURNED,
+                        AUTH_SELECT_FAILED,
+                    ),
+                )
+                scheduleSelectCandidateFailure(envelope, plan)
+            }
+        }
+    }
+
+    private fun finishSelectApiFailure(
+        envelope: ServiceAuthEnvelope,
+        commitGate: SelectCommitGate? = authOperationJobs[envelope.key]?.commitGate,
+    ) {
+        if (commitGate != null && !commitGate.tryTerminal()) return
+        val plan = checkNotNull(
+            authCoordinator.planFailure(
+                envelope.key,
+                AuthOperationKind.SELECT,
+                ServiceAuthFailure.API_RETURNED,
+                AUTH_SELECT_FAILED,
+            ),
+        )
+        if (authOperationJobs[envelope.key] == null) {
+            check(authCoordinator.finishFailure(plan))
+        } else {
+            scheduleSelectCandidateFailure(envelope, plan)
+        }
+    }
+
+    private fun finishCommittedSelect(envelope: ServiceAuthEnvelope) {
+        checkNotNull(authOperationJobs[envelope.key]).candidate = null
+        val plan = checkNotNull(
+            authCoordinator.planSessionClear(
+                envelope.key,
+                AuthOperationKind.SELECT,
+                AuthOperationTerminal.Completed(Unit),
+            ),
+        )
+        val authJobs = authOperationJobs.values.flatMap(AuthOperationJobs::all) +
+            listOfNotNull(authPollJob)
+        authOperationJobs.clear()
+        authPollJob = null
+        authCleanupJob = authControlScope.launch {
+            var cleaned = ReadReceiptsTunnelNative.cancelLogin().isSuccess
+            authJobs.forEach(Job::cancel)
+            for (job in authJobs) job.join()
+            cleaned = ReadReceiptsTunnelNative.cancelLogin().isSuccess && cleaned
+            withContext(Dispatchers.Main.immediate) {
+                authCleanupJob = null
+                nativeAuthGeneration = 0
+                clearTransientAuthState()
+                check(authCoordinator.finishSessionClear(plan, restartRequired = !cleaned))
+                broadcastAuthSnapshot(resetClientExpectation = true)
+            }
+        }
+    }
+
+    private suspend fun finishCancelledSelect(envelope: ServiceAuthEnvelope) {
+        val claimed = withContext(Dispatchers.Main.immediate) {
+            authOperationJobs[envelope.key]?.commitGate?.tryTerminal() ?: false
+        }
+        if (!claimed) return
+        val plan = withContext(Dispatchers.Main.immediate) {
+            authCoordinator.planFailure(
+                envelope.key,
+                AuthOperationKind.SELECT,
+                ServiceAuthFailure.COROUTINE_CANCELLED,
+                AUTH_SELECT_FAILED,
+            )
+        } ?: return
+        withContext(Dispatchers.Main.immediate) {
+            when (plan.action) {
+                ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED ->
+                    scheduleBrokenAuthFailure(plan)
+                ServiceAuthCleanupAction.STOP_CANDIDATE_AND_PRESERVE_AUTH ->
+                    scheduleSelectCandidateFailure(envelope, plan)
+                ServiceAuthCleanupAction.PRESERVE_AUTH ->
+                    error("invalid SELECT cancellation cleanup")
+            }
+        }
+    }
+
+    private fun scheduleSelectCandidateFailure(
+        envelope: ServiceAuthEnvelope,
+        plan: ServiceAuthFailurePlan<Unit>,
+    ) {
+        val jobs = authOperationJobs.remove(envelope.key)?.all().orEmpty()
+        authCleanupJob = authControlScope.launch {
+            jobs.forEach(Job::cancel)
+            for (job in jobs) job.join()
+            withContext(Dispatchers.Main.immediate) {
+                authCleanupJob = null
+                check(authCoordinator.finishFailure(plan))
+            }
+        }
+    }
+
+    private fun scheduleSelectTerminal(
+        envelope: ServiceAuthEnvelope,
+        plan: ServiceAuthTerminalPlan<Unit>,
+    ) {
+        val jobs = authOperationJobs.remove(envelope.key)?.all().orEmpty()
+        authCleanupJob = authControlScope.launch {
+            jobs.forEach(Job::cancel)
+            for (job in jobs) job.join()
+            withContext(Dispatchers.Main.immediate) {
+                authCleanupJob = null
+                check(authCoordinator.finishTerminal(plan))
+            }
+        }
+    }
+
+    private fun <T> scheduleBrokenAuthFailure(plan: ServiceAuthFailurePlan<T>) {
+        claimPendingSelectTerminals()
+        val jobsToDrain = authOperationJobs.values.flatMap(AuthOperationJobs::all) +
+            listOfNotNull(authPollJob)
         authOperationJobs.clear()
         authPollJob = null
         authCleanupJob = authControlScope.launch {
@@ -727,9 +1046,9 @@ class ReadReceiptsTunnelService : Service() {
                 AuthOperationTerminal.Completed(Unit),
             ),
         )
-        val previousJobs = authOperationJobs.values.flatMap { jobs ->
-            listOfNotNull(jobs.worker, jobs.watchdog)
-        } + listOfNotNull(authPollJob, authCleanupJob)
+        claimPendingSelectTerminals()
+        val previousJobs = authOperationJobs.values.flatMap(AuthOperationJobs::all) +
+            listOfNotNull(authPollJob, authCleanupJob)
         authOperationJobs.clear()
         authPollJob = null
         authCleanupJob = authControlScope.launch {
@@ -767,6 +1086,10 @@ class ReadReceiptsTunnelService : Service() {
         authLoginState = null
         authAccountId = ""
         authTunnels = emptyList()
+    }
+
+    private fun claimPendingSelectTerminals() {
+        authOperationJobs.values.forEach { it.commitGate?.tryTerminal() }
     }
 
     private fun loadCredentialMetadataOnIo(): CredentialCacheUpdate =
@@ -833,6 +1156,21 @@ class ReadReceiptsTunnelService : Service() {
         val nonce = data.getString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE)
         val suppliedToken = data.getString(ReadReceiptsTunnelProtocol.KEY_TOKEN)
         data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
+        val mode = data.getString(ReadReceiptsTunnelProtocol.KEY_MODE)
+            ?.let { name -> ReadReceiptsTunnelMode.entries.firstOrNull { it.name == name } }
+        val origin = data.getString(ReadReceiptsTunnelProtocol.KEY_ORIGIN).orEmpty()
+        val hostname = data.getString(ReadReceiptsTunnelProtocol.KEY_HOSTNAME).orEmpty()
+        if (mode == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
+            handleBrowserStart(
+                requestedGeneration,
+                nonce,
+                client,
+                origin,
+                hostname,
+                suppliedToken,
+            )
+            return
+        }
         if (
             !nativeLease.advance(requestedGeneration) {
                 activeRequest = null
@@ -881,26 +1219,8 @@ class ReadReceiptsTunnelService : Service() {
             stopSelf()
             return
         }
-        val mode = data.getString(ReadReceiptsTunnelProtocol.KEY_MODE)
-            ?.let { name -> ReadReceiptsTunnelMode.entries.firstOrNull { it.name == name } }
-        val origin = data.getString(ReadReceiptsTunnelProtocol.KEY_ORIGIN).orEmpty()
-        val hostname = data.getString(ReadReceiptsTunnelProtocol.KEY_HOSTNAME).orEmpty()
-
         if (mode == null) {
             rejectStart(requestedGeneration, client, nonce, "隧道模式无效")
-            return
-        }
-        if (mode == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
-            activeRequest = null
-            replaceLifecycle(requestedGeneration, null)
-            publish(
-                requestedGeneration,
-                ReadReceiptsTunnelStatus(
-                    ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                    error = "浏览器登录将在下一阶段提供",
-                ),
-            )
-            sendStartAck(client, nonce, requestedGeneration, accepted = false)
             return
         }
         val publicRoot = if (mode == ReadReceiptsTunnelMode.TOKEN) {
@@ -950,6 +1270,130 @@ class ReadReceiptsTunnelService : Service() {
         sendStartAck(client, nonce, requestedGeneration, accepted = true)
     }
 
+    private fun handleBrowserStart(
+        requestedGeneration: Long,
+        nonce: String?,
+        client: Messenger?,
+        origin: String,
+        hostname: String,
+        suppliedToken: String?,
+    ) {
+        val originRoot = normalizeLoopbackRoot(origin)
+        val publicRoot = normalizePublicRoot(hostname)
+        if (
+            suppliedToken != null || originRoot == null || publicRoot == null ||
+            canonicalPublicRoot(hostname) != hostname
+        ) {
+            publishBrowserNeedsUserAction(
+                requestedGeneration,
+                "浏览器登录配置与已保存凭据不匹配",
+            )
+            sendStartAck(client, nonce, requestedGeneration, accepted = false)
+            return
+        }
+        scope.launch {
+            val payload = readCredentialOnIo().getOrNull()
+            val decision = payload?.let {
+                decideCredentialStartup(
+                    it,
+                    ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                    hostname,
+                    originRoot.port,
+                )
+            } ?: TunnelCredentialStartupDecision.NEEDS_USER_ACTION
+            withContext(Dispatchers.Main.immediate) {
+                if (decision != TunnelCredentialStartupDecision.START) {
+                    publishBrowserNeedsUserAction(
+                        requestedGeneration,
+                        "请先完成 Cloudflare 浏览器登录与 Tunnel 选择",
+                    )
+                    sendStartAck(client, nonce, requestedGeneration, accepted = false)
+                    return@withContext
+                }
+                checkNotNull(payload)
+                if (
+                    !nativeLease.advance(requestedGeneration) {
+                        activeRequest = null
+                        authoritativeState.set(
+                            AuthoritativeTunnelState(
+                                requestedGeneration,
+                                ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING),
+                            ),
+                        )
+                    }
+                ) {
+                    sendStartAck(client, nonce, requestedGeneration, accepted = false)
+                    return@withContext
+                }
+                if (!foregroundActive) {
+                    publish(
+                        requestedGeneration,
+                        ReadReceiptsTunnelStatus(
+                            ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                            error = "请从可见设置界面启动前台隧道",
+                        ),
+                    )
+                    sendStartAck(client, nonce, requestedGeneration, accepted = false)
+                    return@withContext
+                }
+                if (!notificationsVisible()) {
+                    activeRequest = null
+                    replaceLifecycle(requestedGeneration, null)
+                    publish(
+                        requestedGeneration,
+                        ReadReceiptsTunnelStatus(
+                            ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                            error = "WeKit 通知已关闭, 请在系统设置中允许通知后重试",
+                            needsNotificationSettings = true,
+                        ),
+                    )
+                    sendStartAck(
+                        client,
+                        nonce,
+                        requestedGeneration,
+                        accepted = false,
+                        needsNotificationSettings = true,
+                    )
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    foregroundActive = false
+                    stopSelf()
+                    return@withContext
+                }
+                val request = TunnelRequest(
+                    requestedGeneration,
+                    ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                    origin,
+                    publicRoot,
+                    pendingToken = null,
+                    browserCredential = payload,
+                )
+                activeRequest = request
+                check(nativeLease.activateRequest(requestedGeneration))
+                replaceLifecycle(requestedGeneration, request)
+                sendStartAck(client, nonce, requestedGeneration, accepted = true)
+            }
+        }
+    }
+
+    private fun publishBrowserNeedsUserAction(generation: Long, message: String) {
+        // A rejected request never entered the native lease. Keep an existing connector's
+        // generation authoritative so its monitor can continue publishing current status.
+        if (activeRequest != null) return
+        val current = authoritativeState.get()
+        if (generation < current.generation) return
+        authoritativeState.set(
+            AuthoritativeTunnelState(
+                generation,
+                ReadReceiptsTunnelStatus(
+                    ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                    error = message.take(MAX_ERROR_CHARS),
+                ),
+            ),
+        )
+        updateNotification()
+        listeners.values.forEach(::sendStatus)
+    }
+
     private fun rejectStart(
         requestedGeneration: Long,
         client: Messenger?,
@@ -966,26 +1410,126 @@ class ReadReceiptsTunnelService : Service() {
     private fun replaceLifecycle(generation: Long, request: TunnelRequest?) {
         val previous = lifecycleJob
         lifecycleJob = scope.launch {
-            previous?.cancel()
-            previous?.join()
-            nativeLease.stopForReplacement(generation) {
-                ReadReceiptsTunnelNative.stop().getOrThrow()
+            try {
+                previous?.cancel()
+                previous?.join()
+                nativeLease.stopForReplacement(generation) {
+                    ReadReceiptsTunnelNative.stop().getOrThrow()
+                }
+                if (request != null && activeRequest?.generation == generation) runTunnel(request)
+            } finally {
+                if (request?.browserCredential != null) {
+                    try {
+                        nativeLease.stopIfOwner(request.generation) {
+                            ReadReceiptsTunnelNative.stop().getOrThrow()
+                        }
+                    } finally {
+                        withContext(NonCancellable + Dispatchers.Main.immediate) {
+                            request.browserCredential = null
+                            if (activeRequest === request) {
+                                activeRequest = null
+                                nativeLease.clearRequest(request.generation)
+                                val current = authoritativeState.get()
+                                if (
+                                    current.generation == request.generation &&
+                                    current.status.state != ReadReceiptsTunnelState.FAILED &&
+                                    current.status.state != ReadReceiptsTunnelState.NEEDS_USER_ACTION
+                                ) {
+                                    publishFailure(
+                                        request.generation,
+                                        "Cloudflare Tunnel 连接失败",
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            if (request != null && activeRequest?.generation == generation) runTunnel(request)
         }
     }
 
-    private suspend fun runTunnel(request: TunnelRequest) {
+    private fun replaceLifecycleForSelect(
+        request: TunnelRequest,
+        reservation: TunnelCandidateReservation,
+        firstVerification: CompletableDeferred<SelectCandidateOutcome>,
+    ): Job {
+        val previous = lifecycleJob
+        lateinit var candidate: Job
+        candidate = scope.launch(start = CoroutineStart.LAZY) {
+            try {
+                previous?.cancel()
+                previous?.join()
+                if (
+                    !nativeLease.stopForReplacement(request.generation) {
+                        ReadReceiptsTunnelNative.stop().getOrThrow()
+                    }
+                ) {
+                    return@launch
+                }
+                runTunnel(request, reservation, firstVerification)
+            } finally {
+                try {
+                    if (request.browserCredentialNeedsCommit) {
+                        try {
+                            nativeLease.stopIfOwner(request.generation) {
+                                ReadReceiptsTunnelNative.stop().getOrThrow()
+                            }
+                        } finally {
+                            withContext(NonCancellable + Dispatchers.Main.immediate) {
+                                request.browserCredential = null
+                                request.browserCredentialNeedsCommit = false
+                                if (
+                                    activeRequest === request &&
+                                    activeRequest?.generation == request.generation
+                                ) {
+                                    activeRequest = null
+                                    nativeLease.clearRequest(request.generation)
+                                    val current = authoritativeState.get()
+                                    if (
+                                        current.generation == request.generation &&
+                                        current.status.state != ReadReceiptsTunnelState.FAILED &&
+                                        current.status.state !=
+                                        ReadReceiptsTunnelState.NEEDS_USER_ACTION
+                                    ) {
+                                        publishFailure(request.generation, AUTH_SELECT_FAILED)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    if (!firstVerification.isCompleted) {
+                        firstVerification.complete(SelectCandidateOutcome.STALE)
+                    }
+                }
+            }
+        }
+        lifecycleJob = candidate
+        candidate.start()
+        return candidate
+    }
+
+    private suspend fun runTunnel(
+        request: TunnelRequest,
+        initialReservation: TunnelCandidateReservation? = null,
+        firstVerification: CompletableDeferred<SelectCandidateOutcome>? = null,
+    ) {
         publish(request.generation, ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING))
         val originRoot = normalizeLoopbackRoot(request.origin)
         if (originRoot == null || !checkHealth(originRoot)) {
             publishFailure(request.generation, "内置服务器健康检查失败")
+            firstVerification?.complete(SelectCandidateOutcome.FAILED)
             return
         }
 
+        var reservation = initialReservation
+        if (reservation != null && !nativeLease.activateReservedRequest(reservation)) return
+
         var attempt = 0
         while (scope.isActive && activeRequest?.generation == request.generation) {
+            if (reservation != null && !nativeLease.isReservationCurrent(reservation)) return
             while (!networkAvailable && activeRequest?.generation == request.generation) {
+                if (reservation != null && !nativeLease.isReservationCurrent(reservation)) return
                 publish(
                     request.generation,
                     ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.RECONNECTING),
@@ -994,8 +1538,12 @@ class ReadReceiptsTunnelService : Service() {
             }
             currentCoroutineContext().ensureActive()
 
-            val token = if (request.mode == ReadReceiptsTunnelMode.TOKEN) {
-                request.pendingToken ?: readCredentialOnIo().getOrElse {
+            val token = when (request.mode) {
+                ReadReceiptsTunnelMode.QUICK -> null
+                ReadReceiptsTunnelMode.TOKEN -> request.pendingToken ?: readCredentialOnIo()
+                    .getOrNull()
+                    ?.takeIf { it.source == TunnelCredentialSource.TOKEN }
+                    ?.runToken ?: run {
                     publish(
                         request.generation,
                         ReadReceiptsTunnelStatus(
@@ -1003,24 +1551,51 @@ class ReadReceiptsTunnelService : Service() {
                             error = "保存的 Tunnel token 已失效, 请重新输入",
                         ),
                     )
+                    firstVerification?.complete(SelectCandidateOutcome.FAILED)
                     return
-                }.runToken
-            } else {
-                null
+                }
+                ReadReceiptsTunnelMode.BROWSER_LOGIN ->
+                    request.browserCredential?.runToken ?: readCredentialOnIo()
+                        .getOrNull()
+                        ?.takeIf {
+                            decideCredentialStartup(
+                                it,
+                                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                                request.publicRoot.toString().trimEnd('/'),
+                                originRoot.port,
+                            ) == TunnelCredentialStartupDecision.START
+                        }
+                        ?.runToken ?: run {
+                        publish(
+                            request.generation,
+                            ReadReceiptsTunnelStatus(
+                                ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                                error = "保存的浏览器登录凭据不可用于当前隧道",
+                            ),
+                        )
+                        firstVerification?.complete(SelectCandidateOutcome.FAILED)
+                        return
+                    }
             }
-            val started = nativeLease.startIfCurrent(request.generation) {
+            val start = {
                 val startResult = when (request.mode) {
                     ReadReceiptsTunnelMode.QUICK ->
                         ReadReceiptsTunnelNative.startQuick(request.origin)
                     ReadReceiptsTunnelMode.TOKEN ->
                         ReadReceiptsTunnelNative.startToken(token!!, request.origin)
-                    ReadReceiptsTunnelMode.BROWSER_LOGIN -> error("unreachable")
+                    ReadReceiptsTunnelMode.BROWSER_LOGIN ->
+                        ReadReceiptsTunnelNative.startToken(token!!, request.origin)
                 }
                 startResult.isSuccess
             }
+            val started = reservation?.let {
+                nativeLease.startReservedIfCurrent(it, start)
+            } ?: nativeLease.startIfCurrent(request.generation, start)
             if (!started) {
                 if (activeRequest?.generation != request.generation) return
+                if (reservation != null && !nativeLease.isReservationCurrent(reservation)) return
                 publishFailure(request.generation, "Cloudflare Tunnel 启动失败")
+                firstVerification?.complete(SelectCandidateOutcome.FAILED)
                 return
             }
 
@@ -1037,8 +1612,11 @@ class ReadReceiptsTunnelService : Service() {
                 val native = ReadReceiptsTunnelNative.status()
                 when (native.state) {
                     ReadReceiptsTunnelState.CONNECTED -> {
-                        val verification = nativeLease.captureVerification(request.generation)
+                        val verification = reservation?.let {
+                            nativeLease.captureReservedVerification(it)
+                        } ?: nativeLease.captureVerification(request.generation)
                         if (verification == null) {
+                            if (reservation != null) return
                             delay(NATIVE_STATUS_POLL_MILLIS)
                             continue
                         }
@@ -1053,22 +1631,34 @@ class ReadReceiptsTunnelService : Service() {
                             PUBLIC_HEALTH_RECHECK_MILLIS
                         if (!needsHealthCheck || checkHealth(candidate)) {
                             val pendingToken = request.pendingToken
+                            val browserCredential = request.browserCredential
                             when (
                                 nativeLease.commitVerification(
                                     verification,
-                                    writeCredential = pendingToken?.let { token ->
-                                        {
+                                    writeCredential = when {
+                                        request.browserCredentialNeedsCommit -> ({
+                                            val gate = checkNotNull(request.selectCommitGate)
+                                            gate.tryCommit() &&
+                                                writeCredentialOnIo(checkNotNull(browserCredential))
+                                        })
+                                        pendingToken != null -> ({
                                             val payload = TunnelCredentialPayload.create(
-                                                runToken = token,
+                                                runToken = pendingToken,
                                                 source = TunnelCredentialSource.TOKEN,
                                                 canonicalHostname = candidate.toString().trimEnd('/'),
                                                 fixedOriginPort = originRoot.port,
                                             )
                                             payload != null && writeCredentialOnIo(payload)
-                                        }
+                                        })
+                                        else -> null
                                     },
-                                    clearPendingToken = pendingToken?.let {
-                                        { request.pendingToken = null }
+                                    clearPendingToken = when {
+                                        request.browserCredentialNeedsCommit -> ({
+                                            request.browserCredential = null
+                                            request.browserCredentialNeedsCommit = false
+                                        })
+                                        pendingToken != null -> ({ request.pendingToken = null })
+                                        else -> null
                                     },
                                     publishConnected = {
                                         verifiedRoot = candidate
@@ -1089,6 +1679,7 @@ class ReadReceiptsTunnelService : Service() {
                                 )
                             ) {
                                 TunnelVerificationCommit.CREDENTIAL_FAILURE -> {
+                                    if (request.selectCommitGate?.isCommitClaimed() == false) return
                                     nativeLease.runIfVerificationCurrent(verification) {
                                         publish(
                                             request.generation,
@@ -1101,13 +1692,23 @@ class ReadReceiptsTunnelService : Service() {
                                     nativeLease.stopIfOwner(request.generation) {
                                         ReadReceiptsTunnelNative.stop().getOrThrow()
                                     }
+                                    firstVerification?.complete(SelectCandidateOutcome.FAILED)
                                     return
                                 }
                                 TunnelVerificationCommit.STALE -> {
+                                    if (reservation != null) return
                                     delay(NATIVE_STATUS_POLL_MILLIS)
                                     continue
                                 }
-                                TunnelVerificationCommit.COMMITTED -> Unit
+                                TunnelVerificationCommit.COMMITTED -> {
+                                    if (!request.browserCredentialNeedsCommit) {
+                                        request.browserCredential = null
+                                    }
+                                    if (reservation != null) {
+                                        reservation = null
+                                        firstVerification?.complete(SelectCandidateOutcome.COMMITTED)
+                                    }
+                                }
                             }
                         } else {
                             if (
@@ -1169,12 +1770,14 @@ class ReadReceiptsTunnelService : Service() {
             }
             if (publicHealthTerminal) {
                 publishFailure(request.generation, terminalError!!)
+                firstVerification?.complete(SelectCandidateOutcome.FAILED)
                 return
             }
 
             attempt++
             if (attempt > MAX_RECONNECT_ATTEMPTS) {
                 publishFailure(request.generation, terminalError ?: "Cloudflare Tunnel 重连失败")
+                firstVerification?.complete(SelectCandidateOutcome.FAILED)
                 return
             }
             publish(
@@ -1487,7 +2090,7 @@ class ReadReceiptsTunnelService : Service() {
                         ServiceAuthWireKind.LOGOUT,
                         -> check(terminal.value === Unit)
 
-                        ServiceAuthWireKind.SELECT -> error("SELECT is not implemented")
+                        ServiceAuthWireKind.SELECT -> check(terminal.value === Unit)
                     }
                 }
             }
@@ -1598,7 +2201,21 @@ class ReadReceiptsTunnelService : Service() {
         val origin: String,
         val publicRoot: HttpUrl?,
         var pendingToken: String?,
+        var browserCredential: TunnelCredentialPayload? = null,
+        var browserCredentialNeedsCommit: Boolean = false,
+        val selectCommitGate: SelectCommitGate? = null,
     )
+
+    private data class PreparedSelectCandidate(
+        val firstVerification: CompletableDeferred<SelectCandidateOutcome>,
+        val candidate: Job,
+    )
+
+    private enum class SelectCandidateOutcome {
+        COMMITTED,
+        STALE,
+        FAILED,
+    }
 
     private data class StatusListener(
         val messenger: Messenger,
@@ -1629,7 +2246,11 @@ class ReadReceiptsTunnelService : Service() {
     private data class AuthOperationJobs(
         val worker: Job,
         val watchdog: Job?,
-    )
+        var candidate: Job? = null,
+        val commitGate: SelectCommitGate? = null,
+    ) {
+        fun all(): List<Job> = listOfNotNull(worker, watchdog, candidate)
+    }
 
     private data class CredentialCacheUpdate(
         val revision: Long,
@@ -1687,10 +2308,11 @@ class ReadReceiptsTunnelService : Service() {
         private const val MAX_ERROR_CHARS = 256
         private const val AUTH_OPERATION_TIMEOUT_MILLIS = 30_000L
         private const val AUTH_LOGIN_POLL_LIMIT = 1_200
-        private const val AUTH_SELECT_DEFERRED = "当前版本尚未启用隧道选择"
         private const val AUTH_REJECTED = "认证请求已被拒绝"
         private const val AUTH_BEGIN_FAILED = "无法启动 Cloudflare 登录"
         private const val AUTH_LIST_FAILED = "无法读取 Cloudflare Tunnel 列表"
+        private const val AUTH_SELECT_FAILED = "无法验证所选 Cloudflare Tunnel"
+        private const val AUTH_SELECT_STALE = "隧道启动已失效"
         private const val AUTH_CLEANUP_FAILED = "认证清理未完成，请重新启动登录"
         private val RECONNECT_DELAYS_MILLIS = longArrayOf(1_000, 2_000, 4_000, 8_000, 16_000)
 

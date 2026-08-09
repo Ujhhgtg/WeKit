@@ -39,6 +39,53 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
+    fun `reserved candidate cannot activate after network invalidation`() {
+        val lease = TunnelNativeLease()
+        val reservation = lease.advanceAndReserve(10) {}!!
+
+        lease.invalidateNetwork()
+
+        assertFalse(lease.activateReservedRequest(reservation))
+        assertFalse(lease.startReservedIfCurrent(reservation) { true })
+        assertNull(lease.captureReservedVerification(reservation))
+    }
+
+    @Test
+    fun `reserved candidate cannot start after network invalidation`() {
+        val lease = TunnelNativeLease()
+        val reservation = lease.advanceAndReserve(11) {}!!
+        assertTrue(lease.activateReservedRequest(reservation))
+
+        lease.invalidateNetwork()
+
+        assertFalse(lease.startReservedIfCurrent(reservation) { true })
+        assertNull(lease.captureReservedVerification(reservation))
+    }
+
+    @Test
+    fun `reserved candidate cannot capture verification after network invalidation`() {
+        val lease = TunnelNativeLease()
+        val reservation = lease.advanceAndReserve(12) {}!!
+        assertTrue(lease.activateReservedRequest(reservation))
+        assertTrue(lease.startReservedIfCurrent(reservation) { true })
+
+        assertEquals(12L, lease.invalidateNetwork()!!.invalidatedOwnerGeneration)
+
+        assertNull(lease.captureReservedVerification(reservation))
+        assertTrue(lease.stopIfOwner(12) {})
+    }
+
+    @Test
+    fun `ordinary lease path remains independent of candidate reservations`() {
+        val lease = TunnelNativeLease()
+
+        assertTrue(lease.advance(13))
+        assertTrue(lease.activateRequest(13))
+        assertTrue(lease.startIfCurrent(13) { true })
+        assertTrue(lease.captureVerification(13) != null)
+    }
+
+    @Test
     fun `network invalidation keeps an existing native owner unverifiable until it restarts`() {
         val lease = TunnelNativeLease()
         val credentialWrites = AtomicInteger()
