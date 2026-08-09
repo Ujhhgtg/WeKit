@@ -99,9 +99,9 @@
   strings, signatures, or structural predicates merely to make a desktop test pass; use stable
   DexKit evidence as normal.
 - For an intentional supported-version absence, use `allowFailure = true` only as documented
-  below and record the placeholder explicitly with `expectedFailure = true` plus a precise
-  structural-absence reason. Do not convert exceptions or uncertain matches into placeholders just
-  to obtain a green report.
+  below. Its generated generic expected-failure reason is acceptable; provide a more precise reason
+  when it materially clarifies a structure-selected compatibility path. Do not convert exceptions
+  or uncertain matches into placeholders just to obtain a green report.
 - Resolver source is part of the device cache key: even a mechanically equivalent rewrite from
   reflection to `.data` changes the generated `methodHash` and invalidates that feature's old
   cache. Expect one device re-resolution after such a change; never retain or hand-edit an old
