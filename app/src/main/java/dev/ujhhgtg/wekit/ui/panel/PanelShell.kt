@@ -93,7 +93,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -255,10 +254,7 @@ fun showPanelDialog(
     dialog.setContentView(
         ComposeView(wrapped).apply {
             setContent {
-                CompositionLocalProvider(
-                    LocalContext provides wrapped,
-                    LocalPanelDialogScope provides scope,
-                ) {
+                CompositionLocalProvider(LocalPanelDialogScope provides scope) {
                     InjectedUiTheme {
                         Box(
                             modifier = Modifier

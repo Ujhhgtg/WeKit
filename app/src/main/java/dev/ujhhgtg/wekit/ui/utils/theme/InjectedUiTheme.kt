@@ -4,8 +4,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalConfiguration
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.utils.HostInfo
 
 /**
@@ -22,9 +22,7 @@ fun InjectedUiTheme(
     darkTheme: Boolean? = null,
     content: @Composable () -> Unit
 ) {
-    CompositionLocalProvider(
-        LocalConfiguration provides HostInfo.application.resources.configuration
-    ) {
+    WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
         val dark = darkTheme ?: isSystemInDarkTheme()
         val applyCustom = ThemeSettings.applyToWechat && ThemeSettings.customColor
         val seed = SeedResolver.injectedSeed(HostInfo.application, dark)

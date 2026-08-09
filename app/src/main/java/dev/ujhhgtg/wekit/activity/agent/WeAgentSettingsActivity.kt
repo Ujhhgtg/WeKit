@@ -9,6 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.ui.agent.settings.BuiltinProvidersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ExternalServicesScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.McpServerDetailScreen
@@ -48,9 +50,11 @@ class WeAgentSettingsActivity : ComponentActivity() {
         WeAgentService.init()
 
         setContent {
-            val dark = ThemeSettings.themeMode.resolve()
-            ModuleTheme(darkTheme = dark) {
-                WeAgentSettingsRoot(onFinish = { finish() })
+            WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+                val dark = ThemeSettings.themeMode.resolve()
+                ModuleTheme(darkTheme = dark) {
+                    WeAgentSettingsRoot(onFinish = { finish() })
+                }
             }
         }
     }

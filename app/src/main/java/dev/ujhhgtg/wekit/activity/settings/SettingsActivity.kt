@@ -81,6 +81,8 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.NewFeatures
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
@@ -126,12 +128,14 @@ class SettingsActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalComponentActivity provides this
             ) {
-                when (ThemeSettings.uiEngine) {
-                    SettingsUiEngine.MIUIX -> ModuleTheme {
-                        SettingsRoot(onFinish = { finish() })
-                    }
+                WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+                    when (ThemeSettings.uiEngine) {
+                        SettingsUiEngine.MIUIX -> ModuleTheme {
+                            SettingsRoot(onFinish = { finish() })
+                        }
 
-                    SettingsUiEngine.NUKE -> NukeSettingsContent()
+                        SettingsUiEngine.NUKE -> NukeSettingsContent()
+                    }
                 }
             }
         }
@@ -485,6 +489,5 @@ fun FeatureRow(
         )
     }
 }
-
 
 
