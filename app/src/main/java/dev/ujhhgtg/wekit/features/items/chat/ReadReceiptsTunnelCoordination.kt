@@ -162,10 +162,30 @@ internal class TunnelNativeLease {
 
     /** Invalidates all verification work synchronously, before callback teardown is dispatched. */
     @Synchronized
-    fun invalidateNetwork(): Long? {
+    fun invalidateNetwork(): TunnelNetworkInvalidationTicket? {
         networkEpoch++
         verifiableNativeSessionEpoch = null
-        return activeRequestGeneration?.takeIf { it == currentGeneration }
+        val owner = ownerGeneration ?: return null
+        return TunnelNetworkInvalidationTicket(owner, nativeSessionEpoch)
+    }
+
+    /** Stops the invalidated native session even if its request generation was transferred. */
+    @Synchronized
+    fun stopInvalidatedSession(
+        ticket: TunnelNetworkInvalidationTicket,
+        stop: () -> Unit,
+    ): Long? {
+        if (
+            ownerGeneration == null || nativeSessionEpoch != ticket.nativeSessionEpoch ||
+            verifiableNativeSessionEpoch != null
+        ) {
+            return null
+        }
+        val stoppedGeneration = activeRequestGeneration ?: ownerGeneration!!
+        ownerGeneration = null
+        nativeSessionEpoch++
+        stop()
+        return stoppedGeneration
     }
 
     @Synchronized
@@ -264,6 +284,11 @@ internal data class TunnelVerificationTicket(
     val nativeSessionEpoch: Long,
 )
 
+internal data class TunnelNetworkInvalidationTicket(
+    val invalidatedOwnerGeneration: Long,
+    val nativeSessionEpoch: Long,
+)
+
 internal enum class TunnelVerificationCommit {
     COMMITTED,
     STALE,
@@ -308,7 +333,7 @@ internal data class StopDrain(
 /** Collects concurrent stop callers and lets exactly one terminal path drain their callbacks. */
 internal class TunnelStopCompletion {
     private data class Pending(
-        val generation: Long,
+        var generation: Long,
         val callbacks: MutableList<() -> Unit>,
     )
 
@@ -318,10 +343,17 @@ internal class TunnelStopCompletion {
     @Synchronized
     fun register(
         callback: (() -> Unit)?,
+        latestIssuedGeneration: Long = Long.MIN_VALUE,
         generationFactory: () -> Long,
     ): StopRegistration {
         pending?.let { current ->
             if (callback != null) current.callbacks += callback
+            if (current.generation < latestIssuedGeneration) {
+                val upgradedGeneration = generationFactory()
+                check(upgradedGeneration > latestIssuedGeneration)
+                current.generation = upgradedGeneration
+                return StopRegistration(upgradedGeneration, shouldSend = true)
+            }
             return StopRegistration(current.generation, shouldSend = false)
         }
         val generation = generationFactory()
@@ -333,7 +365,15 @@ internal class TunnelStopCompletion {
     }
 
     @Synchronized
-    fun complete(generation: Long): StopDrain {
+    fun complete(generation: Long): StopDrain = completeLocked(generation)
+
+    @Synchronized
+    fun completeTimeout(generation: Long, authoritativeGeneration: Long): StopDrain {
+        if (generation != authoritativeGeneration) return StopDrain(matched = false)
+        return completeLocked(generation)
+    }
+
+    private fun completeLocked(generation: Long): StopDrain {
         val current = pending ?: return StopDrain(matched = completedGeneration == generation)
         if (current.generation != generation) return StopDrain(matched = false)
         pending = null
@@ -343,6 +383,9 @@ internal class TunnelStopCompletion {
 
     @Synchronized
     fun pendingGeneration(): Long? = pending?.generation
+
+    @Synchronized
+    fun hasPendingStop(): Boolean = pending != null
 }
 
 /** Coalesces one higher-layer operation while preserving every caller's result callback. */

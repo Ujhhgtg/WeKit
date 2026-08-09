@@ -84,3 +84,17 @@
 - [x] Reorder `startVisible`: fail/isolate old pending handoff first, allocate the replacement generation second, then begin/store the new pending request.
 - [x] Run focused tests, the full Android unit-test task, relevant native tests/builds, `./x build`, and `git diff --check`.
 - [x] Update the Task 9 report with root causes, RED/GREEN evidence, gates, and remaining device checks; commit one scoped fix commit.
+
+### External final-review fix round 5
+
+- [x] Replace generation-bound queued network teardown with an immutable native-session ticket, while
+  publishing `RECONNECTING` against the request generation that owns that session at teardown time.
+- [x] Prove administrative generation transfer cannot shield an invalidated session, capture remains
+  unavailable until a fresh native start, and an old ticket cannot stop that replacement session.
+- [x] Upgrade a pending STOP past an intervening administrative generation when another stop caller
+  arrives, preserving all callbacks and rejecting late older terminal/timeout paths.
+- [x] Reject START synchronously while STOP is pending without allocating a generation, starting the
+  foreground service, sending a command, or consuming the caller's token.
+- [x] Run the 32-test focused suite, full Android unit tests, Go race tests, Rust workspace tests,
+  double-ABI connector/native builds, APK entry/export inspection, and `git diff --check`.
+- [ ] Obtain the external final re-review verdict; do not begin Task 10 before acceptance.

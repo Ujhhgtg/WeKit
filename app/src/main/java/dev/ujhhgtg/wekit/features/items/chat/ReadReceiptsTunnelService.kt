@@ -580,19 +580,16 @@ class ReadReceiptsTunnelService : Service() {
         }
     }
 
-    private fun invalidateForNetworkChange(expectedGeneration: Long?) {
-        if (expectedGeneration == null) return
+    private fun invalidateForNetworkChange(ticket: TunnelNetworkInvalidationTicket?) {
+        if (ticket == null) return
         scope.launch {
-            if (activeRequest?.generation != expectedGeneration) return@launch
+            val stoppedGeneration = nativeLease.stopInvalidatedSession(ticket) {
+                ReadReceiptsTunnelNative.stop().getOrThrow()
+            } ?: return@launch
             publish(
-                expectedGeneration,
+                stoppedGeneration,
                 ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.RECONNECTING),
             )
-            // The lease rechecks after entering its serialized monitor, so a delayed callback for an
-            // old network/generation cannot stop a replacement native handle.
-            nativeLease.stopIfOwner(expectedGeneration) {
-                ReadReceiptsTunnelNative.stop().getOrThrow()
-            }
         }
     }
 

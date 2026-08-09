@@ -48,7 +48,7 @@ class ReadReceiptsTunnelCoordinationTest {
         assertTrue(lease.startIfCurrent(30) { true })
         val verification = lease.captureVerification(30)!!
 
-        assertEquals(30, lease.invalidateNetwork())
+        assertEquals(30, lease.invalidateNetwork()!!.invalidatedOwnerGeneration)
         assertNull(lease.captureVerification(30))
         assertEquals(
             TunnelVerificationCommit.STALE,
@@ -94,7 +94,11 @@ class ReadReceiptsTunnelCoordinationTest {
             assertTrue(lease.startIfCurrent(generation) { true }, event)
             val verification = lease.captureVerification(generation)!!
 
-            assertEquals(generation, lease.invalidateNetwork(), event)
+            assertEquals(
+                generation,
+                lease.invalidateNetwork()!!.invalidatedOwnerGeneration,
+                event,
+            )
             assertNull(lease.captureVerification(generation), event)
             assertEquals(
                 TunnelVerificationCommit.STALE,
@@ -123,9 +127,39 @@ class ReadReceiptsTunnelCoordinationTest {
         assertTrue(lease.activateRequest(51, preserveNativeSession = true))
         assertTrue(lease.captureVerification(51) != null)
 
-        assertEquals(51, lease.invalidateNetwork())
+        assertEquals(51, lease.invalidateNetwork()!!.invalidatedOwnerGeneration)
         assertTrue(lease.activateRequest(51, preserveNativeSession = true))
         assertNull(lease.captureVerification(51))
+    }
+
+    @Test
+    fun `invalidated native session stops after administrative generation transfer and old ticket cannot stop replacement`() {
+        val lease = TunnelNativeLease()
+        val nativeStops = AtomicInteger()
+
+        assertTrue(lease.advance(60))
+        assertTrue(lease.activateRequest(60))
+        assertTrue(lease.startIfCurrent(60) { true })
+        val invalidation = lease.invalidateNetwork()!!
+
+        assertTrue(lease.advance(61))
+        assertTrue(lease.activateRequest(61, preserveNativeSession = true))
+        assertNull(lease.captureVerification(61))
+        assertEquals(
+            61,
+            lease.stopInvalidatedSession(invalidation) { nativeStops.incrementAndGet() },
+        )
+        assertEquals(1, nativeStops.get())
+        assertNull(lease.ownerGeneration())
+        assertNull(lease.captureVerification(61))
+
+        assertTrue(lease.startIfCurrent(61) { true })
+        assertTrue(lease.captureVerification(61) != null)
+        assertNull(
+            lease.stopInvalidatedSession(invalidation) { nativeStops.incrementAndGet() },
+        )
+        assertEquals(1, nativeStops.get())
+        assertEquals(61, lease.ownerGeneration())
     }
 
     @Test
@@ -156,7 +190,7 @@ class ReadReceiptsTunnelCoordinationTest {
         }
 
         healthStarted.await()
-        assertEquals(20, lease.invalidateNetwork())
+        assertEquals(20, lease.invalidateNetwork()!!.invalidatedOwnerGeneration)
         finishHealth.countDown()
         health.join()
 
@@ -178,7 +212,7 @@ class ReadReceiptsTunnelCoordinationTest {
         assertTrue(lease.startIfCurrent(21) { true })
         val cachedVerification = lease.captureVerification(21)!!
 
-        assertEquals(21, lease.invalidateNetwork())
+        assertEquals(21, lease.invalidateNetwork()!!.invalidatedOwnerGeneration)
         assertEquals(
             TunnelVerificationCommit.STALE,
             lease.commitVerification(
@@ -310,6 +344,97 @@ class ReadReceiptsTunnelCoordinationTest {
         repeat(16) { assertEquals(1, callbackCounts.get(it), "callback $it") }
         assertTrue(completions.complete(41).callbacks.isEmpty())
         assertNull(completions.pendingGeneration())
+    }
+
+    @Test
+    fun `pending stop upgrades past intervening administrative command and completes all callers only at upgraded terminal`() {
+        val completions = TunnelStopCompletion()
+        val issuedGeneration = AtomicLong(100)
+        val firstCallback = AtomicInteger()
+        val secondCallback = AtomicInteger()
+
+        val firstStop = completions.register(
+            callback = firstCallback::incrementAndGet,
+            latestIssuedGeneration = issuedGeneration.get(),
+            generationFactory = issuedGeneration::incrementAndGet,
+        )
+        assertTrue(firstStop.shouldSend)
+        assertEquals(101, firstStop.generation)
+
+        val administrativeGeneration = issuedGeneration.incrementAndGet()
+        assertFalse(
+            completions.completeTimeout(
+                generation = firstStop.generation,
+                authoritativeGeneration = administrativeGeneration,
+            ).matched,
+        )
+        assertEquals(0, firstCallback.get())
+
+        val upgradedStop = completions.register(
+            callback = secondCallback::incrementAndGet,
+            latestIssuedGeneration = issuedGeneration.get(),
+            generationFactory = issuedGeneration::incrementAndGet,
+        )
+        assertTrue(upgradedStop.shouldSend)
+        assertEquals(103, upgradedStop.generation)
+        assertEquals(103, completions.pendingGeneration())
+
+        assertFalse(completions.complete(firstStop.generation).matched)
+        assertFalse(completions.complete(administrativeGeneration).matched)
+        assertEquals(0, firstCallback.get())
+        assertEquals(0, secondCallback.get())
+
+        val terminal = completions.completeTimeout(
+            generation = upgradedStop.generation,
+            authoritativeGeneration = upgradedStop.generation,
+        )
+        assertTrue(terminal.matched)
+        assertEquals(2, terminal.callbacks.size)
+        terminal.callbacks.forEach { it() }
+        assertEquals(1, firstCallback.get())
+        assertEquals(1, secondCallback.get())
+        assertTrue(completions.complete(upgradedStop.generation).callbacks.isEmpty())
+    }
+
+    @Test
+    fun `pending stop rejects a new start without issuing a generation or consuming its token`() {
+        val completions = TunnelStopCompletion()
+        val issuedGeneration = AtomicLong(100)
+        val stopCallback = AtomicInteger()
+        val tokenClears = AtomicInteger()
+        val startTerminal = AtomicReference<OriginRequestTerminal<Unit>>()
+
+        val stop = completions.register(
+            callback = stopCallback::incrementAndGet,
+            latestIssuedGeneration = issuedGeneration.get(),
+            generationFactory = issuedGeneration::incrementAndGet,
+        )
+        assertEquals(101, stop.generation)
+
+        if (completions.hasPendingStop()) {
+            startTerminal.set(
+                OriginRequestTerminal.Completed(
+                    Result.failure(IllegalStateException("tunnel is stopping")),
+                ),
+            )
+        } else {
+            issuedGeneration.incrementAndGet()
+            tokenClears.incrementAndGet()
+        }
+
+        assertEquals(101, issuedGeneration.get())
+        assertEquals(0, tokenClears.get())
+        val completed = startTerminal.get() as OriginRequestTerminal.Completed
+        assertTrue(completed.result.isFailure)
+        assertEquals(0, stopCallback.get())
+
+        val drain = completions.completeTimeout(
+            generation = stop.generation,
+            authoritativeGeneration = issuedGeneration.get(),
+        )
+        assertTrue(drain.matched)
+        drain.callbacks.forEach { it() }
+        assertEquals(1, stopCallback.get())
     }
 
     @Test

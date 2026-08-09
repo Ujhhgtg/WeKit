@@ -370,3 +370,73 @@ are a coalesced disconnect followed by immediate reconnect, a STOP whose superse
 replacement, and an old connection completion arriving while a newer connection transaction owns the
 dialog. External scoped review of this follow-up is still pending; this report does not claim Task 9
 acceptance by itself.
+
+## Fix round 5 external final-review follow-up
+
+The external final review found two more Task 9 ownership gaps in `97d36487`:
+
+1. Network teardown was queued with a configuration generation. If Quick credential deletion
+   transferred the live native owner from generation G to H before that coroutine ran, the G check
+   suppressed teardown and left the invalidated native session running. Network invalidation now
+   returns an immutable ticket containing the native-session epoch. Queued teardown matches that
+   session epoch, stops whichever request generation currently owns the same session, and returns
+   that current generation for `RECONNECTING` publication. A fresh replacement native start advances
+   the epoch, so an old ticket cannot stop it. `onAvailable` and `onLost` both enter this same path.
+2. A coalesced STOP retained its original generation even after another administrative command
+   allocated a newer one. A second stop caller now upgrades the pending STOP to a generation strictly
+   newer than the latest issued command while retaining every callback. Old STOPPED and timeout paths
+   cannot drain the upgraded transaction. A START attempted while STOP remains pending is instead
+   rejected synchronously with `Completed(failure)` before FGS startup, generation allocation,
+   command construction, or token consumption; the original STOP remains authoritative and can
+   complete normally.
+
+Focused TDD evidence:
+
+- The native-session-ticket and STOP-upgrade tests first failed to compile with unresolved
+  `stopInvalidatedSession` and `latestIssuedGeneration`. After those production APIs were connected,
+  a timeout-authority regression first failed to compile with unresolved `completeTimeout`.
+- The no-second-stop START case then failed to compile with unresolved `hasPendingStop`. The final
+  production guard and split regression suite pass 32 focused tests with zero failures or errors.
+- The native regression starts session S/G, invalidates it, transfers the request to H, then proves
+  queued teardown stops S/H, verification stays unavailable until fresh S2/H, and the old ticket
+  cannot stop S2. The STOP regression proves G -> administrative H -> second STOP J, with late G/H
+  terminal paths ignored and the first J terminal completing both callers exactly once.
+
+Fresh verification after round 5:
+
+```text
+./gradlew :app:testStandardDebugUnitTest \
+  --tests dev.ujhhgtg.wekit.features.items.chat.ReadReceiptsTunnelCoordinationTest
+BUILD SUCCESSFUL; 32 focused tests
+
+./gradlew testStandardDebugUnitTest
+BUILD SUCCESSFUL in 6s
+
+go test -race -count=1 ./app/src/main/go/wekit-cloudflared
+ok dev.ujhhgtg.wekit/cloudflared-bridge 1.147s
+
+cargo test --workspace
+PASS: wekit-native 9; service library 15; pixel logging 1; zygisk 10; xtask 22
+
+./x cloudflared-build --abi arm64-v8a --abi armeabi-v7a
+PASS
+
+./x build
+BUILD SUCCESSFUL in 14s (147 actionable tasks: 27 executed, 1 from cache, 119 up-to-date)
+
+git diff --check
+PASS
+```
+
+Each ABI's connector library exports exactly the six Task 8 C symbols and four direct tunnel JNI
+symbols. Both Standard and Legacy APKs contain both `libwekit_cloudflared.so` and
+`libwekit_native.so` for arm64-v8a and armeabi-v7a. The exact generated JNI inputs were moved to
+`/tmp/wekit-task9-fix5-final-jni.1l0wbN/jniLibs` after inspection.
+
+No Dex declaration or resolution logic changed, so a supported-version DexKit rerun is not required.
+The existing device checklist remains mandatory, with two added race cases: trigger network
+invalidation immediately before Quick credential deletion and confirm the transferred session
+reconnects only after a fresh native start/public-health pass; then issue disconnect, an intervening
+credential-delete command, and disconnect again, confirming the origin stops once only after the
+upgraded STOP terminal. External final re-review remains pending, so this report still does not claim
+Task 9 acceptance by itself.

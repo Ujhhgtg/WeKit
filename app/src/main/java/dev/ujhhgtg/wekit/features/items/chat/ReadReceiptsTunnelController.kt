@@ -73,8 +73,14 @@ internal object ReadReceiptsTunnelController {
         token: String?,
         onHandoff: (OriginRequestTerminal<Unit>) -> Unit,
     ) {
-        val context = HostInfo.application
         val handoffDelivery = TunnelHandoffTerminalDelivery(onHandoff)
+        if (stopCompletion.hasPendingStop()) {
+            handoffDelivery.complete(
+                Result.failure(IllegalStateException("隧道正在停止，请等待完成后重试")),
+            )
+            return
+        }
+        val context = HostInfo.application
         val nextGeneration = handoffGate.beginAfterSuperseding(
             pendingGeneration = { pendingStart?.generation },
             supersede = { supersededGeneration ->
@@ -124,7 +130,11 @@ internal object ReadReceiptsTunnelController {
             pendingGeneration = { pendingStart?.generation },
             supersede = ::supersedePendingStart,
         )
-        val registration = stopCompletion.register(onStopped, ::nextGeneration)
+        val registration = stopCompletion.register(
+            callback = onStopped,
+            latestIssuedGeneration = generation.get(),
+            generationFactory = ::nextGeneration,
+        )
         if (!registration.shouldSend) return
         val nextGeneration = registration.generation
         status = ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPING)
@@ -136,15 +146,17 @@ internal object ReadReceiptsTunnelController {
         queueOrSend(HostInfo.application, command)
         mainHandler.postDelayed(
             {
-                if (
-                    status.state != ReadReceiptsTunnelState.STOPPED &&
-                    stopCompletion.pendingGeneration() == nextGeneration
-                ) {
+                if (status.state != ReadReceiptsTunnelState.STOPPED) {
+                    val drain = stopCompletion.completeTimeout(
+                        generation = nextGeneration,
+                        authoritativeGeneration = generation.get(),
+                    )
+                    if (!drain.matched) return@postDelayed
                     status = ReadReceiptsTunnelStatus(
                         ReadReceiptsTunnelState.FAILED,
                         error = "隧道停止超时; 已继续停止回环服务器",
                     )
-                    completeStop(nextGeneration)
+                    drain.callbacks.forEach { callback -> callback() }
                 }
             },
             STOP_COMPLETION_TIMEOUT_MILLIS,
