@@ -227,6 +227,39 @@ func TestDecodeAuthCredentialRequiresExactlyOneModernPEMBlock(t *testing.T) {
 	}
 }
 
+func TestConsumeStrictOriginCertificateWipesDecodedPEMPayload(t *testing.T) {
+	certificate := originCertificate(t, "abcdabcdabcdabcd1234567890abcdef", "api-secret")
+	for _, test := range []struct {
+		name        string
+		consumerErr error
+	}{
+		{name: "success"},
+		{name: "consumer failure", consumerErr: errors.New("injected consumer failure")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var decodedPayload []byte
+			err := consumeStrictOriginCertificate(certificate, func(payload []byte) error {
+				decodedPayload = payload
+				if !bytes.Contains(payload, []byte("api-secret")) {
+					t.Fatalf("decoded payload did not contain test secret: %q", payload)
+				}
+				return test.consumerErr
+			})
+			if !errors.Is(err, test.consumerErr) {
+				t.Fatalf("error = %v, want %v", err, test.consumerErr)
+			}
+			if len(decodedPayload) == 0 {
+				t.Fatal("consumer did not receive decoded PEM payload")
+			}
+			for index, value := range decodedPayload {
+				if value != 0 {
+					t.Fatalf("decoded PEM byte %d was not wiped: %q", index, decodedPayload)
+				}
+			}
+		})
+	}
+}
+
 func TestAuthHTTPClientRejectsRedirectsBeforeForwardingAuthorization(t *testing.T) {
 	targetHit := make(chan string, 1)
 	target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

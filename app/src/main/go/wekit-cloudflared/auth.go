@@ -183,15 +183,12 @@ func decodeAuthCredential(certificate []byte) (*authCredential, error) {
 	if len(certificate) == 0 || len(certificate) > maxOriginCertificateBytes {
 		return nil, errors.New("origin certificate is invalid")
 	}
-	trimmedCertificate := bytes.TrimSpace(certificate)
-	if !bytes.HasPrefix(trimmedCertificate, []byte("-----BEGIN ARGO TUNNEL TOKEN-----")) {
-		return nil, errors.New("origin certificate is invalid")
-	}
-	block, rest := pem.Decode(trimmedCertificate)
-	if block == nil || block.Type != "ARGO TUNNEL TOKEN" || len(bytes.TrimSpace(rest)) != 0 {
-		return nil, errors.New("origin certificate is invalid")
-	}
-	decoded, err := credentials.DecodeOriginCert(certificate)
+	var decoded *credentials.OriginCert
+	err := consumeStrictOriginCertificate(certificate, func([]byte) error {
+		var decodeErr error
+		decoded, decodeErr = credentials.DecodeOriginCert(certificate)
+		return decodeErr
+	})
 	if err != nil {
 		return nil, errors.New("origin certificate is invalid")
 	}
@@ -211,6 +208,19 @@ func decodeAuthCredential(certificate []byte) (*authCredential, error) {
 		apiToken:  []byte(decoded.APIToken),
 		endpoint:  []byte(decoded.Endpoint),
 	}, nil
+}
+
+func consumeStrictOriginCertificate(certificate []byte, consumer func([]byte) error) error {
+	trimmedCertificate := bytes.TrimSpace(certificate)
+	if !bytes.HasPrefix(trimmedCertificate, []byte("-----BEGIN ARGO TUNNEL TOKEN-----")) {
+		return errors.New("origin certificate is invalid")
+	}
+	block, rest := pem.Decode(trimmedCertificate)
+	if block == nil || block.Type != "ARGO TUNNEL TOKEN" || len(bytes.TrimSpace(rest)) != 0 {
+		return errors.New("origin certificate is invalid")
+	}
+	defer wipe(block.Bytes)
+	return consumer(block.Bytes)
 }
 
 func (c *authCredential) account() string { return string(c.accountID) }
