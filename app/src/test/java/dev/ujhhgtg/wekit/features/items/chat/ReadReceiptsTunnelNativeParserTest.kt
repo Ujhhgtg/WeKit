@@ -266,6 +266,10 @@ class ReadReceiptsTunnelNativeParserTest {
                 " ".repeat(ReadReceiptsTunnelNativeParser.MAX_JSON_BYTES + 1),
             ),
         )
+        val tooDeep = "[".repeat(StrictJsonReader.MAX_DEPTH + 1) + "0" +
+            "]".repeat(StrictJsonReader.MAX_DEPTH + 1)
+        assertNull(ReadReceiptsTunnelNativeParser.parseLoginStatus(tooDeep))
+        assertNull(ReadReceiptsTunnelNativeParser.parseTunnelList(tooDeep))
     }
 
     private fun statusJson(

@@ -819,19 +819,28 @@ internal sealed interface TunnelCredentialDecode {
     data object Invalid : TunnelCredentialDecode
 }
 
+internal sealed interface StrictJsonRead {
+    data object NotJson : StrictJsonRead
+
+    data object InvalidJson : StrictJsonRead
+
+    class Parsed(val value: JsonElement) : StrictJsonRead {
+        override fun toString(): String = "StrictJsonRead.Parsed(value=[redacted])"
+    }
+}
+
 /** Strict RFC JSON reader that rejects escaped-equivalent duplicate keys at every object depth. */
 internal object StrictJsonReader {
+    const val MAX_DEPTH = 64
     private val json = Json {
         ignoreUnknownKeys = false
         isLenient = false
         explicitNulls = true
     }
-    private val jsonNumberPattern =
-        Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
 
-    fun parse(text: String): JsonElement? {
+    fun read(text: String): StrictJsonRead {
         val start = text.skipJsonWhitespace(0)
-        if (start == text.length) return null
+        if (start == text.length) return StrictJsonRead.NotJson
         var end = text.length
         while (end > start && text[end - 1].isJsonWhitespace()) end--
         val validLexeme = when (text[start]) {
@@ -839,18 +848,91 @@ internal object StrictJsonReader {
             't' -> end - start == 4 && text.regionMatches(start, "true", 0, 4)
             'f' -> end - start == 5 && text.regionMatches(start, "false", 0, 5)
             'n' -> end - start == 4 && text.regionMatches(start, "null", 0, 4)
-            '-', in '0'..'9' -> jsonNumberPattern.matches(text.substring(start, end))
+            '-', in '0'..'9' -> text.isJsonNumber(start, end)
             else -> false
         }
-        if (!validLexeme) return null
-        val parsed = runCatching { json.parseToJsonElement(text) }.getOrNull() ?: return null
-        if (hasDuplicateObjectKeys(text)) return null
-        return parsed
+        if (!validLexeme) return StrictJsonRead.NotJson
+        if (!text.hasBoundedJsonDepth(start, end)) return StrictJsonRead.InvalidJson
+        val parsed = runCatching { json.parseToJsonElement(text) }.getOrNull()
+            ?: return StrictJsonRead.InvalidJson
+        val duplicate = hasDuplicateObjectKeys(text) ?: return StrictJsonRead.InvalidJson
+        return if (duplicate) StrictJsonRead.InvalidJson else StrictJsonRead.Parsed(parsed)
     }
 
-    private fun hasDuplicateObjectKeys(text: String): Boolean = runCatching {
+    private fun hasDuplicateObjectKeys(text: String): Boolean? = runCatching {
         DuplicateKeyScanner(text, json).scan()
-    }.getOrElse { true }
+    }.getOrNull()
+
+    /** Checks RFC 8259 number grammar directly over [start, end), without copying the lexeme. */
+    private fun String.isJsonNumber(start: Int, end: Int): Boolean {
+        var index = start
+        if (this[index] == '-') {
+            index++
+            if (index == end) return false
+        }
+        when (this[index]) {
+            '0' -> {
+                index++
+                if (index < end && this[index] in '0'..'9') return false
+            }
+            in '1'..'9' -> {
+                index++
+                while (index < end && this[index] in '0'..'9') index++
+            }
+            else -> return false
+        }
+        if (index < end && this[index] == '.') {
+            index++
+            if (index == end || this[index] !in '0'..'9') return false
+            while (index < end && this[index] in '0'..'9') index++
+        }
+        if (index < end && (this[index] == 'e' || this[index] == 'E')) {
+            index++
+            if (index < end && (this[index] == '+' || this[index] == '-')) index++
+            if (index == end || this[index] !in '0'..'9') return false
+            while (index < end && this[index] in '0'..'9') index++
+        }
+        return index == end
+    }
+
+    /** Prevents the DOM parser and duplicate scanner from seeing adversarially deep structures. */
+    private fun String.hasBoundedJsonDepth(start: Int, end: Int): Boolean {
+        val containers = CharArray(MAX_DEPTH)
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for (index in start until end) {
+            val current = this[index]
+            if (inString) {
+                if (escaped) {
+                    escaped = false
+                } else {
+                    when (current) {
+                        '\\' -> escaped = true
+                        '"' -> inString = false
+                    }
+                }
+                continue
+            }
+            when (current) {
+                '"' -> inString = true
+                '{', '[' -> {
+                    if (depth == MAX_DEPTH) return false
+                    containers[depth] = current
+                    depth++
+                }
+                '}' -> {
+                    if (depth == 0 || containers[depth - 1] != '{') return false
+                    depth--
+                }
+                ']' -> {
+                    if (depth == 0 || containers[depth - 1] != '[') return false
+                    depth--
+                }
+            }
+        }
+        return depth == 0 && !inString && !escaped
+    }
 
     private class DuplicateKeyScanner(
         private val text: String,
@@ -994,17 +1076,19 @@ internal object TunnelCredentialPayloadCodec {
     fun decode(plaintext: ByteArray): TunnelCredentialDecode {
         if (plaintext.isEmpty() || plaintext.size > MAX_BYTES) return TunnelCredentialDecode.Invalid
         val text = decodeUtf8(plaintext) ?: return TunnelCredentialDecode.Invalid
-        val parsed = StrictJsonReader.parse(text)
-        if (parsed != null) {
-            val objectValue = parsed as? JsonObject ?: return TunnelCredentialDecode.Invalid
-            return decodeVersioned(objectValue)
+        return when (val jsonRead = StrictJsonReader.read(text)) {
+            is StrictJsonRead.Parsed -> {
+                val objectValue = jsonRead.value as? JsonObject
+                    ?: return TunnelCredentialDecode.Invalid
+                decodeVersioned(objectValue)
+            }
+            StrictJsonRead.InvalidJson -> TunnelCredentialDecode.Invalid
+            StrictJsonRead.NotJson -> TunnelCredentialPayload.create(
+                runToken = text,
+                source = TunnelCredentialSource.TOKEN,
+            )?.let { TunnelCredentialDecode.Decoded(it, migratedLegacy = true) }
+                ?: TunnelCredentialDecode.Invalid
         }
-        if (text.firstOrNull { !it.isWhitespace() } == '{') return TunnelCredentialDecode.Invalid
-        return TunnelCredentialPayload.create(
-            runToken = text,
-            source = TunnelCredentialSource.TOKEN,
-        )?.let { TunnelCredentialDecode.Decoded(it, migratedLegacy = true) }
-            ?: TunnelCredentialDecode.Invalid
     }
 
     private fun decodeVersioned(value: JsonObject): TunnelCredentialDecode {

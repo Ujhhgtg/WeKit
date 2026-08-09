@@ -34,7 +34,7 @@ internal object ReadReceiptsTunnelNativeParser {
 
     fun parseLoginStatus(rawJson: String): NativeCloudflareLoginStatus? = runCatching {
         require(rawJson.toByteArray(Charsets.UTF_8).size <= MAX_JSON_BYTES)
-        val value = StrictJsonReader.parse(rawJson) as? JsonObject
+        val value = (StrictJsonReader.read(rawJson) as? StrictJsonRead.Parsed)?.value as? JsonObject
             ?: error("login status is not an object")
         require(value.keys == loginFields)
         val generation = value.long("generation")
@@ -103,7 +103,7 @@ internal object ReadReceiptsTunnelNativeParser {
 
     fun parseTunnelList(rawJson: String): NativeExistingTunnelList? = runCatching {
         require(rawJson.toByteArray(Charsets.UTF_8).size <= MAX_JSON_BYTES)
-        val value = StrictJsonReader.parse(rawJson) as? JsonObject
+        val value = (StrictJsonReader.read(rawJson) as? StrictJsonRead.Parsed)?.value as? JsonObject
             ?: error("tunnel list is not an object")
         require(value.keys == listFields || value.keys == listErrorFields)
         val generation = value.long("generation")

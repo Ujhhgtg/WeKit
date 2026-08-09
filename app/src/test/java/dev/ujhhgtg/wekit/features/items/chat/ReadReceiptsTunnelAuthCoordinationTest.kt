@@ -349,6 +349,10 @@ class ReadReceiptsTunnelAuthCoordinationTest {
         assertFalse(payload.toString().contains(runToken))
         assertTrue(payload.toString().contains("[redacted]"))
         assertTrue(encoded.toString(Charsets.UTF_8).contains("\"version\":2"))
+        val jsonRead = StrictJsonReader.read(encoded.toString(Charsets.UTF_8))
+        assertTrue(jsonRead is StrictJsonRead.Parsed)
+        assertFalse(jsonRead.toString().contains(runToken))
+        assertTrue(jsonRead.toString().contains("[redacted]"))
     }
 
     @Test
@@ -424,6 +428,55 @@ class ReadReceiptsTunnelAuthCoordinationTest {
                 TunnelCredentialDecode.Invalid,
                 TunnelCredentialPayloadCodec.decode(duplicate.toByteArray()),
             )
+        }
+    }
+
+    @Test
+    fun `strict reader distinguishes legacy text from invalid or bounded JSON`() {
+        val nestedDuplicate = """[{"key":1,"\u006bey":2}]"""
+        val tooDeepArray = "[".repeat(StrictJsonReader.MAX_DEPTH + 1) + "0" +
+            "]".repeat(StrictJsonReader.MAX_DEPTH + 1)
+        val tooDeepObject = "{\"key\":".repeat(StrictJsonReader.MAX_DEPTH + 1) + "0" +
+            "}".repeat(StrictJsonReader.MAX_DEPTH + 1)
+        val maximumDepth = "[".repeat(StrictJsonReader.MAX_DEPTH) + "0" +
+            "]".repeat(StrictJsonReader.MAX_DEPTH)
+
+        listOf(nestedDuplicate, tooDeepArray, tooDeepObject).forEach { invalidJson ->
+            assertEquals(StrictJsonRead.InvalidJson, StrictJsonReader.read(invalidJson))
+            assertEquals(
+                TunnelCredentialDecode.Invalid,
+                TunnelCredentialPayloadCodec.decode(invalidJson.toByteArray()),
+            )
+        }
+        assertTrue(StrictJsonReader.read(maximumDepth) is StrictJsonRead.Parsed)
+        val deepBracketsInsideString = "\"${"[".repeat(StrictJsonReader.MAX_DEPTH + 10)}\""
+        assertTrue(StrictJsonReader.read(deepBracketsInsideString) is StrictJsonRead.Parsed)
+        assertEquals(StrictJsonRead.NotJson, StrictJsonReader.read("01"))
+        assertTrue(StrictJsonReader.read("123") is StrictJsonRead.Parsed)
+
+        val numericLegacy = TunnelCredentialPayloadCodec.decode("01".toByteArray())
+        assertTrue(numericLegacy is TunnelCredentialDecode.Decoded)
+        numericLegacy as TunnelCredentialDecode.Decoded
+        assertTrue(numericLegacy.migratedLegacy)
+        assertTrue(numericLegacy.payload.runToken.contentEquals("01"))
+        assertEquals(
+            TunnelCredentialDecode.Invalid,
+            TunnelCredentialPayloadCodec.decode("123".toByteArray()),
+        )
+    }
+
+    @Test
+    fun `strict reader scans RFC numbers without changing numeric legacy classification`() {
+        listOf("0", "-0", "1", "10", "-1", "0.1", "1e10", "1E+10", "-1.2e-3").forEach {
+            assertTrue(StrictJsonReader.read(it) is StrictJsonRead.Parsed, it)
+        }
+        listOf("01", "-01", "1.", "1e", "1e+", "+1", ".1", "123abc").forEach {
+            assertEquals(StrictJsonRead.NotJson, StrictJsonReader.read(it), it)
+            val decoded = TunnelCredentialPayloadCodec.decode(it.toByteArray())
+            assertTrue(decoded is TunnelCredentialDecode.Decoded, it)
+            decoded as TunnelCredentialDecode.Decoded
+            assertTrue(decoded.migratedLegacy, it)
+            assertTrue(decoded.payload.runToken.contentEquals(it), it)
         }
     }
 
