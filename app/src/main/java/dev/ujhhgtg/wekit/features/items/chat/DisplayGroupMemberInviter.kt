@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoPro
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
@@ -18,9 +19,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Feature(
-    name = "查看群成员邀请者",
-    categories = ["联系人与群组"],
-    description = "在群成员详情页面添加入口, 可查看该成员的进群邀请者"
+    id = "查看群成员邀请者",
+    nameRes = "feature_display_group_member_inviter_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
+    descriptionRes = "feature_display_group_member_inviter_description",
 )
 object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
 

@@ -11,13 +11,19 @@ import androidx.compose.runtime.setValue
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(name = "跳转对话", categories = ["联系人与群组"], description = "打开指定微信 ID 的对话/好友主页/好友设置界面")
+@Feature(
+    id = "跳转对话",
+    nameRes = "feature_open_conversation_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
+    descriptionRes = "feature_open_conversation_description",
+)
 object OpenConversation : ClickableFeature() {
 
     override val noSwitchWidget = true

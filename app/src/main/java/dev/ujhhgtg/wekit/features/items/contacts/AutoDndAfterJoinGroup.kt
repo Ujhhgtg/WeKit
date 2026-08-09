@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
 import dev.ujhhgtg.wekit.features.api.core.models.WeChatroomSyncState
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookCallback
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -25,9 +26,10 @@ import java.util.LinkedHashMap
 import java.util.Locale
 
 @Feature(
-    name = "加入群聊自动免打扰",
-    categories = ["联系人与群组"],
-    description = "加入新的群聊后自动开启消息免打扰",
+    id = "加入群聊自动免打扰",
+    nameRes = "feature_auto_dnd_after_join_group_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
+    descriptionRes = "feature_auto_dnd_after_join_group_description",
 )
 object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
 

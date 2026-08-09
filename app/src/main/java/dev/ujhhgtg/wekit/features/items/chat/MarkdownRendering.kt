@@ -42,6 +42,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -65,7 +66,12 @@ import org.commonmark.node.OrderedList
 import org.commonmark.node.Paragraph
 import java.lang.reflect.Field
 
-@Feature(name = "Markdown 渲染", categories = ["聊天"], description = "渲染 Markdown 消息")
+@Feature(
+    id = "Markdown 渲染",
+    nameRes = "feature_markdown_rendering_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_markdown_rendering_description",
+)
 object MarkdownRendering : ClickableFeature(), IResolveDex {
 
     private const val TAG = "MarkdownRendering"

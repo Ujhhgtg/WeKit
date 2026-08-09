@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MODE_DISABLE
 import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MODE_INHERIT_PROGRESS
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -47,9 +48,10 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
  * 所有锚点均为跨版本稳定字符串, 按项目约定不加 allowFailure。
  */
 @Feature(
-    name = "语音消息播放逻辑优化",
-    categories = ["聊天"],
-    description = "优化语音消息听筒/扬声器自动切换: 完全禁用自动切换, 或切换后继承播放进度不再从头重播"
+    id = "语音消息播放逻辑优化",
+    nameRes = "feature_voice_message_playback_optimization_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_voice_message_playback_optimization_description",
 )
 object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
 

@@ -28,6 +28,7 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.buildMusicTimelineBundle
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.Intent
@@ -65,9 +66,10 @@ import kotlin.io.path.readBytes
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "朋友圈服务",
-    categories = ["API"],
-    description = "提供操作朋友圈的能力"
+    id = "朋友圈服务",
+    nameRes = "feature_we_moments_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_moments_api_description",
 )
 object WeMomentsApi : ApiFeature(), IResolveDex {
 

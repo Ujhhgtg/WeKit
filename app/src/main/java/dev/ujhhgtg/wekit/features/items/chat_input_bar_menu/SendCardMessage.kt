@@ -6,13 +6,15 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 @Feature(
-    name = "发送卡片消息",
-    categories = ["聊天"],
-    description = "在聊天输入栏长按菜单中添加「发送卡片消息」功能"
+    id = "发送卡片消息",
+    nameRes = "feature_send_card_message_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_send_card_message_description",
 )
 object SendCardMessage : SwitchFeature() {
 

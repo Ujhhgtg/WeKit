@@ -41,6 +41,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.core.models.WeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
@@ -69,7 +70,12 @@ import java.util.TimeZone
 import kotlin.math.abs
 import kotlin.random.Random
 
-@Feature(name = "伪造聊天记录消息", categories = ["聊天"], description = "创建伪造的聊天记录并生成卡片消息 XML")
+@Feature(
+    id = "伪造聊天记录消息",
+    nameRes = "feature_fabricate_chat_history_message_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_fabricate_chat_history_message_description",
+)
 object FabricateChatHistoryMessage : ClickableFeature() {
 
     override val noSwitchWidget = true

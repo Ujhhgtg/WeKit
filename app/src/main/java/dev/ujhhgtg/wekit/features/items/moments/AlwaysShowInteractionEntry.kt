@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.Intent
 import dev.ujhhgtg.wekit.utils.android.baseActivity
@@ -18,9 +19,10 @@ import dev.ujhhgtg.wekit.utils.android.baseActivity
  * 一条互动都没有时直接隐藏。这里把最后一种情况也改成显示。
  */
 @Feature(
-    name = "常驻互动消息入口",
-    categories = ["朋友圈"],
-    description = "没有未读互动消息时也在朋友圈顶部显示互动消息入口"
+    id = "常驻互动消息入口",
+    nameRes = "feature_always_show_interaction_entry_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_always_show_interaction_entry_description",
 )
 object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
 

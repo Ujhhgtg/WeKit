@@ -42,6 +42,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -55,7 +56,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
 
-@Feature(name = "消息时间增强", categories = ["聊天"], description = "显示精确消息发送时间并允许显示更多详情")
+@Feature(
+    id = "消息时间增强",
+    nameRes = "feature_message_time_enhancements_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_message_time_enhancements_description",
+)
 object MessageTimeEnhancements : ClickableFeature(),
     WeChatMessageViewApi.ICreateViewListener {
 

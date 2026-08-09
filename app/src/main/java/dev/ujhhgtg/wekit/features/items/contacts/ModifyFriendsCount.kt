@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -33,9 +34,10 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 @Feature(
-    name = "修改好友数量",
-    categories = ["联系人与群组"],
-    description = "修改联系人页显示的好友数量，不会改变实际联系人数据",
+    id = "修改好友数量",
+    nameRes = "feature_modify_friends_count_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
+    descriptionRes = "feature_modify_friends_count_description",
 )
 object ModifyFriendsCount : ClickableFeature() {
 

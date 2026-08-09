@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -31,7 +32,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.LinkedList
 
-@Feature(name = "自定义尾巴", categories = ["朋友圈"], description = "自定义发表朋友圈显示的应用来源")
+@Feature(
+    id = "自定义尾巴",
+    nameRes = "feature_custom_source_app_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_custom_source_app_description",
+)
 object CustomSourceApp : ClickableFeature(), IResolveDex {
 
     private const val TAG = "CustomSourceApp"

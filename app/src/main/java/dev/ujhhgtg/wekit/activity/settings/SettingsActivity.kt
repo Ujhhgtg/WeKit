@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.Keep
+import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -44,6 +45,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,8 +78,10 @@ import com.composables.icons.materialsymbols.outlinedfilled.Home
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Tune
 import dev.ujhhgtg.wekit.activity.testsettings.NukeSettingsContent
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.NewFeatures
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -143,35 +147,49 @@ class SettingsActivity : ComponentActivity() {
 }
 
 // ---------------------------------------------------------------------------
-//  Feature categories (name -> icon)
+//  Feature categories
 // ---------------------------------------------------------------------------
 
+data class FeatureCategory(
+    val id: String,
+    @StringRes val titleRes: Int,
+    val icon: ImageVector,
+)
+
 val FEATURE_CATEGORIES = listOf(
-    "聊天" to MaterialSymbols.Outlined.Chat,
-    "联系人与群组" to MaterialSymbols.Outlined.Contacts,
-    "红包与支付" to MaterialSymbols.Outlined.Payments,
-    "朋友圈" to MaterialSymbols.Outlined.Camera,
-    "系统与隐私" to MaterialSymbols.Outlined.Wand_stars,
-    "音视频通话" to MaterialSymbols.Outlined.Call,
-    "通知" to MaterialSymbols.Outlined.Notifications,
-    "界面美化" to MaterialSymbols.Outlined.Imagesearch_roller,
-    "公众号" to MaterialSymbols.Outlined.Newspaper,
-    "小程序" to MaterialSymbols.Outlined.Package_2,
-    "视频号" to MaterialSymbols.Outlined.Movie,
-    "个人资料" to MaterialSymbols.Outlined.Account_circle,
-    "调试" to MaterialSymbols.Outlined.Bug_report,
-    "脚本 (Java)" to MaterialSymbols.Outlined.Terminal,
-    "娱乐" to MaterialSymbols.Outlined.Comedy_mask,
-    "批量操作" to MaterialSymbols.Outlined.Checklist,
-    "首页右上角菜单" to MaterialSymbols.Outlined.Add_circle,
-    "联系人详情页面" to MaterialSymbols.Outlined.Contact_page,
+    FeatureCategory(FeatureCategoryIds.CHAT, R.string.feature_category_chat_title, MaterialSymbols.Outlined.Chat),
+    FeatureCategory(FeatureCategoryIds.CONTACTS_GROUPS, R.string.feature_category_contacts_groups_title, MaterialSymbols.Outlined.Contacts),
+    FeatureCategory(FeatureCategoryIds.PAYMENT, R.string.feature_category_payment_title, MaterialSymbols.Outlined.Payments),
+    FeatureCategory(FeatureCategoryIds.MOMENTS, R.string.feature_category_moments_title, MaterialSymbols.Outlined.Camera),
+    FeatureCategory(FeatureCategoryIds.SYSTEM_PRIVACY, R.string.feature_category_system_privacy_title, MaterialSymbols.Outlined.Wand_stars),
+    FeatureCategory(FeatureCategoryIds.VOIP, R.string.feature_category_voip_title, MaterialSymbols.Outlined.Call),
+    FeatureCategory(FeatureCategoryIds.NOTIFICATIONS, R.string.feature_category_notifications_title, MaterialSymbols.Outlined.Notifications),
+    FeatureCategory(FeatureCategoryIds.BEAUTIFY, R.string.feature_category_beautify_title, MaterialSymbols.Outlined.Imagesearch_roller),
+    FeatureCategory(FeatureCategoryIds.OFFICIAL_ACCOUNTS, R.string.feature_category_official_accounts_title, MaterialSymbols.Outlined.Newspaper),
+    FeatureCategory(FeatureCategoryIds.MINIAPPS, R.string.feature_category_miniapps_title, MaterialSymbols.Outlined.Package_2),
+    FeatureCategory(FeatureCategoryIds.CHANNELS, R.string.feature_category_channels_title, MaterialSymbols.Outlined.Movie),
+    FeatureCategory(FeatureCategoryIds.PROFILE, R.string.feature_category_profile_title, MaterialSymbols.Outlined.Account_circle),
+    FeatureCategory(FeatureCategoryIds.DEBUG, R.string.feature_category_debug_title, MaterialSymbols.Outlined.Bug_report),
+    FeatureCategory(FeatureCategoryIds.SCRIPTING_JAVA, R.string.feature_category_scripting_java_title, MaterialSymbols.Outlined.Terminal),
+    FeatureCategory(FeatureCategoryIds.ENTERTAIN, R.string.feature_category_entertain_title, MaterialSymbols.Outlined.Comedy_mask),
+    FeatureCategory(FeatureCategoryIds.BATCH, R.string.feature_category_batch_title, MaterialSymbols.Outlined.Checklist),
+    FeatureCategory(FeatureCategoryIds.HOME_SCREEN_MENU, R.string.feature_category_home_screen_menu_title, MaterialSymbols.Outlined.Add_circle),
+    FeatureCategory(FeatureCategoryIds.CONTACT_DETAILS, R.string.feature_category_contact_details_title, MaterialSymbols.Outlined.Contact_page),
 )
 
 /**
  * Pseudo-category shown above the real ones. Deliberately kept out of [FEATURE_CATEGORIES] —
- * it isn't something a feature can declare in its `@Feature(categories = ...)`.
+ * it isn't something a feature can declare in its `@Feature(categoryIds = ...)`.
  */
-const val NEW_FEATURES_CATEGORY = "新功能"
+const val NEW_FEATURES_CATEGORY = "new_features"
+
+@StringRes
+fun featureCategoryTitleRes(categoryId: String): Int =
+    when (categoryId) {
+        NEW_FEATURES_CATEGORY -> R.string.feature_category_new_features_title
+        FeatureCategoryIds.API -> R.string.feature_category_api_title
+        else -> FEATURE_CATEGORIES.first { it.id == categoryId }.titleRes
+    }
 
 /**
  * Features whose source file entered the repo within [NewFeatures.WINDOW_DAYS] days of the build's
@@ -181,15 +199,15 @@ const val NEW_FEATURES_CATEGORY = "新功能"
  * switch a user would meaningfully flip.
  */
 val NEW_FEATURE_ITEMS: List<BaseFeature> by lazy {
-    val visibleCategories = FEATURE_CATEGORIES.mapTo(mutableSetOf()) { it.first }
-    FeaturesProvider.ALL_HOOK_ITEMS.associateBy { it.name }.values
+    val visibleCategories = FEATURE_CATEGORIES.mapTo(mutableSetOf()) { it.id }
+    FeaturesProvider.ALL_HOOK_ITEMS.associateBy { it.technicalId }.values
         .mapNotNull { item ->
-            NewFeatures.ADDED_AT_BY_NAME[item.name]?.let { addedAt -> item to addedAt }
+            NewFeatures.ADDED_AT_BY_ID[item.technicalId]?.let { addedAt -> item to addedAt }
         }
-        .filter { (item, _) -> item.categories.any { it in visibleCategories } }
+        .filter { (item, _) -> item.categoryIds.any { it in visibleCategories } }
         .sortedWith(
             compareByDescending<Pair<BaseFeature, Long>> { it.second }
-                .thenBy { it.first.name },
+                .thenBy { it.first.technicalId },
         )
         .map { (item, _) -> item }
 }
@@ -201,7 +219,7 @@ val NEW_FEATURE_ITEMS: List<BaseFeature> by lazy {
 /** Navigation targets for the Settings activity's stack. */
 private sealed interface SettingsNavTarget {
     data object Main : SettingsNavTarget
-    data class Category(val name: String) : SettingsNavTarget
+    data class Category(val id: String) : SettingsNavTarget
     data object License : SettingsNavTarget
 }
 
@@ -220,7 +238,7 @@ private fun SettingsRoot(onFinish: () -> Unit) {
             )
 
             is SettingsNavTarget.Category -> CategoryDetailScreen(
-                categoryName = screen.name,
+                categoryId = screen.id,
                 onBack = pop,
             )
 
@@ -429,7 +447,10 @@ fun FeatureRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val context = LocalComponentActivity.current
-    val configKey = item.name
+    val localizedContext = LocalContext.current
+    val configKey = item.technicalId
+    val localizedName = item.localizedName(localizedContext)
+    val localizedDescription = item.localizedDescription(localizedContext)
 
     DisposableEffect(configKey) {
         (item as SwitchFeature).setToggleCompletionCallback { onCheckedChange(item.isEnabled) }
@@ -449,7 +470,7 @@ fun FeatureRow(
         is ClickableFeature -> BasicComponent(
             onClick = {
                 runCatching { item.onClick(context) }
-                    .onFailure { WeLogger.e("SettingsActivity", "onClick failed for ${item.displayName}", it) }
+                    .onFailure { WeLogger.e("SettingsActivity", "onClick failed for ${item.technicalPath}", it) }
             },
             endActions = {
                 if (!item.noSwitchWidget) {
@@ -459,7 +480,7 @@ fun FeatureRow(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = item.name,
+                    text = localizedName,
                     fontSize = MiuixTheme.textStyles.headline1.fontSize,
                     fontWeight = FontWeight.Medium,
                     color = BasicComponentDefaults.titleColor().color,
@@ -475,19 +496,17 @@ fun FeatureRow(
                 )
             }
             Text(
-                text = item.description,
+                text = localizedDescription,
                 fontSize = MiuixTheme.textStyles.body2.fontSize,
                 color = BasicComponentDefaults.summaryColor().color,
             )
         }
 
         is SwitchFeature -> SwitchPreference(
-            title = item.name,
-            summary = item.description,
+            title = localizedName,
+            summary = localizedDescription,
             checked = checked,
             onCheckedChange = { toggle(it) },
         )
     }
 }
-
-

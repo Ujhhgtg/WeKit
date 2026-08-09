@@ -55,6 +55,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoPro
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.BaseContactSelector
@@ -85,8 +86,10 @@ import kotlin.io.path.writeText
 import kotlin.math.min
 
 @Feature(
-    name = "自定义好友本地头像", categories = ["联系人与群组", "联系人详情页面"],
-    description = "为指定联系人或群组使用本地图片替换显示的头像"
+    id = "自定义好友本地头像",
+    nameRes = "feature_custom_local_friend_avatars_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.CONTACT_DETAILS],
+    descriptionRes = "feature_custom_local_friend_avatars_description",
 )
 object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IResolveDex {
 

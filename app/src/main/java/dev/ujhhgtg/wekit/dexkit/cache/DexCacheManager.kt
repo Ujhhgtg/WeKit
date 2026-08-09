@@ -58,9 +58,9 @@ object DexCacheManager {
     fun isItemCacheValid(item: IResolveDex): Boolean {
         if (item !is BaseFeature) unreachable()
 
-        val cacheFile = getCacheFile(item.name)
+        val cacheFile = getCacheFile(item.technicalId)
         if (!cacheFile.exists()) {
-            WeLogger.d(TAG, "cache not found for ${item.name}")
+            WeLogger.d(TAG, "cache not found for ${item.technicalId}")
             return false
         }
 
@@ -70,7 +70,7 @@ object DexCacheManager {
             val cachedHash = json.optString("methodHash", "")
             val currentHash = calculateMethodHash(item)
             if (cachedHash != currentHash) {
-                WeLogger.d(TAG, "resolveDex of ${item.displayName} changed: cached=$cachedHash, current=$currentHash")
+                WeLogger.d(TAG, "resolveDex of ${item.technicalPath} changed: cached=$cachedHash, current=$currentHash")
                 return false
             }
 
@@ -81,13 +81,13 @@ object DexCacheManager {
             }
 
             if (missingOrEmpty.isNotEmpty()) {
-                WeLogger.d(TAG, "cache incomplete for ${item.displayName}, missing keys: ${missingOrEmpty.map { it.key }}")
+                WeLogger.d(TAG, "cache incomplete for ${item.technicalPath}, missing keys: ${missingOrEmpty.map { it.key }}")
                 return false
             }
 
             true
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to read cache for: ${item.displayName}", e)
+            WeLogger.e(TAG, "failed to read cache for: ${item.technicalPath}", e)
             false
         }
     }
@@ -101,7 +101,7 @@ object DexCacheManager {
             error("item is not BaseFeature")
         }
 
-        val cacheFile = getCacheFile(item.name)
+        val cacheFile = getCacheFile(item.technicalId)
         try {
             val json = JSONObject()
             json.put("methodHash", calculateMethodHash(item))
@@ -112,9 +112,9 @@ object DexCacheManager {
             }
 
             cacheFile.writeText(json.toString(2))
-            WeLogger.d(TAG, "cache saved for: ${item.displayName}")
+            WeLogger.d(TAG, "cache saved for: ${item.technicalPath}")
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to save cache for: ${item.displayName}", e)
+            WeLogger.e(TAG, "failed to save cache for: ${item.technicalPath}", e)
         }
     }
 
@@ -127,7 +127,7 @@ object DexCacheManager {
             error("item is not BaseFeature")
         }
 
-        val cacheFile = getCacheFile(item.name)
+        val cacheFile = getCacheFile(item.technicalId)
         if (!cacheFile.exists()) return null
 
         return try {
@@ -138,7 +138,7 @@ object DexCacheManager {
                 }
             }
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to load cache for: ${item.displayName}", e)
+            WeLogger.e(TAG, "failed to load cache for: ${item.technicalPath}", e)
             null
         }
     }
@@ -161,8 +161,11 @@ object DexCacheManager {
 
     private val META_KEYS = setOf("methodHash", "timestamp")
 
-    private fun getCacheFile(path: String): Path =
-        cacheDir / (path.replace("/", "_") + CACHE_FILE_SUFFIX)
+    internal fun cacheFileName(technicalId: String): String =
+        technicalId.replace("/", "_") + CACHE_FILE_SUFFIX
+
+    private fun getCacheFile(technicalId: String): Path =
+        cacheDir / cacheFileName(technicalId)
 
     /**
      * 获取 resolveDex 方法编译时生成的哈希，用于检测实现变化。

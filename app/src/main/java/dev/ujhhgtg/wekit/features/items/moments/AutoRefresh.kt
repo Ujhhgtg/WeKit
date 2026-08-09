@@ -17,6 +17,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -35,7 +36,12 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Duration.Companion.minutes
 
-@Feature(name = "自动刷新", categories = ["朋友圈"], description = "定时自动刷新朋友圈列表")
+@Feature(
+    id = "自动刷新",
+    nameRes = "feature_auto_refresh_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_auto_refresh_description",
+)
 object AutoRefresh : ClickableFeature(), IResolveDex {
 
     private const val TAG = "AutoRefresh"

@@ -105,7 +105,7 @@ fun DexResolver(
         dexKit: DexKitBridge,
         progressChannel: Channel<ScanProgress>
     ): ScanResult {
-        val displayName = if (item is BaseFeature) item.displayName else unreachable()
+        val displayName = if (item is BaseFeature) item.technicalPath else unreachable()
         return try {
             progressChannel.send(ScanProgress.Start(displayName))
 

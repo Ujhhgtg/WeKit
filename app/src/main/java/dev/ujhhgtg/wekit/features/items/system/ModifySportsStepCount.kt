@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -30,7 +31,12 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(name = "修改运动步数", categories = ["系统与隐私"], description = "修改微信获取到的或手动上传运动步数")
+@Feature(
+    id = "修改运动步数",
+    nameRes = "feature_modify_sports_step_count_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_modify_sports_step_count_description",
+)
 object ModifySportsStepCount : ClickableFeature(), IResolveDex {
 
     enum class PassiveMode { FIXED, MULTIPLIER }

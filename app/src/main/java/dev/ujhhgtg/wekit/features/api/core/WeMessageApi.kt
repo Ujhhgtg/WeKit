@@ -35,6 +35,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -85,7 +86,12 @@ import kotlin.random.Random
 
 
 @SuppressLint("DiscouragedApi")
-@Feature(name = "消息发送服务", categories = ["API"], description = "提供文本、图片、文件、语音消息发送能力")
+@Feature(
+    id = "消息发送服务",
+    nameRes = "feature_we_message_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_message_api_description",
+)
 object WeMessageApi : ApiFeature(), IResolveDex {
 
     // -------------------------------------------------------------------------------------

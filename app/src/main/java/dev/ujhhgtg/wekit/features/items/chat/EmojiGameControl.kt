@@ -41,6 +41,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -62,7 +63,12 @@ import kotlin.math.atan2
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-@Feature(name = "表情游戏控制", categories = ["聊天"], description = "自定义猜拳和骰子的结果")
+@Feature(
+    id = "表情游戏控制",
+    nameRes = "feature_emoji_game_control_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_emoji_game_control_description",
+)
 object EmojiGameControl : ClickableFeature(), IResolveDex {
 
     private const val MD5_MORRA = "9bd1281af3a31710a45b84d736363691"

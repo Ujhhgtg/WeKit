@@ -6,11 +6,17 @@ import android.content.Intent
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Feature(name = "活动启动监听服务", categories = ["API"], description = "提供 startActivity 监听能力")
+@Feature(
+    id = "活动启动监听服务",
+    nameRes = "feature_we_start_activity_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_start_activity_api_description",
+)
 object WeStartActivityApi : ApiFeature() {
 
     fun interface IStartActivityListener {

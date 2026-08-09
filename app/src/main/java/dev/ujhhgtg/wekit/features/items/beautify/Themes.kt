@@ -75,6 +75,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.Themes.THEMES_PATH
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -115,9 +116,10 @@ import kotlin.math.roundToInt
 @Suppress("DEPRECATION")
 @SuppressLint("DiscouragedApi", "InternalInsetResource")
 @Feature(
-    name = "主题",
-    categories = ["界面美化"],
-    description = "应用 THEMES_PATH 中的主题，切换后重启微信生效"
+    id = "主题",
+    nameRes = "feature_themes_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_themes_description",
 )
 object Themes : ClickableFeature(), IResolveDex {
 

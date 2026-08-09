@@ -7,15 +7,17 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.Collections
 import java.util.WeakHashMap
 
 @Feature(
-    name = "移除评论区广告",
-    categories = ["视频号"],
-    description = "隐藏视频号评论区中的广告卡片"
+    id = "移除评论区广告",
+    nameRes = "feature_remove_comment_ads_name",
+    categoryIds = [FeatureCategoryIds.CHANNELS],
+    descriptionRes = "feature_remove_comment_ads_description",
 )
 object RemoveCommentAds : SwitchFeature(), IResolveDex {
 

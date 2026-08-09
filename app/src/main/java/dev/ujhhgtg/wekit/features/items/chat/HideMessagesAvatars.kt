@@ -16,6 +16,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -24,7 +25,12 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 
-@Feature(name = "隐藏消息头像", categories = ["聊天"], description = "隐藏消息的用户头像 (Telegram 风格)")
+@Feature(
+    id = "隐藏消息头像",
+    nameRes = "feature_hide_messages_avatars_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_hide_messages_avatars_description",
+)
 object HideMessagesAvatars : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
 
     var hideIncoming by prefOption("chat_hide_avatar_incoming", true)

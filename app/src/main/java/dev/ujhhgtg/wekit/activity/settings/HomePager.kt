@@ -90,7 +90,7 @@ private fun openLsposedManager(context: Context) {
 @Composable
 fun HomePager(onOpenFeatures: () -> Unit) {
     val enabledCount = remember {
-        FeaturesProvider.ALL_HOOK_ITEMS.count { WePrefs.getBoolOrFalse(it.name) }
+        FeaturesProvider.ALL_HOOK_ITEMS.count { WePrefs.getBoolOrFalse(it.technicalId) }
     }
     val totalCount = remember { FeaturesProvider.ALL_HOOK_ITEMS.size }
 

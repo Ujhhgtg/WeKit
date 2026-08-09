@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.ForwardIcon
@@ -23,9 +24,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Feature(
-    name = "转发消息",
-    categories = ["聊天"],
-    description = "在消息长按菜单添加转发按钮, 可向好友或群聊批量转发"
+    id = "转发消息",
+    nameRes = "feature_forward_messages_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_forward_messages_description",
 )
 object ForwardMessages : SwitchFeature(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {

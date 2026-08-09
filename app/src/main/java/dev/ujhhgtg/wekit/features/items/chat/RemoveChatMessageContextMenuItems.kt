@@ -13,13 +13,19 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(name = "移除消息菜单项", categories = ["聊天"], description = "从消息的长按菜单中移除指定名称的菜单项")
+@Feature(
+    id = "移除消息菜单项",
+    nameRes = "feature_remove_chat_message_context_menu_items_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_remove_chat_message_context_menu_items_description",
+)
 object RemoveChatMessageContextMenuItems : ClickableFeature(), IResolveDex {
 
     // this is the method that builds the whole context menu (m0.a). we can't reliably hook the

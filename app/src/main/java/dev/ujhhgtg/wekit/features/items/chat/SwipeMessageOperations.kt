@@ -34,6 +34,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -53,7 +54,12 @@ import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.abs
 
-@Feature(name = "滑动消息快捷操作", categories = ["聊天"], description = "在消息上滑动以引用, 并可选复读或编辑为次要操作")
+@Feature(
+    id = "滑动消息快捷操作",
+    nameRes = "feature_swipe_message_operations_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_swipe_message_operations_description",
+)
 object SwipeMessageOperations : ClickableFeature(), IResolveDex,
     WeChatMessageViewApi.ICreateViewListener {
 

@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -20,9 +21,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Feature(
-    name = "批量隐藏对话",
-    categories = ["批量操作"],
-    description = "从对话列表移除选中的对话 (仅删除 rconversation 记录, 保留聊天记录), 重新收到消息时对话会再次出现"
+    id = "批量隐藏对话",
+    nameRes = "feature_batch_hide_conversations_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_batch_hide_conversations_description",
 )
 object BatchHideConversations : ClickableFeature() {
 

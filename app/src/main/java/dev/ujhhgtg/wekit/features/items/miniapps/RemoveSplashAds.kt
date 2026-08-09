@@ -5,11 +5,17 @@ import com.tencent.mm.plugin.appbrand.ad.ui.AppBrandAdUI
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import org.json.JSONObject
 
-@Feature(name = "移除开屏广告", categories = ["小程序"], description = "跳过小程序开屏广告")
+@Feature(
+    id = "移除开屏广告",
+    nameRes = "feature_remove_splash_ads_name",
+    categoryIds = [FeatureCategoryIds.MINIAPPS],
+    descriptionRes = "feature_remove_splash_ads_description",
+)
 object RemoveSplashAds : SwitchFeature(), IResolveDex {
 
     private val methodIsAdContact by dexMethod {

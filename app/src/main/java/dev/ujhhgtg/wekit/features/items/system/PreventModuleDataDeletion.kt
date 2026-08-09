@@ -6,10 +6,16 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Field
 
-@Feature(name = "阻止微信清理模块数据", categories = ["系统与隐私"], description = "阻止微信「设置 → 存储空间 → 清理」删除模块数据")
+@Feature(
+    id = "阻止微信清理模块数据",
+    nameRes = "feature_prevent_module_data_deletion_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_prevent_module_data_deletion_description",
+)
 object PreventModuleDataDeletion : SwitchFeature(), IResolveDex {
 
     private val methodNativeFileSystemEntryDelete by dexMethod {

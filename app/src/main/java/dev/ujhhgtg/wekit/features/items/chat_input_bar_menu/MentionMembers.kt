@@ -23,6 +23,7 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.WeProto
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -35,9 +36,10 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
 @Feature(
-    name = "@所有人",
-    categories = ["聊天"],
-    description = "在群聊输入栏长按菜单中添加「@所有人」功能, 支持选择接收成员; 长按此项可配置发送设置"
+    id = "@所有人",
+    nameRes = "feature_mention_members_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_mention_members_description",
 )
 object MentionMembers : SwitchFeature() {
 

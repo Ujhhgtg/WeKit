@@ -13,6 +13,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
@@ -25,9 +26,10 @@ import java.lang.ref.WeakReference
 import java.util.LinkedList
 
 @Feature(
-    name = "「添加的单个表情」管理器增强",
-    categories = ["聊天"],
-    description = "在「整理」界面底栏的添加更多功能"
+    id = "「添加的单个表情」管理器增强",
+    nameRes = "feature_stickers_manager_enhancements_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_stickers_manager_enhancements_description",
 )
 object StickersManagerEnhancements : SwitchFeature() {
 

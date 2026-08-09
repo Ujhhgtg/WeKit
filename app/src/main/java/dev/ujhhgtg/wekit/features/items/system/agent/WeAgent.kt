@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
@@ -19,9 +20,10 @@ import kotlinx.coroutines.launch
  * skills, global settings) lives in that Activity — not inline here.
  */
 @Feature(
-    name = "WeAgent",
-    categories = ["系统与隐私"],
-    description = "内置 AI Agent: 悬浮窗对话、工具调用、MCP、技能。需要为微信授予悬浮窗权限。点击进入设置。",
+    id = "WeAgent",
+    nameRes = "feature_we_agent_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_we_agent_description",
 )
 object WeAgent : ClickableFeature() {
 

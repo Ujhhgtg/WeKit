@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -22,7 +23,12 @@ import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(name = "屏蔽铃声", categories = ["聊天", "音视频通话"], description = "屏蔽音视频通话铃声")
+@Feature(
+    id = "屏蔽铃声",
+    nameRes = "feature_block_voip_ringtone_name",
+    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
+    descriptionRes = "feature_block_voip_ringtone_description",
+)
 object BlockVoipRingtone : ClickableFeature(), IResolveDex {
 
     private var disableOutCall by prefOption("voip_disable_ringtone_out_call", true)

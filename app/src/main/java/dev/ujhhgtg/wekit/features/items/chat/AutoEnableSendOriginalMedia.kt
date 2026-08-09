@@ -3,9 +3,15 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.app.Activity
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(name = "自动启用发送原图", categories = ["聊天"], description = "发送媒体时自动勾选发送原图选项")
+@Feature(
+    id = "自动启用发送原图",
+    nameRes = "feature_auto_enable_send_original_media_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_auto_enable_send_original_media_description",
+)
 object AutoEnableSendOriginalMedia : SwitchFeature() {
 
     override fun onEnable() {

@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.moments
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.SendIcon
 import dev.ujhhgtg.wekit.ui.utils.ShareIcon
@@ -14,9 +15,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Feature(
-    name = "转发 & 一键转发",
-    categories = ["朋友圈"],
-    description = "转发他人的朋友圈, 支持实况图片\n图片/视频会在转发前自动缓存, 无需先点开; 实况视频如转发后空白请先播放一次"
+    id = "转发 & 一键转发",
+    nameRes = "feature_repost_moments_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_repost_moments_description",
 )
 object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 

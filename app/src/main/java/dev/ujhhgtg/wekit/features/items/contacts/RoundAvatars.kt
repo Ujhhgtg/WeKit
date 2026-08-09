@@ -13,6 +13,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -22,8 +23,10 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import org.luckypray.dexkit.DexKitBridge
 
 @Feature(
-    name = "圆角头像", categories = ["联系人与群组", "界面美化"],
-    description = "自定义微信全局头像渲染的圆角弧度"
+    id = "圆角头像",
+    nameRes = "feature_round_avatars_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_round_avatars_description",
 )
 object RoundAvatars : ClickableFeature(), IResolveDex {
 

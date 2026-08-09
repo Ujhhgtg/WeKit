@@ -4,10 +4,16 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Modifier
 
-@Feature(name = "移除通话时聊天限制", categories = ["聊天", "音视频通话"], description = "绕过正在通话时聊天限制")
+@Feature(
+    id = "移除通话时聊天限制",
+    nameRes = "feature_remove_limits_during_calls_name",
+    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
+    descriptionRes = "feature_remove_limits_during_calls_description",
+)
 object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
 
     override fun onEnable() {

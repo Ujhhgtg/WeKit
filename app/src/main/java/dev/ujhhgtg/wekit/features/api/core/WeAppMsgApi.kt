@@ -4,11 +4,17 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
 
-@Feature(name = "AppMsg 发送服务", categories = ["API"], description = "提供 XML 卡片消息发送能力")
+@Feature(
+    id = "AppMsg 发送服务",
+    nameRes = "feature_we_app_msg_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_app_msg_api_description",
+)
 object WeAppMsgApi : ApiFeature(), IResolveDex {
 
     private val methodParseXml by dexMethod()    // op0.q.u(String)

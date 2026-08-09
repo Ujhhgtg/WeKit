@@ -72,6 +72,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -97,7 +98,12 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import java.lang.reflect.Modifier as JavaModifier
 
-@Feature(name = "对话分组", categories = ["聊天"], description = "向主页顶部添加 Tab 栏, 将对话分组\n建议同时启用「界面美化/隐藏主页下滑「最近」页」")
+@Feature(
+    id = "对话分组",
+    nameRes = "feature_conversation_grouping_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_conversation_grouping_description",
+)
 object ConversationGrouping : SwitchFeature(), IResolveDex {
 
     const val GROUP_PREFIX = "wekit_group_"

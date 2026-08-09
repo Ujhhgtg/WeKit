@@ -18,12 +18,18 @@ import com.tencent.mm.plugin.webwx.ui.ExtDeviceWXLoginUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(name = "自动批准设备登录", categories = ["系统与隐私"], description = "其他设备请求登录时自动勾选选项并点击按钮")
+@Feature(
+    id = "自动批准设备登录",
+    nameRes = "feature_auto_approve_device_login_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_auto_approve_device_login_description",
+)
 object AutoApproveDeviceLogin : ClickableFeature() {
 
     private const val AUTO_SYNC_MESSAGES = 0x1

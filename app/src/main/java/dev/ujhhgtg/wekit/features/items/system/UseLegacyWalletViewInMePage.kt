@@ -5,9 +5,15 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(name = "恢复旧版「我」界面卡包", categories = ["系统与隐私"], description = "在「我」界面使用旧版「卡包」而非「小店与卡包」")
+@Feature(
+    id = "恢复旧版「我」界面卡包",
+    nameRes = "feature_use_legacy_wallet_view_in_me_page_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_use_legacy_wallet_view_in_me_page_description",
+)
 object UseLegacyWalletViewInMePage : SwitchFeature(), IResolveDex {
 
     override fun onEnable() {

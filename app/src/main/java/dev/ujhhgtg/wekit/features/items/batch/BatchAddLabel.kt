@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -38,9 +39,10 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "批量打标签",
-    categories = ["批量操作"],
-    description = "为选中的多个好友追加同一个标签, 可选择已有标签或新建, 请求会自动间隔以规避服务器风控"
+    id = "批量打标签",
+    nameRes = "feature_batch_add_label_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_batch_add_label_description",
 )
 object BatchAddLabel : ClickableFeature() {
 

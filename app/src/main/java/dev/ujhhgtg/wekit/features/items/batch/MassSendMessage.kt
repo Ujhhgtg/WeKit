@@ -20,6 +20,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -36,9 +37,10 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "群发消息",
-    categories = ["批量操作"],
-    description = "编写一条文本或卡片消息, 选择多个好友或群聊后批量发送, 请求会自动间隔以规避服务器风控"
+    id = "群发消息",
+    nameRes = "feature_mass_send_message_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_mass_send_message_description",
 )
 object MassSendMessage : ClickableFeature() {
 

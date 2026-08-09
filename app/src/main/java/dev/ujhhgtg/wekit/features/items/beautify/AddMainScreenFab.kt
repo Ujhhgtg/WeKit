@@ -96,6 +96,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -118,7 +119,12 @@ import java.lang.ref.WeakReference
 import java.util.UUID
 import java.util.WeakHashMap
 
-@Feature(name = "主屏幕添加 FAB", categories = ["界面美化"], description = "向微信主屏幕添加浮动操作按钮")
+@Feature(
+    id = "主屏幕添加 FAB",
+    nameRes = "feature_add_main_screen_fab_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_add_main_screen_fab_description",
+)
 object AddMainScreenFab : ClickableFeature() {
 
     private const val TAG = "AddMainScreenFab"

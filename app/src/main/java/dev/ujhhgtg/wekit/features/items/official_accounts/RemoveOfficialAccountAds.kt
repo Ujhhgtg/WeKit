@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.json.JSONArray
@@ -49,9 +50,10 @@ import org.json.JSONObject
  *   把它置 false 关掉 dump 即可，过滤照常生效。
  */
 @Feature(
-    name = "公众号去广告",
-    categories = ["公众号"],
-    description = "清除公众号信息流中的广告内容\n（订阅号信息流 / 推荐流 / 聚合页的广告投放位）"
+    id = "公众号去广告",
+    nameRes = "feature_remove_official_account_ads_name",
+    categoryIds = [FeatureCategoryIds.OFFICIAL_ACCOUNTS],
+    descriptionRes = "feature_remove_official_account_ads_description",
 )
 object RemoveOfficialAccountAds : SwitchFeature(), IWePacketInterceptor {
 

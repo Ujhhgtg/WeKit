@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeContactApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -21,9 +22,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Feature(
-    name = "批量删除好友",
-    categories = ["批量操作"],
-    description = "选择多个好友后一次性删除, 请求会自动间隔以规避服务器风控"
+    id = "批量删除好友",
+    nameRes = "feature_batch_delete_friends_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_batch_delete_friends_description",
 )
 object BatchDeleteFriends : ClickableFeature() {
 

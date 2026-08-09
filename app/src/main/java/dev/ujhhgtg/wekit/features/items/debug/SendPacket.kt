@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -18,7 +19,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(name = "发包调试", categories = ["调试"], description = "发送自定义数据包到微信服务器")
+@Feature(
+    id = "发包调试",
+    nameRes = "feature_send_packet_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_send_packet_description",
+)
 object SendPacket : ClickableFeature() {
     private const val TAG = "SendPacket"
 

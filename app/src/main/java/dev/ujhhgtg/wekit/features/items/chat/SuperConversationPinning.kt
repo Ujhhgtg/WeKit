@@ -18,6 +18,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -30,9 +31,10 @@ import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Feature(
-    name = "超级对话置顶",
-    categories = ["聊天"],
-    description = "在首页对话列表长按菜单设置优先级, 置顶和非置顶对话分别按优先级排序"
+    id = "超级对话置顶",
+    nameRes = "feature_super_conversation_pinning_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_super_conversation_pinning_description",
 )
 object SuperConversationPinning : SwitchFeature(),
     WeConversationContextMenuApi.IMenuItemsProvider,

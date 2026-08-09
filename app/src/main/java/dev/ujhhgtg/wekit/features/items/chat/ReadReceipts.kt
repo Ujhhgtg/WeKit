@@ -25,6 +25,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -56,7 +57,12 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(name = "已读追踪", categories = ["聊天"], description = "追踪文本消息已读人数, 并在自己发送的消息上实时显示\"已读 x 人\"")
+@Feature(
+    id = "已读追踪",
+    nameRes = "feature_read_receipts_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_read_receipts_description",
+)
 object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
 
     private const val TAG = "ReadReceipts"

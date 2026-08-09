@@ -11,11 +11,17 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.UserNameProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
-@Feature(name = "联系人服务", categories = ["API"], description = "提供联系人管理能力")
+@Feature(
+    id = "联系人服务",
+    nameRes = "feature_we_contact_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_contact_api_description",
+)
 object WeContactApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeContactApi"

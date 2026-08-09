@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.FolderChoice
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -34,9 +35,10 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 @Feature(
-    name = "添加对话至归拢文件夹",
-    categories = ["聊天"],
-    description = "在首页对话列表长按菜单添加菜单项, 可将该对话加入「对话归拢」的手动文件夹\n需启用「对话归拢」"
+    id = "添加对话至归拢文件夹",
+    nameRes = "feature_add_to_aggregation_folder_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_add_to_aggregation_folder_description",
 )
 object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi.IMenuItemsProvider {
 

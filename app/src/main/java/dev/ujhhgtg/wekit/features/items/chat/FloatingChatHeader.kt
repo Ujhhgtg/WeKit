@@ -37,6 +37,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -54,10 +55,10 @@ import kotlin.math.roundToInt
 
 @Suppress("DEPRECATION")
 @Feature(
-    name = "悬浮标题栏",
-    categories = ["聊天"],
-    description = "将聊天界面顶部标题栏及标题下方挂件改为悬浮卡片形式, 带有圆角、阴影和侧边距\n" +
-        "建议同时启用「聊天/聊天界面沉浸」"
+    id = "悬浮标题栏",
+    nameRes = "feature_floating_chat_header_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_floating_chat_header_description",
 )
 object FloatingChatHeader : ClickableFeature() {
 

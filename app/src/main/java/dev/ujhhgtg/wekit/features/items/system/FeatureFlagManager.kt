@@ -44,6 +44,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.system.FeatureFlagManager.cacheLock
 import dev.ujhhgtg.wekit.features.items.system.FeatureFlagManager.markCacheDirty
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -83,7 +84,12 @@ import java.lang.reflect.Modifier as JavaModifier
  * API entry: [fd5.d1].[b](String key, Object defaultValue) — central get method.
  * Key format: fullKey = b() + '_' + h()    (via [ly4.e.l])
  */
-@Feature(name = "灰度测试管理器", categories = ["系统与隐私"], description = "覆盖微信灰度测试 (Feature Flag) 的值")
+@Feature(
+    id = "灰度测试管理器",
+    nameRes = "feature_feature_flag_manager_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_feature_flag_manager_description",
+)
 object FeatureFlagManager : ClickableFeature(), IResolveDex {
 
     private val overridesFile by lazy { KnownPaths.moduleData / "feature_flag_overrides.json" }

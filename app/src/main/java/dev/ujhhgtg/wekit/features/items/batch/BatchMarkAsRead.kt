@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -15,9 +16,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Feature(
-    name = "批量标为已读",
-    categories = ["批量操作"],
-    description = "选择多个好友或群聊后, 将它们的对话一次性标记为已读"
+    id = "批量标为已读",
+    nameRes = "feature_batch_mark_as_read_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_batch_mark_as_read_description",
 )
 object BatchMarkAsRead : ClickableFeature() {
 

@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -20,7 +21,12 @@ import dev.ujhhgtg.wekit.utils.nul
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.bool
 
-@Feature(name = "修改显示余额", categories = ["红包与支付"], description = "伪装钱包余额文字")
+@Feature(
+    id = "修改显示余额",
+    nameRes = "feature_modify_wallet_balance_display_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_modify_wallet_balance_display_description",
+)
 object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
 
     private const val KEY_BALANCE = "fake_wallet_balance"

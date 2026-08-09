@@ -5,11 +5,17 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeSettingsInjector
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.ExtensionIcon
 import dev.ujhhgtg.wekit.utils.HookParam
 
-@Feature(name = "模块设置", categories = ["首页右上角菜单"], description = "在首页右上角菜单添加「WeKit」选项")
+@Feature(
+    id = "模块设置",
+    nameRes = "feature_module_settings_name",
+    categoryIds = [FeatureCategoryIds.HOME_SCREEN_MENU],
+    descriptionRes = "feature_module_settings_description",
+)
 object ModuleSettings : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProvider {
 
     override fun onEnable() {

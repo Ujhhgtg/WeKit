@@ -13,6 +13,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
 import dev.ujhhgtg.wekit.features.items.chat.panel.PickedPanelFile
@@ -63,9 +64,10 @@ import kotlin.io.path.writeBytes
 import kotlin.time.Duration.Companion.minutes
 
 @Feature(
-    name = "表情面板",
-    categories = ["聊天"],
-    description = "长按表情按钮打开表情面板"
+    id = "表情面板",
+    nameRes = "feature_sticker_panel_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_sticker_panel_description",
 )
 object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in ChatFooterHooks
 

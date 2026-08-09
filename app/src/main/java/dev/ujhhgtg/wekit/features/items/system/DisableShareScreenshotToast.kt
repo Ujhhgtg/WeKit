@@ -3,9 +3,15 @@ package dev.ujhhgtg.wekit.features.items.system
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(name = "禁用「转发截图」提示", categories = ["系统与隐私"], description = "你在教我做事?")
+@Feature(
+    id = "禁用「转发截图」提示",
+    nameRes = "feature_disable_share_screenshot_toast_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_disable_share_screenshot_toast_description",
+)
 object DisableShareScreenshotToast : SwitchFeature(), IResolveDex {
 
     private val methodDisplayToast by dexMethod {

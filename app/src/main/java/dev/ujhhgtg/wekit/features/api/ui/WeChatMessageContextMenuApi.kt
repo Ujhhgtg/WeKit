@@ -26,6 +26,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.MergeChatMessageContextMenuItems
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -35,7 +36,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.lang.ref.WeakReference
 
-@Feature(name = "聊天界面消息菜单扩展", categories = ["API"], description = "为聊天界面消息长按菜单提供添加菜单项功能")
+@Feature(
+    id = "聊天界面消息菜单扩展",
+    nameRes = "feature_we_chat_message_context_menu_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_chat_message_context_menu_api_description",
+)
 object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
 
     fun interface IMenuItemsProvider {

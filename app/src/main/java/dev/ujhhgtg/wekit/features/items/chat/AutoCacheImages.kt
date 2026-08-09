@@ -17,6 +17,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -30,7 +31,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(name = "自动缓存图片", categories = ["聊天"], description = "监听接收到的图片消息, 自动触发微信从 CDN 下载, 将原图缓存到本地")
+@Feature(
+    id = "自动缓存图片",
+    nameRes = "feature_auto_cache_images_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_auto_cache_images_description",
+)
 object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
 
     private const val TAG = "AutoCacheImages"

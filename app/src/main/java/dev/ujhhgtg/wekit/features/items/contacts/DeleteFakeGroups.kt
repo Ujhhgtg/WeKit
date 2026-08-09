@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.LEGIT_CHATROOM_REGEX
 import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.isFakeGroup
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -20,10 +21,10 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlin.concurrent.thread
 
 @Feature(
-    name = "删除假群组",
-    categories = ["娱乐"],
-    description = "彻底清除假群组 (仅清除本地数据库，不影响原群)。" +
-        "任何包含 @chatroom、但不符合 <纯数字>@chatroom 格式的 wxid 都会被识别为假群。"
+    id = "删除假群组",
+    nameRes = "feature_delete_fake_groups_name",
+    categoryIds = [FeatureCategoryIds.ENTERTAIN],
+    descriptionRes = "feature_delete_fake_groups_description",
 )
 object DeleteFakeGroups : ClickableFeature() {
 

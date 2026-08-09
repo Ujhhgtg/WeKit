@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.system
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -22,7 +23,12 @@ import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(name = "清理缓存垃圾", categories = ["系统与隐私"], description = "自动或手动清理微信的缓存")
+@Feature(
+    id = "清理缓存垃圾",
+    nameRes = "feature_auto_clean_cache_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_auto_clean_cache_description",
+)
 object AutoCleanCache : ClickableFeature() {
 
     private const val TAG = "AutoCleanCache"

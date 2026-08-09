@@ -11,13 +11,19 @@ import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(name = "修改文本消息显示", categories = ["聊天"], description = "向消息长按菜单添加菜单项, 可修改本地消息显示内容")
+@Feature(
+    id = "修改文本消息显示",
+    nameRes = "feature_modify_text_message_display_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_modify_text_message_display_description",
+)
 object ModifyTextMessageDisplay : SwitchFeature(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
 

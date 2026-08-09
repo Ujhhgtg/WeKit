@@ -12,6 +12,7 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -81,7 +82,12 @@ import java.io.File
 import kotlin.io.path.div
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(name = "API + MCP 服务器", categories = ["系统与隐私"], description = "启用 REST API 与 MCP 服务器, 让人类与 AI 能够访问微信能力")
+@Feature(
+    id = "API + MCP 服务器",
+    nameRes = "feature_api_server_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_api_server_description",
+)
 object ApiServer : ClickableFeature() {
 
     private var authToken by prefOption("api_auth_token", "your_token")

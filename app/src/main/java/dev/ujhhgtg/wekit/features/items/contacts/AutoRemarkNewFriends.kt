@@ -27,6 +27,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -37,9 +38,10 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
 @Feature(
-    name = "添加自动备注",
-    categories = ["联系人与群组"],
-    description = "添加好友时自动备注"
+    id = "添加自动备注",
+    nameRes = "feature_auto_remark_new_friends_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
+    descriptionRes = "feature_auto_remark_new_friends_description",
 )
 object AutoRemarkNewFriends : ClickableFeature() {
 

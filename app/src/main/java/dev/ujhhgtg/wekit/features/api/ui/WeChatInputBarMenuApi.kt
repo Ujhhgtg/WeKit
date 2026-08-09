@@ -19,6 +19,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -26,9 +27,10 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 @Feature(
-    name = "聊天输入栏增强 API",
-    categories = ["API"],
-    description = "为聊天输入栏长按菜单提供扩展功能注册接口"
+    id = "聊天输入栏增强 API",
+    nameRes = "feature_we_chat_input_bar_menu_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_chat_input_bar_menu_api_description",
 )
 object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
 

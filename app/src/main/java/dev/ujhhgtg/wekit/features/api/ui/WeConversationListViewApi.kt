@@ -13,6 +13,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -23,7 +24,12 @@ import java.util.IdentityHashMap
 import java.util.WeakHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Feature(name = "会话列表 View 绑定监听服务", categories = ["API"], description = "提供会话列表 View 绑定监听能力")
+@Feature(
+    id = "会话列表 View 绑定监听服务",
+    nameRes = "feature_we_conversation_list_view_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_conversation_list_view_api_description",
+)
 object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
     data class BindContext(

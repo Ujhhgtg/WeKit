@@ -6,9 +6,15 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.reflection.BString
 
-@Feature(name = "对话框 API", categories = ["API"], description = "提供显示微信自带对话框的能力")
+@Feature(
+    id = "对话框 API",
+    nameRes = "feature_we_alert_dialog_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_alert_dialog_api_description",
+)
 object WeAlertDialogApi : ApiFeature(), IResolveDex {
 
     private val classMmAlert by dexClass {

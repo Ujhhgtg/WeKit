@@ -4,9 +4,15 @@ import android.widget.BaseAdapter
 import com.tencent.mm.plugin.profile.ui.ProfileSettingUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(name = "显示隐藏朋友设置项", categories = ["联系人与群组"], description = "阻止微信隐藏朋友设置; 部分设置项可能显示异常, 但不影响功能")
+@Feature(
+    id = "显示隐藏朋友设置项",
+    nameRes = "feature_display_hidden_contact_settings_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
+    descriptionRes = "feature_display_hidden_contact_settings_description",
+)
 object DisplayHiddenContactSettings : SwitchFeature() {
 
     override fun onEnable() {

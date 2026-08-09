@@ -8,13 +8,19 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLogRespProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(name = "清空资料信息", categories = ["娱乐"], description = "清空当前用户的地区与性别等资料信息")
+@Feature(
+    id = "清空资料信息",
+    nameRes = "feature_clear_profile_details_name",
+    categoryIds = [FeatureCategoryIds.ENTERTAIN],
+    descriptionRes = "feature_clear_profile_details_description",
+)
 object ClearProfileDetails : ClickableFeature() {
 
     private const val TAG = "ClearProfileDetails"

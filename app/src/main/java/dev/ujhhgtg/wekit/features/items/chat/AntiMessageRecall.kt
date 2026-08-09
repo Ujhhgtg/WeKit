@@ -19,6 +19,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -29,7 +30,12 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
-@Feature(name = "防撤回", categories = ["聊天"], description = "阻止撤回消息")
+@Feature(
+    id = "防撤回",
+    nameRes = "feature_anti_message_recall_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_anti_message_recall_description",
+)
 object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListener {
 
     private const val TAG = "AntiMessageRecall"

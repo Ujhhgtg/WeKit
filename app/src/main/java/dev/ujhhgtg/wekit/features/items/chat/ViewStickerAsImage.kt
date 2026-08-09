@@ -14,6 +14,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -36,9 +37,10 @@ import kotlin.math.roundToInt
 import org.luckypray.dexkit.DexKitBridge
 
 @Feature(
-    name = "表情消息以图片打开",
-    categories = ["聊天"],
-    description = "点击聊天中的贴纸时使用微信原生图片查看器打开",
+    id = "表情消息以图片打开",
+    nameRes = "feature_view_sticker_as_image_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_view_sticker_as_image_description",
 )
 object ViewStickerAsImage : SwitchFeature(), IResolveDex {
     private const val TAG = "ViewStickerAsImage"

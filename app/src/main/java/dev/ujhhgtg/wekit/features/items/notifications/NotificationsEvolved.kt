@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcesses
@@ -45,9 +46,10 @@ import kotlin.io.path.writeBytes
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "通知进化",
-    categories = ["通知"],
-    description = "让微信的新消息通知更易用\n1. 「快速回复」按钮\n2. 「标记为已读」按钮\n3. 使用原生对话样式 (MessagingStyle)"
+    id = "通知进化",
+    nameRes = "feature_notifications_evolved_name",
+    categoryIds = [FeatureCategoryIds.NOTIFICATIONS],
+    descriptionRes = "feature_notifications_evolved_description",
 )
 object NotificationsEvolved : SwitchFeature(), IResolveDex {
 

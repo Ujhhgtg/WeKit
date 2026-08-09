@@ -4,11 +4,14 @@ import android.view.View
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 @Feature(
-    name = "隐藏其他设备横幅", categories = ["界面美化"],
-    description = "隐藏主页顶部其他设备已登录横幅"
+    id = "隐藏其他设备横幅",
+    nameRes = "feature_hide_other_devices_banner_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_hide_other_devices_banner_description",
 )
 object HideOtherDevicesBanner : SwitchFeature(), IResolveDex {
 

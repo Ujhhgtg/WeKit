@@ -24,6 +24,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -51,9 +52,10 @@ private enum class ConversationListPreset(
 }
 
 @Feature(
-    name = "美化对话列表",
-    categories = ["聊天", "界面美化"],
-    description = "为主页会话列表提供卡片布局、未读突出和分隔线设置",
+    id = "美化对话列表",
+    nameRes = "feature_beautify_conversation_list_name",
+    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_beautify_conversation_list_description",
 )
 object BeautifyConversationList : ClickableFeature() {
 

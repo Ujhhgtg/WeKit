@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -16,9 +17,10 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 import org.luckypray.dexkit.query.enums.StringMatchType
 
 @Feature(
-    name = "Eruda 调试面板",
-    categories = ["小程序"],
-    description = "小程序页面注入 Eruda 调试控制台"
+    id = "Eruda 调试面板",
+    nameRes = "feature_eruda_console_name",
+    categoryIds = [FeatureCategoryIds.MINIAPPS],
+    descriptionRes = "feature_eruda_console_description",
 )
 object ErudaConsole : SwitchFeature(), IResolveDex {
 

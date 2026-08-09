@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -25,9 +26,10 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "批量免打扰",
-    categories = ["批量操作"],
-    description = "选择多个好友或群聊后, 批量开启或关闭消息免打扰"
+    id = "批量免打扰",
+    nameRes = "feature_batch_mute_conversations_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_batch_mute_conversations_description",
 )
 object BatchMuteConversations : ClickableFeature() {
 

@@ -21,6 +21,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -44,9 +45,10 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 @Feature(
-    name = "显示群成员实名尾字",
-    categories = ["聊天"],
-    description = "通过转账接口获取并显示群成员的实名尾字"
+    id = "显示群成员实名尾字",
+    nameRes = "feature_display_group_member_real_names_last_char_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_display_group_member_real_names_last_char_description",
 )
 object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoProvider {
 

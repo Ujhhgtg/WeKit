@@ -8,11 +8,17 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Feature(name = "消息 View 创建监听服务", categories = ["API"], description = "提供消息 View 创建监听能力")
+@Feature(
+    id = "消息 View 创建监听服务",
+    nameRes = "feature_we_chat_message_view_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_chat_message_view_api_description",
+)
 object WeChatMessageViewApi : ApiFeature(), IResolveDex {
 
     fun interface ICreateViewListener {

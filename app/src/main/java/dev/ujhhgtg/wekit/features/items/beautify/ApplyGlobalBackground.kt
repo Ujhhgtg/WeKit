@@ -41,6 +41,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -56,8 +57,10 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 @Feature(
-    name = "应用全局背景", categories = ["界面美化"],
-    description = "将微信背景全局替换为图片"
+    id = "应用全局背景",
+    nameRes = "feature_apply_global_background_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_apply_global_background_description",
 )
 object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
 

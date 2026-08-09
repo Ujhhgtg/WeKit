@@ -5,12 +5,18 @@ import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.UndoIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(name = "批量撤回", categories = ["聊天"], description = "向消息长按菜单添加菜单项, 可批量撤回消息")
+@Feature(
+    id = "批量撤回",
+    nameRes = "feature_batch_revoke_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_batch_revoke_description",
+)
 object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override fun onEnable() {

@@ -40,6 +40,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -53,8 +54,10 @@ import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlin.io.path.div
 
 @Feature(
-    name = "虚拟视频通话", categories = ["聊天", "音视频通话"],
-    description = "在微信视频通话相机预览中播放本地视频或网络直播流"
+    id = "虚拟视频通话",
+    nameRes = "feature_virtual_voip_video_name",
+    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
+    descriptionRes = "feature_virtual_voip_video_description",
 )
 object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 

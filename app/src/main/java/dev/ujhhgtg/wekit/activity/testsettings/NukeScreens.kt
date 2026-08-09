@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.activity.testsettings
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.foundation.background
@@ -44,6 +45,7 @@ import com.composables.icons.materialsymbols.outlined.Style
 import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Volunteer_activism
 import dev.ujhhgtg.wekit.activity.settings.FEATURE_CATEGORIES
+import dev.ujhhgtg.wekit.activity.settings.featureCategoryTitleRes
 import dev.ujhhgtg.wekit.activity.settings.LocalComponentActivity
 import dev.ujhhgtg.wekit.activity.settings.NEW_FEATURE_ITEMS
 import dev.ujhhgtg.wekit.activity.settings.NEW_FEATURES_CATEGORY
@@ -51,9 +53,11 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCountAndChevron
@@ -79,9 +83,11 @@ import dev.ujhhgtg.wekit.utils.openInSystem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.core.net.toUri
+import java.text.Collator
+import java.util.Locale
 
 internal sealed interface NukeDestination {
-    data class Category(val name: String) : NukeDestination
+    data class Category(val id: String) : NukeDestination
     data object ModuleDebug : NukeDestination
     data object Update : NukeDestination
     data object GeneralSettings : NukeDestination
@@ -101,9 +107,18 @@ private data class NukeRootEntry(
 
 @Composable
 internal fun NukeSettingsRoot() {
+    val context = LocalContext.current
+    val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val featureNameCollator = remember(resolvedLocale) {
+        Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
+    }
     var query by rememberSaveable { mutableStateOf("") }
-    val featureItems = remember {
-        FeaturesProvider.ALL_HOOK_ITEMS.filterIsInstance<SwitchFeature>()
+    val featureItems = remember(resolvedLocale) {
+        FeaturesProvider.ALL_HOOK_ITEMS
+            .filterIsInstance<SwitchFeature>()
+            .sortedWith { first, second ->
+                featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
+            }
     }
     val navigator = rememberNukeRevealStackState<NukeDestination>()
 
@@ -165,19 +180,19 @@ private fun NukeHomePage(
     val featureEntries = buildList {
         add(
             NukeRootEntry(
-                title = NEW_FEATURES_CATEGORY,
+                title = context.getString(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
                 imageVector = MaterialSymbols.Outlined.Fiber_new,
                 count = NEW_FEATURE_ITEMS.count { it is SwitchFeature },
                 destination = NukeDestination.Category(NEW_FEATURES_CATEGORY),
             )
         )
-        FEATURE_CATEGORIES.forEach { (name, icon) ->
+        FEATURE_CATEGORIES.forEach { category ->
             add(
                 NukeRootEntry(
-                    title = name,
-                    imageVector = icon,
-                    count = featureItems.count { name in it.categories },
-                    destination = NukeDestination.Category(name),
+                    title = context.getString(category.titleRes),
+                    imageVector = category.icon,
+                    count = featureItems.count { category.id in it.categoryIds },
+                    destination = NukeDestination.Category(category.id),
                 )
             )
         }
@@ -272,6 +287,7 @@ private fun NukeHomePage(
                     toggleRevision = searchToggleRevision,
                     onToggleStateChanged = { searchToggleRevision++ },
                     activity = activity,
+                    localizedContext = context,
                     animate = searchEntranceEnabled,
                 )
             }
@@ -412,14 +428,15 @@ private fun LazyListScope.NukeFeatureSearchResults(
     toggleRevision: Int,
     onToggleStateChanged: () -> Unit,
     activity: androidx.activity.ComponentActivity,
+    localizedContext: Context,
     animate: Boolean,
 ) {
     val normalizedQuery = query.trim().lowercase()
     val matchingItems = featureItems.filter { feature ->
         buildList {
-            add(feature.name)
-            add(feature.description)
-            addAll(feature.categories)
+            add(feature.localizedName(localizedContext))
+            add(feature.localizedDescription(localizedContext))
+            addAll(feature.categoryIds.map { localizedContext.getString(featureCategoryTitleRes(it)) })
         }.any { matchesNukeQuery(it.lowercase(), normalizedQuery) }
     }
 
@@ -442,7 +459,7 @@ private fun LazyListScope.NukeFeatureSearchResults(
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
-        itemsIndexed(matchingItems, key = { _, feature -> feature.name }) { index, feature ->
+        itemsIndexed(matchingItems, key = { _, feature -> feature.technicalId }) { index, feature ->
             Column(
                 Modifier.nukeGroupedCardItem(index, matchingItems.size, animate = animate),
             ) {
@@ -460,15 +477,16 @@ private fun LazyListScope.NukeFeatureSearchResults(
 
 @Composable
 internal fun NukeFeatureCategoryPage(
-    categoryName: String,
+    categoryId: String,
     featureItems: List<SwitchFeature>,
     onBack: (Offset) -> Unit,
 ) {
-    val items = remember(categoryName, featureItems) {
-        if (categoryName == NEW_FEATURES_CATEGORY) {
+    val categoryTitle = LocalContext.current.getString(featureCategoryTitleRes(categoryId))
+    val items = remember(categoryId, featureItems) {
+        if (categoryId == NEW_FEATURES_CATEGORY) {
             NEW_FEATURE_ITEMS.filterIsInstance<SwitchFeature>()
         } else {
-            featureItems.filter { categoryName in it.categories }
+            featureItems.filter { categoryId in it.categoryIds }
         }
     }
     var toggleRevision by remember { mutableIntStateOf(0) }
@@ -481,7 +499,7 @@ internal fun NukeFeatureCategoryPage(
     }
 
     NukePageScaffold(
-        title = categoryName,
+        title = categoryTitle,
         onBack = onBack,
         // Rows are emitted as individual items; 0 spacing keeps them flush inside one card.
         itemSpacing = 0.dp,
@@ -495,9 +513,9 @@ internal fun NukeFeatureCategoryPage(
             }
         } else {
             item(key = "title") {
-                NukeSettingGroupTitle(title = categoryName)
+                NukeSettingGroupTitle(title = categoryTitle)
             }
-            itemsIndexed(items, key = { _, feature -> feature.name }) { index, feature ->
+            itemsIndexed(items, key = { _, feature -> feature.technicalId }) { index, feature ->
                 Column(
                     Modifier.nukeGroupedCardItem(index, items.size, animate = entranceEnabled),
                 ) {
@@ -521,12 +539,13 @@ internal fun NukeFeatureRow(
     onStateChanged: () -> Unit,
     activity: androidx.activity.ComponentActivity,
 ) {
-    val checked = remember(feature.name, revision) {
-        WePrefs.getBoolOrDef(feature.name, feature.defaultEnabled)
+    val context = LocalContext.current
+    val checked = remember(feature.technicalId, revision) {
+        WePrefs.getBoolOrDef(feature.technicalId, feature.defaultEnabled)
     }
     val configurable = feature as? ClickableFeature
 
-    DisposableEffect(feature.name) {
+    DisposableEffect(feature.technicalId) {
         feature.setToggleCompletionCallback { onStateChanged() }
         onDispose {}
     }
@@ -538,13 +557,13 @@ internal fun NukeFeatureRow(
     }
 
     NukePreferenceRow(
-        title = feature.name,
-        description = feature.description.takeIf { it.isNotBlank() },
+        title = feature.localizedName(context),
+        description = feature.localizedDescription(context).takeIf { it.isNotBlank() },
         onClick = if (configurable != null) {
             {
                 runCatching { configurable.onClick(activity) }
                     .onFailure {
-                        WeLogger.e("NukeSettings", "onClick failed for ${feature.displayName}", it)
+                        WeLogger.e("NukeSettings", "onClick failed for ${feature.technicalPath}", it)
                     }
             }
         } else {
@@ -579,16 +598,24 @@ private fun matchesNukeQuery(candidate: String, query: String): Boolean {
 }
 
 private fun nukeFeatureCategoryGroups(entries: List<NukeRootEntry>): List<List<NukeRootEntry>> {
-    val byTitle = entries.associateBy(NukeRootEntry::title)
-    return listOf(
+    val byCategoryId = buildMap {
+        entries.forEach { entry ->
+            when (val destination = entry.destination) {
+                is NukeDestination.Category -> put(destination.id, entry)
+                else -> Unit
+            }
+        }
+    }
+    val categoryGroups = listOf(
         listOf(NEW_FEATURES_CATEGORY),
-        listOf("聊天", "联系人与群组", "红包与支付"),
-        listOf("朋友圈", "系统与隐私", "音视频通话", "通知"),
-        listOf("界面美化", "公众号", "小程序", "视频号"),
-        listOf("个人资料", "调试"),
-        listOf("脚本 (Java)"),
-        listOf("娱乐", "批量操作"),
-        listOf("首页右上角菜单", "联系人详情页面"),
-        listOf("模块设置及调试"),
-    ).map { titles -> titles.mapNotNull(byTitle::get) }
+        listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.PAYMENT),
+        listOf(FeatureCategoryIds.MOMENTS, FeatureCategoryIds.SYSTEM_PRIVACY, FeatureCategoryIds.VOIP, FeatureCategoryIds.NOTIFICATIONS),
+        listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.OFFICIAL_ACCOUNTS, FeatureCategoryIds.MINIAPPS, FeatureCategoryIds.CHANNELS),
+        listOf(FeatureCategoryIds.PROFILE, FeatureCategoryIds.DEBUG),
+        listOf(FeatureCategoryIds.SCRIPTING_JAVA),
+        listOf(FeatureCategoryIds.ENTERTAIN, FeatureCategoryIds.BATCH),
+        listOf(FeatureCategoryIds.HOME_SCREEN_MENU, FeatureCategoryIds.CONTACT_DETAILS),
+    ).map { ids -> ids.map(byCategoryId::getValue) }.toMutableList()
+    categoryGroups += entries.filter { it.destination == NukeDestination.ModuleDebug }
+    return categoryGroups
 }

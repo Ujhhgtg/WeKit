@@ -18,6 +18,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -34,7 +35,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
-@Feature(name = "自动缓存文件", categories = ["聊天"], description = "监听接收到的文件消息, 在对方上传完成后自动触发微信内部下载将其缓存到本地")
+@Feature(
+    id = "自动缓存文件",
+    nameRes = "feature_auto_cache_files_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_auto_cache_files_description",
+)
 object AutoCacheFiles : ClickableFeature(),
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener {

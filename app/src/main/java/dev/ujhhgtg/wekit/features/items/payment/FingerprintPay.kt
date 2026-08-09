@@ -31,6 +31,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -45,7 +46,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.nul
 
 
-@Feature(name = "指纹支付", categories = ["红包与支付"], description = "使用指纹快捷确认支付")
+@Feature(
+    id = "指纹支付",
+    nameRes = "feature_fingerprint_pay_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_fingerprint_pay_description",
+)
 object FingerprintPay : ClickableFeature() {
 
     private const val TAG = "FingerprintPay"

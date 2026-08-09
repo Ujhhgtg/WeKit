@@ -29,6 +29,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -41,7 +42,12 @@ import dev.ujhhgtg.wekit.utils.collections.LruCache
 import dev.ujhhgtg.wekit.utils.unreachable
 import kotlin.math.roundToInt
 
-@Feature(name = "显示群成员身份", categories = ["聊天"], description = "在群聊中显示群成员的身份: 群主, 管理员, 成员")
+@Feature(
+    id = "显示群成员身份",
+    nameRes = "feature_display_group_member_roles_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_display_group_member_roles_description",
+)
 object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
     WeChatMessageViewApi.ICreateViewListener {
 

@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -30,7 +31,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Modifier
 import kotlin.math.roundToInt
 
-@Feature(name = "对话框窗口级背景模糊", categories = ["界面美化"], description = "为模块与微信的对话框添加窗口级模糊处理 [需 SDK >= 31]")
+@Feature(
+    id = "对话框窗口级背景模糊",
+    nameRes = "feature_apply_dialog_background_blur_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_apply_dialog_background_blur_description",
+)
 object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
 
     private const val TAG = "ApplyDialogBackgroundBlur"

@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -27,7 +28,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import org.osmdroid.util.GeoPoint
 import java.util.concurrent.ConcurrentHashMap
 
-@Feature(name = "虚拟定位", categories = ["系统与隐私"], description = "预设定微信获取到的经纬度")
+@Feature(
+    id = "虚拟定位",
+    nameRes = "feature_fake_location_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_fake_location_description",
+)
 object FakeLocation : ClickableFeature(), IResolveDex {
 
     private val methodListener by dexMethod {

@@ -24,6 +24,7 @@ import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.items.payment.RedPacketSettings.ReceiveMode
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -37,7 +38,12 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
 @SuppressLint("DiscouragedApi")
-@Feature(name = "自动抢红包", categories = ["红包与支付"], description = "监听消息并自动拆开红包")
+@Feature(
+    id = "自动抢红包",
+    nameRes = "feature_auto_open_red_packets_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_auto_open_red_packets_description",
+)
 object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertListener,
     IResolveDex {
 

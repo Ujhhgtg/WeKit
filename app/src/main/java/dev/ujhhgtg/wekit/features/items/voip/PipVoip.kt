@@ -25,6 +25,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
@@ -61,9 +62,10 @@ import java.util.WeakHashMap
  * 因此本功能在该模式下直接停用。
  */
 @Feature(
-    name = "音视频通话使用画中画",
-    categories = ["聊天", "音视频通话"],
-    description = "让微信的音视频通话使用原生的画中画模式而非悬浮窗"
+    id = "音视频通话使用画中画",
+    nameRes = "feature_pip_voip_name",
+    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
+    descriptionRes = "feature_pip_voip_description",
 )
 object PipVoip : SwitchFeature(), IResolveDex {
 

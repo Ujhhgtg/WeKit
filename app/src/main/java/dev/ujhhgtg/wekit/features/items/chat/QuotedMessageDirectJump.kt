@@ -16,6 +16,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -23,7 +24,12 @@ import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 
-@Feature(name = "引用消息直达", categories = ["聊天"], description = "点击被引用消息时直接跳转至对应消息")
+@Feature(
+    id = "引用消息直达",
+    nameRes = "feature_quoted_message_direct_jump_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_quoted_message_direct_jump_description",
+)
 object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
 
     private var messageListDirectJump by prefOption("chat_quoted_direct_jump_message_list", true)

@@ -19,6 +19,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -30,8 +31,10 @@ import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 
 @Feature(
-    name = "DPI 修改", categories = ["界面美化", "系统与隐私"],
-    description = "自定义微信屏幕密度"
+    id = "DPI 修改",
+    nameRes = "feature_custom_dpi_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_custom_dpi_description",
 )
 object CustomDpi : ClickableFeature(), IResolveDex {
 

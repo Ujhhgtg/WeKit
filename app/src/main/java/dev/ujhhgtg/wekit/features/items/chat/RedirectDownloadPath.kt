@@ -13,6 +13,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -29,7 +30,12 @@ import java.util.Locale
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
 
-@Feature(name = "重定向文件下载路径", categories = ["聊天"], description = "将微信接收的聊天文件保存到自定义文件夹")
+@Feature(
+    id = "重定向文件下载路径",
+    nameRes = "feature_redirect_download_path_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_redirect_download_path_description",
+)
 object RedirectDownloadPath : ClickableFeature(), IResolveDex {
 
     private const val TAG = "RedirectDownloadPath"

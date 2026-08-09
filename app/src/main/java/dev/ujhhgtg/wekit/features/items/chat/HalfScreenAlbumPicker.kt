@@ -27,6 +27,7 @@ import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -41,9 +42,10 @@ import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlin.math.roundToInt
 
 @Feature(
-    name = "半屏相册选择器",
-    categories = ["聊天"],
-    description = "将聊天「+」面板的相册选择器、图片预览和搜索页显示为半屏卡片, 上方可看到聊天内容 (图片编辑器保持全屏)"
+    id = "半屏相册选择器",
+    nameRes = "feature_half_screen_album_picker_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_half_screen_album_picker_description",
 )
 object HalfScreenAlbumPicker : ClickableFeature() {
 

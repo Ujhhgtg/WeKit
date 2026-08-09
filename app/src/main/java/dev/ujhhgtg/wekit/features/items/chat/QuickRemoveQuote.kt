@@ -6,9 +6,15 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(name = "快捷清除引用", categories = ["聊天"], description = "在输入退格时若输入框无文字自动清除引用")
+@Feature(
+    id = "快捷清除引用",
+    nameRes = "feature_quick_remove_quote_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_quick_remove_quote_description",
+)
 object QuickRemoveQuote : SwitchFeature(), IResolveDex {
 
     private val methodSupportAutoCompleteOnKey by dexMethod {

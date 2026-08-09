@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -18,7 +19,12 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(name = "伪装语音时长", categories = ["聊天"], description = "预设定伪装发送语音显示的时长")
+@Feature(
+    id = "伪装语音时长",
+    nameRes = "feature_fake_voice_duration_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_fake_voice_duration_description",
+)
 object FakeVoiceDuration : ClickableFeature(), IResolveDex {
 
     private val methodVoiceRecorderGetLength by dexMethod {

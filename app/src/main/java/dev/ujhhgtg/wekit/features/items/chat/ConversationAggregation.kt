@@ -51,6 +51,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.syncFoldersToDatabase
 import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -81,7 +82,12 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import java.lang.reflect.Modifier as JavaModifier
 
-@Feature(name = "对话归拢", categories = ["聊天"], description = "将多个对话归拢在一个文件夹内\n设置对话头像需同时启用「自定义好友本地头像」")
+@Feature(
+    id = "对话归拢",
+    nameRes = "feature_conversation_aggregation_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_conversation_aggregation_description",
+)
 object ConversationAggregation : ClickableFeature(),
     WeDatabaseListenerApi.IQueryListener,
     WeDatabaseListenerApi.IInsertListener,

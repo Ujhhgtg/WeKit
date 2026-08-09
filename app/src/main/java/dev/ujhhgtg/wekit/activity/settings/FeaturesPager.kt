@@ -17,6 +17,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Arrow_back
@@ -27,6 +29,7 @@ import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.NewFeatures
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
@@ -35,6 +38,8 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.text.Collator
+import java.util.Locale
 
 
 // ---------------------------------------------------------------------------
@@ -55,8 +60,8 @@ private var featureToggleRevision by mutableIntStateOf(0)
 @Composable
 private fun featureChecked(item: BaseFeature): Boolean {
     val revision = featureToggleRevision
-    return remember(item.name, revision) {
-        WePrefs.getBoolOrDef(item.name, (item as? SwitchFeature)?.defaultEnabled == true)
+    return remember(item.technicalId, revision) {
+        WePrefs.getBoolOrDef(item.technicalId, (item as? SwitchFeature)?.defaultEnabled == true)
     }
 }
 
@@ -66,16 +71,27 @@ private fun featureChecked(item: BaseFeature): Boolean {
 
 @Composable
 fun FeaturesPager(onOpenCategory: (String) -> Unit) {
+    val context = LocalContext.current
+    val resolvedLocale = WeKitLocaleController.resolvedLocale
     val queryState = rememberTextFieldState()
     val query = queryState.text.toString()
     val searching = query.isNotBlank()
 
-    val searchableItems = remember { FeaturesProvider.ALL_HOOK_ITEMS.filterIsInstance<SwitchFeature>() }
-    val filteredItems = remember(query) {
+    val featureNameCollator = remember(resolvedLocale) {
+        Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
+    }
+    val searchableItems = remember(resolvedLocale) {
+        FeaturesProvider.ALL_HOOK_ITEMS
+            .filterIsInstance<SwitchFeature>()
+            .sortedWith { first, second ->
+                featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
+            }
+    }
+    val filteredItems = remember(query, resolvedLocale) {
         if (!searching) emptyList()
         else searchableItems.filter {
-            it.name.contains(query, ignoreCase = true) ||
-                    it.description.contains(query, ignoreCase = true)
+            it.localizedName(context).contains(query, ignoreCase = true) ||
+                it.localizedDescription(context).contains(query, ignoreCase = true)
         }
     }
 
@@ -130,7 +146,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                     }
                 }
             } else {
-                itemsIndexed(filteredItems, key = { _, item -> item.name }) { index, item ->
+                itemsIndexed(filteredItems, key = { _, item -> item.technicalId }) { index, item ->
                     Column(
                         modifier = Modifier
                             .then(if (index == 0) Modifier.padding(top = 12.dp) else Modifier)
@@ -154,7 +170,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                             .fillMaxWidth()
                     ) {
                         ArrowPreference(
-                            title = NEW_FEATURES_CATEGORY,
+                            title = stringResource(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
                             summary = "最近 ${NewFeatures.WINDOW_DAYS} 天新增 ${NEW_FEATURE_ITEMS.size} 项",
                             startAction = {
                                 Icon(
@@ -176,18 +192,18 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                         .padding(top = 12.dp)
                         .fillMaxWidth()
                 ) {
-                    FEATURE_CATEGORIES.forEach { (name, icon) ->
+                    FEATURE_CATEGORIES.forEach { category ->
                         ArrowPreference(
-                            title = name,
+                            title = stringResource(category.titleRes),
                             startAction = {
                                 Icon(
-                                    imageVector = icon,
+                                    imageVector = category.icon,
                                     contentDescription = null,
                                     modifier = Modifier.padding(end = 6.dp),
                                     tint = MiuixTheme.colorScheme.onBackground,
                                 )
                             },
-                            onClick = { onOpenCategory(name) },
+                            onClick = { onOpenCategory(category.id) },
                         )
                     }
                 }
@@ -203,14 +219,23 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
 // ---------------------------------------------------------------------------
 
 @Composable
-fun CategoryDetailScreen(categoryName: String, onBack: () -> Unit) {
-    val items = remember(categoryName) {
-        if (categoryName == NEW_FEATURES_CATEGORY) NEW_FEATURE_ITEMS
-        else FeaturesProvider.ALL_HOOK_ITEMS.filter { categoryName in it.categories }
+fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val featureNameCollator = remember(resolvedLocale) {
+        Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
+    }
+    val items = remember(categoryId, resolvedLocale) {
+        if (categoryId == NEW_FEATURES_CATEGORY) NEW_FEATURE_ITEMS
+        else FeaturesProvider.ALL_HOOK_ITEMS
+            .filter { categoryId in it.categoryIds }
+            .sortedWith { first, second ->
+                featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
+            }
     }
 
     MiuixListScaffold(
-        title = categoryName,
+        title = stringResource(featureCategoryTitleRes(categoryId)),
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(
@@ -223,7 +248,7 @@ fun CategoryDetailScreen(categoryName: String, onBack: () -> Unit) {
     ) {
         if (items.isEmpty()) return@MiuixListScaffold
 
-        itemsIndexed(items, key = { _, item -> item.name }) { index, item ->
+        itemsIndexed(items, key = { _, item -> item.technicalId }) { index, item ->
             Column(
                 modifier = Modifier
                     .then(if (index == 0) Modifier.padding(top = 12.dp) else Modifier)

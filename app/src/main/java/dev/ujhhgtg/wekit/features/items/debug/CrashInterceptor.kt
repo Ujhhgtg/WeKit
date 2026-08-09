@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.debug
 
 import android.app.Activity
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -9,7 +10,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.crash.JavaCrashHandler
 
-@Feature(name = "崩溃拦截", categories = ["调试"], description = "拦截 Java 层崩溃并记录详细信息, 支持查看和导出日志")
+@Feature(
+    id = "崩溃拦截",
+    nameRes = "feature_crash_interceptor_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_crash_interceptor_description",
+)
 object CrashInterceptor : SwitchFeature() {
 
     private const val TAG = "CrashInterceptor"

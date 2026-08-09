@@ -23,6 +23,7 @@ import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.fetchBeforeTransfer
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.sendPlaceOrder
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -49,9 +50,10 @@ import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalSerializationApi::class)
 @Feature(
-    name = "爆破群成员实名首字",
-    categories = ["聊天", "联系人详情页面"],
-    description = "通过大额转账的姓名校验接口, 逐一尝试并还原群成员实名的首字 (与显示实名尾字功能配合可拼出完整姓名). 会向服务器发起多次转账下单 (不会真正扣款), 有触发风控的风险, 请自行承担"
+    id = "爆破群成员实名首字",
+    nameRes = "feature_brute_force_group_member_real_names_first_char_name",
+    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.CONTACT_DETAILS],
+    descriptionRes = "feature_brute_force_group_member_real_names_first_char_description",
 )
 object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
     WeContactPrefsScreenApi.IContactInfoProvider {

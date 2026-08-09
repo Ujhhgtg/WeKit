@@ -37,6 +37,7 @@ import com.composables.icons.materialsymbols.outlined.Open_in_new
 import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -48,9 +49,10 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.openInSystem
 
 @Feature(
-    name = "链接跳转系统打开方式",
-    categories = ["系统与隐私"],
-    description = "打开链接或卡片链接时显示对话框, 可直接使用系统打开方式打开\n若要跳转到第三方应用, 需先在对应应用设置中启用「在此应用中打开支持的网页链接」"
+    id = "链接跳转系统打开方式",
+    nameRes = "feature_link_external_app_jump_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_link_external_app_jump_description",
 )
 object LinkExternalAppJump : SwitchFeature(),
     WeStartActivityApi.IStartActivityListener {

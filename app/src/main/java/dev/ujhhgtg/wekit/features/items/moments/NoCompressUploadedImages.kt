@@ -16,6 +16,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -28,9 +29,10 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
 import kotlin.io.path.copyTo
 
 @Feature(
-    name = "上传原图",
-    categories = ["朋友圈"],
-    description = "上传时不压缩图片, 过大可能上传失败"
+    id = "上传原图",
+    nameRes = "feature_no_compress_uploaded_images_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_no_compress_uploaded_images_description",
 )
 object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
 

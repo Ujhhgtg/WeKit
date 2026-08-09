@@ -25,7 +25,7 @@ abstract class SwitchFeature : BaseFeature() {
 
     final override fun startup() {
         if (!shouldLoadInCurrentProcess) return
-        _isEnabled = WePrefs.getBoolOrDef(name, defaultEnabled)
+        _isEnabled = WePrefs.getBoolOrDef(technicalId, defaultEnabled)
         if (shouldEnableOnStartup) enable()
     }
 
@@ -39,10 +39,10 @@ abstract class SwitchFeature : BaseFeature() {
             if (_isEnabled == value) return
             _isEnabled = value
             if (value) {
-                WeLogger.i("SwitchFeature", "enabling $displayName...")
+                WeLogger.i("SwitchFeature", "enabling $technicalPath...")
                 enable()
             } else {
-                WeLogger.i("SwitchFeature", "disabling $displayName...")
+                WeLogger.i("SwitchFeature", "disabling $technicalPath...")
                 disable()
             }
         }
@@ -56,7 +56,7 @@ abstract class SwitchFeature : BaseFeature() {
     }
 
     fun applyToggle(newState: Boolean) {
-        WePrefs.putBool(name, newState)
+        WePrefs.putBool(technicalId, newState)
         isEnabled = newState
         toggleCompletionCallback?.run()
     }

@@ -9,12 +9,18 @@ import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 @SuppressLint("DiscouragedApi")
-@Feature(name = "数据库监听服务", categories = ["API"], description = "提供数据库插入、更新与查询监听能力")
+@Feature(
+    id = "数据库监听服务",
+    nameRes = "feature_we_database_listener_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_database_listener_api_description",
+)
 object WeDatabaseListenerApi : ApiFeature() {
 
     fun interface IInsertListener {

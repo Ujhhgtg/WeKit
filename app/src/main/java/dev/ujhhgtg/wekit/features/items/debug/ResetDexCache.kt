@@ -5,6 +5,7 @@ import androidx.compose.material3.Text
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -15,7 +16,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@Feature(name = "重置适配信息", categories = ["调试"], description = "清除全部 DEX 适配信息, 等待下次启动时重新适配")
+@Feature(
+    id = "重置适配信息",
+    nameRes = "feature_reset_dex_cache_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_reset_dex_cache_description",
+)
 object ResetDexCache : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {

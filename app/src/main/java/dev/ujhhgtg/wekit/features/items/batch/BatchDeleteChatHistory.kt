@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -21,9 +22,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Feature(
-    name = "批量删除聊天记录",
-    categories = ["批量操作"],
-    description = "彻底清除选中对话的聊天记录 (删除 rconversation 与 message 记录), 此操作不可逆!"
+    id = "批量删除聊天记录",
+    nameRes = "feature_batch_delete_chat_history_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_batch_delete_chat_history_description",
 )
 object BatchDeleteChatHistory : ClickableFeature() {
 

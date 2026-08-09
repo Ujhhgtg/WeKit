@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -41,7 +42,12 @@ data class TextStatusEmoji(
     val attachedText: String?,
 )
 
-@Feature(name = "微信状态服务", categories = ["API"], description = "提供读取当前微信状态的能力")
+@Feature(
+    id = "微信状态服务",
+    nameRes = "feature_we_text_status_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_text_status_api_description",
+)
 object WeTextStatusApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeTextStatusApi"

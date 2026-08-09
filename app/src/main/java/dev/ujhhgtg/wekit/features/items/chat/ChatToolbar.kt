@@ -88,6 +88,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -127,7 +128,12 @@ private enum class ToolbarDisplayMode(val preferenceValue: String, val label: St
 }
 
 @SuppressLint("StaticFieldLeak")
-@Feature(name = "聊天工具栏", categories = ["聊天"], description = "在输入框上方添加工具栏")
+@Feature(
+    id = "聊天工具栏",
+    nameRes = "feature_chat_toolbar_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_chat_toolbar_description",
+)
 object ChatToolbar : ClickableFeature(), IResolveDex {
 
     private const val TAG = "ChatToolbar"

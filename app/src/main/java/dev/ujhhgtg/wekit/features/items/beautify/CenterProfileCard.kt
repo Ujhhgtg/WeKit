@@ -41,6 +41,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -53,9 +54,10 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
 @Feature(
-    name = "资料卡居中",
-    categories = ["界面美化", "个人资料"],
-    description = "居中「我」界面的资料卡",
+    id = "资料卡居中",
+    nameRes = "feature_center_profile_card_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.PROFILE],
+    descriptionRes = "feature_center_profile_card_description",
 )
 object CenterProfileCard : ClickableFeature(), IResolveDex {
 

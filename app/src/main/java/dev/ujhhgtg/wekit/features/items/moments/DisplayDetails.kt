@@ -30,6 +30,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -47,8 +48,10 @@ import java.util.Locale
 import java.util.WeakHashMap
 
 @Feature(
-    name = "底部详细信息", categories = ["朋友圈"],
-    description = "在朋友圈列表项底部显示详情信息"
+    id = "底部详细信息",
+    nameRes = "feature_display_details_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_display_details_description",
 )
 object DisplayDetails : ClickableFeature(), IResolveDex {
 

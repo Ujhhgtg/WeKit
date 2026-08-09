@@ -31,6 +31,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -49,9 +50,10 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "捡漏历史红包",
-    categories = ["红包与支付"],
-    description = "在联系人与群组详情页面添加选项, 批量扫描当前对话的所有历史红包消息并尝试领取\n点击可查看当前正在进行的任务"
+    id = "捡漏历史红包",
+    nameRes = "feature_open_history_red_packets_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_open_history_red_packets_description",
 )
 object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.IContactInfoProvider, IResolveDex {
 

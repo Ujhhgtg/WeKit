@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -26,7 +27,12 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.concurrent.thread
 
-@Feature(name = "自动接收转账", categories = ["红包与支付"], description = "监听消息并自动接收转账")
+@Feature(
+    id = "自动接收转账",
+    nameRes = "feature_auto_accept_transfers_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_auto_accept_transfers_description",
+)
 object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
 
     private const val TAG = "AutoAcceptTransfers"

@@ -12,13 +12,19 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeUnsafeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(name = "启动微信内部 URL", categories = ["调试"], description = "跳转微信 weixin:// URL")
+@Feature(
+    id = "启动微信内部 URL",
+    nameRes = "feature_launch_internal_urls_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_launch_internal_urls_description",
+)
 object LaunchInternalUrls : ClickableFeature(), IResolveDex {
 
     override val noSwitchWidget = true

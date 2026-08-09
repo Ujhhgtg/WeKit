@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -20,7 +21,12 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@Feature(name = "红包页面详情", categories = ["红包与支付"], description = "红包领取页面显示更加详细的领取情况")
+@Feature(
+    id = "红包页面详情",
+    nameRes = "feature_display_red_packet_details_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_display_red_packet_details_description",
+)
 object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
 
     private const val TAG = "DisplayRedPacketDetails"

@@ -15,6 +15,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.getBoolOrFalse
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -23,7 +24,12 @@ import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(name = "重定向微信日志", categories = ["调试"], description = "将微信内部日志打印至模块日志")
+@Feature(
+    id = "重定向微信日志",
+    nameRes = "feature_redirect_host_logs_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_redirect_host_logs_description",
+)
 object RedirectHostLogs : ClickableFeature() {
 
     private const val TAG = "RedirectHostLogs"

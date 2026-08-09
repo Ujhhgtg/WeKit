@@ -34,6 +34,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoPro
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.SplitGroupCall.resolveDex
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -56,9 +57,10 @@ import androidx.compose.ui.Modifier as UiModifier
 import java.lang.reflect.Modifier as ReflectModifier
 
 @Feature(
-    name = "分裂群组通话",
-    categories = ["娱乐"],
-    description = "随机生成假群 ID, 并发起群通话或实时对讲后终止推送到他人手机"
+    id = "分裂群组通话",
+    nameRes = "feature_split_group_call_name",
+    categoryIds = [FeatureCategoryIds.ENTERTAIN],
+    descriptionRes = "feature_split_group_call_description",
 )
 object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 

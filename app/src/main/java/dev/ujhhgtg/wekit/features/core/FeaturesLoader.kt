@@ -60,7 +60,7 @@ object FeaturesLoader {
                 val isBroken = feature is IResolveDex && allBrokenItems.contains(feature)
 
                 if (isBroken) {
-                    WeLogger.w(TAG, "skipping ${feature.name} — incomplete cache, awaiting re-resolution")
+                    WeLogger.w(TAG, "skipping ${feature.technicalId} — incomplete cache, awaiting re-resolution")
                     return@forEach
                 }
 
@@ -87,7 +87,7 @@ object FeaturesLoader {
         val failedItems = mutableListOf<IResolveDex>()
 
         for (item in items) {
-            val path = (item as BaseFeature).displayName
+            val path = (item as BaseFeature).technicalPath
             try {
                 val cache = DexCacheManager.loadItemCache(item)
                 if (cache == null) {
@@ -108,7 +108,7 @@ object FeaturesLoader {
                 }
             } catch (e: Exception) {
                 WeLogger.e(TAG, "cache load failed for $path", e)
-                runCatching { DexCacheManager.deleteCache(path) }
+                runCatching { DexCacheManager.deleteCache((item as BaseFeature).technicalId) }
                 failedItems += item
             }
         }

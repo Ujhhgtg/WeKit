@@ -12,6 +12,7 @@ import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -22,7 +23,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import org.json.JSONArray
 import org.json.JSONObject
 
-@Feature(name = "修改转账显示余额", categories = ["红包与支付"], description = "伪装转账时显示的余额文字")
+@Feature(
+    id = "修改转账显示余额",
+    nameRes = "feature_modify_transfer_wallet_balance_display_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_modify_transfer_wallet_balance_display_description",
+)
 object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterceptor {
 
     private const val TAG = "ModifyTransferWalletBalanceDisplay"

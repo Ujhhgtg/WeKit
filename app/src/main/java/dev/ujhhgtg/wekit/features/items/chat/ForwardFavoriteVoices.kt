@@ -12,6 +12,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.FavInfoProto
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -31,9 +32,10 @@ import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
 
 @Feature(
-    name = "转发收藏语音",
-    categories = ["聊天"],
-    description = "允许从聊天菜单的「收藏」和「我」的收藏页转发语音"
+    id = "转发收藏语音",
+    nameRes = "feature_forward_favorite_voices_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_forward_favorite_voices_description",
 )
 object ForwardFavoriteVoices : SwitchFeature() {
 

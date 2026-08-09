@@ -5,11 +5,17 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.io.OutputStream
 
-@Feature(name = "上传透明头像", categories = ["个人资料"], description = "头像上传时使用 PNG 格式保持透明")
+@Feature(
+    id = "上传透明头像",
+    nameRes = "feature_upload_transparent_avatars_name",
+    categoryIds = [FeatureCategoryIds.PROFILE],
+    descriptionRes = "feature_upload_transparent_avatars_description",
+)
 object UploadTransparentAvatars : SwitchFeature(), IResolveDex {
 
     private val TRIGGER_PATTERNS = listOf(

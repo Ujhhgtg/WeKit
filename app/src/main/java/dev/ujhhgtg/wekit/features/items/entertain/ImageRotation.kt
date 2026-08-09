@@ -24,6 +24,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -32,7 +33,12 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.WeakHashMap
 
-@Feature(name = "图片旋转", categories = ["娱乐"], description = "让微信中的图片持续旋转")
+@Feature(
+    id = "图片旋转",
+    nameRes = "feature_image_rotation_name",
+    categoryIds = [FeatureCategoryIds.ENTERTAIN],
+    descriptionRes = "feature_image_rotation_description",
+)
 object ImageRotation : ClickableFeature() {
 
     private data class RotationState(

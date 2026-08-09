@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import java.io.File
@@ -16,9 +17,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
 @Feature(
-    name = "聊天自动回复",
-    categories = ["聊天"],
-    description = "按任务规则匹配收到的文字消息并自动回复",
+    id = "聊天自动回复",
+    nameRes = "feature_chat_auto_reply_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_chat_auto_reply_description",
 )
 object ChatAutoReply : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
 

@@ -19,6 +19,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -31,9 +32,10 @@ import java.util.WeakHashMap
 
 
 @Feature(
-    name = "「我」页面精简",
-    categories = ["界面美化"],
-    description = "精简我的页面的部分组件",
+    id = "「我」页面精简",
+    nameRes = "feature_hide_me_tab_page_items_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_hide_me_tab_page_items_description",
 )
 object HideMeTabPageItems : ClickableFeature(), IResolveDex {
 

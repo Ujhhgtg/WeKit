@@ -29,6 +29,7 @@ import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.fetchBeforeTransfer
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.sendPlaceOrder
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -41,7 +42,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(name = "测试", categories = ["调试"], description = "手动对指定 wxId 依次执行 beforetransfer 和 transferplaceorder 两个阶段的发包请求，并显示原始返回值")
+@Feature(
+    id = "测试",
+    nameRes = "feature_experiments_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_experiments_description",
+)
 object Experiments : ClickableFeature() {
 
     @Suppress("unused")

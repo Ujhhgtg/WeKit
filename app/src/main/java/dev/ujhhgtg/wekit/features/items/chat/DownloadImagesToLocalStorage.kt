@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -14,7 +15,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(name = "图片保存到本地", categories = ["聊天"], description = "在图片消息菜单添加保存按钮, 允许将图片文件缓存并保存到本地")
+@Feature(
+    id = "图片保存到本地",
+    nameRes = "feature_download_images_to_local_storage_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_download_images_to_local_storage_description",
+)
 object DownloadImagesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     private const val TAG = "DownloadImagesToLocalStorage"

@@ -58,6 +58,7 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.LocalComponentActivity
 import dev.ujhhgtg.wekit.activity.settings.SettingsConfigActions
+import dev.ujhhgtg.wekit.activity.settings.featureCategoryTitleRes
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -97,6 +98,8 @@ import dev.ujhhgtg.wekit.utils.openInSystem
 import dev.ujhhgtg.wekit.utils.restartHost
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import java.text.Collator
+import java.util.Locale
 
 @Composable
 internal fun NukeDestinationPage(
@@ -107,7 +110,7 @@ internal fun NukeDestinationPage(
 ) {
     when (destination) {
         is NukeDestination.Category -> NukeFeatureCategoryPage(
-            categoryName = destination.name,
+            categoryId = destination.id,
             featureItems = featureItems,
             onBack = onBack,
         )
@@ -123,7 +126,16 @@ internal fun NukeDestinationPage(
 
 @Composable
 private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
-    val features = remember { FeaturesProvider.ALL_HOOK_ITEMS }
+    val context = LocalContext.current
+    val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val featureNameCollator = remember(resolvedLocale) {
+        Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
+    }
+    val features = remember(resolvedLocale) {
+        FeaturesProvider.ALL_HOOK_ITEMS.sortedWith { first, second ->
+            featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
+        }
+    }
     var selectedFeature by remember { mutableStateOf<BaseFeature?>(null) }
     // Only the FEATURES rows visible on the first frame animate in; scrolling reveals further
     // rows statically.
@@ -168,7 +180,7 @@ private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
             // scrolling back to the top); only the rows are gated to first-appearance motion.
             NukeSettingGroupTitle(title = "FEATURES")
         }
-        itemsIndexed(features, key = { _, feature -> feature.name }) { index, feature ->
+        itemsIndexed(features, key = { _, feature -> feature.technicalId }) { index, feature ->
             Column(
                 Modifier.nukeGroupedCardItem(
                     index,
@@ -188,9 +200,12 @@ private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
 
 @Composable
 private fun NukeFeatureStatusRow(feature: BaseFeature, onClick: () -> Unit) {
+    val context = LocalContext.current
     NukePreferenceRow(
-        title = feature.name,
-        description = feature.categories.joinToString(" / ").ifBlank { "模块基础能力" },
+        title = feature.localizedName(context),
+        description = feature.categoryIds
+            .joinToString(" / ") { context.getString(featureCategoryTitleRes(it)) }
+            .ifBlank { "模块基础能力" },
         leading = { NukeCategoryIcon(NukeGlyphKind.CheckCircle) },
         trailing = { NukeStatusPill("正常", Color(0xFF16A34A)) },
         onClick = { onClick() },
@@ -199,18 +214,22 @@ private fun NukeFeatureStatusRow(feature: BaseFeature, onClick: () -> Unit) {
 
 @Composable
 private fun NukeFeatureStatusDialog(feature: BaseFeature, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     val kind = when (feature) {
         is ClickableFeature -> "可配置功能"
         is SwitchFeature -> "开关功能"
         else -> "模块基础能力"
     }
     NukeMessageDialog(
-        title = feature.name,
+        title = feature.localizedName(context),
         message = buildString {
             appendLine("状态：正常")
             appendLine("类型：$kind")
-            appendLine("分类：${feature.categories.joinToString(" / ").ifBlank { "未分类" }}")
-            feature.description.takeIf { it.isNotBlank() }?.let {
+            val categories = feature.categoryIds
+                .joinToString(" / ") { context.getString(featureCategoryTitleRes(it)) }
+                .ifBlank { "未分类" }
+            appendLine("分类：$categories")
+            feature.localizedDescription(context).takeIf { it.isNotBlank() }?.let {
                 appendLine()
                 append(it)
             }

@@ -5,6 +5,7 @@ import android.util.Base64
 import androidx.core.net.toUri
 import dev.ujhhgtg.wekit.features.api.ui.WeShortVideosShareMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
 import dev.ujhhgtg.wekit.ui.utils.LinkIcon
@@ -27,7 +28,12 @@ import kotlin.io.path.div
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 
-@Feature(name = "下载媒体", categories = ["视频号"], description = "向视频分享菜单中添加「复制链接」与「下载」菜单项")
+@Feature(
+    id = "下载媒体",
+    nameRes = "feature_download_media_name",
+    categoryIds = [FeatureCategoryIds.CHANNELS],
+    descriptionRes = "feature_download_media_description",
+)
 object DownloadMedia : SwitchFeature(),
     WeShortVideosShareMenuApi.IMenuItemsProvider {
 

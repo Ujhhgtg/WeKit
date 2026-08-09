@@ -6,8 +6,14 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 
-@Feature(name = "NetScene 服务", categories = ["API"], description = "提供 NetScene 发送能力")
+@Feature(
+    id = "NetScene 服务",
+    nameRes = "feature_we_net_scene_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_net_scene_api_description",
+)
 object WeNetSceneApi : ApiFeature(), IResolveDex {
 
     fun sendNetScene(netScene: Any) {

@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
@@ -20,9 +21,10 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  * "保留"/"不保留"按钮语义保持不变。
  */
 @Feature(
-    name = "朋友圈编辑界面返回逻辑优化",
-    categories = ["朋友圈"],
-    description = "编辑朋友圈返回弹出「保留当前内容?」对话框后, 触发系统返回手势可直接关闭对话框并留在编辑页",
+    id = "朋友圈编辑界面返回逻辑优化",
+    nameRes = "feature_moments_editor_back_optimization_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_moments_editor_back_optimization_description",
 )
 object MomentsEditorBackOptimization : SwitchFeature() {
 

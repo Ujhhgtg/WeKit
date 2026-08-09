@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -41,9 +42,10 @@ import java.lang.ref.WeakReference
 import kotlin.math.abs
 
 @Feature(
-    name = "左划对话菜单",
-    categories = ["聊天"],
-    description = "在主页对话列表向左滑动展开菜单, 可对对话执行隐藏或删除等操作\n点击配置可选择启用「置顶」和「免打扰」快捷按钮"
+    id = "左划对话菜单",
+    nameRes = "feature_swipe_conversation_operations_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_swipe_conversation_operations_description",
 )
 object SwipeConversationOperations : ClickableFeature(), IResolveDex {
 

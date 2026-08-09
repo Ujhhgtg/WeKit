@@ -7,11 +7,17 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import org.json.JSONObject
 import java.util.LinkedList
 
-@Feature(name = "视频号分享菜单扩展", categories = ["API"], description = "为视频号分享菜单提供添加菜单项功能")
+@Feature(
+    id = "视频号分享菜单扩展",
+    nameRes = "feature_we_short_videos_share_menu_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_short_videos_share_menu_api_description",
+)
 object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
 
     fun interface IMenuItemsProvider {

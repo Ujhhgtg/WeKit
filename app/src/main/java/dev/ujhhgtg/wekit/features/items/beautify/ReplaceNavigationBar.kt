@@ -86,6 +86,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -104,7 +105,12 @@ import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-@Feature(name = "美化首页底部导航栏", categories = ["界面美化"], description = "将首页底部导航栏替换为 Material Design 或 Backdrop 风格")
+@Feature(
+    id = "美化首页底部导航栏",
+    nameRes = "feature_replace_navigation_bar_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_replace_navigation_bar_description",
+)
 object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
     private data class NavItem(

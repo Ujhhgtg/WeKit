@@ -10,6 +10,7 @@ import android.view.View
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
@@ -70,9 +71,10 @@ internal val EDGE_TTS_VOICES = listOf(
 )
 
 @Feature(
-    name = "语音面板",
-    categories = ["聊天"],
-    description = "长按语音按钮打开语音面板",
+    id = "语音面板",
+    nameRes = "feature_voice_panel_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_voice_panel_description",
 )
 object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
 

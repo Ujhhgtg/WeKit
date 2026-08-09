@@ -25,6 +25,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -40,7 +41,12 @@ import java.lang.reflect.Method
 import java.util.LinkedList
 import java.util.concurrent.ConcurrentHashMap
 
-@Feature(name = "伪集赞", categories = ["朋友圈"], description = "自定义朋友圈点赞用户列表")
+@Feature(
+    id = "伪集赞",
+    nameRes = "feature_fake_moments_likes_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_fake_moments_likes_description",
+)
 object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider,
     WeDatabaseListenerApi.IUpdateListener {
 

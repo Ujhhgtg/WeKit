@@ -52,6 +52,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.CustomMessageBubbles.ICON_TINT_TAG
 import dev.ujhhgtg.wekit.features.items.beautify.CustomMessageBubbles.bubbleCache
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -80,7 +81,12 @@ import kotlin.io.path.exists
 import kotlin.io.path.fileSize
 import kotlin.io.path.getLastModifiedTime
 
-@Feature(name = "自定义消息气泡", categories = ["界面美化", "聊天"], description = "自定义聊天中的消息气泡图片和颜色")
+@Feature(
+    id = "自定义消息气泡",
+    nameRes = "feature_custom_message_bubbles_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_custom_message_bubbles_description",
+)
 object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
 
     private const val TAG = "CustomMessageBubbles"
