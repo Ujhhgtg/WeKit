@@ -1,7 +1,18 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
+import java.util.UUID
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock as withThreadLock
 
@@ -509,4 +520,482 @@ internal class TunnelHandoffGate {
         pendingGeneration = null
         return true
     }
+}
+
+internal sealed class AuthOperationKind<T> private constructor() {
+    data object BEGIN : AuthOperationKind<CloudflareLoginState>()
+
+    data object LIST : AuthOperationKind<List<ExistingTunnel>>()
+
+    data object SELECT : AuthOperationKind<Unit>()
+
+    data object CANCEL : AuthOperationKind<Unit>()
+
+    data object LOGOUT : AuthOperationKind<Unit>()
+}
+
+internal data class AuthOperationKey(
+    val authGeneration: Long,
+    val requestId: Long,
+) {
+    init {
+        require(authGeneration > 0)
+        require(requestId > 0)
+    }
+}
+
+internal sealed interface AuthOperationTerminal<out T> {
+    data class Completed<T>(val value: T) : AuthOperationTerminal<T>
+
+    data class Failed(val error: String) : AuthOperationTerminal<Nothing> {
+        init {
+            require(error.isNotEmpty() && error.length <= MAX_ERROR_CHARS)
+        }
+
+        private companion object {
+            const val MAX_ERROR_CHARS = 256
+        }
+    }
+
+    data object Superseded : AuthOperationTerminal<Nothing>
+
+    data object TimedOut : AuthOperationTerminal<Nothing>
+
+    data object Cancelled : AuthOperationTerminal<Nothing>
+}
+
+/** Owns auth result slots independently from connector START/STOP bookkeeping. */
+internal class AuthOperationRegistry {
+    private class Entry(
+        val kind: AuthOperationKind<*>,
+        val deliver: (AuthOperationTerminal<*>) -> Unit,
+    )
+
+    private val pending = linkedMapOf<AuthOperationKey, Entry>()
+    private var currentGeneration: Long? = null
+
+    fun replaceGeneration(generation: Long): Boolean {
+        require(generation > 0)
+        val deliveries = synchronized(this) {
+            val current = currentGeneration
+            if (current != null && generation <= current) return false
+            currentGeneration = generation
+            pending.values.map { it to AuthOperationTerminal.Superseded }.also { pending.clear() }
+        }
+        deliverAll(deliveries)
+        return true
+    }
+
+    fun <T> register(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+        callback: (AuthOperationTerminal<T>) -> Unit,
+    ): Boolean {
+        var accepted = true
+        synchronized(this) {
+            if (currentGeneration == null) currentGeneration = key.authGeneration
+            if (key.authGeneration != currentGeneration || pending.containsKey(key)) {
+                accepted = false
+            } else {
+                pending[key] = Entry(kind) { terminal ->
+                    @Suppress("UNCHECKED_CAST")
+                    callback(terminal as AuthOperationTerminal<T>)
+                }
+            }
+        }
+        if (!accepted) {
+            callback(AuthOperationTerminal.Superseded)
+            return false
+        }
+        return true
+    }
+
+    fun <T> complete(
+        key: AuthOperationKey,
+        expectedKind: AuthOperationKind<T>,
+        terminal: AuthOperationTerminal<T>,
+    ): Boolean {
+        val delivery = synchronized(this) {
+            val entry = pending[key] ?: return false
+            if (entry.kind !== expectedKind) return false
+            pending.remove(key)
+            entry to terminal
+        }
+        deliverAll(listOf(delivery))
+        return true
+    }
+
+    fun <T> timeout(key: AuthOperationKey, expectedKind: AuthOperationKind<T>): Boolean =
+        complete(key, expectedKind, AuthOperationTerminal.TimedOut)
+
+    fun <T> cancel(key: AuthOperationKey, expectedKind: AuthOperationKind<T>): Boolean =
+        complete(key, expectedKind, AuthOperationTerminal.Cancelled)
+
+    fun cancelGeneration(generation: Long): Int {
+        val deliveries = synchronized(this) {
+            pending.entries
+                .filter { it.key.authGeneration == generation }
+                .map { it.value to AuthOperationTerminal.Cancelled }
+                .also { pending.keys.removeAll { it.authGeneration == generation } }
+        }
+        deliverAll(deliveries)
+        return deliveries.size
+    }
+
+    @Synchronized
+    fun pendingCount(): Int = pending.size
+
+    @Synchronized
+    fun pendingKeys(): Set<AuthOperationKey> = pending.keys.toSet()
+
+    @Synchronized
+    fun pendingKind(key: AuthOperationKey): AuthOperationKind<*>? = pending[key]?.kind
+
+    private fun deliverAll(deliveries: List<Pair<Entry, AuthOperationTerminal<*>>>) {
+        var firstFailure: Throwable? = null
+        deliveries.forEach { (entry, terminal) ->
+            try {
+                entry.deliver(terminal)
+            } catch (failure: Throwable) {
+                if (firstFailure == null) {
+                    firstFailure = failure
+                } else {
+                    firstFailure.addSuppressed(failure)
+                }
+            }
+        }
+        firstFailure?.let { throw it }
+    }
+}
+
+internal enum class TunnelCredentialSource {
+    TOKEN,
+    BROWSER_LOGIN,
+}
+
+/** Plaintext held only between Keystore decryption/encryption and the connector transaction. */
+internal class TunnelCredentialPayload private constructor(
+    val runToken: String,
+    val source: TunnelCredentialSource,
+    val accountId: String,
+    val tunnelId: String,
+    val tunnelName: String,
+    val canonicalHostname: String,
+    val fixedOriginPort: Int,
+) {
+    override fun toString(): String =
+        "TunnelCredentialPayload(runToken=[redacted], source=$source, accountId=$accountId, " +
+            "tunnelId=$tunnelId, tunnelName=$tunnelName, " +
+            "canonicalHostname=$canonicalHostname, fixedOriginPort=$fixedOriginPort)"
+
+    companion object {
+        const val MAX_RUN_TOKEN_BYTES = 16 * 1024
+        private const val MAX_ACCOUNT_ID_CHARS = 32
+        private const val MAX_TUNNEL_NAME_BYTES = 128
+        private val ACCOUNT_ID_PATTERN = Regex("^[A-Za-z0-9_-]{1,$MAX_ACCOUNT_ID_CHARS}$")
+        private val UUID_PATTERN =
+            Regex("^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$")
+
+        fun create(
+            runToken: String,
+            source: TunnelCredentialSource,
+            accountId: String = "",
+            tunnelId: String = "",
+            tunnelName: String = "",
+            canonicalHostname: String = "",
+            fixedOriginPort: Int = 0,
+        ): TunnelCredentialPayload? {
+            val tokenBytes = runToken.toByteArray(StandardCharsets.UTF_8).size
+            if (
+                tokenBytes !in 1..MAX_RUN_TOKEN_BYTES || runToken != runToken.trim() ||
+                runToken.any(Char::isISOControl)
+            ) {
+                return null
+            }
+            return when (source) {
+                TunnelCredentialSource.TOKEN -> createToken(
+                    runToken,
+                    accountId,
+                    tunnelId,
+                    tunnelName,
+                    canonicalHostname,
+                    fixedOriginPort,
+                )
+
+                TunnelCredentialSource.BROWSER_LOGIN -> createBrowser(
+                    runToken,
+                    accountId,
+                    tunnelId,
+                    tunnelName,
+                    canonicalHostname,
+                    fixedOriginPort,
+                )
+            }
+        }
+
+        private fun createToken(
+            runToken: String,
+            accountId: String,
+            tunnelId: String,
+            tunnelName: String,
+            hostname: String,
+            port: Int,
+        ): TunnelCredentialPayload? {
+            if (accountId.isNotEmpty() || tunnelId.isNotEmpty() || tunnelName.isNotEmpty()) return null
+            if (hostname.isEmpty() && port == 0) {
+                return TunnelCredentialPayload(
+                    runToken,
+                    TunnelCredentialSource.TOKEN,
+                    "",
+                    "",
+                    "",
+                    "",
+                    0,
+                )
+            }
+            val canonical = canonicalHttpsRoot(hostname) ?: return null
+            if (port !in 1..65535) return null
+            return TunnelCredentialPayload(
+                runToken,
+                TunnelCredentialSource.TOKEN,
+                "",
+                "",
+                "",
+                canonical,
+                port,
+            )
+        }
+
+        private fun createBrowser(
+            runToken: String,
+            accountId: String,
+            tunnelId: String,
+            tunnelName: String,
+            hostname: String,
+            port: Int,
+        ): TunnelCredentialPayload? {
+            if (!ACCOUNT_ID_PATTERN.matches(accountId)) return null
+            val canonicalTunnelId = canonicalUuid(tunnelId) ?: return null
+            val canonicalTunnelName = tunnelName.trim()
+            if (
+                canonicalTunnelName.isEmpty() ||
+                canonicalTunnelName.toByteArray(StandardCharsets.UTF_8).size > MAX_TUNNEL_NAME_BYTES ||
+                canonicalTunnelName.any(Char::isISOControl)
+            ) {
+                return null
+            }
+            val canonical = canonicalHttpsRoot(hostname) ?: return null
+            if (port !in 1..65535) return null
+            return TunnelCredentialPayload(
+                runToken,
+                TunnelCredentialSource.BROWSER_LOGIN,
+                accountId,
+                canonicalTunnelId,
+                canonicalTunnelName,
+                canonical,
+                port,
+            )
+        }
+
+        private fun canonicalUuid(value: String): String? {
+            if (!UUID_PATTERN.matches(value)) return null
+            return runCatching {
+                UUID.fromString(value).takeUnless { it == UUID(0, 0) }?.toString()
+            }.getOrNull()
+        }
+
+        private fun canonicalHttpsRoot(value: String): String? =
+            ReadReceiptsTunnelService.canonicalPublicRoot(value)
+    }
+}
+
+internal sealed interface TunnelCredentialDecode {
+    data class Decoded(
+        val payload: TunnelCredentialPayload,
+        val migratedLegacy: Boolean,
+    ) : TunnelCredentialDecode
+
+    data object Invalid : TunnelCredentialDecode
+}
+
+internal object TunnelCredentialPayloadCodec {
+    const val VERSION = 2
+    const val MAX_BYTES = 32 * 1024
+    private val fieldNames = setOf(
+        "version",
+        "runToken",
+        "source",
+        "accountId",
+        "tunnelId",
+        "tunnelName",
+        "canonicalHostname",
+        "fixedOriginPort",
+    )
+    private val strictJson = Json {
+        ignoreUnknownKeys = false
+        isLenient = false
+        explicitNulls = true
+    }
+
+    fun encode(payload: TunnelCredentialPayload): ByteArray {
+        val encoded = buildJsonObject {
+            put("version", VERSION)
+            put("runToken", payload.runToken)
+            put("source", payload.source.name)
+            put("accountId", payload.accountId)
+            put("tunnelId", payload.tunnelId)
+            put("tunnelName", payload.tunnelName)
+            put("canonicalHostname", payload.canonicalHostname)
+            put("fixedOriginPort", payload.fixedOriginPort)
+        }.toString().toByteArray(StandardCharsets.UTF_8)
+        check(encoded.size <= MAX_BYTES)
+        return encoded
+    }
+
+    fun decode(plaintext: ByteArray): TunnelCredentialDecode {
+        if (plaintext.isEmpty() || plaintext.size > MAX_BYTES) return TunnelCredentialDecode.Invalid
+        val text = decodeUtf8(plaintext) ?: return TunnelCredentialDecode.Invalid
+        return if (text.firstOrNull { !it.isWhitespace() } == '{') {
+            decodeVersioned(text)
+        } else {
+            TunnelCredentialPayload.create(
+                runToken = text,
+                source = TunnelCredentialSource.TOKEN,
+            )?.let { TunnelCredentialDecode.Decoded(it, migratedLegacy = true) }
+                ?: TunnelCredentialDecode.Invalid
+        }
+    }
+
+    private fun decodeVersioned(text: String): TunnelCredentialDecode {
+        val value = runCatching { strictJson.parseToJsonElement(text) as? JsonObject }
+            .getOrNull() ?: return TunnelCredentialDecode.Invalid
+        if (value.keys != fieldNames) return TunnelCredentialDecode.Invalid
+        val version = value.number("version") ?: return TunnelCredentialDecode.Invalid
+        if (version != VERSION) return TunnelCredentialDecode.Invalid
+        val source = value.string("source")?.let {
+            runCatching { TunnelCredentialSource.valueOf(it) }.getOrNull()
+        } ?: return TunnelCredentialDecode.Invalid
+        val payload = TunnelCredentialPayload.create(
+            runToken = value.string("runToken") ?: return TunnelCredentialDecode.Invalid,
+            source = source,
+            accountId = value.string("accountId") ?: return TunnelCredentialDecode.Invalid,
+            tunnelId = value.string("tunnelId") ?: return TunnelCredentialDecode.Invalid,
+            tunnelName = value.string("tunnelName") ?: return TunnelCredentialDecode.Invalid,
+            canonicalHostname = value.string("canonicalHostname")
+                ?: return TunnelCredentialDecode.Invalid,
+            fixedOriginPort = value.number("fixedOriginPort")
+                ?: return TunnelCredentialDecode.Invalid,
+        ) ?: return TunnelCredentialDecode.Invalid
+        return TunnelCredentialDecode.Decoded(payload, migratedLegacy = false)
+    }
+
+    private fun JsonObject.string(name: String): String? =
+        (get(name) as? JsonPrimitive)?.takeIf(JsonPrimitive::isString)?.content
+
+    private fun JsonObject.number(name: String): Int? =
+        (get(name) as? JsonPrimitive)?.takeUnless(JsonPrimitive::isString)?.intOrNull
+
+    private fun decodeUtf8(value: ByteArray): String? = runCatching {
+        StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(value))
+            .toString()
+    }.getOrNull()
+}
+
+internal enum class TunnelCredentialStartupDecision {
+    START,
+    NEEDS_USER_ACTION,
+}
+
+internal fun decideCredentialStartup(
+    payload: TunnelCredentialPayload,
+    requestedHostname: String,
+    requestedOriginPort: Int,
+): TunnelCredentialStartupDecision {
+    if (payload.source == TunnelCredentialSource.TOKEN) return TunnelCredentialStartupDecision.START
+    val canonicalRequested = ReadReceiptsTunnelService.canonicalPublicRoot(requestedHostname)
+    return if (
+        canonicalRequested == payload.canonicalHostname &&
+        requestedOriginPort == payload.fixedOriginPort
+    ) {
+        TunnelCredentialStartupDecision.START
+    } else {
+        TunnelCredentialStartupDecision.NEEDS_USER_ACTION
+    }
+}
+
+internal sealed interface BrowserCredentialCommitDecision {
+    data class Preserve(val authoritative: TunnelCredentialPayload?) : BrowserCredentialCommitDecision
+
+    data class CommitCandidate(val payload: TunnelCredentialPayload) : BrowserCredentialCommitDecision
+}
+
+internal fun decideBrowserCredentialCommit(
+    authoritative: TunnelCredentialPayload?,
+    selectionSucceeded: Boolean,
+    publicHealthVerified: Boolean,
+    candidateFactory: () -> TunnelCredentialPayload?,
+): BrowserCredentialCommitDecision {
+    if (!selectionSucceeded || !publicHealthVerified) {
+        return BrowserCredentialCommitDecision.Preserve(authoritative)
+    }
+    val candidate = candidateFactory()
+        ?: return BrowserCredentialCommitDecision.Preserve(authoritative)
+    if (candidate.source != TunnelCredentialSource.BROWSER_LOGIN) {
+        return BrowserCredentialCommitDecision.Preserve(authoritative)
+    }
+    return BrowserCredentialCommitDecision.CommitCandidate(candidate)
+}
+
+internal data class CommittedBrowserTunnelMetadata(
+    val accountId: String,
+    val tunnelId: String,
+    val tunnelName: String,
+    val canonicalHostname: String,
+    val fixedOriginPort: Int,
+)
+
+internal sealed interface TunnelCredentialSnapshot {
+    data class Authoritative(val payload: TunnelCredentialPayload) : TunnelCredentialSnapshot
+
+    data object Stale : TunnelCredentialSnapshot
+
+    data object Invalid : TunnelCredentialSnapshot
+
+    data object None : TunnelCredentialSnapshot
+}
+
+internal sealed interface BrowserMetadataRebindDecision {
+    data class Replace(val metadata: CommittedBrowserTunnelMetadata) : BrowserMetadataRebindDecision
+
+    data object Keep : BrowserMetadataRebindDecision
+}
+
+internal fun decideBrowserMetadataRebind(
+    snapshot: TunnelCredentialSnapshot,
+): BrowserMetadataRebindDecision {
+    val payload = (snapshot as? TunnelCredentialSnapshot.Authoritative)?.payload
+        ?: return BrowserMetadataRebindDecision.Keep
+    if (payload.source != TunnelCredentialSource.BROWSER_LOGIN) {
+        return BrowserMetadataRebindDecision.Keep
+    }
+    return BrowserMetadataRebindDecision.Replace(
+        CommittedBrowserTunnelMetadata(
+            accountId = payload.accountId,
+            tunnelId = payload.tunnelId,
+            tunnelName = payload.tunnelName,
+            canonicalHostname = payload.canonicalHostname,
+            fixedOriginPort = payload.fixedOriginPort,
+        ),
+    )
+}
+
+internal fun applyBrowserMetadataRebind(
+    current: CommittedBrowserTunnelMetadata?,
+    decision: BrowserMetadataRebindDecision,
+): CommittedBrowserTunnelMetadata? = when (decision) {
+    BrowserMetadataRebindDecision.Keep -> current
+    is BrowserMetadataRebindDecision.Replace -> decision.metadata
 }
