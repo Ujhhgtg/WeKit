@@ -440,3 +440,77 @@ reconnects only after a fresh native start/public-health pass; then issue discon
 credential-delete command, and disconnect again, confirming the origin stops once only after the
 upgraded STOP terminal. External final re-review remains pending, so this report still does not claim
 Task 9 acceptance by itself.
+
+### Round 5 external re-review corrections
+
+The external re-review found that the first round-5 fix still allowed credential deletion to create
+an intervening administrative generation and left native stop/status publication as two separately
+observable operations. The earlier G -> administrative H scenario in this section is therefore
+superseded by the following narrower production contract:
+
+1. Credential deletion allocates no generation. The controller sends the current authoritative
+   generation and atomically refuses the administrative command while either START or STOP is
+   pending, so the single command slot cannot replace a secret START or the authoritative STOP.
+   A STOP G followed by a delete attempt has no H allocation and no DELETE send; G's first terminal
+   or authoritative timeout drains its callbacks exactly once.
+2. The service accepts deletion only at the lease's current generation. Quick deletion clears the
+   credential without transferring the request or native owner. In the same lease boundary it reads
+   owner-active and verifiable-session state: only both true may preserve CONNECTED; an invalidated,
+   stopped, or inactive session is synchronously published as `RECONNECTING` with no public URL even
+   when administrative deletion runs before queued native teardown.
+   Token deletion clears the credential and enters `stopTunnel(G)`; equal-generation `advance` does
+   not transfer ownership, while `clearRequest(G)` invalidates verification before asynchronous
+   teardown. A stale process/rebind command cannot advance the service generation and is a no-op.
+3. `stopInvalidatedSession` performs native stop and the matching generation's `RECONNECTING` status
+   commit inside one lease monitor. The status callback does not acquire the controller/UI or native
+   lease: it updates service state/notification and queues Messenger status only. The callback runs
+   in `finally`, so a native-stop error still invalidates the published URL before the monitor is
+   released. Verification CONNECTED commits and same-generation administrative state republishes use
+   the same lease boundary, preventing either from entering between stop and `RECONNECTING`.
+
+Focused RED/GREEN evidence:
+
+- The two new regressions were RED at compilation with unresolved `withCurrentGeneration`,
+  `publishReconnecting`, and `runAdministrativeCommandIfIdle` APIs.
+- A follow-up synchronous-invalidation regression was RED because `withCurrentGeneration` did not
+  expose its locked session state and `forAdministrativePublish` did not exist. It now proves
+  invalidation -> same-G Quick delete -> queued teardown publishes only RECONNECTING/null, never the
+  stale CONNECTED URL.
+- The final 34-test focused suite is GREEN. Its deterministic interleaving holds native teardown in
+  the lease, proves the same-generation administrative command cannot finish, then observes the exact
+  order `native-stop`, `reconnecting`, `credential-delete`. The old verification ticket remains
+  `STALE`, and the authoritative status remains `RECONNECTING` rather than reverting to CONNECTED.
+- Separate coverage proves G -> delete attempt allocates/sends nothing, then the first G timeout
+  completes its callback once and a duplicate G terminal returns no callback. A pending START also
+  rejects deletion.
+
+Fresh gates for the corrected implementation:
+
+```text
+./gradlew :app:testStandardDebugUnitTest \
+  --tests dev.ujhhgtg.wekit.features.items.chat.ReadReceiptsTunnelCoordinationTest
+BUILD SUCCESSFUL; 34 focused tests
+
+./gradlew testStandardDebugUnitTest
+BUILD SUCCESSFUL in 6s
+
+go test -race -count=1 ./app/src/main/go/wekit-cloudflared
+ok dev.ujhhgtg.wekit/cloudflared-bridge 1.147s
+
+cargo test --workspace
+PASS: wekit-native 9; service library 15; pixel logging 1; zygisk 10; xtask 22
+
+./x cloudflared-build --abi arm64-v8a --abi armeabi-v7a
+PASS
+
+./x build
+BUILD SUCCESSFUL in 12s (144 actionable tasks: 18 executed, 1 from cache, 125 up-to-date)
+
+git diff --check
+PASS
+```
+
+Each ABI again exports exactly six Task 8 C symbols and four direct tunnel JNI symbols. Standard and
+Legacy APKs each contain the four required native library entries. Generated JNI inputs were moved to
+`/tmp/wekit-task9-fix5-sync-final-jni.ksrh2S/jniLibs`. No Dex resolver changed. External final review
+and the existing device checklist remain pending; this report does not claim Task 9 acceptance.

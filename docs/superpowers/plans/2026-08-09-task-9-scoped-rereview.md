@@ -98,3 +98,18 @@
 - [x] Run the 32-test focused suite, full Android unit tests, Go race tests, Rust workspace tests,
   double-ABI connector/native builds, APK entry/export inspection, and `git diff --check`.
 - [ ] Obtain the external final re-review verdict; do not begin Task 10 before acceptance.
+
+#### External re-review corrections
+
+- [x] Remove credential-delete generation allocation/transfer; send and execute only at the current
+  authoritative generation.
+- [x] Reject credential delete while START or STOP is pending so it cannot replace either queued
+  command, and prove STOP G remains authoritative with exactly-once terminal/timeout completion.
+- [x] Linearize invalidated native stop and `RECONNECTING` publication under the native lease, with
+  no reverse Controller/UI/native-lease acquisition from the publication callback.
+- [x] Add deterministic teardown-versus-same-generation-delete ordering coverage and prove stale
+  verification cannot restore CONNECTED/publicUrl after native stop.
+- [x] Read owner-active/verifiable state only inside the lease and sanitize a Quick-delete status to
+  RECONNECTING/null immediately after invalidation, including before queued teardown runs.
+- [x] Re-run 34 focused tests and every Android, Go race, Rust, dual-ABI, APK, symbol, and diff gate.
+- [ ] Obtain a passing external final re-review verdict.

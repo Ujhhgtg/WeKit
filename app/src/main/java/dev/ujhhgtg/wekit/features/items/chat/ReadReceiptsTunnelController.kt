@@ -164,13 +164,21 @@ internal object ReadReceiptsTunnelController {
     }
 
     fun deleteCredential() {
-        val nextGeneration = nextGeneration()
-        val command = Message.obtain(null, ReadReceiptsTunnelProtocol.DELETE_CREDENTIAL).apply {
-            data = Bundle().apply {
-                putLong(ReadReceiptsTunnelProtocol.KEY_GENERATION, nextGeneration)
+        stopCompletion.runAdministrativeCommandIfIdle(
+            hasPendingStart = { pendingStart != null },
+            command = {
+                val currentGeneration = generation.get()
+                val command = Message.obtain(
+                    null,
+                    ReadReceiptsTunnelProtocol.DELETE_CREDENTIAL,
+                ).apply {
+                    data = Bundle().apply {
+                        putLong(ReadReceiptsTunnelProtocol.KEY_GENERATION, currentGeneration)
+                    }
+                }
+                queueOrSend(HostInfo.application, command)
             }
-        }
-        queueOrSend(HostInfo.application, command)
+        )
     }
 
     fun refresh() {

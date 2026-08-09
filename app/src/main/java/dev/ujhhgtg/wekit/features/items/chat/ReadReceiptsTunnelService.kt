@@ -560,35 +560,28 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private fun deleteCredential(requestedGeneration: Long) {
-        if (!nativeLease.advance(requestedGeneration)) return
-        generation = requestedGeneration
-        credentialStore.clear()
-        val request = activeRequest
-        if (request?.mode == ReadReceiptsTunnelMode.TOKEN) {
-            stopTunnel(requestedGeneration)
-        } else {
-            if (request != null) {
-                request.generation = requestedGeneration
-                check(
-                    nativeLease.activateRequest(
-                        requestedGeneration,
-                        preserveNativeSession = request.mode == ReadReceiptsTunnelMode.QUICK,
-                    ),
-                )
+        nativeLease.withCurrentGeneration(requestedGeneration) { sessionState ->
+            credentialStore.clear()
+            if (activeRequest?.mode == ReadReceiptsTunnelMode.TOKEN) {
+                stopTunnel(requestedGeneration)
+            } else {
+                publish(requestedGeneration, status.forAdministrativePublish(sessionState))
             }
-            publish(requestedGeneration, status)
         }
     }
 
     private fun invalidateForNetworkChange(ticket: TunnelNetworkInvalidationTicket?) {
         if (ticket == null) return
         scope.launch {
-            val stoppedGeneration = nativeLease.stopInvalidatedSession(ticket) {
-                ReadReceiptsTunnelNative.stop().getOrThrow()
-            } ?: return@launch
-            publish(
-                stoppedGeneration,
-                ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.RECONNECTING),
+            nativeLease.stopInvalidatedSession(
+                ticket,
+                stop = { ReadReceiptsTunnelNative.stop().getOrThrow() },
+                publishReconnecting = { stoppedGeneration ->
+                    publish(
+                        stoppedGeneration,
+                        ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.RECONNECTING),
+                    )
+                },
             )
         }
     }
@@ -743,7 +736,7 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private data class TunnelRequest(
-        var generation: Long,
+        val generation: Long,
         val mode: ReadReceiptsTunnelMode,
         val origin: String,
         val publicRoot: HttpUrl?,

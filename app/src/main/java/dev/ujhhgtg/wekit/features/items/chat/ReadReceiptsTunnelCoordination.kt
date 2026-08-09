@@ -174,6 +174,7 @@ internal class TunnelNativeLease {
     fun stopInvalidatedSession(
         ticket: TunnelNetworkInvalidationTicket,
         stop: () -> Unit,
+        publishReconnecting: (Long) -> Unit,
     ): Long? {
         if (
             ownerGeneration == null || nativeSessionEpoch != ticket.nativeSessionEpoch ||
@@ -184,8 +185,29 @@ internal class TunnelNativeLease {
         val stoppedGeneration = activeRequestGeneration ?: ownerGeneration!!
         ownerGeneration = null
         nativeSessionEpoch++
-        stop()
+        try {
+            stop()
+        } finally {
+            publishReconnecting(stoppedGeneration)
+        }
         return stoppedGeneration
+    }
+
+    /** Runs an idempotent administrative action without allocating a configuration generation. */
+    @Synchronized
+    fun withCurrentGeneration(
+        generation: Long,
+        action: (TunnelNativeSessionState) -> Unit,
+    ): Boolean {
+        if (currentGeneration != generation) return false
+        val ownerActive = ownerGeneration == generation && activeRequestGeneration == generation
+        action(
+            TunnelNativeSessionState(
+                ownerActive = ownerActive,
+                verifiable = ownerActive && verifiableNativeSessionEpoch == nativeSessionEpoch,
+            ),
+        )
+        return true
     }
 
     @Synchronized
@@ -289,6 +311,21 @@ internal data class TunnelNetworkInvalidationTicket(
     val nativeSessionEpoch: Long,
 )
 
+internal data class TunnelNativeSessionState(
+    val ownerActive: Boolean,
+    val verifiable: Boolean,
+)
+
+internal fun ReadReceiptsTunnelStatus.forAdministrativePublish(
+    sessionState: TunnelNativeSessionState,
+): ReadReceiptsTunnelStatus {
+    if (sessionState.ownerActive && sessionState.verifiable) return this
+    if (state == ReadReceiptsTunnelState.CONNECTED) {
+        return ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.RECONNECTING)
+    }
+    return copy(publicUrl = null)
+}
+
 internal enum class TunnelVerificationCommit {
     COMMITTED,
     STALE,
@@ -386,6 +423,17 @@ internal class TunnelStopCompletion {
 
     @Synchronized
     fun hasPendingStop(): Boolean = pending != null
+
+    /** Prevents a single-slot administrative command from replacing pending START/STOP work. */
+    @Synchronized
+    fun runAdministrativeCommandIfIdle(
+        hasPendingStart: () -> Boolean,
+        command: () -> Unit,
+    ): Boolean {
+        if (pending != null || hasPendingStart()) return false
+        command()
+        return true
+    }
 }
 
 /** Coalesces one higher-layer operation while preserving every caller's result callback. */

@@ -133,33 +133,123 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
-    fun `invalidated native session stops after administrative generation transfer and old ticket cannot stop replacement`() {
+    fun `current generation credential delete cannot shield invalidated session and old ticket cannot stop replacement`() {
         val lease = TunnelNativeLease()
         val nativeStops = AtomicInteger()
+        val credentialClears = AtomicInteger()
+        val reconnectPublishes = AtomicInteger()
+        var administrativeStatus = ReadReceiptsTunnelStatus(
+            ReadReceiptsTunnelState.CONNECTED,
+            publicUrl = "https://old.example.com",
+        )
 
         assertTrue(lease.advance(60))
         assertTrue(lease.activateRequest(60))
         assertTrue(lease.startIfCurrent(60) { true })
         val invalidation = lease.invalidateNetwork()!!
 
-        assertTrue(lease.advance(61))
-        assertTrue(lease.activateRequest(61, preserveNativeSession = true))
-        assertNull(lease.captureVerification(61))
+        assertTrue(
+            lease.withCurrentGeneration(60) { sessionState ->
+                credentialClears.incrementAndGet()
+                administrativeStatus = administrativeStatus.forAdministrativePublish(sessionState)
+            },
+        )
+        assertEquals(ReadReceiptsTunnelState.RECONNECTING, administrativeStatus.state)
+        assertNull(administrativeStatus.publicUrl)
         assertEquals(
-            61,
-            lease.stopInvalidatedSession(invalidation) { nativeStops.incrementAndGet() },
+            60,
+            lease.stopInvalidatedSession(
+                invalidation,
+                stop = { nativeStops.incrementAndGet() },
+                publishReconnecting = { generation ->
+                    assertEquals(60, generation)
+                    administrativeStatus = ReadReceiptsTunnelStatus(
+                        ReadReceiptsTunnelState.RECONNECTING,
+                    )
+                    reconnectPublishes.incrementAndGet()
+                },
+            ),
         )
+        assertEquals(1, credentialClears.get())
         assertEquals(1, nativeStops.get())
+        assertEquals(1, reconnectPublishes.get())
+        assertEquals(ReadReceiptsTunnelState.RECONNECTING, administrativeStatus.state)
+        assertNull(administrativeStatus.publicUrl)
         assertNull(lease.ownerGeneration())
-        assertNull(lease.captureVerification(61))
+        assertNull(lease.captureVerification(60))
 
-        assertTrue(lease.startIfCurrent(61) { true })
-        assertTrue(lease.captureVerification(61) != null)
+        assertTrue(lease.startIfCurrent(60) { true })
+        assertTrue(lease.captureVerification(60) != null)
         assertNull(
-            lease.stopInvalidatedSession(invalidation) { nativeStops.incrementAndGet() },
+            lease.stopInvalidatedSession(
+                invalidation,
+                stop = { nativeStops.incrementAndGet() },
+                publishReconnecting = { reconnectPublishes.incrementAndGet() },
+            ),
         )
         assertEquals(1, nativeStops.get())
-        assertEquals(61, lease.ownerGeneration())
+        assertEquals(1, reconnectPublishes.get())
+        assertEquals(60, lease.ownerGeneration())
+    }
+
+    @Test
+    fun `network teardown publishes reconnecting before a waiting same-generation command can republish status`() {
+        val lease = TunnelNativeLease()
+        val events = ConcurrentLinkedQueue<String>()
+        val status = AtomicReference("CONNECTED")
+        val nativeStopEntered = CountDownLatch(1)
+        val releaseNativeStop = CountDownLatch(1)
+        val commandCompleted = CountDownLatch(1)
+
+        assertTrue(lease.advance(70))
+        assertTrue(lease.activateRequest(70))
+        assertTrue(lease.startIfCurrent(70) { true })
+        val verification = lease.captureVerification(70)!!
+        val invalidation = lease.invalidateNetwork()!!
+
+        val teardown = thread {
+            lease.stopInvalidatedSession(
+                invalidation,
+                stop = {
+                    events += "native-stop"
+                    nativeStopEntered.countDown()
+                    releaseNativeStop.await()
+                },
+                publishReconnecting = {
+                    status.set("RECONNECTING")
+                    events += "reconnecting"
+                },
+            )
+        }
+        nativeStopEntered.await()
+        val command = thread {
+            lease.withCurrentGeneration(70) {
+                status.set(status.get())
+                events += "credential-delete"
+            }
+            commandCompleted.countDown()
+        }
+
+        assertFalse(commandCompleted.await(100, TimeUnit.MILLISECONDS))
+        releaseNativeStop.countDown()
+        teardown.join()
+        command.join()
+
+        assertEquals(
+            listOf("native-stop", "reconnecting", "credential-delete"),
+            events.toList(),
+        )
+        assertEquals("RECONNECTING", status.get())
+        assertEquals(
+            TunnelVerificationCommit.STALE,
+            lease.commitVerification(
+                verification,
+                writeCredential = { true },
+                clearPendingToken = {},
+                publishConnected = { status.set("CONNECTED") },
+            ),
+        )
+        assertEquals("RECONNECTING", status.get())
     }
 
     @Test
@@ -347,7 +437,7 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
-    fun `pending stop upgrades past intervening administrative command and completes all callers only at upgraded terminal`() {
+    fun `pending stop upgrades past externally observed authoritative generation and completes all callers only at upgraded terminal`() {
         val completions = TunnelStopCompletion()
         val issuedGeneration = AtomicLong(100)
         val firstCallback = AtomicInteger()
@@ -361,11 +451,11 @@ class ReadReceiptsTunnelCoordinationTest {
         assertTrue(firstStop.shouldSend)
         assertEquals(101, firstStop.generation)
 
-        val administrativeGeneration = issuedGeneration.incrementAndGet()
+        val externallyObservedGeneration = issuedGeneration.incrementAndGet()
         assertFalse(
             completions.completeTimeout(
                 generation = firstStop.generation,
-                authoritativeGeneration = administrativeGeneration,
+                authoritativeGeneration = externallyObservedGeneration,
             ).matched,
         )
         assertEquals(0, firstCallback.get())
@@ -380,7 +470,7 @@ class ReadReceiptsTunnelCoordinationTest {
         assertEquals(103, completions.pendingGeneration())
 
         assertFalse(completions.complete(firstStop.generation).matched)
-        assertFalse(completions.complete(administrativeGeneration).matched)
+        assertFalse(completions.complete(externallyObservedGeneration).matched)
         assertEquals(0, firstCallback.get())
         assertEquals(0, secondCallback.get())
 
@@ -394,6 +484,49 @@ class ReadReceiptsTunnelCoordinationTest {
         assertEquals(1, firstCallback.get())
         assertEquals(1, secondCallback.get())
         assertTrue(completions.complete(upgradedStop.generation).callbacks.isEmpty())
+    }
+
+    @Test
+    fun `pending stop rejects credential delete without allocating or sending and completes once`() {
+        val completions = TunnelStopCompletion()
+        val issuedGeneration = AtomicLong(100)
+        val stopCallback = AtomicInteger()
+        val deleteSends = AtomicInteger()
+        val sentGeneration = AtomicLong(-1)
+
+        val stop = completions.register(
+            callback = stopCallback::incrementAndGet,
+            latestIssuedGeneration = issuedGeneration.get(),
+            generationFactory = issuedGeneration::incrementAndGet,
+        )
+        assertEquals(101, stop.generation)
+
+        assertFalse(
+            completions.runAdministrativeCommandIfIdle(
+                hasPendingStart = { false },
+                command = {
+                    sentGeneration.set(issuedGeneration.get())
+                    deleteSends.incrementAndGet()
+                },
+            ),
+        )
+        assertEquals(101, issuedGeneration.get())
+        assertEquals(-1, sentGeneration.get())
+        assertEquals(0, deleteSends.get())
+
+        val terminal = completions.completeTimeout(stop.generation, issuedGeneration.get())
+        assertTrue(terminal.matched)
+        terminal.callbacks.forEach { it() }
+        assertEquals(1, stopCallback.get())
+        assertTrue(completions.complete(stop.generation).callbacks.isEmpty())
+
+        assertFalse(
+            completions.runAdministrativeCommandIfIdle(
+                hasPendingStart = { true },
+                command = { deleteSends.incrementAndGet() },
+            ),
+        )
+        assertEquals(0, deleteSends.get())
     }
 
     @Test
