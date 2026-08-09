@@ -23,14 +23,12 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.makeAccessible
-import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.cacheFile
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.downloadFile
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -633,57 +631,89 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         val taskClassName = methodImageSendEntry.data.paramTypeNames[1]
         classImageTask.setDescriptor(taskClassName)
 
-        val host = DexResolutionContext.host
-        if (host.versionCode >= WeChatVersions.MM_8_0_67 && !host.isGooglePlay ||
-            host.versionCode >= WeChatVersions.MM_8_0_66_PLAY && host.isGooglePlay
-        ) {
-            methodImgUploadFeatureServiceSendImage.find(dexKit) {
-                matcher {
-                    declaredClass {
-                        usingEqStrings("MicroMsg.ImgUpload.MsgImgFeatureService", "taskListener", "params")
-                    }
+        val imageFeatureServiceMethods = dexKit.findMethod {
+            matcher {
+                declaredClass {
+                    usingEqStrings(
+                        "MicroMsg.ImgUpload.MsgImgFeatureService",
+                        "taskListener",
+                        "params",
+                    )
+                }
+                paramCount(1)
+                usingEqStrings("params")
+            }
+        }
 
-                    paramCount(1)
-                    usingEqStrings("params")
+        when (imageFeatureServiceMethods.size) {
+            1 -> {
+                methodImgUploadFeatureServiceSendImage.setDescriptor(
+                    imageFeatureServiceMethods.single()
+                )
+                methodAppInfoSetAppId.find(dexKit) {
+                    matcher {
+                        declaredClass {
+                            usingEqStrings(
+                                "appinfo",
+                                "appid",
+                                "version",
+                                "appname",
+                                "isforceupdate",
+                                "messageaction",
+                                "messageext",
+                                "mediatagname",
+                            )
+                        }
+                        paramTypes(BString)
+                        usingNumbers(0)
+                    }
+                }
+                ctorNetSceneUploadMsgImg.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "new image feature service path is active",
+                )
+            }
+
+            0 -> {
+                methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "ImgUploadFeatureService is absent; using legacy NetSceneUploadMsgImg",
+                )
+                methodAppInfoSetAppId.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "legacy NetSceneUploadMsgImg path is active",
+                )
+                ctorNetSceneUploadMsgImg.find(dexKit) {
+                    searchPackages("com.tencent.mm.modelimage")
+                    matcher {
+                        name = "<init>"
+                        declaredClass {
+                            usingEqStrings(
+                                "MicroMsg.NetSceneUploadMsgImg",
+                                "/cgi-bin/micromsg-bin/uploadmsgimg",
+                            )
+                        }
+                        paramTypes(
+                            int,
+                            BString,
+                            BString,
+                            BString,
+                            int,
+                            null,
+                            int,
+                            BString,
+                            BString,
+                            bool,
+                            int,
+                        )
+                    }
                 }
             }
 
-            methodAppInfoSetAppId.find(dexKit) {
-                matcher {
-                    declaredClass {
-                        usingEqStrings("appinfo", "appid", "version", "appname", "isforceupdate", "messageaction", "messageext", "mediatagname")
-                    }
-
-                    paramTypes(BString)
-                    usingNumbers(0)
-                }
-            }
-
-            ctorNetSceneUploadMsgImg.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "new image feature service path is active",
+            else -> error(
+                "multiple ImgUploadFeatureService send methods found: " +
+                    imageFeatureServiceMethods.joinToString { it.descriptor }
             )
-        } else {
-            methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "legacy NetSceneUploadMsgImg path is active",
-            )
-
-            methodAppInfoSetAppId.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "legacy NetSceneUploadMsgImg path is active",
-            )
-
-            ctorNetSceneUploadMsgImg.find(dexKit) {
-                searchPackages("com.tencent.mm.modelimage")
-                matcher {
-                    name = "<init>"
-                    declaredClass {
-                        usingEqStrings("MicroMsg.NetSceneUploadMsgImg", "/cgi-bin/micromsg-bin/uploadmsgimg")
-                    }
-                    paramTypes(int, BString, BString, BString, int, null, int, BString, BString, bool, int)
-                }
-            }
         }
 
         val targetInterface = classVoiceServiceImpl.data.interfaces.first {
@@ -1288,9 +1318,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private val ctorNetSceneUploadMsgImg by dexConstructor()
 
     fun sendImageByMd5(toUser: String, md5: String, appMsgAppId: String? = null) {
-        if (HostInfo.versionCode >= WeChatVersions.MM_8_0_67 && !HostInfo.isHostGooglePlay ||
-            HostInfo.versionCode >= WeChatVersions.MM_8_0_66_PLAY && HostInfo.isHostGooglePlay
-        ) {
+        if (!methodImgUploadFeatureServiceSendImage.isPlaceholder) {
             val sendImageMethod = methodImgUploadFeatureServiceSendImage.method
             val paramsClass = sendImageMethod.parameterTypes[0]
             val crossParamsClass = paramsClass.reflekt()
