@@ -569,7 +569,12 @@ class ReadReceiptsTunnelService : Service() {
         } else {
             if (request != null) {
                 request.generation = requestedGeneration
-                check(nativeLease.activateRequest(requestedGeneration))
+                check(
+                    nativeLease.activateRequest(
+                        requestedGeneration,
+                        preserveNativeSession = request.mode == ReadReceiptsTunnelMode.QUICK,
+                    ),
+                )
             }
             publish(requestedGeneration, status)
         }

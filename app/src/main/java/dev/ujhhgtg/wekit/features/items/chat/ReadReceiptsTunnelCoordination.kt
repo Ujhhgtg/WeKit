@@ -10,6 +10,7 @@ internal class TunnelNativeLease {
     private var activeRequestGeneration: Long? = null
     private var networkEpoch = 0L
     private var nativeSessionEpoch = 0L
+    private var verifiableNativeSessionEpoch: Long? = null
 
     @Synchronized
     fun advance(generation: Long): Boolean {
@@ -23,9 +24,10 @@ internal class TunnelNativeLease {
     }
 
     @Synchronized
-    fun activateRequest(generation: Long): Boolean {
+    fun activateRequest(generation: Long, preserveNativeSession: Boolean = false): Boolean {
         if (currentGeneration != generation) return false
         activeRequestGeneration = generation
+        if (!preserveNativeSession) verifiableNativeSessionEpoch = null
         networkEpoch++
         return true
     }
@@ -42,6 +44,7 @@ internal class TunnelNativeLease {
     @Synchronized
     fun invalidateNetwork(): Long? {
         networkEpoch++
+        verifiableNativeSessionEpoch = null
         return activeRequestGeneration?.takeIf { it == currentGeneration }
     }
 
@@ -51,6 +54,7 @@ internal class TunnelNativeLease {
         if (!start()) return false
         ownerGeneration = generation
         nativeSessionEpoch++
+        verifiableNativeSessionEpoch = nativeSessionEpoch
         return true
     }
 
@@ -59,6 +63,7 @@ internal class TunnelNativeLease {
         if (currentGeneration != generation || ownerGeneration != generation) return false
         ownerGeneration = null
         nativeSessionEpoch++
+        verifiableNativeSessionEpoch = null
         stop()
         return true
     }
@@ -67,6 +72,7 @@ internal class TunnelNativeLease {
     @Synchronized
     fun stopForReplacement(generation: Long, stop: () -> Unit): Boolean {
         if (currentGeneration != generation) return false
+        verifiableNativeSessionEpoch = null
         if (ownerGeneration != null) {
             ownerGeneration = null
             nativeSessionEpoch++
@@ -79,7 +85,7 @@ internal class TunnelNativeLease {
     fun captureVerification(generation: Long): TunnelVerificationTicket? {
         if (
             currentGeneration != generation || activeRequestGeneration != generation ||
-            ownerGeneration != generation
+            ownerGeneration != generation || verifiableNativeSessionEpoch != nativeSessionEpoch
         ) {
             return null
         }
@@ -125,7 +131,8 @@ internal class TunnelNativeLease {
             activeRequestGeneration == ticket.generation &&
             ownerGeneration == ticket.generation &&
             networkEpoch == ticket.networkEpoch &&
-            nativeSessionEpoch == ticket.nativeSessionEpoch
+            nativeSessionEpoch == ticket.nativeSessionEpoch &&
+            verifiableNativeSessionEpoch == ticket.nativeSessionEpoch
 
     @Synchronized
     fun ownerGeneration(): Long? = ownerGeneration

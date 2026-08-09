@@ -15,6 +15,98 @@ import kotlin.concurrent.thread
 class ReadReceiptsTunnelCoordinationTest {
 
     @Test
+    fun `network invalidation keeps an existing native owner unverifiable until it restarts`() {
+        val lease = TunnelNativeLease()
+        val credentialWrites = AtomicInteger()
+        val pendingTokenClears = AtomicInteger()
+        val connectedPublishes = AtomicInteger()
+
+        assertTrue(lease.advance(30))
+        assertTrue(lease.activateRequest(30))
+        assertTrue(lease.startIfCurrent(30) { true })
+        val verification = lease.captureVerification(30)!!
+
+        assertEquals(30, lease.invalidateNetwork())
+        assertNull(lease.captureVerification(30))
+        assertEquals(
+            TunnelVerificationCommit.STALE,
+            lease.commitVerification(
+                verification,
+                writeCredential = { credentialWrites.incrementAndGet(); true },
+                clearPendingToken = { pendingTokenClears.incrementAndGet() },
+                publishConnected = { connectedPublishes.incrementAndGet() },
+            ),
+        )
+        assertEquals(0, credentialWrites.get())
+        assertEquals(0, pendingTokenClears.get())
+        assertEquals(0, connectedPublishes.get())
+
+        assertTrue(lease.stopIfOwner(30) {})
+        assertNull(lease.captureVerification(30))
+        assertTrue(lease.startIfCurrent(30) { true })
+        assertEquals(
+            TunnelVerificationCommit.COMMITTED,
+            lease.commitVerification(
+                lease.captureVerification(30)!!,
+                writeCredential = { credentialWrites.incrementAndGet(); true },
+                clearPendingToken = { pendingTokenClears.incrementAndGet() },
+                publishConnected = { connectedPublishes.incrementAndGet() },
+            ),
+        )
+        assertEquals(1, credentialWrites.get())
+        assertEquals(1, pendingTokenClears.get())
+        assertEquals(1, connectedPublishes.get())
+    }
+
+    @Test
+    fun `available lost and replacement network events make verification unavailable`() {
+        listOf("available", "lost", "replacement").forEachIndexed { index, event ->
+            val lease = TunnelNativeLease()
+            val credentialWrites = AtomicInteger()
+            val pendingTokenClears = AtomicInteger()
+            val connectedPublishes = AtomicInteger()
+            val generation = (40 + index).toLong()
+
+            assertTrue(lease.advance(generation), event)
+            assertTrue(lease.activateRequest(generation), event)
+            assertTrue(lease.startIfCurrent(generation) { true }, event)
+            val verification = lease.captureVerification(generation)!!
+
+            assertEquals(generation, lease.invalidateNetwork(), event)
+            assertNull(lease.captureVerification(generation), event)
+            assertEquals(
+                TunnelVerificationCommit.STALE,
+                lease.commitVerification(
+                    verification,
+                    writeCredential = { credentialWrites.incrementAndGet(); true },
+                    clearPendingToken = { pendingTokenClears.incrementAndGet() },
+                    publishConnected = { connectedPublishes.incrementAndGet() },
+                ),
+                event,
+            )
+            assertEquals(0, credentialWrites.get(), event)
+            assertEquals(0, pendingTokenClears.get(), event)
+            assertEquals(0, connectedPublishes.get(), event)
+        }
+    }
+
+    @Test
+    fun `preserving activation keeps a valid session but cannot restore an invalidated one`() {
+        val lease = TunnelNativeLease()
+
+        assertTrue(lease.advance(50))
+        assertTrue(lease.activateRequest(50))
+        assertTrue(lease.startIfCurrent(50) { true })
+        assertTrue(lease.advance(51))
+        assertTrue(lease.activateRequest(51, preserveNativeSession = true))
+        assertTrue(lease.captureVerification(51) != null)
+
+        assertEquals(51, lease.invalidateNetwork())
+        assertTrue(lease.activateRequest(51, preserveNativeSession = true))
+        assertNull(lease.captureVerification(51))
+    }
+
+    @Test
     fun `network invalidation while health is blocked prevents verified side effects`() {
         val lease = TunnelNativeLease()
         val healthStarted = CountDownLatch(1)
