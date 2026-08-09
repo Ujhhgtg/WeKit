@@ -133,21 +133,23 @@ internal class TunnelNativeLease {
     private var verifiableNativeSessionEpoch: Long? = null
 
     @Synchronized
-    fun advance(generation: Long): Boolean {
+    fun advance(generation: Long, transition: () -> Unit): Boolean {
         if (generation < currentGeneration) return false
         if (generation > currentGeneration) {
             if (ownerGeneration == currentGeneration) ownerGeneration = generation
-            activeRequestGeneration = null
         }
+        activeRequestGeneration = null
+        networkEpoch++
         currentGeneration = generation
+        transition()
         return true
     }
 
     @Synchronized
-    fun activateRequest(generation: Long, preserveNativeSession: Boolean = false): Boolean {
+    fun activateRequest(generation: Long): Boolean {
         if (currentGeneration != generation) return false
         activeRequestGeneration = generation
-        if (!preserveNativeSession) verifiableNativeSessionEpoch = null
+        verifiableNativeSessionEpoch = null
         networkEpoch++
         return true
     }

@@ -113,3 +113,17 @@
   RECONNECTING/null immediately after invalidation, including before queued teardown runs.
 - [x] Re-run 34 focused tests and every Android, Go race, Rust, dual-ABI, APK, symbol, and diff gate.
 - [ ] Obtain a passing external final re-review verdict.
+
+#### Atomic authoritative generation follow-up
+
+- [x] Make `TunnelNativeLease.advance` require an in-monitor authoritative metadata transition.
+- [x] Audit every production advance call and atomically set generation/request/status metadata in
+  both `handleStart` and `stopTunnel`, without Binder/UI/publication callbacks under the lease.
+- [x] Store authoritative generation/status as one atomic immutable snapshot and use CAS publication,
+  so REGISTER/status cannot pair H with the old CONNECTED value or let a late G publish revert H.
+- [x] Invalidate the active request/network epoch inside accepted advance, including equal-generation
+  STOP, and remove the obsolete session-preserving activation path.
+- [x] Deterministically cover transition-first and teardown-first ordering for START and STOP and
+  prove no H snapshot can retain G's CONNECTED URL.
+- [x] Re-run 35 focused tests and all Android, Go race, Rust, dual-ABI, APK, symbol, and diff gates.
+- [ ] Obtain a passing external final review verdict before Task 10.

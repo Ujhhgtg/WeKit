@@ -22,6 +22,8 @@ import kotlinx.coroutines.sync.Mutex
 
 class ReadReceiptsTunnelCoordinationTest {
 
+    private fun TunnelNativeLease.advance(generation: Long): Boolean = advance(generation) {}
+
     enum class OriginStaleCheckpoint {
         PRE_QUEUE,
         PRE_RECONCILE,
@@ -117,19 +119,18 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
-    fun `preserving activation keeps a valid session but cannot restore an invalidated one`() {
+    fun `new generation activation requires a fresh native session before verification`() {
         val lease = TunnelNativeLease()
 
         assertTrue(lease.advance(50))
         assertTrue(lease.activateRequest(50))
         assertTrue(lease.startIfCurrent(50) { true })
         assertTrue(lease.advance(51))
-        assertTrue(lease.activateRequest(51, preserveNativeSession = true))
-        assertTrue(lease.captureVerification(51) != null)
-
-        assertEquals(51, lease.invalidateNetwork()!!.invalidatedOwnerGeneration)
-        assertTrue(lease.activateRequest(51, preserveNativeSession = true))
+        assertTrue(lease.activateRequest(51))
         assertNull(lease.captureVerification(51))
+        assertTrue(lease.stopForReplacement(51) {})
+        assertTrue(lease.startIfCurrent(51) { true })
+        assertTrue(lease.captureVerification(51) != null)
     }
 
     @Test
@@ -250,6 +251,128 @@ class ReadReceiptsTunnelCoordinationTest {
             ),
         )
         assertEquals("RECONNECTING", status.get())
+    }
+
+    @Test
+    fun `generation transition and invalidated teardown publish against one authoritative generation`() {
+        listOf(
+            "START" to ReadReceiptsTunnelState.STARTING,
+            "STOP" to ReadReceiptsTunnelState.STOPPING,
+        ).forEach { (command, transitionState) ->
+            val lease = TunnelNativeLease()
+            val serviceState = AtomicReference(
+                80L to
+                    ReadReceiptsTunnelStatus(
+                        ReadReceiptsTunnelState.CONNECTED,
+                        publicUrl = "https://old.example.com",
+                    ),
+            )
+            val transitionEntered = CountDownLatch(1)
+            val releaseTransition = CountDownLatch(1)
+            val teardownPublished = CountDownLatch(1)
+            val transitionAccepted = AtomicBoolean()
+            val publishedOwnerGeneration = AtomicLong(-1)
+
+            assertTrue(lease.advance(80))
+            assertTrue(lease.activateRequest(80))
+            assertTrue(lease.startIfCurrent(80) { true })
+            val invalidation = lease.invalidateNetwork()!!
+
+            val transition = thread {
+                transitionAccepted.set(
+                    lease.advance(81) {
+                        transitionEntered.countDown()
+                        releaseTransition.await()
+                        serviceState.set(
+                            81L to ReadReceiptsTunnelStatus(transitionState),
+                        )
+                    },
+                )
+            }
+            transitionEntered.await()
+            val teardown = thread {
+                lease.stopInvalidatedSession(
+                    invalidation,
+                    stop = {},
+                    publishReconnecting = { ownerGeneration ->
+                        publishedOwnerGeneration.set(ownerGeneration)
+                        serviceState.set(
+                            ownerGeneration to
+                                ReadReceiptsTunnelStatus(
+                                    ReadReceiptsTunnelState.RECONNECTING,
+                                ),
+                        )
+                        teardownPublished.countDown()
+                    },
+                )
+            }
+
+            assertFalse(teardownPublished.await(100, TimeUnit.MILLISECONDS), command)
+            releaseTransition.countDown()
+            transition.join()
+            teardown.join()
+            assertTrue(transitionAccepted.get(), command)
+            assertEquals(81, publishedOwnerGeneration.get(), command)
+            val forwardSnapshot = serviceState.get()
+            assertEquals(81, forwardSnapshot.first, command)
+            assertEquals(ReadReceiptsTunnelState.RECONNECTING, forwardSnapshot.second.state, command)
+            assertNull(forwardSnapshot.second.publicUrl, command)
+
+            val reverseLease = TunnelNativeLease()
+            val reverseState = AtomicReference(
+                90L to
+                    ReadReceiptsTunnelStatus(
+                        ReadReceiptsTunnelState.CONNECTED,
+                        publicUrl = "https://old.example.com",
+                    ),
+            )
+            val stopEntered = CountDownLatch(1)
+            val releaseStop = CountDownLatch(1)
+            val reversePublishedOwner = AtomicLong(-1)
+            val reverseTransitionAccepted = AtomicBoolean()
+            assertTrue(reverseLease.advance(90))
+            assertTrue(reverseLease.activateRequest(90))
+            assertTrue(reverseLease.startIfCurrent(90) { true })
+            val reverseInvalidation = reverseLease.invalidateNetwork()!!
+
+            val reverseTeardown = thread {
+                reverseLease.stopInvalidatedSession(
+                    reverseInvalidation,
+                    stop = {
+                        stopEntered.countDown()
+                        releaseStop.await()
+                    },
+                    publishReconnecting = { ownerGeneration ->
+                        reversePublishedOwner.set(ownerGeneration)
+                        reverseState.set(
+                            ownerGeneration to
+                                ReadReceiptsTunnelStatus(
+                                    ReadReceiptsTunnelState.RECONNECTING,
+                                ),
+                        )
+                    },
+                )
+            }
+            stopEntered.await()
+            val reverseTransition = thread {
+                reverseTransitionAccepted.set(
+                    reverseLease.advance(91) {
+                        reverseState.set(
+                            91L to ReadReceiptsTunnelStatus(transitionState),
+                        )
+                    },
+                )
+            }
+            releaseStop.countDown()
+            reverseTeardown.join()
+            reverseTransition.join()
+            assertTrue(reverseTransitionAccepted.get(), command)
+            assertEquals(90, reversePublishedOwner.get(), command)
+            val reverseSnapshot = reverseState.get()
+            assertEquals(91, reverseSnapshot.first, command)
+            assertEquals(transitionState, reverseSnapshot.second.state, command)
+            assertNull(reverseSnapshot.second.publicUrl, command)
+        }
     }
 
     @Test

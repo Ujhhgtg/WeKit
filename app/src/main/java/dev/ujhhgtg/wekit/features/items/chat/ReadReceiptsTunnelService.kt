@@ -48,6 +48,7 @@ import java.security.KeyStore
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -71,11 +72,18 @@ class ReadReceiptsTunnelService : Service() {
         .followRedirects(false)
         .build()
 
-    @Volatile
-    private var status = ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPED)
+    private val authoritativeState = AtomicReference(
+        AuthoritativeTunnelState(
+            generation = 0L,
+            status = ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPED),
+        ),
+    )
 
-    @Volatile
-    private var generation = 0L
+    private val status: ReadReceiptsTunnelStatus
+        get() = authoritativeState.get().status
+
+    private val generation: Long
+        get() = authoritativeState.get().generation
 
     @Volatile
     private var activeRequest: TunnelRequest? = null
@@ -201,13 +209,20 @@ class ReadReceiptsTunnelService : Service() {
         val nonce = data.getString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE)
         val suppliedToken = data.getString(ReadReceiptsTunnelProtocol.KEY_TOKEN)
         data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
-        if (!nativeLease.advance(requestedGeneration)) {
+        if (
+            !nativeLease.advance(requestedGeneration) {
+                activeRequest = null
+                authoritativeState.set(
+                    AuthoritativeTunnelState(
+                        requestedGeneration,
+                        ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING),
+                    ),
+                )
+            }
+        ) {
             sendStartAck(client, nonce, requestedGeneration, accepted = false)
             return
         }
-        generation = requestedGeneration
-        activeRequest = null
-        nativeLease.clearRequest(requestedGeneration)
         if (!foregroundActive) {
             publish(
                 requestedGeneration,
@@ -539,11 +554,20 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private fun stopTunnel(requestedGeneration: Long) {
-        if (!nativeLease.advance(requestedGeneration)) return
-        generation = requestedGeneration
-        val stoppedGeneration = generation
-        activeRequest = null
-        nativeLease.clearRequest(stoppedGeneration)
+        if (
+            !nativeLease.advance(requestedGeneration) {
+                activeRequest = null
+                authoritativeState.set(
+                    AuthoritativeTunnelState(
+                        requestedGeneration,
+                        ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPING),
+                    ),
+                )
+            }
+        ) {
+            return
+        }
+        val stoppedGeneration = requestedGeneration
         val previous = lifecycleJob
         lifecycleJob = scope.launch {
             publish(stoppedGeneration, ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPING))
@@ -629,20 +653,32 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private fun publish(expectedGeneration: Long, value: ReadReceiptsTunnelStatus) {
-        if (generation != expectedGeneration) return
-        status = value.copy(
+        val sanitized = value.copy(
             publicUrl = value.publicUrl?.take(MAX_URL_CHARS),
             error = value.error?.take(MAX_ERROR_CHARS),
         )
+        while (true) {
+            val current = authoritativeState.get()
+            if (current.generation != expectedGeneration) return
+            if (
+                authoritativeState.compareAndSet(
+                    current,
+                    AuthoritativeTunnelState(expectedGeneration, sanitized),
+                )
+            ) {
+                break
+            }
+        }
         updateNotification()
         listeners.values.forEach(::sendStatus)
     }
 
     private fun sendStatus(listener: StatusListener) {
-        val value = status
+        val snapshot = authoritativeState.get()
+        val value = snapshot.status
         val message = Message.obtain(null, ReadReceiptsTunnelProtocol.STATUS).apply {
             data = Bundle().apply {
-                putLong(ReadReceiptsTunnelProtocol.KEY_GENERATION, generation)
+                putLong(ReadReceiptsTunnelProtocol.KEY_GENERATION, snapshot.generation)
                 putString(ReadReceiptsTunnelProtocol.KEY_STATE, value.state.name)
                 putString(ReadReceiptsTunnelProtocol.KEY_PUBLIC_URL, value.publicUrl)
                 putString(ReadReceiptsTunnelProtocol.KEY_ERROR, value.error)
@@ -746,6 +782,11 @@ class ReadReceiptsTunnelService : Service() {
     private data class StatusListener(
         val messenger: Messenger,
         val nonce: String,
+    )
+
+    private data class AuthoritativeTunnelState(
+        val generation: Long,
+        val status: ReadReceiptsTunnelStatus,
     )
 
     companion object {

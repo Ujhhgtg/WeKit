@@ -514,3 +514,77 @@ Each ABI again exports exactly six Task 8 C symbols and four direct tunnel JNI s
 Legacy APKs each contain the four required native library entries. Generated JNI inputs were moved to
 `/tmp/wekit-task9-fix5-sync-final-jni.ksrh2S/jniLibs`. No Dex resolver changed. External final review
 and the existing device checklist remain pending; this report does not claim Task 9 acceptance.
+
+### Atomic authoritative-generation transition follow-up
+
+The next external review found one remaining gap shared by the START and STOP service paths. Lease
+`advance(H)` transferred a native owner before the separate service `generation = H` assignment. An
+old invalidation ticket could enter that interval, stop owner H, and attempt an H `RECONNECTING`
+publication while the service filter still held G, dropping the update and retaining the old
+CONNECTED URL.
+
+`TunnelNativeLease.advance` now requires a transition callback and executes it under the same monitor
+as current-generation and owner transfer. The complete production-call audit found exactly two call
+sites:
+
+- `handleStart` atomically sets service generation H, clears the old service request, and replaces
+  authoritative local status with STARTING/no URL.
+- `stopTunnel` atomically sets service generation H, clears the old service request, and replaces
+  authoritative local status with STOPPING/no URL.
+
+Those callbacks mutate local service metadata only. They do not publish, send Binder messages,
+invoke UI/controller code, or reenter the lease. Parsing, failure publication, ACK delivery,
+lifecycle cancellation, and native stop remain outside the transition callback.
+
+Service generation and status are stored as one immutable value in an `AtomicReference`. Transition
+sets H plus STARTING/STOPPING in one write; publication uses compare-and-set, so a G publication that
+passed an earlier check cannot overwrite an H transition; REGISTER/status delivery reads the pair in
+one snapshot. This closes the visibility tear that two independent volatile fields would otherwise
+leave between H and the old CONNECTED status.
+
+Accepted advance also clears the lease's active request and increments its network epoch before the
+metadata callback runs. This makes equal-generation STOP/token-delete transitions invalidate an
+in-flight verification under the same monitor instead of relying on a later `clearRequest` call. The
+obsolete native-session-preservation activation option was removed; every newly activated request
+requires its own successful native start before verification.
+
+The deterministic regression covers both STARTING and STOPPING transition metadata in both lock
+orders. It was RED at compilation because `advance(Long)` accepted no callback. It is now GREEN:
+
+- Transition-first: H holds the lease while teardown waits; service generation/status become H and
+  non-CONNECTED before release; the old ticket then stops transferred owner H and its H RECONNECTING
+  commit passes the H filter.
+- Teardown-first: the ticket stops owner G and commits G RECONNECTING; the later H transition records
+  STARTING or STOPPING with no URL. A REGISTER snapshot therefore cannot observe H with G's old
+  CONNECTED URL in either order.
+
+Final fresh gates for this follow-up:
+
+```text
+./gradlew :app:testStandardDebugUnitTest \
+  --tests dev.ujhhgtg.wekit.features.items.chat.ReadReceiptsTunnelCoordinationTest
+BUILD SUCCESSFUL; 35 focused tests
+
+./gradlew testStandardDebugUnitTest
+BUILD SUCCESSFUL in 6s
+
+go test -race -count=1 ./app/src/main/go/wekit-cloudflared
+ok dev.ujhhgtg.wekit/cloudflared-bridge 1.148s
+
+cargo test --workspace
+PASS: wekit-native 9; service library 15; pixel logging 1; zygisk 10; xtask 22
+
+./x cloudflared-build --abi arm64-v8a --abi armeabi-v7a
+PASS
+
+./x build
+BUILD SUCCESSFUL in 12s (144 actionable tasks: 12 executed, 1 from cache, 131 up-to-date)
+
+git diff --check
+PASS
+```
+
+Both ABIs again export exactly six Task 8 C symbols and four direct tunnel JNI symbols, and Standard
+and Legacy APKs each contain all four required native entries. Generated JNI inputs were moved to
+`/tmp/wekit-task9-fix5-authoritative-final-jni.s9WkdL/jniLibs`. No Dex resolver changed. External final review
+and the device checklist remain pending; Task 10 has not started.
