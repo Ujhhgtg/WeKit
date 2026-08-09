@@ -20,4 +20,5 @@ data class ReadReceiptsTunnelStatus(
     val state: ReadReceiptsTunnelState,
     val publicUrl: String? = null,
     val error: String? = null,
+    val needsNotificationSettings: Boolean = false,
 )

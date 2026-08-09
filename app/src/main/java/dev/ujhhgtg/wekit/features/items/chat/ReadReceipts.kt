@@ -496,15 +496,86 @@ object ReadReceipts : ClickableFeature(),
             return
         }
         startOrigin(requestedBuiltInPort(configuration)) { originResult ->
-            val result = originResult.mapCatching { port ->
-                ReadReceiptsTunnelController.startVisible(
-                    mode = mode,
-                    originPort = port,
-                    hostname = configuration.hostname,
-                    token = token,
-                ).getOrThrow()
+            originResult.fold(
+                onSuccess = { port ->
+                    ReadReceiptsTunnelController.startVisible(
+                        mode = mode,
+                        originPort = port,
+                        hostname = configuration.hostname,
+                        token = token,
+                        onHandoff = { result -> onFinished?.invoke(result) },
+                    )
+                },
+                onFailure = { error -> onFinished?.invoke(Result.failure(error)) },
+            )
+        }
+    }
+
+    /**
+     * Applies the runtime-relevant candidate only after the module service ACKs secret handoff.
+     * A fixed-port/config replacement first tears down the old stack; any immediate failure restores
+     * the previous persisted configuration and restarts its stack when it had been active.
+     */
+    private fun applyAndStartBuiltInStack(
+        candidate: ReadReceiptsConfiguration,
+        token: String?,
+        onFinished: (Result<Unit>) -> Unit,
+    ) {
+        val previous = configuration()
+        val previousWasActive = originController.status() in setOf(
+            ReadReceiptsRuntimeState.STARTING,
+            ReadReceiptsRuntimeState.RUNNING,
+            ReadReceiptsRuntimeState.STOPPING,
+        )
+        val needsReplacement = previousWasActive && (
+            previous.mode != ReadReceiptsServerMode.BUILT_IN ||
+                requestedBuiltInPort(previous) != requestedBuiltInPort(candidate) ||
+                previous.tunnelMode != candidate.tunnelMode ||
+                previous.hostname != candidate.hostname
+        )
+
+        fun restore(error: Throwable) {
+            if (
+                !previousWasActive &&
+                ReadReceiptsTunnelController.status.needsNotificationSettings
+            ) {
+                stopOrigin {
+                    saveConfiguration(previous)
+                    onFinished(Result.failure(error))
+                }
+                return
             }
-            onFinished?.invoke(result)
+            stopBuiltInStack {
+                saveConfiguration(previous)
+                if (previousWasActive) {
+                    startBuiltInStack(previous) { onFinished(Result.failure(error)) }
+                } else {
+                    onFinished(Result.failure(error))
+                }
+            }
+        }
+
+        fun startCandidate() {
+            startBuiltInStack(candidate, token) { result ->
+                result.fold(
+                    onSuccess = {
+                        saveConfiguration(candidate)
+                        onFinished(Result.success(Unit))
+                    },
+                    onFailure = ::restore,
+                )
+            }
+        }
+
+        if (needsReplacement) {
+            stopBuiltInStack { stopResult ->
+                stopResult.fold(
+                    onSuccess = { startCandidate() },
+                    onFailure = { error -> onFinished(Result.failure(error)) },
+                )
+            }
+        } else {
+            startCandidate()
         }
     }
 
@@ -632,7 +703,19 @@ object ReadReceipts : ClickableFeature(),
         requestedPort: Int,
         status: ReadReceiptsStatus,
     ): Result<Int?>? = when (status.state) {
-        ReadReceiptsRuntimeState.RUNNING -> Result.success(status.port!!)
+        ReadReceiptsRuntimeState.RUNNING -> {
+            if (requestedPort == 0 || status.port == requestedPort) {
+                Result.success(status.port!!)
+            } else {
+                val terminal = stopOriginAndAwait(request)
+                if (!request.isCurrent()) return null
+                if (terminal == ReadReceiptsRuntimeState.STOPPED) {
+                    startOriginNative(request, requestedPort)
+                } else {
+                    Result.failure(IllegalStateException("内置服务器未能切换到指定端口"))
+                }
+            }
+        }
         ReadReceiptsRuntimeState.STARTING -> {
             val settled = awaitOriginStartSettlement(request)
             if (!request.isCurrent()) return null
@@ -1145,6 +1228,7 @@ object ReadReceipts : ClickableFeature(),
             var hostnameInput by remember { mutableStateOf(initialConfiguration.hostname) }
             var tokenInput by remember { mutableStateOf("") }
             var revealToken by remember { mutableStateOf(false) }
+            var connectionTransactionActive by remember { mutableStateOf(false) }
             var originStatus by remember { mutableStateOf(originController.snapshot()) }
             var tunnelStatus by remember { mutableStateOf(ReadReceiptsTunnelController.status) }
             var credentialExists by remember {
@@ -1357,6 +1441,16 @@ object ReadReceipts : ClickableFeature(),
                                 }
                                 Text("公网隧道: $tunnelStateText")
                                 if (tunnelStatus.error != null) Text("隧道错误: ${tunnelStatus.error}")
+                                if (tunnelStatus.needsNotificationSettings) {
+                                    Button(
+                                        onClick = {
+                                            ReadReceiptsTunnelController.openNotificationSettings(context)
+                                                .onFailure {
+                                                    showToast(context, "无法打开 WeKit 通知设置")
+                                                }
+                                        },
+                                    ) { Text("打开 WeKit 通知设置") }
+                                }
                                 val verifiedUrl = tunnelStatus.publicUrl
                                     ?.takeIf { tunnelStatus.state == ReadReceiptsTunnelState.CONNECTED }
                                 if (verifiedUrl != null) {
@@ -1401,6 +1495,7 @@ object ReadReceipts : ClickableFeature(),
                                                     }
                                             }
                                             val candidate = configuration().copy(
+                                                mode = ReadReceiptsServerMode.BUILT_IN,
                                                 automaticPort = automaticPortInput,
                                                 builtInPort = port,
                                                 tunnelMode = tunnelModeInput.name,
@@ -1420,10 +1515,12 @@ object ReadReceipts : ClickableFeature(),
                                                 showToast(context, "错误: 请输入根路径 HTTPS 主机名")
                                                 return@Button
                                             }
-                                            startBuiltInStack(
+                                            connectionTransactionActive = true
+                                            applyAndStartBuiltInStack(
                                                 candidate,
                                                 tokenInput.takeIf(String::isNotBlank),
                                             ) { result ->
+                                                connectionTransactionActive = false
                                                 if (result.isSuccess) tokenInput = ""
                                                 originStatus = originController.snapshot()
                                                 showToast(
@@ -1484,7 +1581,9 @@ object ReadReceipts : ClickableFeature(),
                 },
                 dismissButton = { TextButton(onDismiss) { Text("取消") } },
                 confirmButton = {
-                    Button(onClick = {
+                    Button(
+                        enabled = !connectionTransactionActive,
+                        onClick = {
                         val normalizedThirdParty = if (
                             modeInput == ReadReceiptsServerMode.THIRD_PARTY
                         ) {
@@ -1584,8 +1683,9 @@ object ReadReceipts : ClickableFeature(),
                             showToast(context, "警告: 「触发前缀」为空, 所有文本消息将启用已读追踪!")
                         }
 
-                        onDismiss()
-                    }) { Text("确定") }
+                            onDismiss()
+                        },
+                    ) { Text("确定") }
                 })
         }
     }

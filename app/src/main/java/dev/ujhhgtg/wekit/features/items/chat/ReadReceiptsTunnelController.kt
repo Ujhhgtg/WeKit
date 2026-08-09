@@ -11,10 +11,10 @@ import android.os.Looper
 import android.os.Message
 import android.os.Messenger
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Base64
 import androidx.core.content.ContextCompat
 import dev.ujhhgtg.wekit.utils.HostInfo
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
 import java.security.SecureRandom
 
@@ -26,7 +26,8 @@ internal object ReadReceiptsTunnelController {
         .let { Base64.encodeToString(it, Base64.NO_WRAP) }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val incoming = Messenger(IncomingHandler(Looper.getMainLooper()))
-    private val stoppedCallbacks = CopyOnWriteArrayList<() -> Unit>()
+    private val handoffGate = TunnelHandoffGate()
+    private val stopCompletion = TunnelStopCompletion()
 
     @Volatile
     private var service: Messenger? = null
@@ -36,6 +37,9 @@ internal object ReadReceiptsTunnelController {
 
     @Volatile
     private var bound = false
+
+    @Volatile
+    private var pendingStart: PendingStart? = null
 
     @Volatile
     private var pendingCommand: Message? = null
@@ -67,9 +71,12 @@ internal object ReadReceiptsTunnelController {
         originPort: Int,
         hostname: String,
         token: String?,
-    ): Result<Unit> {
+        onHandoff: (Result<Unit>) -> Unit,
+    ) {
         val context = HostInfo.application
         val nextGeneration = nextGeneration()
+        failPendingStart(IllegalStateException("连接请求已被新配置取代"))
+        handoffGate.begin(nextGeneration)
         status = ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING)
         val startIntent = serviceIntent(context).apply {
             action = ReadReceiptsTunnelService.ACTION_START
@@ -80,12 +87,16 @@ internal object ReadReceiptsTunnelController {
                 ReadReceiptsTunnelState.NEEDS_USER_ACTION,
                 error = "系统阻止了前台服务启动, 请保持微信在前台后重试",
             )
-            return Result.failure(started.exceptionOrNull()!!)
+            handoffGate.fail(nextGeneration)
+            onHandoff(Result.failure(started.exceptionOrNull()!!))
+            return
         }
 
         val command = Message.obtain(null, ReadReceiptsTunnelProtocol.START).apply {
+            replyTo = incoming
             data = Bundle().apply {
                 putLong(ReadReceiptsTunnelProtocol.KEY_GENERATION, nextGeneration)
+                putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, clientNonce)
                 putString(ReadReceiptsTunnelProtocol.KEY_MODE, mode.name)
                 putString(
                     ReadReceiptsTunnelProtocol.KEY_ORIGIN,
@@ -95,13 +106,19 @@ internal object ReadReceiptsTunnelController {
                 if (token != null) putString(ReadReceiptsTunnelProtocol.KEY_TOKEN, token)
             }
         }
-        queueOrSend(context, command)
-        return Result.success(Unit)
+        pendingStart = PendingStart(nextGeneration, command, onHandoff)
+        sendPendingOrBind(context)
+        mainHandler.postDelayed(
+            { failPendingStart(nextGeneration, IllegalStateException("隧道服务接管请求超时")) },
+            START_HANDOFF_TIMEOUT_MILLIS,
+        )
     }
 
     fun stop(onStopped: (() -> Unit)? = null) {
-        if (onStopped != null) stoppedCallbacks += onStopped
-        val nextGeneration = nextGeneration()
+        failPendingStart(IllegalStateException("连接请求已取消"))
+        val registration = stopCompletion.register(onStopped, ::nextGeneration)
+        if (!registration.shouldSend) return
+        val nextGeneration = registration.generation
         status = ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPING)
         val command = Message.obtain(null, ReadReceiptsTunnelProtocol.STOP).apply {
             data = Bundle().apply {
@@ -112,15 +129,14 @@ internal object ReadReceiptsTunnelController {
         mainHandler.postDelayed(
             {
                 if (
-                    generation.get() == nextGeneration &&
                     status.state != ReadReceiptsTunnelState.STOPPED &&
-                    stoppedCallbacks.isNotEmpty()
+                    stopCompletion.pendingGeneration() == nextGeneration
                 ) {
                     status = ReadReceiptsTunnelStatus(
                         ReadReceiptsTunnelState.FAILED,
                         error = "隧道停止超时; 已继续停止回环服务器",
                     )
-                    finishStoppedCallbacks()
+                    completeStop(nextGeneration)
                 }
             },
             STOP_COMPLETION_TIMEOUT_MILLIS,
@@ -141,21 +157,45 @@ internal object ReadReceiptsTunnelController {
         bind(HostInfo.application)
     }
 
+    fun openNotificationSettings(context: Context): Result<Unit> = runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, MODULE_PACKAGE)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+    }
+
     private fun queueOrSend(context: Context, command: Message) {
         pendingCommand = command
+        sendPendingOrBind(context)
+    }
+
+    private fun sendPendingOrBind(context: Context) {
         if (!sendPending()) bind(context)
     }
 
     private fun sendPending(): Boolean {
         val target = service ?: return false
-        val command = pendingCommand ?: return true
-        val sent = runCatching {
-            target.send(command)
-            command.data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
+        val start = pendingStart
+        if (start != null && !start.sent) {
+            val sent = runCatching { target.send(start.command) }.isSuccess
+            if (!sent) {
+                onBinderDied()
+                return false
+            }
+            start.sent = true
+        }
+        val command = pendingCommand
+        if (command != null) {
+            val sent = runCatching { target.send(command) }.isSuccess
+            if (!sent) {
+                onBinderDied()
+                return false
+            }
             pendingCommand = null
-        }.isSuccess
-        if (!sent) onBinderDied()
-        return sent
+        }
+        return true
     }
 
     private fun bind(context: Context) {
@@ -170,7 +210,8 @@ internal object ReadReceiptsTunnelController {
                 ReadReceiptsTunnelState.NEEDS_USER_ACTION,
                 error = "无法连接 WeKit 隧道服务",
             )
-            finishStoppedCallbacks()
+            failPendingStart(IllegalStateException("无法连接 WeKit 隧道服务"))
+            stopCompletion.pendingGeneration()?.let(::completeStop)
         }
     }
 
@@ -199,11 +240,21 @@ internal object ReadReceiptsTunnelController {
     }
 
     private fun onBinderDied() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post(::handleBinderDied)
+        } else {
+            handleBinderDied()
+        }
+    }
+
+    private fun handleBinderDied() {
         service = null
         binding = false
         bound = false
-        if (stoppedCallbacks.isNotEmpty()) {
-            finishStoppedCallbacks()
+        failPendingStart(IllegalStateException("隧道服务在接管请求前断开"))
+        val stoppingGeneration = stopCompletion.pendingGeneration()
+        if (stoppingGeneration != null) {
+            completeStop(stoppingGeneration)
             return
         }
         if (status.state !in setOf(
@@ -223,11 +274,15 @@ internal object ReadReceiptsTunnelController {
     private class IncomingHandler(looper: Looper) : Handler(looper) {
         override fun handleMessage(message: Message) {
             if (
-                message.what != ReadReceiptsTunnelProtocol.STATUS ||
                 message.data.getString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE) != clientNonce
             ) {
                 return
             }
+            if (message.what == ReadReceiptsTunnelProtocol.START_ACK) {
+                handleStartAck(message.data)
+                return
+            }
+            if (message.what != ReadReceiptsTunnelProtocol.STATUS) return
             val data = message.data
             credentialExists = data.getBoolean(ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_EXISTS)
             val incomingGeneration = data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION)
@@ -240,21 +295,68 @@ internal object ReadReceiptsTunnelController {
                 state = state,
                 publicUrl = data.getString(ReadReceiptsTunnelProtocol.KEY_PUBLIC_URL),
                 error = data.getString(ReadReceiptsTunnelProtocol.KEY_ERROR),
+                needsNotificationSettings = data.getBoolean(
+                    ReadReceiptsTunnelProtocol.KEY_NEEDS_NOTIFICATION_SETTINGS,
+                ),
             )
             if (state == ReadReceiptsTunnelState.STOPPED) {
-                if (stoppedCallbacks.isEmpty()) {
+                val drain = stopCompletion.complete(incomingGeneration)
+                if (!drain.matched) {
                     ReadReceipts.onTunnelServiceStopped()
                 } else {
-                    finishStoppedCallbacks()
+                    drain.callbacks.forEach { callback -> callback() }
                 }
                 unbind()
             }
         }
     }
 
-    private fun finishStoppedCallbacks() {
-        stoppedCallbacks.toList().forEach { callback -> callback() }
-        stoppedCallbacks.clear()
+    private fun handleStartAck(data: Bundle) {
+        val acknowledgedGeneration = data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION)
+        val pending = pendingStart
+        if (pending?.generation != acknowledgedGeneration) return
+        val accepted = data.getBoolean(ReadReceiptsTunnelProtocol.KEY_ACCEPTED)
+        if (data.getBoolean(ReadReceiptsTunnelProtocol.KEY_NEEDS_NOTIFICATION_SETTINGS)) {
+            status = ReadReceiptsTunnelStatus(
+                ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                error = "WeKit 通知已关闭, 请在系统设置中允许通知后重试",
+                needsNotificationSettings = true,
+            )
+        }
+        val completed = if (accepted) {
+            handoffGate.complete(acknowledgedGeneration)
+        } else {
+            handoffGate.fail(acknowledgedGeneration)
+        }
+        if (!completed) return
+        pending.command.data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
+        pendingStart = null
+        pending.completion(
+            if (accepted) {
+                Result.success(Unit)
+            } else {
+                Result.failure(IllegalStateException("隧道服务拒绝了连接请求"))
+            },
+        )
+    }
+
+    private fun failPendingStart(error: Throwable) {
+        val pending = pendingStart ?: return
+        failPendingStart(pending.generation, error)
+    }
+
+    private fun failPendingStart(expectedGeneration: Long, error: Throwable) {
+        val pending = pendingStart ?: return
+        if (pending.generation != expectedGeneration || !handoffGate.fail(expectedGeneration)) return
+        pending.command.data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
+        pendingStart = null
+        pending.completion(Result.failure(error))
+    }
+
+    private fun completeStop(expectedGeneration: Long) {
+        val drain = stopCompletion.complete(expectedGeneration)
+        if (!drain.matched) return
+        drain.callbacks.forEach { callback -> callback() }
     }
 
     private fun nextGeneration(): Long = generation.updateAndGet { current ->
@@ -276,5 +378,13 @@ internal object ReadReceiptsTunnelController {
     private const val SERVICE_CLASS =
         "dev.ujhhgtg.wekit.features.items.chat.ReadReceiptsTunnelService"
     private const val REBIND_DELAY_MILLIS = 1_000L
+    private const val START_HANDOFF_TIMEOUT_MILLIS = 10_000L
     private const val STOP_COMPLETION_TIMEOUT_MILLIS = 20_000L
+
+    private data class PendingStart(
+        val generation: Long,
+        val command: Message,
+        val completion: (Result<Unit>) -> Unit,
+        var sent: Boolean = false,
+    )
 }

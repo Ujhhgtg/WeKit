@@ -22,6 +22,7 @@ import android.security.keystore.KeyProperties
 import android.util.AtomicFile
 import android.util.Base64
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,6 +60,7 @@ class ReadReceiptsTunnelService : Service() {
     private val listeners = ConcurrentHashMap<IBinder, StatusListener>()
     private val messenger = Messenger(IncomingHandler(Looper.getMainLooper()))
     private val credentialStore by lazy { TunnelCredentialStore(this) }
+    private val nativeLease = TunnelNativeLease()
     private val connectivityManager by lazy {
         getSystemService(ConnectivityManager::class.java)
     }
@@ -81,6 +83,9 @@ class ReadReceiptsTunnelService : Service() {
     @Volatile
     private var networkAvailable = true
 
+    private val networkLock = Any()
+    private var currentDefaultNetwork: Network? = null
+
     private var lifecycleJob: Job? = null
     private var authorizationTimeout: Job? = null
     private var authorizedCommandSeen = false
@@ -90,19 +95,25 @@ class ReadReceiptsTunnelService : Service() {
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            networkAvailable = true
+            val replaced = synchronized(networkLock) {
+                val previous = currentDefaultNetwork
+                currentDefaultNetwork = network
+                networkAvailable = true
+                previous != null && previous != network
+            }
+            if (replaced) invalidateForNetworkChange(activeRequest?.generation)
         }
 
         override fun onLost(network: Network) {
-            networkAvailable = connectivityManager.activeNetwork != null
-            val request = activeRequest ?: return
-            if (!networkAvailable) {
-                publish(
-                    request.generation,
-                    ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.RECONNECTING),
-                )
-                scope.launch { ReadReceiptsTunnelNative.stop() }
+            synchronized(networkLock) {
+                if (currentDefaultNetwork == network) {
+                    currentDefaultNetwork = connectivityManager.activeNetwork
+                }
+                networkAvailable = connectivityManager.activeNetwork != null
             }
+            // A default-network replacement may already have a non-null activeNetwork here. The
+            // old route is still invalid and must lose its verified URL/native connection.
+            invalidateForNetworkChange(activeRequest?.generation)
         }
     }
 
@@ -110,7 +121,10 @@ class ReadReceiptsTunnelService : Service() {
         super.onCreate()
         createNotificationChannel()
         runCatching { connectivityManager.registerDefaultNetworkCallback(networkCallback) }
-        networkAvailable = connectivityManager.activeNetwork != null
+        synchronized(networkLock) {
+            currentDefaultNetwork = connectivityManager.activeNetwork
+            networkAvailable = currentDefaultNetwork != null
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -157,7 +171,10 @@ class ReadReceiptsTunnelService : Service() {
                     message.replyTo,
                     message.data.getString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE),
                 )
-                ReadReceiptsTunnelProtocol.START -> handleStart(message.data)
+                ReadReceiptsTunnelProtocol.START -> handleStart(
+                    message.data,
+                    message.replyTo,
+                )
                 ReadReceiptsTunnelProtocol.STOP -> stopTunnel(
                     message.data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION),
                 )
@@ -181,9 +198,15 @@ class ReadReceiptsTunnelService : Service() {
         sendStatus(listener)
     }
 
-    private fun handleStart(data: Bundle) {
+    private fun handleStart(data: Bundle, client: Messenger?) {
         val requestedGeneration = data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION)
-        if (requestedGeneration < generation) return
+        val nonce = data.getString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE)
+        val suppliedToken = data.getString(ReadReceiptsTunnelProtocol.KEY_TOKEN)
+        data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
+        if (!nativeLease.advance(requestedGeneration)) {
+            sendStartAck(client, nonce, requestedGeneration, accepted = false)
+            return
+        }
         generation = requestedGeneration
         if (!foregroundActive) {
             publish(
@@ -193,21 +216,44 @@ class ReadReceiptsTunnelService : Service() {
                     error = "请从可见设置界面启动前台隧道",
                 ),
             )
+            sendStartAck(client, nonce, requestedGeneration, accepted = false)
             return
         }
-        supersedeActiveSession()
+        if (!notificationsVisible()) {
+            activeRequest = null
+            replaceLifecycle(requestedGeneration, null)
+            publish(
+                requestedGeneration,
+                ReadReceiptsTunnelStatus(
+                    ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                    error = "WeKit 通知已关闭, 请在系统设置中允许通知后重试",
+                    needsNotificationSettings = true,
+                ),
+            )
+            sendStartAck(
+                client,
+                nonce,
+                requestedGeneration,
+                accepted = false,
+                needsNotificationSettings = true,
+            )
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            foregroundActive = false
+            stopSelf()
+            return
+        }
         val mode = data.getString(ReadReceiptsTunnelProtocol.KEY_MODE)
             ?.let { name -> ReadReceiptsTunnelMode.entries.firstOrNull { it.name == name } }
         val origin = data.getString(ReadReceiptsTunnelProtocol.KEY_ORIGIN).orEmpty()
         val hostname = data.getString(ReadReceiptsTunnelProtocol.KEY_HOSTNAME).orEmpty()
-        val suppliedToken = data.getString(ReadReceiptsTunnelProtocol.KEY_TOKEN)
-        data.remove(ReadReceiptsTunnelProtocol.KEY_TOKEN)
 
         if (mode == null) {
-            publishFailure(requestedGeneration, "隧道模式无效")
+            rejectStart(requestedGeneration, client, nonce, "隧道模式无效")
             return
         }
         if (mode == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
+            activeRequest = null
+            replaceLifecycle(requestedGeneration, null)
             publish(
                 requestedGeneration,
                 ReadReceiptsTunnelStatus(
@@ -215,11 +261,17 @@ class ReadReceiptsTunnelService : Service() {
                     error = "浏览器登录将在下一阶段提供",
                 ),
             )
+            sendStartAck(client, nonce, requestedGeneration, accepted = false)
             return
         }
         val publicRoot = if (mode == ReadReceiptsTunnelMode.TOKEN) {
             normalizePublicRoot(hostname) ?: run {
-                publishFailure(requestedGeneration, "Token 模式需要根路径 HTTPS 主机名")
+                rejectStart(
+                    requestedGeneration,
+                    client,
+                    nonce,
+                    "Token 模式需要根路径 HTTPS 主机名",
+                )
                 return
             }
         } else {
@@ -229,7 +281,7 @@ class ReadReceiptsTunnelService : Service() {
             suppliedToken != null &&
             (suppliedToken.length > MAX_TOKEN_CHARS || suppliedToken.isBlank())
         ) {
-            publishFailure(requestedGeneration, "Tunnel token 无效")
+            rejectStart(requestedGeneration, client, nonce, "Tunnel token 无效")
             return
         }
         if (
@@ -244,17 +296,42 @@ class ReadReceiptsTunnelService : Service() {
                     error = "请提供 Cloudflare Tunnel token",
                 ),
             )
+            activeRequest = null
+            replaceLifecycle(requestedGeneration, null)
+            sendStartAck(client, nonce, requestedGeneration, accepted = false)
             return
         }
 
         val request = TunnelRequest(requestedGeneration, mode, origin, publicRoot, suppliedToken)
         activeRequest = request
+        replaceLifecycle(requestedGeneration, request)
+        // The authorized service has copied the request and removed the secret from the Binder
+        // Bundle. Connector/public-health success remains asynchronous service-owned status.
+        sendStartAck(client, nonce, requestedGeneration, accepted = true)
+    }
+
+    private fun rejectStart(
+        requestedGeneration: Long,
+        client: Messenger?,
+        nonce: String?,
+        message: String,
+    ) {
+        activeRequest = null
+        replaceLifecycle(requestedGeneration, null)
+        publishFailure(requestedGeneration, message)
+        sendStartAck(client, nonce, requestedGeneration, accepted = false)
+    }
+
+    /** Captures the one real predecessor exactly once; this job is the sole lifecycle successor. */
+    private fun replaceLifecycle(generation: Long, request: TunnelRequest?) {
         val previous = lifecycleJob
         lifecycleJob = scope.launch {
             previous?.cancel()
             previous?.join()
-            ReadReceiptsTunnelNative.stop()
-            if (activeRequest?.generation == request.generation) runTunnel(request)
+            nativeLease.stopForReplacement(generation) {
+                ReadReceiptsTunnelNative.stop().getOrThrow()
+            }
+            if (request != null && activeRequest?.generation == generation) runTunnel(request)
         }
     }
 
@@ -277,24 +354,32 @@ class ReadReceiptsTunnelService : Service() {
             }
             currentCoroutineContext().ensureActive()
 
-            val startResult = when (request.mode) {
-                ReadReceiptsTunnelMode.QUICK -> ReadReceiptsTunnelNative.startQuick(request.origin)
-                ReadReceiptsTunnelMode.TOKEN -> {
-                    val token = request.pendingToken ?: credentialStore.read().getOrElse {
-                        publish(
-                            request.generation,
-                            ReadReceiptsTunnelStatus(
-                                ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                                error = "保存的 Tunnel token 已失效, 请重新输入",
-                            ),
-                        )
-                        return
-                    }
-                    ReadReceiptsTunnelNative.startToken(token, request.origin)
+            val token = if (request.mode == ReadReceiptsTunnelMode.TOKEN) {
+                request.pendingToken ?: credentialStore.read().getOrElse {
+                    publish(
+                        request.generation,
+                        ReadReceiptsTunnelStatus(
+                            ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                            error = "保存的 Tunnel token 已失效, 请重新输入",
+                        ),
+                    )
+                    return
                 }
-                ReadReceiptsTunnelMode.BROWSER_LOGIN -> return
+            } else {
+                null
             }
-            if (startResult.isFailure) {
+            val started = nativeLease.startIfCurrent(request.generation) {
+                val startResult = when (request.mode) {
+                    ReadReceiptsTunnelMode.QUICK ->
+                        ReadReceiptsTunnelNative.startQuick(request.origin)
+                    ReadReceiptsTunnelMode.TOKEN ->
+                        ReadReceiptsTunnelNative.startToken(token!!, request.origin)
+                    ReadReceiptsTunnelMode.BROWSER_LOGIN -> error("unreachable")
+                }
+                startResult.isSuccess
+            }
+            if (!started) {
+                if (activeRequest?.generation != request.generation) return
                 publishFailure(request.generation, "Cloudflare Tunnel 启动失败")
                 return
             }
@@ -329,7 +414,9 @@ class ReadReceiptsTunnelService : Service() {
                                             error = "隧道已验证, 但无法安全保存 Tunnel token",
                                         ),
                                     )
-                                    ReadReceiptsTunnelNative.stop()
+                                    nativeLease.stopIfOwner(request.generation) {
+                                        ReadReceiptsTunnelNative.stop().getOrThrow()
+                                    }
                                     return
                                 }
                                 request.pendingToken = null
@@ -385,7 +472,9 @@ class ReadReceiptsTunnelService : Service() {
                 }
                 delay(NATIVE_STATUS_POLL_MILLIS)
             }
-            ReadReceiptsTunnelNative.stop()
+            nativeLease.stopIfOwner(request.generation) {
+                ReadReceiptsTunnelNative.stop().getOrThrow()
+            }
             if (
                 activeRequest?.generation != request.generation ||
                 !currentCoroutineContext().isActive
@@ -411,7 +500,7 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private fun stopTunnel(requestedGeneration: Long) {
-        if (requestedGeneration < generation) return
+        if (!nativeLease.advance(requestedGeneration)) return
         generation = requestedGeneration
         val stoppedGeneration = generation
         activeRequest = null
@@ -420,7 +509,9 @@ class ReadReceiptsTunnelService : Service() {
             publish(stoppedGeneration, ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPING))
             previous?.cancel()
             previous?.join()
-            ReadReceiptsTunnelNative.stop()
+            nativeLease.stopForReplacement(stoppedGeneration) {
+                ReadReceiptsTunnelNative.stop().getOrThrow()
+            }
             publish(stoppedGeneration, ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPED))
             stopForeground(STOP_FOREGROUND_REMOVE)
             foregroundActive = false
@@ -429,7 +520,7 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private fun deleteCredential(requestedGeneration: Long) {
-        if (requestedGeneration < generation) return
+        if (!nativeLease.advance(requestedGeneration)) return
         generation = requestedGeneration
         credentialStore.clear()
         val request = activeRequest
@@ -441,13 +532,19 @@ class ReadReceiptsTunnelService : Service() {
         }
     }
 
-    private fun supersedeActiveSession() {
-        activeRequest = null
-        val previous = lifecycleJob
-        lifecycleJob = scope.launch {
-            previous?.cancel()
-            previous?.join()
-            ReadReceiptsTunnelNative.stop()
+    private fun invalidateForNetworkChange(expectedGeneration: Long?) {
+        if (expectedGeneration == null) return
+        scope.launch {
+            if (activeRequest?.generation != expectedGeneration) return@launch
+            publish(
+                expectedGeneration,
+                ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.RECONNECTING),
+            )
+            // The lease rechecks after entering its serialized monitor, so a delayed callback for an
+            // old network/generation cannot stop a replacement native handle.
+            nativeLease.stopIfOwner(expectedGeneration) {
+                ReadReceiptsTunnelNative.stop().getOrThrow()
+            }
         }
     }
 
@@ -512,11 +609,37 @@ class ReadReceiptsTunnelService : Service() {
                 putString(ReadReceiptsTunnelProtocol.KEY_PUBLIC_URL, value.publicUrl)
                 putString(ReadReceiptsTunnelProtocol.KEY_ERROR, value.error)
                 putBoolean(ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_EXISTS, credentialStore.exists())
+                putBoolean(
+                    ReadReceiptsTunnelProtocol.KEY_NEEDS_NOTIFICATION_SETTINGS,
+                    value.needsNotificationSettings,
+                )
                 putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, listener.nonce)
             }
         }
         runCatching { listener.messenger.send(message) }
             .onFailure { listeners.remove(listener.messenger.binder) }
+    }
+
+    private fun sendStartAck(
+        client: Messenger?,
+        nonce: String?,
+        generation: Long,
+        accepted: Boolean,
+        needsNotificationSettings: Boolean = false,
+    ) {
+        if (client == null || nonce == null) return
+        val message = Message.obtain(null, ReadReceiptsTunnelProtocol.START_ACK).apply {
+            data = Bundle().apply {
+                putLong(ReadReceiptsTunnelProtocol.KEY_GENERATION, generation)
+                putBoolean(ReadReceiptsTunnelProtocol.KEY_ACCEPTED, accepted)
+                putBoolean(
+                    ReadReceiptsTunnelProtocol.KEY_NEEDS_NOTIFICATION_SETTINGS,
+                    needsNotificationSettings,
+                )
+                putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, nonce)
+            }
+        }
+        runCatching { client.send(message) }
     }
 
     private fun createNotificationChannel() {
@@ -529,6 +652,13 @@ class ReadReceiptsTunnelService : Service() {
             ),
         )
     }
+
+    private fun notificationsVisible(): Boolean =
+        NotificationManagerCompat.from(this).areNotificationsEnabled() &&
+            getSystemService(NotificationManager::class.java)
+                .getNotificationChannel(NOTIFICATION_CHANNEL)
+                ?.importance
+                ?.let { it != NotificationManager.IMPORTANCE_NONE } == true
 
     private fun updateNotification() {
         if (!authorizedCommandSeen || !foregroundActive) return
@@ -632,6 +762,7 @@ internal object ReadReceiptsTunnelProtocol {
     const val STOP = 3
     const val DELETE_CREDENTIAL = 4
     const val STATUS = 100
+    const val START_ACK = 101
 
     const val KEY_GENERATION = "generation"
     const val KEY_MODE = "mode"
@@ -643,10 +774,12 @@ internal object ReadReceiptsTunnelProtocol {
     const val KEY_ERROR = "error"
     const val KEY_CREDENTIAL_EXISTS = "credential_exists"
     const val KEY_CLIENT_NONCE = "client_nonce"
+    const val KEY_ACCEPTED = "accepted"
+    const val KEY_NEEDS_NOTIFICATION_SETTINGS = "needs_notification_settings"
 }
 
 private class TunnelCredentialStore(context: Context) {
-    private val file = AtomicFile(File(context.filesDir, FILE_PATH))
+    private val file = AtomicFile(File(context.noBackupFilesDir, FILE_PATH))
 
     fun exists(): Boolean = file.baseFile.isFile
 

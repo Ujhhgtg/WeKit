@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="file" path="read_receipts/tunnel_credential.v1" />
+        <exclude domain="file" path="read_receipts/" />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="file" path="read_receipts/tunnel_credential.v1" />
+        <exclude domain="file" path="read_receipts/" />
     </device-transfer>
 </data-extraction-rules>

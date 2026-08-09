@@ -45,6 +45,11 @@ does not parse CLI arguments, start the updater, install OS signal handlers, ini
 start diagnostic/readiness/metrics listeners, or launch a desktop browser. Upstream internal
 Prometheus collectors remain linked because the transport uses them, but no listener exposes them.
 
+The pinned public Supervisor API requires `cloudflared/signal.safe_signal`. Its isolated adapter is
+not a process signal handler: the package only closes an in-memory channel once with `sync.Once`,
+does not import `os/signal`, and installs no handler. A static bridge test rejects any direct
+`os/signal`, `Notify`, or `NotifyContext` use and confines this safe one-shot import to that adapter.
+
 Each public handle owns its cancellation context, worker wait group, and single-consumer callback
 queue. Producers never call foreign callbacks directly. An external `wekit_tunnel_stop` cancels
 the context, joins every producer, drains and joins callback dispatch, unregisters the handle, and
@@ -102,18 +107,30 @@ saved-instance state, clipboard, or MMKV. Status uses Binder replies plus a per-
 nonce. Configuration generations derive from the boot-monotonic clock, so stale callbacks and a
 surviving module service cannot overwrite a newer WeChat-process session.
 
-Retained tokens are stored in an atomically-written private file encrypted with a dedicated
+START uses a generation-bound service ACK. The controller retains the transient token only until an
+authorized service has copied the command and removed the token from its Binder Bundle; rejection,
+supersession, Binder failure, or a ten-second timeout clears the pending command and never replays it.
+Native start/stop and network invalidation share a serialized generation lease, while STOP completion
+uses one generation drain so Binder death, status, and timeout can stop the origin at most once.
+
+Retained tokens are stored below `noBackupFilesDir` in an atomically-written private file encrypted with a dedicated
 Android Keystore AES-256-GCM key (API 28, no per-use authentication so unattended reconnect works).
 A newly supplied token remains transient until cloudflared reports connected and the configured
 public HTTPS `/health` returns exactly `204` with an empty body. Only then does it replace the last
 working ciphertext. Invalid keys/ciphertext are deleted and surfaced as `NEEDS_USER_ACTION`. Backup,
-cloud-backup, and device-transfer rules exclude the ciphertext file.
+cloud-backup, and device-transfer rules additionally exclude the entire legacy `files/read_receipts/`
+directory, including every `AtomicFile` `.new`/`.bak` sidecar.
 
 Quick mode publishes its random URL only after that same public verification. Token mode requires a
 root HTTPS DNS hostname and a fixed loopback port matching the dashboard Public Hostname service;
 automatic/ephemeral port selection is rejected. The service rechecks public health periodically,
 invalidates the URL on loss/reconnect, follows bounded reconnect backoff, and reacts to Android
 default-network changes.
+
+Android 13+ notification permission is declared. Because the feature UI runs inside WeChat and cannot
+request another package's runtime permission, a disabled WeKit notification channel/permission rejects
+START as `NEEDS_USER_ACTION`; the UI provides an explicit button to open WeKit's app notification
+settings. It never runs a connected tunnel with an invisible ongoing notification/stop action.
 
 ## Build
 
@@ -165,7 +182,9 @@ Automated host tests cannot prove Android/WeChat lifecycle behavior. Before rele
 28 and a current target-SDK device:
 
 1. A visible **验证并连接** action starts the low-importance ongoing notification; a background or
-   automatic attempt reports `NEEDS_USER_ACTION` instead of claiming success.
+   automatic attempt reports `NEEDS_USER_ACTION` instead of claiming success. Disable WeKit
+   notifications on Android 13+, confirm START is rejected, and use the UI button to open the correct
+   WeKit notification settings page before retrying.
 2. Quick mode forwards public `/health` and pixel requests, publishes only the verified
    `trycloudflare.com` URL, and invalidates it after network loss.
 3. Token mode rejects automatic ports, malformed tokens, and non-root/non-HTTPS hostnames; with a
@@ -178,4 +197,9 @@ Automated host tests cannot prove Android/WeChat lifecycle behavior. Before rele
 6. Deleting the saved token removes the ciphertext and stops an active token session. No token is
    visible in notification, recents, logs, clipboard, saved UI state, backups, or Intents.
 7. UI disconnect and notification stop both tear down the tunnel before the loopback origin; a dead
-   service or missing reply triggers the bounded origin-stop fallback.
+   service or missing reply triggers the bounded origin-stop fallback. Race Binder death against the
+   STOPPED reply/timeout and confirm origin shutdown runs once.
+8. While replacing a connected fixed-port configuration, switch ports and immediately exercise a
+   rejected handoff. Confirm the candidate origin uses the requested port, the previous configuration
+   and stack are restored on failure, and pressing **确定** after a successful ACK does not tear down
+   the just-started connector.

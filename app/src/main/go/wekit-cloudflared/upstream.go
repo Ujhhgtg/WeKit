@@ -22,12 +22,10 @@ import (
 	"github.com/cloudflare/cloudflared/ingress"
 	"github.com/cloudflare/cloudflared/ingress/origins"
 	"github.com/cloudflare/cloudflared/orchestration"
-	"github.com/cloudflare/cloudflared/signal"
 	"github.com/cloudflare/cloudflared/supervisor"
 	"github.com/cloudflare/cloudflared/tlsconfig"
 	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 )
 
@@ -37,10 +35,7 @@ const (
 	quickHTTPTimeout   = 15 * time.Second
 )
 
-var (
-	embeddedLog         = zerolog.Nop()
-	supervisorMetricsMu sync.Mutex
-)
+var embeddedLog = zerolog.Nop()
 
 type quickTunnelResponse struct {
 	Success bool `json:"success"`
@@ -165,46 +160,13 @@ func runUpstreamTunnel(ctx context.Context, origin string, quick quickTunnel, ob
 		QUICConnectionLevelFlowControlLimit: 30 * (1 << 20),
 		QUICStreamLevelFlowControlLimit:     6 * (1 << 20),
 	}
-	connectedSignal := signal.New(make(chan struct{}))
 	return runSupervisorWithSessionMetrics(
 		ctx,
 		config,
 		orchestrator,
-		connectedSignal,
 		make(chan supervisor.ReconnectSignal, 1),
 		make(chan struct{}),
 	)
-}
-
-func runSupervisorWithSessionMetrics(
-	ctx context.Context,
-	config *supervisor.TunnelConfig,
-	orchestrator *orchestration.Orchestrator,
-	connectedSignal *signal.Signal,
-	reconnectCh chan supervisor.ReconnectSignal,
-	graceShutdownC <-chan struct{},
-) error {
-	// NewSupervisor currently hard-codes prometheus.DefaultRegisterer for its
-	// QUIC v3 metrics. Give each embedded session an isolated registry while the
-	// supervisor is constructed, then restore the process defaults immediately.
-	registry := prometheus.NewRegistry()
-	tunnelSupervisor, err := func() (*supervisor.Supervisor, error) {
-		supervisorMetricsMu.Lock()
-		defer supervisorMetricsMu.Unlock()
-		previousRegisterer := prometheus.DefaultRegisterer
-		previousGatherer := prometheus.DefaultGatherer
-		prometheus.DefaultRegisterer = registry
-		prometheus.DefaultGatherer = registry
-		defer func() {
-			prometheus.DefaultRegisterer = previousRegisterer
-			prometheus.DefaultGatherer = previousGatherer
-		}()
-		return supervisor.NewSupervisor(config, orchestrator, reconnectCh, graceShutdownC)
-	}()
-	if err != nil {
-		return err
-	}
-	return tunnelSupervisor.Run(ctx, connectedSignal)
 }
 
 func prepareOrigin(origin string) (*ingress.Ingress, ingress.WarpRoutingConfig, *ingress.OriginDialerService, *origins.DNSResolverService, error) {
