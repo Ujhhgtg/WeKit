@@ -4,6 +4,15 @@
 
     <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <queries>
+        <package android:name="com.tencent.mm" />
+    </queries>
+
     <application
         android:name=".application.ModuleApplication"
         android:allowBackup="true"
@@ -59,6 +68,16 @@
         <receiver
             android:name=".activity.PipVoipActionReceiver"
             android:exported="false" />
+
+        <service
+            android:name=".features.items.chat.ReadReceiptsTunnelService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Maintains a user-requested outbound Cloudflare Tunnel for the loopback-only read-receipts origin while tracking is enabled." />
+        </service>
 
         <activity
             android:name=".activity.settings.SettingsActivity"

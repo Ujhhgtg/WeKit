@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -22,6 +23,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
@@ -43,6 +46,7 @@ import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CoroutineScope
@@ -418,8 +422,8 @@ object ReadReceipts : ClickableFeature(),
         return normalized
     }
 
-    /** Task 9 will return a URL here only after its independently-owned tunnel is healthy. */
-    private fun verifiedTunnelEndpoint(): String? = null
+    private fun verifiedTunnelEndpoint(): String? =
+        ReadReceiptsTunnelController.verifiedEndpoint()
 
     private fun resolveBackend(): Pair<ResolvedBackend?, String?> {
         val configuration = configuration()
@@ -440,12 +444,8 @@ object ReadReceipts : ClickableFeature(),
                 if (origin.state != ReadReceiptsRuntimeState.RUNNING || origin.port == null) {
                     return null to "内置服务器未运行"
                 }
-                if (normalizedHttpsEndpoint(configuration.hostname) == null) {
-                    return null to "Cloudflare Tunnel 公网地址未就绪"
-                }
-
                 val publicEndpoint = verifiedTunnelEndpoint()
-                    ?: return null to "Cloudflare Tunnel 状态暂不可验证, 请等待公网隧道功能接入"
+                    ?: return null to "Cloudflare Tunnel 公网健康检查尚未通过"
                 ResolvedBackend(
                     backend = ReadReceiptBackend.BUILT_IN,
                     requestEndpoint = "http://127.0.0.1:${origin.port}",
@@ -470,6 +470,54 @@ object ReadReceipts : ClickableFeature(),
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
+    private fun tunnelMode(configuration: ReadReceiptsConfiguration): ReadReceiptsTunnelMode =
+        ReadReceiptsTunnelMode.entries.firstOrNull { it.name == configuration.tunnelMode }
+            ?: ReadReceiptsTunnelMode.QUICK
+
+    private fun startBuiltInStack(
+        configuration: ReadReceiptsConfiguration,
+        token: String? = null,
+        onFinished: ((Result<Unit>) -> Unit)? = null,
+    ) {
+        val mode = tunnelMode(configuration)
+        if (mode == ReadReceiptsTunnelMode.TOKEN && configuration.automaticPort) {
+            onFinished?.invoke(
+                Result.failure(
+                    IllegalArgumentException(
+                        "Token 模式必须使用固定回环端口, 并在 Cloudflare 控制台将路由指向该端口",
+                    ),
+                ),
+            )
+            return
+        }
+        if (mode == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
+            ReadReceiptsTunnelController.needsVisibleStart()
+            onFinished?.invoke(Result.failure(IllegalStateException("浏览器登录将在下一阶段提供")))
+            return
+        }
+        startOrigin(requestedBuiltInPort(configuration)) { originResult ->
+            val result = originResult.mapCatching { port ->
+                ReadReceiptsTunnelController.startVisible(
+                    mode = mode,
+                    originPort = port,
+                    hostname = configuration.hostname,
+                    token = token,
+                ).getOrThrow()
+            }
+            onFinished?.invoke(result)
+        }
+    }
+
+    private fun stopBuiltInStack(onFinished: ((Result<Unit>) -> Unit)? = null) {
+        ReadReceiptsTunnelController.stop {
+            stopOrigin(onFinished)
+        }
+    }
+
+    internal fun onTunnelServiceStopped() {
+        if (originController.status() != ReadReceiptsRuntimeState.STOPPED) stopOrigin()
+    }
+
     private fun startOrigin(
         requestedPort: Int,
         onFinished: ((Result<Int>) -> Unit)? = null,
@@ -493,15 +541,6 @@ object ReadReceipts : ClickableFeature(),
         submitOriginRequest(request) { result ->
             onFinished?.invoke(result.map { Unit })
         }
-    }
-
-    private fun restartOrigin(requestedPort: Int) {
-        val request = newOriginRequest(
-            port = requestedPort,
-            forceRestart = true,
-            desiredState = ReadReceiptsRuntimeState.STOPPING,
-        )
-        submitOriginRequest(request)
     }
 
     private fun newOriginRequest(
@@ -695,8 +734,10 @@ object ReadReceipts : ClickableFeature(),
             configuration.mode == ReadReceiptsServerMode.BUILT_IN &&
             configuration.automaticLifecycle
         ) {
-            // Task 9 must start the tunnel only after this origin callback succeeds.
-            startOrigin(requestedBuiltInPort(configuration))
+            ReadReceiptsTunnelController.refresh()
+            startOrigin(requestedBuiltInPort(configuration)) { result ->
+                if (result.isSuccess) ReadReceiptsTunnelController.needsVisibleStart()
+            }
         }
 
         WeChatInputBarMenuApi.methodSendMessage.hookBefore(100) {
@@ -803,8 +844,7 @@ object ReadReceipts : ClickableFeature(),
             configuration.mode == ReadReceiptsServerMode.BUILT_IN &&
             configuration.automaticLifecycle
         ) {
-            // Task 9 must stop its tunnel leg first, then call this origin stop.
-            stopOrigin()
+            stopBuiltInStack()
         }
         WeChatMessageViewApi.removeListener(this)
         WeChatMessageViewApi.removeLifecycleListener(this)
@@ -1099,11 +1139,24 @@ object ReadReceipts : ClickableFeature(),
             var automaticLifecycleInput by remember {
                 mutableStateOf(initialConfiguration.automaticLifecycle)
             }
+            var tunnelModeInput by remember {
+                mutableStateOf(tunnelMode(initialConfiguration))
+            }
+            var hostnameInput by remember { mutableStateOf(initialConfiguration.hostname) }
+            var tokenInput by remember { mutableStateOf("") }
+            var revealToken by remember { mutableStateOf(false) }
             var originStatus by remember { mutableStateOf(originController.snapshot()) }
+            var tunnelStatus by remember { mutableStateOf(ReadReceiptsTunnelController.status) }
+            var credentialExists by remember {
+                mutableStateOf(ReadReceiptsTunnelController.credentialExists)
+            }
 
             LaunchedEffect(Unit) {
+                ReadReceiptsTunnelController.refresh()
                 while (true) {
                     originStatus = withContext(Dispatchers.IO) { originController.snapshot() }
+                    tunnelStatus = ReadReceiptsTunnelController.status
+                    credentialExists = ReadReceiptsTunnelController.credentialExists
                     delay(500)
                 }
             }
@@ -1165,9 +1218,36 @@ object ReadReceipts : ClickableFeature(),
                                         )
                                     },
                                     supportingContent = {
-                                        Text("功能启用时启动内置服务器; 公网隧道将在后续版本接入")
+                                        Text("功能启用时准备内置服务器; 前台隧道仍需一次可见点击")
                                     },
                                     content = { Text("自动管理服务器和隧道") },
+                                )
+
+                                ListItem(
+                                    modifier = Modifier.clickable {
+                                        tunnelModeInput = ReadReceiptsTunnelMode.QUICK
+                                    },
+                                    trailingContent = {
+                                        RadioButton(
+                                            selected = tunnelModeInput == ReadReceiptsTunnelMode.QUICK,
+                                            onClick = null,
+                                        )
+                                    },
+                                    supportingContent = { Text("临时 trycloudflare.com 地址, 仅适合测试") },
+                                    content = { Text("Quick Tunnel") },
+                                )
+                                ListItem(
+                                    modifier = Modifier.clickable {
+                                        tunnelModeInput = ReadReceiptsTunnelMode.TOKEN
+                                    },
+                                    trailingContent = {
+                                        RadioButton(
+                                            selected = tunnelModeInput == ReadReceiptsTunnelMode.TOKEN,
+                                            onClick = null,
+                                        )
+                                    },
+                                    supportingContent = { Text("使用控制台已配置的远程管理隧道") },
+                                    content = { Text("Tunnel token") },
                                 )
 
                                 ListItem(
@@ -1184,6 +1264,13 @@ object ReadReceipts : ClickableFeature(),
                                     content = { Text("自动选择端口") },
                                 )
 
+                                if (
+                                    tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
+                                    automaticPortInput
+                                ) {
+                                    Text("Token 模式需要固定端口, 控制台 Public Hostname 的服务地址必须指向同一 127.0.0.1 端口")
+                                }
+
                                 if (!automaticPortInput) {
                                     TextField(
                                         value = builtInPortInput,
@@ -1196,6 +1283,43 @@ object ReadReceipts : ClickableFeature(),
                                         ),
                                         modifier = Modifier.fillMaxWidth(),
                                     )
+                                }
+
+                                if (tunnelModeInput == ReadReceiptsTunnelMode.TOKEN) {
+                                    TextField(
+                                        value = tokenInput,
+                                        onValueChange = { tokenInput = it },
+                                        label = {
+                                            Text(if (credentialExists) "Tunnel token（已保存）" else "Tunnel token")
+                                        },
+                                        visualTransformation = if (revealToken) {
+                                            VisualTransformation.None
+                                        } else {
+                                            PasswordVisualTransformation()
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        TextButton(onClick = { revealToken = !revealToken }) {
+                                            Text(if (revealToken) "隐藏" else "显示")
+                                        }
+                                        TextButton(
+                                            onClick = {
+                                                tokenInput = ""
+                                                ReadReceiptsTunnelController.deleteCredential()
+                                            },
+                                        ) { Text("删除已保存 token") }
+                                    }
+                                    TextField(
+                                        value = hostnameInput,
+                                        onValueChange = { hostnameInput = it },
+                                        label = { Text("HTTPS 公网主机名") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    Text("WeKit 不会创建或修改隧道、DNS、主机名或 ingress")
                                 }
 
                                 val stateText = when (originStatus.state) {
@@ -1222,49 +1346,121 @@ object ReadReceipts : ClickableFeature(),
                                 if (originStatus.error != null) {
                                     Text("错误: ${originStatus.error}")
                                 }
-                                Text("公网隧道: 尚未接入, 当前不能发送内置模式追踪消息")
+                                val tunnelStateText = when (tunnelStatus.state) {
+                                    ReadReceiptsTunnelState.STOPPED -> "已停止"
+                                    ReadReceiptsTunnelState.STARTING -> "启动中"
+                                    ReadReceiptsTunnelState.CONNECTED -> "已连接并通过公网健康检查"
+                                    ReadReceiptsTunnelState.RECONNECTING -> "连接或健康检查恢复中"
+                                    ReadReceiptsTunnelState.NEEDS_USER_ACTION -> "需要用户操作"
+                                    ReadReceiptsTunnelState.FAILED -> "失败"
+                                    ReadReceiptsTunnelState.STOPPING -> "停止中"
+                                }
+                                Text("公网隧道: $tunnelStateText")
+                                if (tunnelStatus.error != null) Text("隧道错误: ${tunnelStatus.error}")
+                                val verifiedUrl = tunnelStatus.publicUrl
+                                    ?.takeIf { tunnelStatus.state == ReadReceiptsTunnelState.CONNECTED }
+                                if (verifiedUrl != null) {
+                                    Text("已验证公网地址: $verifiedUrl")
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Button(onClick = {
+                                            copyToClipboard(context, verifiedUrl)
+                                            showToast(context, "公网地址已复制")
+                                        }) { Text("复制地址") }
+                                        Button(onClick = {
+                                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_TEXT, verifiedUrl)
+                                            }
+                                            context.startActivity(Intent.createChooser(intent, "分享公网地址"))
+                                        }) { Text("分享地址") }
+                                    }
+                                }
 
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Button(
-                                        enabled = originStatus.state == ReadReceiptsRuntimeState.STOPPED ||
-                                            originStatus.state == ReadReceiptsRuntimeState.FAILED,
+                                        enabled = tunnelStatus.state in setOf(
+                                            ReadReceiptsTunnelState.STOPPED,
+                                            ReadReceiptsTunnelState.FAILED,
+                                            ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                                        ),
                                         onClick = {
-                                            startOrigin(requestedBuiltInPort()) { result ->
+                                            val port = if (automaticPortInput) {
+                                                initialConfiguration.builtInPort
+                                            } else {
+                                                builtInPortInput.toIntOrNull()
+                                                    ?.takeIf { it in 1..65535 }
+                                                    ?: run {
+                                                        showToast(context, "错误: 回环端口必须在 1 到 65535 之间")
+                                                        return@Button
+                                                    }
+                                            }
+                                            val candidate = configuration().copy(
+                                                automaticPort = automaticPortInput,
+                                                builtInPort = port,
+                                                tunnelMode = tunnelModeInput.name,
+                                                hostname = hostnameInput,
+                                            )
+                                            if (
+                                                tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
+                                                automaticPortInput
+                                            ) {
+                                                showToast(context, "错误: Token 模式必须关闭自动端口")
+                                                return@Button
+                                            }
+                                            if (
+                                                tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
+                                                ReadReceiptsTunnelService.normalizePublicRoot(hostnameInput) == null
+                                            ) {
+                                                showToast(context, "错误: 请输入根路径 HTTPS 主机名")
+                                                return@Button
+                                            }
+                                            startBuiltInStack(
+                                                candidate,
+                                                tokenInput.takeIf(String::isNotBlank),
+                                            ) { result ->
+                                                if (result.isSuccess) tokenInput = ""
                                                 originStatus = originController.snapshot()
                                                 showToast(
                                                     context,
                                                     result.fold(
-                                                        onSuccess = { "内置服务器已启动: 127.0.0.1:$it" },
+                                                        onSuccess = { "隧道启动请求已提交" },
                                                         onFailure = {
-                                                            "内置服务器启动失败: ${it.message}"
+                                                            "连接失败: ${it.message}"
                                                         },
                                                     ),
                                                 )
                                             }
                                         },
-                                    ) { Text("启动") }
+                                    ) { Text("验证并连接") }
                                     Button(
-                                        enabled = originStatus.state == ReadReceiptsRuntimeState.STARTING ||
-                                            originStatus.state == ReadReceiptsRuntimeState.RUNNING,
+                                        enabled = tunnelStatus.state !in setOf(
+                                            ReadReceiptsTunnelState.STOPPED,
+                                            ReadReceiptsTunnelState.STOPPING,
+                                        ) || originStatus.state !in setOf(
+                                            ReadReceiptsRuntimeState.STOPPED,
+                                            ReadReceiptsRuntimeState.STOPPING,
+                                        ),
                                         onClick = {
-                                            stopOrigin { result ->
+                                            stopBuiltInStack { result ->
                                                 originStatus = originController.snapshot()
                                                 showToast(
                                                     context,
                                                     if (result.isSuccess) {
-                                                        "内置服务器已停止"
+                                                        "隧道与内置服务器已停止"
                                                     } else {
                                                         result.exceptionOrNull()!!.message!!
                                                     },
                                                 )
                                             }
                                         },
-                                    ) { Text("停止") }
+                                    ) { Text("断开") }
                                 }
-                                Text("手动控制使用上次保存的端口配置")
                             }
                         }
 
@@ -1316,6 +1512,26 @@ object ReadReceipts : ClickableFeature(),
                                 return@Button
                             }
                         }
+                        if (
+                            modeInput == ReadReceiptsServerMode.BUILT_IN &&
+                            tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
+                            automaticPortInput
+                        ) {
+                            showToast(context, "错误: Token 模式必须使用固定回环端口")
+                            return@Button
+                        }
+                        val normalizedHostname = if (
+                            modeInput == ReadReceiptsServerMode.BUILT_IN &&
+                            tunnelModeInput == ReadReceiptsTunnelMode.TOKEN
+                        ) {
+                            ReadReceiptsTunnelService.normalizePublicRoot(hostnameInput)
+                                ?.toString()?.trimEnd('/') ?: run {
+                                showToast(context, "错误: 请输入根路径 HTTPS 主机名")
+                                return@Button
+                            }
+                        } else {
+                            hostnameInput
+                        }
 
                         val oldConfiguration = configuration()
                         val oldRequestedPort = requestedBuiltInPort(oldConfiguration)
@@ -1333,6 +1549,8 @@ object ReadReceipts : ClickableFeature(),
                             automaticPort = automaticPortInput,
                             builtInPort = configuredPort,
                             automaticLifecycle = automaticLifecycleInput,
+                            tunnelMode = tunnelModeInput.name,
+                            hostname = normalizedHostname,
                         )
                         // The versioned snapshot is one MMKV value; no legacy configuration key is
                         // written after the complete selected-mode candidate has been validated.
@@ -1341,18 +1559,24 @@ object ReadReceipts : ClickableFeature(),
                         val newRequestedPort = requestedBuiltInPort(candidate)
                         when {
                             modeInput == ReadReceiptsServerMode.THIRD_PARTY && originWasActive -> {
-                                stopOrigin()
+                                stopBuiltInStack()
                             }
 
                             modeInput == ReadReceiptsServerMode.BUILT_IN && originWasActive &&
                                 (oldConfiguration.mode != modeInput ||
-                                    oldRequestedPort != newRequestedPort) -> {
-                                restartOrigin(newRequestedPort)
+                                    oldRequestedPort != newRequestedPort ||
+                                    oldConfiguration.tunnelMode != candidate.tunnelMode ||
+                                    oldConfiguration.hostname != candidate.hostname) -> {
+                                stopBuiltInStack()
                             }
 
                             modeInput == ReadReceiptsServerMode.BUILT_IN && !originWasActive &&
                                 isActive && candidate.automaticLifecycle -> {
-                                startOrigin(newRequestedPort)
+                                startOrigin(newRequestedPort) { result ->
+                                    if (result.isSuccess) {
+                                        ReadReceiptsTunnelController.needsVisibleStart()
+                                    }
+                                }
                             }
                         }
 

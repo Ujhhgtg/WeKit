@@ -429,18 +429,138 @@ func TestQuickHandleRedactsAndBoundsCredentialBearingErrors(t *testing.T) {
 }
 
 func TestAuthenticatedFacadeOperationsAreExplicitlyUnsupported(t *testing.T) {
-	recorder := newEventRecorder()
-	handle := startUnsupportedTokenTunnel("run-token-must-stay-secret", "http://127.0.0.1:8080", recorder.record)
-	handle.wait()
-
-	if got := handle.beginLogin(recorder.record); got != resultUnsupported {
+	handle := newTunnelHandle(nil)
+	if got := handle.beginLogin(nil); got != resultUnsupported {
 		t.Fatalf("beginLogin result = %d, want unsupported", got)
 	}
 	if got := handle.selectExisting("tunnel-id", "public.example.com"); got != resultUnsupported {
 		t.Fatalf("selectExisting result = %d, want unsupported", got)
 	}
+	handle.stop()
+}
+
+func encodedTestToken(t *testing.T, mutate func(*connection.TunnelToken)) string {
+	t.Helper()
+	token := connection.TunnelToken{
+		AccountTag:   "account-secret",
+		TunnelSecret: []byte("0123456789abcdef0123456789abcdef"),
+		TunnelID:     uuid.MustParse("d8d8fa75-d6cb-4615-a09b-187ae29908fa"),
+	}
+	if mutate != nil {
+		mutate(&token)
+	}
+	payload, err := json.Marshal(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return base64.StdEncoding.EncodeToString(payload)
+}
+
+func TestParseTunnelTokenRejectsMalformedAndOversizeInputWithoutEchoingIt(t *testing.T) {
+	tests := []string{
+		"not base64 @@ token-secret",
+		base64.StdEncoding.EncodeToString([]byte(`{"a":"account","s":"c2VjcmV0","t":"not-a-uuid"}`)),
+		strings.Repeat("x", maxTokenBytes+1),
+		encodedTestToken(t, func(token *connection.TunnelToken) { token.AccountTag = "" }),
+		encodedTestToken(t, func(token *connection.TunnelToken) { token.AccountTag = "bad account" }),
+		encodedTestToken(t, func(token *connection.TunnelToken) { token.TunnelSecret = nil }),
+		encodedTestToken(t, func(token *connection.TunnelToken) { token.TunnelID = uuid.Nil }),
+		encodedTestToken(t, func(token *connection.TunnelToken) { token.Endpoint = "bad endpoint/secret" }),
+	}
+	for _, raw := range tests {
+		_, err := parseTunnelToken(raw)
+		if err == nil {
+			t.Fatalf("parseTunnelToken(%d bytes) succeeded", len(raw))
+		}
+		if strings.Contains(err.Error(), raw) || strings.Contains(err.Error(), "account-secret") {
+			t.Fatalf("parse error leaked token material: %q", err)
+		}
+	}
+}
+
+func TestTokenHandleRunsDecodedCredentialsAndCancels(t *testing.T) {
+	recorder := newEventRecorder()
+	token := encodedTestToken(t, func(token *connection.TunnelToken) { token.Endpoint = "fed" })
+	runnerStarted := make(chan connection.Credentials, 1)
+	runnerExited := make(chan struct{})
+	run := func(ctx context.Context, origin string, tunnel quickTunnel, observer tunnelEventObserver) error {
+		if origin != "http://127.0.0.1:3000" {
+			t.Fatalf("origin = %q", origin)
+		}
+		runnerStarted <- tunnel.Credentials
+		observer.connected("")
+		<-ctx.Done()
+		close(runnerExited)
+		return ctx.Err()
+	}
+
+	handle := startTokenTunnel(token, "http://127.0.0.1:3000", recorder.record, run)
+	credentials := <-runnerStarted
+	if credentials.AccountTag != "account-secret" ||
+		credentials.TunnelID != uuid.MustParse("d8d8fa75-d6cb-4615-a09b-187ae29908fa") ||
+		credentials.Endpoint != "fed" ||
+		string(credentials.TunnelSecret) != "0123456789abcdef0123456789abcdef" {
+		t.Fatalf("decoded credentials = %#v", credentials)
+	}
+	if got := handle.stop(); got != resultOK {
+		t.Fatalf("stop result = %d", got)
+	}
+	select {
+	case <-runnerExited:
+	default:
+		t.Fatal("stop returned before token runner exited")
+	}
+	for _, event := range recorder.snapshot() {
+		if strings.Contains(event.Error, token) || strings.Contains(event.Error, "account-secret") {
+			t.Fatalf("event leaked credentials: %#v", event)
+		}
+	}
+}
+
+func TestTokenHandleRedactsCredentialsFromRunnerFailure(t *testing.T) {
+	recorder := newEventRecorder()
+	token := encodedTestToken(t, nil)
+	handle := startTokenTunnel(
+		token,
+		"http://127.0.0.1:3000",
+		recorder.record,
+		func(context.Context, string, quickTunnel, tunnelEventObserver) error {
+			return errors.New("account-secret 0123456789abcdef0123456789abcdef " + token)
+		},
+	)
+	handle.wait()
 	snapshot := handle.snapshot()
-	if snapshot.Status != statusUnsupported || strings.Contains(snapshot.Error, "run-token-must-stay-secret") {
-		t.Fatalf("unsupported snapshot leaked token or wrong status: %#v", snapshot)
+	if snapshot.Status != statusFailed {
+		t.Fatalf("snapshot = %#v, want failed", snapshot)
+	}
+	for _, secret := range []string{"account-secret", "0123456789abcdef0123456789abcdef", token} {
+		if strings.Contains(snapshot.Error, secret) {
+			t.Fatalf("failure leaked %q: %q", secret, snapshot.Error)
+		}
+	}
+}
+
+func TestTokenHandleCanRepeatStartAndStop(t *testing.T) {
+	token := encodedTestToken(t, nil)
+	for iteration := 0; iteration < 3; iteration++ {
+		runnerStarted := make(chan struct{})
+		handle := startTokenTunnel(
+			token,
+			"http://127.0.0.1:3000",
+			nil,
+			func(ctx context.Context, _ string, _ quickTunnel, observer tunnelEventObserver) error {
+				close(runnerStarted)
+				observer.connected("")
+				<-ctx.Done()
+				return ctx.Err()
+			},
+		)
+		<-runnerStarted
+		if got := handle.stop(); got != resultOK {
+			t.Fatalf("iteration %d stop result = %d", iteration, got)
+		}
+		if snapshot := handle.snapshot(); snapshot.Status != statusStopped {
+			t.Fatalf("iteration %d snapshot = %#v", iteration, snapshot)
+		}
 	}
 }

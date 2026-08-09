@@ -1,21 +1,31 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/cloudflare/cloudflared/connection"
+	"github.com/google/uuid"
 )
 
 const (
 	maxURLBytes   = 2048
 	maxErrorBytes = 512
+	maxTokenBytes = 16 * 1024
+)
+
+var (
+	tokenAccountPattern  = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+	tokenEndpointPattern = regexp.MustCompile(`^[A-Za-z0-9.-]{1,255}$`)
 )
 
 const (
@@ -125,13 +135,62 @@ func startQuickTunnel(
 	return handle
 }
 
-func startUnsupportedTokenTunnel(_ string, _ string, callback bridgeCallback) *tunnelHandle {
+func startTokenTunnel(token, origin string, callback bridgeCallback, run tunnelRunner) *tunnelHandle {
 	handle := newTunnelHandle(callback)
-	handle.publish(bridgeEvent{
-		Status: statusUnsupported,
-		Error:  "authenticated tunnel execution is not implemented in this Quick Tunnel proof of concept",
-	})
+	handle.wg.Add(1)
+	go func() {
+		defer handle.wg.Done()
+		handle.publish(bridgeEvent{Status: statusStarting})
+
+		if err := validateLoopbackOrigin(origin); err != nil {
+			handle.fail(err.Error(), []string{token})
+			return
+		}
+		credentials, err := parseTunnelToken(token)
+		if err != nil {
+			handle.fail("tunnel token is invalid", []string{token})
+			return
+		}
+		if run == nil {
+			handle.fail("authenticated tunnel runtime is unavailable", append(credentialStrings(credentials), token))
+			return
+		}
+
+		tunnel := quickTunnel{Credentials: credentials}
+		observer := handleObserver{handle: handle}
+		if err := run(handle.ctx, origin, tunnel, observer); err != nil && !errors.Is(err, context.Canceled) {
+			secrets := append(credentialStrings(credentials), token)
+			handle.fail("tunnel transport failed: "+err.Error(), secrets)
+			return
+		}
+		handle.publishStopped()
+	}()
 	return handle
+}
+
+func parseTunnelToken(raw string) (connection.Credentials, error) {
+	if len(raw) == 0 || len(raw) > maxTokenBytes || strings.TrimSpace(raw) != raw {
+		return connection.Credentials{}, errors.New("tunnel token is invalid")
+	}
+	payload, err := base64.StdEncoding.Strict().DecodeString(raw)
+	if err != nil || len(payload) == 0 || len(payload) > maxTokenBytes {
+		return connection.Credentials{}, errors.New("tunnel token is invalid")
+	}
+	var token connection.TunnelToken
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&token); err != nil {
+		return connection.Credentials{}, errors.New("tunnel token is invalid")
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return connection.Credentials{}, errors.New("tunnel token is invalid")
+	}
+	if !tokenAccountPattern.MatchString(token.AccountTag) ||
+		len(token.TunnelSecret) != 32 || token.TunnelID == uuid.Nil ||
+		(token.Endpoint != "" && !tokenEndpointPattern.MatchString(token.Endpoint)) {
+		return connection.Credentials{}, errors.New("tunnel token is invalid")
+	}
+	return token.Credentials(), nil
 }
 
 func (h *tunnelHandle) beginLogin(callback bridgeCallback) int {

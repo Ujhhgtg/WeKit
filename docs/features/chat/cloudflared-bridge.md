@@ -1,17 +1,15 @@
-# Embedded cloudflared bridge proof of concept
+# Embedded cloudflared bridge and Android tunnel service
 
 ## Scope
 
-Task 8 proves that WeKit can embed Cloudflare's official Go tunnel transport as a separate Android
-shared library. The feasibility proof supports repeated Quick Tunnel sessions, forwarding to an
-HTTP or HTTPS loopback origin. It owns and terminates each upstream observer dispatcher and gives
-each supervisor session an isolated metrics registry. This task does not add the Android foreground
-service, controller, or JNI runtime consumer.
+WeKit embeds Cloudflare's official Go tunnel transport as a separate Android shared library. It
+supports repeated Quick Tunnel sessions and remotely-managed named tunnels started with a run
+token, forwarding only to an HTTP(S) loopback origin. The Android runtime consumer is an exported
+`specialUse` foreground service in WeKit's own process, controlled from the injected WeChat process
+through a narrow Messenger protocol with calling-UID validation.
 
-The token, browser-login, and existing-tunnel C symbols are present so consumers can compile
-against a stable ABI, but they deliberately return `WEKIT_TUNNEL_UNSUPPORTED` / `-2` in this
-milestone. They never return fake connector success, copy a supplied run token into Go memory, or
-create Cloudflare resources. Authenticated execution and Android browser transfer are deferred.
+Browser login and existing-tunnel selection remain explicitly unsupported until Task 10. Their C
+symbols return `WEKIT_TUNNEL_UNSUPPORTED` / `-2`; they never report fake connector success.
 
 WeKit does not create tunnels, DNS records, hostnames, ingress routes, or public-hostname
 configuration. Later authenticated modes must connect only an existing tunnel and an existing
@@ -61,6 +59,12 @@ QUIC v3 collectors through Prometheus's process default during supervisor constr
 temporarily installs a private session registry under a construction mutex and immediately restores
 the original process defaults. No metrics listener is created.
 
+Token strings are strictly bounded and decoded directly into the pinned upstream
+`connection.TunnelToken` representation. Account tag, 32-byte secret, tunnel UUID, and optional
+endpoint are validated. Parse failures are generic; transport failures redact the raw token and all
+decoded credential forms. Token mode enables cloudflared's normal remotely-managed configuration
+feature, so dashboard ingress is applied by Cloudflare after registration.
+
 ## C ABI
 
 The exact symbols are declared in `app/src/main/go/wekit-cloudflared/bridge.h`:
@@ -79,6 +83,37 @@ Status codes are `STOPPED=0`, `STARTING=1`, `CONNECTED=2`, `RECONNECTING=3`, `FA
 handle, `-2` for an intentionally unsupported operation, and `-3` for a status buffer that is too
 small. `wekit_tunnel_status` writes a NUL-terminated JSON object containing only `status`, `url`,
 and `error`.
+
+The same Go library also exports four direct JNI entry points used by
+`ReadReceiptsTunnelNative`. Kotlin owns one handle at a time and atomically clears it before stop;
+status polling and stop are serialized so a freed native handle is never queried.
+
+## Android lifecycle and credential boundary
+
+The module process owns `ReadReceiptsTunnelService`, its notification, the Go handle, and retained
+run token. The injected WeChat process never loads the Go library. It starts the loopback origin
+first, verifies local `/health`, then starts the foreground service only from a visible settings
+action. Android background-start rejection is reported as `NEEDS_USER_ACTION`. Shutdown reverses
+the order: the tunnel receives a bounded teardown window before the origin is stopped.
+
+Every service command is accepted only from WeKit's UID or a UID containing `com.tencent.mm`.
+Tokens travel only in Binder command data, never Intents, broadcasts, notifications, logs,
+saved-instance state, clipboard, or MMKV. Status uses Binder replies plus a per-controller random
+nonce. Configuration generations derive from the boot-monotonic clock, so stale callbacks and a
+surviving module service cannot overwrite a newer WeChat-process session.
+
+Retained tokens are stored in an atomically-written private file encrypted with a dedicated
+Android Keystore AES-256-GCM key (API 28, no per-use authentication so unattended reconnect works).
+A newly supplied token remains transient until cloudflared reports connected and the configured
+public HTTPS `/health` returns exactly `204` with an empty body. Only then does it replace the last
+working ciphertext. Invalid keys/ciphertext are deleted and surfaced as `NEEDS_USER_ACTION`. Backup,
+cloud-backup, and device-transfer rules exclude the ciphertext file.
+
+Quick mode publishes its random URL only after that same public verification. Token mode requires a
+root HTTPS DNS hostname and a fixed loopback port matching the dashboard Public Hostname service;
+automatic/ephemeral port selection is rejected. The service rechecks public health periodically,
+invalidates the URL on loss/reconnect, follows bounded reconnect backoff, and reacts to Android
+default-network changes.
 
 ## Build
 
@@ -123,3 +158,24 @@ public HTTPS request reaches that origin, stops the handle, and checks the stopp
 accounting begins before the first observer is created and covers both sessions. The verifier uses
 public DNS directly because the development host's configured system resolver filters newly
 allocated Quick Tunnel hostnames.
+
+## Manual Android checks
+
+Automated host tests cannot prove Android/WeChat lifecycle behavior. Before release, verify on API
+28 and a current target-SDK device:
+
+1. A visible **验证并连接** action starts the low-importance ongoing notification; a background or
+   automatic attempt reports `NEEDS_USER_ACTION` instead of claiming success.
+2. Quick mode forwards public `/health` and pixel requests, publishes only the verified
+   `trycloudflare.com` URL, and invalidates it after network loss.
+3. Token mode rejects automatic ports, malformed tokens, and non-root/non-HTTPS hostnames; with a
+   user-created tunnel and dashboard ingress pointing at the fixed loopback port it reconnects and
+   preserves the last working token when a replacement fails validation.
+4. Airplane mode and network switching show reconnecting state, suppress stale-generation URLs,
+   and recover with bounded backoff.
+5. Killing/restarting WeChat rebinds to a surviving service without accepting stale status; killing
+   the module service requires an explicit visible restart and never leaves a fake connected URL.
+6. Deleting the saved token removes the ciphertext and stops an active token session. No token is
+   visible in notification, recents, logs, clipboard, saved UI state, backups, or Intents.
+7. UI disconnect and notification stop both tear down the tunnel before the loopback origin; a dead
+   service or missing reply triggers the bounded origin-stop fallback.

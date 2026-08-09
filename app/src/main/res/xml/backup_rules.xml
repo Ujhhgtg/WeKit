@@ -1,2 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<full-backup-content />
+<full-backup-content>
+    <exclude domain="file" path="read_receipts/tunnel_credential.v1" />
+</full-backup-content>

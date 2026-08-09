@@ -146,6 +146,7 @@ func runUpstreamTunnel(ctx context.Context, origin string, quick quickTunnel, ob
 		ClientConfig:                        clientConfig,
 		GracePeriod:                         0,
 		EdgeIPVersion:                       allregions.Auto,
+		Region:                              quick.Credentials.Endpoint,
 		HAConnections:                       1,
 		Tags:                                tags,
 		Log:                                 &embeddedLog,

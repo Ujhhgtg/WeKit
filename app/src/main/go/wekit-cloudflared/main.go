@@ -3,6 +3,15 @@ package main
 /*
 #include <stdlib.h>
 #include <string.h>
+#ifdef __ANDROID__
+#include <jni.h>
+#else
+typedef struct wekit_jni_env JNIEnv;
+typedef void *jobject;
+typedef void *jstring;
+typedef long long jlong;
+typedef int jint;
+#endif
 
 typedef void (*wekit_callback)(void *user, int status, const char *url, const char *error);
 
@@ -26,6 +35,31 @@ static void wekit_invoke_callback(
 
 static int wekit_callback_is_for(void *handle) {
 	return wekit_active_callback_handle == handle;
+}
+
+static char *wekit_copy_jstring(JNIEnv *env, jstring value) {
+#ifdef __ANDROID__
+	if (value == NULL) {
+		return NULL;
+	}
+	const char *characters = (*env)->GetStringUTFChars(env, value, NULL);
+	if (characters == NULL) {
+		return NULL;
+	}
+	char *copy = strdup(characters);
+	(*env)->ReleaseStringUTFChars(env, value, characters);
+	return copy;
+#else
+	return NULL;
+#endif
+}
+
+static jstring wekit_new_jstring(JNIEnv *env, const char *value) {
+#ifdef __ANDROID__
+	return (*env)->NewStringUTF(env, value);
+#else
+	return NULL;
+#endif
 }
 */
 import "C"
@@ -80,11 +114,13 @@ func wekit_tunnel_start_token(token *C.char, origin *C.char, callback C.wekit_ca
 	if token == nil || origin == nil {
 		return nil
 	}
-	// This milestone deliberately never copies or stores token material. The
-	// symbol exists so later Android integration can compile against the stable
-	// ABI, but its callback and status report explicit unsupported state.
 	identity := newCallbackIdentity()
-	handle := startUnsupportedTokenTunnel("", C.GoString(origin), cCallback(callback, user, identity))
+	handle := startTokenTunnel(
+		C.GoString(token),
+		C.GoString(origin),
+		cCallback(callback, user, identity),
+		runUpstreamTunnel,
+	)
 	return registerHandle(handle, identity)
 }
 
@@ -148,6 +184,81 @@ func wekit_tunnel_status(pointer unsafe.Pointer, buffer *C.char, bufferLen C.siz
 	}
 	C.memset(unsafe.Add(unsafe.Pointer(buffer), len(payload)), 0, 1)
 	return C.int(resultOK)
+}
+
+//export Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeStartQuick
+func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeStartQuick(
+	env *C.JNIEnv,
+	receiver C.jobject,
+	origin C.jstring,
+) C.jlong {
+	_ = receiver
+	rawOrigin := C.wekit_copy_jstring(env, origin)
+	if rawOrigin == nil {
+		return 0
+	}
+	defer C.free(unsafe.Pointer(rawOrigin))
+	identity := newCallbackIdentity()
+	handle := startQuickTunnel(C.GoString(rawOrigin), nil, requestQuickTunnel, runUpstreamTunnel)
+	return C.jlong(uintptr(registerHandle(handle, identity)))
+}
+
+//export Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeStartToken
+func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeStartToken(
+	env *C.JNIEnv,
+	receiver C.jobject,
+	token C.jstring,
+	origin C.jstring,
+) C.jlong {
+	_ = receiver
+	rawToken := C.wekit_copy_jstring(env, token)
+	if rawToken == nil {
+		return 0
+	}
+	defer C.free(unsafe.Pointer(rawToken))
+	rawOrigin := C.wekit_copy_jstring(env, origin)
+	if rawOrigin == nil {
+		return 0
+	}
+	defer C.free(unsafe.Pointer(rawOrigin))
+	identity := newCallbackIdentity()
+	handle := startTokenTunnel(C.GoString(rawToken), C.GoString(rawOrigin), nil, runUpstreamTunnel)
+	return C.jlong(uintptr(registerHandle(handle, identity)))
+}
+
+//export Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeStop
+func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeStop(
+	env *C.JNIEnv,
+	receiver C.jobject,
+	pointer C.jlong,
+) C.jint {
+	_ = env
+	_ = receiver
+	return wekit_tunnel_stop(unsafe.Pointer(uintptr(pointer)))
+}
+
+//export Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeStatus
+func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeStatus(
+	env *C.JNIEnv,
+	receiver C.jobject,
+	pointer C.jlong,
+) C.jstring {
+	_ = receiver
+	handle := lookupHandle(unsafe.Pointer(uintptr(pointer)))
+	if handle == nil {
+		payload := C.CString(`{"status":"FAILED","url":"","error":"invalid tunnel handle"}`)
+		defer C.free(unsafe.Pointer(payload))
+		return C.wekit_new_jstring(env, payload)
+	}
+	payload, err := marshalSnapshot(handle.snapshot())
+	if err != nil {
+		failure := C.CString(`{"status":"FAILED","url":"","error":"could not encode tunnel status"}`)
+		defer C.free(unsafe.Pointer(failure))
+		return C.wekit_new_jstring(env, failure)
+	}
+	cPayload := C.CString(string(payload))
+	defer C.free(unsafe.Pointer(cPayload))
+	return C.wekit_new_jstring(env, cPayload)
 }
 
 func registerHandle(handle *tunnelHandle, identity *callbackIdentity) unsafe.Pointer {
