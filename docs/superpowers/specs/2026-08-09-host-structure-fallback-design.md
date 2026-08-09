@@ -133,6 +133,77 @@ paramCount(10, 11)
 - 非 placeholder：调用直接麦克风方法；
 - placeholder：调用 `toggleLegacyMultiTalkMic(viewModel)`。
 
+## 8.0.77 第二代音视频架构回退
+
+8.0.77 不只是改变了 MultiTalk 麦克风方法，而是移除了旧 MultiTalk UI / model /
+ILink 结构。现有桌面报告中的首个失败会阻塞后续 delegate，因此不能直接把所有
+`BLOCKED` 都视为结构缺失。APK 字符串证据表明：旧 MultiTalk 锚点已消失，但
+TalkRoom 的 `enterTalkRoom` / `exitTalkRoom` 锚点仍然存在。两条链必须独立处理。
+
+### `PipVoip` 旧 MultiTalk 画中画组
+
+使用 `classMultiTalkViewModel` 作为旧 MultiTalk 架构探针。它由
+`MicroMsg.MT.MultiTalkUIViewModel` 与 `onCameraClick, cur state: ` 两个旧架构稳定字符串
+共同限定：
+
+- 唯一命中时，继续严格解析旧 MultiTalk 画中画组；
+- 零命中时，将探针及仅服务于该旧架构的 delegate 全部标为预期 placeholder；
+- 多命中或组内后续结构失败仍然报错，不得降级。
+
+该 placeholder 组包括：
+
+- `classMultiTalkViewModel`、`fieldMultiTalkViewModel`；
+- `methodMultiTalkMinimize`、`methodMultiTalkExit`、`methodMultiTalkMic`、
+  `methodMultiTalkCamera`；
+- `classMultiTalkManager`、`methodMultiTalkManagerMute`、`methodGetMultiTalkManager`；
+- `classMultiTalkEngine`、`methodMultiTalkEngineMic`、`methodGetMultiTalkEngine`；
+- `fieldMultiTalkMicState`、`fieldMultiTalkCameraState`。
+
+`classObservableState`、`classMutableObservableState` 和 `methodObservableValue` 是通用
+AndroidX Lifecycle 结构，并没有因为 8.0.77 消失，继续独立严格解析，不能因
+MultiTalk 探针失败而伪装成版本差异。
+
+运行时以 `classMultiTalkViewModel.isPlaceholder` 为唯一门控：探针可用时安装现有
+`MultiTalkMainUI` session、销毁、离开前台和最小化 Hook；探针不可用时不安装这些
+多人通话 Hook。单人 `FlutterVoip`、`VoIPMP` 与共用悬浮球 Hook 继续安装。
+
+`methodVoipMpLaunchPage` 是另一条 VoIPMP 链上的独立可选结构，不能与 MultiTalk
+探针捆绑。它继续通过自身的零结果成为预期 placeholder；`VoipMpSession.restore()`
+在实际使用前检查其 `isPlaceholder`，缺失时记录无法恢复而不访问 placeholder。
+
+### `SplitGroupCall` 旧 MultiTalk / ILink 组
+
+使用 `classSubCoreMultiTalk` 作为旧群 VOIP 架构探针。它由
+`MicroMsg.SubCoreMultiTalk` 与 `add , is running , forbid add` 两个旧架构稳定字符串限定：
+
+- 唯一命中时，继续严格解析旧 MultiTalk / ILink 调用链；
+- 零命中时，将探针及整条旧群 VOIP 调用链标为预期 placeholder；
+- 多命中或探针存在时的任一后续结构失败仍然报错。
+
+该 placeholder 组包括：
+
+- `classSubCoreMultiTalk`、`methodExitMultiTalk`、`methodGetMultiTalkManager`、
+  `methodSetStatus`、`methodSetMtSdkMode`；
+- `classILinkService`、`classILinkMember`、`classInviteTask`；
+- `methodSetName`、`methodPostTask`、`ctorInviteTask`、`ctorHangupTask`；
+- `fieldILinkInstance`、`fieldRoomId`。
+
+TalkRoom 的 `methodEnterTalkRoom`、`methodExitTalkRoom`、`methodGetTalkRoomServer`、
+`fieldCurrentTalkRoom` 不属于该组，始终独立严格解析。
+
+运行时以 `classSubCoreMultiTalk.isPlaceholder` 判断实际能力：探针不可用时仍注册并
+展示该功能，但对话框只提供 `WALKIE_TALKIE`，不展示会访问 placeholder 的 `VOIP`
+选项；探针可用时两种模式都保留。批处理入口也按实际 probe 状态校验所选模式，
+避免任何旧群 VOIP delegate 被误用。
+
+### 预期桌面结果
+
+- 8.0.65–8.0.76：两个探针均成功，现有路径保持严格解析；
+- 8.0.77：上述两个旧架构组全部为 `EXPECTED_FAILURE`，不得出现由探针导致的
+  `UNEXPECTED_FAILURE` 或 `BLOCKED`；
+- 8.0.77 的 Lifecycle 与 TalkRoom 独立结构仍为 `SUCCESS`；
+- 不读取版本号决定上述任何解析或运行时行为。
+
 ## 源码约束
 
 - 将总体规则同步写入仓库根目录 `AGENTS.md`，作为后续兼容代码的默认要求。
@@ -153,11 +224,13 @@ paramCount(10, 11)
 4. `git diff --check`；
 5. 静态复扫，确认上述功能不再读取宿主版本或渠道元数据。
 
-桌面 DexKit 测试只证明目标解析与回退分类正确。图片发送、自动查看原图、加群免打扰和 MultiTalk 麦克风行为仍需要在真实 WeChat 宿主上手工验证。
+桌面 DexKit 测试只证明目标解析与回退分类正确。图片发送、自动查看原图、加群免打扰、
+MultiTalk 麦克风、画中画和分裂群组通话行为仍需要在真实 WeChat 宿主上手工验证。
 
 ## 不包含
 
 - 修改数据库查询、Themes 或禁止 Xposed 检测的现有版本/渠道判断；
 - 泛化项目内其他 `allowFailure` 或 placeholder 用法；
+- 为 8.0.77 的第二代 MultiTalk 架构实现新的多人通话画中画或群 VOIP 调用链；
 - 支持 8.0.77 之后尚未验证的全新结构；
 - 与这些回退路径无关的功能重构。

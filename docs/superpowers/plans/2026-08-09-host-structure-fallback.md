@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace five WeChat host-version decisions with Dex-structure probes, placeholder-driven runtime selection, or signature-compatible matchers.
+**Goal:** Replace five WeChat host-version decisions with Dex-structure probes, placeholder-driven runtime selection, or signature-compatible matchers, and degrade the removed 8.0.77 MultiTalk structures without blocking still-supported call paths.
 
 **Architecture:** Each genuinely split compatibility path gets one new-only Dex probe. A zero-result probe records an expected placeholder and activates the old path; a unique result activates a strict new path, while multiple results and downstream failures remain fatal. `AutoDndAfterJoinGroup` has no semantic path split, so its one matcher accepts both confirmed parameter counts.
 
@@ -507,13 +507,79 @@ git commit -m "refactor: select MultiTalk mic path structurally"
 
 ---
 
-### Task 5: Verify the complete supported matrix and version-check removal
+### Task 5: Group the MultiTalk structures removed by 8.0.77 behind probes
+
+**Files:**
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/features/items/voip/PipVoip.kt`
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/features/items/contacts/SplitGroupCall.kt`
+
+**Interfaces:**
+- Consumes: zero-result DexKit probes, explicit expected placeholders, and hook-time `isPlaceholder`.
+- Produces: no probe-caused `UNEXPECTED_FAILURE`/`BLOCKED` on 8.0.77 while preserving single-call PiP and TalkRoom.
+
+- [ ] **Step 1: Make `classMultiTalkViewModel` the old PipVoip MultiTalk probe**
+
+Declare old-MultiTalk-only delegates without inline resolver blocks and resolve them manually after
+querying the existing two-string `classMultiTalkViewModel` matcher. A unique probe result makes all
+old MultiTalk members strict. A zero result sets expected placeholders for the 14 delegates listed
+in the approved design. Multiple probe results remain fatal.
+
+Keep `classObservableState`, `classMutableObservableState`, and `methodObservableValue` as strict,
+independent inline delegates because these AndroidX Lifecycle structures still exist on 8.0.77.
+
+- [ ] **Step 2: Gate old MultiTalk hook installation and VoIPMP restore by actual placeholders**
+
+Install `MultiTalkMainUI` session, destroy, leave-hint, and minimize hooks only when
+`classMultiTalkViewModel.isPlaceholder` is false. Preserve all single-call hooks. Before invoking
+`methodVoipMpLaunchPage`, check that delegate's own `isPlaceholder`; when absent, log and leave the
+PiP session closed rather than accessing a placeholder.
+
+- [ ] **Step 3: Make `classSubCoreMultiTalk` the old SplitGroupCall VOIP probe**
+
+Move the old MultiTalk/ILink group into manual strict resolution behind the existing two-string
+`classSubCoreMultiTalk` query. On zero results, set expected placeholders for the 14 old VOIP
+delegates listed in the approved design. Keep all four TalkRoom delegates inline and strict.
+
+- [ ] **Step 4: Expose only actual SplitGroupCall capabilities**
+
+Use `classSubCoreMultiTalk.isPlaceholder` to omit `OperationMode.VOIP` from the dialog on hosts
+without the old stack. Keep `WALKIE_TALKIE` available. Check the same actual probe before starting
+a VOIP batch so no placeholder delegate can be reached through a stale selection.
+
+- [ ] **Step 5: Run the 8.0.76/8.0.77 boundary resolver check**
+
+Run:
+
+```bash
+./x dex-test \
+  --apk /home/ujhhgtg/coding/wechat_8076.apk \
+  --apk /home/ujhhgtg/coding/wechat_8077.apk \
+  --output-dir dex-test-results/host-structure-fallback-voip-8077
+```
+
+Expected: 8.0.76 resolves both old groups strictly. On 8.0.77 the two groups are expected
+placeholders, Lifecycle and TalkRoom remain successful, and neither feature has an unexpected,
+blocked, or incomplete delegate.
+
+- [ ] **Step 6: Commit the grouped fallback**
+
+```bash
+git add \
+  app/src/main/java/dev/ujhhgtg/wekit/features/items/voip/PipVoip.kt \
+  app/src/main/java/dev/ujhhgtg/wekit/features/items/contacts/SplitGroupCall.kt
+git commit -m "fix: degrade removed MultiTalk structures structurally"
+```
+
+---
+
+### Task 6: Verify the complete supported matrix and version-check removal
 
 **Files:**
 - Verify: `app/src/main/java/dev/ujhhgtg/wekit/features/api/core/WeMessageApi.kt`
 - Verify: `app/src/main/java/dev/ujhhgtg/wekit/features/items/chat/AutoViewOriginalMedia.kt`
 - Verify: `app/src/main/java/dev/ujhhgtg/wekit/features/items/contacts/AutoDndAfterJoinGroup.kt`
 - Verify: `app/src/main/java/dev/ujhhgtg/wekit/features/items/voip/PipVoip.kt`
+- Verify: `app/src/main/java/dev/ujhhgtg/wekit/features/items/contacts/SplitGroupCall.kt`
 
 **Interfaces:**
 - Consumes: all four implementation tasks and the repository's xtask validation commands.
