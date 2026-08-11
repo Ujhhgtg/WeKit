@@ -25,6 +25,76 @@ data class ReadReceiptsConfiguration(
     val selectedTunnelName: String = "",
 )
 
+internal enum class ReadReceiptsConfigurationSaveAction {
+    COMMIT,
+    STOP_THEN_COMMIT,
+    TRANSACTIONAL_START,
+    TRANSACTIONAL_REPLACE,
+}
+
+internal fun readReceiptsConfigurationSaveAction(
+    previous: ReadReceiptsConfiguration,
+    candidate: ReadReceiptsConfiguration,
+    originWasActive: Boolean,
+    featureActive: Boolean,
+): ReadReceiptsConfigurationSaveAction {
+    if (candidate.mode != ReadReceiptsServerMode.BUILT_IN) {
+        return if (originWasActive) {
+            ReadReceiptsConfigurationSaveAction.STOP_THEN_COMMIT
+        } else {
+            ReadReceiptsConfigurationSaveAction.COMMIT
+        }
+    }
+
+    val runtimeChanged = readReceiptsBuiltInRuntimeChanged(previous, candidate)
+    if (originWasActive && runtimeChanged) {
+        return if (candidate.automaticLifecycle) {
+            ReadReceiptsConfigurationSaveAction.TRANSACTIONAL_REPLACE
+        } else {
+            ReadReceiptsConfigurationSaveAction.STOP_THEN_COMMIT
+        }
+    }
+    if (!originWasActive && featureActive && candidate.automaticLifecycle) {
+        return ReadReceiptsConfigurationSaveAction.TRANSACTIONAL_START
+    }
+    return ReadReceiptsConfigurationSaveAction.COMMIT
+}
+
+internal fun readReceiptsBuiltInRuntimeChanged(
+    previous: ReadReceiptsConfiguration,
+    candidate: ReadReceiptsConfiguration,
+): Boolean = builtInRuntimeIdentity(previous) != builtInRuntimeIdentity(candidate)
+
+private data class BuiltInRuntimeIdentity(
+    val requestedPort: Int,
+    val tunnelMode: ReadReceiptsTunnelMode,
+    val canonicalHostname: String?,
+    val selectedTunnelId: String?,
+)
+
+private fun builtInRuntimeIdentity(
+    configuration: ReadReceiptsConfiguration,
+): BuiltInRuntimeIdentity? {
+    if (configuration.mode != ReadReceiptsServerMode.BUILT_IN) return null
+    val mode = ReadReceiptsTunnelMode.entries.firstOrNull {
+        it.name == configuration.tunnelMode
+    } ?: ReadReceiptsTunnelMode.QUICK
+    val canonicalHostname = when (mode) {
+        ReadReceiptsTunnelMode.QUICK -> null
+        ReadReceiptsTunnelMode.TOKEN,
+        ReadReceiptsTunnelMode.BROWSER_LOGIN,
+        -> ReadReceiptsTunnelService.canonicalPublicRoot(configuration.hostname)
+    }
+    return BuiltInRuntimeIdentity(
+        requestedPort = if (configuration.automaticPort) 0 else configuration.builtInPort,
+        tunnelMode = mode,
+        canonicalHostname = canonicalHostname,
+        selectedTunnelId = configuration.selectedTunnelId.takeIf {
+            mode == ReadReceiptsTunnelMode.BROWSER_LOGIN
+        },
+    )
+}
+
 object ReadReceiptsConfigurationCodec {
     private const val SCHEMA_VERSION = 1
 
@@ -88,7 +158,12 @@ object ReadReceiptsConfigurationCodec {
         require(value.pollIntervalSecs > 0)
         require(value.builtInPort in 1..65535)
         require(value.tunnelMode.isNotBlank())
-        return value
+        val canonicalThirdPartyUrl = normalizeThirdPartyReadReceiptEndpoint(value.thirdPartyUrl)
+        return if (canonicalThirdPartyUrl != null) {
+            value.copy(thirdPartyUrl = canonicalThirdPartyUrl)
+        } else {
+            value
+        }
     }
 
     private fun JsonElement.stringOrNull(): String? =

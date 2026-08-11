@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
-import java.net.URI
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -9,6 +8,36 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+
+private const val MAX_THIRD_PARTY_ENDPOINT_LENGTH = 2048
+
+internal fun normalizeThirdPartyReadReceiptEndpoint(value: String): String? {
+    val trimmed = value.trimEnd('/')
+    if (
+        trimmed.isBlank() || trimmed.length > MAX_THIRD_PARTY_ENDPOINT_LENGTH ||
+        trimmed != trimmed.trim() || trimmed.any(Char::isWhitespace)
+    ) {
+        return null
+    }
+    val schemeSeparator = trimmed.indexOf("://")
+    if (schemeSeparator < 0 || !trimmed.substring(0, schemeSeparator).equals("https", true)) {
+        return null
+    }
+    val authorityStart = schemeSeparator + 3
+    val authorityEnd = trimmed.indexOfAny(charArrayOf('/', '?', '#'), authorityStart)
+        .takeIf { it >= 0 } ?: trimmed.length
+    val rawAuthority = trimmed.substring(authorityStart, authorityEnd)
+    if (rawAuthority.isEmpty() || '@' in rawAuthority) return null
+    val url = trimmed.toHttpUrlOrNull() ?: return null
+    if (
+        url.scheme != "https" || url.username.isNotEmpty() || url.password.isNotEmpty() ||
+        url.query != null || url.fragment != null
+    ) {
+        return null
+    }
+    return url.toString().trimEnd('/')
+}
 
 /** The persistence backend responsible for a tracked read-receipt record. */
 enum class ReadReceiptBackend {
@@ -29,7 +58,7 @@ object ReadReceiptRecordCodec {
     private const val BUILT_IN_ENDPOINT = "builtin://local"
     private const val MAX_ID_LENGTH = 128
     private const val MAX_WX_ID_BYTES = 128
-    private const val MAX_ENDPOINT_LENGTH = 2048
+    private const val MAX_ENDPOINT_LENGTH = MAX_THIRD_PARTY_ENDPOINT_LENGTH
     private val lowercaseHexId = Regex("[0-9a-f]+")
 
     fun encode(record: ReadReceiptRecord): String {
@@ -96,15 +125,7 @@ object ReadReceiptRecordCodec {
 
         val endpoint = when (record.backend) {
             ReadReceiptBackend.THIRD_PARTY -> {
-                val normalized = record.endpoint.trimEnd('/')
-                require(normalized.isNotBlank() && normalized.length <= MAX_ENDPOINT_LENGTH)
-                require(normalized == normalized.trim())
-                require(normalized.none(Char::isWhitespace))
-                val uri = URI(normalized)
-                require(uri.scheme == "https")
-                require(!uri.host.isNullOrEmpty())
-                require(uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null)
-                normalized
+                requireNotNull(normalizeThirdPartyReadReceiptEndpoint(record.endpoint))
             }
 
             ReadReceiptBackend.BUILT_IN -> {

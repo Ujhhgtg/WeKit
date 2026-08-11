@@ -19,6 +19,22 @@ class ReadReceiptRecordTest {
     }
 
     @Test
+    fun `canonicalizes third party endpoint before persistent round trip`() {
+        val submitted = ReadReceiptRecord(
+            "0123456789abcdef",
+            "wxid_a",
+            ReadReceiptBackend.THIRD_PARTY,
+            "HTTPS://Example.COM/receipts/",
+            1_700_000_000_000,
+        )
+
+        assertEquals(
+            submitted.copy(endpoint = "https://example.com/receipts"),
+            ReadReceiptRecordCodec.decode(ReadReceiptRecordCodec.encode(submitted)),
+        )
+    }
+
+    @Test
     fun `round trips built in logical endpoint`() {
         val record = ReadReceiptRecord(
             "abcdef0123456789",
@@ -76,6 +92,8 @@ class ReadReceiptRecordTest {
                 "https:///path",
                 "https://?query",
                 "https://user:password@receipts.example",
+                "https://@receipts.example",
+                "https://receipts.example:@",
                 "https://receipts.example/path?token=secret",
                 "https://receipts.example/path#fragment",
             )
@@ -83,7 +101,8 @@ class ReadReceiptRecordTest {
             assertNull(
                 ReadReceiptRecordCodec.decode(
                     "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"$endpoint\",\"createdAtMillis\":1}"
-                )
+                ),
+                endpoint,
             )
         }
     }

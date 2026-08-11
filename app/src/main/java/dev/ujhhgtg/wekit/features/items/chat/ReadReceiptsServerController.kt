@@ -16,10 +16,13 @@ interface ReadReceiptsServerController {
 internal class NativeReadReceiptsServerController : ReadReceiptsServerController {
     private val generation = AtomicLong()
     private val lastStatus = AtomicReference(ReadReceiptsStatus(ReadReceiptsRuntimeState.STOPPED))
+    private val statusAuthorityLock = Any()
+    private var inFlightGeneration: Long? = null
 
     override fun startBuiltIn(port: Int, connectorAuthenticator: String): Result<Int> {
-        val currentGeneration = generation.incrementAndGet()
-        updateStatus(currentGeneration, ReadReceiptsStatus(ReadReceiptsRuntimeState.STARTING))
+        val currentGeneration = beginOperation(
+            ReadReceiptsStatus(ReadReceiptsRuntimeState.STARTING),
+        )
 
         val result = runCatching {
             require(port in 0..65535) { "server port must be between 0 and 65535" }
@@ -46,25 +49,32 @@ internal class NativeReadReceiptsServerController : ReadReceiptsServerController
                 )
             },
         )
-        updateStatus(currentGeneration, terminal)
+        finishOperation(currentGeneration, terminal)
         return result
     }
 
     override fun stopBuiltIn() {
-        val currentGeneration = generation.incrementAndGet()
-        val previous = lastStatus.get()
-        updateStatus(
-            currentGeneration,
-            ReadReceiptsStatus(ReadReceiptsRuntimeState.STOPPING, port = previous.port),
-        )
+        val currentGeneration = beginStoppingOperation()
         ReadReceiptsNative.stopServer()
-        refreshStatus(currentGeneration)
+        finishOperation(
+            currentGeneration,
+            runCatching(::nativeStatus).getOrElse {
+                ReadReceiptsStatus(
+                    ReadReceiptsRuntimeState.FAILED,
+                    error = STATUS_READ_ERROR,
+                )
+            },
+        )
     }
 
     override fun status(): ReadReceiptsRuntimeState = snapshot().state
 
     internal fun snapshot(): ReadReceiptsStatus {
-        val currentGeneration = generation.get()
+        val currentGeneration = synchronized(statusAuthorityLock) {
+            val current = generation.get()
+            if (inFlightGeneration == current) return lastStatus.get()
+            current
+        }
         return refreshStatus(currentGeneration)
     }
 
@@ -75,16 +85,50 @@ internal class NativeReadReceiptsServerController : ReadReceiptsServerController
                 error = STATUS_READ_ERROR,
             )
         }
-        updateStatus(expectedGeneration, status)
-        return if (generation.get() == expectedGeneration) status else lastStatus.get()
+        return synchronized(statusAuthorityLock) {
+            if (
+                generation.get() == expectedGeneration &&
+                inFlightGeneration != expectedGeneration
+            ) {
+                lastStatus.set(status)
+                status
+            } else {
+                lastStatus.get()
+            }
+        }
     }
 
     private fun nativeStatus(): ReadReceiptsStatus = ReadReceiptsStatus
         .parse(ReadReceiptsNative.serverStatus())
         .getOrElse { error(STATUS_READ_ERROR) }
 
-    private fun updateStatus(expectedGeneration: Long, status: ReadReceiptsStatus) {
-        if (generation.get() == expectedGeneration) lastStatus.set(status)
+    private fun beginOperation(status: ReadReceiptsStatus): Long =
+        synchronized(statusAuthorityLock) {
+            generation.incrementAndGet().also { currentGeneration ->
+                inFlightGeneration = currentGeneration
+                lastStatus.set(status)
+            }
+        }
+
+    private fun beginStoppingOperation(): Long = synchronized(statusAuthorityLock) {
+        val previous = lastStatus.get()
+        generation.incrementAndGet().also { currentGeneration ->
+            inFlightGeneration = currentGeneration
+            lastStatus.set(
+                ReadReceiptsStatus(
+                    ReadReceiptsRuntimeState.STOPPING,
+                    port = previous.port,
+                ),
+            )
+        }
+    }
+
+    private fun finishOperation(expectedGeneration: Long, status: ReadReceiptsStatus) {
+        synchronized(statusAuthorityLock) {
+            if (generation.get() != expectedGeneration) return
+            lastStatus.set(status)
+            if (inFlightGeneration == expectedGeneration) inFlightGeneration = null
+        }
     }
 
     internal companion object {
