@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.graphics.get
 import androidx.core.graphics.toColorInt
@@ -469,14 +470,14 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
 //    }
 
     /**
-     * Launches a system image picker and copies the chosen file's raw bytes into [BubbleSide.fileName] under
+     * Launches a system image picker and copies the chosen file's raw bytes into [fileName] under
      * the module assets dir. Raw copy (not re-encode) preserves the nine-patch border markers.
      *
      * The picker accepts any image MIME type, so the dimensions are validated here rather than at
      * bind time: applyBubble runs for every message view, and a full-resolution photo installed as
      * a bubble would mean a multi-megabyte decode per row.
      */
-    private fun importBubbleImage(context: Context, side: BubbleSide, onDone: () -> Unit) {
+    private fun importBubbleImage(context: Context, fileName: String, label: String, onDone: () -> Unit) {
         TransparentActivity.launch(context) {
             val launcher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
                 finish()
@@ -486,17 +487,11 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                     contentResolver.openInputStream(uri)?.use { it.readBytes() }
                         ?: throw IllegalStateException("failed to open input stream")
                 }.onFailure {
-                    WeLogger.e(TAG, "failed to read ${side.name} bubble image", it)
+                    WeLogger.e(TAG, "failed to read $label bubble image", it)
                 }.getOrNull()
 
                 if (bytes == null) {
-                    showToast(
-                        context,
-                        context.localizedBeautifyString(
-                            R.string.beautify_bubble_import_failed,
-                            context.localizedBeautifyString(side.titleRes),
-                        ),
-                    )
+                    showToast(context, context.localizedBeautifyString(R.string.beautify_bubble_import_failed, label))
                     return@registerForActivityResult
                 }
 
@@ -506,14 +501,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 val height = bounds.outHeight
 
                 if (width < MIN_BUBBLE_SIZE_PX || height < MIN_BUBBLE_SIZE_PX) {
-                    showToast(
-                        context,
-                        context.localizedBeautifyString(
-                            R.string.beautify_bubble_image_too_small,
-                            context.localizedBeautifyString(side.titleRes),
-                            MIN_BUBBLE_SIZE_PX,
-                        ),
-                    )
+                    showToast(context, context.localizedBeautifyString(R.string.beautify_bubble_image_too_small, label, MIN_BUBBLE_SIZE_PX))
                     return@registerForActivityResult
                 }
                 if (width > MAX_BUBBLE_SIZE_PX || height > MAX_BUBBLE_SIZE_PX) {
@@ -521,7 +509,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                         context,
                         context.localizedBeautifyString(
                             R.string.beautify_bubble_image_too_large,
-                            context.localizedBeautifyString(side.titleRes),
+                            label,
                             width,
                             height,
                             MAX_BUBBLE_SIZE_PX,
@@ -531,19 +519,19 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 }
 
                 val ok = runCatching {
-                    (KnownPaths.moduleAssets / side.fileName).toFile().outputStream().use { output ->
+                    (KnownPaths.moduleAssets / fileName).toFile().outputStream().use { output ->
                         output.write(bytes)
                     }
                 }.onFailure {
-                    WeLogger.e(TAG, "failed to import ${side.name} bubble image", it)
+                    WeLogger.e(TAG, "failed to import $label bubble image", it)
                 }.isSuccess
 
-                bubbleCache.remove(side.fileName)
+                bubbleCache.remove(fileName)
                 showToast(
                     context,
                     context.localizedBeautifyString(
                         if (ok) R.string.beautify_bubble_import_succeeded else R.string.beautify_bubble_import_failed,
-                        context.localizedBeautifyString(side.titleRes),
+                        label,
                     ),
                 )
                 if (ok) onDone()
@@ -671,6 +659,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var selectedSide by remember { mutableStateOf(BubbleSide.OTHER) }
             var pendingDeletion by remember { mutableStateOf<BubbleSide?>(null) }
             var otherForm by remember {
@@ -766,7 +755,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                                 onFormChange = { next -> updateForm(selectedSide) { next } },
                                 onImport = {
                                     val side = selectedSide
-                                    importBubbleImage(context, side) {
+                                    importBubbleImage(context, side.fileName, localizedContext.getString(side.titleRes)) {
                                         updateForm(side) { it.copy(imageExists = true) }
                                     }
                                 },

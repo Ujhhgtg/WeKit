@@ -11,12 +11,14 @@ import android.os.Bundle
 import android.os.Looper
 import android.os.Parcelable
 import android.os.SystemClock
+import androidx.annotation.StringRes
 import dev.ujhhgtg.reflekt.Reflect
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
@@ -79,60 +81,38 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     private const val FALLBACK_VIDEO_CREATE_TIME = 1
     private const val MIME_IMAGE_JPEG = "image/jpeg"
 
-    enum class RepostOutcome {
-        CONTENT_UNAVAILABLE,
-        NO_LIVE_PHOTO,
-        IMAGE_DOWNLOAD_FAILED,
-        VIDEO_DOWNLOAD_FAILED,
-        LIVE_PHOTO_VIDEO_DOWNLOAD_FAILED,
-        IMAGE_CACHE_MISSING,
-        VIDEO_CACHE_MISSING,
-        LIVE_PHOTO_CACHE_MISSING,
-        LIVE_PHOTO_SAVE_FAILED,
-        EDITOR_OPENED,
-        LIVE_PHOTO_AUTO_SELECT_FAILED,
-        LIVE_PHOTO_EDITOR_FAILED,
-        CARD_CONTENT_UNAVAILABLE,
-        CARD_CLONE_FAILED,
-        REPOST_CONTAINER_UNAVAILABLE,
-        QUEUED,
-        QUEUED_WITH_STATIC_LIVE_PHOTOS,
-        REPOST_FAILED,
-        REPOST_FAILED_WITH_EXCEPTION,
-    }
-
     data class ActionResult(
         val success: Boolean,
         val sent: Boolean,
         val message: String,
         val error: Throwable? = null,
-        val repostOutcome: RepostOutcome? = null,
+        @StringRes val messageRes: Int? = null,
     )
 
     private fun repostResult(
         success: Boolean,
         sent: Boolean,
         message: String,
-        outcome: RepostOutcome,
+        @StringRes messageRes: Int,
         error: Throwable? = null,
     ): ActionResult = ActionResult(
         success = success,
         sent = sent,
         message = message,
         error = error,
-        repostOutcome = outcome,
+        messageRes = messageRes,
     )
 
     private fun repostExceptionResult(
         error: Throwable,
         fallbackMessage: String,
-        outcome: RepostOutcome,
+        @StringRes fallbackMessageRes: Int,
     ): ActionResult = ActionResult(
         success = false,
         sent = false,
         message = error.message ?: fallbackMessage,
         error = error,
-        repostOutcome = outcome,
+        messageRes = fallbackMessageRes.takeIf { error.message == null },
     )
 
     private const val SNS_INFO_CLASS = "com.tencent.mm.plugin.sns.storage.SnsInfo"
@@ -1599,7 +1579,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     false,
                     false,
                     "这条朋友圈不包含实况图片!",
-                    RepostOutcome.NO_LIVE_PHOTO,
+                    R.string.moments_repost_no_live_photo,
                 )
             }
 
@@ -1608,14 +1588,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     false,
                     false,
                     "图片下载失败或超时!",
-                    RepostOutcome.IMAGE_DOWNLOAD_FAILED,
+                    R.string.moments_repost_image_download_failed,
                 )
             if (!ensureLivePhotoVideosCached(content)) {
                 return repostResult(
                     false,
                     false,
                     "实况视频下载失败或超时, 请稍后重试!",
-                    RepostOutcome.LIVE_PHOTO_VIDEO_DOWNLOAD_FAILED,
+                    R.string.moments_repost_live_photo_video_download_failed,
                 )
             }
 
@@ -1624,14 +1604,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     false,
                     false,
                     "未找到本地缓存的图片!",
-                    RepostOutcome.IMAGE_CACHE_MISSING,
+                    R.string.moments_repost_image_cache_missing,
                 )
             if (resolved.degradedLivePhotos) {
                 return repostResult(
                     false,
                     false,
                     "实况未缓存, 请先播放一次后再试!",
-                    RepostOutcome.LIVE_PHOTO_CACHE_MISSING,
+                    R.string.moments_repost_live_photo_cache_missing,
                 )
             }
 
@@ -1640,7 +1620,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     false,
                     false,
                     "实况保存到相册失败!",
-                    RepostOutcome.LIVE_PHOTO_SAVE_FAILED,
+                    R.string.moments_repost_live_photo_save_failed,
                 )
 
             if (openMomentMixedMediaEditorFromAlbumResult(activity, text, editorMedia, source)) {
@@ -1648,14 +1628,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     true,
                     false,
                     "已打开编辑界面",
-                    RepostOutcome.EDITOR_OPENED,
+                    R.string.moments_repost_editor_opened,
                 )
             } else {
                 repostResult(
                     false,
                     false,
                     "实况图片自动选择失败!",
-                    RepostOutcome.LIVE_PHOTO_AUTO_SELECT_FAILED,
+                    R.string.moments_repost_live_photo_select_failed,
                 )
             }
         } catch (e: Exception) {
@@ -1663,7 +1643,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             repostExceptionResult(
                 e,
                 "打开实况图片编辑界面异常!",
-                RepostOutcome.LIVE_PHOTO_EDITOR_FAILED,
+                R.string.moments_repost_live_photo_editor_failed,
             )
         }
     }
@@ -2390,7 +2370,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 false,
                 false,
                 "无法解析朋友圈内容",
-                RepostOutcome.CONTENT_UNAVAILABLE,
+                R.string.moments_repost_parse_failed,
             )
         return quickRepost(content)
     }
@@ -2405,7 +2385,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 false,
                 false,
                 "无法解析朋友圈内容",
-                RepostOutcome.CONTENT_UNAVAILABLE,
+                R.string.moments_repost_parse_failed,
             )
         return quickRepostEnsuringCached(content)
     }
@@ -2420,13 +2400,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                             false,
                             false,
                             "视频下载失败或超时",
-                            RepostOutcome.VIDEO_DOWNLOAD_FAILED,
+                            R.string.moments_repost_video_download_failed,
                         )
                     val ok = postTextAndVideo(HostInfo.application, text, video.videoPath, video.thumbPath)
                     if (ok) {
-                        repostResult(true, true, "已加入发送队列", RepostOutcome.QUEUED)
+                        repostResult(true, true, "已加入发送队列", R.string.moments_repost_queued)
                     } else {
-                        repostResult(false, false, "转发失败", RepostOutcome.REPOST_FAILED)
+                        repostResult(false, false, "转发失败", R.string.moments_repost_failed)
                     }
                 }
 
@@ -2438,7 +2418,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                                 false,
                                 false,
                                 "图片下载失败或超时",
-                                RepostOutcome.IMAGE_DOWNLOAD_FAILED,
+                                R.string.moments_repost_image_download_failed,
                             )
                         return quickRepost(content)
                     }
@@ -2447,13 +2427,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                             false,
                             false,
                             "图片下载失败或超时",
-                            RepostOutcome.IMAGE_DOWNLOAD_FAILED,
+                            R.string.moments_repost_image_download_failed,
                         )
                     val ok = postTextAndImages(text, paths)
                     if (ok) {
-                        repostResult(true, true, "已加入发送队列", RepostOutcome.QUEUED)
+                        repostResult(true, true, "已加入发送队列", R.string.moments_repost_queued)
                     } else {
-                        repostResult(false, false, "转发失败", RepostOutcome.REPOST_FAILED)
+                        repostResult(false, false, "转发失败", R.string.moments_repost_failed)
                     }
                 }
 
@@ -2461,7 +2441,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "quickRepostEnsuringCached failed", e)
-            repostExceptionResult(e, "转发出现异常", RepostOutcome.REPOST_FAILED_WITH_EXCEPTION)
+            repostExceptionResult(e, "转发出现异常", R.string.moments_repost_failed)
         }
     }
 
@@ -2518,7 +2498,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 false,
                 false,
                 "无法解析卡片内容!",
-                RepostOutcome.CARD_CONTENT_UNAVAILABLE,
+                R.string.moments_repost_card_parse_failed,
             )
 
         return try {
@@ -2527,7 +2507,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     false,
                     false,
                     "卡片内容克隆失败!",
-                    RepostOutcome.CARD_CLONE_FAILED,
+                    R.string.moments_repost_card_clone_failed,
                 )
 
             // 用源内容类型构造 helper, 使 commit 走对应的分支; ctor 也会把该类型写入 ContentObj.type。
@@ -2542,7 +2522,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     false,
                     false,
                     "无法获取转发容器!",
-                    RepostOutcome.REPOST_CONTAINER_UNAVAILABLE,
+                    R.string.moments_repost_container_unavailable,
                 )
             helperTimeline.reflekt().firstField { name = "ContentObj"; superclass() }.set(cloned)
 
@@ -2552,13 +2532,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             val localId = methodCommit.method.invoke(helper) as Int
             WeLogger.i(TAG, "quickRepostCardMoment: type=${content.type}, localId=$localId")
             if (localId > 0) {
-                repostResult(true, true, "已加入发送队列", RepostOutcome.QUEUED)
+                repostResult(true, true, "已加入发送队列", R.string.moments_repost_queued)
             } else {
-                repostResult(false, false, "转发失败!", RepostOutcome.REPOST_FAILED)
+                repostResult(false, false, "转发失败!", R.string.moments_repost_failed)
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "quickRepostCardMoment failed", e)
-            repostExceptionResult(e, "转发出现异常", RepostOutcome.REPOST_FAILED_WITH_EXCEPTION)
+            repostExceptionResult(e, "转发出现异常", R.string.moments_repost_failed)
         }
     }
 
@@ -2831,7 +2811,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                                 false,
                                 false,
                                 "未找到本地缓存的图片",
-                                RepostOutcome.IMAGE_CACHE_MISSING,
+                                R.string.moments_repost_image_cache_missing,
                             )
                         val sent = postTextAndMixedMedia(text, resolved.items)
                         if (sent && resolved.degradedLivePhotos) {
@@ -2839,7 +2819,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                                 true,
                                 true,
                                 "已加入发送队列 (部分实况视频未下载, 已按静态图转发)",
-                                RepostOutcome.QUEUED_WITH_STATIC_LIVE_PHOTOS,
+                                R.string.moments_repost_queued_static_live_photos,
                             )
                         }
                         sent
@@ -2849,7 +2829,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                                 false,
                                 false,
                                 "未找到本地缓存的图片",
-                                RepostOutcome.IMAGE_CACHE_MISSING,
+                                R.string.moments_repost_image_cache_missing,
                             )
                         postTextAndImages(text, paths)
                     }
@@ -2863,7 +2843,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                             false,
                             false,
                             "未找到本地缓存的视频, 请播放一次后再转发",
-                            RepostOutcome.VIDEO_CACHE_MISSING,
+                            R.string.moments_repost_video_cache_missing,
                         )
                     }
                     postTextAndVideo(HostInfo.application, text, videoPath, thumbPath)
@@ -2873,13 +2853,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             }
 
             if (ok) {
-                repostResult(true, true, "已加入发送队列", RepostOutcome.QUEUED)
+                repostResult(true, true, "已加入发送队列", R.string.moments_repost_queued)
             } else {
-                repostResult(false, false, "转发失败", RepostOutcome.REPOST_FAILED)
+                repostResult(false, false, "转发失败", R.string.moments_repost_failed)
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "quickRepost failed", e)
-            repostExceptionResult(e, "转发出现异常", RepostOutcome.REPOST_FAILED_WITH_EXCEPTION)
+            repostExceptionResult(e, "转发出现异常", R.string.moments_repost_failed)
         }
     }
 

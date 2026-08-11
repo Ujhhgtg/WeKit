@@ -2686,7 +2686,7 @@
     <plurals name="moments_automation_selected_type_count"><item quantity="one">%1$d type selected</item><item quantity="other">%1$d types selected</item></plurals>
     <string name="moments_automation_type_unrestricted">No post-type restriction</string>
     <string name="moments_automation_maximum_age">Maximum post age</string>
-    <plurals name="moments_automation_maximum_age_value"><item quantity="one">Only process posts published within %1$d hour</item><item quantity="other">Only process posts published within %1$d hours</item></plurals>
+    <string name="moments_automation_maximum_age_value">Only process posts published within %1$s hours</string>
     <string name="moments_automation_age_unrestricted">No publication-time restriction</string>
     <string name="moments_automation_maximum_age_hours">Maximum post age (hours)</string>
     <string name="moments_automation_invalid_interval">Enter a valid action interval</string>

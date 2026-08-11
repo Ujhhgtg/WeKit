@@ -2571,7 +2571,7 @@
     <plurals name="moments_automation_selected_type_count"><item quantity="other">已选择 %1$d 种类型</item></plurals>
     <string name="moments_automation_type_unrestricted">不限制朋友圈类型</string>
     <string name="moments_automation_maximum_age">最大发布时间</string>
-    <plurals name="moments_automation_maximum_age_value"><item quantity="other">仅处理 %1$d 小时内发布的朋友圈</item></plurals>
+    <string name="moments_automation_maximum_age_value">仅处理 %1$s 小时内发布的朋友圈</string>
     <string name="moments_automation_age_unrestricted">不限制发布时间</string>
     <string name="moments_automation_maximum_age_hours">最大发布时间（小时）</string>
     <string name="moments_automation_invalid_interval">请输入有效的操作间隔</string>

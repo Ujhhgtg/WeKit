@@ -39,7 +39,6 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.beautify.AddMainScreenFab
-import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -431,7 +430,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                     LaunchedEffect(panelState) {
                         val messagesJob = launch(start = CoroutineStart.UNDISPATCHED) {
                             panelState.messages.collect { message ->
-                                showToast(activity, activity.resolveBeautifyText(message))
+                                showToast(activity, message)
                             }
                         }
                         panelState.startPreload()

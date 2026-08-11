@@ -179,27 +179,5 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
     }
 
     private fun Context.localizedRepostResult(result: WeMomentsApi.ActionResult): String =
-        localizedMomentsString(
-            when (requireNotNull(result.repostOutcome)) {
-                WeMomentsApi.RepostOutcome.CONTENT_UNAVAILABLE -> R.string.moments_repost_parse_failed
-                WeMomentsApi.RepostOutcome.NO_LIVE_PHOTO -> R.string.moments_repost_no_live_photo
-                WeMomentsApi.RepostOutcome.IMAGE_DOWNLOAD_FAILED -> R.string.moments_repost_image_download_failed
-                WeMomentsApi.RepostOutcome.VIDEO_DOWNLOAD_FAILED -> R.string.moments_repost_video_download_failed
-                WeMomentsApi.RepostOutcome.LIVE_PHOTO_VIDEO_DOWNLOAD_FAILED -> R.string.moments_repost_live_photo_video_download_failed
-                WeMomentsApi.RepostOutcome.IMAGE_CACHE_MISSING -> R.string.moments_repost_image_cache_missing
-                WeMomentsApi.RepostOutcome.VIDEO_CACHE_MISSING -> R.string.moments_repost_video_cache_missing
-                WeMomentsApi.RepostOutcome.LIVE_PHOTO_CACHE_MISSING -> R.string.moments_repost_live_photo_cache_missing
-                WeMomentsApi.RepostOutcome.LIVE_PHOTO_SAVE_FAILED -> R.string.moments_repost_live_photo_save_failed
-                WeMomentsApi.RepostOutcome.EDITOR_OPENED -> R.string.moments_repost_editor_opened
-                WeMomentsApi.RepostOutcome.LIVE_PHOTO_AUTO_SELECT_FAILED -> R.string.moments_repost_live_photo_select_failed
-                WeMomentsApi.RepostOutcome.LIVE_PHOTO_EDITOR_FAILED -> R.string.moments_repost_live_photo_editor_failed
-                WeMomentsApi.RepostOutcome.CARD_CONTENT_UNAVAILABLE -> R.string.moments_repost_card_parse_failed
-                WeMomentsApi.RepostOutcome.CARD_CLONE_FAILED -> R.string.moments_repost_card_clone_failed
-                WeMomentsApi.RepostOutcome.REPOST_CONTAINER_UNAVAILABLE -> R.string.moments_repost_container_unavailable
-                WeMomentsApi.RepostOutcome.QUEUED -> R.string.moments_repost_queued
-                WeMomentsApi.RepostOutcome.QUEUED_WITH_STATIC_LIVE_PHOTOS -> R.string.moments_repost_queued_static_live_photos
-                WeMomentsApi.RepostOutcome.REPOST_FAILED,
-                WeMomentsApi.RepostOutcome.REPOST_FAILED_WITH_EXCEPTION -> R.string.moments_repost_failed
-            }
-        )
+        result.messageRes?.let(::localizedMomentsString) ?: result.message
 }
