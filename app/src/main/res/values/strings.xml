@@ -2333,4 +2333,176 @@
     <string name="chat_voice_path_invalid">Voice path is invalid</string>
     <string name="chat_voice_file_empty">Voice file is empty</string>
     <string name="chat_voice_pack_path_invalid">Voice pack path is invalid</string>
+    <!-- Task 5 group 1: batch actions -->
+    <string name="batch_select_at_least_one_friend">Select at least one friend</string>
+    <string name="batch_select_at_least_one_conversation">Select at least one conversation</string>
+    <string name="batch_add_label_select_friends">Select friends to label</string>
+    <string name="batch_add_label_select_label">Select label</string>
+    <string name="batch_add_label_new_label_hint">New label (enter a name, then tap “Create and apply”)</string>
+    <string name="batch_add_label_existing_labels">Or select an existing label:</string>
+    <string name="batch_add_label_create_and_apply">Create and apply</string>
+    <string name="batch_add_label_create_failed">Failed to create label “%1$s”</string>
+    <string name="batch_add_label_done_title">Labeling complete</string>
+    <string name="batch_add_label_progress_title">Applying label</string>
+    <plurals name="batch_add_label_done"><item quantity="one">Added label “%3$s” to %1$d of %2$d friend</item><item quantity="other">Added label “%3$s” to %1$d of %2$d friends</item></plurals>
+    <plurals name="batch_add_label_progress"><item quantity="one">Applying label “%1$s”; please wait…\nCompleted: %2$d/%3$d friend</item><item quantity="other">Applying label “%1$s”; please wait…\nCompleted: %2$d/%3$d friends</item></plurals>
+    <string name="batch_delete_friends_select">Select friends to delete</string>
+    <string name="batch_delete_friends_confirm_title">Confirm deletion</string>
+    <plurals name="batch_delete_friends_confirm_message"><item quantity="one">Delete the %1$d selected friend? This cannot be undone. You can also block them.</item><item quantity="other">Delete the %1$d selected friends? This cannot be undone. You can also block them.</item></plurals>
+    <string name="batch_delete_friends_block_and_delete">Block and delete</string>
+    <plurals name="batch_delete_friends_progress"><item quantity="one">Deleting %1$d friend…</item><item quantity="other">Deleting %1$d friends…</item></plurals>
+    <plurals name="batch_delete_friends_done"><item quantity="one">Deleted %1$d friend</item><item quantity="other">Deleted %1$d friends</item></plurals>
+    <plurals name="batch_delete_friends_partial"><item quantity="one">Deleted %1$d of %2$d friend</item><item quantity="other">Deleted %1$d of %2$d friends</item></plurals>
+    <string name="batch_delete_history_select">Select conversations whose history you want to delete</string>
+    <string name="batch_delete_history_title">Delete chat history</string>
+    <plurals name="batch_delete_history_confirm"><item quantity="one">Delete all chat history for the %1$d selected conversation? This cannot be undone.</item><item quantity="other">Delete all chat history for the %1$d selected conversations? This cannot be undone.</item></plurals>
+    <plurals name="batch_delete_history_progress"><item quantity="one">Deleting chat history for %1$d conversation…</item><item quantity="other">Deleting chat history for %1$d conversations…</item></plurals>
+    <plurals name="batch_delete_history_done"><item quantity="one">Deleted chat history for %1$d conversation (%2$d messages total)</item><item quantity="other">Deleted chat history for %1$d conversations (%2$d messages total)</item></plurals>
+    <string name="batch_hide_conversations_select">Select conversations to hide</string>
+    <string name="batch_hide_conversations_title">Hide conversations</string>
+    <plurals name="batch_hide_conversations_confirm"><item quantity="one">Remove the %1$d selected conversation from the conversation list? Chat history will be kept, and the conversation will reappear when a new message arrives.</item><item quantity="other">Remove the %1$d selected conversations from the conversation list? Chat history will be kept, and conversations will reappear when new messages arrive.</item></plurals>
+    <string name="batch_hide_conversations_action">Hide</string>
+    <plurals name="batch_hide_conversations_done"><item quantity="one">Hidden %1$d of %2$d conversation</item><item quantity="other">Hidden %1$d of %2$d conversations</item></plurals>
+    <string name="batch_mark_read_select">Select conversations to mark as read</string>
+    <plurals name="batch_mark_read_done"><item quantity="one">Marked %1$d conversation as read</item><item quantity="other">Marked %1$d conversations as read</item></plurals>
+    <string name="batch_mute_title">Batch Do Not Disturb</string>
+    <string name="batch_mute_enable">Enable Do Not Disturb</string>
+    <string name="batch_mute_enable_description">Select conversations to mute</string>
+    <string name="batch_mute_disable">Disable Do Not Disturb</string>
+    <string name="batch_mute_disable_description">Select conversations to unmute</string>
+    <string name="batch_mute_select_enable">Select conversations to mute</string>
+    <string name="batch_mute_select_disable">Select conversations to unmute</string>
+    <plurals name="batch_mute_progress"><item quantity="one">Updating Do Not Disturb for %1$d conversation…</item><item quantity="other">Updating Do Not Disturb for %1$d conversations…</item></plurals>
+    <plurals name="batch_mute_enabled"><item quantity="one">Enabled Do Not Disturb for %1$d conversation</item><item quantity="other">Enabled Do Not Disturb for %1$d conversations</item></plurals>
+    <plurals name="batch_mute_disabled"><item quantity="one">Disabled Do Not Disturb for %1$d conversation</item><item quantity="other">Disabled Do Not Disturb for %1$d conversations</item></plurals>
+    <string name="batch_mass_send_text_mode">Text message</string>
+    <string name="batch_mass_send_text_hint">Write the text message to send, then tap “Select recipients”</string>
+    <string name="batch_mass_send_text_label">Message</string>
+    <string name="batch_mass_send_card_mode">Card message (XML)</string>
+    <string name="batch_mass_send_card_hint">Paste the appmsg XML, then tap “Select recipients”</string>
+    <string name="batch_mass_send_card_label">Card XML</string>
+    <string name="batch_mass_send_enter_content">Enter message content</string>
+    <string name="batch_mass_send_select_recipients">Select recipients</string>
+    <string name="batch_mass_send_select_title">Select broadcast recipients</string>
+    <string name="batch_mass_send_select_at_least_one">Select at least one recipient</string>
+    <plurals name="batch_mass_send_progress"><item quantity="one">Sending to %1$d recipient…</item><item quantity="other">Sending to %1$d recipients…</item></plurals>
+    <plurals name="batch_mass_send_done"><item quantity="one">Sent to %1$d recipient</item><item quantity="other">Sent to %1$d recipients</item></plurals>
+    <plurals name="batch_mass_send_partial"><item quantity="one">Sent to %1$d of %2$d recipient</item><item quantity="other">Sent to %1$d of %2$d recipients</item></plurals>
+
+    <!-- Task 5 group 1: contacts -->
+    <string name="contacts_auto_add_nearby_menu">Add friends automatically</string>
+    <string name="contacts_auto_remark_format">Remark format</string>
+    <string name="contacts_auto_remark_insert_placeholder">Tap to insert a placeholder:</string>
+    <string name="contacts_auto_remark_time_format">Time format</string>
+    <string name="contacts_modify_count_hide">Hide friend count</string>
+    <string name="contacts_modify_count_display">Displayed count</string>
+    <string name="contacts_wechat_id">WeChat ID</string>
+    <string name="contacts_wechat_id_empty">WeChat ID cannot be empty</string>
+    <string name="contacts_wechat_id_value">WeChat ID: %1$s</string>
+    <string name="contacts_open_homepage">Profile</string>
+    <string name="contacts_open_settings">Friend settings</string>
+    <string name="contacts_open_chat">Conversation</string>
+    <string name="contacts_open_moments">Moments</string>
+    <string name="contacts_round_avatar_radius">Corner radius: %1$.2f</string>
+    <string name="contacts_nickname_max_characters">Maximum characters</string>
+    <string name="contacts_invalid_number">Invalid number format</string>
+    <string name="contacts_get_failed">Unavailable</string>
+    <string name="contacts_copied">Copied</string>
+    <string name="contacts_copy">Copy</string>
+    <string name="contacts_group_message_history">View group message history</string>
+    <string name="contacts_delete_fake_none">No fake groups found</string>
+    <plurals name="contacts_delete_fake_select_title"><item quantity="one">Delete fake groups (%1$d found)</item><item quantity="other">Delete fake groups (%1$d found)</item></plurals>
+    <string name="contacts_delete_fake_select_one">Select at least one fake group</string>
+    <string name="contacts_delete_fake_confirm_title">Confirm deletion</string>
+    <plurals name="contacts_delete_fake_confirm_message"><item quantity="one">Delete the %1$d selected fake group? This cannot be undone; the original group will not be affected.</item><item quantity="other">Delete the %1$d selected fake groups? This cannot be undone; the original groups will not be affected.</item></plurals>
+    <plurals name="contacts_delete_fake_done"><item quantity="one">Cleared %1$d fake group</item><item quantity="other">Cleared %1$d fake groups</item></plurals>
+    <string name="contacts_custom_avatar_add">Add custom avatar</string>
+    <string name="contacts_custom_avatar_change">Change custom avatar</string>
+    <string name="contacts_custom_avatar_title">Custom avatar</string>
+    <string name="contacts_custom_avatar_cleared">Custom avatar cleared</string>
+    <string name="contacts_custom_avatar_cleared_reopen">Custom avatar cleared; reopen the page to apply the change</string>
+    <string name="contacts_custom_avatar_clear">Clear</string>
+    <string name="contacts_custom_avatar_change_action">Change</string>
+    <string name="contacts_custom_avatar_set_reopen">Custom avatar set; reopen the page or restart WeChat to apply it</string>
+    <string name="contacts_custom_avatar_configured">Configured — %1$s</string>
+    <string name="contacts_custom_avatar_select">Select</string>
+    <string name="contacts_detect_create_label_failed">Failed to create label “%1$s”</string>
+    <string name="contacts_detect_marking_done">Labeling complete</string>
+    <plurals name="contacts_detect_delete_done"><item quantity="one">Deletion complete: %1$d succeeded, %2$d failed</item><item quantity="other">Deletion complete: %1$d succeeded, %2$d failed</item></plurals>
+    <string name="contacts_detect_warning_title">Warning</string>
+    <string name="contacts_detect_warning_message">This feature may cause account abnormalities. Continue?</string>
+    <plurals name="contacts_detect_scanning"><item quantity="one">Scanning; please wait…\nCompleted: %1$d/%2$d friend</item><item quantity="other">Scanning; please wait…\nCompleted: %1$d/%2$d friends</item></plurals>
+    <plurals name="contacts_detect_scan_done"><item quantity="one">Scan complete; %1$d friend has an abnormal status</item><item quantity="other">Scan complete; %1$d friends have an abnormal status</item></plurals>
+    <string name="contacts_detect_status_abnormal">Status: Abnormal</string>
+    <string name="contacts_detect_nickname">Nickname: %1$s</string>
+    <string name="contacts_detect_remark">Remark: %1$s</string>
+    <string name="contacts_detect_wechat_number">WeChat number: %1$s</string>
+    <plurals name="contacts_detect_confirm_delete"><item quantity="one">Delete the %1$d selected friend?\nThis cannot be undone. Their chat history will be cleared, and they will need to add you again.</item><item quantity="other">Delete the %1$d selected friends?\nThis cannot be undone. Their chat history will be cleared, and they will need to add you again.</item></plurals>
+    <plurals name="contacts_detect_deleting"><item quantity="one">Deleting friends; please wait…\nCompleted: %1$d/%2$d friend</item><item quantity="other">Deleting friends; please wait…\nCompleted: %1$d/%2$d friends</item></plurals>
+    <plurals name="contacts_detect_select_label"><item quantity="one">Select a label to apply to %1$d abnormal friend</item><item quantity="other">Select a label to apply to all %1$d abnormal friends</item></plurals>
+    <string name="contacts_detect_new_label">New label</string>
+    <plurals name="contacts_detect_marking"><item quantity="one">Applying label “%1$s”; please wait…\nCompleted: %2$d/%3$d friend</item><item quantity="other">Applying label “%1$s”; please wait…\nCompleted: %2$d/%3$d friends</item></plurals>
+    <string name="contacts_detect_stop">Stop</string>
+    <string name="contacts_detect_back">Back</string>
+    <string name="contacts_detect_suggested_label">WeKit_deleted_friends_%1$s</string>
+    <string name="contacts_detect_mark_label">Apply label</string>
+    <string name="contacts_detect_delete_all">Delete all</string>
+    <string name="contacts_hide_restored">Hidden contacts restored</string>
+    <string name="contacts_hide_temporarily_shown">All hidden contacts are temporarily visible</string>
+    <string name="contacts_hide_already_shown">Hidden contacts are already temporarily visible</string>
+    <string name="contacts_hide_shown_command_hint">All hidden contacts are temporarily visible; enter #hide to hide them again</string>
+    <string name="contacts_hide_nothing_to_restore">There are no hidden contacts to restore</string>
+    <string name="contacts_hide_select">Select contacts to hide</string>
+    <plurals name="contacts_hide_saved"><item quantity="one">Saved %1$d contact</item><item quantity="other">Saved %1$d contacts</item></plurals>
+    <string name="contacts_hide_configure">Configure hidden list</string>
+    <string name="contacts_hide_configure_description">Tap to configure the contacts to hide</string>
+    <string name="contacts_hide_auto_reject">Automatically reject audio and video calls</string>
+    <string name="contacts_hide_auto_reject_description">When off, incoming calls are hidden but ring for the caller until timeout; when on, rejection is sent immediately</string>
+    <string name="contacts_hide_schedule">Scheduled show/hide</string>
+    <string name="contacts_hide_schedule_description">Temporarily show or hide contacts on schedule without changing the hidden list</string>
+    <string name="contacts_hide_triple_click">Triple-tap title to toggle</string>
+    <string name="contacts_hide_triple_click_description">Triple-tap the title bar at the top of the home screen to temporarily show or hide contacts</string>
+    <string name="contacts_schedule_monday">Mon</string>
+    <string name="contacts_schedule_tuesday">Tue</string>
+    <string name="contacts_schedule_wednesday">Wed</string>
+    <string name="contacts_schedule_thursday">Thu</string>
+    <string name="contacts_schedule_friday">Fri</string>
+    <string name="contacts_schedule_saturday">Sat</string>
+    <string name="contacts_schedule_sunday">Sun</string>
+    <string name="contacts_schedule_action_hide">Hide</string>
+    <string name="contacts_schedule_action_show">Show</string>
+    <string name="contacts_schedule_kind_repeating">Repeats weekly</string>
+    <string name="contacts_schedule_kind_once">Once</string>
+    <string name="contacts_schedule_never">Never</string>
+    <string name="contacts_schedule_every_day">Every day</string>
+    <string name="contacts_schedule_repeating_summary">%1$s %2$s · %3$s</string>
+    <string name="contacts_schedule_once_summary">%1$s · %2$s (once)</string>
+    <string name="contacts_schedule_tasks">Schedules</string>
+    <string name="contacts_schedule_add_title">Add schedule</string>
+    <string name="contacts_schedule_add">Add</string>
+    <string name="contacts_schedule_empty">No schedules. Tap “Add” in the upper-right corner to create one.</string>
+    <string name="contacts_schedule_edit_title">Edit schedule</string>
+    <string name="contacts_schedule_delete">Delete schedule</string>
+    <plurals name="contacts_schedule_dropped"><item quantity="one">%1$d one-time schedule fired and was deleted while you were editing; its changes were not saved</item><item quantity="other">%1$d one-time schedules fired and were deleted while you were editing; their changes were not saved</item></plurals>
+    <string name="contacts_schedule_time">Time</string>
+    <string name="contacts_schedule_select_day">Select at least one day</string>
+    <string name="contacts_schedule_date_time">Date and time</string>
+    <string name="contacts_schedule_once_deleted">A one-time schedule is deleted after it fires</string>
+    <string name="contacts_schedule_past_time">This time has passed; select a future time</string>
+    <string name="contacts_schedule_conflict">Another schedule fires at the same time; select a different time</string>
+    <string name="contacts_split_call_voip_mode">Start and hang up a fake group call</string>
+    <string name="contacts_split_call_walkie_talkie_mode">Start and stop a fake group walkie-talkie session</string>
+    <string name="contacts_split_call_repeat_count">Repeat count</string>
+    <string name="contacts_split_call_invalid_repeat">Enter a repeat count greater than 0</string>
+    <string name="contacts_split_call_already_running">A split-group-call task is already running</string>
+    <plurals name="contacts_split_call_done_cleaned"><item quantity="one">Task finished: %1$d succeeded, %2$d failed; automatically cleaned up %3$d fake group</item><item quantity="other">Task finished: %1$d succeeded, %2$d failed; automatically cleaned up %3$d fake groups</item></plurals>
+    <plurals name="contacts_split_call_done_cleanup_failed"><item quantity="one">Task finished: %1$d succeeded, %2$d failed; automatic cleanup failed for %3$d fake group</item><item quantity="other">Task finished: %1$d succeeded, %2$d failed; automatic cleanup failed for %3$d fake groups</item></plurals>
+
+    <!-- Task 5 group 1: home-screen menu -->
+    <string name="home_menu_force_stop">Force stop</string>
+    <string name="home_menu_mark_all_read">Mark all as read</string>
+    <string name="home_menu_all_marked_read">All unread messages marked as read</string>
+    <string name="home_menu_open_conversation">Open conversation</string>
+    <string name="home_menu_show_conversations">Show conversations</string>
+    <string name="home_menu_hide_conversations">Hide conversations</string>
 </resources>

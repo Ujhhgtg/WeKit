@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.contacts
 
 import android.view.MenuItem
 import androidx.activity.ComponentActivity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -38,7 +39,7 @@ object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
         methodCreateMenu.hookBefore {
             args[0]!!.reflekt().firstMethod {
                 parameters(int, CharSequence::class)
-            }.invoke(6, "自动加好友")
+            }.invoke(6, localizedContactsString(R.string.contacts_auto_add_nearby_menu))
         }
 
         methodMenuOnClick.hookBefore {

@@ -19,6 +19,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.chatting.ChattingUI
@@ -336,10 +338,10 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     internal fun toggleTemporarilyShown(context: Context) {
         if (temporarilyShown) {
             temporarilyShown = false
-            showToast(context, "已恢复隐藏联系人")
+            showToast(context, context.localizedContactsString(R.string.contacts_hide_restored))
         } else {
             temporarilyShown = true
-            showToast(context, "已临时显示所有隐藏的联系人")
+            showToast(context, context.localizedContactsString(R.string.contacts_hide_temporarily_shown))
         }
         WeConversationApi.reloadConversations()
     }
@@ -366,22 +368,34 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
             "#show" -> {
                 chatFooter.lastText = ""
                 if (temporarilyShown) {
-                    showToast(chatFooter.context, "已经是临时显示状态")
+                    showToast(
+                        chatFooter.context,
+                        chatFooter.context.localizedContactsString(R.string.contacts_hide_already_shown),
+                    )
                     return
                 }
                 temporarilyShown = true
-                showToast(chatFooter.context, "已临时显示所有隐藏的联系人, 输入 #hide 恢复隐藏")
+                showToast(
+                    chatFooter.context,
+                    chatFooter.context.localizedContactsString(R.string.contacts_hide_shown_command_hint),
+                )
                 WeConversationApi.reloadConversations()
             }
 
             "#hide" -> {
                 chatFooter.lastText = ""
                 if (!temporarilyShown) {
-                    showToast(chatFooter.context, "没有需要恢复的隐藏联系人")
+                    showToast(
+                        chatFooter.context,
+                        chatFooter.context.localizedContactsString(R.string.contacts_hide_nothing_to_restore),
+                    )
                     return
                 }
                 temporarilyShown = false
-                showToast(chatFooter.context, "已恢复隐藏联系人")
+                showToast(
+                    chatFooter.context,
+                    chatFooter.context.localizedContactsString(R.string.contacts_hide_restored),
+                )
                 WeConversationApi.reloadConversations()
             }
         }
@@ -546,7 +560,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
 
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("隐藏联系人") },
+                title = { Text(stringResource(R.string.feature_hide_contacts_name)) },
                 text = {
                     DefaultColumn {
                         var autoRejectVoipInput by remember { mutableStateOf(autoRejectVoip) }
@@ -556,19 +570,25 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                             modifier = Modifier.clickable {
                                 showComposeDialog(context) {
                                     ContactsSelector(
-                                        title = "选择要隐藏的联系人",
+                                        title = context.localizedContactsString(R.string.contacts_hide_select),
                                         contacts = regularContacts,
                                         initialSelectedWxIds = hiddenContacts,
                                         onDismiss = onDismiss
                                     ) {
-                                        showToast("已保存 ${it.size} 个联系人")
+                                        showToast(
+                                            localizedContactsQuantity(
+                                                R.plurals.contacts_hide_saved,
+                                                it.size,
+                                                it.size,
+                                            ),
+                                        )
                                         hiddenContacts = it
                                         onDismiss()
                                     }
                                 }
                             },
-                            supportingContent = { Text("点击配置联系人隐藏列表") },
-                            content = { Text("配置隐藏列表") },
+                            supportingContent = { Text(stringResource(R.string.contacts_hide_configure_description)) },
+                            content = { Text(stringResource(R.string.contacts_hide_configure)) },
                         )
 
                         ListItem(
@@ -579,14 +599,14 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                             trailingContent = {
                                 Switch(checked = autoRejectVoipInput, onCheckedChange = null)
                             },
-                            supportingContent = { Text("关闭时仅隐藏来电, 对方会一直响到超时; 开启后立即向对方发送拒接") },
-                            content = { Text("自动拒绝音视频通话") },
+                            supportingContent = { Text(stringResource(R.string.contacts_hide_auto_reject_description)) },
+                            content = { Text(stringResource(R.string.contacts_hide_auto_reject)) },
                         )
 
                         ListItem(
                             modifier = Modifier.clickable { showSchedulesDialog(context) },
-                            supportingContent = { Text("到点自动临时显示或恢复隐藏, 不会改动隐藏列表") },
-                            content = { Text("定时显示/隐藏") },
+                            supportingContent = { Text(stringResource(R.string.contacts_hide_schedule_description)) },
+                            content = { Text(stringResource(R.string.contacts_hide_schedule)) },
                         )
 
                         ListItem(
@@ -597,8 +617,8 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                             trailingContent = {
                                 Switch(checked = tripleClickTitleInput, onCheckedChange = null)
                             },
-                            supportingContent = { Text("连续三击主页顶部标题栏, 可临时显示或恢复隐藏联系人") },
-                            content = { Text("三击标题切换显隐") },
+                            supportingContent = { Text(stringResource(R.string.contacts_hide_triple_click_description)) },
+                            content = { Text(stringResource(R.string.contacts_hide_triple_click)) },
                         )
                     }
                 })

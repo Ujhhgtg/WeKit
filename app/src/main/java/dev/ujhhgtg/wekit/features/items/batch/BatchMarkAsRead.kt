@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.batch
 
 import androidx.activity.ComponentActivity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -32,13 +33,13 @@ object BatchMarkAsRead : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = "选择要标为已读的对话",
+                title = context.localizedBatchString(R.string.batch_mark_read_select),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast("请选择至少一个对话")
+                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_conversation))
                         return@ContactsSelector
                     }
 
@@ -57,7 +58,9 @@ object BatchMarkAsRead : ClickableFeature() {
                     .onFailure { WeLogger.e(TAG, "failed to mark $wxId as read", it) }
             }
             WeConversationApi.reloadConversations()
-            showToastSuspend("已将 ${wxIds.size} 个对话标为已读")
+            showToastSuspend(
+                localizedBatchQuantity(R.plurals.batch_mark_read_done, wxIds.size, wxIds.size),
+            )
         }
     }
 }

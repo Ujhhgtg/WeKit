@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import androidx.compose.ui.Modifier
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -40,7 +42,7 @@ object BatchMuteConversations : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("批量免打扰") },
+                title = { Text(stringResource(R.string.batch_mute_title)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -48,20 +50,20 @@ object BatchMuteConversations : ClickableFeature() {
                                 onDismiss()
                                 pickAndApply(context, mute = true)
                             },
-                            supportingContent = { Text("选择要静音的对话") },
-                            content = { Text("开启免打扰") },
+                            supportingContent = { Text(stringResource(R.string.batch_mute_enable_description)) },
+                            content = { Text(stringResource(R.string.batch_mute_enable)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
                                 onDismiss()
                                 pickAndApply(context, mute = false)
                             },
-                            supportingContent = { Text("选择要取消静音的对话") },
-                            content = { Text("关闭免打扰") },
+                            supportingContent = { Text(stringResource(R.string.batch_mute_disable_description)) },
+                            content = { Text(stringResource(R.string.batch_mute_disable)) },
                         )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
@@ -71,13 +73,15 @@ object BatchMuteConversations : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = if (mute) "选择要静音的对话" else "选择要取消静音的对话",
+                title = context.localizedBatchString(
+                    if (mute) R.string.batch_mute_select_enable else R.string.batch_mute_select_disable,
+                ),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast("请选择至少一个对话")
+                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_conversation))
                         return@ContactsSelector
                     }
 
@@ -90,7 +94,9 @@ object BatchMuteConversations : ClickableFeature() {
 
     private fun apply(wxIds: Set<String>, mute: Boolean) {
         CoroutineScope(Dispatchers.IO).launch {
-            showToastSuspend("正在对 ${wxIds.size} 设置免打扰...")
+            showToastSuspend(
+                localizedBatchQuantity(R.plurals.batch_mute_progress, wxIds.size, wxIds.size),
+            )
             wxIds.forEach { wxId ->
                 runCatching { WeConversationApi.setDnd(wxId, mute) }
                     .onFailure { WeLogger.e(TAG, "failed to set mute=$mute for $wxId", it) }
@@ -98,8 +104,11 @@ object BatchMuteConversations : ClickableFeature() {
             }
             WeConversationApi.reloadConversations()
             showToastSuspend(
-                if (mute) "已对 ${wxIds.size} 个对话开启免打扰"
-                else "已对 ${wxIds.size} 个对话关闭免打扰"
+                localizedBatchQuantity(
+                    if (mute) R.plurals.batch_mute_enabled else R.plurals.batch_mute_disabled,
+                    wxIds.size,
+                    wxIds.size,
+                )
             )
         }
     }

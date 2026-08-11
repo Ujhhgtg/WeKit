@@ -29,6 +29,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
+import dev.ujhhgtg.wekit.R
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
@@ -307,7 +310,10 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         return listOf(
             PreferenceItem(
                 key = PREF_KEY,
-                title = if (hasCustomAvatar) "更换自定义头像" else "添加自定义头像",
+                title = activity.localizedContactsString(
+                    if (hasCustomAvatar) R.string.contacts_custom_avatar_change
+                    else R.string.contacts_custom_avatar_add,
+                ),
                 position = 1
             )
         )
@@ -328,6 +334,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            val clearedMessage = stringResource(R.string.contacts_custom_avatar_cleared)
             CustomAvatarManagerDialog(
                 contacts = remember { loadContacts() },
                 entries = avatarMap,
@@ -338,7 +345,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
                 },
                 onRemove = { wxId ->
                     removeAvatar(wxId)
-                    showToast("已清除自定义头像")
+                    showToast(clearedMessage)
                     onDismiss()
                 }
             )
@@ -507,25 +514,29 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         val displayName = WeDatabaseApi.getDisplayName(wxId)
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("自定义头像") },
+                title = { Text(stringResource(R.string.contacts_custom_avatar_title)) },
                 text = {
                     DefaultColumn {
                         Text(displayName)
                         Text(text = wxId, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = {
                             removeAvatar(wxId)
-                            showToast("已清除自定义头像, 重新进入页面后生效")
+                            showToast(
+                                context.localizedContactsString(
+                                    R.string.contacts_custom_avatar_cleared_reopen,
+                                ),
+                            )
                             onDismiss()
-                        }) { Text("清除") }
+                        }) { Text(stringResource(R.string.contacts_custom_avatar_clear)) }
                         Button(onClick = {
                             onDismiss()
                             selectAvatarImage(context, wxId)
-                        }) { Text("更换") }
+                        }) { Text(stringResource(R.string.contacts_custom_avatar_change_action)) }
                     }
                 }
             )
@@ -542,7 +553,9 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
 
                 persistReadPermission(uri)
                 setAvatar(wxId, uri.toString())
-                showToast("自定义头像已设置, 重新进入页面或重启微信后生效")
+                showToast(
+                    context.localizedContactsString(R.string.contacts_custom_avatar_set_reopen),
+                )
             }
             launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
@@ -645,6 +658,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     ) {
         var searchQuery by remember { mutableStateOf("") }
         val chinaCollator = remember { Collator.getInstance(Locale.CHINA) }
+        val localizedContext = LocalContext.current
 
         val fullContactsList = remember(contacts, entries) {
             val entryContacts = entries.keys.map { wxId ->
@@ -664,27 +678,38 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         }
 
         BaseContactSelector(
-            title = "自定义好友本地头像",
+            title = stringResource(R.string.feature_custom_local_friend_avatars_name),
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
             filteredContacts = filteredContacts,
             confirmButtonText = "",
             confirmButtonEnabled = false,
             showConfirmButton = false,
-            dismissButtonText = "关闭",
+            dismissButtonText = stringResource(R.string.dialog_close),
             onDismiss = onDismiss,
             onConfirm = {},
             selectionKey = entries,
             isSelected = { it.wxId in entries.keys },
             avatarModelProvider = { contact -> entries[contact.wxId] ?: contact.avatarUrl },
             subtitleProvider = { contact ->
-                if (contact.wxId in entries.keys) "已设置 - ${contact.wxId}" else contact.wxId
+                if (contact.wxId in entries.keys) {
+                    localizedContext.localizedContactsString(
+                        R.string.contacts_custom_avatar_configured,
+                        contact.wxId,
+                    )
+                } else {
+                    contact.wxId
+                }
             },
             trailingControl = { contact ->
                 if (contact.wxId in entries.keys) {
-                    TextButton(onClick = { onRemove(contact.wxId) }) { Text("清除") }
+                    TextButton(onClick = { onRemove(contact.wxId) }) {
+                        Text(stringResource(R.string.contacts_custom_avatar_clear))
+                    }
                 } else {
-                    TextButton(onClick = { onSelectImage(contact.wxId) }) { Text("选择") }
+                    TextButton(onClick = { onSelectImage(contact.wxId) }) {
+                        Text(stringResource(R.string.contacts_custom_avatar_select))
+                    }
                 }
             },
             onItemClick = { contact -> onSelectImage(contact.wxId) }

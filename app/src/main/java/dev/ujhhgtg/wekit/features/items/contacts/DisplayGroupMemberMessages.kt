@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.contacts
 
 import android.app.Activity
 import android.content.Intent
+import dev.ujhhgtg.wekit.R
 import com.tencent.mm.chatroom.ui.SelectedMemberChattingRecordUI
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
@@ -36,7 +37,7 @@ object DisplayGroupMemberMessages : SwitchFeature(), WeContactPrefsScreenApi.ICo
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
                 key = PREF_KEY,
-                title = "查看群消息历史",
+                title = activity.localizedContactsString(R.string.contacts_group_message_history),
                 position = 1
             )
         )
@@ -51,7 +52,10 @@ object DisplayGroupMemberMessages : SwitchFeature(), WeContactPrefsScreenApi.ICo
         activity.startActivity(Intent(activity, SelectedMemberChattingRecordUI::class.java).apply {
             putExtra("RoomInfo_Id", groupId)
             putExtra("room_member", memberId)
-            putExtra("title", "查看群成员消息历史")
+            putExtra(
+                "title",
+                activity.localizedContactsString(R.string.feature_display_group_member_messages_name),
+            )
         })
 
         return true

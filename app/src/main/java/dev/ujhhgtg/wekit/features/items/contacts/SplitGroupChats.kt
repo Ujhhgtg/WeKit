@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import com.tencent.mm.ui.chatting.ChattingUI
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -25,7 +26,7 @@ object SplitGroupChats : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             SingleContactSelector(
-                "分裂群组",
+                context.localizedContactsString(R.string.feature_split_group_chats_name),
                 WeDatabaseApi.getGroups(),
                 initialSelectedWxId = null,
                 onDismiss = onDismiss,

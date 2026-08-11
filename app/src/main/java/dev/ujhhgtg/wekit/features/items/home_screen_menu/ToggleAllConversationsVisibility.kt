@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.home_screen_menu
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -28,12 +29,12 @@ object ToggleAllConversationsVisibility : SwitchFeature(), WeHomeScreenPopupMenu
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777010, "显示对话", VisibilityIcon
+                777010, localizedHomeMenuString(R.string.home_menu_show_conversations), VisibilityIcon
             ) {
                 WeConversationApi.setAllConversationVisibility(true)
             },
             WeHomeScreenPopupMenuApi.MenuItem(
-                777011, "隐藏对话", VisibilityOffIcon
+                777011, localizedHomeMenuString(R.string.home_menu_hide_conversations), VisibilityOffIcon
             ) {
                 WeConversationApi.setAllConversationVisibility(false)
             },

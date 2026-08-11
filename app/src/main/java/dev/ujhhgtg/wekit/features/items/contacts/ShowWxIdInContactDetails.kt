@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.contacts
 
 import android.app.Activity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
@@ -27,7 +28,10 @@ object ShowWxIdInContactDetails : SwitchFeature(), IContactInfoProvider {
         return listOf(
             PreferenceItem(
                 key = PREF_KEY,
-                title = "微信 ID: ${wxId ?: "获取失败"}",
+                title = activity.localizedContactsString(
+                    R.string.contacts_wechat_id_value,
+                    wxId ?: activity.localizedContactsString(R.string.contacts_get_failed),
+                ),
                 position = 1
             )
         )
@@ -39,7 +43,7 @@ object ShowWxIdInContactDetails : SwitchFeature(), IContactInfoProvider {
         val wxId = activity.currentWxId ?: return true
 
         copyToClipboard(activity, wxId)
-        showToast(activity, "已复制")
+        showToast(activity, activity.localizedContactsString(R.string.contacts_copied))
         return true
     }
 

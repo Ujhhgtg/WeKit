@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.contacts
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -29,7 +30,7 @@ object QuickOpenMoments : SwitchFeature(), WeConversationContextMenuApi.IMenuIte
         return listOf(
             WeConversationContextMenuApi.MenuItem(
                 id = 777018,
-                text = "朋友圈",
+                text = localizedContactsString(R.string.contacts_open_moments),
                 drawable = CameraIcon,
                 shouldShow = { context, _ ->
                     val talker = context.talker

@@ -20,6 +20,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
@@ -70,9 +73,9 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
     private val batchRunning = AtomicBoolean(false)
 
-    private enum class OperationMode(val label: String) {
-        VOIP("发起假群通话并挂断"),
-        WALKIE_TALKIE("发起假群实时对讲机并终止"),
+    private enum class OperationMode(@StringRes val labelRes: Int) {
+        VOIP(R.string.contacts_split_call_voip_mode),
+        WALKIE_TALKIE(R.string.contacts_split_call_walkie_talkie_mode),
     }
 
     /** com.tencent.mm.plugin.multitalk.model.e3 —— SubCoreMultiTalk. */
@@ -311,7 +314,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             SingleContactSelector(
-                "分裂群组通话",
+                context.localizedContactsString(R.string.feature_split_group_call_name),
                 WeDatabaseApi.getGroups(),
                 initialSelectedWxId = null,
                 onDismiss = onDismiss,
@@ -329,7 +332,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         return listOf(
             PreferenceItem(
                 key = PREF_KEY,
-                title = "分裂群组通话",
+                title = activity.localizedContactsString(R.string.feature_split_group_call_name),
                 position = 1
             )
         )
@@ -370,7 +373,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
             }
 
             AlertDialogContent(
-                title = { Text("分裂群组通话") },
+                title = { Text(stringResource(R.string.feature_split_group_call_name)) },
                 text = {
                     Column(
                         modifier = UiModifier
@@ -383,7 +386,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                             onValueChange = { value ->
                                 repeatCount = value.filter(Char::isDigit)
                             },
-                            label = { Text("重复次数") },
+                            label = { Text(stringResource(R.string.contacts_split_call_repeat_count)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                             modifier = UiModifier.fillMaxWidth(),
@@ -399,29 +402,33 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                                     selected = mode == option,
                                     onClick = { mode = option },
                                 )
-                                Text(option.label)
+                                Text(stringResource(option.labelRes))
                             }
                         }
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         val count = repeatCount.toIntOrNull()
                         if (count == null || count <= 0) {
-                            showToast("请输入大于 0 的重复次数")
+                            showToast(
+                                context.localizedContactsString(R.string.contacts_split_call_invalid_repeat),
+                            )
                             return@Button
                         }
                         if (!batchRunning.compareAndSet(false, true)) {
-                            showToast("已有分裂群组通话任务正在执行")
+                            showToast(
+                                context.localizedContactsString(R.string.contacts_split_call_already_running),
+                            )
                             return@Button
                         }
 
                         onDismiss()
                         startBatch(context, wxId, count, mode)
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }
@@ -487,9 +494,15 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                 batchRunning.set(false)
 
                 runOnUiThread {
-                    val cleanupStatus = if (cleanupFailed) "，自动清理失败" else "，已自动清理"
                     showToast(
-                        "任务结束：成功 $completed 次，失败 $failed 次$cleanupStatus ${generatedIds.size} 个假群",
+                        context.localizedContactsQuantity(
+                            if (cleanupFailed) R.plurals.contacts_split_call_done_cleanup_failed
+                            else R.plurals.contacts_split_call_done_cleaned,
+                            generatedIds.size,
+                            completed,
+                            failed,
+                            generatedIds.size,
+                        ),
                     )
                 }
             }

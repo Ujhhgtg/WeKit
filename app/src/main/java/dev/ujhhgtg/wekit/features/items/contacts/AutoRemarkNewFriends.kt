@@ -23,6 +23,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -94,19 +96,19 @@ object AutoRemarkNewFriends : ClickableFeature() {
             }
 
             AlertDialogContent(
-                title = { Text("添加自动备注") },
+                title = { Text(stringResource(R.string.feature_auto_remark_new_friends_name)) },
                 text = {
                     DefaultColumn {
                         TextField(
                             value = displayFormatInput,
                             onValueChange = { displayFormatInput = it },
-                            label = { Text("备注格式") },
+                            label = { Text(stringResource(R.string.contacts_auto_remark_format)) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusChanged { isFocused = it.isFocused }
                         )
 
-                        Text("点击插入占位符:")
+                        Text(stringResource(R.string.contacts_auto_remark_insert_placeholder))
 
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -139,20 +141,20 @@ object AutoRemarkNewFriends : ClickableFeature() {
                         TextField(
                             value = timeFormat,
                             onValueChange = { timeFormat = it },
-                            label = { Text("时间格式") },
+                            label = { Text(stringResource(R.string.contacts_auto_remark_time_format)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         textFormat = displayFormatInput.text
                         AutoRemarkNewFriends.timeFormat = timeFormat
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }

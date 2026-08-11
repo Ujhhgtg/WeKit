@@ -19,6 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Delete
@@ -170,7 +173,13 @@ object DetectDeletedFriends : ClickableFeature() {
                             if (phase is DialogPhase.Marking) {
                                 phase = DialogPhase.Done(markingPhase.friends)
                                 dialog.setCancelable(true)
-                                showToastSuspend(context, "创建标签「${markingPhase.labelName}」失败")
+                                showToastSuspend(
+                                    context,
+                                    context.localizedContactsString(
+                                        R.string.contacts_detect_create_label_failed,
+                                        markingPhase.labelName,
+                                    ),
+                                )
                             }
                             return@launch
                         }
@@ -197,7 +206,10 @@ object DetectDeletedFriends : ClickableFeature() {
                         if (phase is DialogPhase.Marking) {
                             phase = DialogPhase.Done(markingPhase.friends)
                             dialog.setCancelable(true)
-                            showToastSuspend(context, "标记完成")
+                            showToastSuspend(
+                                context,
+                                context.localizedContactsString(R.string.contacts_detect_marking_done),
+                            )
                         }
                     }
                 } else if (phase is DialogPhase.Deleting) {
@@ -230,7 +242,12 @@ object DetectDeletedFriends : ClickableFeature() {
                             dialog.setCancelable(true)
                             showToastSuspend(
                                 context,
-                                "删除完成: 成功 ${deleted.size}, 失败 $failedCount"
+                                context.localizedContactsQuantity(
+                                    R.plurals.contacts_detect_delete_done,
+                                    deleted.size,
+                                    deleted.size,
+                                    failedCount,
+                                ),
                             )
                         }
                     }
@@ -238,23 +255,43 @@ object DetectDeletedFriends : ClickableFeature() {
             }
 
             AlertDialogContent(
-                title = { Text(text = if (phase is DialogPhase.Idle) "警告" else "检测单向删除好友") },
+                title = {
+                    Text(
+                        text = stringResource(
+                            if (phase is DialogPhase.Idle) R.string.contacts_detect_warning_title
+                            else R.string.feature_detect_deleted_friends_name,
+                        ),
+                    )
+                },
                 text = {
                     when (phase) {
-                        is DialogPhase.Idle -> Text(text = "此功能可能导致账号异常, 确定要执行吗?")
+                        is DialogPhase.Idle -> Text(text = stringResource(R.string.contacts_detect_warning_message))
 
                         is DialogPhase.Scanning -> {
                             val completed by (phase as DialogPhase.Scanning).completed
                             val total = (phase as DialogPhase.Scanning).total
                             DefaultColumn {
-                                Text("正在扫描, 请稍等...\n已完成: $completed/$total")
+                                Text(
+                                    pluralStringResource(
+                                        R.plurals.contacts_detect_scanning,
+                                        total,
+                                        completed,
+                                        total,
+                                    ),
+                                )
                                 LinearWavyProgressIndicator(progress = { completed.toFloat() / total })
                             }
                         }
 
                         is DialogPhase.Done -> {
                             val abnormalFriends = (phase as DialogPhase.Done).friends
-                            Text("扫描完成, 有 ${abnormalFriends.size} 个状态异常的好友")
+                            Text(
+                                pluralStringResource(
+                                    R.plurals.contacts_detect_scan_done,
+                                    abnormalFriends.size,
+                                    abnormalFriends.size,
+                                ),
+                            )
                             LazyColumn {
                                 items(abnormalFriends) { friend ->
                                     ListItem(
@@ -270,18 +307,18 @@ object DetectDeletedFriends : ClickableFeature() {
                                             }) {
                                                 Icon(
                                                     MaterialSymbols.Outlined.Delete,
-                                                    contentDescription = "删除",
+                                                    contentDescription = stringResource(R.string.action_delete),
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                             }
                                         },
                                         supportingContent = {
                                             Column {
-                                                Text("状态: 异常")
-                                                Text("昵称: ${friend.nickname}")
-                                                Text("备注: ${friend.remarkName}")
-                                                Text("微信 ID: ${friend.wxId}")
-                                                Text("微信号: ${friend.customWxId}")
+                                                Text(stringResource(R.string.contacts_detect_status_abnormal))
+                                                Text(stringResource(R.string.contacts_detect_nickname, friend.nickname))
+                                                Text(stringResource(R.string.contacts_detect_remark, friend.remarkName))
+                                                Text(stringResource(R.string.contacts_wechat_id_value, friend.wxId))
+                                                Text(stringResource(R.string.contacts_detect_wechat_number, friend.customWxId))
                                             }
                                         },
                                         content = { Text(friend.displayName) },
@@ -293,8 +330,11 @@ object DetectDeletedFriends : ClickableFeature() {
                         is DialogPhase.ConfirmDelete -> {
                             val confirmPhase = phase as DialogPhase.ConfirmDelete
                             Text(
-                                "确定要删除选中的 ${confirmPhase.targets.size} 个好友吗?\n" +
-                                        "此操作不可逆, 删除后聊天记录将被清除, 需对方重新添加."
+                                pluralStringResource(
+                                    R.plurals.contacts_detect_confirm_delete,
+                                    confirmPhase.targets.size,
+                                    confirmPhase.targets.size,
+                                ),
                             )
                         }
 
@@ -302,7 +342,14 @@ object DetectDeletedFriends : ClickableFeature() {
                             val completed by (phase as DialogPhase.Deleting).completed
                             val total = (phase as DialogPhase.Deleting).total
                             DefaultColumn {
-                                Text("正在删除好友, 请稍等...\n已完成: $completed/$total")
+                                Text(
+                                    pluralStringResource(
+                                        R.plurals.contacts_detect_deleting,
+                                        total,
+                                        completed,
+                                        total,
+                                    ),
+                                )
                                 LinearWavyProgressIndicator(progress = { completed.toFloat() / total })
                             }
                         }
@@ -311,7 +358,13 @@ object DetectDeletedFriends : ClickableFeature() {
                             val selectPhase = phase as DialogPhase.SelectLabel
                             val labels = availableLabels
                             DefaultColumn {
-                                Text("选择一个标签, 将应用到全部 ${selectPhase.friends.size} 个异常好友")
+                                Text(
+                                    pluralStringResource(
+                                        R.plurals.contacts_detect_select_label,
+                                        selectPhase.friends.size,
+                                        selectPhase.friends.size,
+                                    ),
+                                )
                                 if (labels == null) {
                                     LinearWavyProgressIndicator()
                                 } else {
@@ -330,11 +383,11 @@ object DetectDeletedFriends : ClickableFeature() {
                                                 leadingContent = {
                                                     Icon(
                                                         MaterialSymbols.Outlined.Add,
-                                                        contentDescription = "新建标签",
+                                                        contentDescription = stringResource(R.string.contacts_detect_new_label),
                                                         modifier = Modifier.size(24.dp)
                                                     )
                                                 },
-                                                supportingContent = { Text("新建标签") },
+                                                supportingContent = { Text(stringResource(R.string.contacts_detect_new_label)) },
                                                 content = { Text(selectPhase.suggestedLabelName) },
                                             )
                                         }
@@ -360,7 +413,15 @@ object DetectDeletedFriends : ClickableFeature() {
                             val completed by (phase as DialogPhase.Marking).completed
                             val total = (phase as DialogPhase.Marking).total
                             DefaultColumn {
-                                Text("正在标记为「${(phase as DialogPhase.Marking).labelName}」, 请稍等...\n已完成: $completed/$total")
+                                Text(
+                                    pluralStringResource(
+                                        R.plurals.contacts_detect_marking,
+                                        total,
+                                        (phase as DialogPhase.Marking).labelName,
+                                        completed,
+                                        total,
+                                    ),
+                                )
                                 LinearWavyProgressIndicator(progress = { completed.toFloat() / total })
                             }
                         }
@@ -369,7 +430,7 @@ object DetectDeletedFriends : ClickableFeature() {
                 dismissButton = when (phase) {
                     is DialogPhase.Idle -> {
                         {
-                            TextButton(onDismiss) { Text("取消") }
+                            TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                         }
                     }
 
@@ -383,7 +444,7 @@ object DetectDeletedFriends : ClickableFeature() {
                                 }
                                 phase = DialogPhase.Done(foundSoFar)
                                 dialog.setCancelable(true)
-                            }) { Text("终止") }
+                            }) { Text(stringResource(R.string.contacts_detect_stop)) }
                         }
                     }
 
@@ -391,7 +452,7 @@ object DetectDeletedFriends : ClickableFeature() {
                         {
                             TextButton(onClick = {
                                 phase = DialogPhase.Done((phase as DialogPhase.SelectLabel).friends)
-                            }) { Text("返回") }
+                            }) { Text(stringResource(R.string.contacts_detect_back)) }
                         }
                     }
 
@@ -400,7 +461,7 @@ object DetectDeletedFriends : ClickableFeature() {
                             TextButton(onClick = {
                                 phase = DialogPhase.Done((phase as DialogPhase.Marking).friends)
                                 dialog.setCancelable(true)
-                            }) { Text("终止") }
+                            }) { Text(stringResource(R.string.contacts_detect_stop)) }
                         }
                     }
 
@@ -408,7 +469,7 @@ object DetectDeletedFriends : ClickableFeature() {
                         {
                             TextButton(onClick = {
                                 phase = DialogPhase.Done((phase as DialogPhase.ConfirmDelete).allFriends)
-                            }) { Text("取消") }
+                            }) { Text(stringResource(R.string.dialog_cancel)) }
                         }
                     }
 
@@ -420,7 +481,7 @@ object DetectDeletedFriends : ClickableFeature() {
                                 val deletingPhase = phase as DialogPhase.Deleting
                                 phase = DialogPhase.Done(deletingPhase.allFriends)
                                 dialog.setCancelable(true)
-                            }) { Text("终止") }
+                            }) { Text(stringResource(R.string.contacts_detect_stop)) }
                         }
                     }
 
@@ -432,7 +493,7 @@ object DetectDeletedFriends : ClickableFeature() {
                             Button(onClick = {
                                 phase = DialogPhase.Scanning(mutableIntStateOf(0), friends.size)
                             })
-                            { Text("确定") }
+                            { Text(stringResource(R.string.dialog_confirm)) }
                         }
                     }
 
@@ -444,29 +505,32 @@ object DetectDeletedFriends : ClickableFeature() {
                                     availableLabels = null
                                     phase = DialogPhase.SelectLabel(
                                         friends = abnormalFriends,
-                                        suggestedLabelName = "WeKit_单删好友_${formatEpoch(System.currentTimeMillis(), includeDate = true)}"
+                                        suggestedLabelName = context.localizedContactsString(
+                                            R.string.contacts_detect_suggested_label,
+                                            formatEpoch(System.currentTimeMillis(), includeDate = true),
+                                        ),
                                     )
-                                }) { Text("标记标签") }
+                                }) { Text(stringResource(R.string.contacts_detect_mark_label)) }
                                 TextButton(onClick = {
                                     phase = DialogPhase.ConfirmDelete(
                                         allFriends = abnormalFriends,
                                         targets = abnormalFriends
                                     )
-                                }) { Text("全部删除") }
+                                }) { Text(stringResource(R.string.contacts_detect_delete_all)) }
                             }
                             Button(onClick = {
                                 val text = abnormalFriends.joinToString("\n\n") { friend ->
                                     buildString {
-                                        appendLine("状态: 异常")
-                                        appendLine("昵称: ${friend.nickname}")
-                                        appendLine("备注: ${friend.remarkName}")
-                                        appendLine("微信 ID: ${friend.wxId}")
-                                        appendLine("微信号: ${friend.customWxId}")
+                                        appendLine(context.localizedContactsString(R.string.contacts_detect_status_abnormal))
+                                        appendLine(context.localizedContactsString(R.string.contacts_detect_nickname, friend.nickname))
+                                        appendLine(context.localizedContactsString(R.string.contacts_detect_remark, friend.remarkName))
+                                        appendLine(context.localizedContactsString(R.string.contacts_wechat_id_value, friend.wxId))
+                                        appendLine(context.localizedContactsString(R.string.contacts_detect_wechat_number, friend.customWxId))
                                     }
                                 }
                                 copyToClipboard(context, text)
-                                showToast(context, "已复制")
-                            }) { Text("复制") }
+                                showToast(context, context.localizedContactsString(R.string.contacts_copied))
+                            }) { Text(stringResource(R.string.contacts_copy)) }
                         }
                     }
 
@@ -480,7 +544,7 @@ object DetectDeletedFriends : ClickableFeature() {
                                     completed = mutableIntStateOf(0),
                                     total = confirmPhase.targets.size
                                 )
-                            }) { Text("删除") }
+                            }) { Text(stringResource(R.string.action_delete)) }
                         }
                     }
 

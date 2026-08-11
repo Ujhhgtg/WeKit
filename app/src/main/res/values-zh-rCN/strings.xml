@@ -2218,4 +2218,176 @@
     <string name="chat_voice_path_invalid">语音路径无效</string>
     <string name="chat_voice_file_empty">语音文件为空</string>
     <string name="chat_voice_pack_path_invalid">语音包路径无效</string>
+    <!-- Task 5 group 1: batch actions -->
+    <string name="batch_select_at_least_one_friend">请选择至少一个好友</string>
+    <string name="batch_select_at_least_one_conversation">请选择至少一个对话</string>
+    <string name="batch_add_label_select_friends">选择要打标签的好友</string>
+    <string name="batch_add_label_select_label">选择标签</string>
+    <string name="batch_add_label_new_label_hint">新建标签（输入名称后点击“新建并应用”）</string>
+    <string name="batch_add_label_existing_labels">或选择已有标签：</string>
+    <string name="batch_add_label_create_and_apply">新建并应用</string>
+    <string name="batch_add_label_create_failed">创建标签“%1$s”失败</string>
+    <string name="batch_add_label_done_title">打标签完成</string>
+    <string name="batch_add_label_progress_title">正在打标签</string>
+    <plurals name="batch_add_label_done"><item quantity="other">已为 %1$d/%2$d 位好友添加标签“%3$s”</item></plurals>
+    <plurals name="batch_add_label_progress"><item quantity="other">正在添加标签“%1$s”，请稍等…\n已完成：%2$d/%3$d</item></plurals>
+    <string name="batch_delete_friends_select">选择要删除的好友</string>
+    <string name="batch_delete_friends_confirm_title">确认删除</string>
+    <plurals name="batch_delete_friends_confirm_message"><item quantity="other">确定要删除选中的 %1$d 位好友吗？此操作不可逆！可选择同时将其拉黑。</item></plurals>
+    <string name="batch_delete_friends_block_and_delete">拉黑并删除</string>
+    <plurals name="batch_delete_friends_progress"><item quantity="other">正在删除 %1$d 位好友…</item></plurals>
+    <plurals name="batch_delete_friends_done"><item quantity="other">已删除 %1$d 位好友</item></plurals>
+    <plurals name="batch_delete_friends_partial"><item quantity="other">已删除 %1$d/%2$d 位好友</item></plurals>
+    <string name="batch_delete_history_select">选择要删除聊天记录的对话</string>
+    <string name="batch_delete_history_title">删除聊天记录</string>
+    <plurals name="batch_delete_history_confirm"><item quantity="other">确定要删除选中的 %1$d 个对话的全部聊天记录吗？此操作不可逆！</item></plurals>
+    <plurals name="batch_delete_history_progress"><item quantity="other">正在删除 %1$d 个对话的聊天记录…</item></plurals>
+    <plurals name="batch_delete_history_done"><item quantity="other">已删除 %1$d 个对话的聊天记录（共 %2$d 条消息）</item></plurals>
+    <string name="batch_hide_conversations_select">选择要隐藏的对话</string>
+    <string name="batch_hide_conversations_title">隐藏对话</string>
+    <plurals name="batch_hide_conversations_confirm"><item quantity="other">确定要从对话列表移除选中的 %1$d 个对话吗？聊天记录将保留，重新收到消息时对话会再次出现。</item></plurals>
+    <string name="batch_hide_conversations_action">隐藏</string>
+    <plurals name="batch_hide_conversations_done"><item quantity="other">已隐藏 %1$d/%2$d 个对话</item></plurals>
+    <string name="batch_mark_read_select">选择要标为已读的对话</string>
+    <plurals name="batch_mark_read_done"><item quantity="other">已将 %1$d 个对话标为已读</item></plurals>
+    <string name="batch_mute_title">批量免打扰</string>
+    <string name="batch_mute_enable">开启免打扰</string>
+    <string name="batch_mute_enable_description">选择要静音的对话</string>
+    <string name="batch_mute_disable">关闭免打扰</string>
+    <string name="batch_mute_disable_description">选择要取消静音的对话</string>
+    <string name="batch_mute_select_enable">选择要静音的对话</string>
+    <string name="batch_mute_select_disable">选择要取消静音的对话</string>
+    <plurals name="batch_mute_progress"><item quantity="other">正在对 %1$d 个对话设置免打扰…</item></plurals>
+    <plurals name="batch_mute_enabled"><item quantity="other">已对 %1$d 个对话开启免打扰</item></plurals>
+    <plurals name="batch_mute_disabled"><item quantity="other">已对 %1$d 个对话关闭免打扰</item></plurals>
+    <string name="batch_mass_send_text_mode">文本消息</string>
+    <string name="batch_mass_send_text_hint">编写要群发的文本消息，点击“选择对象”挑选发送目标</string>
+    <string name="batch_mass_send_text_label">消息内容</string>
+    <string name="batch_mass_send_card_mode">卡片消息（XML）</string>
+    <string name="batch_mass_send_card_hint">粘贴卡片消息的 appmsg XML，点击“选择对象”挑选发送目标</string>
+    <string name="batch_mass_send_card_label">卡片 XML</string>
+    <string name="batch_mass_send_enter_content">请输入消息内容</string>
+    <string name="batch_mass_send_select_recipients">选择对象</string>
+    <string name="batch_mass_send_select_title">选择群发对象</string>
+    <string name="batch_mass_send_select_at_least_one">请选择至少一个对象</string>
+    <plurals name="batch_mass_send_progress"><item quantity="other">正在群发到 %1$d 个对象…</item></plurals>
+    <plurals name="batch_mass_send_done"><item quantity="other">已群发到 %1$d 个对象</item></plurals>
+    <plurals name="batch_mass_send_partial"><item quantity="other">已群发到 %1$d/%2$d 个对象</item></plurals>
+
+    <!-- Task 5 group 1: contacts -->
+    <string name="contacts_auto_add_nearby_menu">自动加好友</string>
+    <string name="contacts_auto_remark_format">备注格式</string>
+    <string name="contacts_auto_remark_insert_placeholder">点击插入占位符：</string>
+    <string name="contacts_auto_remark_time_format">时间格式</string>
+    <string name="contacts_modify_count_hide">隐藏好友数量</string>
+    <string name="contacts_modify_count_display">显示数量</string>
+    <string name="contacts_wechat_id">微信 ID</string>
+    <string name="contacts_wechat_id_empty">微信 ID 为空！</string>
+    <string name="contacts_wechat_id_value">微信 ID：%1$s</string>
+    <string name="contacts_open_homepage">好友主页</string>
+    <string name="contacts_open_settings">好友设置</string>
+    <string name="contacts_open_chat">对话</string>
+    <string name="contacts_open_moments">朋友圈</string>
+    <string name="contacts_round_avatar_radius">圆角弧度：%1$.2f</string>
+    <string name="contacts_nickname_max_characters">最大字符数</string>
+    <string name="contacts_invalid_number">数字格式不正确！</string>
+    <string name="contacts_get_failed">获取失败</string>
+    <string name="contacts_copied">已复制</string>
+    <string name="contacts_copy">复制</string>
+    <string name="contacts_group_message_history">查看群消息历史</string>
+    <string name="contacts_delete_fake_none">未发现假群组！</string>
+    <plurals name="contacts_delete_fake_select_title"><item quantity="other">删除假群组（共 %1$d 个）</item></plurals>
+    <string name="contacts_delete_fake_select_one">请选择至少一个假群</string>
+    <string name="contacts_delete_fake_confirm_title">确认删除</string>
+    <plurals name="contacts_delete_fake_confirm_message"><item quantity="other">确定要删除选中的 %1$d 个假群组吗？此操作不可逆，原群不受影响。</item></plurals>
+    <plurals name="contacts_delete_fake_done"><item quantity="other">已清除 %1$d 个假群组</item></plurals>
+    <string name="contacts_custom_avatar_add">添加自定义头像</string>
+    <string name="contacts_custom_avatar_change">更换自定义头像</string>
+    <string name="contacts_custom_avatar_title">自定义头像</string>
+    <string name="contacts_custom_avatar_cleared">已清除自定义头像</string>
+    <string name="contacts_custom_avatar_cleared_reopen">已清除自定义头像，重新进入页面后生效</string>
+    <string name="contacts_custom_avatar_clear">清除</string>
+    <string name="contacts_custom_avatar_change_action">更换</string>
+    <string name="contacts_custom_avatar_set_reopen">自定义头像已设置，重新进入页面或重启微信后生效</string>
+    <string name="contacts_custom_avatar_configured">已设置 - %1$s</string>
+    <string name="contacts_custom_avatar_select">选择</string>
+    <string name="contacts_detect_create_label_failed">创建标签“%1$s”失败</string>
+    <string name="contacts_detect_marking_done">标记完成</string>
+    <plurals name="contacts_detect_delete_done"><item quantity="other">删除完成：成功 %1$d，失败 %2$d</item></plurals>
+    <string name="contacts_detect_warning_title">警告</string>
+    <string name="contacts_detect_warning_message">此功能可能导致账号异常，确定要执行吗？</string>
+    <plurals name="contacts_detect_scanning"><item quantity="other">正在扫描，请稍等…\n已完成：%1$d/%2$d</item></plurals>
+    <plurals name="contacts_detect_scan_done"><item quantity="other">扫描完成，有 %1$d 个状态异常的好友</item></plurals>
+    <string name="contacts_detect_status_abnormal">状态：异常</string>
+    <string name="contacts_detect_nickname">昵称：%1$s</string>
+    <string name="contacts_detect_remark">备注：%1$s</string>
+    <string name="contacts_detect_wechat_number">微信号：%1$s</string>
+    <plurals name="contacts_detect_confirm_delete"><item quantity="other">确定要删除选中的 %1$d 个好友吗？\n此操作不可逆，删除后聊天记录将被清除，需对方重新添加。</item></plurals>
+    <plurals name="contacts_detect_deleting"><item quantity="other">正在删除好友，请稍等…\n已完成：%1$d/%2$d</item></plurals>
+    <plurals name="contacts_detect_select_label"><item quantity="other">选择一个标签，将应用到全部 %1$d 个异常好友</item></plurals>
+    <string name="contacts_detect_new_label">新建标签</string>
+    <plurals name="contacts_detect_marking"><item quantity="other">正在标记为“%1$s”，请稍等…\n已完成：%2$d/%3$d</item></plurals>
+    <string name="contacts_detect_stop">终止</string>
+    <string name="contacts_detect_back">返回</string>
+    <string name="contacts_detect_suggested_label">WeKit_单删好友_%1$s</string>
+    <string name="contacts_detect_mark_label">标记标签</string>
+    <string name="contacts_detect_delete_all">全部删除</string>
+    <string name="contacts_hide_restored">已恢复隐藏联系人</string>
+    <string name="contacts_hide_temporarily_shown">已临时显示所有隐藏的联系人</string>
+    <string name="contacts_hide_already_shown">已经是临时显示状态</string>
+    <string name="contacts_hide_shown_command_hint">已临时显示所有隐藏的联系人，输入 #hide 恢复隐藏</string>
+    <string name="contacts_hide_nothing_to_restore">没有需要恢复的隐藏联系人</string>
+    <string name="contacts_hide_select">选择要隐藏的联系人</string>
+    <plurals name="contacts_hide_saved"><item quantity="other">已保存 %1$d 个联系人</item></plurals>
+    <string name="contacts_hide_configure">配置隐藏列表</string>
+    <string name="contacts_hide_configure_description">点击配置联系人隐藏列表</string>
+    <string name="contacts_hide_auto_reject">自动拒绝音视频通话</string>
+    <string name="contacts_hide_auto_reject_description">关闭时仅隐藏来电，对方会一直响到超时；开启后立即向对方发送拒接</string>
+    <string name="contacts_hide_schedule">定时显示/隐藏</string>
+    <string name="contacts_hide_schedule_description">到点自动临时显示或恢复隐藏，不会改动隐藏列表</string>
+    <string name="contacts_hide_triple_click">三击标题切换显隐</string>
+    <string name="contacts_hide_triple_click_description">连续三击主页顶部标题栏，可临时显示或恢复隐藏联系人</string>
+    <string name="contacts_schedule_monday">周一</string>
+    <string name="contacts_schedule_tuesday">周二</string>
+    <string name="contacts_schedule_wednesday">周三</string>
+    <string name="contacts_schedule_thursday">周四</string>
+    <string name="contacts_schedule_friday">周五</string>
+    <string name="contacts_schedule_saturday">周六</string>
+    <string name="contacts_schedule_sunday">周日</string>
+    <string name="contacts_schedule_action_hide">隐藏</string>
+    <string name="contacts_schedule_action_show">显示</string>
+    <string name="contacts_schedule_kind_repeating">每周重复</string>
+    <string name="contacts_schedule_kind_once">单次</string>
+    <string name="contacts_schedule_never">从不</string>
+    <string name="contacts_schedule_every_day">每天</string>
+    <string name="contacts_schedule_repeating_summary">%1$s %2$s · %3$s</string>
+    <string name="contacts_schedule_once_summary">%1$s · %2$s（单次）</string>
+    <string name="contacts_schedule_tasks">定时任务</string>
+    <string name="contacts_schedule_add_title">添加定时</string>
+    <string name="contacts_schedule_add">添加</string>
+    <string name="contacts_schedule_empty">暂无定时任务，点击右上角“添加”创建</string>
+    <string name="contacts_schedule_edit_title">编辑定时</string>
+    <string name="contacts_schedule_delete">删除定时</string>
+    <plurals name="contacts_schedule_dropped"><item quantity="other">%1$d 个单次定时在编辑期间已触发并自动删除，对它们的修改未保存</item></plurals>
+    <string name="contacts_schedule_time">时间</string>
+    <string name="contacts_schedule_select_day">请至少选择一天</string>
+    <string name="contacts_schedule_date_time">日期与时间</string>
+    <string name="contacts_schedule_once_deleted">单次任务触发后会自动删除</string>
+    <string name="contacts_schedule_past_time">该时间已过，请选择一个将来的时间</string>
+    <string name="contacts_schedule_conflict">已有定时任务会在同一时间触发，请换一个时间</string>
+    <string name="contacts_split_call_voip_mode">发起假群通话并挂断</string>
+    <string name="contacts_split_call_walkie_talkie_mode">发起假群实时对讲机并终止</string>
+    <string name="contacts_split_call_repeat_count">重复次数</string>
+    <string name="contacts_split_call_invalid_repeat">请输入大于 0 的重复次数</string>
+    <string name="contacts_split_call_already_running">已有分裂群组通话任务正在执行</string>
+    <plurals name="contacts_split_call_done_cleaned"><item quantity="other">任务结束：成功 %1$d 次，失败 %2$d 次，已自动清理 %3$d 个假群</item></plurals>
+    <plurals name="contacts_split_call_done_cleanup_failed"><item quantity="other">任务结束：成功 %1$d 次，失败 %2$d 次，自动清理 %3$d 个假群失败</item></plurals>
+
+    <!-- Task 5 group 1: home-screen menu -->
+    <string name="home_menu_force_stop">强行停止</string>
+    <string name="home_menu_mark_all_read">清空未读</string>
+    <string name="home_menu_all_marked_read">已将全部未读消息标为已读</string>
+    <string name="home_menu_open_conversation">跳转对话</string>
+    <string name="home_menu_show_conversations">显示对话</string>
+    <string name="home_menu_hide_conversations">隐藏对话</string>
 </resources>

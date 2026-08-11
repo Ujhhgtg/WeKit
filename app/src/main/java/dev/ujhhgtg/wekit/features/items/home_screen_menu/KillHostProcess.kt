@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.home_screen_menu
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -27,7 +28,7 @@ object KillHostProcess : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777015, "强行停止", CancelIcon
+                777015, localizedHomeMenuString(R.string.home_menu_force_stop), CancelIcon
             ) {
                 killHost()
             }

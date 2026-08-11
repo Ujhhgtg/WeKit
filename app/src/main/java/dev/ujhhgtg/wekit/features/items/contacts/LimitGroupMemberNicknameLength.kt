@@ -14,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -51,31 +53,31 @@ object LimitGroupMemberNicknameLength : ClickableFeature(), WeChatMessageViewApi
             var value by remember { mutableStateOf(maxNicknameLength.toString()) }
 
             AlertDialogContent(
-                title = { Text("限制群成员昵称长度") },
+                title = { Text(stringResource(R.string.feature_limit_group_member_nickname_length_name)) },
                 text = {
                     DefaultColumn {
                         OutlinedTextField(
                             value = value,
                             onValueChange = { value = it.filter { ch -> ch.isDigit() } },
-                            label = { Text("最大字符数") },
+                            label = { Text(stringResource(R.string.contacts_nickname_max_characters)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         val lenInput = value.toIntOrNull()
                         if (lenInput == null || lenInput <= 0) {
-                            showToast("数字格式不正确!")
+                            showToast(localizedContactsString(R.string.contacts_invalid_number))
                             return@Button
                         }
                         maxNicknameLength = lenInput
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }

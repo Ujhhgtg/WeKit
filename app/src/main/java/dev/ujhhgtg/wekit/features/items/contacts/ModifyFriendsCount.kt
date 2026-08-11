@@ -21,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -70,7 +72,7 @@ object ModifyFriendsCount : ClickableFeature() {
             var draft by remember { mutableStateOf(if (count == HIDE) 0 else count) }
             var hide by remember { mutableStateOf(count == HIDE) }
             AlertDialogContent(
-                title = { Text("修改好友数量") },
+                title = { Text(stringResource(R.string.feature_modify_friends_count_name)) },
                 text = {
                     DefaultColumn {
                         Row(
@@ -79,7 +81,7 @@ object ModifyFriendsCount : ClickableFeature() {
                                 .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("隐藏好友数量", modifier = Modifier.weight(1f))
+                            Text(stringResource(R.string.contacts_modify_count_hide), modifier = Modifier.weight(1f))
                             Switch(checked = hide, onCheckedChange = { hide = it })
                         }
                         OutlinedTextField(
@@ -91,7 +93,7 @@ object ModifyFriendsCount : ClickableFeature() {
                             onValueChange = { input ->
                                 draft = input.filter(Char::isDigit).take(7).toIntOrNull() ?: 0
                             },
-                            label = { Text("显示数量") },
+                            label = { Text(stringResource(R.string.contacts_modify_count_display)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                         )
@@ -102,9 +104,9 @@ object ModifyFriendsCount : ClickableFeature() {
                         count = if (hide) HIDE else draft
                         WeLogger.i(TAG, "friend count display set to ${if (hide) "hidden" else count}")
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             )
         }
     }

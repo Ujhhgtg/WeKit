@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.home_screen_menu
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -28,10 +29,10 @@ object MarkAllAsRead : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProvi
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777012, "清空未读", MarkChatReadIcon
+                777012, localizedHomeMenuString(R.string.home_menu_mark_all_read), MarkChatReadIcon
             ) {
                 WeConversationApi.markAllAsRead()
-                showToast("已将全部未读消息标为已读")
+                showToast(localizedHomeMenuString(R.string.home_menu_all_marked_read))
             }
         )
     }

@@ -8,6 +8,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -98,7 +100,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
             var value by remember { mutableFloatStateOf(radiusFactor) }
 
             AlertDialogContent(
-                title = { Text("圆角头像") },
+                title = { Text(stringResource(R.string.feature_round_avatars_name)) },
                 text = {
                     ListItem(
                         supportingContent = {
@@ -109,18 +111,18 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
                                 steps = 39
                             )
                         },
-                        content = { Text("圆角弧度: %.2f".format(value)) },
+                        content = { Text(stringResource(R.string.contacts_round_avatar_radius, value)) },
                     )
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         WePrefs.putFloat(KEY_ROUND_AVATAR, value.coerceIn(0.1f, 0.5f))
                         notifyCustomContactAvatarChanged()
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }

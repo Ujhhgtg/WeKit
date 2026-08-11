@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.home_screen_menu
 
 import com.tencent.mm.ui.LauncherUI
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -28,7 +29,7 @@ object OpenConversationMenu : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuIte
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777025, "跳转对话", ChatInfoIcon
+                777025, localizedHomeMenuString(R.string.home_menu_open_conversation), ChatInfoIcon
             ) {
                 showOpenConversationDialog(LauncherUI.getInstance()!!)
             }
