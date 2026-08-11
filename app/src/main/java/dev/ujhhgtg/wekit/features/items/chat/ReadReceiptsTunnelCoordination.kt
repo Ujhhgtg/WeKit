@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.withLock
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
+import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock as withThreadLock
@@ -1310,6 +1311,282 @@ internal object AuthSnapshotBounds {
         }
         return true
     }
+}
+
+/**
+ * Controller-side wire ownership around [AuthOperationRegistry]. A response can consume terminal
+ * ownership only after the exact request was sent to, and acknowledged by, the same service
+ * binder. Unsent requests deliberately survive binder replacement so the controller can rebind.
+ */
+internal class ControllerAuthOperationQueue {
+    private class Entry(
+        val kind: AuthOperationKind<*>,
+        var binderOwner: Any? = null,
+        var acknowledged: Boolean = false,
+    )
+
+    private val registry = AuthOperationRegistry()
+    private val pending = linkedMapOf<AuthOperationKey, Entry>()
+    private var currentGeneration: Long? = null
+
+    fun replaceGeneration(generation: Long): Boolean {
+        require(generation > 0)
+        synchronized(this) {
+            val current = currentGeneration
+            if (current != null && generation <= current) return false
+            currentGeneration = generation
+            pending.clear()
+        }
+        return registry.replaceGeneration(generation)
+    }
+
+    fun <T> enqueue(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+        callback: (AuthOperationTerminal<T>) -> Unit,
+    ): Boolean {
+        synchronized(this) {
+            if (key.authGeneration != currentGeneration || pending.containsKey(key)) return false
+            pending[key] = Entry(kind)
+        }
+        if (registry.register(key, kind, callback)) return true
+        synchronized(this) { pending.remove(key) }
+        return false
+    }
+
+    @Synchronized
+    fun markSent(key: AuthOperationKey, kind: AuthOperationKind<*>, binderOwner: Any): Boolean {
+        val entry = pending[key] ?: return false
+        if (entry.kind !== kind || entry.binderOwner != null) return false
+        entry.binderOwner = binderOwner
+        return true
+    }
+
+    @Synchronized
+    fun acknowledge(key: AuthOperationKey, kind: AuthOperationKind<*>, binderOwner: Any): Boolean {
+        val entry = pending[key] ?: return false
+        if (
+            entry.kind !== kind || entry.binderOwner !== binderOwner || entry.acknowledged
+        ) {
+            return false
+        }
+        entry.acknowledged = true
+        return true
+    }
+
+    fun <T> complete(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+        binderOwner: Any,
+        terminal: AuthOperationTerminal<T>,
+    ): Boolean {
+        synchronized(this) {
+            val entry = pending[key] ?: return false
+            if (
+                entry.kind !== kind || entry.binderOwner !== binderOwner || !entry.acknowledged
+            ) {
+                return false
+            }
+            pending.remove(key)
+        }
+        return registry.complete(key, kind, terminal)
+    }
+
+    fun <T> cancel(key: AuthOperationKey, kind: AuthOperationKind<T>): Boolean {
+        synchronized(this) {
+            val entry = pending[key] ?: return false
+            if (entry.kind !== kind) return false
+            pending.remove(key)
+        }
+        return registry.cancel(key, kind)
+    }
+
+    fun <T> timeout(key: AuthOperationKey, kind: AuthOperationKind<T>): Boolean {
+        synchronized(this) {
+            val entry = pending[key] ?: return false
+            if (entry.kind !== kind) return false
+            pending.remove(key)
+        }
+        return registry.timeout(key, kind)
+    }
+
+    fun binderDied(binderOwner: Any, error: String): Int {
+        val dead = synchronized(this) {
+            pending.entries
+                .filter { it.value.binderOwner === binderOwner }
+                .map { it.key to it.value.kind }
+                .also { entries -> entries.forEach { pending.remove(it.first) } }
+        }
+        var firstFailure: Throwable? = null
+        var completed = 0
+        dead.forEach { (key, kind) ->
+            try {
+                if (completeFailed(key, kind, error)) completed++
+            } catch (failure: Throwable) {
+                if (firstFailure == null) firstFailure = failure
+                else if (firstFailure !== failure) runCatching { firstFailure.addSuppressed(failure) }
+            }
+        }
+        firstFailure?.let { throw it }
+        return completed
+    }
+
+    @Synchronized
+    fun unsentKeys(): Set<AuthOperationKey> = pending
+        .filterValues { it.binderOwner == null }
+        .keys
+        .toSet()
+
+    @Suppress("UNCHECKED_CAST")
+    private fun completeFailed(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<*>,
+        error: String,
+    ): Boolean = registry.complete(
+        key,
+        kind as AuthOperationKind<Any?>,
+        AuthOperationTerminal.Failed(error),
+    )
+}
+
+internal class ControllerAuthSnapshot(
+    val revision: Long,
+    val authGeneration: Long,
+    val restartRequired: Boolean,
+    val loginState: CloudflareLoginState,
+    val accountId: String,
+    tunnels: List<ExistingTunnel>,
+    val metadataLoading: Boolean,
+    val committedMetadata: CommittedTunnelCredentialMetadata?,
+) {
+    val tunnels: List<ExistingTunnel> = Collections.unmodifiableList(ArrayList(tunnels))
+
+    init {
+        require(revision > 0)
+        require(authGeneration >= 0)
+        require(isStructurallyValid())
+        require(
+            AuthSnapshotBounds.isValid(loginState, accountId, this.tunnels, committedMetadata),
+        )
+    }
+
+    private fun isStructurallyValid(): Boolean {
+        if (restartRequired && authGeneration != 0L) return false
+        val authorizationUrl = loginState.authorizationUrl
+        if (
+            authorizationUrl != null &&
+            !ReadReceiptsTunnelNativeParser.isPinnedAuthorizationUrl(authorizationUrl)
+        ) {
+            return false
+        }
+        return when (loginState.state) {
+            ReadReceiptsTunnelState.STOPPED ->
+                authorizationUrl == null && loginState.error == null && accountId.isEmpty() &&
+                    tunnels.isEmpty()
+
+            ReadReceiptsTunnelState.STARTING ->
+                authGeneration > 0 && !restartRequired && authorizationUrl != null &&
+                    loginState.error == null && accountId.isEmpty() && tunnels.isEmpty()
+
+            ReadReceiptsTunnelState.CONNECTED ->
+                authGeneration > 0 && !restartRequired && authorizationUrl != null &&
+                    loginState.error == null && ACCOUNT_ID_PATTERN.matches(accountId)
+
+            ReadReceiptsTunnelState.FAILED ->
+                authGeneration == 0L && restartRequired && authorizationUrl != null &&
+                    loginState.error != null && accountId.isEmpty() && tunnels.isEmpty()
+
+            ReadReceiptsTunnelState.RECONNECTING,
+            ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+            ReadReceiptsTunnelState.STOPPING,
+            -> false
+        }
+    }
+
+    fun browserMetadataRebindDecision(): BrowserMetadataRebindDecision {
+        val metadata = committedMetadata
+        if (
+            metadataLoading || metadata == null ||
+            metadata.source != TunnelCredentialSource.BROWSER_LOGIN ||
+            !isCompleteBrowserMetadata(metadata)
+        ) {
+            return BrowserMetadataRebindDecision.Keep
+        }
+        return BrowserMetadataRebindDecision.Replace(
+            CommittedBrowserTunnelMetadata(
+                accountId = metadata.accountId,
+                tunnelId = metadata.tunnelId,
+                tunnelName = metadata.tunnelName,
+                canonicalHostname = metadata.canonicalHostname,
+                fixedOriginPort = metadata.fixedOriginPort,
+            ),
+        )
+    }
+
+    private fun isCompleteBrowserMetadata(
+        metadata: CommittedTunnelCredentialMetadata,
+    ): Boolean =
+        metadata.accountId.matches(Regex("^[A-Za-z0-9_-]{1,32}$")) &&
+            ExistingTunnel.isCanonicalId(metadata.tunnelId) &&
+            metadata.tunnelName.isNotEmpty() &&
+            metadata.tunnelName == metadata.tunnelName.trim() &&
+            metadata.tunnelName.toByteArray(StandardCharsets.UTF_8).size <= 128 &&
+            metadata.tunnelName.none(Char::isISOControl) &&
+            ReadReceiptsTunnelService.canonicalPublicRoot(metadata.canonicalHostname) ==
+            metadata.canonicalHostname &&
+            metadata.fixedOriginPort in 1..65535
+
+    private companion object {
+        val ACCOUNT_ID_PATTERN = Regex("^[A-Za-z0-9_-]{1,32}$")
+    }
+}
+
+/** Tracks a service process's snapshot revision without losing cross-process login expectation. */
+internal class ControllerAuthSnapshotTracker {
+    private var binderOwner: Any? = null
+    private var revision = 0L
+    private var expectedAuthGeneration = 0L
+    private var snapshot: ControllerAuthSnapshot? = null
+
+    @Synchronized
+    fun expectBegin(generation: Long): Boolean {
+        require(generation > 0)
+        if (generation <= expectedAuthGeneration) return false
+        expectedAuthGeneration = generation
+        return true
+    }
+
+    @Synchronized
+    fun clearExpectation(generation: Long): Boolean {
+        if (generation <= 0 || expectedAuthGeneration != generation) return false
+        expectedAuthGeneration = 0
+        return true
+    }
+
+    @Synchronized
+    fun accept(owner: Any, incoming: ControllerAuthSnapshot): Boolean {
+        if (binderOwner !== owner) {
+            binderOwner = owner
+            revision = 0
+        }
+        if (incoming.revision <= revision) return false
+        if (
+            incoming.authGeneration > 0 && expectedAuthGeneration > 0 &&
+            incoming.authGeneration < expectedAuthGeneration
+        ) {
+            return false
+        }
+        revision = incoming.revision
+        snapshot = incoming
+        if (incoming.authGeneration > 0) expectedAuthGeneration = incoming.authGeneration
+        return true
+    }
+
+    @Synchronized
+    fun lastSeenAuthGeneration(): Long = expectedAuthGeneration
+
+    @Synchronized
+    fun currentSnapshot(): ControllerAuthSnapshot? = snapshot
 }
 
 internal enum class TunnelCredentialSource {

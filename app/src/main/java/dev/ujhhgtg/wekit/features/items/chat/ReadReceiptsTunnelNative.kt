@@ -140,7 +140,7 @@ internal object ReadReceiptsTunnelNativeParser {
         )
     }.getOrNull()
 
-    private fun isPinnedAuthorizationUrl(value: String): Boolean {
+    internal fun isPinnedAuthorizationUrl(value: String): Boolean {
         if (
             value.toByteArray(Charsets.UTF_8).size > MAX_AUTHORIZATION_URL_BYTES ||
             value.any(Char::isISOControl)

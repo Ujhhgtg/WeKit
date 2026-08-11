@@ -15,8 +15,14 @@ import android.provider.Settings
 import android.util.Base64
 import androidx.core.content.ContextCompat
 import dev.ujhhgtg.wekit.utils.HostInfo
-import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.security.SecureRandom
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /** WeChat-process Binder client. The service remains the authoritative tunnel state owner. */
 internal object ReadReceiptsTunnelController {
@@ -28,6 +34,13 @@ internal object ReadReceiptsTunnelController {
     private val incoming = Messenger(IncomingHandler(Looper.getMainLooper()))
     private val handoffGate = TunnelHandoffGate()
     private val stopCompletion = TunnelStopCompletion()
+    private val authOperations = ControllerAuthOperationQueue()
+    private val authSnapshots = ControllerAuthSnapshotTracker()
+    private val authRequestId = AtomicLong(
+        SecureRandom().nextLong().ushr(1).coerceAtLeast(1L),
+    )
+    private val authGeneration = AtomicLong(SystemClock.elapsedRealtimeNanos())
+    private val pendingAuthMessages = linkedMapOf<AuthOperationKey, PendingAuthMessage<*>>()
 
     @Volatile
     private var service: Messenger? = null
@@ -44,6 +57,8 @@ internal object ReadReceiptsTunnelController {
     @Volatile
     private var pendingCommand: Message? = null
 
+    private var awaitingAuthSnapshot = false
+
     @Volatile
     var status: ReadReceiptsTunnelStatus = ReadReceiptsTunnelStatus(
         ReadReceiptsTunnelState.STOPPED,
@@ -52,6 +67,35 @@ internal object ReadReceiptsTunnelController {
 
     @Volatile
     var credentialExists: Boolean = false
+        private set
+
+    @Volatile
+    var browserLoginState: CloudflareLoginState = stoppedBrowserLoginState()
+        private set
+
+    @Volatile
+    var browserAccountId: String = ""
+        private set
+
+    @Volatile
+    var browserExistingTunnels: List<ExistingTunnel> = emptyList()
+        private set
+
+    @Volatile
+    var committedCredentialMetadata: CommittedTunnelCredentialMetadata? = null
+        private set
+
+    @Volatile
+    var browserMetadataRebindDecision: BrowserMetadataRebindDecision =
+        BrowserMetadataRebindDecision.Keep
+        private set
+
+    @Volatile
+    var browserLoginRestartRequired: Boolean = false
+        private set
+
+    @Volatile
+    var credentialMetadataLoading: Boolean = true
         private set
 
     fun verifiedEndpoint(): String? = status
@@ -185,6 +229,208 @@ internal object ReadReceiptsTunnelController {
         bind(HostInfo.application)
     }
 
+    suspend fun beginBrowserLogin(): CloudflareLoginState {
+        val generation = nextAuthGeneration()
+        return executeAuthOperation(
+            generation = generation,
+            kind = AuthOperationKind.BEGIN,
+            what = ReadReceiptsTunnelProtocol.BEGIN_LOGIN,
+            beginGeneration = true,
+        ).also { browserLoginState = it }
+    }
+
+    suspend fun listExistingTunnels(): List<ExistingTunnel> {
+        val generation = requireExpectedAuthGeneration()
+        return executeAuthOperation<List<ExistingTunnel>>(
+            generation = generation,
+            kind = AuthOperationKind.LIST,
+            what = ReadReceiptsTunnelProtocol.LIST_TUNNELS,
+        ).also { browserExistingTunnels = it }
+    }
+
+    suspend fun selectExistingTunnel(
+        id: String,
+        canonicalRoot: String,
+        fixedPort: Int,
+    ): Result<Unit> = runCatching {
+        if (!ExistingTunnel.isCanonicalId(id)) throw authException("Tunnel ID 无效")
+        if (
+            ReadReceiptsTunnelService.canonicalPublicRoot(canonicalRoot) != canonicalRoot
+        ) {
+            throw authException("Tunnel 主机名无效")
+        }
+        if (fixedPort !in 1..65535) throw authException("回环端口无效")
+        val generation = requireExpectedAuthGeneration()
+        val connectorGeneration = reserveConnectorGeneration()
+        val started = runCatching {
+            ContextCompat.startForegroundService(
+                HostInfo.application,
+                serviceIntent(HostInfo.application).apply {
+                    action = ReadReceiptsTunnelService.ACTION_START
+                },
+            )
+        }
+        if (started.isFailure) {
+            throw authException("系统阻止了前台隧道服务启动", started.exceptionOrNull())
+        }
+        executeAuthOperation<Unit>(
+            generation = generation,
+            kind = AuthOperationKind.SELECT,
+            what = ReadReceiptsTunnelProtocol.SELECT_TUNNEL,
+            extras = {
+                putString(ReadReceiptsTunnelProtocol.KEY_TUNNEL_ID, id)
+                putString(ReadReceiptsTunnelProtocol.KEY_HOSTNAME, canonicalRoot)
+                putInt(ReadReceiptsTunnelProtocol.KEY_FIXED_ORIGIN_PORT, fixedPort)
+                putLong(
+                    ReadReceiptsTunnelProtocol.KEY_CONNECTOR_GENERATION,
+                    connectorGeneration,
+                )
+            },
+        )
+        authSnapshots.clearExpectation(generation)
+        clearBrowserSessionSnapshot()
+    }
+
+    suspend fun cancelBrowserLogin(): Result<Unit> = clearBrowserLogin(
+        AuthOperationKind.CANCEL,
+        ReadReceiptsTunnelProtocol.CANCEL_LOGIN,
+    )
+
+    suspend fun logoutBrowserLogin(): Result<Unit> = clearBrowserLogin(
+        AuthOperationKind.LOGOUT,
+        ReadReceiptsTunnelProtocol.LOGOUT,
+    )
+
+    private suspend fun clearBrowserLogin(
+        kind: AuthOperationKind<Unit>,
+        what: Int,
+    ): Result<Unit> = runCatching {
+        val generation = requireExpectedAuthGeneration()
+        executeAuthOperation(
+            generation = generation,
+            kind = kind,
+            what = what,
+        )
+        authSnapshots.clearExpectation(generation)
+        clearBrowserSessionSnapshot()
+    }
+
+    private suspend fun <T> executeAuthOperation(
+        generation: Long,
+        kind: AuthOperationKind<T>,
+        what: Int,
+        beginGeneration: Boolean = false,
+        extras: Bundle.() -> Unit = {},
+    ): T = suspendCancellableCoroutine { continuation ->
+        val keyReference = AtomicReference<AuthOperationKey?>()
+        val submit = Runnable {
+            if (!continuation.isActive) return@Runnable
+            if (beginGeneration) {
+                if (!authSnapshots.expectBegin(generation)) {
+                    continuation.resumeWithException(authException("登录请求已失效"))
+                    return@Runnable
+                }
+                if (!authOperations.replaceGeneration(generation)) {
+                    continuation.resumeWithException(authException("登录请求已失效"))
+                    return@Runnable
+                }
+            }
+            val key = AuthOperationKey(generation, nextAuthRequestId())
+            keyReference.set(key)
+            val command = Message.obtain(null, what).apply {
+                replyTo = incoming
+                data = authIdentityBundle(key, kind).apply(extras)
+            }
+            val timeout = Runnable {
+                if (!authOperations.timeout(key, kind)) return@Runnable
+                pendingAuthMessages.remove(key)
+            }
+            check(
+                authOperations.enqueue(key, kind) { terminal ->
+                    mainHandler.removeCallbacks(timeout)
+                    pendingAuthMessages.remove(key)
+                    deliverAuthTerminal(continuation, terminal)
+                },
+            )
+            pendingAuthMessages[key] = PendingAuthMessage(key, kind, command, timeout)
+            mainHandler.postDelayed(timeout, AUTH_OPERATION_TIMEOUT_MILLIS)
+            sendPendingOrBind(HostInfo.application)
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) submit.run() else mainHandler.post(submit)
+        continuation.invokeOnCancellation {
+            mainHandler.post {
+                val key = keyReference.get() ?: return@post
+                @Suppress("UNCHECKED_CAST")
+                cancelPendingAuth(key, kind as AuthOperationKind<Any?>)
+            }
+        }
+    }
+
+    private fun <T> deliverAuthTerminal(
+        continuation: CancellableContinuation<T>,
+        terminal: AuthOperationTerminal<T>,
+    ) {
+        if (!continuation.isActive) return
+        when (terminal) {
+            is AuthOperationTerminal.Completed -> continuation.resume(terminal.value)
+            is AuthOperationTerminal.Failed ->
+                continuation.resumeWithException(authException(terminal.error))
+            AuthOperationTerminal.Superseded ->
+                continuation.resumeWithException(authException("认证请求已被新请求取代"))
+            AuthOperationTerminal.TimedOut ->
+                continuation.resumeWithException(authException("认证请求超时"))
+            AuthOperationTerminal.Cancelled ->
+                continuation.resumeWithException(authException("认证请求已取消"))
+        }
+    }
+
+    private fun cancelPendingAuth(key: AuthOperationKey, kind: AuthOperationKind<Any?>) {
+        val pending = pendingAuthMessages[key] ?: return
+        if (!authOperations.cancel(key, kind)) return
+        mainHandler.removeCallbacks(pending.timeout)
+        pendingAuthMessages.remove(key)
+    }
+
+    private fun requireExpectedAuthGeneration(): Long =
+        authSnapshots.lastSeenAuthGeneration().takeIf { it > 0 }
+            ?: throw authException("请先启动 Cloudflare 浏览器登录")
+
+    private fun nextAuthGeneration(): Long = authGeneration.updateAndGet { current ->
+        maxOf(current + 1, SystemClock.elapsedRealtimeNanos())
+    }
+
+    private fun nextAuthRequestId(): Long = authRequestId.updateAndGet { current ->
+        if (current == Long.MAX_VALUE) 1 else current + 1
+    }
+
+    private fun authException(message: String, cause: Throwable? = null): BrowserLoginException =
+        BrowserLoginException(message.take(MAX_AUTH_ERROR_CHARS), cause)
+
+    private fun <T> authIdentityBundle(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+    ): Bundle = Bundle().apply {
+        putLong(ReadReceiptsTunnelProtocol.KEY_AUTH_GENERATION, key.authGeneration)
+        putLong(ReadReceiptsTunnelProtocol.KEY_AUTH_REQUEST_ID, key.requestId)
+        putString(
+            ReadReceiptsTunnelProtocol.KEY_AUTH_KIND,
+            when (kind) {
+                AuthOperationKind.BEGIN -> "BEGIN"
+                AuthOperationKind.LIST -> "LIST"
+                AuthOperationKind.SELECT -> "SELECT"
+                AuthOperationKind.CANCEL -> "CANCEL"
+                AuthOperationKind.LOGOUT -> "LOGOUT"
+            },
+        )
+        putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, clientNonce)
+    }
+
+    private fun clearBrowserSessionSnapshot() {
+        browserLoginState = stoppedBrowserLoginState()
+        browserAccountId = ""
+        browserExistingTunnels = emptyList()
+    }
+
     fun openNotificationSettings(context: Context): Result<Unit> = runCatching {
         context.startActivity(
             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -223,6 +469,17 @@ internal object ReadReceiptsTunnelController {
             }
             pendingCommand = null
         }
+        val unsentAuth = authOperations.unsentKeys()
+        pendingAuthMessages.values
+            .filter { it.key in unsentAuth }
+            .forEach { pending ->
+                val sent = runCatching { target.send(pending.command) }.isSuccess
+                if (!sent) {
+                    onBinderDied()
+                    return false
+                }
+                check(authOperations.markSent(pending.key, pending.kind, target.binder))
+            }
         return true
     }
 
@@ -240,6 +497,9 @@ internal object ReadReceiptsTunnelController {
             )
             failPendingStart(IllegalStateException("无法连接 WeKit 隧道服务"))
             stopCompletion.pendingGeneration()?.let(::completeStop)
+            if (authOperations.unsentKeys().isNotEmpty()) {
+                mainHandler.postDelayed({ bind(HostInfo.application) }, REBIND_DELAY_MILLIS)
+            }
         }
     }
 
@@ -248,15 +508,19 @@ internal object ReadReceiptsTunnelController {
             binding = false
             bound = true
             service = Messenger(binder)
-            runCatching { binder.linkToDeath(::onBinderDied, 0) }
+            awaitingAuthSnapshot = true
+            runCatching { binder.linkToDeath({ onBinderDied(binder) }, 0) }
             val register = Message.obtain(null, ReadReceiptsTunnelProtocol.REGISTER).apply {
                 replyTo = incoming
                 data = Bundle().apply {
                     putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, clientNonce)
+                    authSnapshots.lastSeenAuthGeneration().takeIf { it > 0 }?.let {
+                        putLong(ReadReceiptsTunnelProtocol.KEY_LAST_SEEN_AUTH_GENERATION, it)
+                    }
                 }
             }
             runCatching { service!!.send(register) }
-                .onFailure { onBinderDied() }
+                .onFailure { onBinderDied(binder) }
             sendPending()
         }
 
@@ -267,18 +531,31 @@ internal object ReadReceiptsTunnelController {
         override fun onNullBinding(name: ComponentName) = onBinderDied()
     }
 
-    private fun onBinderDied() {
+    private fun onBinderDied(expectedBinder: IBinder? = null) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post(::handleBinderDied)
+            mainHandler.post { handleBinderDied(expectedBinder) }
         } else {
-            handleBinderDied()
+            handleBinderDied(expectedBinder)
         }
     }
 
-    private fun handleBinderDied() {
+    private fun handleBinderDied(expectedBinder: IBinder? = null) {
+        val currentBinder = service?.binder
+        if (expectedBinder != null && currentBinder !== expectedBinder) {
+            authOperations.binderDied(expectedBinder, "认证服务连接已断开")
+            return
+        }
+        val deadBinder = currentBinder
         service = null
         binding = false
         bound = false
+        awaitingAuthSnapshot = false
+        if (deadBinder != null) {
+            authOperations.binderDied(deadBinder, "认证服务连接已断开")
+        }
+        if (authOperations.unsentKeys().isNotEmpty()) {
+            mainHandler.postDelayed({ bind(HostInfo.application) }, REBIND_DELAY_MILLIS)
+        }
         failPendingStart(IllegalStateException("隧道服务在接管请求前断开"))
         val stoppingGeneration = stopCompletion.pendingGeneration()
         if (stoppingGeneration != null) {
@@ -310,12 +587,25 @@ internal object ReadReceiptsTunnelController {
                 handleStartAck(message.data)
                 return
             }
+            if (message.what == ReadReceiptsTunnelProtocol.AUTH_ACK) {
+                handleAuthAck(message.data)
+                return
+            }
+            if (message.what == ReadReceiptsTunnelProtocol.AUTH_TERMINAL) {
+                handleAuthTerminal(message.data)
+                return
+            }
+            if (message.what == ReadReceiptsTunnelProtocol.AUTH_SNAPSHOT) {
+                handleAuthSnapshot(message.data)
+                return
+            }
             if (message.what != ReadReceiptsTunnelProtocol.STATUS) return
             val data = message.data
             credentialExists = data.getBoolean(ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_EXISTS)
             val incomingGeneration = data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION)
             if (incomingGeneration < lastIssuedGeneration.get()) return
             generation.updateAndGet { current -> maxOf(current, incomingGeneration) }
+            lastIssuedGeneration.updateAndGet { current -> maxOf(current, incomingGeneration) }
             val state = data.getString(ReadReceiptsTunnelProtocol.KEY_STATE)
                 ?.let { name -> ReadReceiptsTunnelState.entries.firstOrNull { it.name == name } }
                 ?: ReadReceiptsTunnelState.FAILED
@@ -334,10 +624,317 @@ internal object ReadReceiptsTunnelController {
                 } else {
                     drain.callbacks.forEach { callback -> callback() }
                 }
-                unbind()
+                maybeUnbindStoppedService()
             }
         }
     }
+
+    private fun handleAuthAck(data: Bundle) {
+        if (data.keySet() != ReadReceiptsTunnelProtocol.AUTH_OPERATION_KEYS +
+            ReadReceiptsTunnelProtocol.KEY_ACCEPTED
+        ) {
+            return
+        }
+        val identity = parseAuthIdentity(data) ?: return
+        if (data.strictBoolean(ReadReceiptsTunnelProtocol.KEY_ACCEPTED) == null) return
+        val binder = service?.binder ?: return
+        authOperations.acknowledge(identity.key, identity.kind, binder)
+    }
+
+    private fun handleAuthTerminal(data: Bundle) {
+        val identity = parseAuthIdentity(data) ?: return
+        val terminalName = data.strictString(ReadReceiptsTunnelProtocol.KEY_AUTH_TERMINAL)
+            ?: return
+        val binder = service?.binder ?: return
+        when (identity.kind) {
+            AuthOperationKind.BEGIN -> completeBeginTerminal(identity.key, binder, terminalName, data)
+            AuthOperationKind.LIST -> completeListTerminal(identity.key, binder, terminalName, data)
+            AuthOperationKind.SELECT -> completeUnitTerminal(
+                identity.key,
+                AuthOperationKind.SELECT,
+                binder,
+                terminalName,
+                data,
+            )
+            AuthOperationKind.CANCEL -> completeUnitTerminal(
+                identity.key,
+                AuthOperationKind.CANCEL,
+                binder,
+                terminalName,
+                data,
+            )
+            AuthOperationKind.LOGOUT -> completeUnitTerminal(
+                identity.key,
+                AuthOperationKind.LOGOUT,
+                binder,
+                terminalName,
+                data,
+            )
+        }
+    }
+
+    private fun completeBeginTerminal(
+        key: AuthOperationKey,
+        binder: IBinder,
+        terminalName: String,
+        data: Bundle,
+    ) {
+        val terminal = when (terminalName) {
+            "COMPLETED" -> {
+                if (data.keySet() != AUTH_TERMINAL_BASE_KEYS + BEGIN_TERMINAL_RESULT_KEYS) return
+                val state = data.strictString(ReadReceiptsTunnelProtocol.KEY_STATE)
+                    ?.let { name -> ReadReceiptsTunnelState.entries.firstOrNull { it.name == name } }
+                    ?.takeIf {
+                        it == ReadReceiptsTunnelState.STARTING ||
+                            it == ReadReceiptsTunnelState.CONNECTED
+                    } ?: return
+                val authorizationUrl = data.strictString(
+                    ReadReceiptsTunnelProtocol.KEY_AUTHORIZATION_URL,
+                ) ?: return
+                if (!ReadReceiptsTunnelNativeParser.isPinnedAuthorizationUrl(authorizationUrl)) return
+                AuthOperationTerminal.Completed(
+                    CloudflareLoginState(authorizationUrl, state, null),
+                )
+            }
+            else -> parseNonCompletedTerminal<CloudflareLoginState>(terminalName, data) ?: return
+        }
+        authOperations.complete(key, AuthOperationKind.BEGIN, binder, terminal)
+    }
+
+    private fun completeListTerminal(
+        key: AuthOperationKey,
+        binder: IBinder,
+        terminalName: String,
+        data: Bundle,
+    ) {
+        val terminal = when (terminalName) {
+            "COMPLETED" -> {
+                if (data.keySet() != AUTH_TERMINAL_BASE_KEYS + ReadReceiptsTunnelProtocol.KEY_TUNNELS) {
+                    return
+                }
+                AuthOperationTerminal.Completed(parseTunnels(data) ?: return)
+            }
+            else -> parseNonCompletedTerminal<List<ExistingTunnel>>(terminalName, data) ?: return
+        }
+        authOperations.complete(key, AuthOperationKind.LIST, binder, terminal)
+    }
+
+    private fun completeUnitTerminal(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<Unit>,
+        binder: IBinder,
+        terminalName: String,
+        data: Bundle,
+    ) {
+        val terminal = when (terminalName) {
+            "COMPLETED" -> {
+                if (data.keySet() != AUTH_TERMINAL_BASE_KEYS) return
+                AuthOperationTerminal.Completed(Unit)
+            }
+            else -> parseNonCompletedTerminal<Unit>(terminalName, data) ?: return
+        }
+        authOperations.complete(key, kind, binder, terminal)
+    }
+
+    private fun <T> parseNonCompletedTerminal(
+        terminalName: String,
+        data: Bundle,
+    ): AuthOperationTerminal<T>? = when (terminalName) {
+        "FAILED" -> {
+            if (data.keySet() != AUTH_TERMINAL_BASE_KEYS + ReadReceiptsTunnelProtocol.KEY_ERROR) {
+                null
+            } else {
+                data.strictString(ReadReceiptsTunnelProtocol.KEY_ERROR)
+                    ?.takeIf(::isBoundedAuthError)
+                    ?.let { AuthOperationTerminal.Failed(it) }
+            }
+        }
+        "SUPERSEDED" -> AuthOperationTerminal.Superseded
+            .takeIf { data.keySet() == AUTH_TERMINAL_BASE_KEYS }
+        "TIMED_OUT" -> AuthOperationTerminal.TimedOut
+            .takeIf { data.keySet() == AUTH_TERMINAL_BASE_KEYS }
+        "CANCELLED" -> AuthOperationTerminal.Cancelled
+            .takeIf { data.keySet() == AUTH_TERMINAL_BASE_KEYS }
+        else -> null
+    }
+
+    private fun handleAuthSnapshot(data: Bundle) {
+        if (data.keySet() != AUTH_SNAPSHOT_KEYS) return
+        val binder = service?.binder ?: return
+        val revision = data.strictLong(ReadReceiptsTunnelProtocol.KEY_AUTH_SNAPSHOT_REVISION)
+            ?.takeIf { it > 0 } ?: return
+        val generation = data.strictLong(ReadReceiptsTunnelProtocol.KEY_AUTH_GENERATION)
+            ?.takeIf { it >= 0 } ?: return
+        val restartRequired = data.strictBoolean(
+            ReadReceiptsTunnelProtocol.KEY_AUTH_RESTART_REQUIRED,
+        ) ?: return
+        val state = data.strictString(ReadReceiptsTunnelProtocol.KEY_STATE)
+            ?.let { name -> ReadReceiptsTunnelState.entries.firstOrNull { it.name == name } }
+            ?.takeIf {
+                it == ReadReceiptsTunnelState.STOPPED ||
+                    it == ReadReceiptsTunnelState.STARTING ||
+                    it == ReadReceiptsTunnelState.CONNECTED ||
+                    it == ReadReceiptsTunnelState.FAILED
+            } ?: return
+        val authorizationUrl = data.strictNullableString(
+            ReadReceiptsTunnelProtocol.KEY_AUTHORIZATION_URL,
+        ) ?: return
+        if (
+            authorizationUrl.value != null &&
+            !ReadReceiptsTunnelNativeParser.isPinnedAuthorizationUrl(authorizationUrl.value)
+        ) {
+            return
+        }
+        val error = data.strictNullableString(ReadReceiptsTunnelProtocol.KEY_ERROR) ?: return
+        if (error.value != null && !isBoundedAuthError(error.value)) return
+        val accountId = data.strictString(ReadReceiptsTunnelProtocol.KEY_ACCOUNT_ID) ?: return
+        if (accountId.isNotEmpty() && !accountId.matches(AUTH_ACCOUNT_ID_PATTERN)) return
+        val tunnels = parseTunnels(data) ?: return
+        val metadataLoading = data.strictBoolean(
+            ReadReceiptsTunnelProtocol.KEY_METADATA_LOADING,
+        ) ?: return
+        val metadata = parseCommittedMetadata(data) ?: return
+        val snapshot = runCatching {
+            ControllerAuthSnapshot(
+                revision = revision,
+                authGeneration = generation,
+                restartRequired = restartRequired,
+                loginState = CloudflareLoginState(authorizationUrl.value, state, error.value),
+                accountId = accountId,
+                tunnels = tunnels,
+                metadataLoading = metadataLoading,
+                committedMetadata = metadata.value,
+            )
+        }.getOrNull() ?: return
+        if (!authSnapshots.accept(binder, snapshot)) return
+        awaitingAuthSnapshot = false
+        authGeneration.updateAndGet { current -> maxOf(current, snapshot.authGeneration) }
+        browserLoginState = snapshot.loginState
+        browserAccountId = snapshot.accountId
+        browserExistingTunnels = snapshot.tunnels
+        committedCredentialMetadata = snapshot.committedMetadata
+        browserMetadataRebindDecision = snapshot.browserMetadataRebindDecision()
+        browserLoginRestartRequired = snapshot.restartRequired
+        credentialMetadataLoading = snapshot.metadataLoading
+        maybeUnbindStoppedService()
+    }
+
+    private fun parseAuthIdentity(data: Bundle): ParsedAuthIdentity? {
+        val nonce = data.strictString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE) ?: return null
+        if (nonce != clientNonce) return null
+        val generation = data.strictLong(ReadReceiptsTunnelProtocol.KEY_AUTH_GENERATION)
+            ?.takeIf { it > 0 } ?: return null
+        val requestId = data.strictLong(ReadReceiptsTunnelProtocol.KEY_AUTH_REQUEST_ID)
+            ?.takeIf { it > 0 } ?: return null
+        val kind = when (data.strictString(ReadReceiptsTunnelProtocol.KEY_AUTH_KIND)) {
+            "BEGIN" -> AuthOperationKind.BEGIN
+            "LIST" -> AuthOperationKind.LIST
+            "SELECT" -> AuthOperationKind.SELECT
+            "CANCEL" -> AuthOperationKind.CANCEL
+            "LOGOUT" -> AuthOperationKind.LOGOUT
+            else -> return null
+        }
+        return ParsedAuthIdentity(AuthOperationKey(generation, requestId), kind)
+    }
+
+    private fun parseTunnels(data: Bundle): List<ExistingTunnel>? {
+        val values = data.get(ReadReceiptsTunnelProtocol.KEY_TUNNELS) as? ArrayList<*> ?: return null
+        val tunnels = values.map { value ->
+            val tunnel = value as? Bundle ?: return null
+            if (tunnel.keySet() != TUNNEL_KEYS) return null
+            val id = tunnel.strictString(ReadReceiptsTunnelProtocol.KEY_TUNNEL_ID) ?: return null
+            val name = tunnel.strictString(ReadReceiptsTunnelProtocol.KEY_TUNNEL_NAME) ?: return null
+            val hostnames = (tunnel.get(ReadReceiptsTunnelProtocol.KEY_HOSTNAMES) as? ArrayList<*>)
+                ?.map { it as? String ?: return null } ?: return null
+            ExistingTunnel.create(id, name, hostnames)?.also {
+                if (it.id != id || it.name != name || it.hostnames != hostnames) return null
+            } ?: return null
+        }
+        if (!AuthSnapshotBounds.isValid(stoppedBrowserLoginState(), "", tunnels, null)) return null
+        return Collections.unmodifiableList(ArrayList(tunnels))
+    }
+
+    private fun parseCommittedMetadata(data: Bundle): NullableValue<CommittedTunnelCredentialMetadata>?
+    {
+        val sourceValue = data.strictNullableString(
+            ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_SOURCE,
+        ) ?: return null
+        val accountId = data.strictNullableString(
+            ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_ACCOUNT_ID,
+        ) ?: return null
+        val tunnelId = data.strictNullableString(
+            ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_TUNNEL_ID,
+        ) ?: return null
+        val tunnelName = data.strictNullableString(
+            ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_TUNNEL_NAME,
+        ) ?: return null
+        val hostname = data.strictNullableString(
+            ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_HOSTNAME,
+        ) ?: return null
+        val port = data.strictInt(ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_ORIGIN_PORT) ?: return null
+        if (sourceValue.value == null) {
+            if (
+                accountId.value != null || tunnelId.value != null || tunnelName.value != null ||
+                hostname.value != null || port != 0
+            ) {
+                return null
+            }
+            return NullableValue(null)
+        }
+        val source = runCatching { TunnelCredentialSource.valueOf(sourceValue.value) }.getOrNull()
+            ?: return null
+        val metadata = CommittedTunnelCredentialMetadata(
+            source = source,
+            accountId = accountId.value ?: return null,
+            tunnelId = tunnelId.value ?: return null,
+            tunnelName = tunnelName.value ?: return null,
+            canonicalHostname = hostname.value ?: return null,
+            fixedOriginPort = port,
+        )
+        val structurallyValid = when (source) {
+            TunnelCredentialSource.BROWSER_LOGIN ->
+                ControllerAuthSnapshot(
+                    revision = 1,
+                    authGeneration = 0,
+                    restartRequired = false,
+                    loginState = stoppedBrowserLoginState(),
+                    accountId = "",
+                    tunnels = emptyList(),
+                    metadataLoading = false,
+                    committedMetadata = metadata,
+                ).browserMetadataRebindDecision() is BrowserMetadataRebindDecision.Replace
+            TunnelCredentialSource.TOKEN ->
+                metadata.accountId.isEmpty() && metadata.tunnelId.isEmpty() &&
+                    metadata.tunnelName.isEmpty() &&
+                    (
+                        metadata.canonicalHostname.isEmpty() && metadata.fixedOriginPort == 0 ||
+                            ReadReceiptsTunnelService.canonicalPublicRoot(
+                                metadata.canonicalHostname,
+                            ) == metadata.canonicalHostname && metadata.fixedOriginPort in 1..65535
+                    )
+        }
+        return NullableValue(metadata).takeIf { structurallyValid }
+    }
+
+    private fun Bundle.strictString(key: String): String? = get(key) as? String
+
+    private fun Bundle.strictNullableString(key: String): NullableValue<String>? {
+        if (!containsKey(key)) return null
+        val value = get(key)
+        if (value != null && value !is String) return null
+        return NullableValue(value as String?)
+    }
+
+    private fun Bundle.strictLong(key: String): Long? = get(key) as? Long
+
+    private fun Bundle.strictInt(key: String): Int? = get(key) as? Int
+
+    private fun Bundle.strictBoolean(key: String): Boolean? = get(key) as? Boolean
+
+    private fun isBoundedAuthError(value: String): Boolean =
+        value.isNotEmpty() && value.length <= MAX_AUTH_ERROR_CHARS &&
+            value.toByteArray(Charsets.UTF_8).size <= MAX_AUTH_ERROR_BYTES &&
+            value.none(Char::isISOControl)
 
     private fun handleStartAck(data: Bundle) {
         val acknowledgedGeneration = data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION)
@@ -404,6 +1001,21 @@ internal object ReadReceiptsTunnelController {
         maxOf(current + 1, SystemClock.elapsedRealtimeNanos())
     }.also(lastIssuedGeneration::set)
 
+    private fun reserveConnectorGeneration(): Long = generation.updateAndGet { current ->
+        maxOf(current + 1, SystemClock.elapsedRealtimeNanos())
+    }
+
+    private fun maybeUnbindStoppedService() {
+        val snapshot = authSnapshots.currentSnapshot()
+        if (
+            status.state == ReadReceiptsTunnelState.STOPPED &&
+            !awaitingAuthSnapshot && pendingAuthMessages.isEmpty() &&
+            snapshot != null && snapshot.authGeneration == 0L && !snapshot.metadataLoading
+        ) {
+            unbind()
+        }
+    }
+
     private fun unbind() {
         if (!bound) return
         runCatching { HostInfo.application.unbindService(connection) }
@@ -421,6 +1033,60 @@ internal object ReadReceiptsTunnelController {
     private const val REBIND_DELAY_MILLIS = 1_000L
     private const val START_HANDOFF_TIMEOUT_MILLIS = 10_000L
     private const val STOP_COMPLETION_TIMEOUT_MILLIS = 20_000L
+    private const val AUTH_OPERATION_TIMEOUT_MILLIS = 35_000L
+    private const val MAX_AUTH_ERROR_CHARS = 256
+    private const val MAX_AUTH_ERROR_BYTES = 512
+    private val AUTH_ACCOUNT_ID_PATTERN = Regex("^[A-Za-z0-9_-]{1,32}$")
+    private val AUTH_TERMINAL_BASE_KEYS =
+        ReadReceiptsTunnelProtocol.AUTH_OPERATION_KEYS +
+            ReadReceiptsTunnelProtocol.KEY_AUTH_TERMINAL
+    private val BEGIN_TERMINAL_RESULT_KEYS = setOf(
+        ReadReceiptsTunnelProtocol.KEY_STATE,
+        ReadReceiptsTunnelProtocol.KEY_AUTHORIZATION_URL,
+    )
+    private val TUNNEL_KEYS = setOf(
+        ReadReceiptsTunnelProtocol.KEY_TUNNEL_ID,
+        ReadReceiptsTunnelProtocol.KEY_TUNNEL_NAME,
+        ReadReceiptsTunnelProtocol.KEY_HOSTNAMES,
+    )
+    private val AUTH_SNAPSHOT_KEYS = setOf(
+        ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE,
+        ReadReceiptsTunnelProtocol.KEY_AUTH_SNAPSHOT_REVISION,
+        ReadReceiptsTunnelProtocol.KEY_AUTH_GENERATION,
+        ReadReceiptsTunnelProtocol.KEY_AUTH_RESTART_REQUIRED,
+        ReadReceiptsTunnelProtocol.KEY_STATE,
+        ReadReceiptsTunnelProtocol.KEY_AUTHORIZATION_URL,
+        ReadReceiptsTunnelProtocol.KEY_ERROR,
+        ReadReceiptsTunnelProtocol.KEY_ACCOUNT_ID,
+        ReadReceiptsTunnelProtocol.KEY_TUNNELS,
+        ReadReceiptsTunnelProtocol.KEY_METADATA_LOADING,
+        ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_SOURCE,
+        ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_ACCOUNT_ID,
+        ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_TUNNEL_ID,
+        ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_TUNNEL_NAME,
+        ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_HOSTNAME,
+        ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_ORIGIN_PORT,
+    )
+
+    private fun stoppedBrowserLoginState(): CloudflareLoginState = CloudflareLoginState(
+        authorizationUrl = null,
+        state = ReadReceiptsTunnelState.STOPPED,
+        error = null,
+    )
+
+    private data class PendingAuthMessage<T>(
+        val key: AuthOperationKey,
+        val kind: AuthOperationKind<T>,
+        val command: Message,
+        val timeout: Runnable,
+    )
+
+    private data class ParsedAuthIdentity(
+        val key: AuthOperationKey,
+        val kind: AuthOperationKind<*>,
+    )
+
+    private data class NullableValue<T>(val value: T?)
 
     private data class PendingStart(
         val generation: Long,
@@ -429,3 +1095,8 @@ internal object ReadReceiptsTunnelController {
         var sent: Boolean = false,
     )
 }
+
+internal class BrowserLoginException(
+    message: String,
+    cause: Throwable? = null,
+) : IllegalStateException(message, cause)

@@ -715,6 +715,16 @@ class ReadReceiptsTunnelService : Service() {
             return
         }
         check(authCoordinator.claimAck(envelope.key, AuthOperationKind.SELECT))
+        val foregroundAvailable = foregroundActive
+        val notificationsAvailable = foregroundAvailable && notificationsVisible()
+        if (!notificationsAvailable) {
+            rejectSelectWithoutNotificationAuthority(
+                envelope,
+                foregroundAvailable,
+                notificationsAvailable,
+            )
+            return
+        }
         sendAuthAck(envelope, accepted = true)
 
         val selection = checkNotNull(envelope.selection)
@@ -778,6 +788,53 @@ class ReadReceiptsTunnelService : Service() {
         }
         authOperationJobs[envelope.key] = AuthOperationJobs(worker, watchdog, commitGate = commitGate)
         worker.start()
+    }
+
+    private fun rejectSelectWithoutNotificationAuthority(
+        envelope: ServiceAuthEnvelope,
+        foregroundAvailable: Boolean,
+        notificationsAvailable: Boolean,
+    ) {
+        val error = if (!foregroundAvailable) {
+            AUTH_SELECT_FOREGROUND_REQUIRED
+        } else {
+            AUTH_SELECT_NOTIFICATION_REQUIRED
+        }
+        sendAuthAck(envelope, accepted = false)
+        val plan = checkNotNull(
+            authCoordinator.planTerminal(
+                envelope.key,
+                AuthOperationKind.SELECT,
+                AuthOperationTerminal.Failed(error),
+            ),
+        )
+        check(authCoordinator.finishTerminal(plan))
+
+        val hasConnectorLifecycle = activeRequest != null || lifecycleJob?.isActive == true
+        if (hasConnectorLifecycle) return
+        val selection = checkNotNull(envelope.selection)
+        val current = authoritativeState.get()
+        if (
+            current.status.state == ReadReceiptsTunnelState.STOPPED &&
+            selection.connectorGeneration >= current.generation
+        ) {
+            authoritativeState.set(
+                AuthoritativeTunnelState(
+                    selection.connectorGeneration,
+                    ReadReceiptsTunnelStatus(
+                        ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                        error = error,
+                        needsNotificationSettings = !notificationsAvailable && foregroundAvailable,
+                    ),
+                ),
+            )
+            listeners.values.forEach(::sendStatus)
+        }
+        if (foregroundActive) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            foregroundActive = false
+            stopSelf()
+        }
     }
 
     private fun prepareSelectedCandidate(
@@ -2312,6 +2369,9 @@ class ReadReceiptsTunnelService : Service() {
         private const val AUTH_BEGIN_FAILED = "无法启动 Cloudflare 登录"
         private const val AUTH_LIST_FAILED = "无法读取 Cloudflare Tunnel 列表"
         private const val AUTH_SELECT_FAILED = "无法验证所选 Cloudflare Tunnel"
+        private const val AUTH_SELECT_FOREGROUND_REQUIRED = "请从可见设置界面启动前台隧道"
+        private const val AUTH_SELECT_NOTIFICATION_REQUIRED =
+            "WeKit 通知已关闭, 请在系统设置中允许通知后重试"
         private const val AUTH_SELECT_STALE = "隧道启动已失效"
         private const val AUTH_CLEANUP_FAILED = "认证清理未完成，请重新启动登录"
         private val RECONNECT_DELAYS_MILLIS = longArrayOf(1_000, 2_000, 4_000, 8_000, 16_000)
