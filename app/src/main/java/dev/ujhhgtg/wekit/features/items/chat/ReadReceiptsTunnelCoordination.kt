@@ -660,6 +660,18 @@ internal class AuthOperationRegistry {
         return true
     }
 
+    /** Adopts service-owned state only while no local request can be superseded. */
+    @Synchronized
+    fun adoptGeneration(generation: Long): Boolean {
+        require(generation > 0)
+        val current = currentGeneration
+        if (current == generation && preparedGeneration == null) return true
+        if (pending.isNotEmpty() || preparedGeneration != null) return false
+        if (current != null && generation < current) return false
+        currentGeneration = generation
+        return true
+    }
+
     @Synchronized
     fun prepareGeneration(generation: Long): Boolean {
         require(generation > 0)
@@ -1340,6 +1352,18 @@ internal class ControllerAuthOperationQueue {
         return registry.replaceGeneration(generation)
     }
 
+    /** Aligns with a live service snapshot without terminating any controller-owned request. */
+    @Synchronized
+    fun adoptGeneration(generation: Long): Boolean {
+        require(generation > 0)
+        val current = currentGeneration
+        if (current == generation) return true
+        if (pending.isNotEmpty() || current != null && generation < current) return false
+        if (!registry.adoptGeneration(generation)) return false
+        currentGeneration = generation
+        return true
+    }
+
     fun <T> enqueue(
         key: AuthOperationKey,
         kind: AuthOperationKind<T>,
@@ -1379,6 +1403,7 @@ internal class ControllerAuthOperationQueue {
         kind: AuthOperationKind<T>,
         binderOwner: Any,
         terminal: AuthOperationTerminal<T>,
+        beforeDelivery: () -> Unit = {},
     ): Boolean {
         synchronized(this) {
             val entry = pending[key] ?: return false
@@ -1389,6 +1414,7 @@ internal class ControllerAuthOperationQueue {
             }
             pending.remove(key)
         }
+        beforeDelivery()
         return registry.complete(key, kind, terminal)
     }
 
@@ -1542,7 +1568,7 @@ internal class ControllerAuthSnapshot(
 }
 
 /** Tracks a service process's snapshot revision without losing cross-process login expectation. */
-internal class ControllerAuthSnapshotTracker {
+internal class ControllerAuthStateStore {
     private var binderOwner: Any? = null
     private var revision = 0L
     private var expectedAuthGeneration = 0L
@@ -1563,19 +1589,26 @@ internal class ControllerAuthSnapshotTracker {
         return true
     }
 
+    /** Completes only the expectation still owned by this exact session generation. */
+    fun completeSessionOperation(generation: Long): Boolean = clearExpectation(generation)
+
     @Synchronized
-    fun accept(owner: Any, incoming: ControllerAuthSnapshot): Boolean {
-        if (binderOwner !== owner) {
-            binderOwner = owner
-            revision = 0
-        }
-        if (incoming.revision <= revision) return false
+    fun accept(
+        owner: Any,
+        incoming: ControllerAuthSnapshot,
+        beforeCommit: () -> Boolean = { true },
+    ): Boolean {
+        val ownerChanged = binderOwner !== owner
+        val currentRevision = if (ownerChanged) 0L else revision
+        if (incoming.revision <= currentRevision) return false
         if (
             incoming.authGeneration > 0 && expectedAuthGeneration > 0 &&
             incoming.authGeneration < expectedAuthGeneration
         ) {
             return false
         }
+        if (!beforeCommit()) return false
+        if (ownerChanged) binderOwner = owner
         revision = incoming.revision
         snapshot = incoming
         if (incoming.authGeneration > 0) expectedAuthGeneration = incoming.authGeneration
@@ -1587,6 +1620,29 @@ internal class ControllerAuthSnapshotTracker {
 
     @Synchronized
     fun currentSnapshot(): ControllerAuthSnapshot? = snapshot
+}
+
+/** Matches one foreground-service start to the SELECT command that caused it. */
+internal class SelectForegroundReadiness {
+    private var generation: Long? = null
+
+    @Synchronized
+    fun onStart(incomingGeneration: Long): Boolean {
+        require(incomingGeneration > 0)
+        val current = generation
+        if (current != null && incomingGeneration < current) return false
+        generation = incomingGeneration
+        return true
+    }
+
+    @Synchronized
+    fun claim(incomingGeneration: Long): Boolean {
+        if (generation != incomingGeneration) return false
+        generation = null
+        return true
+    }
+
+    fun timeout(incomingGeneration: Long): Boolean = claim(incomingGeneration)
 }
 
 internal enum class TunnelCredentialSource {

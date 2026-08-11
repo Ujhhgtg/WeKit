@@ -105,8 +105,10 @@ class ReadReceiptsTunnelService : Service() {
 
     private var lifecycleJob: Job? = null
     private var authorizationTimeout: Job? = null
+    private var selectForegroundTimeout: Job? = null
     private var authorizedCommandSeen = false
     private var foregroundActive = false
+    private val selectForegroundReadiness = SelectForegroundReadiness()
     private val authCoordinator = ServiceAuthCoordinator()
     private val authOperationJobs = mutableMapOf<AuthOperationKey, AuthOperationJobs>()
     private var authCleanupJob: Job? = null
@@ -170,11 +172,28 @@ class ReadReceiptsTunnelService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, notification(status))
         foregroundActive = true
+        val selectGeneration = intent
+            ?.takeIf { it.hasExtra(EXTRA_SELECT_FOREGROUND_GENERATION) }
+            ?.getLongExtra(EXTRA_SELECT_FOREGROUND_GENERATION, 0L)
+            ?.takeIf { it > 0 }
         if (
             intent?.action == ACTION_STOP &&
             intent.getStringExtra(EXTRA_STOP_NONCE) == notificationStopNonce
         ) {
             stopTunnel(generation)
+        } else if (selectGeneration != null && selectForegroundReadiness.onStart(selectGeneration)) {
+            selectForegroundTimeout?.cancel()
+            listeners.values.forEach { sendSelectForegroundReady(it, selectGeneration) }
+            selectForegroundTimeout = scope.launch {
+                delay(AUTHORIZATION_TIMEOUT_MILLIS)
+                withContext(Dispatchers.Main.immediate) {
+                    if (!selectForegroundReadiness.timeout(selectGeneration)) return@withContext
+                    if (activeRequest != null || lifecycleJob?.isActive == true) return@withContext
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    foregroundActive = false
+                    stopSelf()
+                }
+            }
         } else if (!authorizedCommandSeen) {
             authorizationTimeout?.cancel()
             authorizationTimeout = scope.launch {
@@ -192,6 +211,7 @@ class ReadReceiptsTunnelService : Service() {
 
     override fun onDestroy() {
         authorizationTimeout?.cancel()
+        selectForegroundTimeout?.cancel()
         activeRequest = null
         lifecycleJob?.cancel()
         val (priorProcessTeardown, processTeardown) = registerProcessAuthTeardown()
@@ -291,7 +311,7 @@ class ReadReceiptsTunnelService : Service() {
 
     private fun handleAuthMessage(message: Message, expectedKind: ServiceAuthWireKind) {
         val envelope = parseAuthEnvelope(message, expectedKind) ?: return
-        markAuthorizedCommand()
+        if (expectedKind != ServiceAuthWireKind.SELECT) markAuthorizedCommand()
         when (expectedKind) {
             ServiceAuthWireKind.BEGIN -> beginLogin(envelope)
             ServiceAuthWireKind.LIST -> listTunnels(envelope)
@@ -715,6 +735,17 @@ class ReadReceiptsTunnelService : Service() {
             return
         }
         check(authCoordinator.claimAck(envelope.key, AuthOperationKind.SELECT))
+        val selection = checkNotNull(envelope.selection)
+        if (!selectForegroundReadiness.claim(selection.connectorGeneration)) {
+            rejectSelectWithoutNotificationAuthority(
+                envelope,
+                foregroundAvailable = false,
+                notificationsAvailable = false,
+            )
+            return
+        }
+        selectForegroundTimeout?.cancel()
+        markAuthorizedCommand()
         val foregroundAvailable = foregroundActive
         val notificationsAvailable = foregroundAvailable && notificationsVisible()
         if (!notificationsAvailable) {
@@ -727,7 +758,6 @@ class ReadReceiptsTunnelService : Service() {
         }
         sendAuthAck(envelope, accepted = true)
 
-        val selection = checkNotNull(envelope.selection)
         val tunnel = authTunnels.firstOrNull { it.id == selection.tunnelId }
         if (tunnel == null) {
             finishSelectApiFailure(envelope)
@@ -2197,6 +2227,20 @@ class ReadReceiptsTunnelService : Service() {
         runCatching { client.send(message) }
     }
 
+    private fun sendSelectForegroundReady(listener: StatusListener, generation: Long) {
+        val message = Message.obtain(
+            null,
+            ReadReceiptsTunnelProtocol.SELECT_FOREGROUND_READY,
+        ).apply {
+            data = Bundle().apply {
+                putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, listener.nonce)
+                putLong(ReadReceiptsTunnelProtocol.KEY_CONNECTOR_GENERATION, generation)
+            }
+        }
+        runCatching { listener.messenger.send(message) }
+            .onFailure { listeners.remove(listener.messenger.binder) }
+    }
+
     private fun createNotificationChannel() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
@@ -2350,6 +2394,7 @@ class ReadReceiptsTunnelService : Service() {
 
         const val ACTION_START = "dev.ujhhgtg.wekit.action.START_READ_RECEIPTS_TUNNEL"
         const val ACTION_STOP = "dev.ujhhgtg.wekit.action.STOP_READ_RECEIPTS_TUNNEL"
+        const val EXTRA_SELECT_FOREGROUND_GENERATION = "select_foreground_generation"
         private const val EXTRA_STOP_NONCE = "notification_stop_nonce"
         private const val WECHAT_PACKAGE = "com.tencent.mm"
         private const val NOTIFICATION_CHANNEL = "read_receipts_tunnel"
@@ -2422,6 +2467,7 @@ internal object ReadReceiptsTunnelProtocol {
     const val AUTH_ACK = 102
     const val AUTH_TERMINAL = 103
     const val AUTH_SNAPSHOT = 104
+    const val SELECT_FOREGROUND_READY = 105
 
     const val KEY_GENERATION = "generation"
     const val KEY_MODE = "mode"

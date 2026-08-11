@@ -35,12 +35,13 @@ internal object ReadReceiptsTunnelController {
     private val handoffGate = TunnelHandoffGate()
     private val stopCompletion = TunnelStopCompletion()
     private val authOperations = ControllerAuthOperationQueue()
-    private val authSnapshots = ControllerAuthSnapshotTracker()
+    private val authState = ControllerAuthStateStore()
     private val authRequestId = AtomicLong(
         SecureRandom().nextLong().ushr(1).coerceAtLeast(1L),
     )
     private val authGeneration = AtomicLong(SystemClock.elapsedRealtimeNanos())
     private val pendingAuthMessages = linkedMapOf<AuthOperationKey, PendingAuthMessage<*>>()
+    private val pendingSelectReadiness = linkedMapOf<Long, PendingSelectReadiness>()
 
     @Volatile
     private var service: Messenger? = null
@@ -69,34 +70,27 @@ internal object ReadReceiptsTunnelController {
     var credentialExists: Boolean = false
         private set
 
-    @Volatile
-    var browserLoginState: CloudflareLoginState = stoppedBrowserLoginState()
-        private set
+    val browserLoginState: CloudflareLoginState
+        get() = authState.currentSnapshot()?.loginState ?: stoppedBrowserLoginState()
 
-    @Volatile
-    var browserAccountId: String = ""
-        private set
+    val browserAccountId: String
+        get() = authState.currentSnapshot()?.accountId.orEmpty()
 
-    @Volatile
-    var browserExistingTunnels: List<ExistingTunnel> = emptyList()
-        private set
+    val browserExistingTunnels: List<ExistingTunnel>
+        get() = authState.currentSnapshot()?.tunnels ?: emptyList()
 
-    @Volatile
-    var committedCredentialMetadata: CommittedTunnelCredentialMetadata? = null
-        private set
+    val committedCredentialMetadata: CommittedTunnelCredentialMetadata?
+        get() = authState.currentSnapshot()?.committedMetadata
 
-    @Volatile
-    var browserMetadataRebindDecision: BrowserMetadataRebindDecision =
-        BrowserMetadataRebindDecision.Keep
-        private set
+    val browserMetadataRebindDecision: BrowserMetadataRebindDecision
+        get() = authState.currentSnapshot()?.browserMetadataRebindDecision()
+            ?: BrowserMetadataRebindDecision.Keep
 
-    @Volatile
-    var browserLoginRestartRequired: Boolean = false
-        private set
+    val browserLoginRestartRequired: Boolean
+        get() = authState.currentSnapshot()?.restartRequired ?: false
 
-    @Volatile
-    var credentialMetadataLoading: Boolean = true
-        private set
+    val credentialMetadataLoading: Boolean
+        get() = authState.currentSnapshot()?.metadataLoading ?: true
 
     fun verifiedEndpoint(): String? = status
         .takeIf { it.state == ReadReceiptsTunnelState.CONNECTED }
@@ -236,7 +230,7 @@ internal object ReadReceiptsTunnelController {
             kind = AuthOperationKind.BEGIN,
             what = ReadReceiptsTunnelProtocol.BEGIN_LOGIN,
             beginGeneration = true,
-        ).also { browserLoginState = it }
+        )
     }
 
     suspend fun listExistingTunnels(): List<ExistingTunnel> {
@@ -245,7 +239,7 @@ internal object ReadReceiptsTunnelController {
             generation = generation,
             kind = AuthOperationKind.LIST,
             what = ReadReceiptsTunnelProtocol.LIST_TUNNELS,
-        ).also { browserExistingTunnels = it }
+        )
     }
 
     suspend fun selectExistingTunnel(
@@ -262,17 +256,7 @@ internal object ReadReceiptsTunnelController {
         if (fixedPort !in 1..65535) throw authException("回环端口无效")
         val generation = requireExpectedAuthGeneration()
         val connectorGeneration = reserveConnectorGeneration()
-        val started = runCatching {
-            ContextCompat.startForegroundService(
-                HostInfo.application,
-                serviceIntent(HostInfo.application).apply {
-                    action = ReadReceiptsTunnelService.ACTION_START
-                },
-            )
-        }
-        if (started.isFailure) {
-            throw authException("系统阻止了前台隧道服务启动", started.exceptionOrNull())
-        }
+        awaitSelectForegroundReady(connectorGeneration)
         executeAuthOperation<Unit>(
             generation = generation,
             kind = AuthOperationKind.SELECT,
@@ -287,8 +271,6 @@ internal object ReadReceiptsTunnelController {
                 )
             },
         )
-        authSnapshots.clearExpectation(generation)
-        clearBrowserSessionSnapshot()
     }
 
     suspend fun cancelBrowserLogin(): Result<Unit> = clearBrowserLogin(
@@ -311,8 +293,6 @@ internal object ReadReceiptsTunnelController {
             kind = kind,
             what = what,
         )
-        authSnapshots.clearExpectation(generation)
-        clearBrowserSessionSnapshot()
     }
 
     private suspend fun <T> executeAuthOperation(
@@ -326,7 +306,7 @@ internal object ReadReceiptsTunnelController {
         val submit = Runnable {
             if (!continuation.isActive) return@Runnable
             if (beginGeneration) {
-                if (!authSnapshots.expectBegin(generation)) {
+                if (!authState.expectBegin(generation)) {
                     continuation.resumeWithException(authException("登录请求已失效"))
                     return@Runnable
                 }
@@ -345,13 +325,15 @@ internal object ReadReceiptsTunnelController {
                 if (!authOperations.timeout(key, kind)) return@Runnable
                 pendingAuthMessages.remove(key)
             }
-            check(
-                authOperations.enqueue(key, kind) { terminal ->
-                    mainHandler.removeCallbacks(timeout)
-                    pendingAuthMessages.remove(key)
-                    deliverAuthTerminal(continuation, terminal)
-                },
-            )
+            val enqueued = authOperations.enqueue(key, kind) { terminal ->
+                mainHandler.removeCallbacks(timeout)
+                pendingAuthMessages.remove(key)
+                deliverAuthTerminal(continuation, terminal)
+            }
+            if (!enqueued) {
+                continuation.resumeWithException(authException("认证请求已失效"))
+                return@Runnable
+            }
             pendingAuthMessages[key] = PendingAuthMessage(key, kind, command, timeout)
             mainHandler.postDelayed(timeout, AUTH_OPERATION_TIMEOUT_MILLIS)
             sendPendingOrBind(HostInfo.application)
@@ -391,8 +373,61 @@ internal object ReadReceiptsTunnelController {
         pendingAuthMessages.remove(key)
     }
 
+    private suspend fun awaitSelectForegroundReady(connectorGeneration: Long) {
+        suspendCancellableCoroutine { continuation ->
+            val submit = Runnable {
+                if (!continuation.isActive) return@Runnable
+                val timeout = Runnable {
+                    val pending = pendingSelectReadiness.remove(connectorGeneration)
+                        ?: return@Runnable
+                    if (pending.continuation.isActive) {
+                        pending.continuation.resumeWithException(
+                            authException("前台隧道服务启动超时"),
+                        )
+                    }
+                }
+                pendingSelectReadiness[connectorGeneration] = PendingSelectReadiness(
+                    continuation,
+                    timeout,
+                )
+                val started = runCatching {
+                    ContextCompat.startForegroundService(
+                        HostInfo.application,
+                        serviceIntent(HostInfo.application).apply {
+                            action = ReadReceiptsTunnelService.ACTION_START
+                            putExtra(
+                                ReadReceiptsTunnelService.EXTRA_SELECT_FOREGROUND_GENERATION,
+                                connectorGeneration,
+                            )
+                        },
+                    )
+                }
+                if (started.isFailure) {
+                    pendingSelectReadiness.remove(connectorGeneration)
+                    continuation.resumeWithException(
+                        authException(
+                            "系统阻止了前台隧道服务启动",
+                            started.exceptionOrNull(),
+                        ),
+                    )
+                    return@Runnable
+                }
+                mainHandler.postDelayed(timeout, SELECT_FOREGROUND_TIMEOUT_MILLIS)
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) submit.run()
+            else mainHandler.post(submit)
+            continuation.invokeOnCancellation {
+                mainHandler.post {
+                    val pending = pendingSelectReadiness.remove(connectorGeneration)
+                        ?: return@post
+                    mainHandler.removeCallbacks(pending.timeout)
+                }
+            }
+        }
+    }
+
     private fun requireExpectedAuthGeneration(): Long =
-        authSnapshots.lastSeenAuthGeneration().takeIf { it > 0 }
+        authState.lastSeenAuthGeneration().takeIf { it > 0 }
             ?: throw authException("请先启动 Cloudflare 浏览器登录")
 
     private fun nextAuthGeneration(): Long = authGeneration.updateAndGet { current ->
@@ -423,12 +458,6 @@ internal object ReadReceiptsTunnelController {
             },
         )
         putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, clientNonce)
-    }
-
-    private fun clearBrowserSessionSnapshot() {
-        browserLoginState = stoppedBrowserLoginState()
-        browserAccountId = ""
-        browserExistingTunnels = emptyList()
     }
 
     fun openNotificationSettings(context: Context): Result<Unit> = runCatching {
@@ -514,7 +543,7 @@ internal object ReadReceiptsTunnelController {
                 replyTo = incoming
                 data = Bundle().apply {
                     putString(ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE, clientNonce)
-                    authSnapshots.lastSeenAuthGeneration().takeIf { it > 0 }?.let {
+                    authState.lastSeenAuthGeneration().takeIf { it > 0 }?.let {
                         putLong(ReadReceiptsTunnelProtocol.KEY_LAST_SEEN_AUTH_GENERATION, it)
                     }
                 }
@@ -597,6 +626,10 @@ internal object ReadReceiptsTunnelController {
             }
             if (message.what == ReadReceiptsTunnelProtocol.AUTH_SNAPSHOT) {
                 handleAuthSnapshot(message.data)
+                return
+            }
+            if (message.what == ReadReceiptsTunnelProtocol.SELECT_FOREGROUND_READY) {
+                handleSelectForegroundReady(message.data)
                 return
             }
             if (message.what != ReadReceiptsTunnelProtocol.STATUS) return
@@ -733,7 +766,11 @@ internal object ReadReceiptsTunnelController {
             }
             else -> parseNonCompletedTerminal<Unit>(terminalName, data) ?: return
         }
-        authOperations.complete(key, kind, binder, terminal)
+        authOperations.complete(key, kind, binder, terminal) {
+            if (terminal is AuthOperationTerminal.Completed) {
+                authState.completeSessionOperation(key.authGeneration)
+            }
+        }
     }
 
     private fun <T> parseNonCompletedTerminal(
@@ -806,17 +843,26 @@ internal object ReadReceiptsTunnelController {
                 committedMetadata = metadata.value,
             )
         }.getOrNull() ?: return
-        if (!authSnapshots.accept(binder, snapshot)) return
+        if (!authState.accept(binder, snapshot) {
+                snapshot.authGeneration == 0L ||
+                    authOperations.adoptGeneration(snapshot.authGeneration)
+            }
+        ) {
+            return
+        }
         awaitingAuthSnapshot = false
         authGeneration.updateAndGet { current -> maxOf(current, snapshot.authGeneration) }
-        browserLoginState = snapshot.loginState
-        browserAccountId = snapshot.accountId
-        browserExistingTunnels = snapshot.tunnels
-        committedCredentialMetadata = snapshot.committedMetadata
-        browserMetadataRebindDecision = snapshot.browserMetadataRebindDecision()
-        browserLoginRestartRequired = snapshot.restartRequired
-        credentialMetadataLoading = snapshot.metadataLoading
         maybeUnbindStoppedService()
+    }
+
+    private fun handleSelectForegroundReady(data: Bundle) {
+        if (data.keySet() != SELECT_FOREGROUND_READY_KEYS) return
+        val connectorGeneration = data.strictLong(
+            ReadReceiptsTunnelProtocol.KEY_CONNECTOR_GENERATION,
+        )?.takeIf { it > 0 } ?: return
+        val pending = pendingSelectReadiness.remove(connectorGeneration) ?: return
+        mainHandler.removeCallbacks(pending.timeout)
+        if (pending.continuation.isActive) pending.continuation.resume(Unit)
     }
 
     private fun parseAuthIdentity(data: Bundle): ParsedAuthIdentity? {
@@ -1006,7 +1052,7 @@ internal object ReadReceiptsTunnelController {
     }
 
     private fun maybeUnbindStoppedService() {
-        val snapshot = authSnapshots.currentSnapshot()
+        val snapshot = authState.currentSnapshot()
         if (
             status.state == ReadReceiptsTunnelState.STOPPED &&
             !awaitingAuthSnapshot && pendingAuthMessages.isEmpty() &&
@@ -1034,6 +1080,7 @@ internal object ReadReceiptsTunnelController {
     private const val START_HANDOFF_TIMEOUT_MILLIS = 10_000L
     private const val STOP_COMPLETION_TIMEOUT_MILLIS = 20_000L
     private const val AUTH_OPERATION_TIMEOUT_MILLIS = 35_000L
+    private const val SELECT_FOREGROUND_TIMEOUT_MILLIS = 10_000L
     private const val MAX_AUTH_ERROR_CHARS = 256
     private const val MAX_AUTH_ERROR_BYTES = 512
     private val AUTH_ACCOUNT_ID_PATTERN = Regex("^[A-Za-z0-9_-]{1,32}$")
@@ -1067,6 +1114,10 @@ internal object ReadReceiptsTunnelController {
         ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_HOSTNAME,
         ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_ORIGIN_PORT,
     )
+    private val SELECT_FOREGROUND_READY_KEYS = setOf(
+        ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE,
+        ReadReceiptsTunnelProtocol.KEY_CONNECTOR_GENERATION,
+    )
 
     private fun stoppedBrowserLoginState(): CloudflareLoginState = CloudflareLoginState(
         authorizationUrl = null,
@@ -1078,6 +1129,11 @@ internal object ReadReceiptsTunnelController {
         val key: AuthOperationKey,
         val kind: AuthOperationKind<T>,
         val command: Message,
+        val timeout: Runnable,
+    )
+
+    private data class PendingSelectReadiness(
+        val continuation: CancellableContinuation<Unit>,
         val timeout: Runnable,
     )
 

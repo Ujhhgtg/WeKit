@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -89,7 +90,7 @@ class ReadReceiptsTunnelControllerAuthCoordinationTest {
 
     @Test
     fun `snapshot revision is binder scoped while restart preserves the expected auth generation`() {
-        val tracker = ControllerAuthSnapshotTracker()
+        val tracker = ControllerAuthStateStore()
         val firstBinder = Any()
         val replacementBinder = Any()
 
@@ -232,6 +233,91 @@ class ReadReceiptsTunnelControllerAuthCoordinationTest {
             (snapshot.tunnels as MutableList<ExistingTunnel>).clear()
         }
     }
+
+    @Test
+    fun `live snapshot generation adoption enables every non begin operation`() {
+        val queue = ControllerAuthOperationQueue()
+
+        assertTrue(queue.adoptGeneration(60))
+        assertQueueOperation(queue, AuthOperationKey(60, 1), AuthOperationKind.LIST)
+        assertQueueOperation(queue, AuthOperationKey(60, 2), AuthOperationKind.SELECT)
+        assertQueueOperation(queue, AuthOperationKey(60, 3), AuthOperationKind.CANCEL)
+        assertQueueOperation(queue, AuthOperationKey(60, 4), AuthOperationKind.LOGOUT)
+    }
+
+    @Test
+    fun `generation adoption never supersedes an existing queue owner`() {
+        val queue = ControllerAuthOperationQueue()
+        val key = AuthOperationKey(61, 1)
+        val terminals = mutableListOf<AuthOperationTerminal<List<ExistingTunnel>>>()
+
+        assertTrue(queue.replaceGeneration(61))
+        assertTrue(queue.enqueue(key, AuthOperationKind.LIST, terminals::add))
+        assertTrue(queue.adoptGeneration(61))
+        assertFalse(queue.adoptGeneration(62))
+        assertTrue(terminals.isEmpty())
+        assertTrue(queue.cancel(key, AuthOperationKind.LIST))
+        assertEquals(listOf(AuthOperationTerminal.Cancelled), terminals)
+        assertTrue(queue.adoptGeneration(62))
+    }
+
+    @Test
+    fun `delayed old session completion cannot mutate a newer authoritative snapshot`() {
+        val state = ControllerAuthStateStore()
+        val binder = Any()
+        val oldSnapshot = authorizedControllerSnapshot(70, revision = 1)
+        val newerSnapshot = authorizedControllerSnapshot(71, revision = 2)
+
+        assertTrue(state.expectBegin(70))
+        assertTrue(state.accept(binder, oldSnapshot))
+        assertTrue(state.expectBegin(71))
+        assertTrue(state.accept(binder, newerSnapshot))
+
+        assertFalse(state.completeSessionOperation(70))
+        assertSame(newerSnapshot, state.currentSnapshot())
+        assertEquals(71, state.lastSeenAuthGeneration())
+    }
+
+    @Test
+    fun `foreground readiness is matching once and an old timeout cannot clear a newer start`() {
+        val readiness = SelectForegroundReadiness()
+
+        assertTrue(readiness.onStart(80))
+        assertFalse(readiness.claim(79))
+        assertTrue(readiness.claim(80))
+        assertFalse(readiness.claim(80))
+        assertFalse(readiness.timeout(80))
+
+        assertTrue(readiness.onStart(81))
+        assertTrue(readiness.onStart(82))
+        assertFalse(readiness.timeout(81))
+        assertTrue(readiness.claim(82))
+    }
+
+    private fun <T> assertQueueOperation(
+        queue: ControllerAuthOperationQueue,
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
+    ) {
+        val terminals = mutableListOf<AuthOperationTerminal<T>>()
+        assertTrue(queue.enqueue(key, kind, terminals::add))
+        assertTrue(queue.cancel(key, kind))
+        assertEquals(listOf(AuthOperationTerminal.Cancelled), terminals)
+    }
+
+    private fun authorizedControllerSnapshot(
+        generation: Long,
+        revision: Long,
+    ): ControllerAuthSnapshot = controllerSnapshot(
+        revision = revision,
+        authGeneration = generation,
+        loginState = CloudflareLoginState(
+            AUTHORIZATION_URL,
+            ReadReceiptsTunnelState.CONNECTED,
+            null,
+        ),
+        accountId = "account_1",
+    )
 
     private fun controllerSnapshot(
         revision: Long = 1,
