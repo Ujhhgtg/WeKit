@@ -159,10 +159,20 @@ object ReadReceiptsConfigurationCodec {
         require(value.builtInPort in 1..65535)
         require(value.tunnelMode.isNotBlank())
         val canonicalThirdPartyUrl = normalizeThirdPartyReadReceiptEndpoint(value.thirdPartyUrl)
-        return if (canonicalThirdPartyUrl != null) {
-            value.copy(thirdPartyUrl = canonicalThirdPartyUrl)
-        } else {
-            value
+        return when (value.mode) {
+            ReadReceiptsServerMode.THIRD_PARTY -> when {
+                value.thirdPartyUrl.isEmpty() -> value
+                canonicalThirdPartyUrl != null -> value.copy(
+                    thirdPartyUrl = canonicalThirdPartyUrl,
+                )
+                else -> throw IllegalArgumentException("第三方服务器地址无效")
+            }
+
+            ReadReceiptsServerMode.BUILT_IN -> if (canonicalThirdPartyUrl != null) {
+                value.copy(thirdPartyUrl = canonicalThirdPartyUrl)
+            } else {
+                value
+            }
         }
     }
 

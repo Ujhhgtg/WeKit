@@ -35,6 +35,13 @@ class ReadReceiptRecordTest {
     }
 
     @Test
+    fun `rejects oversized raw endpoint hidden by trailing slashes`() {
+        val endpoint = "https://receipts.example" + "/".repeat(2048)
+
+        assertNull(normalizeThirdPartyReadReceiptEndpoint(endpoint))
+    }
+
+    @Test
     fun `round trips built in logical endpoint`() {
         val record = ReadReceiptRecord(
             "abcdef0123456789",

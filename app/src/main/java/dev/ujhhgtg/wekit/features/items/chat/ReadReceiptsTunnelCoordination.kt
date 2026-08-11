@@ -449,14 +449,14 @@ internal data class StopRegistration(
 
 internal data class StopDrain(
     val matched: Boolean,
-    val callbacks: List<() -> Unit> = emptyList(),
+    val callbacks: List<(Result<Unit>) -> Unit> = emptyList(),
 )
 
 /** Collects concurrent stop callers and lets exactly one terminal path drain their callbacks. */
 internal class TunnelStopCompletion {
     private data class Pending(
         var generation: Long,
-        val callbacks: MutableList<() -> Unit>,
+        val callbacks: MutableList<(Result<Unit>) -> Unit>,
     )
 
     private var pending: Pending? = null
@@ -464,7 +464,7 @@ internal class TunnelStopCompletion {
 
     @Synchronized
     fun register(
-        callback: (() -> Unit)?,
+        callback: ((Result<Unit>) -> Unit)?,
         latestIssuedGeneration: Long = Long.MIN_VALUE,
         generationFactory: () -> Long,
     ): StopRegistration {
@@ -481,7 +481,9 @@ internal class TunnelStopCompletion {
         val generation = generationFactory()
         pending = Pending(
             generation,
-            mutableListOf<() -> Unit>().apply { if (callback != null) add(callback) },
+            mutableListOf<(Result<Unit>) -> Unit>().apply {
+                if (callback != null) add(callback)
+            },
         )
         return StopRegistration(generation, shouldSend = true)
     }

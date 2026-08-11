@@ -236,6 +236,43 @@ internal fun finishNotificationRejectionRestore(
     }
 }
 
+internal fun finishBuiltInStackStop(
+    tunnelResult: Result<Unit>,
+    stopOrigin: (((Long, OriginRequestTerminal<Unit>) -> Unit) -> Unit),
+    onFinished: (Long, OriginRequestTerminal<Unit>) -> Unit,
+) {
+    stopOrigin { generation, originTerminal ->
+        val terminal = when (originTerminal) {
+            is OriginRequestTerminal.Completed -> OriginRequestTerminal.Completed(
+                tunnelResult.fold(
+                    onSuccess = { originTerminal.result },
+                    onFailure = { Result.failure(it) },
+                ),
+            )
+
+            OriginRequestTerminal.Superseded -> OriginRequestTerminal.Superseded
+        }
+        onFinished(generation, terminal)
+    }
+}
+
+internal fun configurationRollbackTerminal(
+    originalFailure: Throwable,
+    restartTerminal: OriginRequestTerminal<Unit>,
+): OriginRequestTerminal<Unit> = when (restartTerminal) {
+    is OriginRequestTerminal.Completed -> OriginRequestTerminal.Completed(
+        if (restartTerminal.result.isSuccess) {
+            Result.failure(originalFailure)
+        } else {
+            Result.failure(
+                IllegalStateException("候选配置失败，且无法恢复此前服务"),
+            )
+        },
+    )
+
+    OriginRequestTerminal.Superseded -> OriginRequestTerminal.Superseded
+}
+
 /** Coalesces a stack stop without collapsing [OriginRequestTerminal.Superseded] into failure. */
 internal class CoalescedOriginCallbacks<T> {
     private var callbacks: MutableList<(OriginRequestTerminal<T>) -> Unit>? = null
@@ -1027,16 +1064,30 @@ object ReadReceipts : ClickableFeature(),
                             finishSuperseded()
                             return@stopBuiltInStack
                         }
+                        val stopFailure = stopTerminal.result.exceptionOrNull()
+                        if (stopFailure != null) {
+                            if (owner.finishIfCurrent()) {
+                                onFinished(
+                                    OriginRequestTerminal.Completed(
+                                        Result.failure(stopFailure),
+                                    ),
+                                )
+                            } else {
+                                finishSuperseded()
+                            }
+                            return@stopBuiltInStack
+                        }
                         if (previousWasActive) {
                             startBuiltInStack(previous) { restartTerminal ->
-                                when (restartTerminal) {
+                                when (
+                                    val rollbackTerminal = configurationRollbackTerminal(
+                                        error,
+                                        restartTerminal,
+                                    )
+                                ) {
                                     is OriginRequestTerminal.Completed -> {
                                         if (owner.finishIfCurrent()) {
-                                            onFinished(
-                                                OriginRequestTerminal.Completed(
-                                                    Result.failure(error),
-                                                ),
-                                            )
+                                            onFinished(rollbackTerminal)
                                         } else {
                                             finishSuperseded()
                                         }
@@ -1270,8 +1321,11 @@ object ReadReceipts : ClickableFeature(),
         onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
     ) {
         if (!builtInStopCallbacks.register(onFinished)) return
-        ReadReceiptsTunnelController.stop {
-            stopOriginTracked { generation, terminal ->
+        ReadReceiptsTunnelController.stop { tunnelResult ->
+            finishBuiltInStackStop(
+                tunnelResult = tunnelResult,
+                stopOrigin = ::stopOriginTracked,
+            ) { generation, terminal ->
                 when (terminal) {
                     is OriginRequestTerminal.Completed -> {
                         builtInStopCallbacks.complete(

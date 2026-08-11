@@ -556,6 +556,7 @@ class ReadReceiptsTunnelCoordinationTest {
     fun `sixteen stop callers each complete once while terminal races drain once`() {
         val completions = TunnelStopCompletion()
         val callbackCounts = AtomicIntegerArray(16)
+        val callbackFailures = AtomicIntegerArray(16)
         val stopSends = AtomicInteger()
         val registrations = ConcurrentLinkedQueue<StopRegistration>()
         val registrationReady = CountDownLatch(16)
@@ -565,7 +566,10 @@ class ReadReceiptsTunnelCoordinationTest {
                 registrationReady.countDown()
                 register.await()
                 registrations += completions.register(
-                    { callbackCounts.incrementAndGet(index) },
+                    { result ->
+                        callbackCounts.incrementAndGet(index)
+                        if (result.isFailure) callbackFailures.incrementAndGet(index)
+                    },
                 ) {
                     stopSends.incrementAndGet()
                     41
@@ -588,7 +592,7 @@ class ReadReceiptsTunnelCoordinationTest {
                 val drain = completions.complete(41)
                 if (drain.matched) matchedTerminals.incrementAndGet()
                 terminalReturnedCallbacks.addAndGet(drain.callbacks.size)
-                drain.callbacks.forEach { it() }
+                drain.callbacks.forEach { it(Result.success(Unit)) }
             }
         }
 
@@ -602,8 +606,72 @@ class ReadReceiptsTunnelCoordinationTest {
         assertEquals(16, matchedTerminals.get())
         assertEquals(16, terminalReturnedCallbacks.get())
         repeat(16) { assertEquals(1, callbackCounts.get(it), "callback $it") }
+        repeat(16) { assertEquals(0, callbackFailures.get(it), "callback $it") }
         assertTrue(completions.complete(41).callbacks.isEmpty())
         assertNull(completions.pendingGeneration())
+    }
+
+    @Test
+    fun `stop success and timeout deliver distinct typed results once`() {
+        val completions = TunnelStopCompletion()
+        val nextGeneration = AtomicLong()
+        val successResults = mutableListOf<Result<Unit>>()
+        val timeoutResults = mutableListOf<Result<Unit>>()
+
+        val successful = completions.register({ result -> successResults += result }) {
+            nextGeneration.incrementAndGet()
+        }
+        completions.complete(successful.generation).callbacks.forEach {
+            it(Result.success(Unit))
+        }
+
+        val timedOut = completions.register({ result -> timeoutResults += result }) {
+            nextGeneration.incrementAndGet()
+        }
+        completions.completeTimeout(timedOut.generation, timedOut.generation).callbacks.forEach {
+            it(Result.failure(IllegalStateException("隧道停止超时")))
+        }
+
+        assertEquals(1, successResults.size)
+        assertTrue(successResults.single().isSuccess)
+        assertEquals(1, timeoutResults.size)
+        assertTrue(timeoutResults.single().isFailure)
+        assertEquals("隧道停止超时", timeoutResults.single().exceptionOrNull()!!.message)
+    }
+
+    @Test
+    fun `tunnel stop failure still tears down origin and wins stack result`() {
+        val originStops = AtomicInteger()
+        val delivered = AtomicReference<OriginRequestTerminal<Unit>>()
+
+        finishBuiltInStackStop(
+            tunnelResult = Result.failure(IllegalStateException("隧道停止超时")),
+            stopOrigin = { complete ->
+                originStops.incrementAndGet()
+                complete(7, OriginRequestTerminal.Completed(Result.success(Unit)))
+            },
+            onFinished = { _, terminal -> delivered.set(terminal) },
+        )
+
+        assertEquals(1, originStops.get())
+        val completed = delivered.get() as OriginRequestTerminal.Completed
+        assertTrue(completed.result.isFailure)
+        assertEquals("隧道停止超时", completed.result.exceptionOrNull()!!.message)
+    }
+
+    @Test
+    fun `rollback restart failure is surfaced without connector details`() {
+        val terminal = configurationRollbackTerminal(
+            originalFailure = IllegalStateException("candidate failed"),
+            restartTerminal = OriginRequestTerminal.Completed(
+                Result.failure(IllegalStateException("token=raw-connector-secret")),
+            ),
+        ) as OriginRequestTerminal.Completed
+
+        assertTrue(terminal.result.isFailure)
+        val message = terminal.result.exceptionOrNull()!!.message!!
+        assertEquals("候选配置失败，且无法恢复此前服务", message)
+        assertFalse(message.contains("raw-connector-secret"))
     }
 
     @Test
@@ -614,7 +682,7 @@ class ReadReceiptsTunnelCoordinationTest {
         val secondCallback = AtomicInteger()
 
         val firstStop = completions.register(
-            callback = firstCallback::incrementAndGet,
+            callback = { firstCallback.incrementAndGet() },
             latestIssuedGeneration = issuedGeneration.get(),
             generationFactory = issuedGeneration::incrementAndGet,
         )
@@ -631,7 +699,7 @@ class ReadReceiptsTunnelCoordinationTest {
         assertEquals(0, firstCallback.get())
 
         val upgradedStop = completions.register(
-            callback = secondCallback::incrementAndGet,
+            callback = { secondCallback.incrementAndGet() },
             latestIssuedGeneration = issuedGeneration.get(),
             generationFactory = issuedGeneration::incrementAndGet,
         )
@@ -650,7 +718,9 @@ class ReadReceiptsTunnelCoordinationTest {
         )
         assertTrue(terminal.matched)
         assertEquals(2, terminal.callbacks.size)
-        terminal.callbacks.forEach { it() }
+        terminal.callbacks.forEach {
+            it(Result.failure(IllegalStateException("隧道停止超时")))
+        }
         assertEquals(1, firstCallback.get())
         assertEquals(1, secondCallback.get())
         assertTrue(completions.complete(upgradedStop.generation).callbacks.isEmpty())
@@ -665,7 +735,7 @@ class ReadReceiptsTunnelCoordinationTest {
         val sentGeneration = AtomicLong(-1)
 
         val stop = completions.register(
-            callback = stopCallback::incrementAndGet,
+            callback = { stopCallback.incrementAndGet() },
             latestIssuedGeneration = issuedGeneration.get(),
             generationFactory = issuedGeneration::incrementAndGet,
         )
@@ -686,7 +756,9 @@ class ReadReceiptsTunnelCoordinationTest {
 
         val terminal = completions.completeTimeout(stop.generation, issuedGeneration.get())
         assertTrue(terminal.matched)
-        terminal.callbacks.forEach { it() }
+        terminal.callbacks.forEach {
+            it(Result.failure(IllegalStateException("隧道停止超时")))
+        }
         assertEquals(1, stopCallback.get())
         assertTrue(completions.complete(stop.generation).callbacks.isEmpty())
 
@@ -708,7 +780,7 @@ class ReadReceiptsTunnelCoordinationTest {
         val startTerminal = AtomicReference<OriginRequestTerminal<Unit>>()
 
         val stop = completions.register(
-            callback = stopCallback::incrementAndGet,
+            callback = { stopCallback.incrementAndGet() },
             latestIssuedGeneration = issuedGeneration.get(),
             generationFactory = issuedGeneration::incrementAndGet,
         )
@@ -736,7 +808,9 @@ class ReadReceiptsTunnelCoordinationTest {
             authoritativeGeneration = issuedGeneration.get(),
         )
         assertTrue(drain.matched)
-        drain.callbacks.forEach { it() }
+        drain.callbacks.forEach {
+            it(Result.failure(IllegalStateException("隧道停止超时")))
+        }
         assertEquals(1, stopCallback.get())
     }
 

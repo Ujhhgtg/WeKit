@@ -165,7 +165,7 @@ internal object ReadReceiptsTunnelController {
         )
     }
 
-    fun stop(onStopped: (() -> Unit)? = null) {
+    fun stop(onStopped: ((Result<Unit>) -> Unit)? = null) {
         handoffGate.drainPending(
             pendingGeneration = { pendingStart?.generation },
             supersede = ::supersedePendingStart,
@@ -196,7 +196,10 @@ internal object ReadReceiptsTunnelController {
                         ReadReceiptsTunnelState.FAILED,
                         error = "隧道停止超时; 已继续停止回环服务器",
                     )
-                    drain.callbacks.forEach { callback -> callback() }
+                    val failure = Result.failure<Unit>(
+                        IllegalStateException("隧道停止超时"),
+                    )
+                    drain.callbacks.forEach { callback -> callback(failure) }
                 }
             },
             STOP_COMPLETION_TIMEOUT_MILLIS,
@@ -527,7 +530,12 @@ internal object ReadReceiptsTunnelController {
                 error = "无法连接 WeKit 隧道服务",
             )
             failPendingStart(IllegalStateException("无法连接 WeKit 隧道服务"))
-            stopCompletion.pendingGeneration()?.let(::completeStop)
+            stopCompletion.pendingGeneration()?.let { stoppingGeneration ->
+                completeStop(
+                    stoppingGeneration,
+                    Result.failure(IllegalStateException("无法确认隧道已停止")),
+                )
+            }
             if (authOperations.unsentKeys().isNotEmpty()) {
                 mainHandler.postDelayed({ bind(HostInfo.application) }, REBIND_DELAY_MILLIS)
             }
@@ -657,7 +665,7 @@ internal object ReadReceiptsTunnelController {
                 if (!drain.matched) {
                     ReadReceipts.onTunnelServiceStopped()
                 } else {
-                    drain.callbacks.forEach { callback -> callback() }
+                    drain.callbacks.forEach { callback -> callback(Result.success(Unit)) }
                 }
                 maybeUnbindStoppedService()
             }
@@ -1039,10 +1047,13 @@ internal object ReadReceiptsTunnelController {
         pending.completion.supersede()
     }
 
-    private fun completeStop(expectedGeneration: Long) {
+    private fun completeStop(
+        expectedGeneration: Long,
+        result: Result<Unit> = Result.success(Unit),
+    ) {
         val drain = stopCompletion.complete(expectedGeneration)
         if (!drain.matched) return
-        drain.callbacks.forEach { callback -> callback() }
+        drain.callbacks.forEach { callback -> callback(result) }
     }
 
     private fun nextGeneration(): Long = generation.updateAndGet { current ->

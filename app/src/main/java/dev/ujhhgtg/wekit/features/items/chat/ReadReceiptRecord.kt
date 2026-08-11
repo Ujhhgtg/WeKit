@@ -13,10 +13,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 private const val MAX_THIRD_PARTY_ENDPOINT_LENGTH = 2048
 
 internal fun normalizeThirdPartyReadReceiptEndpoint(value: String): String? {
+    if (value.length > MAX_THIRD_PARTY_ENDPOINT_LENGTH) return null
     val trimmed = value.trimEnd('/')
     if (
-        trimmed.isBlank() || trimmed.length > MAX_THIRD_PARTY_ENDPOINT_LENGTH ||
-        trimmed != trimmed.trim() || trimmed.any(Char::isWhitespace)
+        trimmed.isBlank() || trimmed != trimmed.trim() || trimmed.any(Char::isWhitespace)
     ) {
         return null
     }
