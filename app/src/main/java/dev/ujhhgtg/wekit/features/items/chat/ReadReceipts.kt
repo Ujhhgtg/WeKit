@@ -155,6 +155,54 @@ internal class ConnectionTransactionOwnership(
     }
 }
 
+/** Owns configuration persistence across delayed connection and metadata continuations. */
+internal class ConfigurationTransactionOwnership {
+    private var nextOwnerId = 0L
+    private var currentOwnerId: Long? = null
+
+    @Synchronized
+    fun acquire(): ConfigurationTransactionOwner {
+        val ownerId = ++nextOwnerId
+        currentOwnerId = ownerId
+        return ConfigurationTransactionOwner(this, ownerId)
+    }
+
+    @Synchronized
+    fun supersede() {
+        currentOwnerId = null
+    }
+
+    @Synchronized
+    internal fun isCurrent(ownerId: Long): Boolean = currentOwnerId == ownerId
+
+    @Synchronized
+    internal fun runIfCurrent(ownerId: Long, action: () -> Unit): Boolean {
+        if (currentOwnerId != ownerId) return false
+        action()
+        return true
+    }
+
+    @Synchronized
+    internal fun finishIfCurrent(ownerId: Long, action: () -> Unit): Boolean {
+        if (currentOwnerId != ownerId) return false
+        action()
+        currentOwnerId = null
+        return true
+    }
+}
+
+internal class ConfigurationTransactionOwner(
+    private val ownership: ConfigurationTransactionOwnership,
+    private val ownerId: Long,
+) {
+    fun isCurrent(): Boolean = ownership.isCurrent(ownerId)
+
+    fun runIfCurrent(action: () -> Unit): Boolean = ownership.runIfCurrent(ownerId, action)
+
+    fun finishIfCurrent(action: () -> Unit = {}): Boolean =
+        ownership.finishIfCurrent(ownerId, action)
+}
+
 /** Restores a notification-rejected current transaction, or only propagates replacement. */
 internal fun finishNotificationRejectionRestore(
     stopTerminal: OriginRequestTerminal<Unit>,
@@ -254,6 +302,7 @@ object ReadReceipts : ClickableFeature(),
     private val originLifecycleMutex = Mutex()
     private val originRequestBoundary = OriginRequestBoundary()
     private val builtInStopCallbacks = CoalescedOriginCallbacks<Unit>()
+    private val configurationTransactionOwnership = ConfigurationTransactionOwnership()
 
     private data class OriginRequest(
         val generation: Long,
@@ -282,6 +331,11 @@ object ReadReceipts : ClickableFeature(),
     }
 
     private fun saveConfiguration(value: ReadReceiptsConfiguration) {
+        configurationTransactionOwnership.supersede()
+        persistConfiguration(value)
+    }
+
+    private fun persistConfiguration(value: ReadReceiptsConfiguration) {
         val encoded = ReadReceiptsConfigurationCodec.encode(value)
         val canonical = ReadReceiptsConfigurationCodec.decode(encoded)!!
         synchronized(configurationLock) {
@@ -682,13 +736,12 @@ object ReadReceipts : ClickableFeature(),
         selectedTunnelName = metadata.tunnelName,
     )
 
-    private fun reconcileBrowserConfiguration(
-        force: Boolean,
+    private fun authoritativeBrowserMetadata(
         expectedTunnelId: String? = null,
         expectedHostname: String? = null,
         expectedPort: Int? = null,
         requireVerifiedEndpoint: Boolean = false,
-    ): ReadReceiptsConfiguration? {
+    ): CommittedBrowserTunnelMetadata? {
         val metadata = when (val decision =
             ReadReceiptsTunnelController.browserMetadataRebindDecision
         ) {
@@ -704,41 +757,63 @@ object ReadReceipts : ClickableFeature(),
         ) {
             return null
         }
+        return metadata
+    }
 
+    private fun authoritativeBrowserConfiguration(
+        base: ReadReceiptsConfiguration,
+        expectedTunnelId: String? = null,
+        expectedHostname: String? = null,
+        expectedPort: Int? = null,
+        requireVerifiedEndpoint: Boolean = false,
+    ): ReadReceiptsConfiguration? = authoritativeBrowserMetadata(
+        expectedTunnelId = expectedTunnelId,
+        expectedHostname = expectedHostname,
+        expectedPort = expectedPort,
+        requireVerifiedEndpoint = requireVerifiedEndpoint,
+    )?.let { browserConfiguration(base, it) }
+
+    /** Lifecycle-only persistence for an already-selected Browser configuration. */
+    private fun reconcileActiveBrowserConfiguration(): ReadReceiptsConfiguration? {
         val current = configuration()
-        val activeBrowserAuthority =
-            tunnelMode(current) == ReadReceiptsTunnelMode.BROWSER_LOGIN ||
-                ReadReceiptsTunnelController.verifiedEndpoint() == metadata.canonicalHostname
-        if (!force && !activeBrowserAuthority) return null
+        if (tunnelMode(current) != ReadReceiptsTunnelMode.BROWSER_LOGIN) return null
 
-        val reconciled = browserConfiguration(current, metadata)
+        val reconciled = authoritativeBrowserConfiguration(current) ?: return null
         if (reconciled != current) saveConfiguration(reconciled)
         return reconciled
     }
 
     private suspend fun awaitBrowserConfiguration(
+        owner: ConfigurationTransactionOwner,
+        base: ReadReceiptsConfiguration,
         expectedTunnelId: String,
         expectedHostname: String,
         expectedPort: Int,
         requireVerifiedEndpoint: Boolean,
         maxAttempts: Int?,
-    ): ReadReceiptsConfiguration? {
+    ): OriginRequestTerminal<ReadReceiptsConfiguration>? {
         var attempts = 0
         while (maxAttempts == null || attempts < maxAttempts) {
             currentCoroutineContext().ensureActive()
-            val reconciled = withContext(Dispatchers.Main.immediate) {
+            if (!owner.isCurrent()) return OriginRequestTerminal.Superseded
+            val authoritative = withContext(Dispatchers.Main.immediate) {
+                if (!owner.isCurrent()) return@withContext OriginRequestTerminal.Superseded
                 if (attempts % BROWSER_METADATA_RECONCILE_ATTEMPTS == 0) {
                     ReadReceiptsTunnelController.refresh()
                 }
-                reconcileBrowserConfiguration(
-                    force = true,
+                if (!owner.isCurrent()) return@withContext OriginRequestTerminal.Superseded
+                val reconciled = authoritativeBrowserConfiguration(
+                    base = base,
                     expectedTunnelId = expectedTunnelId,
                     expectedHostname = expectedHostname,
                     expectedPort = expectedPort,
                     requireVerifiedEndpoint = requireVerifiedEndpoint,
                 )
+                reconciled?.let {
+                    OriginRequestTerminal.Completed(Result.success(it))
+                }
             }
-            if (reconciled != null) return reconciled
+            if (authoritative != null) return authoritative
             attempts++
             delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS)
         }
@@ -746,6 +821,7 @@ object ReadReceipts : ClickableFeature(),
     }
 
     private fun startBrowserSelection(
+        owner: ConfigurationTransactionOwner,
         candidate: ReadReceiptsConfiguration,
         onCommitPending: () -> Unit,
         onFinished: (OriginRequestTerminal<ReadReceiptsConfiguration>) -> Unit,
@@ -760,6 +836,8 @@ object ReadReceipts : ClickableFeature(),
                         fixedPort = port,
                     )
                     val authoritative = awaitBrowserConfiguration(
+                        owner = owner,
+                        base = candidate,
                         expectedTunnelId = candidate.selectedTunnelId,
                         expectedHostname = candidate.hostname,
                         expectedPort = port,
@@ -767,34 +845,31 @@ object ReadReceipts : ClickableFeature(),
                         maxAttempts = BROWSER_METADATA_RECONCILE_ATTEMPTS,
                     )
                     withContext(Dispatchers.Main.immediate) {
-                        if (authoritative != null) {
-                            onFinished(
-                                OriginRequestTerminal.Completed(Result.success(authoritative)),
-                            )
-                        } else if (selection.isSuccess) {
-                            onCommitPending()
-                        } else {
-                            complete(
+                        when {
+                            authoritative != null -> onFinished(authoritative)
+                            selection.isSuccess && owner.isCurrent() -> onCommitPending()
+                            selection.isSuccess -> onFinished(OriginRequestTerminal.Superseded)
+                            else -> complete(
                                 OriginRequestTerminal.Completed(
                                     Result.failure(selection.exceptionOrNull()!!),
                                 ),
                             )
                         }
                     }
-                    if (authoritative == null && selection.isSuccess) {
-                        val reconciled = checkNotNull(
-                            awaitBrowserConfiguration(
-                                expectedTunnelId = candidate.selectedTunnelId,
-                                expectedHostname = candidate.hostname,
-                                expectedPort = port,
-                                requireVerifiedEndpoint = false,
-                                maxAttempts = null,
-                            ),
+                    if (
+                        authoritative == null && selection.isSuccess && owner.isCurrent()
+                    ) {
+                        val reconciled = awaitBrowserConfiguration(
+                            owner = owner,
+                            base = candidate,
+                            expectedTunnelId = candidate.selectedTunnelId,
+                            expectedHostname = candidate.hostname,
+                            expectedPort = port,
+                            requireVerifiedEndpoint = false,
+                            maxAttempts = null,
                         )
                         withContext(Dispatchers.Main.immediate) {
-                            onFinished(
-                                OriginRequestTerminal.Completed(Result.success(reconciled)),
-                            )
+                            onFinished(reconciled ?: OriginRequestTerminal.Superseded)
                         }
                     }
                 }
@@ -818,10 +893,12 @@ object ReadReceipts : ClickableFeature(),
         candidate: ReadReceiptsConfiguration,
         starter: (
             ReadReceiptsConfiguration,
+            ConfigurationTransactionOwner,
             (OriginRequestTerminal<ReadReceiptsConfiguration>) -> Unit,
         ) -> Unit,
         onFinished: (OriginRequestTerminal<Unit>) -> Unit,
     ) {
+        val owner = configurationTransactionOwnership.acquire()
         val previous = configuration()
         val candidateMode = tunnelMode(candidate)
         val canonicalCandidate = if (
@@ -832,6 +909,7 @@ object ReadReceipts : ClickableFeature(),
         ) {
             val canonicalHostname = ReadReceiptsTunnelService.canonicalPublicRoot(candidate.hostname)
                 ?: run {
+                    owner.finishIfCurrent()
                     onFinished(
                         OriginRequestTerminal.Completed(
                             Result.failure(
@@ -851,6 +929,7 @@ object ReadReceipts : ClickableFeature(),
             candidateMode == ReadReceiptsTunnelMode.BROWSER_LOGIN &&
             !ExistingTunnel.isCanonicalId(canonicalCandidate.selectedTunnelId)
         ) {
+            owner.finishIfCurrent()
             onFinished(
                 OriginRequestTerminal.Completed(
                     Result.failure(IllegalArgumentException("请选择有效的 Cloudflare Tunnel")),
@@ -874,72 +953,102 @@ object ReadReceipts : ClickableFeature(),
                 )
         )
 
+        fun finishSuperseded() {
+            owner.finishIfCurrent()
+            onFinished(OriginRequestTerminal.Superseded)
+        }
+
         fun restore(error: Throwable) {
+            if (!owner.isCurrent()) {
+                finishSuperseded()
+                return
+            }
             if (
                 !previousWasActive &&
                 ReadReceiptsTunnelController.status.needsNotificationSettings
             ) {
                 stopOrigin { stopTerminal ->
-                    finishNotificationRejectionRestore(
-                        stopTerminal = stopTerminal,
-                        originalFailure = error,
-                        savePrevious = { saveConfiguration(previous) },
-                        restartPrevious = {},
-                        onFinished = onFinished,
-                    )
+                    when (stopTerminal) {
+                        is OriginRequestTerminal.Completed -> {
+                            if (owner.finishIfCurrent { persistConfiguration(previous) }) {
+                                onFinished(
+                                    OriginRequestTerminal.Completed(Result.failure(error)),
+                                )
+                            } else {
+                                finishSuperseded()
+                            }
+                        }
+                        OriginRequestTerminal.Superseded -> finishSuperseded()
+                    }
                 }
                 return
             }
             stopBuiltInStack { stopTerminal ->
                 when (stopTerminal) {
                     is OriginRequestTerminal.Completed -> {
-                        saveConfiguration(previous)
+                        if (!owner.runIfCurrent { persistConfiguration(previous) }) {
+                            finishSuperseded()
+                            return@stopBuiltInStack
+                        }
                         if (previousWasActive) {
                             startBuiltInStack(previous) { restartTerminal ->
                                 when (restartTerminal) {
                                     is OriginRequestTerminal.Completed -> {
-                                        onFinished(
-                                            OriginRequestTerminal.Completed(
-                                                Result.failure(error),
-                                            ),
-                                        )
+                                        if (owner.finishIfCurrent()) {
+                                            onFinished(
+                                                OriginRequestTerminal.Completed(
+                                                    Result.failure(error),
+                                                ),
+                                            )
+                                        } else {
+                                            finishSuperseded()
+                                        }
                                     }
 
-                                    OriginRequestTerminal.Superseded -> {
-                                        onFinished(OriginRequestTerminal.Superseded)
-                                    }
+                                    OriginRequestTerminal.Superseded -> finishSuperseded()
                                 }
                             }
                         } else {
-                            onFinished(
-                                OriginRequestTerminal.Completed(Result.failure(error)),
-                            )
+                            if (owner.finishIfCurrent()) {
+                                onFinished(
+                                    OriginRequestTerminal.Completed(Result.failure(error)),
+                                )
+                            } else {
+                                finishSuperseded()
+                            }
                         }
                     }
 
-                    OriginRequestTerminal.Superseded -> {
-                        onFinished(OriginRequestTerminal.Superseded)
-                    }
+                    OriginRequestTerminal.Superseded -> finishSuperseded()
                 }
             }
         }
 
         fun startCandidate() {
-            starter(canonicalCandidate) { terminal ->
+            if (!owner.isCurrent()) {
+                finishSuperseded()
+                return
+            }
+            starter(canonicalCandidate, owner) { terminal ->
                 when (terminal) {
                     is OriginRequestTerminal.Completed -> terminal.result.fold(
                         onSuccess = { committedCandidate ->
-                            saveConfiguration(committedCandidate)
-                            onFinished(
-                                OriginRequestTerminal.Completed(Result.success(Unit)),
-                            )
+                            if (
+                                owner.finishIfCurrent {
+                                    persistConfiguration(committedCandidate)
+                                }
+                            ) {
+                                onFinished(
+                                    OriginRequestTerminal.Completed(Result.success(Unit)),
+                                )
+                            } else {
+                                finishSuperseded()
+                            }
                         },
                         onFailure = ::restore,
                     )
 
-                    OriginRequestTerminal.Superseded -> {
-                        onFinished(OriginRequestTerminal.Superseded)
-                    }
+                    OriginRequestTerminal.Superseded -> finishSuperseded()
                 }
             }
         }
@@ -948,17 +1057,21 @@ object ReadReceipts : ClickableFeature(),
             stopBuiltInStack { terminal ->
                 when (terminal) {
                     is OriginRequestTerminal.Completed -> terminal.result.fold(
-                        onSuccess = { startCandidate() },
+                        onSuccess = {
+                            if (owner.isCurrent()) startCandidate() else finishSuperseded()
+                        },
                         onFailure = { error ->
-                            onFinished(
-                                OriginRequestTerminal.Completed(Result.failure(error)),
-                            )
+                            if (owner.finishIfCurrent()) {
+                                onFinished(
+                                    OriginRequestTerminal.Completed(Result.failure(error)),
+                                )
+                            } else {
+                                finishSuperseded()
+                            }
                         },
                     )
 
-                    OriginRequestTerminal.Superseded -> {
-                        onFinished(OriginRequestTerminal.Superseded)
-                    }
+                    OriginRequestTerminal.Superseded -> finishSuperseded()
                 }
             }
         } else {
@@ -972,7 +1085,7 @@ object ReadReceipts : ClickableFeature(),
         onFinished: (OriginRequestTerminal<Unit>) -> Unit,
     ) = runBuiltInCandidateTransaction(
         candidate = candidate,
-        starter = { canonicalCandidate, complete ->
+        starter = { canonicalCandidate, _, complete ->
             startBuiltInStack(canonicalCandidate, token) { terminal ->
                 when (terminal) {
                     is OriginRequestTerminal.Completed -> complete(
@@ -998,8 +1111,8 @@ object ReadReceipts : ClickableFeature(),
         onFinished: (OriginRequestTerminal<Unit>) -> Unit,
     ) = runBuiltInCandidateTransaction(
         candidate = candidate,
-        starter = { canonicalCandidate, complete ->
-            startBrowserSelection(canonicalCandidate, onCommitPending, complete)
+        starter = { canonicalCandidate, owner, complete ->
+            startBrowserSelection(owner, canonicalCandidate, onCommitPending, complete)
         },
         onFinished = onFinished,
     )
@@ -1311,7 +1424,7 @@ object ReadReceipts : ClickableFeature(),
             featureScope!!.launch {
                 repeat(BROWSER_METADATA_RECONCILE_ATTEMPTS) {
                     val reconciled = withContext(Dispatchers.Main.immediate) {
-                        reconcileBrowserConfiguration(force = false)
+                        reconcileActiveBrowserConfiguration()
                     }
                     if (reconciled != null) {
                         if (requestedBuiltInPort(reconciled) != requestedBuiltInPort(configuration)) {
@@ -1758,8 +1871,8 @@ object ReadReceipts : ClickableFeature(),
             }
             var originStatus by remember { mutableStateOf(originController.snapshot()) }
             var tunnelStatus by remember { mutableStateOf(ReadReceiptsTunnelController.status) }
-            var credentialExists by remember {
-                mutableStateOf(ReadReceiptsTunnelController.credentialExists)
+            var committedCredentialMetadata by remember {
+                mutableStateOf(ReadReceiptsTunnelController.committedCredentialMetadata)
             }
             var browserLoginState by remember {
                 mutableStateOf(ReadReceiptsTunnelController.browserLoginState)
@@ -1789,7 +1902,8 @@ object ReadReceipts : ClickableFeature(),
                 while (true) {
                     originStatus = withContext(Dispatchers.IO) { originController.snapshot() }
                     tunnelStatus = ReadReceiptsTunnelController.status
-                    credentialExists = ReadReceiptsTunnelController.credentialExists
+                    committedCredentialMetadata =
+                        ReadReceiptsTunnelController.committedCredentialMetadata
                     browserLoginState = ReadReceiptsTunnelController.browserLoginState
                     browserAccountId = ReadReceiptsTunnelController.browserAccountId
                     browserTunnels = ReadReceiptsTunnelController.browserExistingTunnels
@@ -1799,30 +1913,19 @@ object ReadReceipts : ClickableFeature(),
                         BrowserMetadataRebindDecision.Keep -> null
                         is BrowserMetadataRebindDecision.Replace -> decision.metadata
                     }
-                    val reconciled = authority
-                        ?.takeIf { it != hydratedBrowserAuthority }
-                        ?.let {
-                            reconcileBrowserConfiguration(
-                                force = true,
-                                expectedTunnelId = it.tunnelId,
-                                expectedHostname = it.canonicalHostname,
-                                expectedPort = it.fixedOriginPort,
-                            )
-                        }
                     if (
-                        reconciled != null && authority != hydratedBrowserAuthority
+                        tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN &&
+                        authority != null && authority != hydratedBrowserAuthority
                     ) {
-                        modeInput = ReadReceiptsServerMode.BUILT_IN
-                        tunnelModeInput = ReadReceiptsTunnelMode.BROWSER_LOGIN
                         automaticPortInput = false
-                        builtInPortInput = reconciled.builtInPort.toString()
-                        hostnameInput = reconciled.hostname
-                        manualBrowserHostname = reconciled.hostname
-                        selectedBrowserTunnelId = reconciled.selectedTunnelId
+                        builtInPortInput = authority.fixedOriginPort.toString()
+                        hostnameInput = authority.canonicalHostname
+                        manualBrowserHostname = authority.canonicalHostname
+                        selectedBrowserTunnelId = authority.tunnelId
                         selectedConfiguredHostname = browserTunnels
-                            .firstOrNull { it.id == reconciled.selectedTunnelId }
+                            .firstOrNull { it.id == authority.tunnelId }
                             ?.hostnames
-                            ?.firstOrNull { "https://$it" == reconciled.hostname }
+                            ?.firstOrNull { "https://$it" == authority.canonicalHostname }
                             ?.let { "https://$it" }
                         hydratedBrowserAuthority = authority
                     }
@@ -1836,6 +1939,9 @@ object ReadReceipts : ClickableFeature(),
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         ListItem(
                             modifier = Modifier.clickable {
+                                if (modeInput != ReadReceiptsServerMode.THIRD_PARTY) {
+                                    configurationTransactionOwnership.supersede()
+                                }
                                 modeInput = ReadReceiptsServerMode.THIRD_PARTY
                             },
                             trailingContent = {
@@ -1850,6 +1956,9 @@ object ReadReceipts : ClickableFeature(),
 
                         ListItem(
                             modifier = Modifier.clickable {
+                                if (modeInput != ReadReceiptsServerMode.BUILT_IN) {
+                                    configurationTransactionOwnership.supersede()
+                                }
                                 modeInput = ReadReceiptsServerMode.BUILT_IN
                             },
                             trailingContent = {
@@ -1894,6 +2003,9 @@ object ReadReceipts : ClickableFeature(),
 
                                 ListItem(
                                     modifier = Modifier.clickable {
+                                        if (tunnelModeInput != ReadReceiptsTunnelMode.QUICK) {
+                                            configurationTransactionOwnership.supersede()
+                                        }
                                         tunnelModeInput = ReadReceiptsTunnelMode.QUICK
                                     },
                                     trailingContent = {
@@ -1907,6 +2019,9 @@ object ReadReceipts : ClickableFeature(),
                                 )
                                 ListItem(
                                     modifier = Modifier.clickable {
+                                        if (tunnelModeInput != ReadReceiptsTunnelMode.TOKEN) {
+                                            configurationTransactionOwnership.supersede()
+                                        }
                                         tunnelModeInput = ReadReceiptsTunnelMode.TOKEN
                                     },
                                     trailingContent = {
@@ -1920,6 +2035,12 @@ object ReadReceipts : ClickableFeature(),
                                 )
                                 ListItem(
                                     modifier = Modifier.clickable {
+                                        if (
+                                            tunnelModeInput !=
+                                            ReadReceiptsTunnelMode.BROWSER_LOGIN
+                                        ) {
+                                            configurationTransactionOwnership.supersede()
+                                        }
                                         tunnelModeInput = ReadReceiptsTunnelMode.BROWSER_LOGIN
                                         automaticPortInput = false
                                     },
@@ -1991,11 +2112,20 @@ object ReadReceipts : ClickableFeature(),
                                 }
 
                                 if (tunnelModeInput == ReadReceiptsTunnelMode.TOKEN) {
+                                    val tokenCredentialSaved =
+                                        committedCredentialMetadata?.source ==
+                                            TunnelCredentialSource.TOKEN
                                     TextField(
                                         value = tokenInput,
                                         onValueChange = { tokenInput = it },
                                         label = {
-                                            Text(if (credentialExists) "Tunnel token（已保存）" else "Tunnel token")
+                                            Text(
+                                                if (tokenCredentialSaved) {
+                                                    "Tunnel token（已保存）"
+                                                } else {
+                                                    "Tunnel token"
+                                                },
+                                            )
                                         },
                                         visualTransformation = if (revealToken) {
                                             VisualTransformation.None
@@ -2011,12 +2141,14 @@ object ReadReceipts : ClickableFeature(),
                                         TextButton(onClick = { revealToken = !revealToken }) {
                                             Text(if (revealToken) "隐藏" else "显示")
                                         }
-                                        TextButton(
-                                            onClick = {
-                                                tokenInput = ""
-                                                ReadReceiptsTunnelController.deleteCredential()
-                                            },
-                                        ) { Text("删除已保存 token") }
+                                        if (tokenCredentialSaved) {
+                                            TextButton(
+                                                onClick = {
+                                                    tokenInput = ""
+                                                    ReadReceiptsTunnelController.deleteCredential()
+                                                },
+                                            ) { Text("删除已保存 token") }
+                                        }
                                     }
                                     TextField(
                                         value = hostnameInput,
@@ -2516,7 +2648,7 @@ object ReadReceipts : ClickableFeature(),
                                             ) && !connectionTransactionActive,
                                             onClick = {
                                                 val authoritative =
-                                                    reconcileBrowserConfiguration(force = true)
+                                                    authoritativeBrowserConfiguration(configuration())
                                                         ?: run {
                                                             browserActionError =
                                                                 "尚未取得已保存 Browser Tunnel 的权威配置，请稍后重试"
@@ -2695,8 +2827,8 @@ object ReadReceipts : ClickableFeature(),
                             modeInput == ReadReceiptsServerMode.BUILT_IN &&
                             tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN
                         ) {
-                            reconcileBrowserConfiguration(
-                                force = true,
+                            authoritativeBrowserConfiguration(
+                                base = oldConfiguration,
                                 expectedTunnelId = selectedBrowserTunnelId,
                                 expectedHostname = normalizedHostname,
                                 expectedPort = configuredPort,

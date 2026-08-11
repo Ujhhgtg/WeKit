@@ -1907,18 +1907,29 @@ class ReadReceiptsTunnelService : Service() {
 
     private fun deleteCredential(requestedGeneration: Long) {
         scope.launch {
+            var stoppedCredentialBackedRequest = false
             var capturedState: TunnelNativeSessionState? = null
             var update: CredentialCacheUpdate? = null
             val accepted = nativeLease.withCurrentGeneration(requestedGeneration) { sessionState ->
+                val activeMode = activeRequest?.mode
+                if (
+                    activeMode in setOf(
+                        ReadReceiptsTunnelMode.TOKEN,
+                        ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                    )
+                ) {
+                    // Re-entering the lease transitions to STOPPING now; its lifecycle cannot
+                    // acquire the lease and stop the service until the payload clear below finishes.
+                    stopTunnel(requestedGeneration)
+                    stoppedCredentialBackedRequest = true
+                }
                 update = clearCredentialOnIo()
                 capturedState = sessionState
             }
             if (!accepted) return@launch
             withContext(Dispatchers.Main.immediate) {
                 applyCredentialCacheUpdate(update!!)
-                if (activeRequest?.mode == ReadReceiptsTunnelMode.TOKEN) {
-                    stopTunnel(requestedGeneration)
-                } else {
+                if (!stoppedCredentialBackedRequest) {
                     publish(
                         requestedGeneration,
                         status.forAdministrativePublish(capturedState!!),

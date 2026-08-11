@@ -1143,6 +1143,40 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
+    fun `new configuration transaction prevents delayed browser authority from replacing it`() {
+        val ownership = ConfigurationTransactionOwnership()
+        val persistedModes = mutableListOf<ReadReceiptsTunnelMode>()
+        val delayedBrowser = ownership.acquire()
+        val currentToken = ownership.acquire()
+
+        assertFalse(
+            delayedBrowser.finishIfCurrent {
+                persistedModes += ReadReceiptsTunnelMode.BROWSER_LOGIN
+            },
+        )
+        assertTrue(
+            currentToken.finishIfCurrent {
+                persistedModes += ReadReceiptsTunnelMode.TOKEN
+            },
+        )
+        assertEquals(listOf(ReadReceiptsTunnelMode.TOKEN), persistedModes)
+    }
+
+    @Test
+    fun `explicit configuration save supersedes pending browser reconciliation`() {
+        val ownership = ConfigurationTransactionOwnership()
+        val staleWrites = AtomicInteger()
+        val pendingBrowser = ownership.acquire()
+
+        assertTrue(pendingBrowser.isCurrent())
+        ownership.supersede()
+
+        assertFalse(pendingBrowser.isCurrent())
+        assertFalse(pendingBrowser.runIfCurrent(staleWrites::incrementAndGet))
+        assertEquals(0, staleWrites.get())
+    }
+
+    @Test
     fun `superseded notification rejection restore only releases the old UI transaction`() {
         val ownershipReleases = AtomicInteger()
         val saves = AtomicInteger()
