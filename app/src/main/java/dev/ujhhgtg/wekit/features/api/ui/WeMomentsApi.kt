@@ -86,8 +86,29 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         val sent: Boolean,
         val message: String,
         val error: Throwable? = null,
-        @StringRes val messageRes: Int? = null,
-    )
+    ) {
+        @StringRes
+        var messageRes: Int? = null
+            private set
+
+        companion object {
+            @JvmSynthetic
+            internal fun repost(
+                success: Boolean,
+                sent: Boolean,
+                message: String,
+                error: Throwable?,
+                @StringRes messageRes: Int?,
+            ): ActionResult = ActionResult(
+                success = success,
+                sent = sent,
+                message = message,
+                error = error,
+            ).apply {
+                this.messageRes = messageRes
+            }
+        }
+    }
 
     private fun repostResult(
         success: Boolean,
@@ -95,7 +116,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         message: String,
         @StringRes messageRes: Int,
         error: Throwable? = null,
-    ): ActionResult = ActionResult(
+    ): ActionResult = ActionResult.repost(
         success = success,
         sent = sent,
         message = message,
@@ -107,7 +128,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         error: Throwable,
         fallbackMessage: String,
         @StringRes fallbackMessageRes: Int,
-    ): ActionResult = ActionResult(
+    ): ActionResult = ActionResult.repost(
         success = false,
         sent = false,
         message = error.message ?: fallbackMessage,
