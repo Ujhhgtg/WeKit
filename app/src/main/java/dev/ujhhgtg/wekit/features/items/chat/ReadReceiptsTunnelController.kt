@@ -598,7 +598,10 @@ internal object ReadReceiptsTunnelController {
         failPendingStart(IllegalStateException("隧道服务在接管请求前断开"))
         val stoppingGeneration = stopCompletion.pendingGeneration()
         if (stoppingGeneration != null) {
-            completeStop(stoppingGeneration)
+            completeStop(
+                stoppingGeneration,
+                Result.failure(IllegalStateException("无法确认隧道已停止")),
+            )
             return
         }
         if (status.state !in setOf(
@@ -1049,7 +1052,7 @@ internal object ReadReceiptsTunnelController {
 
     private fun completeStop(
         expectedGeneration: Long,
-        result: Result<Unit> = Result.success(Unit),
+        result: Result<Unit>,
     ) {
         val drain = stopCompletion.complete(expectedGeneration)
         if (!drain.matched) return
