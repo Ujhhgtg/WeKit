@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.chat_input_bar_menu
 
 import android.content.Context
 import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -10,8 +9,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Alternate_email
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -30,6 +32,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.runOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -49,7 +52,7 @@ object MentionMembers : SwitchFeature() {
         showComposeDialog(context) {
             var stealthState by remember { mutableStateOf(stealthMentionAll) }
             AlertDialogContent(
-                title = { Text("@所有人设置") },
+                title = { Text(stringResource(R.string.mention_members_settings_title)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -57,15 +60,19 @@ object MentionMembers : SwitchFeature() {
                                 stealthState = !stealthState
                                 stealthMentionAll = stealthState
                             },
-                            content = { Text("隐蔽@所有人") },
-                            supportingContent = { Text("开启时点击直接隐蔽发送@所有人消息 (不显示成员选择弹窗且消息不附带@昵称前缀); 关闭时弹出成员选择弹窗并在消息头部附带@昵称文本") },
+                            content = { Text(stringResource(R.string.mention_members_stealth_label)) },
+                            supportingContent = {
+                                Text(stringResource(R.string.mention_members_stealth_description))
+                            },
                             trailingContent = {
                                 Switch(checked = stealthState, onCheckedChange = null)
                             }
                         )
                     }
                 },
-                confirmButton = { Button(onDismiss) { Text("确定") } }
+                confirmButton = {
+                    Button(onDismiss) { Text(stringResource(R.string.dialog_confirm)) }
+                }
             )
         }
     }
@@ -75,14 +82,17 @@ object MentionMembers : SwitchFeature() {
             WeChatInputBarMenuApi.ActionItem(
                 id = "mention_members",
                 icon = MaterialSymbols.Outlined.Alternate_email,
-                label = "@所有人 (长按配置)",
+                label = localizedChatInputString(R.string.mention_members_action_label),
                 isSupported = { _, _ ->
                     WeCurrentConversationApi.value.isGroupChatWxId
                 },
                 onClick = { context, chatFooter ->
                     val currentConv = WeCurrentConversationApi.value
                     if (!currentConv.isGroupChatWxId) {
-                        showToast("只能在群组里使用!")
+                        showToast(
+                            context,
+                            context.localizedChatInputString(R.string.mention_members_group_only),
+                        )
                         return@ActionItem
                     }
 
@@ -108,12 +118,15 @@ object MentionMembers : SwitchFeature() {
                             reqBytes = reqBytes
                         ) {
                             onSuccess { _ ->
-                                showToast("已发送 (自己无法看到该消息)")
+                                showToast(
+                                    context,
+                                    context.localizedChatInputString(R.string.mention_members_sent_unseen),
+                                )
                                 val now = System.currentTimeMillis()
                                 WeMessageApi.createSimpleMsgInfoAndInsert(
                                     10000,
                                     currentConv,
-                                    "你隐蔽@了所有人",
+                                    context.localizedChatInputString(R.string.mention_members_stealth_message),
                                     now
                                 )
                                 chatFooter.lastText = ""
@@ -127,19 +140,28 @@ object MentionMembers : SwitchFeature() {
                         .filter { c -> c.wxId != WeApi.selfWxId }
 
                     if (allMembers.isEmpty()) {
-                        showToast("群成员列表为空!")
+                        showToast(
+                            context,
+                            context.localizedChatInputString(R.string.mention_members_empty_group),
+                        )
                         return@ActionItem
                     }
 
                     showComposeDialog(context) {
+                        val localizedContext = LocalContext.current
                         ContactsSelector(
-                            title = "@所有人",
+                            title = stringResource(R.string.feature_mention_members_name),
                             contacts = allMembers,
                             initialSelectedWxIds = allMembers.map { it.wxId }.toSet(),
                             onDismiss = onDismiss,
                             onConfirm = { selectedWxIds ->
                                 if (selectedWxIds.isEmpty()) {
-                                    showToast("请选择至少一个好友!")
+                                    showToast(
+                                        localizedContext,
+                                        localizedContext.localizedChatInputString(
+                                            R.string.mention_members_select_one,
+                                        ),
+                                    )
                                     return@ContactsSelector
                                 }
 
@@ -175,12 +197,19 @@ object MentionMembers : SwitchFeature() {
                                     reqBytes = reqBytes
                                 ) {
                                     onSuccess { _ ->
-                                        showToast("已发送 (自己无法看到该消息)")
+                                        showToast(
+                                            context,
+                                            context.localizedChatInputString(R.string.mention_members_sent_unseen),
+                                        )
                                         val now = System.currentTimeMillis()
                                         WeMessageApi.createSimpleMsgInfoAndInsert(
                                             10000,
                                             currentConv,
-                                            "你@了 ${selectedContacts.size} 个人",
+                                            context.localizedChatInputQuantity(
+                                                R.plurals.mention_members_message_count,
+                                                selectedContacts.size,
+                                                selectedContacts.size,
+                                            ),
                                             now
                                         )
                                         chatFooter.lastText = ""

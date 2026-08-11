@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -30,7 +31,7 @@ object BlockAbnormalSizeStickers : SwitchFeature(), IResolveDex {
 
                 // If raw pixel data size (width * height * 4 bytes per pixel) exceeds 50MB
                 if (width.toLong() * height.toLong() * 4L > 52_428_800L) {
-                    showToast("检测到异常大小贴纸表情, 已拦截")
+                    showToast(localizedChatString(R.string.chat_abnormal_sticker_blocked))
 
                     // Patch the dimensions down to a safe 32x32 stub to prevent OOM/Exploits
                     inputBytes[7] = 0.toByte()

@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Download
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
@@ -39,7 +40,7 @@ object SaveStickersToLocalStorage : SwitchFeature(),
             @Suppress("UNCHECKED_CAST")
             WeChatMessageContextMenuApi.MenuItem(
                 777001,
-                "存本地",
+                localizedChatString(R.string.chat_action_save_locally),
                 DownloadIcon,
                 MaterialSymbols.Outlined.Download,
                 { msgInfo -> msgInfo.type?.isSticker ?: false },
@@ -53,7 +54,12 @@ object SaveStickersToLocalStorage : SwitchFeature(),
                             msgs.forEach { if (saveSticker(it) != null) succeeded++ }
                             showToastSuspend(
                                 view.context,
-                                "已保存 $succeeded/${msgs.size} 条贴纸到本地",
+                                view.context.localizedChatQuantity(
+                                    R.plurals.chat_stickers_saved_locally,
+                                    msgs.size,
+                                    succeeded,
+                                    msgs.size,
+                                ),
                             )
                         }
                     },
@@ -63,8 +69,8 @@ object SaveStickersToLocalStorage : SwitchFeature(),
                     val path = saveSticker(msgInfo)
                     showToastSuspend(
                         view.context,
-                        path?.let { "已将贴纸保存到 $it" }
-                            ?: "贴纸保存失败! 查看日志以了解错误详情",
+                        path?.let { view.context.localizedChatString(R.string.chat_sticker_saved_to, it) }
+                            ?: view.context.localizedChatString(R.string.chat_sticker_save_failed),
                     )
                 }
             }

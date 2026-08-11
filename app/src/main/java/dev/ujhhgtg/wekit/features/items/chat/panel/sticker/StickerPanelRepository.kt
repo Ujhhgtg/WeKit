@@ -10,6 +10,8 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.StickerItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPack
 import dev.ujhhgtg.wekit.features.items.chat.panel.customOrderIndex
 import dev.ujhhgtg.wekit.features.items.chat.panel.normalizedCustomOrder
+import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.utils.MediaFileTypeDetector
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
@@ -89,10 +91,10 @@ object StickerPanelRepository {
     fun saveItemOrder(packName: String, filePaths: List<String>): Result<Unit> = runCatching {
         val safePack = requirePackName(packName)
         val directory = packPath(safePack)
-        require(directory.isDirectory()) { "表情包不存在" }
+        require(directory.isDirectory()) { localizedChatString(R.string.chat_sticker_pack_not_found) }
         val requested = filePaths.map { value ->
             requireLocalSticker(value).also { path ->
-                require(path.parent == directory) { "表情不属于当前表情包" }
+                require(path.parent == directory) { localizedChatString(R.string.chat_sticker_not_in_pack) }
             }.name
         }
         val available = directory.listDirectoryEntries().filter(::isStickerFile).map { it.name }
@@ -119,7 +121,7 @@ object StickerPanelRepository {
             .take(limit)
         return StickerPack(
             id = RECENT_PACK_ID,
-            title = "最近",
+            title = localizedChatString(R.string.chat_panel_recent),
             source = PanelSource.RECENT,
             itemCount = items.size,
             items = items,
@@ -140,10 +142,10 @@ object StickerPanelRepository {
 
     fun createPack(name: String): Result<String> = runCatching {
         val safeName = sanitizeName(name)
-        require(safeName.isNotBlank()) { "表情包名称不能为空" }
-        require(safeName !in reservedNames) { "表情包名称不可用" }
+        require(safeName.isNotBlank()) { localizedChatString(R.string.chat_sticker_pack_name_empty) }
+        require(safeName !in reservedNames) { localizedChatString(R.string.chat_sticker_pack_name_unavailable) }
         val destination = packPath(safeName)
-        require(Files.notExists(destination)) { "表情包已存在" }
+        require(Files.notExists(destination)) { localizedChatString(R.string.chat_sticker_pack_exists) }
         destination.createDirectories()
         safeName
     }
@@ -157,9 +159,9 @@ object StickerPanelRepository {
 
     fun setOnlinePackSource(packName: String, onlinePackId: String): Result<Unit> = runCatching {
         val safePack = requirePackName(packName)
-        require(packPath(safePack).isDirectory()) { "表情包不存在" }
+        require(packPath(safePack).isDirectory()) { localizedChatString(R.string.chat_sticker_pack_not_found) }
         val sourceId = onlinePackId.trim()
-        require(sourceId.isNotEmpty()) { "在线表情包 ID 为空" }
+        require(sourceId.isNotEmpty()) { localizedChatString(R.string.chat_sticker_online_source_empty) }
         atomicWrite(
             onlinePackSourcesFile,
             DefaultJson.encodeToString(readOnlinePackSources() + (safePack to sourceId)),
@@ -169,32 +171,32 @@ object StickerPanelRepository {
     fun renamePack(oldName: String, newName: String): Result<Unit> = runCatching {
         val safeOldName = requirePackName(oldName)
         val safeName = sanitizeName(newName)
-        require(safeName.isNotBlank()) { "表情包名称不能为空" }
-        require(safeName !in reservedNames) { "表情包名称不可用" }
+        require(safeName.isNotBlank()) { localizedChatString(R.string.chat_sticker_pack_name_empty) }
+        require(safeName !in reservedNames) { localizedChatString(R.string.chat_sticker_pack_name_unavailable) }
         val source = packPath(safeOldName)
         val destination = packPath(safeName)
-        require(source.isDirectory()) { "表情包不存在" }
-        require(Files.notExists(destination)) { "表情包已存在" }
+        require(source.isDirectory()) { localizedChatString(R.string.chat_sticker_pack_not_found) }
+        require(Files.notExists(destination)) { localizedChatString(R.string.chat_sticker_pack_exists) }
         Files.move(source, destination)
         migratePathPrefix(source, destination)
     }
 
     fun deletePack(name: String): Result<Unit> = runCatching {
         val dir = packPath(requirePackName(name))
-        require(dir.isDirectory()) { "表情包不存在" }
-        require(dir.toFile().deleteRecursively()) { "表情包删除失败" }
+        require(dir.isDirectory()) { localizedChatString(R.string.chat_sticker_pack_not_found) }
+        require(dir.toFile().deleteRecursively()) { localizedChatString(R.string.chat_sticker_pack_delete_failed) }
         removePathPrefixFromMetadata(dir)
     }
 
     fun importSticker(packName: String, displayName: String, input: InputStream): Result<StickerItem> = runCatching {
-        val safePack = requirePackName(sanitizeName(packName).ifBlank { "导入" })
+        val safePack = requirePackName(sanitizeName(packName).ifBlank { localizedChatString(R.string.chat_panel_imported) })
         val packDir = packPath(safePack).also { it.createDirectories() }
         val temporary = packDir / ".import-${UUID.randomUUID()}.part"
         try {
             input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
-            require(Files.size(temporary) > 0L) { "图片文件为空" }
+            require(Files.size(temporary) > 0L) { localizedChatString(R.string.chat_sticker_image_empty) }
             val format = MediaFileTypeDetector.detectImage(temporary)
-                ?: throw IllegalArgumentException("不支持或无法识别的图片格式")
+                ?: throw IllegalArgumentException(localizedChatString(R.string.chat_sticker_unsupported_format))
             val destination = uniquePath(packDir, "${importedFileStem(displayName, "sticker")}.${format.extension}")
             moveImportedFile(temporary, destination)
             destination.toItem(safePack, readStats(), readTitles(), PanelSource.IMPORTED)

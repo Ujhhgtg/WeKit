@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import dev.ujhhgtg.wekit.R
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Exposure_plus_1
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -53,14 +54,14 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777008, "复读", ExposurePlus1Icon, MaterialSymbols.Outlined.Exposure_plus_1,
+                777008, localizedChatString(R.string.chat_repeat_menu), ExposurePlus1Icon, MaterialSymbols.Outlined.Exposure_plus_1,
                 isSupported = ::isSupported,
                 onClick = { view, _, msgInfo ->
                     val context = view.context
 
                     CoroutineScope(Dispatchers.IO).launch {
                         val sent = repeatMessage(msgInfo)
-                        if (!sent) showToastSuspend(context, "复读失败!")
+                        if (!sent) showToastSuspend(context, context.localizedChatString(R.string.chat_repeat_failed))
                     }
                 }
             )

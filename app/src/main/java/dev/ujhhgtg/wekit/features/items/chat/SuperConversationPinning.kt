@@ -10,6 +10,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
@@ -95,7 +97,7 @@ object SuperConversationPinning : SwitchFeature(),
     override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> = listOf(
         WeConversationContextMenuApi.MenuItem(
             id = MENU_ITEM_ID,
-            text = "设置优先级",
+            text = localizedChatString(R.string.chat_pinning_set_priority),
             drawable = EditIcon,
             shouldShow = { context, _ -> context.talker.isNotEmpty() },
             onClick = { context -> showPriorityDialog(context.activity, context.talker) }
@@ -120,25 +122,25 @@ object SuperConversationPinning : SwitchFeature(),
             var priority by remember(talker) { mutableIntStateOf(priorityOf(talker)) }
 
             AlertDialogContent(
-                title = { Text("设置优先级") },
+                title = { Text(stringResource(R.string.chat_pinning_set_priority)) },
                 text = {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Text("置顶优先级: $priority")
+                        Text(stringResource(R.string.chat_pinning_priority_value, priority))
                         Slider(
                             value = priority.toFloat(),
                             onValueChange = { priority = it.toInt() },
                             valueRange = 0f..10f,
                             steps = 11
                         )
-                        Text("优先级越高, 在同一置顶状态内越靠前。0 为微信默认排序。")
+                        Text(stringResource(R.string.chat_pinning_priority_description))
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button({
                         setPriority(talker, priority)
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }

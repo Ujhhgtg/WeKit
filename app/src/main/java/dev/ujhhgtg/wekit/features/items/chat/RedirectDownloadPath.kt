@@ -9,6 +9,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -74,46 +76,46 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
             val normalizedPath = normalizeSaveDir(pathInput)
             val dir = File(normalizedPath)
             val statusText = when {
-                dir.isDirectory -> "当前目录已存在。"
-                dir.exists() -> "当前路径已存在但不是文件夹，下载时会回退到默认目录。"
-                else -> "当前目录不存在，下载时会自动尝试创建。"
+                dir.isDirectory -> stringResource(R.string.chat_redirect_path_exists)
+                dir.exists() -> stringResource(R.string.chat_redirect_path_not_directory)
+                else -> stringResource(R.string.chat_redirect_path_will_create)
             }
 
             AlertDialogContent(
-                title = { Text("重定向文件下载路径") },
+                title = { Text(stringResource(R.string.feature_redirect_download_path_name)) },
                 text = {
                     DefaultColumn {
                         OutlinedTextField(
                             value = pathInput,
                             onValueChange = { pathInput = it },
                             modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
-                            label = { Text("保存目录") },
+                            label = { Text(stringResource(R.string.chat_redirect_save_directory)) },
                             singleLine = true
                         )
-                        Text("实际目录：$normalizedPath")
+                        Text(stringResource(R.string.chat_redirect_actual_directory, normalizedPath))
                         Text(statusText)
-                        Text("留空使用默认目录：${defaultSaveDir()}")
+                        Text(stringResource(R.string.chat_redirect_default_directory_hint, defaultSaveDir()))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = {
                         pathInput = defaultSaveDir()
                         saveDir = pathInput
-                        showToast(context, "已恢复默认路径")
+                        showToast(context, context.localizedChatString(R.string.chat_redirect_default_restored))
                     }) {
-                        Text("恢复默认")
+                        Text(stringResource(R.string.chat_redirect_restore_default))
                     }
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         val saveDir = normalizeSaveDir(pathInput)
                         this@RedirectDownloadPath.saveDir = saveDir
                         runCatching { File(saveDir).mkdirs() }
-                        showToast(context, "已保存, 后续新下载文件会使用该目录")
+                        showToast(context, context.localizedChatString(R.string.chat_redirect_saved))
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 }
             )

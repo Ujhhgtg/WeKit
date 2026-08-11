@@ -12,7 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -104,20 +106,20 @@ object HideMessagesAvatars : ClickableFeature(), WeChatMessageViewApi.ICreateVie
             var outgoing by remember { mutableStateOf(hideOutgoing) }
 
             AlertDialogContent(
-                title = { Text("隐藏消息头像") },
+                title = { Text(stringResource(R.string.feature_hide_messages_avatars_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
                             modifier = Modifier.clickable { incoming = !incoming },
                             trailingContent = { Switch(checked = incoming, onCheckedChange = { incoming = it }) },
-                            supportingContent = { Text("仅在私聊中隐藏对方的用户头像") },
-                            content = { Text("隐藏私聊对方头像") },
+                            supportingContent = { Text(stringResource(R.string.chat_hide_avatar_incoming_description)) },
+                            content = { Text(stringResource(R.string.chat_hide_avatar_incoming)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable { outgoing = !outgoing },
                             trailingContent = { Switch(checked = outgoing, onCheckedChange = { outgoing = it }) },
-                            supportingContent = { Text("隐藏自己发出的消息的用户头像") },
-                            content = { Text("隐藏发送消息头像") },
+                            supportingContent = { Text(stringResource(R.string.chat_hide_avatar_outgoing_description)) },
+                            content = { Text(stringResource(R.string.chat_hide_avatar_outgoing)) },
                         )
                     }
                 },
@@ -126,9 +128,9 @@ object HideMessagesAvatars : ClickableFeature(), WeChatMessageViewApi.ICreateVie
                         hideIncoming = incoming
                         hideOutgoing = outgoing
                         onDismiss()
-                    }) { Text("保存") }
+                    }) { Text(stringResource(R.string.action_save)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }

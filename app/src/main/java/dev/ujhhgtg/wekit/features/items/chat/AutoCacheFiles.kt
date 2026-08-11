@@ -11,6 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -154,14 +156,14 @@ object AutoCacheFiles : ClickableFeature(),
             var useWhitelistState by remember { mutableStateOf(useWhitelist) }
 
             AlertDialogContent(
-                title = { Text("自动缓存文件") },
+                title = { Text(stringResource(R.string.feature_auto_cache_files_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
                             modifier = Modifier.clickable { useWhitelistState = !useWhitelistState },
                             trailingContent = { Switch(checked = useWhitelistState, onCheckedChange = null) },
-                            supportingContent = { Text(if (useWhitelistState) "仅对选中联系人缓存文件" else "对选中联系人跳过缓存文件") },
-                            content = { Text(if (useWhitelistState) "黑名单 [> 白名单 <]" else "[> 黑名单 <] 白名单") },
+                            supportingContent = { Text(stringResource(if (useWhitelistState) R.string.chat_auto_cache_files_whitelist_description else R.string.chat_auto_cache_files_blacklist_description)) },
+                            content = { Text(stringResource(if (useWhitelistState) R.string.chat_auto_cache_whitelist_selected else R.string.chat_auto_cache_blacklist_selected)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -170,7 +172,7 @@ object AutoCacheFiles : ClickableFeature(),
 
                                 showComposeDialog(context) {
                                     ContactsSelector(
-                                        title = if (useWhitelistState) "选择白名单" else "选择黑名单",
+                                        title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_select_whitelist else R.string.chat_auto_cache_select_blacklist),
                                         contacts = contacts,
                                         initialSelectedWxIds = currentList,
                                         onDismiss = onDismiss
@@ -180,13 +182,13 @@ object AutoCacheFiles : ClickableFeature(),
                                         } else {
                                             blacklist = selectedIds
                                         }
-                                        showToast("已保存 ${selectedIds.size} 个联系人, 重启微信以使更改生效")
+                                        showToast(localizedChatQuantity(R.plurals.chat_auto_cache_contacts_saved, selectedIds.size, selectedIds.size))
                                         onDismiss()
                                     }
                                 }
                             },
-                            supportingContent = { Text("点击选择联系人") },
-                            content = { Text(if (useWhitelistState) "配置白名单" else "配置黑名单") },
+                            supportingContent = { Text(stringResource(R.string.chat_auto_cache_select_contacts_hint)) },
+                            content = { Text(stringResource(if (useWhitelistState) R.string.chat_auto_cache_configure_whitelist else R.string.chat_auto_cache_configure_blacklist)) },
                         )
                     }
                 },
@@ -194,9 +196,9 @@ object AutoCacheFiles : ClickableFeature(),
                     Button(onClick = {
                         useWhitelist = useWhitelistState
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }

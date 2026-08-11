@@ -12,10 +12,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -327,7 +329,7 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
             var bounceAllInput by remember { mutableStateOf(bounceAllOnEnter) }
 
             AlertDialogContent(
-                title = { Text("消息进入动画") },
+                title = { Text(stringResource(R.string.feature_message_entrance_animation_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -338,8 +340,8 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
                             trailingContent = {
                                 RadioButton(selected = styleInput == STYLE_BOUNCE, onClick = null)
                             },
-                            supportingContent = { Text("消息缩放弹跳进入屏幕") },
-                            content = { Text("弹跳入场") },
+                            supportingContent = { Text(stringResource(R.string.chat_message_animation_bounce_description)) },
+                            content = { Text(stringResource(R.string.chat_message_animation_bounce)) },
                         )
 
                         ListItem(
@@ -350,8 +352,8 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
                             trailingContent = {
                                 RadioButton(selected = styleInput == STYLE_SLIDE, onClick = null)
                             },
-                            supportingContent = { Text("消息水平平移滑入, 自己发出的从右侧、收到的从左侧") },
-                            content = { Text("平移滑入") },
+                            supportingContent = { Text(stringResource(R.string.chat_message_animation_slide_description)) },
+                            content = { Text(stringResource(R.string.chat_message_animation_slide)) },
                         )
 
                         ListItem(
@@ -362,8 +364,8 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
                             trailingContent = {
                                 RadioButton(selected = styleInput == STYLE_DROP, onClick = null)
                             },
-                            supportingContent = { Text("消息从上方掉落进入") },
-                            content = { Text("重力掉落") },
+                            supportingContent = { Text(stringResource(R.string.chat_message_animation_drop_description)) },
+                            content = { Text(stringResource(R.string.chat_message_animation_drop)) },
                         )
 
                         ListItem(
@@ -374,8 +376,8 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
                             trailingContent = {
                                 Switch(checked = bounceAllInput, onCheckedChange = null)
                             },
-                            supportingContent = { Text("进入聊天界面时历史消息也逐条播放入场动画") },
-                            content = { Text("历史消息全跳动") },
+                            supportingContent = { Text(stringResource(R.string.chat_message_animation_history_description)) },
+                            content = { Text(stringResource(R.string.chat_message_animation_history)) },
                         )
                     }
                 })

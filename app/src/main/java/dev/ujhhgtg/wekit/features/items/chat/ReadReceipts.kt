@@ -15,9 +15,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
@@ -143,7 +145,7 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
     private const val VIEW_TAG_ID = 0x7E000002
 
     /** Marker prefixing the injected read-count text, so we can strip a stale suffix before re-appending. */
-    private const val COUNT_MARKER = "​ | 已读 "
+    private const val COUNT_MARKER = "​ | "
 
     /** msgId → distinct-IP read count, last known. Drives instant render on (re)bind. */
     private val counts = ConcurrentHashMap<String, Int>()
@@ -168,7 +170,7 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             if (!text.startsWith(prefix)) return@hookBefore
 
             if (serverBase.isEmpty()) {
-                showToast(chatFooter.context, "错误: 已读追踪未设置服务器!")
+                showToast(chatFooter.context, chatFooter.context.localizedChatString(R.string.chat_read_receipts_server_missing))
                 return@hookBefore
             }
 
@@ -215,7 +217,7 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             """.trimIndent()
 
             WeMessageApi.sendXmlAppMsg(target, xml)
-            showToast(chatFooter.context, "已发送附带已读追踪的消息")
+            showToast(chatFooter.context, chatFooter.context.localizedChatString(R.string.chat_read_receipts_sent))
 
             chatFooter.lastText = ""
 
@@ -266,7 +268,7 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
     private fun applyCount(timeTV: TextView, id: String, count: Int) {
         if (timeTV.getTag(VIEW_TAG_ID) != id) return
         val base = (timeTV.text ?: "").toString().substringBefore(COUNT_MARKER)
-        timeTV.text = "$base$COUNT_MARKER$count 人"
+        timeTV.text = "$base$COUNT_MARKER${timeTV.context.localizedChatString(R.string.chat_read_receipts_count, count)}"
         timeTV.visibility = View.VISIBLE
     }
 
@@ -303,55 +305,54 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             var intervalInput by remember { mutableStateOf(pollIntervalSecs.toString()) }
 
             AlertDialogContent(
-                title = { Text("已读追踪") },
+                title = { Text(stringResource(R.string.feature_read_receipts_name)) },
                 text = {
                     DefaultColumn {
                         TextField(
                             value = serverInput,
                             onValueChange = { serverInput = it },
-                            label = { Text("服务器") },
+                            label = { Text(stringResource(R.string.chat_read_receipts_server)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                         TextField(
                             value = prefixInput,
                             onValueChange = { prefixInput = it },
-                            label = { Text("触发前缀") },
+                            label = { Text(stringResource(R.string.chat_read_receipts_prefix)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                         TextField(
                             value = intervalInput,
                             onValueChange = { intervalInput = it.filter { ch -> ch.isDigit() } },
-                            label = { Text("轮询间隔 (秒)") },
+                            label = { Text(stringResource(R.string.chat_read_receipts_poll_interval)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         if (serverInput.isBlank()) {
-                            showToast(context, "错误: 未设置服务器!")
+                            showToast(context, context.localizedChatString(R.string.chat_read_receipts_server_missing_short))
                             return@Button
                         }
                         server = serverInput
 
                         if (prefixInput.isEmpty()) {
-                            showToast(context, "警告: 「触发前缀」为空, 所有文本消息将启用已读追踪!")
+                            showToast(context, context.localizedChatString(R.string.chat_read_receipts_empty_prefix_warning))
                         }
                         prefix = prefixInput
 
                         val interval = intervalInput.toIntOrNull()
                         if (interval == null || interval <= 0) {
-                            showToast(context, "错误: 轮询间隔格式不正确!")
+                            showToast(context, context.localizedChatString(R.string.chat_read_receipts_invalid_interval))
                             return@Button
                         }
                         pollIntervalSecs = interval
 
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
     }
 }
-

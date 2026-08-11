@@ -9,7 +9,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -150,7 +152,7 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
             var inputBox by remember { mutableStateOf(inputBoxDirectJump) }
 
             AlertDialogContent(
-                title = { Text("引用消息直达") },
+                title = { Text(stringResource(R.string.feature_quoted_message_direct_jump_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -161,8 +163,8 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
                             trailingContent = {
                                 Switch(checked = messageList, onCheckedChange = null)
                             },
-                            supportingContent = { Text("点击聊天消息中的被引用消息时, 直接跳转到原消息") },
-                            content = { Text("消息列表引用直达") },
+                            supportingContent = { Text(stringResource(R.string.chat_quote_jump_message_list_description)) },
+                            content = { Text(stringResource(R.string.chat_quote_jump_message_list)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -172,8 +174,8 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
                             trailingContent = {
                                 Switch(checked = inputBox, onCheckedChange = null)
                             },
-                            supportingContent = { Text("点击输入框底部的被引用消息时, 直接跳转到原消息") },
-                            content = { Text("输入框引用直达") },
+                            supportingContent = { Text(stringResource(R.string.chat_quote_jump_input_box_description)) },
+                            content = { Text(stringResource(R.string.chat_quote_jump_input_box)) },
                         )
                     }
                 },

@@ -22,9 +22,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.core.graphics.toColorInt
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -534,10 +536,10 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
             var useEdit by remember { mutableStateOf(useEditInsteadOfRepeat) }
             var secondary by remember { mutableStateOf(enableSecondary) }
             var swap by remember { mutableStateOf(swapDirections) }
-            val sec = if (useEdit) "编辑" else "复读"
+            val sec = stringResource(if (useEdit) R.string.chat_swipe_action_edit else R.string.chat_repeat_menu)
 
             AlertDialogContent(
-                title = { Text("滑动消息快捷操作") },
+                title = { Text(stringResource(R.string.feature_swipe_message_operations_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -548,8 +550,8 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                             trailingContent = {
                                 Switch(checked = secondary, onCheckedChange = null)
                             },
-                            supportingContent = { Text("启用后, 在支持的消息上可调用次要操作以$sec") },
-                            content = { Text("启用次要操作") },
+                            supportingContent = { Text(stringResource(R.string.chat_swipe_secondary_description, sec)) },
+                            content = { Text(stringResource(R.string.chat_swipe_secondary)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -559,8 +561,8 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                             trailingContent = {
                                 Switch(checked = useEdit, onCheckedChange = null)
                             },
-                            supportingContent = { Text("启用后, 次要划动操作变为「编辑」 (仅文字消息); 关闭时为「复读」") },
-                            content = { Text("使用「编辑」而非「复读」作为次要操作") },
+                            supportingContent = { Text(stringResource(R.string.chat_swipe_edit_description)) },
+                            content = { Text(stringResource(R.string.chat_swipe_use_edit)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -570,8 +572,8 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                             trailingContent = {
                                 Switch(checked = swap, onCheckedChange = null)
                             },
-                            supportingContent = { Text("启用后, 左划$sec, 右划引用") },
-                            content = { Text("对调左右划") },
+                            supportingContent = { Text(stringResource(R.string.chat_swipe_swap_description, sec)) },
+                            content = { Text(stringResource(R.string.chat_swipe_swap)) },
                         )
                     }
                 }
@@ -601,7 +603,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
         val context = view.context
         CoroutineScope(Dispatchers.IO).launch {
             val sent = RepeatMessages.repeatMessage(msgInfo)
-            if (!sent) showToastSuspend(context, "复读失败!")
+            if (!sent) showToastSuspend(context, context.localizedChatString(R.string.chat_repeat_failed))
         }
     }
 

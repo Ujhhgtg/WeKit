@@ -29,12 +29,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
 import androidx.core.graphics.withTranslation
 import com.tencent.mm.ui.widget.MMNeat7extView
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -455,13 +457,13 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("Markdown 渲染") },
+                title = { Text(stringResource(R.string.feature_markdown_rendering_name)) },
                 text = {
                     Column {
                         var renderMode by remember { mutableStateOf(selectedRenderMode) }
 
                         Text(
-                            "解析与渲染引擎",
+                            stringResource(R.string.chat_markdown_render_engine),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
@@ -482,8 +484,8 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                                     enabled = nativeRendererAvailable
                                 )
                             },
-                            supportingContent = { Text("使用微信 OpenClaw 路径执行原生 Markdown 渲染") },
-                            content = { Text("微信原生") },
+                            supportingContent = { Text(stringResource(R.string.chat_markdown_native_description)) },
+                            content = { Text(stringResource(R.string.chat_markdown_native)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -491,8 +493,8 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                                 setRenderMode(renderMode)
                             },
                             trailingContent = { RadioButton(renderMode == RenderMode.HTML, null) },
-                            supportingContent = { Text("使用 Rust crate 解析并转换为 HTML, 再使用 android.text.HTML 渲染") },
-                            content = { Text("markdown-rs + Html") },
+                            supportingContent = { Text(stringResource(R.string.chat_markdown_html_description)) },
+                            content = { Text(stringResource(R.string.chat_markdown_html)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -500,14 +502,14 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                                 setRenderMode(renderMode)
                             },
                             trailingContent = { RadioButton(renderMode == RenderMode.MARKWON, null) },
-                            supportingContent = { Text("使用 Markwon Java 库直接渲染 Markdown") },
-                            content = { Text("Markwon") },
+                            supportingContent = { Text(stringResource(R.string.chat_markdown_markwon_description)) },
+                            content = { Text(stringResource(R.string.chat_markdown_markwon)) },
                         )
 
                         var noTextSizing by
                         remember { mutableStateOf(WePrefs.getBoolOrFalse(KEY_NO_TEXT_SIZING)) }
                         Text(
-                            "通用引擎设定",
+                            stringResource(R.string.chat_markdown_general_settings),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
@@ -518,14 +520,14 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                                 WePrefs.putBool(KEY_NO_TEXT_SIZING, noTextSizing)
                             },
                             trailingContent = { Switch(noTextSizing, null) },
-                            supportingContent = { Text("不对 Headers, Subheaders 等组件改变字体大小") },
-                            content = { Text("禁止改变字体大小") },
+                            supportingContent = { Text(stringResource(R.string.chat_markdown_disable_text_sizing_description)) },
+                            content = { Text(stringResource(R.string.chat_markdown_disable_text_sizing)) },
                         )
 
                         var compactHtml by
                         remember { mutableStateOf(WePrefs.getBoolOrFalse(KEY_COMPACT_HTML)) }
                         Text(
-                            "markdown-rs + Html 引擎设定",
+                            stringResource(R.string.chat_markdown_html_settings),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
@@ -536,12 +538,12 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                                 WePrefs.putBool(KEY_COMPACT_HTML, compactHtml)
                             },
                             trailingContent = { Switch(compactHtml, null) },
-                            supportingContent = { Text("使用一个而非两个换行来分段") },
-                            content = { Text("使用紧凑 HTML 渲染") },
+                            supportingContent = { Text(stringResource(R.string.chat_markdown_compact_html_description)) },
+                            content = { Text(stringResource(R.string.chat_markdown_compact_html)) },
                         )
                     }
                 },
-                confirmButton = { TextButton(onDismiss) { Text("关闭") } }
+                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }

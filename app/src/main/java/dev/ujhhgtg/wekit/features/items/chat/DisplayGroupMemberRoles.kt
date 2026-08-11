@@ -21,8 +21,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.core.graphics.toColorInt
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -81,9 +83,9 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
     private var ownerFg by WePrefs.prefOption("group_role_owner_fg", DEFAULT_OWNER_FG)
     private var adminFg by WePrefs.prefOption("group_role_admin_fg", DEFAULT_ADMIN_FG)
     private var memberFg by WePrefs.prefOption("group_role_member_fg", DEFAULT_MEMBER_FG)
-    private var ownerText by WePrefs.prefOption("group_role_owner_text", "群主")
-    private var adminText by WePrefs.prefOption("group_role_admin_text", "管理员")
-    private var memberText by WePrefs.prefOption("group_role_member_text", "成员")
+    private var ownerText by WePrefs.prefOption("group_role_owner_text", localizedChatString(R.string.chat_group_role_owner))
+    private var adminText by WePrefs.prefOption("group_role_admin_text", localizedChatString(R.string.chat_group_role_admin))
+    private var memberText by WePrefs.prefOption("group_role_member_text", localizedChatString(R.string.chat_group_role_member))
 
     private var showMember by WePrefs.prefOption("group_role_show_member", true)
 
@@ -104,53 +106,53 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
             var showMem by remember { mutableStateOf(showMember) }
 
             AlertDialogContent(
-                title = { Text("显示群成员身份") },
+                title = { Text(stringResource(R.string.feature_display_group_member_roles_name)) },
                 text = {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         ListItem(
                             modifier = Modifier.clickable { showMem = !showMem },
                             trailingContent = { Switch(showMem, null) },
-                            content = { Text("显示「成员」标签") },
+                            content = { Text(stringResource(R.string.chat_group_role_show_member)) },
                         )
                         WeColorField(
-                            label = "群主 | 背景色",
+                            label = stringResource(R.string.chat_group_role_owner_background),
                             value = ob,
                             onValueChange = { ob = it })
                         WeColorField(
-                            label = "群主 | 前景色",
+                            label = stringResource(R.string.chat_group_role_owner_foreground),
                             value = of,
                             onValueChange = { of = it })
                         WeColorField(
-                            label = "管理员 | 背景色",
+                            label = stringResource(R.string.chat_group_role_admin_background),
                             value = ab,
                             onValueChange = { ab = it })
                         WeColorField(
-                            label = "管理员 | 前景色",
+                            label = stringResource(R.string.chat_group_role_admin_foreground),
                             value = af,
                             onValueChange = { af = it })
                         WeColorField(
-                            label = "成员 | 背景色",
+                            label = stringResource(R.string.chat_group_role_member_background),
                             value = mb,
                             onValueChange = { mb = it })
                         WeColorField(
-                            label = "成员 | 前景色",
+                            label = stringResource(R.string.chat_group_role_member_foreground),
                             value = mf,
                             onValueChange = { mf = it })
                         TextField(
-                            label = { Text("群主 | 文本") },
+                            label = { Text(stringResource(R.string.chat_group_role_owner_text)) },
                             value = ot,
                             onValueChange = { ot = it })
                         TextField(
-                            label = { Text("管理员 | 文本") },
+                            label = { Text(stringResource(R.string.chat_group_role_admin_text)) },
                             value = at,
                             onValueChange = { at = it })
                         TextField(
-                            label = { Text("成员 | 文本") },
+                            label = { Text(stringResource(R.string.chat_group_role_member_text)) },
                             value = mt,
                             onValueChange = { mt = it })
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         ownerBg = ob
@@ -164,7 +166,7 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
                         adminText = at
                         memberText = mt
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
     }

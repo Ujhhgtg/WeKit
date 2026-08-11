@@ -31,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -38,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -95,19 +98,34 @@ object MessageTimeEnhancements : ClickableFeature(),
             val epochDay = java.time.LocalDate.now(zoneId).toEpochDay() -
                     java.time.Instant.ofEpochMilli(createTime).atZone(zoneId).toLocalDate().toEpochDay()
             val relTimeStr = when {
-                epochDay > 1 -> "$epochDay 天前"
-                epochDay == 1L -> "昨天"
+                epochDay > 1 -> localizedChatQuantity(
+                    R.plurals.chat_message_time_days_ago,
+                    epochDay.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                    epochDay,
+                )
+                epochDay == 1L -> localizedChatString(R.string.chat_message_time_yesterday)
                 else -> {
                     val diff = System.currentTimeMillis() - createTime
                     when {
-                        diff <= 0 -> "刚刚"
+                        diff <= 0 -> localizedChatString(R.string.chat_message_time_just_now)
                         else -> {
                             val mins = diff / 60000
                             val hours = diff / 3600000
                             when {
-                                mins < 1 -> "刚刚"
-                                hours < 1 -> "$mins 分钟前"
-                                else -> "${maxOf(hours, 1L)} 小时前"
+                                mins < 1 -> localizedChatString(R.string.chat_message_time_just_now)
+                                hours < 1 -> localizedChatQuantity(
+                                    R.plurals.chat_message_time_minutes_ago,
+                                    mins.toInt(),
+                                    mins,
+                                )
+                                else -> {
+                                    val displayedHours = maxOf(hours, 1L)
+                                    localizedChatQuantity(
+                                        R.plurals.chat_message_time_hours_ago,
+                                        displayedHours.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                                        displayedHours,
+                                    )
+                                }
                             }
                         }
                     }
@@ -133,10 +151,14 @@ object MessageTimeEnhancements : ClickableFeature(),
         if (result.contains($$"$mentionedUsers")) {
             val atStr = when {
                 msgInfo.mentionedUsers.isEmpty() -> ""
-                msgInfo.isAnnounceAll -> "群公告"
-                msgInfo.isNotifyAll -> "@所有人"
-                msgInfo.isAtMe -> "@我"
-                else -> "@${msgInfo.mentionedUsers.size}人"
+                msgInfo.isAnnounceAll -> localizedChatString(R.string.chat_message_time_group_announcement)
+                msgInfo.isNotifyAll -> localizedChatString(R.string.chat_message_time_everyone)
+                msgInfo.isAtMe -> localizedChatString(R.string.chat_message_time_me)
+                else -> localizedChatQuantity(
+                    R.plurals.chat_message_time_mentioned_people,
+                    msgInfo.mentionedUsers.size,
+                    msgInfo.mentionedUsers.size,
+                )
             }
             result = result.replace($$"$mentionedUsers", atStr)
         }
@@ -233,6 +255,7 @@ object MessageTimeEnhancements : ClickableFeature(),
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var displayFormatInput by remember { mutableStateOf(TextFieldValue(displayFormat)) }
             var timeFormatInput by remember { mutableStateOf(timeFormat) }
             var textSizeInputRaw by remember { mutableStateOf(textSize.toString()) }
@@ -257,19 +280,19 @@ object MessageTimeEnhancements : ClickableFeature(),
             }
 
             AlertDialogContent(
-                title = { Text("消息时间增强") },
+                title = { Text(stringResource(R.string.chat_message_time_title)) },
                 text = {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         TextField(
                             value = displayFormatInput,
                             onValueChange = { displayFormatInput = it },
-                            label = { Text("显示格式模板") },
+                            label = { Text(stringResource(R.string.chat_message_time_display_template)) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusChanged { isFocused = it.isFocused }
                         )
 
-                        Text("点击插入占位符:")
+                        Text(stringResource(R.string.chat_message_time_insert_placeholder))
 
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -306,14 +329,14 @@ object MessageTimeEnhancements : ClickableFeature(),
                         TextField(
                             value = timeFormatInput,
                             onValueChange = { timeFormatInput = it },
-                            label = { Text("时间格式") },
+                            label = { Text(stringResource(R.string.chat_message_time_format)) },
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         TextField(
                             value = textSizeInputRaw,
                             onValueChange = { textSizeInputRaw = it.filter { c -> c.isDigit() } },
-                            label = { Text("字体大小") },
+                            label = { Text(stringResource(R.string.chat_message_time_font_size)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -321,14 +344,14 @@ object MessageTimeEnhancements : ClickableFeature(),
                         WeColorField(
                             value = textColorLightInput,
                             onValueChange = { textColorLightInput = it },
-                            label = "字体颜色 (亮色模式)",
+                            label = stringResource(R.string.chat_message_time_color_light),
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         WeColorField(
                             value = textColorDarkInput,
                             onValueChange = { textColorDarkInput = it },
-                            label = "字体颜色 (暗色模式)",
+                            label = stringResource(R.string.chat_message_time_color_dark),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -342,8 +365,10 @@ object MessageTimeEnhancements : ClickableFeature(),
                                     onCheckedChange = null
                                 )
                             },
-                            supportingContent = { Text("时间是否始终居中, 不根据发送方居左居右") },
-                            content = { Text("时间居中显示") },
+                            supportingContent = {
+                                Text(stringResource(R.string.chat_message_time_center_summary))
+                            },
+                            content = { Text(stringResource(R.string.chat_message_time_center)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -355,8 +380,10 @@ object MessageTimeEnhancements : ClickableFeature(),
                                     onCheckedChange = null
                                 )
                             },
-                            supportingContent = { Text("是否强制显示每条消息的时间") },
-                            content = { Text("显示每条消息时间") },
+                            supportingContent = {
+                                Text(stringResource(R.string.chat_message_time_always_show_summary))
+                            },
+                            content = { Text(stringResource(R.string.chat_message_time_always_show)) },
                         )
                     }
                 },
@@ -364,7 +391,10 @@ object MessageTimeEnhancements : ClickableFeature(),
                     Button(onClick = {
                         val textSizeInput = textSizeInputRaw.toIntOrNull()
                         if (textSizeInput == null || textSizeInput <= 0) {
-                            showToast(context, "数字格式不正确!")
+                            showToast(
+                                localizedContext,
+                                localizedContext.getString(R.string.chat_message_time_invalid_number),
+                            )
                             return@Button
                         }
 
@@ -376,9 +406,11 @@ object MessageTimeEnhancements : ClickableFeature(),
                         textColorLight = textColorLightInput
                         textColorDark = textColorDarkInput
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                }
             )
         }
     }

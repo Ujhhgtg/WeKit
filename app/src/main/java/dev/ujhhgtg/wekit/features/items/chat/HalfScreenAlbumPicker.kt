@@ -22,9 +22,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -672,11 +674,11 @@ object HalfScreenAlbumPicker : ClickableFeature() {
             var heightInput by remember { mutableFloatStateOf(heightPercent.toFloat()) }
 
             AlertDialogContent(
-                title = { Text("半屏相册选择器") },
+                title = { Text(stringResource(R.string.feature_half_screen_album_picker_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
-                            content = { Text("高度占比: ${heightInput.roundToInt()}%") },
+                            content = { Text(stringResource(R.string.chat_half_screen_album_height, heightInput.roundToInt())) },
                             supportingContent = {
                                 Slider(
                                     value = heightInput,
@@ -688,12 +690,12 @@ object HalfScreenAlbumPicker : ClickableFeature() {
                         )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         heightPercent = heightInput.roundToInt()
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }

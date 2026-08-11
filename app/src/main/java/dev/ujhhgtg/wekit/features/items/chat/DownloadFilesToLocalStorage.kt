@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Download
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
@@ -38,19 +39,19 @@ object DownloadFilesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuAp
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777022,
-                "下载",
+                localizedChatString(R.string.chat_action_download),
                 DownloadIcon,
                 MaterialSymbols.Outlined.Download,
                 { msgInfo -> msgInfo.type == MessageType.FILE }
             ) { _, _, msgInfo ->
-                showToast("正在缓存并下载...")
+                showToast(localizedChatString(R.string.chat_file_download_preparing))
                 CoroutineScope(Dispatchers.IO).launch {
                     val path = WeMessageApi.downloadFile(msgInfo.instance) ?: run {
                         WeLogger.e(TAG, "failed to cache & download file")
-                        showToastSuspend("文件下载失败! 查看日志以了解错误详情")
+                        showToastSuspend(localizedChatString(R.string.chat_file_download_failed))
                         return@launch
                     }
-                    showToastSuspend("已将文件下载到 $path")
+                    showToastSuspend(localizedChatString(R.string.chat_file_download_success, path))
                 }
             }
         )

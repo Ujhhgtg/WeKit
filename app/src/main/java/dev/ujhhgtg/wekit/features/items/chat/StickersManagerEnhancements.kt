@@ -9,6 +9,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.tencent.mm.api.IEmojiInfo
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -89,10 +90,10 @@ object StickersManagerEnhancements : SwitchFeature() {
             )
         }
 
-        val btnSelectAll = makeBtn("全选")
-        val btnSelectNone = makeBtn("全不选")
-        val btnInvert = makeBtn("反选")
-        val btnExport = makeBtn("导出")
+        val btnSelectAll = makeBtn(activity.localizedChatString(R.string.chat_sticker_manager_select_all))
+        val btnSelectNone = makeBtn(activity.localizedChatString(R.string.chat_sticker_manager_select_none))
+        val btnInvert = makeBtn(activity.localizedChatString(R.string.chat_sticker_manager_invert))
+        val btnExport = makeBtn(activity.localizedChatString(R.string.chat_sticker_manager_export))
 
         val parentContainer = moveTv.parent as ViewGroup
         val index = parentContainer.indexOfChild(moveTv)
@@ -311,11 +312,11 @@ object StickersManagerEnhancements : SwitchFeature() {
         val baseName = System.currentTimeMillis().toString()
 
         CoroutineScope(Dispatchers.IO).launch {
-            showToastSuspend("正在导出...")
+            showToastSuspend(localizedChatString(R.string.chat_sticker_manager_exporting))
             selectedMd5s.forEachIndexed { index, md5 ->
                 WeMessageApi.saveStickerByMd5(md5, "sticker_${baseName}_$index.gif")
             }
-            showToastSuspend("已保存 ${selectedMd5s.size} 张贴纸到 /sdcard/Download/WeKit")
+            showToastSuspend(localizedChatQuantity(R.plurals.chat_sticker_manager_exported, selectedMd5s.size, selectedMd5s.size, "/sdcard/Download/WeKit"))
         }
     }
 }

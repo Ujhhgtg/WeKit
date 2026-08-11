@@ -24,11 +24,13 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import com.tencent.mm.pluginsdk.ui.chat.AppPanel
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooterBottom
 import com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -918,13 +920,13 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             var panelAboveInput by remember { mutableStateOf(movePanelAbove) }
 
             AlertDialogContent(
-                title = { Text("悬浮输入框") },
+                title = { Text(stringResource(R.string.chat_floating_footer_title)) },
                 text = {
                     DefaultColumn {
                         ListItem(
-                            content = { Text("菜单显示在输入框上方") },
+                            content = { Text(stringResource(R.string.chat_floating_footer_panel_above)) },
                             supportingContent = {
-                                Text("表情与工具菜单从输入框上沿向上展开, 输入框位置不动; 关闭则维持微信原样")
+                                Text(stringResource(R.string.chat_floating_footer_panel_above_summary))
                             },
                             trailingContent = {
                                 Switch(
@@ -934,7 +936,9 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         )
                         ListItem(
-                            content = { Text("圆角半径: ${cornerInput.roundToInt()} dp") },
+                            content = {
+                                Text(stringResource(R.string.chat_floating_corner_radius, cornerInput.roundToInt()))
+                            },
                             supportingContent = {
                                 Slider(
                                     value = cornerInput,
@@ -945,7 +949,9 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         )
                         ListItem(
-                            content = { Text("侧边距: ${sideInput.roundToInt()} dp") },
+                            content = {
+                                Text(stringResource(R.string.chat_floating_side_margin, sideInput.roundToInt()))
+                            },
                             supportingContent = {
                                 Slider(
                                     value = sideInput,
@@ -956,7 +962,9 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         )
                         ListItem(
-                            content = { Text("底部间距: ${gapInput.roundToInt()} dp") },
+                            content = {
+                                Text(stringResource(R.string.chat_floating_bottom_gap, gapInput.roundToInt()))
+                            },
                             supportingContent = {
                                 Slider(
                                     value = gapInput,
@@ -967,7 +975,9 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         )
                         ListItem(
-                            content = { Text("阴影强度: ${elevInput.roundToInt()} dp") },
+                            content = {
+                                Text(stringResource(R.string.chat_floating_elevation, elevInput.roundToInt()))
+                            },
                             supportingContent = {
                                 Slider(
                                     value = elevInput,
@@ -979,7 +989,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                         )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         movePanelAbove = panelAboveInput
@@ -988,7 +998,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                         bottomGapDp = gapInput.roundToInt()
                         elevationDp = elevInput.roundToInt()
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }

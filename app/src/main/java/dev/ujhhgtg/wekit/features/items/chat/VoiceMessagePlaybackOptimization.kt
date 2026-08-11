@@ -9,7 +9,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -152,7 +154,7 @@ object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
             var modeInput by remember { mutableIntStateOf(playbackMode) }
 
             AlertDialogContent(
-                title = { Text("语音消息播放逻辑优化") },
+                title = { Text(stringResource(R.string.feature_voice_message_playback_optimization_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -166,8 +168,8 @@ object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
                                     onClick = null
                                 )
                             },
-                            supportingContent = { Text("自动切换继续生效, 切换后从原进度继续播放") },
-                            content = { Text("切换后继承播放进度") },
+                            supportingContent = { Text(stringResource(R.string.chat_voice_playback_keep_progress_description)) },
+                            content = { Text(stringResource(R.string.chat_voice_playback_keep_progress)) },
                         )
 
                         ListItem(
@@ -178,8 +180,8 @@ object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
                             trailingContent = {
                                 RadioButton(selected = modeInput == MODE_DISABLE, onClick = null)
                             },
-                            supportingContent = { Text("贴近/离开耳朵均不自动切换听筒与扬声器") },
-                            content = { Text("完全禁用自动切换") },
+                            supportingContent = { Text(stringResource(R.string.chat_voice_playback_disable_switch_description)) },
+                            content = { Text(stringResource(R.string.chat_voice_playback_disable_switch)) },
                         )
                     }
                 })

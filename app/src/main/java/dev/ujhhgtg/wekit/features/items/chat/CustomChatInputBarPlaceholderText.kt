@@ -20,10 +20,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -179,20 +181,20 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
             }
 
             AlertDialogContent(
-                title = { Text("自定义输入框占位符文本") },
+                title = { Text(stringResource(R.string.feature_custom_chat_input_bar_placeholder_text_name)) },
                 text = {
                     DefaultColumn {
                         OutlinedTextField(
                             value = textInput,
                             onValueChange = { textInput = it },
-                            label = { Text("占位符文本内容") },
+                            label = { Text(stringResource(R.string.chat_placeholder_content)) },
                             minLines = 3,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusChanged { isFocused = it.isFocused }
                         )
 
-                        Text("点击插入占位符:")
+                        Text(stringResource(R.string.chat_placeholder_insert_hint))
 
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -220,14 +222,14 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         text = textInput.text
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 }
             )

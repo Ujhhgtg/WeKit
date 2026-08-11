@@ -1601,4 +1601,577 @@
         <item quantity="one">从本地语音包中删除选中的 %1$d 条语音？</item>
         <item quantity="other">从本地语音包中删除选中的 %1$d 条语音？</item>
     </plurals>
+<!-- 简体中文资源：较小的直属聊天功能文件。 -->
+<string name="chat_batch_revoke_menu">撤回</string>
+<plurals name="chat_batch_revoke_result">
+    <item quantity="other">已撤回 %1$d/%2$d 条消息</item>
+</plurals>
+<string name="chat_abnormal_sticker_blocked">检测到异常大小贴纸表情，已拦截</string>
+<string name="chat_action_download">下载</string>
+<string name="chat_action_save_locally">存本地</string>
+<string name="chat_file_download_preparing">正在缓存并下载…</string>
+<string name="chat_file_download_failed">文件下载失败！查看日志以了解错误详情</string>
+<string name="chat_file_download_success">已将文件下载到 %1$s</string>
+<string name="chat_image_download_failed">图片下载失败！查看日志以了解错误详情</string>
+<string name="chat_image_download_success">已将图片下载到 %1$s</string>
+<string name="chat_repeat_menu">复读</string>
+<string name="chat_repeat_failed">复读失败！</string>
+<plurals name="chat_stickers_saved_locally">
+    <item quantity="other">已保存 %1$d/%2$d 条贴纸到本地</item>
+</plurals>
+<string name="chat_sticker_saved_to">已将贴纸保存到 %1$s</string>
+<string name="chat_sticker_save_failed">贴纸保存失败！查看日志以了解错误详情</string>
+<plurals name="chat_voices_saved_locally">
+    <item quantity="other">已保存 %1$d/%2$d 条语音到本地</item>
+</plurals>
+<string name="chat_voice_saved_to">已将语音保存到 %1$s</string>
+<string name="chat_voice_save_failed">语音保存失败！查看日志以了解错误详情</string>
+<string name="chat_add_folder_open_config">添加后打开配置对话框</string>
+<string name="chat_add_folder_open_config_description">将对话加入文件夹后，自动打开该文件夹的编辑对话框</string>
+<string name="chat_add_folder_menu">加入文件夹</string>
+<string name="chat_add_folder_enable_grouping_first">请先启用「对话归拢」！</string>
+<string name="chat_add_folder_none_available">暂无文件夹，请先在「对话归拢」中新建一个</string>
+<string name="chat_add_folder_automatic_unavailable">「%1$s」为自动归拢文件夹，无法手动添加对话</string>
+<string name="chat_add_folder_manual_unavailable">「%1$s」无法手动添加对话</string>
+<string name="chat_add_folder_success">已加入「%1$s」</string>
+<string name="chat_add_folder_automatic_summary">自动归拢，不可手动添加</string>
+<string name="chat_add_folder_manual_summary">手动文件夹</string>
+<string name="chat_anti_recall_outgoing">防撤回自己的消息</string>
+<string name="chat_anti_recall_outgoing_description">是否对自己发出的消息也生效（这个功能现在是坏的，别用）</string>
+<string name="chat_anti_recall_pattern">提示格式</string>
+<string name="chat_anti_recall_placeholders" formatted="false">可使用占位符 $sender、$sendTime、$recallTime、$content</string>
+<string name="chat_anti_recall_time_format">时间格式</string>
+<string name="chat_placeholder_content">占位符文本内容</string>
+<string name="chat_placeholder_insert_hint">点击插入占位符：</string>
+<string name="chat_fake_voice_duration_millis">语音时长（毫秒）</string>
+<string name="chat_fake_voice_duration_invalid">时长格式不正确！</string>
+<string name="chat_hide_avatar_incoming">隐藏私聊对方头像</string>
+<string name="chat_hide_avatar_incoming_description">仅在私聊中隐藏对方的用户头像</string>
+<string name="chat_hide_avatar_outgoing">隐藏发送消息头像</string>
+<string name="chat_hide_avatar_outgoing_description">隐藏自己发出的消息的用户头像</string>
+<string name="chat_half_screen_album_height">高度占比：%1$d%%</string>
+<string name="chat_modify_text_menu">修改内容</string>
+<string name="chat_modify_text_title">修改消息显示</string>
+<string name="chat_modify_text_content">显示内容</string>
+<string name="chat_quote_jump_message_list">消息列表引用直达</string>
+<string name="chat_quote_jump_message_list_description">点击聊天消息中的被引用消息时，直接跳转到原消息</string>
+<string name="chat_quote_jump_input_box">输入框引用直达</string>
+<string name="chat_quote_jump_input_box_description">点击输入框底部的被引用消息时，直接跳转到原消息</string>
+<string name="chat_remove_menu_items_label">要移除的菜单项名称（以逗号分割）：</string>
+<string name="chat_pinning_set_priority">设置优先级</string>
+<string name="chat_pinning_priority_value">置顶优先级：%1$d</string>
+<string name="chat_pinning_priority_description">优先级越高，在同一置顶状态内越靠前。0 为微信默认排序。</string>
+<string name="chat_voice_playback_keep_progress">切换后继承播放进度</string>
+<string name="chat_voice_playback_keep_progress_description">自动切换继续生效，切换后从原进度继续播放</string>
+<string name="chat_voice_playback_disable_switch">完全禁用自动切换</string>
+<string name="chat_voice_playback_disable_switch_description">贴近/离开耳朵均不自动切换听筒与扬声器</string>
+<string name="chat_message_animation_bounce">弹跳入场</string>
+<string name="chat_message_animation_bounce_description">消息缩放弹跳进入屏幕</string>
+<string name="chat_message_animation_slide">平移滑入</string>
+<string name="chat_message_animation_slide_description">消息水平平移滑入，自己发出的从右侧、收到的从左侧</string>
+<string name="chat_message_animation_drop">重力掉落</string>
+<string name="chat_message_animation_drop_description">消息从上方掉落进入</string>
+<string name="chat_message_animation_history">历史消息全跳动</string>
+<string name="chat_message_animation_history_description">进入聊天界面时历史消息也逐条播放入场动画</string>
+<string name="chat_auto_cache_files_whitelist_description">仅对选中联系人缓存文件</string>
+<string name="chat_auto_cache_files_blacklist_description">对选中联系人跳过缓存文件</string>
+<string name="chat_auto_cache_images_whitelist_description">仅对选中联系人缓存图片</string>
+<string name="chat_auto_cache_images_blacklist_description">对选中联系人跳过缓存图片</string>
+<string name="chat_auto_cache_whitelist_selected">黑名单 [→ 白名单 ←]</string>
+<string name="chat_auto_cache_blacklist_selected">[→ 黑名单 ←] 白名单</string>
+<string name="chat_auto_cache_select_whitelist">选择白名单</string>
+<string name="chat_auto_cache_select_blacklist">选择黑名单</string>
+<plurals name="chat_auto_cache_contacts_saved">
+    <item quantity="other">已保存 %1$d 个联系人，重启微信以使更改生效</item>
+</plurals>
+<string name="chat_auto_cache_select_contacts_hint">点击选择联系人</string>
+<string name="chat_auto_cache_configure_whitelist">配置白名单</string>
+<string name="chat_auto_cache_configure_blacklist">配置黑名单</string>
+<string name="chat_member_inviter_title">查看进群邀请者</string>
+<string name="chat_contact_tap_to_view">点击查看</string>
+<string name="chat_member_inviter_querying">正在查询…</string>
+<string name="chat_member_inviter_no_record">无邀请者记录（可能是群主/前群主/早期成员）</string>
+<string name="chat_member_inviter_self_joined">该成员为扫码/自行进群</string>
+<string name="chat_member_inviter_result">邀请者：%1$s</string>
+<string name="chat_color_foreground">前景色</string>
+<string name="chat_real_name_fetch_title">获取实名尾字</string>
+<string name="chat_real_name_value">实名：%1$s</string>
+<string name="chat_contact_tap_to_fetch">点击获取</string>
+<string name="chat_real_name_fetching">正在获取…</string>
+<string name="chat_real_name_not_found">获取失败：可能被删除/被拉黑/对方账号异常！</string>
+<string name="chat_real_name_fetch_failed">获取失败：%1$s！</string>
+<string name="chat_group_role_owner">群主</string>
+<string name="chat_group_role_admin">管理员</string>
+<string name="chat_group_role_member">成员</string>
+<string name="chat_group_role_show_member">显示「成员」标签</string>
+<string name="chat_group_role_owner_background">群主 | 背景色</string>
+<string name="chat_group_role_owner_foreground">群主 | 前景色</string>
+<string name="chat_group_role_admin_background">管理员 | 背景色</string>
+<string name="chat_group_role_admin_foreground">管理员 | 前景色</string>
+<string name="chat_group_role_member_background">成员 | 背景色</string>
+<string name="chat_group_role_member_foreground">成员 | 前景色</string>
+<string name="chat_group_role_owner_text">群主 | 文本</string>
+<string name="chat_group_role_admin_text">管理员 | 文本</string>
+<string name="chat_group_role_member_text">成员 | 文本</string>
+<string name="chat_forward_favorite_voice_confirm">确定发送以下文件？\n%1$s</string>
+<string name="chat_path_copied">已复制</string>
+<string name="chat_copy_path">复制路径</string>
+<string name="chat_sent">已发送</string>
+<plurals name="chat_forwarded_to_recipients">
+    <item quantity="other">已转发到 %1$d 个对象</item>
+</plurals>
+<plurals name="chat_forwarded_partial_recipients">
+    <item quantity="other">已转发 %1$d/%2$d 个对象</item>
+</plurals>
+<string name="chat_forward_menu">转发</string>
+<string name="chat_forward_select_recipients">选择转发对象</string>
+<string name="chat_forward_select_at_least_one">请选择至少一个联系人</string>
+<plurals name="chat_forwarding_messages">
+    <item quantity="other">正在转发 %1$d 条消息到 %2$d 个对象…</item>
+</plurals>
+<plurals name="chat_forwarded_partial_messages">
+    <item quantity="other">已转发 %1$d/%2$d 条（部分失败）</item>
+</plurals>
+<string name="chat_forward_untested_type_warning">警告：该消息类型未经过测试，将回退为卡片消息发送，可能失败！</string>
+<string name="chat_redirect_path_exists">当前目录已存在。</string>
+<string name="chat_redirect_path_not_directory">当前路径已存在但不是文件夹，下载时会回退到默认目录。</string>
+<string name="chat_redirect_path_will_create">当前目录不存在，下载时会自动尝试创建。</string>
+<string name="chat_redirect_save_directory">保存目录</string>
+<string name="chat_redirect_actual_directory">实际目录：%1$s</string>
+<string name="chat_redirect_default_directory_hint">留空使用默认目录：%1$s</string>
+<string name="chat_redirect_default_restored">已恢复默认路径</string>
+<string name="chat_redirect_restore_default">恢复默认</string>
+<string name="chat_redirect_saved">已保存，后续新下载文件会使用该目录</string>
+<string name="chat_read_receipts_server_missing">错误：已读追踪未设置服务器！</string>
+<string name="chat_read_receipts_sent">已发送附带已读追踪的消息</string>
+<string name="chat_read_receipts_count">已读 %1$d 人</string>
+<string name="chat_read_receipts_server">服务器</string>
+<string name="chat_read_receipts_prefix">触发前缀</string>
+<string name="chat_read_receipts_poll_interval">轮询间隔（秒）</string>
+<string name="chat_read_receipts_server_missing_short">错误：未设置服务器！</string>
+<string name="chat_read_receipts_empty_prefix_warning">警告：「触发前缀」为空，所有文本消息将启用已读追踪！</string>
+<string name="chat_read_receipts_invalid_interval">错误：轮询间隔格式不正确！</string>
+<string name="chat_emoji_game_scissors">剪刀</string><string name="chat_emoji_game_rock">石头</string><string name="chat_emoji_game_paper">布</string>
+<string name="chat_emoji_game_no_sensor">暂无传感器数据，正使用随机数！</string>
+<string name="chat_emoji_game_motion_fallback">加速度过高，正使用随机数！</string>
+<string name="chat_emoji_game_dice_result">骰子：%1$s</string><string name="chat_emoji_game_morra_result">猜拳：%1$s</string>
+<string name="chat_emoji_game_stealth">隐蔽模式</string><string name="chat_emoji_game_stealth_description">根据设备陀螺仪状态选择发送内容</string>
+<string name="chat_emoji_game_invalid_input">输入格式错误！</string><string name="chat_send_failed">发送失败</string>
+<string name="chat_emoji_game_select_dice">选择骰子点数</string><string name="chat_emoji_game_select_morra">选择猜拳结果</string>
+<string name="chat_emoji_game_send_mode">发送模式：</string><string name="chat_emoji_game_single">单次</string><string name="chat_emoji_game_multiple">多次</string>
+<string name="chat_emoji_game_dice_input">输入 1~6</string><string name="chat_emoji_game_morra_input">输入 1：剪刀 2：石头 3：布</string>
+<string name="chat_emoji_game_random">随机</string><string name="chat_emoji_game_send">发送</string><string name="chat_emoji_game_send_index_failed">第 %1$d 次发送失败</string>
+<plurals name="chat_emoji_game_sent_count"><item quantity="other">已发送 %1$d 次</item></plurals>
+<string name="chat_markdown_render_engine">解析与渲染引擎</string><string name="chat_markdown_native">微信原生</string><string name="chat_markdown_native_description">使用微信 OpenClaw 路径执行原生 Markdown 渲染</string>
+<string name="chat_markdown_html">markdown-rs + Html</string><string name="chat_markdown_html_description">使用 Rust crate 解析并转换为 HTML，再使用 android.text.Html 渲染</string>
+<string name="chat_markdown_markwon">Markwon</string><string name="chat_markdown_markwon_description">使用 Markwon Java 库直接渲染 Markdown</string>
+<string name="chat_markdown_general_settings">通用引擎设定</string><string name="chat_markdown_disable_text_sizing">禁止改变字体大小</string><string name="chat_markdown_disable_text_sizing_description">不对 Headers、Subheaders 等组件改变字体大小</string>
+<string name="chat_markdown_html_settings">markdown-rs + Html 引擎设定</string><string name="chat_markdown_compact_html">使用紧凑 HTML 渲染</string><string name="chat_markdown_compact_html_description">使用一个而非两个换行来分段</string>
+<string name="chat_save_to_panel_menu">保存到面板</string><string name="chat_save_to_panel_select_sticker_pack">选择表情包</string><string name="chat_save_to_panel_new_sticker_pack">新建表情包</string>
+<plurals name="chat_save_to_panel_sticker_count"><item quantity="other">%1$d 张表情</item></plurals>
+<string name="chat_save_to_panel_select_voice_pack">选择语音包</string><string name="chat_save_to_panel_new_voice_pack">新建语音包</string><plurals name="chat_save_to_panel_voice_count"><item quantity="other">%1$d 条语音</item></plurals>
+<string name="chat_save_to_panel_sticker_success">已保存贴纸到「%1$s」</string><string name="chat_save_to_panel_voice_success">已保存语音到「%1$s」</string>
+<plurals name="chat_save_to_panel_messages_result"><item quantity="other">已保存 %1$d/%2$d 条消息到面板</item></plurals>
+<plurals name="chat_save_to_panel_stickers_result"><item quantity="other">已保存 %1$d/%2$d 张贴纸到「%3$s」</item></plurals>
+<plurals name="chat_save_to_panel_voices_result"><item quantity="other">已保存 %1$d/%2$d 条语音到「%3$s」</item></plurals>
+<string name="chat_swipe_action_edit">编辑</string><string name="chat_swipe_secondary">启用次要操作</string><string name="chat_swipe_secondary_description">启用后，在支持的消息上可调用次要操作以%1$s</string>
+<string name="chat_swipe_use_edit">使用「编辑」而非「复读」作为次要操作</string><string name="chat_swipe_edit_description">启用后，次要划动操作变为「编辑」（仅文字消息）；关闭时为「复读」</string>
+<string name="chat_swipe_swap">对调左右划</string><string name="chat_swipe_swap_description">启用后，左划%1$s，右划引用</string>
+<string name="chat_swipe_conversation_config">左划菜单配置</string><string name="chat_swipe_conversation_pin_description">在「隐藏」左侧显示置顶快捷按钮</string><string name="chat_swipe_conversation_pin_toggle">置顶 / 取消置顶</string>
+<string name="chat_swipe_conversation_mute_description">在「隐藏」左侧显示免打扰快捷按钮</string><string name="chat_swipe_conversation_mute_toggle">免打扰 / 取消免打扰</string>
+<string name="chat_conversation_pin">置顶</string><string name="chat_conversation_unpin">取消置顶</string><string name="chat_conversation_mute">免打扰</string><string name="chat_conversation_unmute">取消免打扰</string><string name="chat_conversation_hide">隐藏</string>
+<string name="chat_conversation_delete_title">删除对话</string><string name="chat_conversation_delete_message">确定删除该对话？此操作将同时删除所有消息记录</string><string name="chat_conversation_deleted">已删除</string><string name="chat_conversation_hidden">已隐藏</string>
+<string name="chat_conversation_pinned">已置顶</string><string name="chat_conversation_unpinned">已取消置顶</string><string name="chat_conversation_muted">已开启免打扰</string><string name="chat_conversation_unmuted">已关闭免打扰</string>
+<string name="chat_sticker_manager_select_all">全选</string><string name="chat_sticker_manager_select_none">全不选</string><string name="chat_sticker_manager_invert">反选</string><string name="chat_sticker_manager_export">导出</string><string name="chat_sticker_manager_exporting">正在导出…</string>
+<plurals name="chat_sticker_manager_exported"><item quantity="other">已保存 %1$d 张贴纸到 %2$s</item></plurals>
+<!-- 聊天输入栏菜单与 API 核心简体中文资源。 -->
+<string name="mention_members_settings_title">@所有人设置</string>
+<string name="mention_members_stealth_label">隐蔽@所有人</string>
+<string name="mention_members_stealth_description">开启时点击直接隐蔽发送@所有人消息（不显示成员选择弹窗且消息不附带@昵称前缀）；关闭时弹出成员选择弹窗并在消息头部附带@昵称文本</string>
+<string name="mention_members_action_label">@所有人（长按配置）</string>
+<string name="mention_members_group_only">只能在群组里使用！</string>
+<string name="mention_members_sent_unseen">已发送（自己无法看到该消息）</string>
+<string name="mention_members_stealth_message">你隐蔽@了所有人</string>
+<string name="mention_members_empty_group">群成员列表为空！</string>
+<string name="mention_members_select_one">请选择至少一个好友！</string>
+<plurals name="mention_members_message_count">
+    <item quantity="other">你@了 %1$d 个人</item>
+</plurals>
+<string name="send_card_message_input_empty">输入内容为空！</string>
+<string name="send_card_message_failed">发送卡片消息失败，请检查格式</string>
+<string name="message_type_moments">朋友圈</string>
+<string name="message_type_text">文本</string>
+<string name="message_type_image">图片</string>
+<string name="message_type_voice">语音</string>
+<string name="message_type_friend_verify">好友验证</string>
+<string name="message_type_contact_recommend">名片推荐</string>
+<string name="message_type_card">名片</string>
+<string name="message_type_video">视频</string>
+<string name="message_type_sticker">表情</string>
+<string name="message_type_location">位置</string>
+<string name="message_type_app">应用消息</string>
+<string name="message_type_voip">音视频通话</string>
+<string name="message_type_status">状态</string>
+<string name="message_type_voip_notify">通话通知</string>
+<string name="message_type_voip_invite">通话邀请</string>
+<string name="message_type_micro_video">小视频</string>
+<string name="message_type_system_notice">系统通知</string>
+<string name="message_type_system">系统消息</string>
+<string name="message_type_system_location">系统位置</string>
+<string name="message_type_sogou_emoji">搜狗表情</string>
+<string name="message_type_link">链接</string>
+<string name="message_type_recall">撤回消息</string>
+<string name="message_type_service">服务消息</string>
+<string name="message_type_transfer">转账</string>
+<string name="message_type_red_packet">红包</string>
+<string name="message_type_special_red_packet">裂变红包</string>
+<string name="message_type_account_video">视频号视频</string>
+<string name="message_type_red_packet_cover">红包封面</string>
+<string name="message_type_video_account">视频号</string>
+<string name="message_type_video_account_card">视频号名片</string>
+<string name="message_type_group_note">群笔记</string>
+<string name="message_type_quote">引用消息</string>
+<string name="message_type_pat">拍一拍</string>
+<string name="message_type_video_account_live">视频号直播</string>
+<string name="message_type_product">商品链接</string>
+<string name="message_type_unknown">未知类型</string>
+<string name="message_type_music">音乐链接</string>
+<string name="message_type_file">文件</string>
+    <string name="chat_auto_reply_title">聊天自动回复</string>
+    <string name="chat_auto_reply_global_settings">全局设置</string>
+    <string name="chat_auto_reply_global_settings_summary">配置默认自动回复任务与操作</string>
+    <string name="chat_auto_reply_contact_settings">分联系人设置</string>
+    <string name="chat_auto_reply_contact_settings_summary">为联系人、群聊或群成员覆盖全局设置</string>
+    <string name="chat_auto_reply_global_saved">全局设置已保存</string>
+    <string name="chat_auto_reply_group_settings">群聊设置</string>
+    <string name="chat_auto_reply_follows_global">跟随全局设置</string>
+    <plurals name="chat_auto_reply_group_overridden_count">
+        <item quantity="other">群聊设置 · 已覆盖 %1$d 项</item>
+    </plurals>
+    <plurals name="chat_auto_reply_overridden_count">
+        <item quantity="other">已覆盖 %1$d 项</item>
+    </plurals>
+    <string name="chat_auto_reply_group_global_settings">群聊全局设置</string>
+    <string name="chat_auto_reply_group_member_settings">群聊分群成员设置</string>
+    <string name="chat_auto_reply_all_members_follow_group">所有成员跟随群聊全局设置</string>
+    <plurals name="chat_auto_reply_configured_member_count">
+        <item quantity="other">已配置 %1$d 个成员</item>
+    </plurals>
+    <string name="chat_auto_reply_group_member_settings_title">%1$s · 分群成员设置</string>
+    <string name="chat_auto_reply_follows_group">跟随群聊全局设置</string>
+    <string name="chat_auto_reply_settings_saved">设置已保存</string>
+    <string name="chat_auto_reply_task_settings">任务设置</string>
+    <string name="chat_auto_reply_enabled_title">自动回复</string>
+    <string name="chat_auto_reply_enabled_summary">按下方任务规则匹配收到的文字消息并自动回复</string>
+    <string name="chat_auto_reply_disabled_summary">不自动回复</string>
+    <string name="chat_auto_reply_time_range_title">时间段自动回复</string>
+    <string name="chat_auto_reply_time_unrestricted">不限制回复时间</string>
+    <string name="chat_auto_reply_tasks_title">任务（按顺序匹配）</string>
+    <string name="chat_auto_reply_no_tasks">尚未添加任务</string>
+    <plurals name="chat_auto_reply_task_count_summary">
+        <item quantity="other">长按拖动手柄调整顺序 · %1$d 个任务</item>
+    </plurals>
+    <string name="chat_auto_reply_drag_task">拖动任务</string>
+    <string name="chat_auto_reply_task_number">任务 %1$d</string>
+    <string name="chat_auto_reply_delete_task">删除任务</string>
+    <string name="chat_auto_reply_add_task">添加任务</string>
+    <string name="chat_auto_reply_add_task_summary">设置关键词、回复内容与延迟</string>
+    <string name="chat_auto_reply_task_name">任务名称</string>
+    <string name="chat_auto_reply_enable_task">启用任务</string>
+    <string name="chat_auto_reply_type_text">文本</string>
+    <string name="chat_auto_reply_type_image">图片</string>
+    <string name="chat_auto_reply_type_video">视频</string>
+    <string name="chat_auto_reply_type_voice">语音</string>
+    <string name="chat_auto_reply_reply_content">回复内容</string>
+    <string name="chat_auto_reply_voice_duration_ms">语音时长（毫秒）</string>
+    <string name="chat_auto_reply_delay_ms">回复延迟（毫秒，0–60000）</string>
+    <string name="chat_auto_reply_cooldown_ms">冷却时间（毫秒）</string>
+    <string name="chat_auto_reply_stop_after_match">命中后停止匹配后续任务</string>
+    <string name="chat_auto_reply_image_path">图片路径</string>
+    <string name="chat_auto_reply_video_path">视频路径</string>
+    <string name="chat_auto_reply_voice_path">语音文件路径（amr/silk）</string>
+    <string name="chat_auto_reply_import">导入</string>
+    <string name="chat_auto_reply_keyword_unrestricted">不限关键词</string>
+    <plurals name="chat_auto_reply_keyword_list_summary">
+        <item quantity="other">匹配字符串列表中的任意一项（%1$d）</item>
+    </plurals>
+    <plurals name="chat_auto_reply_keyword_exact_summary">
+        <item quantity="other">完全匹配字符串列表中的任意一项（%1$d）</item>
+    </plurals>
+    <string name="chat_auto_reply_keyword_regex_empty">尚未填写正则表达式</string>
+    <string name="chat_auto_reply_keyword_regex_summary">匹配单个正则表达式</string>
+    <string name="chat_auto_reply_task_error">任务“%1$s”：%2$s</string>
+    <string name="chat_auto_reply_error_keyword_list_empty">关键词字符串列表不能为空</string>
+    <string name="chat_auto_reply_error_keyword_regex_empty">关键词正则表达式不能为空</string>
+    <string name="chat_auto_reply_error_keyword_regex_invalid">关键词正则表达式格式不正确</string>
+    <string name="chat_auto_reply_error_text_empty">文本回复内容不能为空</string>
+    <string name="chat_auto_reply_error_path_empty">回复文件路径不能为空</string>
+    <string name="chat_auto_reply_error_voice_duration">语音时长必须在 1–60000 毫秒之间</string>
+    <string name="chat_auto_reply_error_delay">延迟必须在 0–60000 毫秒之间</string>
+    <string name="chat_auto_reply_error_cooldown">冷却时间不能为负数</string>
+    <string name="chat_message_details_menu">查看详情</string>
+    <string name="chat_message_details_type">类型</string>
+    <string name="chat_message_details_talker_id">对方/群聊 ID</string>
+    <string name="chat_message_details_sender_id">发送者 ID</string>
+    <string name="chat_message_details_content">内容</string>
+    <string name="chat_message_details_title">消息详情</string>
+    <string name="chat_message_details_copied">已复制</string>
+    <plurals name="chat_message_time_days_ago"><item quantity="other">%1$d 天前</item></plurals>
+    <string name="chat_message_time_yesterday">昨天</string>
+    <string name="chat_message_time_just_now">刚刚</string>
+    <plurals name="chat_message_time_minutes_ago"><item quantity="other">%1$d 分钟前</item></plurals>
+    <plurals name="chat_message_time_hours_ago"><item quantity="other">%1$d 小时前</item></plurals>
+    <string name="chat_message_time_group_announcement">群公告</string>
+    <string name="chat_message_time_everyone">@所有人</string>
+    <string name="chat_message_time_me">@我</string>
+    <plurals name="chat_message_time_mentioned_people"><item quantity="other">@%1$d 人</item></plurals>
+    <string name="chat_message_time_title">消息时间增强</string>
+    <string name="chat_message_time_display_template">显示格式模板</string>
+    <string name="chat_message_time_insert_placeholder">点击插入占位符：</string>
+    <string name="chat_message_time_format">时间格式</string>
+    <string name="chat_message_time_font_size">字体大小</string>
+    <string name="chat_message_time_color_light">字体颜色（亮色模式）</string>
+    <string name="chat_message_time_color_dark">字体颜色（暗色模式）</string>
+    <string name="chat_message_time_center_summary">时间是否始终居中，不根据发送方居左或居右</string>
+    <string name="chat_message_time_center">时间居中显示</string>
+    <string name="chat_message_time_always_show_summary">是否强制显示每条消息的时间</string>
+    <string name="chat_message_time_always_show">显示每条消息时间</string>
+    <string name="chat_message_time_invalid_number">数字格式不正确</string>
+    <string name="chat_floating_header_title">悬浮标题栏</string>
+    <string name="chat_floating_header_restart_hint">改动在重新进入聊天后生效</string>
+    <string name="chat_floating_header_summary">标题栏及标题下方的置顶消息等卡片均以悬浮卡片显示</string>
+    <string name="chat_floating_corner_radius">圆角半径：%1$d dp</string>
+    <string name="chat_floating_side_margin">侧边距：%1$d dp</string>
+    <string name="chat_floating_top_gap">顶部间距：%1$d dp</string>
+    <string name="chat_floating_card_gap">下方卡片间距：%1$d dp</string>
+    <string name="chat_floating_elevation">阴影强度：%1$d dp</string>
+    <string name="chat_floating_footer_title">悬浮输入框</string>
+    <string name="chat_floating_footer_panel_above">菜单显示在输入框上方</string>
+    <string name="chat_floating_footer_panel_above_summary">表情与工具菜单从输入框上沿向上展开，输入框位置不动；关闭则维持微信原样</string>
+    <string name="chat_floating_bottom_gap">底部间距：%1$d dp</string>
+    <string name="chat_real_name_bruteforce_title">爆破群成员实名首字</string>
+    <string name="chat_real_name_bruteforce_first_char">首字：%1$s</string>
+    <string name="chat_real_name_bruteforce_tap">点击爆破</string>
+    <string name="chat_real_name_bruteforce_error_before_transfer">beforetransfer 失败（可能被删除、拉黑或账号异常）</string>
+    <string name="chat_real_name_bruteforce_error_missing_suffix">CGI 未返回实名尾字</string>
+    <string name="chat_real_name_bruteforce_error_missing_key">CGI 未返回 truename_extend 密钥</string>
+    <string name="chat_real_name_bruteforce_error_probe_timeout">下单探测请求超时</string>
+    <string name="chat_real_name_bruteforce_error_missing_name_message">响应缺少 namemessage</string>
+    <string name="chat_real_name_bruteforce_error_missing_signature">响应缺少 checkname_sign</string>
+    <string name="chat_real_name_bruteforce_error_exhausted">已尝试全部 %1$d 个常见姓氏，未命中</string>
+    <string name="chat_real_name_bruteforce_warning">警告</string>
+    <string name="chat_real_name_bruteforce_warning_message">此功能会以设定金额向该成员发起多次转账下单请求（仅下单，不会真正扣款），逐一尝试实名首字。可能触发微信风控，风险自负。\n\n金额需足够大以触发姓名校验（默认 10 万元）。与“显示群成员实名尾字”配合可拼出姓名。</string>
+    <string name="chat_real_name_bruteforce_resume_message">检测到上次因风控暂停的进度（已尝试 %1$d/%2$d，将从“%3$s”继续）。点击“继续”恢复上次进度，或点击“重新开始”从头开始。</string>
+    <string name="chat_real_name_bruteforce_amount">转账金额（元）</string>
+    <string name="chat_real_name_bruteforce_running">正在尝试，请稍等…\n已尝试：%1$d/%2$d</string>
+    <string name="chat_real_name_bruteforce_found">命中！实名首字为“%1$s”\n\n校验掩码：?%2$s</string>
+    <string name="chat_real_name_bruteforce_no_check">该成员无需姓名校验即可转账，无法通过此方式获取首字</string>
+    <string name="chat_real_name_bruteforce_failed">失败：%1$s</string>
+    <string name="chat_real_name_bruteforce_aborted">已终止（尝试了 %1$d 个）</string>
+    <string name="chat_real_name_bruteforce_paused">已暂停（触发风控，尝试了 %1$d 个）。进度已保存，下次打开将从“%2$s”继续。</string>
+    <string name="chat_real_name_bruteforce_continue_progress">继续（%1$d/%2$d）</string>
+    <string name="chat_real_name_bruteforce_start">开始</string>
+    <string name="chat_real_name_bruteforce_restart">重新开始</string>
+    <string name="chat_real_name_bruteforce_abort">终止</string>
+    <string name="chat_fabricate_record_default_title">聊天记录</string>
+    <string name="chat_fabricate_record_default_description">描述</string>
+    <string name="chat_fabricate_record_title">伪造聊天记录消息</string>
+    <string name="chat_fabricate_record_title_field">标题</string>
+    <string name="chat_fabricate_record_description_field">描述</string>
+    <string name="chat_fabricate_record_generate">生成</string>
+    <string name="chat_fabricate_record_clipboard_empty">剪贴板为空</string>
+    <string name="chat_fabricate_record_missing_appmsg">未找到 appmsg</string>
+    <string name="chat_fabricate_record_empty_recorditem">recorditem 内容为空</string>
+    <string name="chat_fabricate_record_missing_recordinfo">未找到 recordinfo</string>
+    <string name="chat_fabricate_record_missing_datalist">未找到 datalist</string>
+    <string name="chat_fabricate_record_missing_items">未找到消息条目</string>
+    <string name="chat_fabricate_record_no_valid_messages">未能解析出有效消息</string>
+    <plurals name="chat_fabricate_record_loaded_count"><item quantity="other">已从剪贴板加载 %1$d 条消息</item></plurals>
+    <string name="chat_fabricate_record_parse_failed">解析失败：%1$s</string>
+    <string name="chat_fabricate_record_load_clipboard">从剪贴板加载</string>
+    <string name="chat_fabricate_record_message_list">消息列表</string>
+    <string name="chat_fabricate_record_add_message">添加消息</string>
+    <string name="chat_fabricate_record_select_sender">选择发送者</string>
+    <string name="chat_fabricate_record_cannot_delete_last">无法删除最后一条消息</string>
+    <string name="chat_fabricate_record_copy">复制</string>
+    <string name="chat_fabricate_record_select_target">选择发送目标</string>
+    <string name="chat_fabricate_record_sent">已发送</string>
+    <string name="chat_fabricate_record_send">发送</string>
+    <string name="chat_fabricate_record_choose_sender">选择发送者 →</string>
+    <string name="chat_fabricate_record_remove_message">移除消息</string>
+    <string name="chat_fabricate_record_message_content">消息内容</string>
+    <string name="chat_fabricate_record_send_time">发送时间（yyyy-MM-dd HH:mm:ss）</string>
+    <string name="chat_aggregation_not_in_manual_folder">该对话不在此手动文件夹中</string>
+    <string name="chat_aggregation_removed_from_folder">已移出“%1$s”</string>
+    <string name="chat_aggregation_remove_from_folder">移出文件夹</string>
+    <string name="chat_aggregation_folder_empty">文件夹中没有对话</string>
+    <string name="chat_aggregation_select_forward_target">选择文件夹里的转发对象</string>
+    <string name="chat_aggregation_select">选择</string>
+    <string name="chat_aggregation_configure">配置</string>
+    <string name="chat_aggregation_title">对话归拢</string>
+    <string name="chat_aggregation_no_folders">暂无文件夹，点击“新建”来创建一个</string>
+    <string name="chat_aggregation_index_rebuilt">已重建文件夹索引</string>
+    <string name="chat_aggregation_reload">重载</string>
+    <string name="chat_aggregation_create">新建</string>
+    <string name="chat_aggregation_saved_restart">已保存，重启微信生效</string>
+    <string name="chat_aggregation_create_folder">新建文件夹</string>
+    <string name="chat_aggregation_edit_folder">编辑文件夹</string>
+    <string name="chat_aggregation_mode_manual">手动选择</string>
+    <string name="chat_aggregation_mode_all_groups">自动所有群聊</string>
+    <string name="chat_aggregation_mode_all_officials">自动所有公众号</string>
+    <string name="chat_aggregation_mode_sql">自定义 SQL 规则</string>
+    <plurals name="chat_aggregation_manual_conversation_count"><item quantity="other">手动选择：%1$d 个对话</item></plurals>
+    <plurals name="chat_aggregation_groups_conversation_count"><item quantity="other">所有群聊：%1$d 个对话</item></plurals>
+    <plurals name="chat_aggregation_officials_conversation_count"><item quantity="other">所有公众号：%1$d 个对话</item></plurals>
+    <plurals name="chat_aggregation_sql_conversation_count"><item quantity="other">SQL 规则：%1$d 个对话</item></plurals>
+    <string name="chat_aggregation_folder_name">文件夹名称</string>
+    <string name="chat_aggregation_mode">归拢模式</string>
+    <plurals name="chat_aggregation_selected_count"><item quantity="other">已选择 %1$d 个对话</item></plurals>
+    <string name="chat_aggregation_choose_conversations">选择对话</string>
+    <string name="chat_aggregation_clear_avatar">清除头像</string>
+    <string name="chat_aggregation_enable_custom_avatar">请启用“自定义好友本地头像”以使用头像相关功能</string>
+    <string name="chat_aggregation_change_avatar">更换头像</string>
+    <string name="chat_aggregation_set_avatar">设置头像</string>
+    <plurals name="chat_aggregation_auto_groups_count"><item quantity="other">自动归拢所有群聊（当前匹配到 %1$d 个对话）</item></plurals>
+    <plurals name="chat_aggregation_auto_officials_count"><item quantity="other">自动归拢所有公众号（当前匹配到 %1$d 个对话）</item></plurals>
+    <string name="chat_aggregation_select_fields">SELECT 字段</string>
+    <string name="chat_aggregation_where_clause">WHERE 条件</string>
+    <plurals name="chat_aggregation_current_match_count"><item quantity="other">当前匹配到 %1$d 个对话</item></plurals>
+    <string name="chat_aggregation_sql_help" formatted="false">数据源自 rcontact r, img_flag i, rconversation c\n示例：c.unReadCount &gt; 0 AND r.username LIKE \'%@chatroom\'</string>
+    <string name="chat_aggregation_saved">已保存</string>
+    <string name="voice_edge_xiaoxiao">晓晓（女，温柔）</string>
+    <string name="voice_edge_xiaoyi">晓伊（女，活泼）</string>
+    <string name="voice_edge_yunxi">云希（男，阳光）</string>
+    <string name="voice_edge_yunyang">云扬（男，播报）</string>
+    <string name="voice_edge_yunjian">云健（男，浑厚）</string>
+    <string name="voice_edge_yunxia">云夏（男，少年）</string>
+    <string name="voice_edge_xiaobei">晓北（女，东北话）</string>
+    <string name="voice_edge_xiaoni">晓妮（女，陕西话）</string>
+    <string name="voice_edge_hiumaan">晓曼（女，粤语）</string>
+    <string name="voice_edge_wanlung">云龙（男，粤语）</string>
+    <string name="voice_edge_hsiaochen">晓臻（女，台湾）</string>
+    <string name="voice_edge_yunjhe">云哲（男，台湾）</string>
+    <string name="voice_edge_aria">Aria（女，英语）</string>
+    <string name="voice_edge_guy">Guy（男，英语）</string>
+    <string name="voice_edge_nanami">七海（女，日语）</string>
+    <string name="chat_voice_file_read_selected_failed">无法读取所选语音文件</string>
+    <string name="chat_voice_file_unsupported_format">不支持或无法识别的语音格式</string>
+    <string name="chat_voice_file_read_failed">语音文件读取失败</string>
+    <string name="chat_voice_file_ready">语音文件准备完成</string>
+    <string name="chat_voice_file_send_title">发送语音文件</string>
+    <string name="chat_voice_file_duration_ms">语音时长（毫秒）</string>
+    <string name="chat_voice_file_invalid_duration">时长格式不正确</string>
+    <string name="chat_voice_file_sending_silk">正在发送 SILK…</string>
+    <string name="chat_voice_file_converting_silk">正在将音频转换为 SILK…</string>
+    <string name="chat_voice_file_conversion_failed">转换失败，请查看日志了解错误详情</string>
+    <string name="chat_voice_file_send_success">语音发送成功</string>
+    <string name="chat_voice_file_send_failed">语音发送失败</string>
+    <!-- Task 4: non-Compose chat panel feedback. -->
+    <string name="chat_panel_recent">最近</string>
+    <string name="chat_unknown_error">未知错误</string>
+    <string name="chat_voice_shared_packs_load_failed">加载共享语音包失败</string>
+    <string name="chat_voice_selected_read_failed">无法读取所选语音</string>
+    <string name="chat_voice_single_max_size">单条语音不能超过 10 MiB</string>
+    <string name="chat_voice_unsupported_format">不支持或无法识别的语音格式</string>
+    <string name="chat_voice_provider_unavailable">没有可用语音提供商</string>
+    <string name="chat_voice_url_unavailable">没有可用语音地址</string>
+    <string name="chat_voice_server_empty">服务器未返回语音数据</string>
+    <string name="chat_voice_server_not_audio">服务器返回的不是音频数据</string>
+    <string name="chat_voice_server_unsupported_format">服务器返回了不支持或无法识别的语音格式</string>
+    <string name="chat_voice_example_unsupported_format">音色示例不是可识别的语音格式</string>
+    <string name="chat_voice_convert_silk_failed">音频转 SILK 失败</string>
+    <string name="chat_voice_send_failed">语音发送失败</string>
+    <string name="chat_voice_system_tts">系统 TTS</string>
+    <string name="chat_voice_conversion_empty">语音转换结果为空</string>
+    <string name="chat_voice_system_tts_init_failed">系统 TTS 初始化失败</string>
+    <string name="chat_voice_system_tts_failed">系统 TTS 合成失败</string>
+    <string name="chat_voice_system_tts_failed_with_code">系统 TTS 合成失败，代码：%1$d</string>
+    <string name="chat_voice_system_tts_start_failed">系统 TTS 无法开始合成</string>
+    <string name="chat_voice_no_supported_selected">所选内容中没有支持的语音文件</string>
+    <string name="chat_voice_selected_tone_read_failed">无法读取所选音色文件</string>
+    <string name="chat_voice_import_partial_failed">已导入 %1$d 个，%2$d 个失败；%3$s：%4$s</string>
+    <string name="chat_voice_pack_not_found">语音包不存在</string>
+    <string name="chat_voice_not_in_pack">语音不属于当前语音包</string>
+    <string name="chat_voice_tone_not_found">音色不存在</string>
+    <string name="chat_voice_tone_name_empty">音色名称不能为空</string>
+    <string name="chat_voice_tone_max_size">音色文件不能超过 1 MiB</string>
+    <string name="chat_voice_tone_empty">音色文件为空</string>
+    <string name="chat_voice_tone_unsupported_format">音色文件不是可识别的语音格式</string>
+    <string name="chat_voice_tone_unreadable">音色文件不可读</string>
+    <string name="chat_sticker_pack_not_found">表情包不存在</string>
+    <string name="chat_sticker_not_in_pack">表情不属于当前表情包</string>
+    <string name="chat_sticker_pack_name_empty">表情包名称不能为空</string>
+    <string name="chat_sticker_pack_name_unavailable">表情包名称不可用</string>
+    <string name="chat_sticker_pack_exists">表情包已存在</string>
+    <string name="chat_funbox_click_download_badge">点击 %1$d · 下载 %2$d</string>
+    <string name="chat_funbox_status_click_download_badge">状态 %1$s · 点击 %2$d · 下载 %3$d</string>
+    <string name="chat_funbox_sticker_pack_load_failed">表情包加载失败</string>
+    <string name="chat_funbox_image_empty">图片内容为空</string>
+    <string name="chat_funbox_similarity">相似度 %1$d%%</string>
+    <string name="chat_funbox_search_empty">搜索内容不能为空</string>
+    <string name="chat_funbox_sticker_pack_empty">表情包为空</string>
+    <string name="chat_funbox_sticker_upload_rejected">表情包上传被拒绝</string>
+    <string name="chat_funbox_sticker_duplicate_confirmation_required">服务器要求确认重复表情，请调整表情包内容后重试</string>
+    <string name="chat_funbox_upload_pending_review">上传完成，请等待审核通过</string>
+    <string name="chat_funbox_upload_session_create_failed">无法创建上传会话</string>
+    <string name="chat_funbox_chunk_upload_failed">分块上传失败</string>
+    <string name="chat_funbox_upload_confirm_failed">上传确认失败</string>
+    <string name="chat_funbox_sticker_file_missing">表情文件不存在：%1$s</string>
+    <string name="chat_funbox_voice_pack_invalid">无效语音包</string>
+    <string name="chat_funbox_voice_pack_load_failed">语音包加载失败</string>
+    <string name="chat_funbox_operation_failed">操作失败</string>
+    <string name="chat_funbox_status_draft">草稿</string>
+    <string name="chat_funbox_status_under_review">审核中</string>
+    <string name="chat_funbox_status_published">已发布</string>
+    <string name="chat_funbox_status_rejected">已拒绝</string>
+    <string name="chat_funbox_conversion_text_empty">转换文字不能为空</string>
+    <string name="chat_funbox_conversion_text_too_long">转换文字不能超过 %1$d 个字符</string>
+    <string name="chat_funbox_clone_synthesis_failed">克隆语音合成失败</string>
+    <string name="chat_funbox_voice_example_load_failed">读取语音示例失败</string>
+    <string name="chat_telegram_invalid_file_path">Telegram 返回了无效文件路径</string>
+    <string name="chat_telegram_file_service_unreachable">无法连接 Telegram 文件服务</string>
+    <string name="chat_telegram_file_download_failed">Telegram 文件下载失败：HTTP %1$d</string>
+    <string name="chat_telegram_file_empty">Telegram 未返回文件数据</string>
+    <string name="chat_telegram_file_incomplete">Telegram 文件下载不完整</string>
+    <string name="chat_telegram_file_resume_failed">Telegram 文件断点续传失败</string>
+    <string name="chat_telegram_api_unreachable">无法连接 Telegram Bot API</string>
+    <string name="chat_telegram_api_invalid_data">Telegram Bot API 返回了无效数据</string>
+    <string name="chat_telegram_api_request_failed">Telegram Bot API 请求失败</string>
+    <string name="chat_telegram_api_missing_result">Telegram Bot API 未返回结果</string>
+    <string name="chat_voice_category_invalid">无效分类</string>
+    <string name="chat_voice_item_invalid">无效语音</string>
+    <string name="chat_voice_download_url_unavailable">没有可用下载地址</string>
+    <string name="chat_voice_object_unavailable">没有可用语音对象</string>
+    <string name="chat_voice_category_latest">最新发布</string>
+    <string name="chat_voice_category_recently_updated">最近更新</string>
+    <string name="chat_voice_category_top_overall">热榜总榜</string>
+    <string name="chat_voice_category_top_weekly">热榜周榜</string>
+    <string name="chat_voice_category_top_monthly">热榜月榜</string>
+    <string name="chat_voice_category_short_video_popular">抖音快手 B 站热门</string>
+    <string name="chat_voice_category_funny">搞笑</string>
+    <string name="chat_voice_category_dj">DJ 蹦迪</string>
+    <string name="chat_voice_category_daily_chat">聊天日常</string>
+    <string name="chat_voice_category_ringtones">铃声多多</string>
+    <string name="chat_voice_category_remix">鬼畜和卡点</string>
+    <string name="chat_voice_category_anime">二次元</string>
+    <string name="chat_voice_category_cute_voice">萝莉音</string>
+    <string name="chat_voice_category_soft_voice">诱惑软妹音</string>
+    <string name="chat_voice_category_ringback">彩铃</string>
+    <string name="chat_voice_category_hottest">最热</string>
+    <string name="chat_voice_category_sms">短信</string>
+    <string name="chat_voice_category_dj_chart">DJ 榜</string>
+    <string name="chat_voice_category_emotion">情感</string>
+    <string name="chat_voice_category_ringtone">铃声</string>
+    <string name="chat_voice_category_western">欧美馆</string>
+    <string name="chat_sticker_online_source_empty">在线表情包 ID 不能为空</string>
+    <string name="chat_sticker_pack_delete_failed">表情包删除失败</string>
+    <string name="chat_panel_imported">已导入</string>
+    <string name="chat_sticker_image_empty">图片文件为空</string>
+    <string name="chat_sticker_unsupported_format">不支持或无法识别的图片格式</string>
+    <string name="chat_voice_pack_name_empty">语音包名称不能为空</string>
+    <string name="chat_voice_pack_name_unavailable">语音包名称不可用</string>
+    <string name="chat_voice_pack_exists">语音包已存在</string>
+    <string name="chat_voice_pack_delete_failed">语音包删除失败</string>
+    <string name="chat_voice_none_selected">没有选择语音</string>
+    <string name="chat_voice_not_found">语音不存在</string>
 </resources>

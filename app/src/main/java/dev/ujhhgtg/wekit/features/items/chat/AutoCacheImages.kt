@@ -11,6 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -89,14 +91,14 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
             var useWhitelistState by remember { mutableStateOf(useWhitelist) }
 
             AlertDialogContent(
-                title = { Text("自动缓存图片") },
+                title = { Text(stringResource(R.string.feature_auto_cache_images_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
                             modifier = Modifier.clickable { useWhitelistState = !useWhitelistState },
                             trailingContent = { Switch(checked = useWhitelistState, onCheckedChange = null) },
-                            supportingContent = { Text(if (useWhitelistState) "仅对选中联系人缓存图片" else "对选中联系人跳过缓存图片") },
-                            content = { Text(if (useWhitelistState) "黑名单 [> 白名单 <]" else "[> 黑名单 <] 白名单") },
+                            supportingContent = { Text(stringResource(if (useWhitelistState) R.string.chat_auto_cache_images_whitelist_description else R.string.chat_auto_cache_images_blacklist_description)) },
+                            content = { Text(stringResource(if (useWhitelistState) R.string.chat_auto_cache_whitelist_selected else R.string.chat_auto_cache_blacklist_selected)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
@@ -105,7 +107,7 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
 
                                 showComposeDialog(context) {
                                     ContactsSelector(
-                                        title = if (useWhitelistState) "选择白名单" else "选择黑名单",
+                                        title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_select_whitelist else R.string.chat_auto_cache_select_blacklist),
                                         contacts = contacts,
                                         initialSelectedWxIds = currentList,
                                         onDismiss = onDismiss
@@ -115,13 +117,13 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                                         } else {
                                             blacklist = selectedIds
                                         }
-                                        showToast("已保存 ${selectedIds.size} 个联系人, 重启微信以使更改生效")
+                                        showToast(localizedChatQuantity(R.plurals.chat_auto_cache_contacts_saved, selectedIds.size, selectedIds.size))
                                         onDismiss()
                                     }
                                 }
                             },
-                            supportingContent = { Text("点击选择联系人") },
-                            content = { Text(if (useWhitelistState) "配置白名单" else "配置黑名单") },
+                            supportingContent = { Text(stringResource(R.string.chat_auto_cache_select_contacts_hint)) },
+                            content = { Text(stringResource(if (useWhitelistState) R.string.chat_auto_cache_configure_whitelist else R.string.chat_auto_cache_configure_blacklist)) },
                         )
                     }
                 },
@@ -129,9 +131,9 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                     Button(onClick = {
                         useWhitelist = useWhitelistState
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }

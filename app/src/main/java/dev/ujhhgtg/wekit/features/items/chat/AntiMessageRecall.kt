@@ -12,6 +12,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeXmlParserApi
@@ -114,7 +116,7 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
             var patternInput by remember { mutableStateOf(pattern) }
             var timeFormatInput by remember { mutableStateOf(timeFormat) }
             AlertDialogContent(
-                title = { Text("防撤回") },
+                title = { Text(stringResource(R.string.feature_anti_message_recall_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -122,13 +124,13 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                             trailingContent = {
                                 Switch(checked = recallOutgoingInput, onCheckedChange = null)
                             },
-                            supportingContent = { Text("是否对自己发出的消息也生效 (这个功能现在是坏的, 别用)") },
-                            content = { Text("防撤回自己的消息") },
+                            supportingContent = { Text(stringResource(R.string.chat_anti_recall_outgoing_description)) },
+                            content = { Text(stringResource(R.string.chat_anti_recall_outgoing)) },
                         )
 
                         TextField(
-                            label = { Text("提示格式") },
-                            supportingText = { Text($$"可使用占位符 $sender, $sendTime, $recallTime, $content") },
+                            label = { Text(stringResource(R.string.chat_anti_recall_pattern)) },
+                            supportingText = { Text(stringResource(R.string.chat_anti_recall_placeholders)) },
                             value = patternInput,
                             onValueChange = { patternInput = it },
                             modifier = Modifier.fillMaxWidth()
@@ -137,19 +139,19 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                         TextField(
                             value = timeFormatInput,
                             onValueChange = { timeFormatInput = it },
-                            label = { Text("时间格式") },
+                            label = { Text(stringResource(R.string.chat_anti_recall_time_format)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button({
                         recallOutgoing = recallOutgoingInput
                         pattern = patternInput
                         timeFormat = timeFormatInput
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
     }

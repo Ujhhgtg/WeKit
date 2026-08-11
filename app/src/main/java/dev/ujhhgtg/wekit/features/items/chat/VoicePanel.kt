@@ -7,6 +7,8 @@ import android.provider.OpenableColumns
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.View
+import androidx.annotation.StringRes
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -52,22 +54,24 @@ import kotlin.io.path.div
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.writeBytes
 
+internal data class EdgeTtsVoice(val id: String, @StringRes val titleRes: Int)
+
 internal val EDGE_TTS_VOICES = listOf(
-    "zh-CN-XiaoxiaoNeural" to "晓晓 (女, 温柔)",
-    "zh-CN-XiaoyiNeural" to "晓伊 (女, 活泼)",
-    "zh-CN-YunxiNeural" to "云希 (男, 阳光)",
-    "zh-CN-YunyangNeural" to "云扬 (男, 播报)",
-    "zh-CN-YunjianNeural" to "云健 (男, 浑厚)",
-    "zh-CN-YunxiaNeural" to "云夏 (男, 少年)",
-    "zh-CN-liaoning-XiaobeiNeural" to "晓北 (女, 东北话)",
-    "zh-CN-shaanxi-XiaoniNeural" to "晓妮 (女, 陕西话)",
-    "zh-HK-HiuMaanNeural" to "曉曼 (女, 粤语)",
-    "zh-HK-WanLungNeural" to "雲龍 (男, 粤语)",
-    "zh-TW-HsiaoChenNeural" to "曉臻 (女, 台湾)",
-    "zh-TW-YunJheNeural" to "雲哲 (男, 台湾)",
-    "en-US-AriaNeural" to "Aria (女, 英语)",
-    "en-US-GuyNeural" to "Guy (男, 英语)",
-    "ja-JP-NanamiNeural" to "七海 (女, 日语)",
+    EdgeTtsVoice("zh-CN-XiaoxiaoNeural", R.string.voice_edge_xiaoxiao),
+    EdgeTtsVoice("zh-CN-XiaoyiNeural", R.string.voice_edge_xiaoyi),
+    EdgeTtsVoice("zh-CN-YunxiNeural", R.string.voice_edge_yunxi),
+    EdgeTtsVoice("zh-CN-YunyangNeural", R.string.voice_edge_yunyang),
+    EdgeTtsVoice("zh-CN-YunjianNeural", R.string.voice_edge_yunjian),
+    EdgeTtsVoice("zh-CN-YunxiaNeural", R.string.voice_edge_yunxia),
+    EdgeTtsVoice("zh-CN-liaoning-XiaobeiNeural", R.string.voice_edge_xiaobei),
+    EdgeTtsVoice("zh-CN-shaanxi-XiaoniNeural", R.string.voice_edge_xiaoni),
+    EdgeTtsVoice("zh-HK-HiuMaanNeural", R.string.voice_edge_hiumaan),
+    EdgeTtsVoice("zh-HK-WanLungNeural", R.string.voice_edge_wanlung),
+    EdgeTtsVoice("zh-TW-HsiaoChenNeural", R.string.voice_edge_hsiaochen),
+    EdgeTtsVoice("zh-TW-YunJheNeural", R.string.voice_edge_yunjhe),
+    EdgeTtsVoice("en-US-AriaNeural", R.string.voice_edge_aria),
+    EdgeTtsVoice("en-US-GuyNeural", R.string.voice_edge_guy),
+    EdgeTtsVoice("ja-JP-NanamiNeural", R.string.voice_edge_nanami),
 )
 
 @Feature(
@@ -188,7 +192,9 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
                 val mine = FunBoxVoiceRepository.listMyPacks()
                 when {
                     public.isFailure && mine.isFailure -> Result.failure(
-                        public.exceptionOrNull() ?: mine.exceptionOrNull() ?: IllegalStateException("共享语音包加载失败"),
+                        public.exceptionOrNull() ?: mine.exceptionOrNull() ?: IllegalStateException(
+                            localizedChatString(R.string.chat_voice_shared_packs_load_failed),
+                        ),
                     )
 
                     else -> Result.success(
@@ -208,11 +214,11 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
                 onStarted()
                 CoroutineScope(Dispatchers.IO).launch {
                     val bytes = activity.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    val result = if (bytes == null) Result.failure(IllegalStateException("无法读取所选语音"))
-                    else if (bytes.size > MAX_SHARED_VOICE_BYTES) Result.failure(IllegalArgumentException("单条语音不能超过 10 MiB"))
+                    val result = if (bytes == null) Result.failure(IllegalStateException(localizedChatString(R.string.chat_voice_selected_read_failed)))
+                    else if (bytes.size > MAX_SHARED_VOICE_BYTES) Result.failure(IllegalArgumentException(localizedChatString(R.string.chat_voice_single_max_size)))
                     else {
                         val format = MediaFileTypeDetector.detectAudio(bytes)
-                        if (format == null) Result.failure(IllegalArgumentException("不支持或无法识别的语音格式"))
+                        if (format == null) Result.failure(IllegalArgumentException(localizedChatString(R.string.chat_voice_unsupported_format)))
                         else FunBoxVoiceRepository.uploadVoice(
                             packId,
                             VoiceItem(
@@ -238,20 +244,20 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
             val bytes = if (item.remoteObjectId != null) {
                 FunBoxServiceClient.downloadObject("voice", item.remoteObjectId).getOrThrow()
             } else {
-                val provider = VoiceProviderRegistry.forItem(item) ?: error("没有可用语音提供商")
+                val provider = VoiceProviderRegistry.forItem(item) ?: error(localizedChatString(R.string.chat_voice_provider_unavailable))
                 val resolved = provider.resolveAudio(item).getOrThrow()
-                require(!resolved.remoteUrl.isNullOrBlank()) { "没有可用语音地址" }
+                require(!resolved.remoteUrl.isNullOrBlank()) { localizedChatString(R.string.chat_voice_url_unavailable) }
                 FunBoxServiceClient.download(requireNotNull(resolved.remoteUrl)).getOrThrow()
             }
-            require(bytes.isNotEmpty()) { "服务器未返回语音数据" }
+            require(bytes.isNotEmpty()) { localizedChatString(R.string.chat_voice_server_empty) }
             val prefix = bytes.copyOfRange(0, minOf(bytes.size, 256)).toString(Charsets.UTF_8).trimStart()
             if (prefix.startsWith("{")) {
                 val message = Regex("\"msg\"\\s*:\\s*\"([^\"]+)\"")
                     .find(prefix)?.groupValues?.getOrNull(1)
-                error(message ?: "服务器返回的不是音频数据")
+                error(message ?: localizedChatString(R.string.chat_voice_server_not_audio))
             }
             val format = MediaFileTypeDetector.detectAudio(bytes)
-                ?: error("服务器返回了不支持或无法识别的语音格式")
+                ?: error(localizedChatString(R.string.chat_voice_server_unsupported_format))
             val path = PanelPaths.panelCacheDir / "voice-${UUID.randomUUID()}.${format.extension}"
             path.writeBytes(bytes)
             VoicePreview(path.absolutePathString(), temporary = true)
@@ -261,7 +267,7 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
     private suspend fun resolveExamplePath(example: CloneExample): Result<VoicePreview> = withContext(Dispatchers.IO) {
         FunBoxCloneVoiceRepository.exampleAudio(example).mapCatching { bytes ->
             val format = MediaFileTypeDetector.detectAudio(bytes)
-                ?: error("音色示例不是可识别的语音格式")
+                ?: error(localizedChatString(R.string.chat_voice_example_unsupported_format))
             val path = PanelPaths.panelCacheDir / "example-${UUID.randomUUID()}.${format.extension}"
             path.writeBytes(bytes)
             VoicePreview(path.absolutePathString(), temporary = true)
@@ -289,13 +295,13 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
                         ?: AudioUtils.getDurationMs(resolvedPath).coerceAtLeast(0L)
                 }
                 val sourceFormat = MediaFileTypeDetector.detectAudio(source)
-                    ?: error("不支持或无法识别的语音格式")
+                    ?: error(localizedChatString(R.string.chat_voice_unsupported_format))
                 val directSource = sourceFormat == MediaFileTypeDetector.AudioFormat.SILK ||
                         sourceFormat == MediaFileTypeDetector.AudioFormat.AMR
                 val silkPath = if (directSource) source else PanelPaths.panelCacheDir / "send-${UUID.randomUUID()}.silk"
                 try {
-                    if (!directSource) require(AudioUtils.anyToSilk(resolvedPath, silkPath.absolutePathString())) { "音频转 SILK 失败" }
-                    check(WeMessageApi.sendVoice(talker, silkPath.absolutePathString(), durationMs.coerceToInt())) { "语音发送失败" }
+                    if (!directSource) require(AudioUtils.anyToSilk(resolvedPath, silkPath.absolutePathString())) { localizedChatString(R.string.chat_voice_convert_silk_failed) }
+                    check(WeMessageApi.sendVoice(talker, silkPath.absolutePathString(), durationMs.coerceToInt())) { localizedChatString(R.string.chat_voice_send_failed) }
                     if (recordUsage) VoicePanelRepository.recordSent(item)
                     Unit
                 } finally {
@@ -311,7 +317,7 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
         synthesizeAndSend(talker, "Edge TTS") { synthesizeEdgePreview(text, voice) }
 
     private suspend fun synthesizeSystemAndSend(context: Context, talker: String, text: String): Result<Unit> =
-        synthesizeAndSend(talker, "系统 TTS") { synthesizeSystemPreview(context, text) }
+        synthesizeAndSend(talker, localizedChatString(R.string.chat_voice_system_tts)) { synthesizeSystemPreview(context, text) }
 
     private suspend fun synthesizeEdgePreview(text: String, voice: String): Result<VoicePreview> =
         createGeneratedPreview("edge", "mp3") { path ->
@@ -344,7 +350,7 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
         val path = PanelPaths.panelCacheDir / "$prefix-${UUID.randomUUID()}.$extension"
         try {
             generate(path)
-            require(path.isRegularFile() && Files.size(path) > 0L) { "语音转换结果为空" }
+            require(path.isRegularFile() && Files.size(path) > 0L) { localizedChatString(R.string.chat_voice_conversion_empty) }
             Result.success(VoicePreview(path.absolutePathString(), temporary = true))
         } catch (error: CancellationException) {
             path.deleteIfExists()
@@ -362,7 +368,7 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
                 val (voiceBytes, fileName) = CloneVoiceRepository.synthesisInput(voice).getOrThrow()
                 val audio = FunBoxCloneVoiceRepository.synthesize(text, voiceBytes, fileName).getOrThrow()
                 path.writeBytes(audio)
-                require(Files.size(path) > 0L) { "语音转换结果为空" }
+                require(Files.size(path) > 0L) { localizedChatString(R.string.chat_voice_conversion_empty) }
                 Result.success(VoicePreview(path.absolutePathString(), temporary = true))
             } catch (error: CancellationException) {
                 path.deleteIfExists()
@@ -408,7 +414,7 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
         engine = TextToSpeech(context.applicationContext) { status ->
             val tts = engine
             if (status != TextToSpeech.SUCCESS || tts == null) {
-                finish(Result.failure(IllegalStateException("系统 TTS 初始化失败")))
+                finish(Result.failure(IllegalStateException(localizedChatString(R.string.chat_voice_system_tts_init_failed))))
                 return@TextToSpeech
             }
             if (tts.isLanguageAvailable(Locale.SIMPLIFIED_CHINESE) >= TextToSpeech.LANG_AVAILABLE) {
@@ -420,13 +426,13 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
                 override fun onDone(id: String?) = finish(Result.success(Unit))
 
                 @Deprecated("Deprecated in Android")
-                override fun onError(id: String?) = finish(Result.failure(IllegalStateException("系统 TTS 合成失败")))
+                override fun onError(id: String?) = finish(Result.failure(IllegalStateException(localizedChatString(R.string.chat_voice_system_tts_failed))))
                 override fun onError(id: String?, errorCode: Int) =
-                    finish(Result.failure(IllegalStateException("系统 TTS 合成失败，代码: $errorCode")))
+                    finish(Result.failure(IllegalStateException(localizedChatString(R.string.chat_voice_system_tts_failed_with_code, errorCode))))
             })
             val result = tts.synthesizeToFile(text, Bundle(), output, utteranceId)
             if (result != TextToSpeech.SUCCESS) {
-                finish(Result.failure(IllegalStateException("系统 TTS 无法开始合成")))
+                finish(Result.failure(IllegalStateException(localizedChatString(R.string.chat_voice_system_tts_start_failed))))
             }
         }
         continuation.invokeOnCancellation {
@@ -454,14 +460,14 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
         resolver: ContentResolver,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         if (files.isEmpty()) {
-            return@withContext Result.failure(IllegalArgumentException("所选内容中没有支持的语音文件"))
+            return@withContext Result.failure(IllegalArgumentException(localizedChatString(R.string.chat_voice_no_supported_selected)))
         }
 
         var imported = 0
         val failures = mutableListOf<Pair<String, Throwable>>()
         files.forEach { file ->
             runCatching {
-                val input = resolver.openInputStream(file.uri) ?: error("无法读取文件")
+                val input = resolver.openInputStream(file.uri) ?: error(localizedChatString(R.string.chat_voice_file_read_failed))
                 input.use {
                     VoicePanelRepository.importVoice(packId, file.name, it).getOrThrow()
                 }
@@ -478,8 +484,13 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
             val first = failures.first()
             Result.failure(
                 IllegalStateException(
-                    "已导入 $imported 个，${failures.size} 个失败；${first.first}: " +
-                            (first.second.message ?: "未知错误"),
+                    localizedChatString(
+                        R.string.chat_voice_import_partial_failed,
+                        imported,
+                        failures.size,
+                        first.first,
+                        first.second.message ?: localizedChatString(R.string.chat_unknown_error),
+                    ),
                     first.second,
                 ),
             )
@@ -503,7 +514,7 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
                 )?.use { cursor -> if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null }
                 val result = activity.contentResolver.openInputStream(uri)?.let { input ->
                     CloneVoiceRepository.import(name.substringBeforeLast('.'), input, size).map { }
-                } ?: Result.failure(IllegalStateException("无法读取所选音色文件"))
+                } ?: Result.failure(IllegalStateException(localizedChatString(R.string.chat_voice_selected_tone_read_failed)))
                 withContext(Dispatchers.Main) {
                     onComplete(result)
                     activity.finish()

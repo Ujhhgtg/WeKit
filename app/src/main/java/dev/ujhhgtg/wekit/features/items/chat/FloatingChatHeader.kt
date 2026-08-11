@@ -29,12 +29,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -1435,17 +1437,19 @@ object FloatingChatHeader : ClickableFeature() {
             var elevInput by remember { mutableFloatStateOf(elevationDp.toFloat()) }
 
             AlertDialogContent(
-                title = { Text("悬浮标题栏") },
+                title = { Text(stringResource(R.string.chat_floating_header_title)) },
                 text = {
                     DefaultColumn {
                         ListItem(
-                            content = { Text("改动在重新进入聊天后生效") },
+                            content = { Text(stringResource(R.string.chat_floating_header_restart_hint)) },
                             supportingContent = {
-                                Text("标题栏及标题下方的置顶消息等卡片均以悬浮卡片显示")
+                                Text(stringResource(R.string.chat_floating_header_summary))
                             }
                         )
                         ListItem(
-                            content = { Text("圆角半径: ${cornerInput.roundToInt()} dp") },
+                            content = {
+                                Text(stringResource(R.string.chat_floating_corner_radius, cornerInput.roundToInt()))
+                            },
                             supportingContent = {
                                 Slider(
                                     value = cornerInput,
@@ -1456,7 +1460,9 @@ object FloatingChatHeader : ClickableFeature() {
                             }
                         )
                         ListItem(
-                            content = { Text("侧边距: ${sideInput.roundToInt()} dp") },
+                            content = {
+                                Text(stringResource(R.string.chat_floating_side_margin, sideInput.roundToInt()))
+                            },
                             supportingContent = {
                                 Slider(
                                     value = sideInput,
@@ -1467,7 +1473,9 @@ object FloatingChatHeader : ClickableFeature() {
                             }
                         )
                         ListItem(
-                            content = { Text("顶部间距: ${gapInput.roundToInt()} dp") },
+                            content = {
+                                Text(stringResource(R.string.chat_floating_top_gap, gapInput.roundToInt()))
+                            },
                             supportingContent = {
                                 Slider(
                                     value = gapInput,
@@ -1478,7 +1486,14 @@ object FloatingChatHeader : ClickableFeature() {
                             }
                         )
                         ListItem(
-                            content = { Text("下方卡片间距: ${extraGapInput.roundToInt()} dp") },
+                            content = {
+                                Text(
+                                    stringResource(
+                                        R.string.chat_floating_card_gap,
+                                        extraGapInput.roundToInt(),
+                                    ),
+                                )
+                            },
                             supportingContent = {
                                 Slider(
                                     value = extraGapInput,
@@ -1489,7 +1504,9 @@ object FloatingChatHeader : ClickableFeature() {
                             }
                         )
                         ListItem(
-                            content = { Text("阴影强度: ${elevInput.roundToInt()} dp") },
+                            content = {
+                                Text(stringResource(R.string.chat_floating_elevation, elevInput.roundToInt()))
+                            },
                             supportingContent = {
                                 Slider(
                                     value = elevInput,
@@ -1501,7 +1518,7 @@ object FloatingChatHeader : ClickableFeature() {
                         )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         cornerRadiusDp = cornerInput.roundToInt()
@@ -1510,7 +1527,7 @@ object FloatingChatHeader : ClickableFeature() {
                         extraGapDp = extraGapInput.roundToInt()
                         elevationDp = elevInput.roundToInt()
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }
