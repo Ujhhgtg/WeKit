@@ -2357,7 +2357,7 @@
     <string name="batch_delete_history_title">Delete chat history</string>
     <plurals name="batch_delete_history_confirm"><item quantity="one">Delete all chat history for the %1$d selected conversation? This cannot be undone.</item><item quantity="other">Delete all chat history for the %1$d selected conversations? This cannot be undone.</item></plurals>
     <plurals name="batch_delete_history_progress"><item quantity="one">Deleting chat history for %1$d conversation…</item><item quantity="other">Deleting chat history for %1$d conversations…</item></plurals>
-    <plurals name="batch_delete_history_done"><item quantity="one">Deleted chat history for %1$d conversation (%2$d messages total)</item><item quantity="other">Deleted chat history for %1$d conversations (%2$d messages total)</item></plurals>
+    <plurals name="batch_delete_history_done"><item quantity="one">Deleted chat history for %1$d conversation (message rows deleted: %2$d)</item><item quantity="other">Deleted chat history for %1$d conversations (message rows deleted: %2$d)</item></plurals>
     <string name="batch_hide_conversations_select">Select conversations to hide</string>
     <string name="batch_hide_conversations_title">Hide conversations</string>
     <plurals name="batch_hide_conversations_confirm"><item quantity="one">Remove the %1$d selected conversation from the conversation list? Chat history will be kept, and the conversation will reappear when a new message arrives.</item><item quantity="other">Remove the %1$d selected conversations from the conversation list? Chat history will be kept, and conversations will reappear when new messages arrive.</item></plurals>
