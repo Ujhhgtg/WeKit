@@ -30,6 +30,7 @@ const TRACKING_PIXEL: &[u8] = &[
 ];
 const MAX_WX_ID_BYTES: usize = 128;
 const MAX_CONTENT_BYTES: usize = 16 * 1024;
+const MAX_MESSAGE_ID_BYTES: usize = 128;
 const MAX_REQUEST_BODY_BYTES: usize = 20 * 1024;
 const MAX_QUERY_BYTES: usize = 1024;
 const RATE_WINDOW: Duration = Duration::from_secs(60);
@@ -264,12 +265,11 @@ pub fn build_router(config: &ServerConfig, state: Arc<AppState>) -> Router {
                 get(list_messages_for_sender).delete(delete_messages_for_sender),
             )
             .route("/reads/{id}", get(list_reads_for_message)),
-        RouteProfile::Embedded => router
-            .route("/health", get(health))
-            .layer(middleware::from_fn(limit_query_string))
-            .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_BYTES)),
+        RouteProfile::Embedded => router.route("/health", get(health)),
     };
     router
+        .layer(middleware::from_fn(limit_query_string))
+        .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_BYTES))
         .layer(Extension(config.route_profile))
         .with_state(state)
 }
@@ -313,9 +313,7 @@ async fn register_message(
     if request.wx_id.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "wxId must not be empty".to_owned()));
     }
-    if route_profile == RouteProfile::Embedded
-        && (request.wx_id.len() > MAX_WX_ID_BYTES || request.content.len() > MAX_CONTENT_BYTES)
-    {
+    if request.wx_id.len() > MAX_WX_ID_BYTES || request.content.len() > MAX_CONTENT_BYTES {
         return Err((
             StatusCode::BAD_REQUEST,
             "request fields too long".to_owned(),
@@ -325,8 +323,8 @@ async fn register_message(
     let id = compute_msg_id(&request.wx_id, &request.content, request.create_time);
     let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
     info!(
-        "/register\nid = {id}, wxId = {}, createTime = {}, content = {}",
-        request.wx_id, request.create_time, request.content
+        "/register\nid = {id}, wxId = {}, createTime = {}",
+        request.wx_id, request.create_time
     );
     state
         .db
@@ -341,12 +339,7 @@ async fn register_message(
             ],
         )
         .await
-        .map_err(|error| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("register failed: {error}"),
-            )
-        })?;
+        .map_err(database_response_error("register failed"))?;
     Ok(Json(RegisterResponse { id }))
 }
 
@@ -361,24 +354,24 @@ async fn serve_tracking_pixel(
     match (&params.wx_id, &params.id) {
         (Some(wx_id), Some(id)) => {
             let should_log = match route_profile {
-                RouteProfile::Standalone => true,
+                RouteProfile::Standalone => valid_standalone_read_params(wx_id, id),
                 RouteProfile::Embedded => {
-                    valid_wx_id(wx_id)
-                        && valid_message_id(id)
+                    valid_embedded_read_params(wx_id, id)
                         && message_exists(&state.db, wx_id, id).await
                 }
             };
             if should_log {
                 info!("/pixel request\nid = {id}, wxId = {wx_id}, client_ip = {client_ip}");
-                if let Err(error) = state
+                if state
                     .db
                     .execute(
                         "INSERT INTO reads (id, wx_id, ip, timestamp) VALUES (?1, ?2, ?3, ?4)",
                         libsql::params![id.as_str(), wx_id.as_str(), client_ip, now],
                     )
                     .await
+                    .is_err()
                 {
-                    error!("failed to log read: {error}");
+                    error!("failed to log read");
                 }
             }
         }
@@ -403,8 +396,8 @@ async fn message_exists(connection: &Connection, wx_id: &str, id: &str) -> bool 
         .await;
     match result {
         Ok(mut rows) => matches!(rows.next().await, Ok(Some(_))),
-        Err(error) => {
-            error!("failed to validate pixel message: {error}");
+        Err(_) => {
+            error!("failed to validate pixel message");
             false
         }
     }
@@ -432,7 +425,9 @@ async fn read_count(
             ));
         }
     };
-    if route_profile == RouteProfile::Embedded && (!valid_wx_id(&wx_id) || !valid_message_id(&id)) {
+    if !valid_standalone_read_params(&wx_id, &id)
+        || (route_profile == RouteProfile::Embedded && !valid_message_id(&id))
+    {
         return Err((StatusCode::BAD_REQUEST, "invalid query fields".to_owned()));
     }
     let mut rows = state
@@ -442,18 +437,12 @@ async fn read_count(
             libsql::params![id, wx_id],
         )
         .await
-        .map_err(|error| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("query failed: {error}"),
-            )
-        })?;
-    let count = match rows.next().await.map_err(|error| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("row read failed: {error}"),
-        )
-    })? {
+        .map_err(database_response_error("query failed"))?;
+    let count = match rows
+        .next()
+        .await
+        .map_err(database_response_error("row read failed"))?
+    {
         Some(row) => match row.get_value(0) {
             Ok(libsql::Value::Integer(count)) => count,
             _ => 0,
@@ -472,6 +461,14 @@ fn valid_message_id(id: &str) -> bool {
 
 fn valid_wx_id(wx_id: &str) -> bool {
     !wx_id.is_empty() && wx_id.len() <= MAX_WX_ID_BYTES
+}
+
+fn valid_standalone_read_params(wx_id: &str, id: &str) -> bool {
+    valid_wx_id(wx_id) && !id.is_empty() && id.len() <= MAX_MESSAGE_ID_BYTES
+}
+
+fn valid_embedded_read_params(wx_id: &str, id: &str) -> bool {
+    valid_standalone_read_params(wx_id, id) && valid_message_id(id)
 }
 
 fn enforce_rate_limit(
@@ -659,11 +656,9 @@ async fn delete_messages_for_sender(
 fn database_response_error(
     operation: &'static str,
 ) -> impl FnOnce(libsql::Error) -> (StatusCode, String) {
-    move |error| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("{operation}: {error}"),
-        )
+    move |_| {
+        error!("{operation}");
+        (StatusCode::INTERNAL_SERVER_ERROR, operation.to_owned())
     }
 }
 

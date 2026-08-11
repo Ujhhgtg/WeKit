@@ -221,8 +221,7 @@ async fn embedded_count_rejects_malformed_message_ids() {
 }
 
 #[tokio::test]
-async fn embedded_register_rejects_oversized_protocol_fields() {
-    let (_directory, app) = embedded_test_router().await;
+async fn both_profiles_reject_oversized_registration_fields() {
     let bodies = [
         json!({
             "wxId": "w".repeat(129),
@@ -236,7 +235,31 @@ async fn embedded_register_rejects_oversized_protocol_fields() {
         }),
     ];
 
-    for body in bodies {
+    for profile in [RouteProfile::Standalone, RouteProfile::Embedded] {
+        let (_directory, app) = test_router(profile).await;
+        for body in &bodies {
+            let response = request(
+                &app,
+                "POST",
+                "/register",
+                Body::from(body.to_string()),
+                "127.0.0.1:41000",
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{profile:?}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn both_profiles_cap_the_registration_body() {
+    let body = json!({
+        "wxId": "wxid_sender",
+        "content": "x".repeat(21 * 1024),
+        "createTime": 1_i64,
+    });
+    for profile in [RouteProfile::Standalone, RouteProfile::Embedded] {
+        let (_directory, app) = test_router(profile).await;
         let response = request(
             &app,
             "POST",
@@ -245,62 +268,100 @@ async fn embedded_register_rejects_oversized_protocol_fields() {
             "127.0.0.1:41000",
         )
         .await;
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        assert_eq!(
+            response.status(),
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "{profile:?}"
+        );
     }
 }
 
 #[tokio::test]
-async fn embedded_register_caps_the_http_request_body() {
+async fn both_profiles_reject_oversized_query_fields() {
+    let wx_id = "w".repeat(129);
+    let id = "a".repeat(64);
+    for profile in [RouteProfile::Standalone, RouteProfile::Embedded] {
+        let (_directory, app) = test_router(profile).await;
+        let response = request(
+            &app,
+            "GET",
+            &format!("/count?wxId={wx_id}&id={id}"),
+            Body::empty(),
+            "127.0.0.1:41000",
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{profile:?}");
+    }
+}
+
+#[tokio::test]
+async fn both_profiles_cap_the_raw_query_string() {
+    let id = "a".repeat(64);
+    let padding = "x".repeat(1025);
+    for profile in [RouteProfile::Standalone, RouteProfile::Embedded] {
+        let (_directory, app) = test_router(profile).await;
+        let response = request(
+            &app,
+            "GET",
+            &format!("/count?wxId=wxid_sender&id={id}&ignored={padding}"),
+            Body::empty(),
+            "127.0.0.1:41000",
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::URI_TOO_LONG, "{profile:?}");
+    }
+}
+
+#[tokio::test]
+async fn forwarded_headers_do_not_override_the_direct_tcp_peer() {
     let (_directory, app) = embedded_test_router().await;
-    let body = json!({
+    let registration = json!({
         "wxId": "wxid_sender",
-        "content": "x".repeat(21 * 1024),
-        "createTime": 1_i64,
+        "content": "hello",
+        "createTime": 1_700_000_000_123_i64,
     });
     let response = request(
         &app,
         "POST",
         "/register",
-        Body::from(body.to_string()),
+        Body::from(registration.to_string()),
         "127.0.0.1:41000",
     )
     .await;
+    let id = json_body(response).await["id"].as_str().unwrap().to_owned();
 
-    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
-}
+    for forwarded_ip in ["198.51.100.10", "198.51.100.11"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/pixel?wxId=wxid_sender&id={id}"))
+                    .header("forwarded", format!("for={forwarded_ip}"))
+                    .header("x-forwarded-for", forwarded_ip)
+                    .header("cf-connecting-ip", forwarded_ip)
+                    .extension(ConnectInfo(
+                        "127.0.0.1:42000".parse::<SocketAddr>().unwrap(),
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 
-#[tokio::test]
-async fn embedded_count_rejects_oversized_query_fields() {
-    let (_directory, app) = embedded_test_router().await;
-    let wx_id = "w".repeat(129);
-    let id = "a".repeat(64);
     let response = request(
         &app,
         "GET",
-        &format!("/count?wxId={wx_id}&id={id}"),
+        &format!("/count?wxId=wxid_sender&id={id}"),
         Body::empty(),
         "127.0.0.1:41000",
     )
     .await;
-
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn embedded_routes_cap_the_raw_query_string() {
-    let (_directory, app) = embedded_test_router().await;
-    let id = "a".repeat(64);
-    let padding = "x".repeat(1025);
-    let response = request(
-        &app,
-        "GET",
-        &format!("/count?wxId=wxid_sender&id={id}&ignored={padding}"),
-        Body::empty(),
-        "127.0.0.1:41000",
-    )
-    .await;
-
-    assert_eq!(response.status(), StatusCode::URI_TOO_LONG);
+    assert_eq!(json_body(response).await, json!({"count": 1}));
 }
 
 #[tokio::test]

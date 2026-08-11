@@ -30,7 +30,7 @@ library 提供两种路由配置：
 - `RouteProfile::Standalone` 保留管理页面、管理 API 和核心协议路由，独立二进制仍支持本地 libSQL 与远程 Turso。
 - `RouteProfile::Embedded` 仅提供 `/register`、`/pixel`、`/count` 和返回空 `204` 的 `/health`，供 WeKit 内嵌 origin 使用。
 
-内嵌配置限制 wxId 为 128 字节、内容为 16 KiB、HTTP 请求体为 20 KiB、query string 为 1 KiB；消息 ID 必须是 64 位小写十六进制 SHA-256。`/register` 和 `/count` 分别按来源 IP 限制为每分钟 30 次和 120 次。未知或格式错误的消息不会记录读取事件，但 `/pixel` 始终返回静态透明图片。
+两种配置的核心协议都限制 wxId 为 128 UTF-8 字节、内容为 16 KiB、HTTP 请求体为 20 KiB、原始 query string 为 1 KiB，协议 message ID 最多 128 字节。内嵌配置进一步要求消息 ID 为 64 位小写十六进制 SHA-256；`/register` 和 `/count` 分别按 TCP 对端 IP 限制为每分钟 30 次和 120 次。未知或格式错误的内嵌消息不会记录读取事件，但 `/pixel` 始终返回静态透明图片。
 
 ## 工作方式
 
@@ -126,7 +126,7 @@ sha256(wxId + "\0" + content + "\0" + createTime)
 GET /pixel?wxId=<wxId>&id=<messageId>
 ```
 
-服务端记录请求的 TCP 来源 IP，并始终返回禁止缓存的 1×1 透明 PNG。
+服务端记录请求的直接 TCP 对端 IP，并始终返回禁止缓存的 1×1 透明 PNG。`Forwarded`、`X-Forwarded-For` 和 `CF-Connecting-IP` 等请求头不会改变读者身份。
 
 ### 查询已读人数
 
@@ -189,10 +189,10 @@ cargo build --release
 
 ## 安全与隐私
 
-- 独立参考服务没有身份认证、访问控制、速率限制或完整滥用防护，不应直接作为生产级公共服务部署。仅内嵌路由配置包含上述轻量限制。
+- 独立参考服务没有身份认证、访问控制、协议速率限制或完整滥用防护，不应直接作为生产级公共服务部署。核心协议的字段/query/body 上限适用于两种路由配置；仅内嵌配置包含上述轻量速率限制和严格消息 ID/已知消息检查。
 - 服务会保存发送者 wxId、明文消息内容、读取请求来源 IP 和时间戳。部署者必须自行确认当地法律、隐私政策及用户授权要求。
 - 公网传输应使用 HTTPS，避免消息内容和标识符以明文形式经过网络。
-- `/pixel` 使用 TCP 对端地址作为读者 IP。若服务位于反向代理后方，所有请求可能会被记录为代理服务器的 IP；本参考实现不会读取 `X-Forwarded-For` 等请求头。
+- `/pixel` 只使用直接 TCP 对端地址作为读者 IP。若服务位于反向代理或 tunnel connector 后方，所有请求可能会被记录为代理/连接器 IP；本参考实现不会读取任意转发请求头，也没有可配置的“可信代理”例外。
 - 删除 `read_receipts.db` 会清除本地数据库；执行前请自行备份。
 
 ## 已知限制

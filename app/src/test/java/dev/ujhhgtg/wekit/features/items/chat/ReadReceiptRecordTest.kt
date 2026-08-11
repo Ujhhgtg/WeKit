@@ -51,6 +51,11 @@ class ReadReceiptRecordTest {
                 "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
             )
         )
+        assertNull(
+            ReadReceiptRecordCodec.decode(
+                "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"${"界".repeat(43)}\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
+            )
+        )
     }
 
     @Test
@@ -64,7 +69,17 @@ class ReadReceiptRecordTest {
 
     @Test
     fun `rejects malformed third party endpoints`() {
-        for (endpoint in listOf("http://", "https:///path", "https://?query")) {
+        for (
+            endpoint in listOf(
+                "http://",
+                "http://receipts.example",
+                "https:///path",
+                "https://?query",
+                "https://user:password@receipts.example",
+                "https://receipts.example/path?token=secret",
+                "https://receipts.example/path#fragment",
+            )
+        ) {
             assertNull(
                 ReadReceiptRecordCodec.decode(
                     "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"$endpoint\",\"createdAtMillis\":1}"

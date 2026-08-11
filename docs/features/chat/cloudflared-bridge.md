@@ -16,8 +16,10 @@ selection only advances that auth session's non-secret state; its fixed signatur
 return a token or switch the connector.
 
 WeKit does not create tunnels, DNS records, hostnames, ingress routes, or public-hostname
-configuration. Later authenticated modes must connect only an existing tunnel and an existing
-hostname configured by the user in Cloudflare.
+configuration, and it does not mutate those resources during login, selection, startup, recovery,
+or logout. Authenticated modes connect only an existing remotely-managed tunnel and an existing
+hostname configured by the user in Cloudflare. Cloudflare documents that remotely-managed
+configuration is stored in Cloudflare and managed through the dashboard or API.
 
 ## Source pin and licensing
 
@@ -75,6 +77,13 @@ Token strings are strictly bounded and decoded directly into the pinned upstream
 endpoint are validated. Parse failures are generic; transport failures redact the raw token and all
 decoded credential forms. Token mode enables cloudflared's normal remotely-managed configuration
 feature, so dashboard ingress is applied by Cloudflare after registration.
+
+There is no connector-specific authenticated reader-IP metadata channel in this bridge. The Rust
+origin therefore uses only Axum's direct TCP peer and ignores `Forwarded`, `X-Forwarded-For`,
+`CF-Connecting-IP`, and similar request headers. Direct callers are identified by their actual TCP
+peer. Requests forwarded through cloudflared reach the loopback origin from the local connector and
+are identified by that local peer, not by an untrusted header claiming the original public client.
+This limitation is intentional until a real authenticated metadata boundary exists.
 
 ## C ABI
 
@@ -180,6 +189,12 @@ produce a random `trycloudflare.com` hostname, have no uptime guarantee, current
 200 in-flight requests, and do not support Server-Sent Events. WeKit must not promise SSE behavior
 through this mode. The URL is valid only while the current tunnel session is connected and changes
 when a new Quick Tunnel is allocated.
+
+These statements are checked against Cloudflare's current
+[Quick Tunnel documentation](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/).
+Cloudflare also documents that
+[remotely-managed configuration is stored in Cloudflare](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/tunnel-useful-terms/)
+and that [anyone holding a tunnel token can run that tunnel](https://developers.cloudflare.com/tunnel/advanced/tunnel-tokens/).
 
 The real integration test is opt-in because it uses Cloudflare's public service:
 

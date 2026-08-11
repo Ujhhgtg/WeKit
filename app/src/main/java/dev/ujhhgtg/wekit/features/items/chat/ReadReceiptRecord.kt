@@ -28,7 +28,7 @@ object ReadReceiptRecordCodec {
     private const val SCHEMA_VERSION = 1
     private const val BUILT_IN_ENDPOINT = "builtin://local"
     private const val MAX_ID_LENGTH = 128
-    private const val MAX_WX_ID_LENGTH = 256
+    private const val MAX_WX_ID_BYTES = 128
     private const val MAX_ENDPOINT_LENGTH = 2048
     private val lowercaseHexId = Regex("[0-9a-f]+")
 
@@ -87,7 +87,10 @@ object ReadReceiptRecordCodec {
     private fun normalize(record: ReadReceiptRecord): ReadReceiptRecord {
         require(record.id.isNotEmpty() && record.id.length <= MAX_ID_LENGTH)
         require(lowercaseHexId.matches(record.id))
-        require(record.wxId.isNotBlank() && record.wxId.length <= MAX_WX_ID_LENGTH)
+        require(
+            record.wxId.isNotBlank() &&
+                record.wxId.toByteArray(Charsets.UTF_8).size <= MAX_WX_ID_BYTES,
+        )
         require(record.endpoint.isNotBlank() && record.endpoint.length <= MAX_ENDPOINT_LENGTH)
         require(record.createdAtMillis > 0)
 
@@ -98,8 +101,9 @@ object ReadReceiptRecordCodec {
                 require(normalized == normalized.trim())
                 require(normalized.none(Char::isWhitespace))
                 val uri = URI(normalized)
-                require(uri.scheme == "http" || uri.scheme == "https")
+                require(uri.scheme == "https")
                 require(!uri.host.isNullOrEmpty())
+                require(uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null)
                 normalized
             }
 

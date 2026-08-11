@@ -282,6 +282,10 @@ object ReadReceipts : ClickableFeature(),
     private const val RECORD_RETENTION_MILLIS = 180L * 24 * 60 * 60 * 1000
     private const val MAX_POLL_WORKERS = 4
     private const val MAX_FAILURE_BACKOFF_MILLIS = 5L * 60 * 1000
+    private const val MAX_WX_ID_BYTES = 128
+    private const val MAX_CONTENT_BYTES = 16 * 1024
+    private const val MAX_REGISTRATION_BODY_BYTES = 20 * 1024
+    private const val MAX_ENDPOINT_CHARS = 2048
     private const val ORIGIN_STOP_TIMEOUT_MILLIS = 10_000L
     private const val BROWSER_METADATA_RECONCILE_ATTEMPTS = 50
     private const val BROWSER_METADATA_RECONCILE_DELAY_MILLIS = 100L
@@ -429,11 +433,15 @@ object ReadReceipts : ClickableFeature(),
         content: String,
         createTime: Long,
     ): String? {
-        val body = buildJsonObject {
+        val bodyJson = buildJsonObject {
             put("wxId", wxId)
             put("content", content)
             put("createTime", createTime)
-        }.toString().toRequestBody(jsonMediaType)
+        }.toString()
+        if (bodyJson.toByteArray(Charsets.UTF_8).size > MAX_REGISTRATION_BODY_BYTES) {
+            return "注册请求过大"
+        }
+        val body = bodyJson.toRequestBody(jsonMediaType)
         val request = Request.Builder().url("$endpoint/register").post(body).build()
         return suspendCancellableCoroutine { continuation ->
             val call = httpClient.newCall(request)
@@ -595,9 +603,19 @@ object ReadReceipts : ClickableFeature(),
 
     private fun normalizedHttpsEndpoint(value: String): String? {
         val normalized = value.trimEnd('/')
-        if (normalized != normalized.trim() || normalized.any(Char::isWhitespace)) return null
+        if (
+            normalized.length > MAX_ENDPOINT_CHARS || normalized != normalized.trim() ||
+            normalized.any(Char::isWhitespace)
+        ) {
+            return null
+        }
         val url = normalized.toHttpUrlOrNull() ?: return null
-        if (url.scheme != "https") return null
+        if (
+            url.scheme != "https" || url.username.isNotEmpty() || url.password.isNotEmpty() ||
+            url.query != null || url.fragment != null
+        ) {
+            return null
+        }
         return normalized
     }
 
@@ -1478,6 +1496,14 @@ object ReadReceipts : ClickableFeature(),
 
             val actualText = text.removePrefix(configuration.prefix)
             val selfWxId = WeApi.selfWxId
+            if (
+                selfWxId.toByteArray(Charsets.UTF_8).size > MAX_WX_ID_BYTES ||
+                actualText.toByteArray(Charsets.UTF_8).size > MAX_CONTENT_BYTES
+            ) {
+                runtimeError = "发送者标识或消息内容过长"
+                showToast(chatFooter.context, "错误: 发送者标识或消息内容过长")
+                return@hookBefore
+            }
             // Assigned now (epoch millis) so two identical-text messages get distinct ids.
             val createTime = System.currentTimeMillis()
             val id = computeId(selfWxId, actualText, createTime)
