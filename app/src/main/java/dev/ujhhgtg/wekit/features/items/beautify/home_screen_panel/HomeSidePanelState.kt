@@ -30,7 +30,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.localizedBeautifyString
-import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -60,7 +59,7 @@ internal class HomeSidePanelState(
     private var pendingLocationPermission = false
     private var locationJob: Job? = null
     private var statusSyncJob: Job? = null
-    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    private val _messages = MutableSharedFlow<BeautifyText>(extraBufferCapacity = 8)
     private val _uiState = MutableStateFlow(
         HomeSidePanelUiState(
             profile = HomeSidePanelProfile(
@@ -87,7 +86,7 @@ internal class HomeSidePanelState(
         private set
 
     val uiState: StateFlow<HomeSidePanelUiState> = _uiState.asStateFlow()
-    val messages: SharedFlow<String> = _messages.asSharedFlow()
+    val messages: SharedFlow<BeautifyText> = _messages.asSharedFlow()
 
     fun startPreload() {
         if (!started.compareAndSet(false, true)) return
@@ -584,12 +583,8 @@ internal class HomeSidePanelState(
         }
     }
 
-    private fun publishMessage(message: String) {
-        _messages.tryEmit(message)
-    }
-
     private fun publishMessage(message: BeautifyText) {
-        publishMessage(activity.resolveBeautifyText(message))
+        _messages.tryEmit(message)
     }
 
     private fun openShortcut(shortcut: HomeSidePanelShortcut) {

@@ -612,7 +612,12 @@ internal class MomentsAutomationSettings private constructor(
             AutomationRuleHeader(
                 title = stringResource(R.string.moments_automation_maximum_age),
                 summary = if (rules.maximumAge.enabled) {
-                    stringResource(R.string.moments_automation_maximum_age_value, rules.maximumAge.maximumHours.ifBlank { "0" })
+                    val maximumHours = rules.maximumAge.maximumHours.toIntOrNull() ?: 0
+                    pluralStringResource(
+                        R.plurals.moments_automation_maximum_age_value,
+                        maximumHours,
+                        maximumHours,
+                    )
                 } else stringResource(R.string.moments_automation_age_unrestricted),
                 enabled = rules.maximumAge.enabled,
                 isOverridden = overridden(RuleKey.MAXIMUM_AGE),
