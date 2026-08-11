@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify
 
+import androidx.annotation.StringRes
+import dev.ujhhgtg.wekit.R
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.Bitmap
@@ -40,6 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.graphics.get
 import androidx.core.graphics.toColorInt
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -98,9 +102,9 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
     private const val LEFT_BUBBLE_FILE = "left_bubble.9.png"   // 对方
     private const val RIGHT_BUBBLE_FILE = "right_bubble.9.png" // 自己
 
-    private enum class BubbleSide(val title: String, val fileName: String) {
-        OTHER("对方消息", LEFT_BUBBLE_FILE),
-        SELF("自己消息", RIGHT_BUBBLE_FILE),
+    private enum class BubbleSide(@StringRes val titleRes: Int, val fileName: String) {
+        OTHER(R.string.beautify_bubble_other_message, LEFT_BUBBLE_FILE),
+        SELF(R.string.beautify_bubble_own_message, RIGHT_BUBBLE_FILE),
     }
 
     private data class BubbleForm(
@@ -288,7 +292,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         } else {
             if (context.isDarkMode) bgThatDark else bgThatLight
         }
-        val color = parseColor(context, rawColor, label = "背景色", fallback = 0)
+        val color = parseColor(context, rawColor, label = context.localizedBeautifyString(R.string.beautify_bubble_background_color), fallback = 0)
 
         val fileName = if (isSelfSender) RIGHT_BUBBLE_FILE else LEFT_BUBBLE_FILE
         val resources = bubbleView.resources
@@ -417,7 +421,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         return runCatching { rawColor.toColorInt() }.getOrElse {
             if (!colorParseErrorToasted) {
                 colorParseErrorToasted = true
-                showToast(context, "有气泡${label}解析失败! 请检查格式")
+                showToast(context, context.localizedBeautifyString(R.string.beautify_bubble_color_parse_failed, label))
             }
             fallback
         }
@@ -429,7 +433,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         } else {
             if (context.isDarkMode) thatDark else thatLight
         }
-        return parseColor(context, rawColor, label = "前景色", fallback = -1)
+        return parseColor(context, rawColor, label = context.localizedBeautifyString(R.string.beautify_bubble_foreground_color), fallback = -1)
     }
 
     private fun applyForegroundColor(view: MMNeat7extView, isSelfSender: Boolean) {
@@ -487,7 +491,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 }.getOrNull()
 
                 if (bytes == null) {
-                    showToast(context, "$label 气泡图片导入失败!")
+                    showToast(context, context.localizedBeautifyString(R.string.beautify_bubble_import_failed, label))
                     return@registerForActivityResult
                 }
 
@@ -497,14 +501,19 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 val height = bounds.outHeight
 
                 if (width < MIN_BUBBLE_SIZE_PX || height < MIN_BUBBLE_SIZE_PX) {
-                    showToast(context, "$label 气泡图片尺寸过小! 需为宽高至少 ${MIN_BUBBLE_SIZE_PX}px 的 .9.png")
+                    showToast(context, context.localizedBeautifyString(R.string.beautify_bubble_image_too_small, label, MIN_BUBBLE_SIZE_PX))
                     return@registerForActivityResult
                 }
                 if (width > MAX_BUBBLE_SIZE_PX || height > MAX_BUBBLE_SIZE_PX) {
                     showToast(
                         context,
-                        "$label 气泡图片尺寸过大 (${width}x${height})! " +
-                                "请导入宽高不超过 ${MAX_BUBBLE_SIZE_PX}px 的 .9.png, 而非原图照片"
+                        context.localizedBeautifyString(
+                            R.string.beautify_bubble_image_too_large,
+                            label,
+                            width,
+                            height,
+                            MAX_BUBBLE_SIZE_PX,
+                        )
                     )
                     return@registerForActivityResult
                 }
@@ -518,7 +527,13 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 }.isSuccess
 
                 bubbleCache.remove(fileName)
-                showToast(context, if (ok) "$label 气泡图片导入成功" else "$label 气泡图片导入失败!")
+                showToast(
+                    context,
+                    context.localizedBeautifyString(
+                        if (ok) R.string.beautify_bubble_import_succeeded else R.string.beautify_bubble_import_failed,
+                        label,
+                    ),
+                )
                 if (ok) onDone()
             }
             launcher.launch("image/*")
@@ -530,11 +545,18 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         val ok = runCatching {
             !file.exists() || file.deleteIfExists()
         }.onFailure {
-            WeLogger.e(TAG, "failed to delete ${side.title} bubble image", it)
+            WeLogger.e(TAG, "failed to delete ${side.name} bubble image", it)
         }.getOrDefault(false)
 
         bubbleCache.remove(side.fileName)
-        showToast(context, if (ok) "${side.title}气泡图片已删除" else "${side.title}气泡图片删除失败!")
+        val sideTitle = context.localizedBeautifyString(side.titleRes)
+        showToast(
+            context,
+            context.localizedBeautifyString(
+                if (ok) R.string.beautify_bubble_deleted else R.string.beautify_bubble_delete_failed,
+                sideTitle,
+            ),
+        )
         return ok
     }
 
@@ -546,7 +568,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         onDelete: () -> Unit,
     ) {
         Text(
-            text = "文字颜色",
+            text = stringResource(R.string.beautify_bubble_text_color),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -555,13 +577,13 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             WeColorField(
-                label = "亮色模式",
+                label = stringResource(R.string.light_mode),
                 value = form.foregroundLight,
                 onValueChange = { onFormChange(form.copy(foregroundLight = it)) },
                 modifier = Modifier.weight(1f),
             )
             WeColorField(
-                label = "暗色模式",
+                label = stringResource(R.string.dark_mode),
                 value = form.foregroundDark,
                 onValueChange = { onFormChange(form.copy(foregroundDark = it)) },
                 modifier = Modifier.weight(1f),
@@ -569,7 +591,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         }
 
         Text(
-            text = "背景颜色",
+            text = stringResource(R.string.beautify_bubble_background_color),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -578,13 +600,13 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             WeColorField(
-                label = "亮色模式",
+                label = stringResource(R.string.light_mode),
                 value = form.backgroundLight,
                 onValueChange = { onFormChange(form.copy(backgroundLight = it)) },
                 modifier = Modifier.weight(1f),
             )
             WeColorField(
-                label = "暗色模式",
+                label = stringResource(R.string.dark_mode),
                 value = form.backgroundDark,
                 onValueChange = { onFormChange(form.copy(backgroundDark = it)) },
                 modifier = Modifier.weight(1f),
@@ -592,7 +614,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         }
 
         Text(
-            text = "气泡图片 (.9.png)",
+            text = stringResource(R.string.beautify_bubble_image),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -601,7 +623,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = if (form.imageExists) "已导入" else "未导入",
+                text = stringResource(if (form.imageExists) R.string.imported else R.string.not_imported),
                 color = if (form.imageExists) {
                     MaterialTheme.colorScheme.primary
                 } else {
@@ -616,7 +638,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(if (form.imageExists) "更换" else "导入")
+                Text(stringResource(if (form.imageExists) R.string.action_replace else R.string.action_import))
             }
             IconButton(
                 onClick = onDelete,
@@ -624,7 +646,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
             ) {
                 Icon(
                     imageVector = MaterialSymbols.Outlined.Delete,
-                    contentDescription = "删除已导入的气泡图片",
+                    contentDescription = stringResource(R.string.beautify_bubble_delete_imported_description),
                     tint = if (form.imageExists) {
                         MaterialTheme.colorScheme.error
                     } else {
@@ -637,6 +659,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var selectedSide by remember { mutableStateOf(BubbleSide.OTHER) }
             var pendingDeletion by remember { mutableStateOf<BubbleSide?>(null) }
             var otherForm by remember {
@@ -672,10 +695,17 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
             val deleteSide = pendingDeletion
             if (deleteSide != null) {
                 AlertDialogContent(
-                    title = { Text("删除气泡图片") },
-                    text = { Text("确定删除${deleteSide.title}已导入的气泡图片？") },
+                    title = { Text(stringResource(R.string.beautify_bubble_delete_title)) },
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.beautify_bubble_delete_confirm,
+                                stringResource(deleteSide.titleRes),
+                            )
+                        )
+                    },
                     dismissButton = {
-                        TextButton(onClick = { pendingDeletion = null }) { Text("取消") }
+                        TextButton(onClick = { pendingDeletion = null }) { Text(stringResource(R.string.dialog_cancel)) }
                     },
                     confirmButton = {
                         Button(
@@ -690,7 +720,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                                 contentColor = MaterialTheme.colorScheme.onError,
                             ),
                         ) {
-                            Text("删除")
+                            Text(stringResource(R.string.action_delete))
                         }
                     },
                 )
@@ -701,7 +731,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 }
 
                 AlertDialogContent(
-                    title = { Text("自定义消息气泡") },
+                    title = { Text(stringResource(R.string.beautify_bubble_title)) },
                     text = {
                         DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -715,7 +745,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                                         ),
                                         modifier = Modifier.weight(1f),
                                     ) {
-                                        Text(side.title)
+                                        Text(stringResource(side.titleRes))
                                     }
                                 }
                             }
@@ -725,7 +755,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                                 onFormChange = { next -> updateForm(selectedSide) { next } },
                                 onImport = {
                                     val side = selectedSide
-                                    importBubbleImage(context, side.fileName, side.title) {
+                                    importBubbleImage(context, side.fileName, localizedContext.getString(side.titleRes)) {
                                         updateForm(side) { it.copy(imageExists = true) }
                                     }
                                 },
@@ -733,7 +763,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                             )
                         }
                     },
-                    dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                     confirmButton = {
                         Button(
                             enabled = otherForm.hasValidColors && selfForm.hasValidColors,
@@ -750,7 +780,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                                 onDismiss()
                             },
                         ) {
-                            Text("确定")
+                            Text(stringResource(R.string.dialog_confirm))
                         }
                     },
                 )

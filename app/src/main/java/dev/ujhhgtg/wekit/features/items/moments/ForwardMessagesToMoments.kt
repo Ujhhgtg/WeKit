@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import dev.ujhhgtg.wekit.R
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Camera
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
@@ -89,7 +90,7 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777009, "转圈", CameraIcon, MaterialSymbols.Outlined.Camera,
+                777009, localizedMomentsString(R.string.moments_forward_messages_menu), CameraIcon, MaterialSymbols.Outlined.Camera,
                 isSupported = { it.type in SUPPORTED_MSG_TYPES },
                 // Moments can post: pure text, text + images, text + a single video, or multiple
                 // images. video can't be mixed with images and only one video is allowed. multiple

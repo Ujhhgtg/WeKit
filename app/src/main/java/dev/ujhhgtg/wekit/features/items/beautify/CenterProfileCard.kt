@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.sp
@@ -35,6 +36,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -134,7 +136,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
             var signatureText by remember { mutableStateOf(signatureTextPref) }
 
             AlertDialogContent(
-                title = { Text("资料卡居中") },
+                title = { Text(stringResource(R.string.beautify_profile_card_title)) },
                 text = {
                     DefaultColumn(
                         modifier = Modifier
@@ -142,7 +144,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             .verticalScroll(rememberScrollState()),
                     ) {
                         Text(
-                            "内容可见性",
+                            stringResource(R.string.beautify_profile_card_visibility),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -150,21 +152,21 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         ListItem(
                             modifier = Modifier.clickable { showName = !showName },
                             trailingContent = { Switch(showName, null) },
-                            content = { Text("显示昵称") },
+                            content = { Text(stringResource(R.string.beautify_profile_card_show_nickname)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable { showAlias = !showAlias },
                             trailingContent = { Switch(showAlias, null) },
-                            content = { Text("显示微信号") },
+                            content = { Text(stringResource(R.string.beautify_profile_card_show_wechat_id)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable { showSignature = !showSignature },
                             trailingContent = { Switch(showSignature, null) },
-                            content = { Text("显示签名") },
+                            content = { Text(stringResource(R.string.beautify_profile_card_show_signature)) },
                         )
 
                         Text(
-                            "文本替换设定",
+                            stringResource(R.string.beautify_profile_card_text_replacements),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -172,27 +174,27 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         OutlinedTextField(
                             value = nameText,
                             onValueChange = { nameText = it },
-                            label = { Text("自定义昵称（留空使用原文）") },
+                            label = { Text(stringResource(R.string.beautify_profile_card_custom_nickname)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = aliasText,
                             onValueChange = { aliasText = it },
-                            label = { Text("自定义微信号（留空使用原文）") },
+                            label = { Text(stringResource(R.string.beautify_profile_card_custom_wechat_id)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = signatureText,
                             onValueChange = { signatureText = it },
-                            label = { Text("自定义签名（留空使用原文）") },
+                            label = { Text(stringResource(R.string.beautify_profile_card_custom_signature)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
 
                         Text(
-                            "布局与尺寸配置",
+                            stringResource(R.string.beautify_profile_card_layout),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -200,7 +202,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         OutlinedTextField(
                             value = avatarTopMargin,
                             onValueChange = { avatarTopMargin = it.filter(Char::isDigit) },
-                            label = { Text("头像顶部边距 dp") },
+                            label = { Text(stringResource(R.string.beautify_profile_card_avatar_top_margin)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
@@ -208,7 +210,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         OutlinedTextField(
                             value = avatarSize,
                             onValueChange = { avatarSize = it.filter(Char::isDigit) },
-                            label = { Text("头像大小 dp") },
+                            label = { Text(stringResource(R.string.beautify_profile_card_avatar_size)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
@@ -216,7 +218,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         OutlinedTextField(
                             value = nameTopMargin,
                             onValueChange = { nameTopMargin = it.filter(Char::isDigit) },
-                            label = { Text("昵称顶部边距 dp") },
+                            label = { Text(stringResource(R.string.beautify_profile_card_nickname_top_margin)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
@@ -224,7 +226,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         OutlinedTextField(
                             value = aliasTopMargin,
                             onValueChange = { aliasTopMargin = it.filter(Char::isDigit) },
-                            label = { Text("微信号顶部边距 dp") },
+                            label = { Text(stringResource(R.string.beautify_profile_card_wechat_id_top_margin)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
@@ -232,14 +234,14 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         OutlinedTextField(
                             value = signatureTopMargin,
                             onValueChange = { signatureTopMargin = it.filter(Char::isDigit) },
-                            label = { Text("签名顶部边距 dp") },
+                            label = { Text(stringResource(R.string.beautify_profile_card_signature_top_margin)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                         )
 
                         Text(
-                            "背景颜色配置",
+                            stringResource(R.string.beautify_profile_card_background_colors),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -247,19 +249,19 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         WeColorField(
                             value = lightBg,
                             onValueChange = { lightBg = it },
-                            label = "亮色背景",
+                            label = stringResource(R.string.beautify_profile_card_light_background),
                             modifier = Modifier.fillMaxWidth(),
                         )
                         WeColorField(
                             value = darkBg,
                             onValueChange = { darkBg = it },
-                            label = "暗色背景",
+                            label = stringResource(R.string.beautify_profile_card_dark_background),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
@@ -278,7 +280,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         signatureTextPref = signatureText.trim()
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 },
             )
@@ -391,13 +393,16 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
 
         val name = nameTextPref.ifBlank { self?.nickname ?: "" }
         val customWxId = if (aliasTextPref.isNotBlank()) {
-            "微信号: $aliasTextPref"
+            root.context.localizedBeautifyString(R.string.beautify_profile_card_wechat_id_value, aliasTextPref)
         } else {
             val alias = WeApi.selfCustomWxId
-            if (alias.isNotBlank()) "微信号: $alias" else ""
+            if (alias.isNotBlank()) root.context.localizedBeautifyString(R.string.beautify_profile_card_wechat_id_value, alias) else ""
         }
         val signature = signatureTextPref.ifBlank {
-            WeDatabaseApi.getSelfProfileField(SelfProfileField.SIGNATURE, "(暂时无法自动获取签名, 请手动在功能设置内填入)").toString()
+            WeDatabaseApi.getSelfProfileField(
+                SelfProfileField.SIGNATURE,
+                root.context.localizedBeautifyString(R.string.beautify_profile_card_signature_unavailable),
+            ).toString()
         }
 
         return AccountInfoSource(

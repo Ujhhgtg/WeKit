@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import android.graphics.PorterDuff
 import android.widget.ImageView
+import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -62,6 +63,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -71,6 +73,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -114,7 +117,9 @@ import com.composables.icons.materialsymbols.outlined.Wallet
 import com.composables.icons.materialsymbols.outlined.Weather_hail
 import com.composables.icons.materialsymbols.outlined.Weather_snowy
 import dev.ujhhgtg.wekit.features.api.core.TextStatus
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
+import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
 import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.LocalDateTime
@@ -138,7 +143,7 @@ internal enum class HomeSidePanelShortcutPlacement {
 
 internal data class HomeSidePanelShortcutSpec(
     val shortcut: HomeSidePanelShortcut,
-    val label: String,
+    @StringRes val labelRes: Int,
     val icon: HomeSidePanelIconKind,
     val placement: HomeSidePanelShortcutPlacement,
 )
@@ -149,28 +154,17 @@ internal fun weatherCardSnapshot(state: WeatherUiState): WeatherSnapshot? = when
     WeatherUiState.Loading -> null
 }
 
-internal fun homeSidePanelProfileDisplayName(profile: HomeSidePanelProfile): String =
-    profile.nickname.ifBlank { "微信用户" }
-
-internal fun homeSidePanelAttribution(author: String?, source: String?): String? {
-    val normalizedAuthor = author?.trim()?.takeIf(String::isNotEmpty)
-    val normalizedSource = source?.trim()?.takeIf(String::isNotEmpty)
-    return when {
-        normalizedAuthor != null && normalizedSource != null -> "—— $normalizedAuthor「$normalizedSource」"
-        normalizedAuthor != null -> "—— $normalizedAuthor"
-        normalizedSource != null -> "——「$normalizedSource」"
-        else -> null
-    }
-}
+internal fun homeSidePanelProfileDisplayName(profile: HomeSidePanelProfile, fallback: String): String =
+    profile.nickname.ifBlank { fallback }
 
 internal fun shortcutSpec(shortcut: HomeSidePanelShortcut): HomeSidePanelShortcutSpec = when (shortcut) {
-    HomeSidePanelShortcut.SCAN -> HomeSidePanelShortcutSpec(shortcut, "扫一扫", HomeSidePanelIconKind.QR_CODE_SCANNER, HomeSidePanelShortcutPlacement.TILE)
-    HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelShortcutSpec(shortcut, "收付款", HomeSidePanelIconKind.WALLET, HomeSidePanelShortcutPlacement.TILE)
-    HomeSidePanelShortcut.FAVORITES -> HomeSidePanelShortcutSpec(shortcut, "收藏", HomeSidePanelIconKind.BOOKMARK, HomeSidePanelShortcutPlacement.TILE)
-    HomeSidePanelShortcut.MOMENTS -> HomeSidePanelShortcutSpec(shortcut, "朋友圈", HomeSidePanelIconKind.CAMERA, HomeSidePanelShortcutPlacement.LIST_ITEM)
-    HomeSidePanelShortcut.VIDEO_CHANNELS -> HomeSidePanelShortcutSpec(shortcut, "视频号", HomeSidePanelIconKind.MOVIE, HomeSidePanelShortcutPlacement.LIST_ITEM)
-    HomeSidePanelShortcut.MARK_ALL_READ -> HomeSidePanelShortcutSpec(shortcut, "清空未读", HomeSidePanelIconKind.MARK_CHAT_READ, HomeSidePanelShortcutPlacement.LIST_ITEM)
-    HomeSidePanelShortcut.WEKIT_SETTINGS -> HomeSidePanelShortcutSpec(shortcut, "WeKit 设置", HomeSidePanelIconKind.EXTENSION, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.SCAN -> HomeSidePanelShortcutSpec(shortcut, R.string.home_side_panel_scan, HomeSidePanelIconKind.QR_CODE_SCANNER, HomeSidePanelShortcutPlacement.TILE)
+    HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelShortcutSpec(shortcut, R.string.home_side_panel_payments, HomeSidePanelIconKind.WALLET, HomeSidePanelShortcutPlacement.TILE)
+    HomeSidePanelShortcut.FAVORITES -> HomeSidePanelShortcutSpec(shortcut, R.string.home_side_panel_favorites, HomeSidePanelIconKind.BOOKMARK, HomeSidePanelShortcutPlacement.TILE)
+    HomeSidePanelShortcut.MOMENTS -> HomeSidePanelShortcutSpec(shortcut, R.string.home_side_panel_moments, HomeSidePanelIconKind.CAMERA, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.VIDEO_CHANNELS -> HomeSidePanelShortcutSpec(shortcut, R.string.home_side_panel_channels, HomeSidePanelIconKind.MOVIE, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.MARK_ALL_READ -> HomeSidePanelShortcutSpec(shortcut, R.string.home_side_panel_mark_all_read, HomeSidePanelIconKind.MARK_CHAT_READ, HomeSidePanelShortcutPlacement.LIST_ITEM)
+    HomeSidePanelShortcut.WEKIT_SETTINGS -> HomeSidePanelShortcutSpec(shortcut, R.string.home_side_panel_wekit_settings, HomeSidePanelIconKind.EXTENSION, HomeSidePanelShortcutPlacement.LIST_ITEM)
 }
 
 @Composable
@@ -229,7 +223,7 @@ private fun HomeSidePanelProfileHeader(
             profile = profile,
             size = 58.dp,
             textStyle = MaterialTheme.typography.titleLarge,
-            contentDescription = "打开个人资料",
+            contentDescription = stringResource(R.string.home_side_panel_open_profile),
             onClick = panelState::openPersonalProfile,
         )
         Column(
@@ -240,7 +234,7 @@ private fun HomeSidePanelProfileHeader(
                 .padding(horizontal = 6.dp, vertical = 5.dp),
         ) {
             Text(
-                homeSidePanelProfileDisplayName(profile),
+                homeSidePanelProfileDisplayName(profile, stringResource(R.string.home_side_panel_wechat_user)),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -260,7 +254,7 @@ private fun HomeSidePanelProfileHeader(
             }
         }
         IconButton(onClick = panelState::openPanelSettings) {
-            Icon(MaterialSymbols.Outlined.Settings, contentDescription = "侧栏设置")
+            Icon(MaterialSymbols.Outlined.Settings, contentDescription = stringResource(R.string.home_side_panel_settings))
         }
     }
 }
@@ -283,7 +277,7 @@ private fun HomeSidePanelStatus(
             HomeSidePanelStatusUiState.NoStatus -> {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF31B36B)))
                 Text(
-                    "在线",
+                    stringResource(R.string.home_side_panel_online),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -301,16 +295,16 @@ private fun HomeSidePanelStatus(
                 )
             }
 
-            is HomeSidePanelStatusUiState.Error -> {
+            HomeSidePanelStatusUiState.Error -> {
                 Icon(MaterialSymbols.Outlined.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                 Text(
-                    "获取失败",
+                    stringResource(R.string.home_side_panel_fetch_failed),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.error,
                     maxLines = 1,
                 )
                 IconButton(onClick = panelState::refreshStatus, modifier = Modifier.size(24.dp)) {
-                    Icon(MaterialSymbols.Outlined.Refresh, contentDescription = "刷新状态", modifier = Modifier.size(16.dp))
+                    Icon(MaterialSymbols.Outlined.Refresh, contentDescription = stringResource(R.string.home_side_panel_refresh_status), modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -320,6 +314,7 @@ private fun HomeSidePanelStatus(
 @Composable
 private fun HomeSidePanelDateTimeCard() {
     val now = rememberHomeSidePanelNow()
+    val localizedContext = LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -333,7 +328,12 @@ private fun HomeSidePanelDateTimeCard() {
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    now.format(HOME_SIDE_PANEL_DATE_FORMATTER),
+                    now.format(
+                        DateTimeFormatter.ofPattern(
+                            stringResource(R.string.home_side_panel_date_pattern),
+                            localizedContext.resources.configuration.locales[0],
+                        )
+                    ),
                     modifier = Modifier.padding(start = 10.dp, bottom = 5.dp),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -341,7 +341,7 @@ private fun HomeSidePanelDateTimeCard() {
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(greetingForHour(now.hour), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(greetingResForHour(now.hour)), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -370,7 +370,7 @@ private fun HomeSidePanelWeatherCard(
             listOfNotNull(city.city, city.district?.takeIf(String::isNotBlank))
                 .distinct()
                 .joinToString(" · ")
-        } ?: "天气"
+        } ?: stringResource(R.string.home_side_panel_weather)
         Column {
             Row(
                 modifier = Modifier
@@ -397,7 +397,7 @@ private fun HomeSidePanelWeatherCard(
                 )
                 snapshot?.let {
                     Text(
-                        "更新于 ${formatWeatherPublishedAt(it.publishedAt)}",
+                        stringResource(R.string.home_side_panel_updated_at, formatWeatherPublishedAt(it.publishedAt)),
                         modifier = Modifier
                             .padding(start = 10.dp)
                             .widthIn(max = 112.dp),
@@ -431,7 +431,7 @@ private fun HomeSidePanelWeatherCard(
                                         maxLines = 1,
                                     )
                                     Text(
-                                        "体感 ${snapshot.feelsLike}°",
+                                        stringResource(R.string.home_side_panel_feels_like, snapshot.feelsLike),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = contentColor.copy(alpha = 0.72f),
                                     )
@@ -447,7 +447,7 @@ private fun HomeSidePanelWeatherCard(
                                         tint = contentColor,
                                     )
                                     Text(
-                                        weatherDescription(snapshot.weatherCode),
+                                        stringResource(weatherDescriptionRes(snapshot.weatherCode)),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Medium,
                                         color = contentColor,
@@ -465,7 +465,7 @@ private fun HomeSidePanelWeatherCard(
                             )
                         } else {
                             Text(
-                                "暂无天气数据，点击卡片重试",
+                                stringResource(R.string.home_side_panel_no_weather_data),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = contentColor,
                             )
@@ -481,7 +481,7 @@ private fun HomeSidePanelWeatherCard(
                         HomeSidePanelWeatherMetric(
                             icon = MaterialSymbols.Outlined.Device_thermostat,
                             value = snapshot?.let { "${it.high}° / ${it.low}°" } ?: "-- / --",
-                            label = "最高 / 最低",
+                            label = stringResource(R.string.home_side_panel_high_low),
                             modifier = Modifier.weight(1f),
                         )
                         VerticalDivider(
@@ -493,7 +493,7 @@ private fun HomeSidePanelWeatherCard(
                         HomeSidePanelWeatherMetric(
                             icon = MaterialSymbols.Outlined.Humidity_percentage,
                             value = snapshot?.let { "${it.humidity}%" } ?: "--",
-                            label = "湿度",
+                            label = stringResource(R.string.home_side_panel_humidity),
                             modifier = Modifier.weight(1f),
                         )
                         VerticalDivider(
@@ -505,7 +505,7 @@ private fun HomeSidePanelWeatherCard(
                         HomeSidePanelWeatherMetric(
                             icon = MaterialSymbols.Outlined.Air,
                             value = snapshot?.let { "${it.windSpeed} km/h" } ?: "--",
-                            label = "风速",
+                            label = stringResource(R.string.home_side_panel_wind_speed),
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -565,7 +565,7 @@ private fun HomeSidePanelWalletCard(
                     tint = contentColor,
                 )
                 Text(
-                    "当前余额",
+                    stringResource(R.string.home_side_panel_current_balance),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = contentColor,
@@ -598,7 +598,7 @@ private fun HomeSidePanelWalletCard(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-                    Text("扫一扫", modifier = Modifier.padding(start = 7.dp), maxLines = 1)
+                    Text(stringResource(R.string.home_side_panel_scan), modifier = Modifier.padding(start = 7.dp), maxLines = 1)
                 }
                 Button(
                     onClick = { panelState.runShortcut(HomeSidePanelShortcut.PAYMENTS) },
@@ -610,7 +610,7 @@ private fun HomeSidePanelWalletCard(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-                    Text("付款码", modifier = Modifier.padding(start = 7.dp), maxLines = 1)
+                    Text(stringResource(R.string.home_side_panel_payment_code), modifier = Modifier.padding(start = 7.dp), maxLines = 1)
                 }
             }
         }
@@ -692,7 +692,7 @@ private fun HomeSidePanelShortcutList(panelState: HomeSidePanelState) {
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Icon(shortcutIcon(spec.icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(spec.label, style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(spec.labelRes), style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -705,7 +705,7 @@ private fun HomeSidePanelShortcutList(panelState: HomeSidePanelState) {
         listItems.forEachIndexed { index, shortcut ->
             val spec = shortcutSpec(shortcut)
             ListItem(
-                headlineContent = { Text(spec.label) },
+                headlineContent = { Text(stringResource(spec.labelRes)) },
                 leadingContent = {
                     Icon(shortcutIcon(spec.icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 },
@@ -744,21 +744,36 @@ private fun HomeSidePanelHitokotoCard(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(MaterialSymbols.Outlined.Format_quote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text("一言", modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.home_side_panel_hitokoto), modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Text(
-                text = snapshot?.text ?: if (hitokoto is HitokotoUiState.Loading) "一言加载中…" else "点击卡片获取一言",
+                        text = snapshot?.text ?: stringResource(
+                            if (hitokoto is HitokotoUiState.Loading) {
+                                R.string.home_side_panel_hitokoto_loading
+                            } else {
+                                R.string.home_side_panel_hitokoto_tap
+                            }
+                        ),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     if (snapshot != null && (settings.showSource || settings.showAuthor)) {
-                        homeSidePanelAttribution(
-                            author = snapshot.author?.takeIf { settings.showAuthor },
-                            source = snapshot.source?.takeIf { settings.showSource },
-                        )?.let { attribution ->
+                        val author = snapshot.author?.trim()?.takeIf { settings.showAuthor && it.isNotEmpty() }
+                        val source = snapshot.source?.trim()?.takeIf { settings.showSource && it.isNotEmpty() }
+                        val attribution = when {
+                            author != null && source != null -> stringResource(
+                                R.string.home_side_panel_attribution_author_source,
+                                author,
+                                source,
+                            )
+                            author != null -> stringResource(R.string.home_side_panel_attribution_author, author)
+                            source != null -> stringResource(R.string.home_side_panel_attribution_source, source)
+                            else -> null
+                        }
+                        attribution?.let {
                             Text(
-                                text = attribution,
+                                text = it,
                                 modifier = Modifier.fillMaxWidth(),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -788,10 +803,11 @@ private fun HomeSidePanelHitokotoCard(
     }
 }
 
-private fun greetingForHour(hour: Int): String = when (hour) {
-    in 5..11 -> "早上好，今天也要保持好心情。"
-    in 12..17 -> "下午好，愿今天一切顺利。"
-    else -> "晚上好，愿你今晚安心入睡。"
+@StringRes
+private fun greetingResForHour(hour: Int): Int = when (hour) {
+    in 5..11 -> R.string.home_side_panel_greeting_morning
+    in 12..17 -> R.string.home_side_panel_greeting_afternoon
+    else -> R.string.home_side_panel_greeting_evening
 }
 
 private fun weatherIcon(code: String): ImageVector = when (weatherIconKind(code)) {
@@ -822,45 +838,46 @@ private fun weatherIcon(code: String): ImageVector = when (weatherIconKind(code)
     WeatherIconKind.UNKNOWN -> MaterialSymbols.Outlined.Question_mark
 }
 
-private fun weatherDescription(code: String): String = when (code.toIntOrNull()) {
-    0 -> "晴"
-    1 -> "多云"
-    2 -> "阴"
-    3 -> "阵雨"
-    4 -> "雷阵雨"
-    5 -> "雷阵雨并伴有冰雹"
-    6 -> "雨夹雪"
-    7 -> "小雨"
-    8 -> "中雨"
-    9 -> "大雨"
-    10 -> "暴雨"
-    11 -> "大暴雨"
-    12 -> "特大暴雨"
-    13 -> "阵雪"
-    14 -> "小雪"
-    15 -> "中雪"
-    16 -> "大雪"
-    17 -> "暴雪"
-    18 -> "雾"
-    19 -> "冻雨"
-    20 -> "沙尘暴"
-    21 -> "小雨-中雨"
-    22 -> "中雨-大雨"
-    23 -> "大雨-暴雨"
-    24 -> "暴雨-大暴雨"
-    25 -> "大暴雨-特大暴雨"
-    26 -> "小雪-中雪"
-    27 -> "中雪-大雪"
-    28 -> "大雪-暴雪"
-    29 -> "浮尘"
-    30 -> "扬沙"
-    31 -> "强沙尘暴"
-    32 -> "飑"
-    33 -> "龙卷风"
-    34 -> "若高吹雪"
-    35 -> "轻雾"
-    53 -> "霾"
-    else -> "未知"
+@StringRes
+private fun weatherDescriptionRes(code: String): Int = when (code.toIntOrNull()) {
+    0 -> R.string.weather_sunny
+    1 -> R.string.weather_cloudy
+    2 -> R.string.weather_overcast
+    3 -> R.string.weather_shower
+    4 -> R.string.weather_thunderstorm
+    5 -> R.string.weather_hail_thunderstorm
+    6 -> R.string.weather_sleet
+    7 -> R.string.weather_light_rain
+    8 -> R.string.weather_moderate_rain
+    9 -> R.string.weather_heavy_rain
+    10 -> R.string.weather_rainstorm
+    11 -> R.string.weather_heavy_rainstorm
+    12 -> R.string.weather_severe_rainstorm
+    13 -> R.string.weather_snow_shower
+    14 -> R.string.weather_light_snow
+    15 -> R.string.weather_moderate_snow
+    16 -> R.string.weather_heavy_snow
+    17 -> R.string.weather_blizzard
+    18 -> R.string.weather_fog
+    19 -> R.string.weather_freezing_rain
+    20 -> R.string.weather_dust_storm
+    21 -> R.string.weather_light_to_moderate_rain
+    22 -> R.string.weather_moderate_to_heavy_rain
+    23 -> R.string.weather_heavy_rain_to_rainstorm
+    24 -> R.string.weather_rainstorm_to_heavy
+    25 -> R.string.weather_heavy_to_severe_rainstorm
+    26 -> R.string.weather_light_to_moderate_snow
+    27 -> R.string.weather_moderate_to_heavy_snow
+    28 -> R.string.weather_heavy_snow_to_blizzard
+    29 -> R.string.weather_dust
+    30 -> R.string.weather_sand
+    31 -> R.string.weather_severe_dust_storm
+    32 -> R.string.weather_squall
+    33 -> R.string.weather_tornado
+    34 -> R.string.weather_blowing_snow
+    35 -> R.string.weather_mist
+    53 -> R.string.weather_haze
+    else -> R.string.unknown
 }
 
 private fun formatWeatherPublishedAt(publishedAt: String): String = runCatching {
@@ -878,7 +895,6 @@ private fun shortcutIcon(kind: HomeSidePanelIconKind): ImageVector = when (kind)
 }
 
 private val HOME_SIDE_PANEL_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
-private val HOME_SIDE_PANEL_DATE_FORMATTER = DateTimeFormatter.ofPattern("M月d日 E")
 
 @Composable
 internal fun HomeSidePanelToolbarContent(
@@ -898,7 +914,7 @@ internal fun HomeSidePanelToolbarContent(
             profile = profile,
             size = 32.dp,
             textStyle = MaterialTheme.typography.labelLarge,
-            contentDescription = "打开侧栏",
+            contentDescription = stringResource(R.string.home_side_panel_open_panel),
             onClick = onAvatarClick,
         )
         Column(
@@ -909,7 +925,7 @@ internal fun HomeSidePanelToolbarContent(
                 .padding(horizontal = 5.dp, vertical = 3.dp),
         ) {
             Text(
-                text = homeSidePanelProfileDisplayName(profile),
+                text = homeSidePanelProfileDisplayName(profile, stringResource(R.string.home_side_panel_wechat_user)),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -966,7 +982,7 @@ internal fun HomeSidePanelProfileAvatar(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = profile.nickname.firstOrNull()?.toString() ?: "微",
+                text = profile.nickname.firstOrNull()?.toString() ?: stringResource(R.string.home_side_panel_fallback_initial),
                 style = textStyle,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
@@ -989,12 +1005,12 @@ private fun HomeSidePanelToolbarStatus(
         when (status) {
             HomeSidePanelStatusUiState.Loading -> {
                 CircularProgressIndicator(modifier = Modifier.size(9.dp), strokeWidth = 1.5.dp)
-                HomeSidePanelToolbarStatusText("加载中")
+                HomeSidePanelToolbarStatusText(stringResource(R.string.loading))
             }
 
             HomeSidePanelStatusUiState.NoStatus -> {
                 Box(Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF31B36B)))
-                HomeSidePanelToolbarStatusText("在线")
+                HomeSidePanelToolbarStatusText(stringResource(R.string.home_side_panel_online))
             }
 
             is HomeSidePanelStatusUiState.Ready -> {
@@ -1002,14 +1018,14 @@ private fun HomeSidePanelToolbarStatus(
                 HomeSidePanelToolbarStatusText(status.status.description)
             }
 
-            is HomeSidePanelStatusUiState.Error -> {
+            HomeSidePanelStatusUiState.Error -> {
                 Icon(
                     imageVector = MaterialSymbols.Outlined.Close,
                     contentDescription = null,
                     modifier = Modifier.size(11.dp),
                     tint = MaterialTheme.colorScheme.error,
                 )
-                HomeSidePanelToolbarStatusText("获取失败", MaterialTheme.colorScheme.error)
+                HomeSidePanelToolbarStatusText(stringResource(R.string.home_side_panel_fetch_failed), MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -1064,10 +1080,10 @@ private fun HomeSidePanelWalletSettings(
             .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SettingsHeader("钱包设置", panelState::closeCardSettings)
+        SettingsHeader(stringResource(R.string.home_side_panel_wallet_settings), panelState::closeCardSettings)
         ListItem(
-            headlineContent = { Text("默认隐藏余额") },
-            supportingContent = { Text("打开侧栏时默认显示 ******") },
+            headlineContent = { Text(stringResource(R.string.home_side_panel_hide_balance_default)) },
+            supportingContent = { Text(stringResource(R.string.home_side_panel_hide_balance_summary)) },
             trailingContent = {
                 Switch(
                     checked = hideBalance,
@@ -1079,7 +1095,7 @@ private fun HomeSidePanelWalletSettings(
             },
         )
         Text(
-            "启用后，点击钱包卡片可临时显示或隐藏余额；关闭侧栏后自动恢复隐藏。临时状态不会保存。",
+            stringResource(R.string.home_side_panel_hide_balance_details),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -1099,9 +1115,9 @@ private fun HomeSidePanelPanelSettings(
             .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SettingsHeader("侧栏设置", panelState::closeCardSettings)
+        SettingsHeader(stringResource(R.string.home_side_panel_settings), panelState::closeCardSettings)
         ListItem(
-            headlineContent = { Text("在微信标题栏显示「我」组件") },
+            headlineContent = { Text(stringResource(R.string.home_side_panel_show_toolbar_profile)) },
             trailingContent = {
                 Switch(
                     checked = state.showToolbarProfile,
@@ -1113,7 +1129,7 @@ private fun HomeSidePanelPanelSettings(
             },
         )
         ListItem(
-            headlineContent = { Text("隐藏微信标题栏微信字样") },
+            headlineContent = { Text(stringResource(R.string.home_side_panel_hide_wechat_title)) },
             trailingContent = {
                 Switch(
                     checked = state.hideWeChatTitle,
@@ -1144,9 +1160,13 @@ private fun HomeSidePanelWeatherSettings(
             .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SettingsHeader("天气设置", panelState::closeCardSettings)
+        SettingsHeader(stringResource(R.string.home_side_panel_weather_settings), panelState::closeCardSettings)
         Text(
-            "当前城市：${state.weatherSettings.selectedCity.province} ${state.weatherSettings.selectedCity.city}",
+            stringResource(
+                R.string.home_side_panel_current_city,
+                state.weatherSettings.selectedCity.province,
+                state.weatherSettings.selectedCity.city,
+            ),
             style = MaterialTheme.typography.titleMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -1161,7 +1181,7 @@ private fun HomeSidePanelWeatherSettings(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Icon(MaterialSymbols.Outlined.My_location, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Text("自动检测", maxLines = 1, style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.home_side_panel_auto_detect), maxLines = 1, style = MaterialTheme.typography.labelMedium)
                 }
             }
             OutlinedButton(
@@ -1175,7 +1195,7 @@ private fun HomeSidePanelWeatherSettings(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Icon(MaterialSymbols.Outlined.Person_pin, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Text("从个人资料读取", maxLines = 1, style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.home_side_panel_read_profile), maxLines = 1, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -1187,7 +1207,7 @@ private fun HomeSidePanelWeatherSettings(
             },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text("搜索城市") },
+            label = { Text(stringResource(R.string.home_side_panel_search_city)) },
         )
         if (state.weatherSettings.searchResults.isNotEmpty()) {
             Card(
@@ -1236,13 +1256,13 @@ private fun HomeSidePanelHitokotoSettings(
             .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SettingsHeader("一言设置", panelState::closeCardSettings)
-        Text("分类", style = MaterialTheme.typography.titleMedium)
+        SettingsHeader(stringResource(R.string.home_side_panel_hitokoto_settings), panelState::closeCardSettings)
+        Text(stringResource(R.string.home_side_panel_categories), style = MaterialTheme.typography.titleMedium)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            hitokotoCategoryLabels.forEach { (code, label) ->
+            hitokotoCategoryLabels.forEach { (code, labelRes) ->
                 FilterChip(
                     selected = code in draft.categories,
                     onClick = {
@@ -1254,7 +1274,7 @@ private fun HomeSidePanelHitokotoSettings(
                             },
                         )
                     },
-                    label = { Text(label) },
+                    label = { Text(stringResource(labelRes)) },
                 )
             }
         }
@@ -1264,7 +1284,7 @@ private fun HomeSidePanelHitokotoSettings(
                 onValueChange = { draft = draft.copy(minLength = it.toIntOrNull()) },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
-                label = { Text("最短长度") },
+                label = { Text(stringResource(R.string.home_side_panel_min_length)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
             OutlinedTextField(
@@ -1272,12 +1292,12 @@ private fun HomeSidePanelHitokotoSettings(
                 onValueChange = { draft = draft.copy(maxLength = it.toIntOrNull()) },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
-                label = { Text("最长长度") },
+                label = { Text(stringResource(R.string.home_side_panel_max_length)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
         }
         ListItem(
-            headlineContent = { Text("显示来源") },
+            headlineContent = { Text(stringResource(R.string.home_side_panel_show_source)) },
             trailingContent = {
                 Switch(
                     checked = draft.showSource,
@@ -1286,7 +1306,7 @@ private fun HomeSidePanelHitokotoSettings(
             },
         )
         ListItem(
-            headlineContent = { Text("显示作者") },
+            headlineContent = { Text(stringResource(R.string.home_side_panel_show_author)) },
             trailingContent = {
                 Switch(
                     checked = draft.showAuthor,
@@ -1295,20 +1315,23 @@ private fun HomeSidePanelHitokotoSettings(
             },
         )
         if (state.hitokoto is HitokotoUiState.Error) {
-            Text(state.hitokoto.message, color = MaterialTheme.colorScheme.error)
+            Text(
+                LocalContext.current.resolveBeautifyText(state.hitokoto.message),
+                color = MaterialTheme.colorScheme.error,
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
                 onClick = { draft = HitokotoSettings() },
                 modifier = Modifier.weight(1f),
             ) {
-                Text("恢复默认")
+                Text(stringResource(R.string.action_restore_defaults))
             }
             Button(
                 onClick = { panelState.saveHitokotoSettings(draft) },
                 modifier = Modifier.weight(1f),
             ) {
-                Text("保存")
+                Text(stringResource(R.string.action_save))
             }
         }
     }
@@ -1318,23 +1341,23 @@ private fun HomeSidePanelHitokotoSettings(
 private fun SettingsHeader(title: String, onBack: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         IconButton(onClick = onBack) {
-            Icon(MaterialSymbols.Outlined.Arrow_back, contentDescription = "返回")
+            Icon(MaterialSymbols.Outlined.Arrow_back, contentDescription = stringResource(R.string.action_back))
         }
         Text(title, style = MaterialTheme.typography.titleLarge)
     }
 }
 
 private val hitokotoCategoryLabels = linkedMapOf(
-    "a" to "动画",
-    "b" to "漫画",
-    "c" to "游戏",
-    "d" to "文学",
-    "e" to "原创",
-    "f" to "网络",
-    "g" to "其他",
-    "h" to "影视",
-    "i" to "诗词",
-    "j" to "网易云",
-    "k" to "哲学",
-    "l" to "抖机灵",
+    "a" to R.string.home_side_panel_hitokoto_animation,
+    "b" to R.string.home_side_panel_hitokoto_comics,
+    "c" to R.string.home_side_panel_hitokoto_games,
+    "d" to R.string.home_side_panel_hitokoto_literature,
+    "e" to R.string.home_side_panel_hitokoto_original,
+    "f" to R.string.home_side_panel_hitokoto_web,
+    "g" to R.string.home_side_panel_hitokoto_other,
+    "h" to R.string.home_side_panel_hitokoto_movies,
+    "i" to R.string.home_side_panel_hitokoto_poetry,
+    "j" to R.string.home_side_panel_hitokoto_netease_music,
+    "k" to R.string.home_side_panel_hitokoto_philosophy,
+    "l" to R.string.home_side_panel_hitokoto_witty,
 )

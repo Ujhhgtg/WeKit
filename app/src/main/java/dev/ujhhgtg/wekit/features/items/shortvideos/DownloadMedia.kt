@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.shortvideos
 
 import android.net.Uri
 import android.util.Base64
+import dev.ujhhgtg.wekit.R
 import androidx.core.net.toUri
 import dev.ujhhgtg.wekit.features.api.ui.WeShortVideosShareMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -54,7 +55,7 @@ object DownloadMedia : SwitchFeature(),
         return listOf(
             WeShortVideosShareMenuApi.MenuItem(
                 777004,
-                "复制链接",
+                localizedShortVideoString(R.string.shortvideos_copy_link),
                 LinkIcon
             ) { _, mediaType, mediaList ->
                 if (mediaType == 2) {
@@ -63,7 +64,7 @@ object DownloadMedia : SwitchFeature(),
                     }
 
                     copyToClipboard(imageUrls.joinToString("\n"))
-                    showToast("已复制")
+                    showToast(localizedShortVideoString(R.string.copied_to_clipboard))
                     return@MenuItem
                 }
 
@@ -79,31 +80,31 @@ object DownloadMedia : SwitchFeature(),
                         duration / 3600, duration % 3600 / 60, duration % 60
                     )
                     val displaySize = formatBytesSize(size.toLong())
-                    clipItems += "时长" to displayDuration
-                    clipItems += "大小" to displaySize
+                    clipItems += localizedShortVideoString(R.string.shortvideos_duration) to displayDuration
+                    clipItems += localizedShortVideoString(R.string.shortvideos_size) to displaySize
 
                     val cdnInfo = json.optJSONObject("media_cdn_info")
                     if (cdnInfo == null || !cdnInfo.has("pcdn_url")) {
                         val url = json.getString("url")
                         val urlToken = json.getString("url_token")
                         val decodeKey = json.getString("decodeKey")
-                        clipItems += "密链" to url + urlToken
-                        clipItems += "密钥" to decodeKey
+                        clipItems += localizedShortVideoString(R.string.shortvideos_protected_link) to url + urlToken
+                        clipItems += localizedShortVideoString(R.string.shortvideos_key) to decodeKey
                     } else {
-                        clipItems += "链接" to json.getString("pcdn_url")
+                        clipItems += localizedShortVideoString(R.string.shortvideos_link) to json.getString("pcdn_url")
                     }
 
                     copyToClipboard(clipItems.joinToString("\n") { pair -> "${pair.first}: ${pair.second}" })
-                    showToast("已复制")
+                    showToast(localizedShortVideoString(R.string.copied_to_clipboard))
 
                     return@MenuItem
                 }
 
-                showToast("未知的媒体类型!")
+                showToast(localizedShortVideoString(R.string.shortvideos_unknown_media_type))
             },
             WeShortVideosShareMenuApi.MenuItem(
                 777007,
-                "下载",
+                localizedShortVideoString(R.string.action_download),
                 DownloadIcon
             ) { _, mediaType, mediaList ->
                 if (mediaType == 2) {
@@ -142,7 +143,7 @@ object DownloadMedia : SwitchFeature(),
                     return@MenuItem
                 }
 
-                showToast("未知的媒体类型!")
+                showToast(localizedShortVideoString(R.string.shortvideos_unknown_media_type))
             }
         )
     }
@@ -151,15 +152,15 @@ object DownloadMedia : SwitchFeature(),
         imageUrls.forEachIndexed { index, fullUrl ->
             val fileName = "image_${System.currentTimeMillis()}.png"
 
-            showToastSuspend("开始下载第 ${index + 1} 张图片")
+            showToastSuspend(localizedShortVideoString(R.string.shortvideos_image_download_started, index + 1))
 
             runCatching {
                 downloadFile(fullUrl, KnownPaths.downloads / fileName)
             }.onFailure {
                 WeLogger.e(TAG, "failed to download ${index + 1}th image", it)
-                showToastSuspend("第 ${index + 1} 张图片下载成功")
+                showToastSuspend(localizedShortVideoString(R.string.shortvideos_image_download_reported_success, index + 1))
             }.onSuccess {
-                showToastSuspend("已将图片下载到 /sdcard/Download/WeKit/$fileName")
+                showToastSuspend(localizedShortVideoString(R.string.shortvideos_image_downloaded_to, fileName))
             }
         }
     }
@@ -169,7 +170,7 @@ object DownloadMedia : SwitchFeature(),
         url: String,
         urlToken: String
     ) = withContext(Dispatchers.IO) {
-        showToastSuspend("正在下载视频...")
+        showToastSuspend(localizedShortVideoString(R.string.shortvideos_downloading_video))
 
         val baseDir = KnownPaths.downloads
         val fileName = "video_${System.currentTimeMillis()}.mp4"
@@ -181,32 +182,32 @@ object DownloadMedia : SwitchFeature(),
         runCatching {
             downloadFile(fullUrl, tempFilePath)
 
-            showToastSuspend("正在解密视频...")
+            showToastSuspend(localizedShortVideoString(R.string.shortvideos_decrypting_video))
             val key = BigInteger(decodeKey)
             decryptFile(tempFilePath, finalFilePath, key)
 
             tempFilePath.deleteIfExists()
         }.onFailure {
             WeLogger.e(TAG, "failed to download video", it)
-            showToastSuspend("视频下载失败!")
+            showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_download_failed))
         }.onSuccess {
-            showToastSuspend("已将视频下载到 /sdcard/Download/WeKit/$fileName")
+            showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_downloaded_to, fileName))
         }
     }
 
     private suspend fun downloadPcdnVideo(
         url: String
     ) = withContext(Dispatchers.IO) {
-        showToastSuspend("开始下载视频")
+        showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_download_started))
 
         val fileName = "video_${System.currentTimeMillis()}.mp4"
         runCatching {
             downloadFile(url, KnownPaths.downloads / fileName)
         }.onFailure {
             WeLogger.e(TAG, "failed to download video", it)
-            showToastSuspend("视频下载失败")
+            showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_download_failed))
         }.onSuccess {
-            showToastSuspend("已将视频下载到 /sdcard/Download/WeKit/$fileName")
+            showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_downloaded_to, fileName))
         }
     }
 

@@ -8,6 +8,7 @@ import android.content.ContextWrapper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -32,8 +33,7 @@ object MomentsEditorBackOptimization : SwitchFeature() {
 
     private const val SNS_UPLOAD_UI = "com.tencent.mm.plugin.sns.ui.SnsUploadUI"
 
-    private const val BACK_HINT = "\n触发系统返回以留在当前页面。"
-
+    // Host-owned dialog titles used only to identify the target dialog.
     private val KEEP_CONTENT_TITLES = arrayOf("保留当前内容？", "保留此次编辑？")
 
     override fun onEnable() {
@@ -70,8 +70,9 @@ object MomentsEditorBackOptimization : SwitchFeature() {
     @SuppressLint("SetTextI18n")
     private fun TextView.appendBackHint() {
         val current = text?.toString().orEmpty()
-        if (BACK_HINT !in current) {
-            text = current + BACK_HINT
+        val backHint = context.localizedMomentsString(R.string.moments_editor_back_hint)
+        if (backHint !in current) {
+            text = current + backHint
         }
     }
 

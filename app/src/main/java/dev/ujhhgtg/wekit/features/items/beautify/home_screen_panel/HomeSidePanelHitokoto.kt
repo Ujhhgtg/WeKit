@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
+import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
@@ -56,27 +59,27 @@ internal sealed interface HitokotoUiState {
     ) : HitokotoUiState
 
     data class Error(
-        val message: String,
+        val message: BeautifyText,
         val cached: HitokotoSnapshot?,
     ) : HitokotoUiState
 }
 
 internal sealed interface HitokotoResult {
     data class Success(val snapshot: HitokotoSnapshot) : HitokotoResult
-    data class Error(val message: String, val cached: HitokotoSnapshot?) : HitokotoResult
+    data class Error(val message: BeautifyText, val cached: HitokotoSnapshot?) : HitokotoResult
 }
 
 private fun validateHitokotoSettings(
     minLength: Int?,
     maxLength: Int?,
     categories: Set<String> = HITOKOTO_CATEGORY_CODES,
-): String? = when {
+): BeautifyText? = when {
     minLength != null && minLength < 0 || maxLength != null && maxLength < 0 ->
-        "长度不能为负数"
-    categories.isEmpty() -> "至少选择一个分类"
-    categories.any { it !in HITOKOTO_CATEGORY_CODES } -> "包含不支持的一言分类"
+        beautifyText(R.string.home_side_panel_hitokoto_negative_length)
+    categories.isEmpty() -> beautifyText(R.string.home_side_panel_hitokoto_select_category)
+    categories.any { it !in HITOKOTO_CATEGORY_CODES } -> beautifyText(R.string.home_side_panel_hitokoto_unsupported_category)
     minLength != null && maxLength != null && maxLength < minLength ->
-        "最大长度不能小于最小长度"
+        beautifyText(R.string.home_side_panel_hitokoto_invalid_range)
     else -> null
 }
 
@@ -123,7 +126,7 @@ internal class HomeSidePanelHitokoto(
             maxLength = settings.maxLength,
             categories = settings.categories,
         )
-        require(validationError == null) { validationError!! }
+        if (validationError != null) throw InvalidHitokotoSettingsException(validationError)
         HomeSidePanelPreferences.hitokotoSettings = settings
     }
 
@@ -151,7 +154,7 @@ internal class HomeSidePanelHitokoto(
         if (previousStart?.requestKey == requestKey && now - previousStart.startedAt < MIN_REFRESH_INTERVAL_MS) {
             return HomeSidePanelPreferences.hitokotoLastSuccess?.let(HitokotoResult::Success)
                 ?: lastError.get()
-                ?: HitokotoResult.Error("请求过于频繁，请稍后再试", null)
+                ?: HitokotoResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), null)
         }
 
         return coroutineScope {
@@ -195,23 +198,23 @@ internal class HomeSidePanelHitokoto(
         } catch (error: CancellationException) {
             throw error
         } catch (error: HitokotoHttpException) {
-            val result = HitokotoResult.Error("一言服务请求失败：HTTP ${error.code}", cached)
+            val result = HitokotoResult.Error(beautifyText(R.string.home_side_panel_hitokoto_http_error, error.code), cached)
             WeLogger.w(TAG, "hitokoto request failed with HTTP ${error.code}")
             result
         } catch (error: SocketTimeoutException) {
-            val result = HitokotoResult.Error("一言请求超时", cached)
+            val result = HitokotoResult.Error(beautifyText(R.string.home_side_panel_hitokoto_timeout), cached)
             WeLogger.w(TAG, "hitokoto request timed out", error)
             result
         } catch (error: InvalidHitokotoPayloadException) {
-            val result = HitokotoResult.Error("一言数据解析失败", cached)
+            val result = HitokotoResult.Error(beautifyText(R.string.home_side_panel_hitokoto_parse_failed), cached)
             WeLogger.w(TAG, "hitokoto payload is incomplete", error)
             result
         } catch (error: SerializationException) {
-            val result = HitokotoResult.Error("一言数据解析失败", cached)
+            val result = HitokotoResult.Error(beautifyText(R.string.home_side_panel_hitokoto_parse_failed), cached)
             WeLogger.w(TAG, "hitokoto payload is malformed", error)
             result
         } catch (error: IOException) {
-            val result = HitokotoResult.Error("无法连接一言服务", cached)
+            val result = HitokotoResult.Error(beautifyText(R.string.home_side_panel_hitokoto_connection_failed), cached)
             WeLogger.w(TAG, "hitokoto request failed", error)
             result
         }
@@ -257,6 +260,8 @@ private data class HitokotoPayload(
 )
 
 private class InvalidHitokotoPayloadException(message: String) : IllegalArgumentException(message)
+
+internal class InvalidHitokotoSettingsException(val text: BeautifyText) : IllegalArgumentException()
 
 private class HitokotoHttpException(val code: Int) : IOException()
 

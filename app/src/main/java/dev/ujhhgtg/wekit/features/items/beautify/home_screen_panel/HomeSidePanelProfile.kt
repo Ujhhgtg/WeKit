@@ -22,7 +22,7 @@ internal sealed interface HomeSidePanelStatusUiState {
     data object Loading : HomeSidePanelStatusUiState
     data class Ready(val status: TextStatus) : HomeSidePanelStatusUiState
     data object NoStatus : HomeSidePanelStatusUiState
-    data class Error(val message: String) : HomeSidePanelStatusUiState
+    data object Error : HomeSidePanelStatusUiState
 }
 
 internal class HomeSidePanelProfileLoader(
@@ -37,7 +37,6 @@ internal class HomeSidePanelProfileLoader(
         val wxId = WeApi.selfWxId
         val nickname = WeDatabaseApi.getSelfProfileField(SelfProfileField.NAME, "")
             .toString()
-            .ifBlank { "微信用户" }
         HomeSidePanelProfile(
             wxId = wxId,
             nickname = nickname,
@@ -78,5 +77,5 @@ internal class HomeSidePanelProfileLoader(
 private fun TextStatusResult.toUiState(): HomeSidePanelStatusUiState = when (this) {
     is TextStatusResult.Ready -> HomeSidePanelStatusUiState.Ready(status)
     TextStatusResult.NoStatus -> HomeSidePanelStatusUiState.NoStatus
-    is TextStatusResult.Error -> HomeSidePanelStatusUiState.Error("获取失败")
+    is TextStatusResult.Error -> HomeSidePanelStatusUiState.Error
 }

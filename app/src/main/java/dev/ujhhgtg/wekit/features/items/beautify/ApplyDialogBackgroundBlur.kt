@@ -16,9 +16,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import com.tencent.mm.ui.halfscreen.HalfScreenTransparentActivity
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -111,7 +113,7 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("对话框窗口级背景模糊") },
+                title = { Text(stringResource(R.string.beautify_dialog_blur_title)) },
                 text = {
                     var blurRadius by remember {
                         mutableIntStateOf(
@@ -121,7 +123,7 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
                         )
                     }
 
-                    Text("如果本对话框背景没有模糊, 说明系统 Android 版本过低 (SDK < 31) 或未在开发者选项中启用")
+                    Text(stringResource(R.string.beautify_dialog_blur_unsupported_hint))
                     HorizontalDivider()
                     ListItem(
                         supportingContent = {
@@ -140,10 +142,10 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
                                 5..30
                             )
                         },
-                        content = { Text("模糊半径 (实时生效)") },
+                        content = { Text(stringResource(R.string.beautify_dialog_blur_radius)) },
                     )
                 },
-                confirmButton = { Button(onDismiss) { Text("关闭") } })
+                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.action_close)) } })
         }
     }
 }
@@ -155,7 +157,7 @@ private fun IntSlider(
     valueRange: IntRange = 0..100
 ) {
     Column {
-        Text(text = "当前值: $value")
+        Text(text = stringResource(R.string.current_value, value))
         Slider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.roundToInt()) },

@@ -28,12 +28,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.isVisible
 import androidx.core.view.postDelayed
 import coil3.load
 import coil3.request.crossfade
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
@@ -211,16 +214,17 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
             var hasImage by remember { mutableStateOf(backgroundUri != null) }
             var opacityInput by remember { mutableFloatStateOf(opacity) }
             var transparentStatusBarInput by remember { mutableStateOf(transparentStatusBar) }
+            val localizedContext = LocalContext.current
 
             AlertDialogContent(
-                title = { Text("应用全局背景") },
+                title = { Text(stringResource(R.string.beautify_global_background_title)) },
                 text = {
                     DefaultColumn {
                         Text(
                             text = if (hasImage) {
-                                "已设置背景图片"
+                                stringResource(R.string.beautify_global_background_set)
                             } else {
-                                "未设置背景图片"
+                                stringResource(R.string.beautify_global_background_not_set)
                             },
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -234,21 +238,21 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                                 onDismiss()
                                 selectBackgroundImage(context)
                             }) {
-                                Text("选择图片")
+                                Text(stringResource(R.string.action_select_image))
                             }
                             TextButton(
                                 enabled = hasImage,
                                 onClick = {
                                     backgroundUri = null
                                     hasImage = false
-                                    showToast("已清除背景图片, 重启微信生效")
+                                    showToast(localizedContext.getString(R.string.beautify_global_background_cleared))
                                 }
                             ) {
-                                Text("清除图片")
+                                Text(stringResource(R.string.action_clear_image))
                             }
                         }
                         Text(
-                            text = "透明度: ${(opacityInput * 100f).roundToInt()}%",
+                            text = stringResource(R.string.opacity_percent, (opacityInput * 100f).roundToInt()),
                             style = MaterialTheme.typography.titleSmall
                         )
                         Slider(
@@ -266,22 +270,22 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                                     onCheckedChange = null
                                 )
                             },
-                            supportingContent = { Text("设置状态栏背景为透明") },
-                            content = { Text("状态栏背景透明") },
+                            supportingContent = { Text(stringResource(R.string.beautify_global_background_status_bar_summary)) },
+                            content = { Text(stringResource(R.string.beautify_global_background_status_bar)) },
                         )
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         opacity = opacityInput.miniMaxed()
                         transparentStatusBar = transparentStatusBarInput
-                        showToast("已保存, 重启微信生效")
+                        showToast(localizedContext.getString(R.string.saved_restart_wechat))
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 }
             )
@@ -436,7 +440,7 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                 }
 
                 backgroundUri = uri.toString()
-                showToast("背景图片已设置, 重启微信生效")
+                showToast(context.localizedBeautifyString(R.string.beautify_global_background_selected))
             }
 
             launcher.launch(

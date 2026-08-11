@@ -18,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.reflected.ReflectedField
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -130,16 +132,16 @@ object BeautifyConversationList : ClickableFeature() {
             var draftHideDividers by remember { mutableStateOf(hideDividersEnabled) }
 
             AlertDialogContent(
-                title = { Text("美化对话列表") },
+                title = { Text(stringResource(R.string.beautify_conversation_list_title)) },
                 text = {
                     DefaultColumn {
                         ConversationListPreset.entries.forEach { preset ->
                             val label = when (preset) {
-                                ConversationListPreset.NO_LAYOUT -> "不修改卡片布局"
-                                ConversationListPreset.COMFORT_CARD -> "舒适卡片"
-                                ConversationListPreset.PINNED_GROUPED_CARD -> "置顶分组卡片"
-                                ConversationListPreset.COMPACT_ROUNDED -> "紧凑圆角"
-                                ConversationListPreset.MINIMAL_LIST -> "简洁列表"
+                                ConversationListPreset.NO_LAYOUT -> stringResource(R.string.beautify_conversation_no_layout)
+                                ConversationListPreset.COMFORT_CARD -> stringResource(R.string.beautify_conversation_comfort_card)
+                                ConversationListPreset.PINNED_GROUPED_CARD -> stringResource(R.string.beautify_conversation_pinned_grouped)
+                                ConversationListPreset.COMPACT_ROUNDED -> stringResource(R.string.beautify_conversation_compact_rounded)
+                                ConversationListPreset.MINIMAL_LIST -> stringResource(R.string.beautify_conversation_minimal)
                             }
                             ListItem(
                                 modifier = Modifier.clickable {
@@ -165,7 +167,7 @@ object BeautifyConversationList : ClickableFeature() {
                         if (draftPreset != ConversationListPreset.NO_LAYOUT) {
                             ListItem(
                                 modifier = Modifier.clickable { draftHighlightUnread = !draftHighlightUnread },
-                                headlineContent = { Text("突出未读会话") },
+                                headlineContent = { Text(stringResource(R.string.beautify_conversation_highlight_unread)) },
                                 trailingContent = {
                                     Switch(
                                         checked = draftHighlightUnread,
@@ -176,7 +178,7 @@ object BeautifyConversationList : ClickableFeature() {
                         }
                         ListItem(
                             modifier = Modifier.clickable { draftHideDividers = !draftHideDividers },
-                            headlineContent = { Text("隐藏分隔线") },
+                            headlineContent = { Text(stringResource(R.string.beautify_conversation_hide_dividers)) },
                             trailingContent = {
                                 Switch(
                                     checked = draftHideDividers,
@@ -187,7 +189,7 @@ object BeautifyConversationList : ClickableFeature() {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
@@ -198,7 +200,7 @@ object BeautifyConversationList : ClickableFeature() {
                         WeConversationListViewApi.refresh()
                         onDismiss()
                     }) {
-                        Text("确定")
+                        Text(stringResource(R.string.dialog_confirm))
                     }
                 },
             )

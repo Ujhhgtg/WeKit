@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import dev.ujhhgtg.wekit.R
 import android.app.Activity
 import android.os.Bundle
 import android.view.View
@@ -17,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.view.isVisible
 import com.tencent.mm.plugin.sns.ui.SnsUserUI
 import com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI
@@ -108,22 +111,23 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
             var textFormatInput by remember { mutableStateOf(textFormat) }
             var timeFormatInput by remember { mutableStateOf(timeFormat) }
             var hideGroupIconInput by remember { mutableStateOf(hideGroupIcon) }
+            val localizedContext = LocalContext.current
 
             AlertDialogContent(
-                title = { Text("朋友圈底部信息详细") },
+                title = { Text(stringResource(R.string.moments_display_details_title)) },
                 text = {
                     DefaultColumn {
-                        Text($$"占位符: $originalText $time $type $snsId $userName")
+                        Text(stringResource(R.string.moments_display_details_placeholders, PH_ORIGINAL, PH_TIME, PH_TYPE, PH_SNS_ID, PH_USER_NAME))
                         OutlinedTextField(
                             value = textFormatInput,
                             onValueChange = { textFormatInput = it },
-                            label = { Text("文本格式") },
+                            label = { Text(stringResource(R.string.moments_display_details_text_format)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
                             value = timeFormatInput,
                             onValueChange = { timeFormatInput = it },
-                            label = { Text("时间格式") },
+                            label = { Text(stringResource(R.string.moments_display_details_time_format)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                         ListItem(
@@ -134,22 +138,22 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
                                     onCheckedChange = null
                                 )
                             },
-                            content = { Text("隐藏可见范围图标") },
+                            content = { Text(stringResource(R.string.moments_display_details_hide_visibility_icon)) },
                         )
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         textFormat = textFormatInput.ifBlank { DEFAULT_TEXT_FORMAT }
                         timeFormat = timeFormatInput.ifBlank { DEFAULT_TIME_FORMAT }
                         hideGroupIcon = hideGroupIconInput
-                        showToast("已保存, 重新进入朋友圈后生效")
+                        showToast(localizedContext.getString(R.string.moments_display_details_saved))
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 }
             )

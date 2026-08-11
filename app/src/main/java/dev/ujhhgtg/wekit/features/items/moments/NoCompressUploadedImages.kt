@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -109,7 +110,7 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
             var mode by remember { mutableIntStateOf(selectedMode) }
 
             AlertDialogContent(
-                title = { Text("上传原图") },
+                title = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_title)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -117,8 +118,8 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
                                 mode = MODE_CONVERT
                             },
                             trailingContent = { RadioButton(mode == MODE_CONVERT, null) },
-                            supportingContent = { Text("直接转换格式, 质量最高且速度快") },
-                            content = { Text("不压缩转换 (推荐)") },
+                            supportingContent = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_convert_summary)) },
+                            content = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_convert)) },
                         )
 
                         ListItem(
@@ -126,19 +127,19 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
                                 mode = MODE_COPY
                             },
                             trailingContent = { RadioButton(mode == MODE_COPY, null) },
-                            supportingContent = { Text("用原图覆盖压缩后的缓存") },
-                            content = { Text("原图覆盖") },
+                            supportingContent = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_copy_summary)) },
+                            content = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_copy)) },
                         )
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(dev.ujhhgtg.wekit.R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         selectedMode = mode
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(dev.ujhhgtg.wekit.R.string.dialog_confirm)) }
                 }
             )
         }

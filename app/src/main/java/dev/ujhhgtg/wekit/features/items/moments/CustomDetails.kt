@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.Context
+import dev.ujhhgtg.wekit.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -75,13 +78,13 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         return listOf(
             WeMomentsContextMenuApi.MenuItem(
                 777017,
-                "自定义底部详细信息",
+                localizedMomentsString(R.string.moments_custom_details_menu),
                 EditIcon,
                 { _, _ -> true }
             ) click@{ moment ->
                 val snsId = resolveSnsId(moment.snsInfo)
                 if (snsId == null) {
-                    showToast("未找到朋友圈 ID!")
+                    showToast(moment.activity.localizedMomentsString(R.string.moments_sns_id_not_found))
                     return@click
                 }
                 showEditor(moment.activity, snsId)
@@ -97,6 +100,7 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         showComposeDialog(context) {
             var textInput by remember { mutableStateOf(TextFieldValue(getCustomText(snsId).orEmpty())) }
             var isFocused by remember { mutableStateOf(false) }
+            val localizedContext = LocalContext.current
 
             val insertPlaceholder = { placeholder: String ->
                 val selection = textInput.selection
@@ -112,21 +116,21 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             }
 
             AlertDialogContent(
-                title = { Text("自定义底部详细信息") },
+                title = { Text(stringResource(R.string.moments_custom_details_title)) },
                 text = {
                     DefaultColumn {
-                        Text("留空保存可清除该条自定义内容")
+                        Text(stringResource(R.string.moments_custom_details_empty_hint))
                         OutlinedTextField(
                             value = textInput,
                             onValueChange = { textInput = it },
-                            label = { Text("底部信息内容") },
+                            label = { Text(stringResource(R.string.moments_custom_details_content)) },
                             minLines = 3,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusChanged { isFocused = it.isFocused }
                         )
 
-                        Text("点击插入占位符:")
+                        Text(stringResource(R.string.moments_custom_details_insert_placeholder))
 
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -154,15 +158,20 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         setCustomText(snsId, textInput.text)
-                        showToast(if (textInput.text.isBlank()) "已清除自定义底部信息" else "已保存自定义底部信息")
+                        showToast(
+                            localizedContext.getString(
+                                if (textInput.text.isBlank()) R.string.moments_custom_details_cleared
+                                else R.string.moments_custom_details_saved
+                            )
+                        )
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 }
             )

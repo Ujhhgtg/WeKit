@@ -14,8 +14,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.core.view.isGone
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -87,7 +89,7 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
             var hideEmojiInput by remember { mutableStateOf(hideEmoji) }
 
             AlertDialogContent(
-                title = { Text("「我」页面精简") },
+                title = { Text(stringResource(R.string.beautify_me_page_title)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -98,7 +100,7 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                                     onCheckedChange = null
                                 )
                             },
-                            content = { Text("隐藏朋友圈标签") },
+                            content = { Text(stringResource(R.string.beautify_me_page_hide_moments)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable { hideFinderInput = !hideFinderInput },
@@ -109,8 +111,8 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                                     onCheckedChange = null
                                 )
                             },
-                            supportingContent = { Text("取决于微信版本, 可能为「视频号」「视频号和公众号」「作品」") },
-                            content = { Text("隐藏作品标签") },
+                            supportingContent = { Text(stringResource(R.string.beautify_me_page_hide_works_summary)) },
+                            content = { Text(stringResource(R.string.beautify_me_page_hide_works)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable { hideCardsInput = !hideCardsInput },
@@ -120,8 +122,8 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                                     onCheckedChange = null
                                 )
                             },
-                            supportingContent = { Text("取决于微信版本, 可能为「卡包」「小店与卡包」") },
-                            content = { Text("隐藏卡包标签") },
+                            supportingContent = { Text(stringResource(R.string.beautify_me_page_hide_cards_summary)) },
+                            content = { Text(stringResource(R.string.beautify_me_page_hide_cards)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable { hideEmojiInput = !hideEmojiInput },
@@ -131,12 +133,12 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                                     onCheckedChange = null
                                 )
                             },
-                            content = { Text("隐藏表情标签") },
+                            content = { Text(stringResource(R.string.beautify_me_page_hide_stickers)) },
                         )
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
@@ -146,7 +148,7 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                         hideEmoji = hideEmojiInput
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 },
             )
@@ -155,6 +157,7 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
 
     private val selectedTargets: Set<String>
         get() {
+            // Host-owned row labels used only to identify which native rows should be hidden.
             val targets = linkedSetOf<String>()
             if (hideMoments) {
                 targets += "朋友圈"

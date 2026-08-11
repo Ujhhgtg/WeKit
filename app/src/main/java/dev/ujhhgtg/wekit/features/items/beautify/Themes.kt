@@ -51,6 +51,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.withStyledAttributes
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.scale
@@ -70,6 +72,7 @@ import com.tencent.mm.ui.conversation.MainUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -155,12 +158,12 @@ object Themes : ClickableFeature(), IResolveDex {
         val description: String
     )
 
-    private fun getDefaultTheme() = ThemeInfo(
+    private fun getDefaultTheme(context: Context) = ThemeInfo(
         id = DEFAULT_THEME_ID,
-        name = "无",
+        name = context.localizedBeautifyString(R.string.beautify_theme_none),
         author = "—",
         version = "",
-        description = "不应用任何主题"
+        description = context.localizedBeautifyString(R.string.beautify_theme_none_summary)
     )
 
     private fun getThemePath(themeId: String): File = (THEMES_PATH / themeId).toFile()
@@ -180,7 +183,7 @@ object Themes : ClickableFeature(), IResolveDex {
             ThemeInfo(
                 id = dir.name,
                 name = json.optString("name", dir.name),
-                author = json.optString("author", "未知作者"),
+                author = json.optString("author", localizedBeautifyString(R.string.unknown_author)),
                 version = json.optString("version", "1.0"),
                 description = json.optString("description", "")
             )
@@ -2955,8 +2958,9 @@ object Themes : ClickableFeature(), IResolveDex {
     // ------------------------------------------------------------------
 
     override fun onClick(context: ComponentActivity) {
-        val themes = listOf(getDefaultTheme()) + scanThemes()
+        val themes = listOf(getDefaultTheme(context)) + scanThemes()
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var selectedId by remember {
                 mutableStateOf(
                     currentThemeId.takeIf { id ->
@@ -2966,18 +2970,15 @@ object Themes : ClickableFeature(), IResolveDex {
             }
 
             AlertDialogContent(
-                title = { Text("主题") },
+                title = { Text(stringResource(R.string.beautify_theme_title)) },
                 text = {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         Text(
-                            text = "主题目录：${THEMES_PATH}",
+                            text = stringResource(R.string.beautify_theme_directory, THEMES_PATH),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "每个主题文件夹需包含 manifest.json（名称/作者/版本/描述）；" +
-                                "颜色/字符串分别放在 colors.json / strings.json；" +
-                                "图片按场景分目录存放（home/、chat/、chat/bubbles/、plus/、settings/、splash/）。" +
-                                "切换后重启微信生效。",
+                            text = stringResource(R.string.beautify_theme_instructions),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         themes.forEach { theme ->
@@ -2995,8 +2996,10 @@ object Themes : ClickableFeature(), IResolveDex {
                                 supportingContent = {
                                     Text(
                                         buildString {
-                                            append("作者：${theme.author}")
-                                            if (theme.version.isNotBlank()) append(" · 版本：${theme.version}")
+                                            append(localizedContext.getString(R.string.beautify_theme_author, theme.author))
+                                            if (theme.version.isNotBlank()) {
+                                                append(localizedContext.getString(R.string.beautify_theme_version, theme.version))
+                                            }
                                             if (theme.description.isNotBlank()) {
                                                 append("\n")
                                                 append(theme.description)
@@ -3009,17 +3012,17 @@ object Themes : ClickableFeature(), IResolveDex {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         if (selectedId != currentThemeId) {
                             currentThemeId = selectedId
-                            showToast("主题已保存，重启微信生效")
+                            showToast(localizedContext.getString(R.string.beautify_theme_saved))
                         }
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 }
             )

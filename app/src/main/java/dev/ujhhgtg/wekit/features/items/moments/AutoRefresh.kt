@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import dev.ujhhgtg.wekit.R
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -12,6 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -121,16 +124,17 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var intervalInput by remember { mutableStateOf(intervalMinutes.toString()) }
+            val localizedContext = LocalContext.current
 
             AlertDialogContent(
-                title = { Text("自动刷新") },
+                title = { Text(stringResource(R.string.moments_auto_refresh_title)) },
                 text = {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         TextField(
                             value = intervalInput,
                             onValueChange = { intervalInput = it.filter { c -> c.isDigit() }.take(4) },
-                            label = { Text("刷新间隔 (分钟)") },
-                            supportingText = { Text("每隔指定时间自动刷新一次朋友圈列表") },
+                            label = { Text(stringResource(R.string.moments_auto_refresh_interval)) },
+                            supportingText = { Text(stringResource(R.string.moments_auto_refresh_interval_summary)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                         )
@@ -140,11 +144,11 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
                     Button(onClick = {
                         intervalMinutes = (intervalInput.toLongOrNull() ?: DEFAULT_INTERVAL_MINUTES).coerceAtLeast(1L)
                         if (isEnabled) startRefreshingJob()
-                        showToast("已保存")
+                        showToast(localizedContext.getString(R.string.settings_saved))
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }

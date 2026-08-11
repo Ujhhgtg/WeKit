@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.Context
+import dev.ujhhgtg.wekit.R
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -106,13 +108,13 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
             var appNameInput by remember { mutableStateOf(appName) }
 
             AlertDialogContent(
-                title = { Text("自定义尾巴") },
+                title = { Text(stringResource(R.string.moments_custom_source_title)) },
                 text = {
                     DefaultColumn {
                         OutlinedTextField(
                             value = appIdInput,
                             onValueChange = { appIdInput = it },
-                            label = { Text("应用 ID (留空不更改)") },
+                            label = { Text(stringResource(R.string.moments_custom_source_app_id)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -120,7 +122,7 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
                         OutlinedTextField(
                             value = appNameInput,
                             onValueChange = { appNameInput = it },
-                            label = { Text("应用名称 (留空不更改)") },
+                            label = { Text(stringResource(R.string.moments_custom_source_app_name)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -130,16 +132,16 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
                                 appIdInput = sourceApp.appId
                                 appNameInput = sourceApp.appName
                             }
-                        }) { Text("从预设应用中选择") }
+                        }) { Text(stringResource(R.string.moments_custom_source_choose_preset)) }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         appId = appIdInput
                         appName = appNameInput
                         onDismiss()
-                    }) { Text("保存") }
+                    }) { Text(stringResource(R.string.action_save)) }
                 })
         }
     }
@@ -159,13 +161,13 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
             }
 
             AlertDialogContent(
-                title = { Text("选择预设应用") },
+                title = { Text(stringResource(R.string.moments_custom_source_preset_title)) },
                 text = {
                     DefaultColumn {
                         OutlinedTextField(
                             value = keyword,
                             onValueChange = { keyword = it },
-                            label = { Text("搜索 ID 或名称") },
+                            label = { Text(stringResource(R.string.moments_custom_source_search)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -190,7 +192,7 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {},
             )
         }
