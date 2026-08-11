@@ -374,7 +374,7 @@ func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeA
 			Error      string           `json:"error"`
 		}{Generation: handle.generation, Tunnels: []existingTunnel{}, Error: "could not list Cloudflare tunnels"})
 		if marshalErr != nil {
-			return nil
+			return nullJString()
 		}
 		return newJNIString(env, failure)
 	}
@@ -392,16 +392,16 @@ func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeA
 	_ = receiver
 	handle := lookupAuthHandle(authID(pointer))
 	if handle == nil {
-		return nil
+		return nullJString()
 	}
 	rawTunnelID := C.wekit_copy_jstring_bounded(env, tunnelID, 64)
 	if rawTunnelID == nil {
-		return nil
+		return nullJString()
 	}
 	defer C.free(unsafe.Pointer(rawTunnelID))
 	rawHostname := C.wekit_copy_jstring_bounded(env, hostname, C.size_t(maxURLBytes))
 	if rawHostname == nil {
-		return nil
+		return nullJString()
 	}
 	defer C.free(unsafe.Pointer(rawHostname))
 	token, err := handle.selectToken(
@@ -410,11 +410,11 @@ func Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsTunnelNative_nativeA
 		C.GoString(rawHostname),
 	)
 	if err != nil || len(token) == 0 || len(token) > maxTokenBytes {
-		return nil
+		return nullJString()
 	}
 	cToken := C.CString(token)
 	if cToken == nil {
-		return nil
+		return nullJString()
 	}
 	defer C.wekit_free_secret(cToken)
 	return C.wekit_new_jstring(env, cToken)
@@ -548,13 +548,17 @@ func cCallback(callback C.wekit_callback, user unsafe.Pointer, identity *callbac
 func newJNIString(env *C.JNIEnv, payload []byte) C.jstring {
 	encoded, err := encodeJNIUTF16(payload)
 	if err != nil {
-		return nil
+		return nullJString()
 	}
 	return C.wekit_new_jstring_utf16(
 		env,
 		(*C.jchar)(unsafe.Pointer(&encoded[0])),
 		C.jsize(len(encoded)),
 	)
+}
+
+func nullJString() (value C.jstring) {
+	return
 }
 
 func encodeJNIUTF16(payload []byte) ([]uint16, error) {

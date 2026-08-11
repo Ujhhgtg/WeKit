@@ -3,13 +3,17 @@
 ## Scope
 
 WeKit embeds Cloudflare's official Go tunnel transport as a separate Android shared library. It
-supports repeated Quick Tunnel sessions and remotely-managed named tunnels started with a run
-token, forwarding only to an HTTP(S) loopback origin. The Android runtime consumer is an exported
-`specialUse` foreground service in WeKit's own process, controlled from the injected WeChat process
-through a narrow Messenger protocol with calling-UID validation.
+supports repeated Quick Tunnel sessions, remotely-managed named tunnels started with a run token,
+and browser-assisted read-only selection of an existing remotely-managed tunnel, forwarding only
+to an HTTP(S) loopback origin. The Android runtime consumer is an exported `specialUse` foreground
+service in WeKit's own process, controlled from the injected WeChat process through a narrow
+Messenger protocol with calling-UID validation.
 
-Browser login and existing-tunnel selection remain explicitly unsupported until Task 10. Their C
-symbols return `WEKIT_TUNNEL_UNSUPPORTED` / `-2`; they never report fake connector success.
+Android browser authentication uses an independent JNI auth handle and never stops or replaces the
+active connector until a selected tunnel has passed connector and public-health verification. The
+six-symbol C compatibility adapter can attach authentication to an existing connector facade, but
+selection only advances that auth session's non-secret state; its fixed signature cannot safely
+return a token or switch the connector.
 
 WeKit does not create tunnels, DNS records, hostnames, ingress routes, or public-hostname
 configuration. Later authenticated modes must connect only an existing tunnel and an existing
@@ -42,8 +46,10 @@ the tunnel wire transport.
 
 The CLI application entrypoint is never called or constructed. Consequently the embedded path
 does not parse CLI arguments, start the updater, install OS signal handlers, initialize Sentry,
-start diagnostic/readiness/metrics listeners, or launch a desktop browser. Upstream internal
-Prometheus collectors remain linked because the transport uses them, but no listener exposes them.
+start diagnostic/readiness/metrics listeners, or launch a desktop browser. Browser login only
+returns a bounded authorization URL; Android launches it through an explicit `ACTION_VIEW` user
+action. Upstream internal Prometheus collectors remain linked because the transport uses them, but
+no listener exposes them.
 
 The pinned public Supervisor API requires `cloudflared/signal.safe_signal`. Its isolated adapter is
 not a process signal handler: the package only closes an in-memory channel once with `sync.Once`,
@@ -84,14 +90,15 @@ int wekit_tunnel_status(wekit_tunnel_handle handle, char *buffer, size_t buffer_
 ```
 
 Status codes are `STOPPED=0`, `STARTING=1`, `CONNECTED=2`, `RECONNECTING=3`, `FAILED=4`,
-`STOPPING=5`, and `UNSUPPORTED=6`. Function results are `0` for success, `-1` for invalid input or
-handle, `-2` for an intentionally unsupported operation, and `-3` for a status buffer that is too
-small. `wekit_tunnel_status` writes a NUL-terminated JSON object containing only `status`, `url`,
-and `error`.
+`STOPPING=5`, and the retained compatibility value `UNSUPPORTED=6`. Function results are `0` for
+success, `-1` for invalid input or handle, the retained compatibility value `-2` for unsupported,
+and `-3` for a status buffer that is too small. `wekit_tunnel_status` writes a NUL-terminated JSON
+object containing only `status`, `url`, and `error`.
 
-The same Go library also exports four direct JNI entry points used by
-`ReadReceiptsTunnelNative`. Kotlin owns one handle at a time and atomically clears it before stop;
-status polling and stop are serialized so a freed native handle is never queried.
+The same Go library also exports nine direct JNI entry points used by
+`ReadReceiptsTunnelNative`: four connector operations and five independent auth operations. Kotlin
+owns connector and auth handles separately and atomically clears each before stop/cancel; a blocked
+list or selection call can be cancelled and joined from another service IO coroutine.
 
 ## Android lifecycle and credential boundary
 
@@ -106,6 +113,19 @@ Tokens travel only in Binder command data, never Intents, broadcasts, notificati
 saved-instance state, clipboard, or MMKV. Status uses Binder replies plus a per-controller random
 nonce. Configuration generations derive from the boot-monotonic clock, so stale callbacks and a
 surviving module service cannot overwrite a newer WeChat-process session.
+
+Browser login is stricter: the origin certificate remains inside the Go auth session and never
+crosses JNI. A selected run token crosses JNI only into a module-service local value and never
+enters Messenger, status JSON, notification, UI, logs, or clipboard. After connector and exact
+public-health verification, the service atomically commits one encrypted versioned payload
+containing the token, source, account/tunnel identity, canonical hostname, and fixed origin port.
+Messenger exposes only bounded non-secret auth state and committed metadata. The authorization URL
+is transient dialog/process state; Android offers an explicit copy fallback for that URL only.
+
+Auth generation/request IDs are independent from connector generations. BEGIN, LIST, CANCEL, and
+LOGOUT do not advance connector authority. SELECT reserves replacement authority, but publishes it
+only after service verification and the encrypted commit; failure preserves the prior payload and
+restores the prior stack.
 
 START uses a generation-bound service ACK. The controller retains the transient token only until an
 authorized service has copied the command and removed the token from its Binder Bundle; rejection,
