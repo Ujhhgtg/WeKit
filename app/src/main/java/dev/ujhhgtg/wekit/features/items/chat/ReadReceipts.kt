@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -20,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -227,6 +229,8 @@ object ReadReceipts : ClickableFeature(),
     private const val MAX_POLL_WORKERS = 4
     private const val MAX_FAILURE_BACKOFF_MILLIS = 5L * 60 * 1000
     private const val ORIGIN_STOP_TIMEOUT_MILLIS = 10_000L
+    private const val BROWSER_METADATA_RECONCILE_ATTEMPTS = 50
+    private const val BROWSER_METADATA_RECONCILE_DELAY_MILLIS = 100L
 
     private data class ResolvedBackend(
         val backend: ReadReceiptBackend,
@@ -595,23 +599,42 @@ object ReadReceipts : ClickableFeature(),
         onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
     ) {
         val mode = tunnelMode(configuration)
-        if (mode == ReadReceiptsTunnelMode.TOKEN && configuration.automaticPort) {
+        startBuiltInCandidate(
+            configuration = configuration,
+            startTunnel = { port, complete ->
+                ReadReceiptsTunnelController.startVisible(
+                    mode = mode,
+                    originPort = port,
+                    hostname = configuration.hostname,
+                    token = token,
+                    onHandoff = complete,
+                )
+            },
+            onFinished = onFinished,
+        )
+    }
+
+    /** Starts the fixed/automatic origin before handing its actual port to one tunnel candidate. */
+    private fun startBuiltInCandidate(
+        configuration: ReadReceiptsConfiguration,
+        startTunnel: (Int, (OriginRequestTerminal<Unit>) -> Unit) -> Unit,
+        onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
+    ) {
+        val mode = tunnelMode(configuration)
+        if (
+            mode in setOf(
+                ReadReceiptsTunnelMode.TOKEN,
+                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+            ) && configuration.automaticPort
+        ) {
+            val label = if (mode == ReadReceiptsTunnelMode.TOKEN) "Token" else "浏览器登录"
             onFinished?.invoke(
                 OriginRequestTerminal.Completed(
                     Result.failure(
                         IllegalArgumentException(
-                            "Token 模式必须使用固定回环端口, 并在 Cloudflare 控制台将路由指向该端口",
+                            "$label 模式必须使用固定回环端口, 并在 Cloudflare 控制台将路由指向该端口",
                         ),
                     ),
-                ),
-            )
-            return
-        }
-        if (mode == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
-            ReadReceiptsTunnelController.needsVisibleStart()
-            onFinished?.invoke(
-                OriginRequestTerminal.Completed(
-                    Result.failure(IllegalStateException("浏览器登录将在下一阶段提供")),
                 ),
             )
             return
@@ -620,27 +643,9 @@ object ReadReceipts : ClickableFeature(),
             when (terminal) {
                 is OriginRequestTerminal.Completed -> terminal.result.fold(
                     onSuccess = { port ->
-                        ReadReceiptsTunnelController.startVisible(
-                            mode = mode,
-                            originPort = port,
-                            hostname = configuration.hostname,
-                            token = token,
-                            onHandoff = { handoffTerminal ->
-                                when (handoffTerminal) {
-                                    is OriginRequestTerminal.Completed -> {
-                                        onFinished?.invoke(
-                                            OriginRequestTerminal.Completed(
-                                                handoffTerminal.result,
-                                            ),
-                                        )
-                                    }
-
-                                    OriginRequestTerminal.Superseded -> {
-                                        onFinished?.invoke(OriginRequestTerminal.Superseded)
-                                    }
-                                }
-                            },
-                        )
+                        startTunnel(port) { handoffTerminal ->
+                            onFinished?.invoke(handoffTerminal)
+                        }
                     },
                     onFailure = { error ->
                         onFinished?.invoke(
@@ -656,32 +661,173 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    /**
-     * Applies the runtime-relevant candidate only after the module service ACKs secret handoff.
-     * A fixed-port/config replacement first tears down the old stack; any immediate failure restores
-     * the previous persisted configuration and restarts its stack when it had been active.
-     */
-    private fun applyAndStartBuiltInStack(
+    private fun browserConfiguration(
+        base: ReadReceiptsConfiguration,
+        metadata: CommittedBrowserTunnelMetadata,
+    ): ReadReceiptsConfiguration = base.copy(
+        mode = ReadReceiptsServerMode.BUILT_IN,
+        automaticPort = false,
+        builtInPort = metadata.fixedOriginPort,
+        tunnelMode = ReadReceiptsTunnelMode.BROWSER_LOGIN.name,
+        hostname = metadata.canonicalHostname,
+        selectedAccountId = metadata.accountId,
+        selectedAccountName = "",
+        selectedTunnelId = metadata.tunnelId,
+        selectedTunnelName = metadata.tunnelName,
+    )
+
+    private fun reconcileBrowserConfiguration(
+        force: Boolean,
+        expectedTunnelId: String? = null,
+        expectedHostname: String? = null,
+        expectedPort: Int? = null,
+        requireVerifiedEndpoint: Boolean = false,
+    ): ReadReceiptsConfiguration? {
+        val metadata = when (val decision =
+            ReadReceiptsTunnelController.browserMetadataRebindDecision
+        ) {
+            BrowserMetadataRebindDecision.Keep -> return null
+            is BrowserMetadataRebindDecision.Replace -> decision.metadata
+        }
+        if (expectedTunnelId != null && metadata.tunnelId != expectedTunnelId) return null
+        if (expectedHostname != null && metadata.canonicalHostname != expectedHostname) return null
+        if (expectedPort != null && metadata.fixedOriginPort != expectedPort) return null
+        if (
+            requireVerifiedEndpoint &&
+            ReadReceiptsTunnelController.verifiedEndpoint() != metadata.canonicalHostname
+        ) {
+            return null
+        }
+
+        val current = configuration()
+        val activeBrowserAuthority =
+            tunnelMode(current) == ReadReceiptsTunnelMode.BROWSER_LOGIN ||
+                ReadReceiptsTunnelController.verifiedEndpoint() == metadata.canonicalHostname
+        if (!force && !activeBrowserAuthority) return null
+
+        val reconciled = browserConfiguration(current, metadata)
+        if (reconciled != current) saveConfiguration(reconciled)
+        return reconciled
+    }
+
+    private suspend fun awaitBrowserConfiguration(
+        expectedTunnelId: String,
+        expectedHostname: String,
+        expectedPort: Int,
+        requireVerifiedEndpoint: Boolean,
+    ): ReadReceiptsConfiguration? {
+        repeat(BROWSER_METADATA_RECONCILE_ATTEMPTS) {
+            val reconciled = withContext(Dispatchers.Main.immediate) {
+                reconcileBrowserConfiguration(
+                    force = true,
+                    expectedTunnelId = expectedTunnelId,
+                    expectedHostname = expectedHostname,
+                    expectedPort = expectedPort,
+                    requireVerifiedEndpoint = requireVerifiedEndpoint,
+                )
+            }
+            if (reconciled != null) return reconciled
+            delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS)
+        }
+        return null
+    }
+
+    private fun startBrowserSelection(
         candidate: ReadReceiptsConfiguration,
-        token: String?,
+        onFinished: (OriginRequestTerminal<ReadReceiptsConfiguration?>) -> Unit,
+    ) {
+        startBuiltInCandidate(
+            configuration = candidate,
+            startTunnel = { port, complete ->
+                originScope.launch {
+                    val selection = ReadReceiptsTunnelController.selectExistingTunnel(
+                        id = candidate.selectedTunnelId,
+                        canonicalRoot = candidate.hostname,
+                        fixedPort = port,
+                    )
+                    val authoritative = awaitBrowserConfiguration(
+                        expectedTunnelId = candidate.selectedTunnelId,
+                        expectedHostname = candidate.hostname,
+                        expectedPort = port,
+                        requireVerifiedEndpoint = selection.isFailure,
+                    )
+                    withContext(Dispatchers.Main.immediate) {
+                        if (authoritative != null) {
+                            onFinished(
+                                OriginRequestTerminal.Completed(Result.success(authoritative)),
+                            )
+                        } else if (selection.isSuccess) {
+                            // The encrypted service commit already succeeded. REGISTER reconciliation
+                            // will project its metadata when the delayed snapshot/rebind arrives.
+                            onFinished(OriginRequestTerminal.Completed(Result.success(null)))
+                        } else {
+                            complete(
+                                OriginRequestTerminal.Completed(
+                                    Result.failure(selection.exceptionOrNull()!!),
+                                ),
+                            )
+                        }
+                    }
+                }
+            },
+            onFinished = { terminal ->
+                when (terminal) {
+                    is OriginRequestTerminal.Completed -> terminal.result.onFailure { error ->
+                        onFinished(OriginRequestTerminal.Completed(Result.failure(error)))
+                    }
+                    OriginRequestTerminal.Superseded -> onFinished(OriginRequestTerminal.Superseded)
+                }
+            },
+        )
+    }
+
+    /**
+     * Applies only a committed runtime candidate. Manual token handoff and Browser selection share
+     * the same stop/origin/rollback boundary; Browser configuration comes back from service metadata.
+     */
+    private fun runBuiltInCandidateTransaction(
+        candidate: ReadReceiptsConfiguration,
+        starter: (
+            ReadReceiptsConfiguration,
+            (OriginRequestTerminal<ReadReceiptsConfiguration?>) -> Unit,
+        ) -> Unit,
         onFinished: (OriginRequestTerminal<Unit>) -> Unit,
     ) {
         val previous = configuration()
-        val candidateIdentity = TunnelRuntimeIdentity.create(
-            tunnelMode(candidate),
-            candidate.hostname,
-        ) ?: run {
+        val candidateMode = tunnelMode(candidate)
+        val canonicalCandidate = if (
+            candidateMode in setOf(
+                ReadReceiptsTunnelMode.TOKEN,
+                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+            )
+        ) {
+            val canonicalHostname = ReadReceiptsTunnelService.canonicalPublicRoot(candidate.hostname)
+                ?: run {
+                    onFinished(
+                        OriginRequestTerminal.Completed(
+                            Result.failure(
+                                IllegalArgumentException(
+                                    "Token 与浏览器登录模式需要根路径 HTTPS 主机名",
+                                ),
+                            ),
+                        ),
+                    )
+                    return
+                }
+            candidate.copy(hostname = canonicalHostname)
+        } else {
+            candidate
+        }
+        if (
+            candidateMode == ReadReceiptsTunnelMode.BROWSER_LOGIN &&
+            !ExistingTunnel.isCanonicalId(canonicalCandidate.selectedTunnelId)
+        ) {
             onFinished(
                 OriginRequestTerminal.Completed(
-                    Result.failure(IllegalArgumentException("Token 模式需要根路径 HTTPS 主机名")),
+                    Result.failure(IllegalArgumentException("请选择有效的 Cloudflare Tunnel")),
                 ),
             )
             return
-        }
-        val canonicalCandidate = if (candidateIdentity.mode == ReadReceiptsTunnelMode.TOKEN) {
-            candidate.copy(hostname = candidateIdentity.hostname!!)
-        } else {
-            candidate
         }
         val previousWasActive = originController.status() in setOf(
             ReadReceiptsRuntimeState.STARTING,
@@ -694,7 +840,7 @@ object ReadReceipts : ClickableFeature(),
                 tunnelRuntimeChanged(
                     tunnelMode(previous),
                     previous.hostname,
-                    candidateIdentity.mode,
+                    candidateMode,
                     canonicalCandidate.hostname,
                 )
         )
@@ -750,11 +896,13 @@ object ReadReceipts : ClickableFeature(),
         }
 
         fun startCandidate() {
-            startBuiltInStack(canonicalCandidate, token) { terminal ->
+            starter(canonicalCandidate) { terminal ->
                 when (terminal) {
                     is OriginRequestTerminal.Completed -> terminal.result.fold(
-                        onSuccess = {
-                            saveConfiguration(canonicalCandidate)
+                        onSuccess = { committedCandidate ->
+                            if (committedCandidate != null) {
+                                saveConfiguration(committedCandidate)
+                            }
                             onFinished(
                                 OriginRequestTerminal.Completed(Result.success(Unit)),
                             )
@@ -790,6 +938,41 @@ object ReadReceipts : ClickableFeature(),
             startCandidate()
         }
     }
+
+    private fun applyAndStartBuiltInStack(
+        candidate: ReadReceiptsConfiguration,
+        token: String?,
+        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
+    ) = runBuiltInCandidateTransaction(
+        candidate = candidate,
+        starter = { canonicalCandidate, complete ->
+            startBuiltInStack(canonicalCandidate, token) { terminal ->
+                when (terminal) {
+                    is OriginRequestTerminal.Completed -> complete(
+                        OriginRequestTerminal.Completed(
+                            terminal.result.fold(
+                                onSuccess = {
+                                    Result.success<ReadReceiptsConfiguration?>(canonicalCandidate)
+                                },
+                                onFailure = { Result.failure(it) },
+                            ),
+                        ),
+                    )
+                    OriginRequestTerminal.Superseded -> complete(OriginRequestTerminal.Superseded)
+                }
+            }
+        },
+        onFinished = onFinished,
+    )
+
+    private fun applyAndSelectBrowserStack(
+        candidate: ReadReceiptsConfiguration,
+        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
+    ) = runBuiltInCandidateTransaction(
+        candidate = candidate,
+        starter = ::startBrowserSelection,
+        onFinished = onFinished,
+    )
 
     private fun stopBuiltInStack(
         onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
@@ -1095,6 +1278,31 @@ object ReadReceipts : ClickableFeature(),
             configuration.automaticLifecycle
         ) {
             ReadReceiptsTunnelController.refresh()
+            featureScope!!.launch {
+                repeat(BROWSER_METADATA_RECONCILE_ATTEMPTS) {
+                    val reconciled = withContext(Dispatchers.Main.immediate) {
+                        reconcileBrowserConfiguration(force = false)
+                    }
+                    if (reconciled != null) {
+                        if (requestedBuiltInPort(reconciled) != requestedBuiltInPort(configuration)) {
+                            withContext(Dispatchers.Main.immediate) {
+                                startOrigin(requestedBuiltInPort(reconciled)) { terminal ->
+                                    if (
+                                        terminal is OriginRequestTerminal.Completed &&
+                                        terminal.result.isSuccess &&
+                                        ReadReceiptsTunnelController.status.state !=
+                                        ReadReceiptsTunnelState.CONNECTED
+                                    ) {
+                                        ReadReceiptsTunnelController.needsVisibleStart()
+                                    }
+                                }
+                            }
+                        }
+                        return@launch
+                    }
+                    delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS)
+                }
+            }
             startOrigin(requestedBuiltInPort(configuration)) { terminal ->
                 when (terminal) {
                     is OriginRequestTerminal.Completed -> {
@@ -1492,6 +1700,7 @@ object ReadReceipts : ClickableFeature(),
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val initialConfiguration = remember { configuration() }
+            val dialogScope = rememberCoroutineScope()
             var modeInput by remember { mutableStateOf(initialConfiguration.mode) }
             var serverInput by remember { mutableStateOf(initialConfiguration.thirdPartyUrl) }
             var prefixInput by remember { mutableStateOf(initialConfiguration.prefix) }
@@ -1522,6 +1731,24 @@ object ReadReceipts : ClickableFeature(),
             var credentialExists by remember {
                 mutableStateOf(ReadReceiptsTunnelController.credentialExists)
             }
+            var browserLoginState by remember {
+                mutableStateOf(ReadReceiptsTunnelController.browserLoginState)
+            }
+            var browserAccountId by remember {
+                mutableStateOf(ReadReceiptsTunnelController.browserAccountId)
+            }
+            var browserTunnels by remember {
+                mutableStateOf(ReadReceiptsTunnelController.browserExistingTunnels)
+            }
+            var selectedBrowserTunnelId by remember {
+                mutableStateOf(initialConfiguration.selectedTunnelId)
+            }
+            var selectedConfiguredHostname by remember { mutableStateOf<String?>(null) }
+            var manualBrowserHostname by remember {
+                mutableStateOf(initialConfiguration.hostname)
+            }
+            var browserOperationActive by remember { mutableStateOf(false) }
+            var browserActionError by remember { mutableStateOf<String?>(null) }
 
             LaunchedEffect(Unit) {
                 ReadReceiptsTunnelController.refresh()
@@ -1529,6 +1756,10 @@ object ReadReceipts : ClickableFeature(),
                     originStatus = withContext(Dispatchers.IO) { originController.snapshot() }
                     tunnelStatus = ReadReceiptsTunnelController.status
                     credentialExists = ReadReceiptsTunnelController.credentialExists
+                    browserLoginState = ReadReceiptsTunnelController.browserLoginState
+                    browserAccountId = ReadReceiptsTunnelController.browserAccountId
+                    browserTunnels = ReadReceiptsTunnelController.browserExistingTunnels
+                    reconcileBrowserConfiguration(force = false)
                     delay(500)
                 }
             }
@@ -1621,26 +1852,62 @@ object ReadReceipts : ClickableFeature(),
                                     supportingContent = { Text("使用控制台已配置的远程管理隧道") },
                                     content = { Text("Tunnel token") },
                                 )
-
                                 ListItem(
                                     modifier = Modifier.clickable {
+                                        tunnelModeInput = ReadReceiptsTunnelMode.BROWSER_LOGIN
+                                        automaticPortInput = false
+                                    },
+                                    trailingContent = {
+                                        RadioButton(
+                                            selected = tunnelModeInput ==
+                                                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                                            onClick = null,
+                                        )
+                                    },
+                                    supportingContent = {
+                                        Text("登录 Cloudflare 并选择已有 Tunnel；不会修改隧道、DNS 或 ingress")
+                                    },
+                                    content = { Text("Browser Login") },
+                                )
+
+                                ListItem(
+                                    modifier = Modifier.clickable(
+                                        enabled = tunnelModeInput !=
+                                            ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                                    ) {
                                         automaticPortInput = !automaticPortInput
                                     },
                                     trailingContent = {
                                         Switch(
                                             checked = automaticPortInput,
                                             onCheckedChange = null,
+                                            enabled = tunnelModeInput !=
+                                                ReadReceiptsTunnelMode.BROWSER_LOGIN,
                                         )
                                     },
-                                    supportingContent = { Text("由系统选择空闲的回环端口") },
+                                    supportingContent = {
+                                        Text(
+                                            if (
+                                                tunnelModeInput ==
+                                                ReadReceiptsTunnelMode.BROWSER_LOGIN
+                                            ) {
+                                                "Browser Login 必须使用与已配置 ingress 一致的固定端口"
+                                            } else {
+                                                "由系统选择空闲的回环端口"
+                                            },
+                                        )
+                                    },
                                     content = { Text("自动选择端口") },
                                 )
 
                                 if (
-                                    tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
+                                    tunnelModeInput in setOf(
+                                        ReadReceiptsTunnelMode.TOKEN,
+                                        ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                                    ) &&
                                     automaticPortInput
                                 ) {
-                                    Text("Token 模式需要固定端口, 控制台 Public Hostname 的服务地址必须指向同一 127.0.0.1 端口")
+                                    Text("此模式需要固定端口, 控制台 Public Hostname 的服务地址必须指向同一 127.0.0.1 端口")
                                 }
 
                                 if (!automaticPortInput) {
@@ -1692,6 +1959,316 @@ object ReadReceipts : ClickableFeature(),
                                         modifier = Modifier.fillMaxWidth(),
                                     )
                                     Text("WeKit 不会创建或修改隧道、DNS、主机名或 ingress")
+                                }
+
+                                if (tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
+                                    val loginStateText = when (browserLoginState.state) {
+                                        ReadReceiptsTunnelState.STOPPED -> "未登录"
+                                        ReadReceiptsTunnelState.STARTING -> "等待浏览器授权"
+                                        ReadReceiptsTunnelState.CONNECTED -> "已授权"
+                                        ReadReceiptsTunnelState.FAILED -> "登录失效，需要重试"
+                                        ReadReceiptsTunnelState.RECONNECTING -> "状态恢复中"
+                                        ReadReceiptsTunnelState.NEEDS_USER_ACTION -> "需要用户操作"
+                                        ReadReceiptsTunnelState.STOPPING -> "正在取消"
+                                    }
+                                    Text("Cloudflare 登录状态: $loginStateText")
+                                    if (ReadReceiptsTunnelController.browserLoginRestartRequired) {
+                                        Text("登录会话已丢失，请重新登录")
+                                    }
+                                    if (browserAccountId.isNotEmpty()) {
+                                        Text("Account ID: $browserAccountId")
+                                    }
+                                    if (browserLoginState.error != null) {
+                                        Text("登录错误: ${browserLoginState.error}")
+                                    }
+                                    if (browserActionError != null) {
+                                        Text("操作错误: $browserActionError")
+                                    }
+
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Button(
+                                            enabled = !browserOperationActive &&
+                                                !connectionTransactionActive,
+                                            onClick = {
+                                                browserOperationActive = true
+                                                browserActionError = null
+                                                dialogScope.launch {
+                                                    runCatching {
+                                                        ReadReceiptsTunnelController
+                                                            .beginBrowserLogin()
+                                                    }.fold(
+                                                        onSuccess = { browserLoginState = it },
+                                                        onFailure = {
+                                                            browserActionError = it.message
+                                                                ?: "无法启动浏览器登录"
+                                                        },
+                                                    )
+                                                    browserOperationActive = false
+                                                }
+                                            },
+                                        ) {
+                                            Text(
+                                                if (
+                                                    browserLoginState.state ==
+                                                    ReadReceiptsTunnelState.FAILED ||
+                                                    ReadReceiptsTunnelController
+                                                        .browserLoginRestartRequired
+                                                ) {
+                                                    "重试登录"
+                                                } else {
+                                                    "登录"
+                                                },
+                                            )
+                                        }
+                                        Button(
+                                            enabled = browserLoginState.state ==
+                                                ReadReceiptsTunnelState.CONNECTED &&
+                                                !browserOperationActive &&
+                                                !connectionTransactionActive,
+                                            onClick = {
+                                                browserOperationActive = true
+                                                browserActionError = null
+                                                dialogScope.launch {
+                                                    runCatching {
+                                                        ReadReceiptsTunnelController
+                                                            .listExistingTunnels()
+                                                    }.fold(
+                                                        onSuccess = { browserTunnels = it },
+                                                        onFailure = {
+                                                            browserActionError = it.message
+                                                                ?: "无法刷新 Tunnel 列表"
+                                                        },
+                                                    )
+                                                    browserOperationActive = false
+                                                }
+                                            },
+                                        ) { Text("刷新") }
+                                    }
+
+                                    val authorizationUrl = browserLoginState.authorizationUrl
+                                    if (authorizationUrl != null) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) {
+                                            Button(
+                                                onClick = {
+                                                    runCatching {
+                                                        context.startActivity(
+                                                            Intent(
+                                                                Intent.ACTION_VIEW,
+                                                                Uri.parse(authorizationUrl),
+                                                            ),
+                                                        )
+                                                    }.onFailure {
+                                                        browserActionError =
+                                                            "无法打开浏览器，请复制授权链接后手动打开"
+                                                    }
+                                                },
+                                            ) { Text("打开授权页面") }
+                                            TextButton(
+                                                onClick = {
+                                                    copyToClipboard(context, authorizationUrl)
+                                                    showToast(context, "授权链接已复制")
+                                                },
+                                            ) { Text("复制授权链接") }
+                                        }
+                                    }
+
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        TextButton(
+                                            enabled = browserLoginState.state ==
+                                                ReadReceiptsTunnelState.STARTING &&
+                                                !browserOperationActive &&
+                                                !connectionTransactionActive,
+                                            onClick = {
+                                                browserOperationActive = true
+                                                browserActionError = null
+                                                dialogScope.launch {
+                                                    ReadReceiptsTunnelController
+                                                        .cancelBrowserLogin()
+                                                        .onFailure {
+                                                            browserActionError = it.message
+                                                                ?: "无法取消登录"
+                                                        }
+                                                    browserOperationActive = false
+                                                }
+                                            },
+                                        ) { Text("取消登录") }
+                                        TextButton(
+                                            enabled = browserLoginState.state ==
+                                                ReadReceiptsTunnelState.CONNECTED &&
+                                                !browserOperationActive &&
+                                                !connectionTransactionActive,
+                                            onClick = {
+                                                browserOperationActive = true
+                                                browserActionError = null
+                                                dialogScope.launch {
+                                                    ReadReceiptsTunnelController
+                                                        .logoutBrowserLogin()
+                                                        .onFailure {
+                                                            browserActionError = it.message
+                                                                ?: "无法退出登录"
+                                                        }
+                                                    browserOperationActive = false
+                                                }
+                                            },
+                                        ) { Text("退出登录") }
+                                    }
+
+                                    if (
+                                        browserLoginState.state ==
+                                        ReadReceiptsTunnelState.CONNECTED &&
+                                        browserTunnels.isEmpty()
+                                    ) {
+                                        Text("尚未加载 Tunnel；点击“刷新”读取当前账号的已有 Tunnel")
+                                    }
+                                    browserTunnels.forEach { tunnel ->
+                                        ListItem(
+                                            modifier = Modifier.clickable {
+                                                selectedBrowserTunnelId = tunnel.id
+                                                selectedConfiguredHostname = tunnel.hostnames
+                                                    .firstOrNull()
+                                                    ?.let { "https://$it" }
+                                            },
+                                            trailingContent = {
+                                                RadioButton(
+                                                    selected = selectedBrowserTunnelId == tunnel.id,
+                                                    onClick = null,
+                                                )
+                                            },
+                                            supportingContent = { Text("Tunnel ID: ${tunnel.id}") },
+                                            content = { Text(tunnel.name) },
+                                        )
+                                    }
+
+                                    val selectedTunnel = browserTunnels.firstOrNull {
+                                        it.id == selectedBrowserTunnelId
+                                    }
+                                    if (selectedTunnel != null) {
+                                        Text("Public Hostname")
+                                        selectedTunnel.hostnames.forEach { hostname ->
+                                            val root = "https://$hostname"
+                                            ListItem(
+                                                modifier = Modifier.clickable {
+                                                    selectedConfiguredHostname = root
+                                                },
+                                                trailingContent = {
+                                                    RadioButton(
+                                                        selected = selectedConfiguredHostname == root,
+                                                        onClick = null,
+                                                    )
+                                                },
+                                                content = { Text(hostname) },
+                                            )
+                                        }
+                                        ListItem(
+                                            modifier = Modifier.clickable {
+                                                selectedConfiguredHostname = null
+                                            },
+                                            trailingContent = {
+                                                RadioButton(
+                                                    selected = selectedConfiguredHostname == null,
+                                                    onClick = null,
+                                                )
+                                            },
+                                            supportingContent = {
+                                                Text("用于本地配置 Tunnel，或选择未出现在远程 ingress 中的主机名")
+                                            },
+                                            content = { Text("手动输入主机名") },
+                                        )
+                                        TextField(
+                                            value = manualBrowserHostname,
+                                            onValueChange = {
+                                                manualBrowserHostname = it
+                                                selectedConfiguredHostname = null
+                                            },
+                                            label = { Text("HTTPS 公网主机名") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                        Button(
+                                            enabled = browserLoginState.state ==
+                                                ReadReceiptsTunnelState.CONNECTED &&
+                                                !browserOperationActive &&
+                                                !connectionTransactionActive,
+                                            onClick = {
+                                                val port = builtInPortInput.toIntOrNull()
+                                                    ?.takeIf { it in 1..65535 }
+                                                    ?: run {
+                                                        browserActionError =
+                                                            "回环端口必须在 1 到 65535 之间"
+                                                        return@Button
+                                                    }
+                                                val hostname =
+                                                    selectedConfiguredHostname
+                                                        ?: manualBrowserHostname
+                                                val canonicalHostname =
+                                                    ReadReceiptsTunnelService
+                                                        .canonicalPublicRoot(hostname)
+                                                        ?: run {
+                                                            browserActionError =
+                                                                "请输入根路径 HTTPS 主机名"
+                                                            return@Button
+                                                        }
+                                                val candidate = configuration().copy(
+                                                    mode = ReadReceiptsServerMode.BUILT_IN,
+                                                    automaticPort = false,
+                                                    builtInPort = port,
+                                                    tunnelMode =
+                                                        ReadReceiptsTunnelMode.BROWSER_LOGIN.name,
+                                                    hostname = canonicalHostname,
+                                                    selectedAccountId = browserAccountId,
+                                                    selectedAccountName = "",
+                                                    selectedTunnelId = selectedTunnel.id,
+                                                    selectedTunnelName = selectedTunnel.name,
+                                                )
+                                                browserActionError = null
+                                                val transactionOwner =
+                                                    connectionTransactionOwnership.acquire()
+                                                applyAndSelectBrowserStack(candidate) { terminal ->
+                                                    transactionOwner.finish(
+                                                        terminal = terminal,
+                                                        onCompletedSuccess = {
+                                                            originStatus =
+                                                                originController.snapshot()
+                                                            val reconciled = configuration()
+                                                            hostnameInput = reconciled.hostname
+                                                            manualBrowserHostname =
+                                                                reconciled.hostname
+                                                            selectedBrowserTunnelId =
+                                                                reconciled.selectedTunnelId
+                                                            showToast(
+                                                                context,
+                                                                "Browser Tunnel 已验证并连接",
+                                                            )
+                                                        },
+                                                        onCompletedFailure = { error ->
+                                                            originStatus =
+                                                                originController.snapshot()
+                                                            browserActionError = error.message
+                                                                ?: "Browser Tunnel 连接失败"
+                                                            showToast(
+                                                                context,
+                                                                "连接失败: $browserActionError",
+                                                            )
+                                                        },
+                                                        onSuperseded = {
+                                                            originStatus =
+                                                                originController.snapshot()
+                                                            browserActionError =
+                                                                "连接请求已被新请求取代"
+                                                        },
+                                                    )
+                                                }
+                                            },
+                                        ) { Text("选择并验证连接") }
+                                    }
                                 }
 
                                 val stateText = when (originStatus.state) {
@@ -1765,13 +2342,14 @@ object ReadReceipts : ClickableFeature(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
-                                    Button(
-                                        enabled = tunnelStatus.state in setOf(
-                                            ReadReceiptsTunnelState.STOPPED,
-                                            ReadReceiptsTunnelState.FAILED,
-                                            ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                                        ) && !connectionTransactionActive,
-                                        onClick = {
+                                    if (tunnelModeInput != ReadReceiptsTunnelMode.BROWSER_LOGIN) {
+                                        Button(
+                                            enabled = tunnelStatus.state in setOf(
+                                                ReadReceiptsTunnelState.STOPPED,
+                                                ReadReceiptsTunnelState.FAILED,
+                                                ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                                            ) && !connectionTransactionActive,
+                                            onClick = {
                                             val port = if (automaticPortInput) {
                                                 initialConfiguration.builtInPort
                                             } else {
@@ -1833,15 +2411,18 @@ object ReadReceipts : ClickableFeature(),
                                                     },
                                                 )
                                             }
-                                        },
-                                    ) { Text("验证并连接") }
+                                            },
+                                        ) { Text("验证并连接") }
+                                    }
                                     Button(
-                                        enabled = tunnelStatus.state !in setOf(
-                                            ReadReceiptsTunnelState.STOPPED,
-                                            ReadReceiptsTunnelState.STOPPING,
-                                        ) || originStatus.state !in setOf(
-                                            ReadReceiptsRuntimeState.STOPPED,
-                                            ReadReceiptsRuntimeState.STOPPING,
+                                        enabled = !connectionTransactionActive && (
+                                            tunnelStatus.state !in setOf(
+                                                ReadReceiptsTunnelState.STOPPED,
+                                                ReadReceiptsTunnelState.STOPPING,
+                                            ) || originStatus.state !in setOf(
+                                                ReadReceiptsRuntimeState.STOPPED,
+                                                ReadReceiptsRuntimeState.STOPPING,
+                                            )
                                         ),
                                         onClick = {
                                             stopBuiltInStack { terminal ->
@@ -1925,17 +2506,30 @@ object ReadReceipts : ClickableFeature(),
                         }
                         if (
                             modeInput == ReadReceiptsServerMode.BUILT_IN &&
-                            tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
+                            tunnelModeInput in setOf(
+                                ReadReceiptsTunnelMode.TOKEN,
+                                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                            ) &&
                             automaticPortInput
                         ) {
-                            showToast(context, "错误: Token 模式必须使用固定回环端口")
+                            showToast(context, "错误: 当前隧道模式必须使用固定回环端口")
                             return@Button
                         }
-                        val normalizedHostname = if (
+                        var normalizedHostname = if (
                             modeInput == ReadReceiptsServerMode.BUILT_IN &&
-                            tunnelModeInput == ReadReceiptsTunnelMode.TOKEN
+                            tunnelModeInput in setOf(
+                                ReadReceiptsTunnelMode.TOKEN,
+                                ReadReceiptsTunnelMode.BROWSER_LOGIN,
+                            )
                         ) {
-                            ReadReceiptsTunnelService.canonicalPublicRoot(hostnameInput) ?: run {
+                            val input = if (
+                                tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN
+                            ) {
+                                selectedConfiguredHostname ?: manualBrowserHostname
+                            } else {
+                                hostnameInput
+                            }
+                            ReadReceiptsTunnelService.canonicalPublicRoot(input) ?: run {
                                 showToast(context, "错误: 请输入根路径 HTTPS 主机名")
                                 return@Button
                             }
@@ -1951,13 +2545,36 @@ object ReadReceipts : ClickableFeature(),
                             ReadReceiptsRuntimeState.STOPPING,
                         )
 
-                        val candidate = oldConfiguration.copy(
+                        val authoritativeBrowser = if (
+                            modeInput == ReadReceiptsServerMode.BUILT_IN &&
+                            tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN
+                        ) {
+                            reconcileBrowserConfiguration(
+                                force = true,
+                                expectedTunnelId = selectedBrowserTunnelId,
+                                expectedHostname = normalizedHostname,
+                                expectedPort = configuredPort,
+                            ) ?: run {
+                                showToast(context, "错误: 请先选择并验证一个 Browser Tunnel")
+                                return@Button
+                            }
+                        } else {
+                            oldConfiguration
+                        }
+                        if (tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
+                            normalizedHostname = authoritativeBrowser.hostname
+                        }
+                        val candidate = authoritativeBrowser.copy(
                             mode = modeInput,
                             thirdPartyUrl = normalizedThirdParty,
                             prefix = prefixInput,
                             pollIntervalSecs = interval,
-                            automaticPort = automaticPortInput,
-                            builtInPort = configuredPort,
+                            automaticPort = if (
+                                tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN
+                            ) false else automaticPortInput,
+                            builtInPort = if (
+                                tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN
+                            ) authoritativeBrowser.builtInPort else configuredPort,
                             automaticLifecycle = automaticLifecycleInput,
                             tunnelMode = tunnelModeInput.name,
                             hostname = normalizedHostname,
