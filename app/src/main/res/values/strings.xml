@@ -2411,7 +2411,7 @@
     <string name="contacts_copy">Copy</string>
     <string name="contacts_group_message_history">View group message history</string>
     <string name="contacts_delete_fake_none">No fake groups found</string>
-    <plurals name="contacts_delete_fake_select_title"><item quantity="one">Delete fake groups (%1$d found)</item><item quantity="other">Delete fake groups (%1$d found)</item></plurals>
+    <plurals name="contacts_delete_fake_select_title"><item quantity="one">Delete fake group (%1$d found)</item><item quantity="other">Delete fake groups (%1$d found)</item></plurals>
     <string name="contacts_delete_fake_select_one">Select at least one fake group</string>
     <string name="contacts_delete_fake_confirm_title">Confirm deletion</string>
     <plurals name="contacts_delete_fake_confirm_message"><item quantity="one">Delete the %1$d selected fake group? This cannot be undone; the original group will not be affected.</item><item quantity="other">Delete the %1$d selected fake groups? This cannot be undone; the original groups will not be affected.</item></plurals>

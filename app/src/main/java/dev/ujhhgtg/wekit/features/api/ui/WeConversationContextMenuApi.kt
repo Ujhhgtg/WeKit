@@ -29,14 +29,14 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
         fun getMenuItems(): List<MenuItem>
     }
 
-    private val menuItems = mutableMapOf<String, List<MenuItem>>()
+    private val menuItemProviders = mutableMapOf<String, IMenuItemsProvider>()
 
     fun addProvider(provider: IMenuItemsProvider) {
-        menuItems[provider.javaClass.name] = provider.getMenuItems()
+        menuItemProviders[provider.javaClass.name] = provider
     }
 
     fun removeProvider(provider: IMenuItemsProvider) {
-        menuItems.remove(provider.javaClass.name)
+        menuItemProviders.remove(provider.javaClass.name)
     }
 
     data class MenuItem(
@@ -94,7 +94,7 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
 
         val context = resolveContext(param.thisObject!!) ?: return
 
-        for (item in menuItems.values.flatten()) {
+        for (item in menuItemProviders.values.flatMap { it.getMenuItems() }) {
             try {
                 if (!item.shouldShow(context, item.id)) continue
                 menu.add(groupId, item.id, 0, item.text).icon = item.drawable
@@ -116,7 +116,7 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
 
         val context = resolveContext(listener) ?: return
 
-        for (item in menuItems.values.flatten()) {
+        for (item in menuItemProviders.values.flatMap { it.getMenuItems() }) {
             try {
                 if (item.id == clickedId) {
                     item.onClick(context)
