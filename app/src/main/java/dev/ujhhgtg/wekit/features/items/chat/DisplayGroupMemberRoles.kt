@@ -83,14 +83,17 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
     private var ownerFg by WePrefs.prefOption("group_role_owner_fg", DEFAULT_OWNER_FG)
     private var adminFg by WePrefs.prefOption("group_role_admin_fg", DEFAULT_ADMIN_FG)
     private var memberFg by WePrefs.prefOption("group_role_member_fg", DEFAULT_MEMBER_FG)
-    private var ownerText by WePrefs.prefOption("group_role_owner_text", localizedChatString(R.string.chat_group_role_owner))
-    private var adminText by WePrefs.prefOption("group_role_admin_text", localizedChatString(R.string.chat_group_role_admin))
-    private var memberText by WePrefs.prefOption("group_role_member_text", localizedChatString(R.string.chat_group_role_member))
+    private var ownerText by WePrefs.prefOption("group_role_owner_text", "")
+    private var adminText by WePrefs.prefOption("group_role_admin_text", "")
+    private var memberText by WePrefs.prefOption("group_role_member_text", "")
 
     private var showMember by WePrefs.prefOption("group_role_show_member", true)
 
     private fun parseColor(value: String, fallback: String): Int =
         runCatching { value.toColorInt() }.getOrElse { fallback.toColorInt() }
+
+    private fun roleText(value: String, defaultRes: Int): String =
+        value.ifBlank { localizedChatString(defaultRes) }
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
@@ -100,9 +103,12 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
             var of by remember { mutableStateOf(ownerFg) }
             var af by remember { mutableStateOf(adminFg) }
             var mf by remember { mutableStateOf(memberFg) }
-            var ot by remember { mutableStateOf(ownerText) }
-            var at by remember { mutableStateOf(adminText) }
-            var mt by remember { mutableStateOf(memberText) }
+            val ownerDefault = stringResource(R.string.chat_group_role_owner)
+            val adminDefault = stringResource(R.string.chat_group_role_admin)
+            val memberDefault = stringResource(R.string.chat_group_role_member)
+            var ot by remember { mutableStateOf(roleText(ownerText, R.string.chat_group_role_owner)) }
+            var at by remember { mutableStateOf(roleText(adminText, R.string.chat_group_role_admin)) }
+            var mt by remember { mutableStateOf(roleText(memberText, R.string.chat_group_role_member)) }
             var showMem by remember { mutableStateOf(showMember) }
 
             AlertDialogContent(
@@ -162,9 +168,9 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
                         adminFg = af
                         memberFg = mf
                         showMember = showMem
-                        ownerText = ot
-                        adminText = at
-                        memberText = mt
+                        ownerText = ot.takeUnless { it == ownerDefault }.orEmpty()
+                        adminText = at.takeUnless { it == adminDefault }.orEmpty()
+                        memberText = mt.takeUnless { it == memberDefault }.orEmpty()
                         onDismiss()
                     }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
@@ -218,9 +224,9 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
         val displayName = textView.text
 
         val roleText = when (role) {
-            1 -> ownerText
-            2 -> adminText
-            3 -> memberText
+            1 -> roleText(ownerText, R.string.chat_group_role_owner)
+            2 -> roleText(adminText, R.string.chat_group_role_admin)
+            3 -> roleText(memberText, R.string.chat_group_role_member)
             else -> unreachable()
         }
 

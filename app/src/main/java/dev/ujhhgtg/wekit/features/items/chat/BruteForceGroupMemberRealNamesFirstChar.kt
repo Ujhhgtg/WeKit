@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.input.KeyboardType
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -406,12 +407,13 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
                                 )
 
                             is RunResult.Aborted ->
-                                Text(stringResource(R.string.chat_real_name_bruteforce_aborted, r.tried))
+                                Text(pluralStringResource(R.plurals.chat_real_name_bruteforce_aborted, r.tried, r.tried))
 
                             is RunResult.Paused ->
                                 Text(
-                                    stringResource(
-                                        R.string.chat_real_name_bruteforce_paused,
+                                    pluralStringResource(
+                                        R.plurals.chat_real_name_bruteforce_paused,
+                                        r.tried,
                                         r.tried,
                                         COMMON_SURNAMES[r.resumeIndex],
                                     ),

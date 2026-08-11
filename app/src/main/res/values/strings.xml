@@ -1460,7 +1460,7 @@
     <string name="sticker_telegram_batch_result">Imported %1$d Telegram sticker packs, %2$d failed; %3$s: %4$s</string>
     <string name="sticker_telegram_batch_title">Import packs from a Telegram instance</string>
     <string name="sticker_telegram_empty_database">The selected database contains no Telegram sticker packs that can be imported</string>
-    <string name="sticker_telegram_import_result">Imported %1$d stickers into “%2$s”; %3$d unchanged, %4$d failed</string>
+    <plurals name="sticker_telegram_import_result"><item quantity="one">Imported %1$d sticker into “%2$s”; %3$d unchanged, %4$d failed</item><item quantity="other">Imported %1$d stickers into “%2$s”; %3$d unchanged, %4$d failed</item></plurals>
     <string name="sticker_telegram_input_invalid">Enter a valid Telegram sticker pack name or link</string>
     <string name="sticker_telegram_input_label">Sticker pack name or link</string>
     <string name="sticker_telegram_instance_title">Select a Telegram instance</string>
@@ -2079,8 +2079,8 @@
     <string name="chat_real_name_bruteforce_found">Match found! The real-name initial is “%1$s”.\n\nVerification mask: ?%2$s</string>
     <string name="chat_real_name_bruteforce_no_check">This member can receive transfers without name verification, so this method cannot reveal the initial.</string>
     <string name="chat_real_name_bruteforce_failed">Failed: %1$s</string>
-    <string name="chat_real_name_bruteforce_aborted">Stopped after %1$d attempts</string>
-    <string name="chat_real_name_bruteforce_paused">Paused after risk controls were triggered (%1$d attempts). Progress was saved; the next run will continue from “%2$s”.</string>
+    <plurals name="chat_real_name_bruteforce_aborted"><item quantity="one">Stopped after %1$d attempt</item><item quantity="other">Stopped after %1$d attempts</item></plurals>
+    <plurals name="chat_real_name_bruteforce_paused"><item quantity="one">Paused after risk controls were triggered (%1$d attempt). Progress was saved; the next run will continue from “%2$s”.</item><item quantity="other">Paused after risk controls were triggered (%1$d attempts). Progress was saved; the next run will continue from “%2$s”.</item></plurals>
     <string name="chat_real_name_bruteforce_continue_progress">Continue (%1$d/%2$d)</string>
     <string name="chat_real_name_bruteforce_start">Start</string>
     <string name="chat_real_name_bruteforce_restart">Restart</string>
@@ -2289,4 +2289,33 @@
     <string name="chat_voice_pack_delete_failed">Failed to delete voice pack</string>
     <string name="chat_voice_none_selected">No voice messages selected</string>
     <string name="chat_voice_not_found">Voice message not found</string>
+    <string name="chat_group_member_left">left the group</string>
+    <string name="chat_group_member_no_nickname">(none)</string>
+    <string name="chat_group_member_nickname_changed">changed their group nickname: %1$s → %2$s</string>
+    <string name="chat_sticker_selected_image_read_failed">Failed to read the selected image</string>
+    <string name="chat_sticker_selected_image_empty">The selected image is empty</string>
+    <string name="chat_sticker_send_failed">Failed to send sticker</string>
+    <string name="chat_sticker_server_unsupported_format">The server returned an unsupported image format</string>
+    <string name="chat_sticker_object_unavailable">No sticker object is available</string>
+    <string name="chat_sticker_recovery_already_linked">All selected local packs already have online sources</string>
+    <string name="chat_sticker_recovery_reading_catalog">Reading online sticker packs</string>
+    <string name="chat_sticker_recovery_matching">Matching “%1$s”</string>
+    <string name="chat_sticker_recovery_processed">Processed “%1$s”</string>
+    <string name="chat_funbox_server_empty">The server returned no data</string>
+    <string name="chat_funbox_server_error_code">The server returned error code %1$d</string>
+    <string name="chat_funbox_api_unreachable">Unable to connect to the FunBox API service</string>
+    <string name="chat_funbox_object_service_unreachable">Unable to connect to the FunBox object service</string>
+    <string name="chat_funbox_resolver_failed">Service resolution failed: HTTP %1$d</string>
+    <string name="chat_funbox_resolver_empty">Service resolution returned no address</string>
+    <string name="chat_telegram_token_invalid">Enter a valid Telegram Bot Token in settings first</string>
+    <string name="chat_telegram_pack_name_invalid">Enter a valid Telegram sticker pack name or link</string>
+    <string name="chat_telegram_pack_empty">Telegram sticker pack is empty</string>
+    <string name="chat_telegram_file_identity_mismatch">Telegram file identity does not match</string>
+    <string name="chat_telegram_sticker_unreadable">Telegram sticker file cannot be read</string>
+    <string name="chat_telegram_no_importable_stickers">No Telegram stickers can be imported</string>
+    <string name="chat_telegram_pack_import_failed">Telegram sticker pack import failed: %1$s</string>
+    <string name="chat_telegram_local_pack_create_failed">Unable to create a local pack for this Telegram sticker set</string>
+    <string name="chat_voice_path_invalid">Voice path is invalid</string>
+    <string name="chat_voice_file_empty">Voice file is empty</string>
+    <string name="chat_voice_pack_path_invalid">Voice pack path is invalid</string>
 </resources>

@@ -96,6 +96,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -1043,4 +1044,5 @@ private fun PanelOverlay(
 internal fun PanelUiText.resolve(): String = when (this) {
     is PanelUiText.Raw -> value
     is PanelUiText.Resource -> stringResource(id, *args.toTypedArray())
+    is PanelUiText.Quantity -> pluralStringResource(id, quantity, *args.toTypedArray())
 }

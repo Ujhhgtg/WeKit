@@ -83,15 +83,15 @@ internal fun TtsContent(
         }
         if (mode == TtsMode.EDGE) {
             item { Text(stringResource(R.string.tts_choose_voice), style = MaterialTheme.typography.titleSmall) }
-            items(EDGE_TTS_VOICES) { (id, title) ->
+            items(EDGE_TTS_VOICES, key = { it.id }) { voice ->
                 ListItem(
-                    modifier = Modifier.clickable { onSelectEdgeVoice(id) },
+                    modifier = Modifier.clickable { onSelectEdgeVoice(voice.id) },
                     colors = panelListItemColors(),
-                    content = { Text(title) },
+                    content = { Text(stringResource(voice.titleRes)) },
                     leadingContent = {
                         RadioButton(
-                            selected = selectedEdgeVoice == id,
-                            onClick = { onSelectEdgeVoice(id) },
+                            selected = selectedEdgeVoice == voice.id,
+                            onClick = { onSelectEdgeVoice(voice.id) },
                         )
                     },
                 )

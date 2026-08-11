@@ -1415,7 +1415,7 @@
     <string name="sticker_telegram_batch_result">已导入 %1$d 个 Telegram 表情包，%2$d 个失败；%3$s：%4$s</string>
     <string name="sticker_telegram_batch_title">从 Telegram 实例批量导入包</string>
     <string name="sticker_telegram_empty_database">所选数据库中没有可导入的 Telegram 表情包</string>
-    <string name="sticker_telegram_import_result">已导入 %1$d 个表情到“%2$s”，%3$d 个无需更新，%4$d 个失败</string>
+    <plurals name="sticker_telegram_import_result"><item quantity="other">已导入 %1$d 个表情到“%2$s”，%3$d 个无需更新，%4$d 个失败</item></plurals>
     <string name="sticker_telegram_input_invalid">请输入有效的 Telegram 表情包名称或链接</string>
     <string name="sticker_telegram_input_label">表情包名称或链接</string>
     <string name="sticker_telegram_instance_title">选择 Telegram 实例</string>
@@ -1967,8 +1967,8 @@
     <string name="chat_real_name_bruteforce_found">命中！实名首字为“%1$s”\n\n校验掩码：?%2$s</string>
     <string name="chat_real_name_bruteforce_no_check">该成员无需姓名校验即可转账，无法通过此方式获取首字</string>
     <string name="chat_real_name_bruteforce_failed">失败：%1$s</string>
-    <string name="chat_real_name_bruteforce_aborted">已终止（尝试了 %1$d 个）</string>
-    <string name="chat_real_name_bruteforce_paused">已暂停（触发风控，尝试了 %1$d 个）。进度已保存，下次打开将从“%2$s”继续。</string>
+    <plurals name="chat_real_name_bruteforce_aborted"><item quantity="other">已终止（尝试了 %1$d 个）</item></plurals>
+    <plurals name="chat_real_name_bruteforce_paused"><item quantity="other">已暂停（触发风控，尝试了 %1$d 个）。进度已保存，下次打开将从“%2$s”继续。</item></plurals>
     <string name="chat_real_name_bruteforce_continue_progress">继续（%1$d/%2$d）</string>
     <string name="chat_real_name_bruteforce_start">开始</string>
     <string name="chat_real_name_bruteforce_restart">重新开始</string>
@@ -2174,4 +2174,33 @@
     <string name="chat_voice_pack_delete_failed">语音包删除失败</string>
     <string name="chat_voice_none_selected">没有选择语音</string>
     <string name="chat_voice_not_found">语音不存在</string>
+    <string name="chat_group_member_left">退出了群组</string>
+    <string name="chat_group_member_no_nickname">（无）</string>
+    <string name="chat_group_member_nickname_changed">修改群昵称：%1$s → %2$s</string>
+    <string name="chat_sticker_selected_image_read_failed">无法读取所选图片</string>
+    <string name="chat_sticker_selected_image_empty">所选图片内容为空</string>
+    <string name="chat_sticker_send_failed">表情发送失败</string>
+    <string name="chat_sticker_server_unsupported_format">服务器返回了不支持的图片格式</string>
+    <string name="chat_sticker_object_unavailable">没有可用表情对象</string>
+    <string name="chat_sticker_recovery_already_linked">所选本地包均已有在线来源</string>
+    <string name="chat_sticker_recovery_reading_catalog">正在读取在线表情包列表</string>
+    <string name="chat_sticker_recovery_matching">正在匹配“%1$s”</string>
+    <string name="chat_sticker_recovery_processed">已处理“%1$s”</string>
+    <string name="chat_funbox_server_empty">服务器未返回数据</string>
+    <string name="chat_funbox_server_error_code">服务器返回错误，代码：%1$d</string>
+    <string name="chat_funbox_api_unreachable">无法连接 FunBox API 服务</string>
+    <string name="chat_funbox_object_service_unreachable">无法连接 FunBox 对象服务</string>
+    <string name="chat_funbox_resolver_failed">域名解析失败：HTTP %1$d</string>
+    <string name="chat_funbox_resolver_empty">域名解析未返回服务地址</string>
+    <string name="chat_telegram_token_invalid">请先在设置中填写有效的 Telegram Bot Token</string>
+    <string name="chat_telegram_pack_name_invalid">请输入有效的 Telegram 表情包名称或链接</string>
+    <string name="chat_telegram_pack_empty">Telegram 表情包为空</string>
+    <string name="chat_telegram_file_identity_mismatch">Telegram 文件标识不一致</string>
+    <string name="chat_telegram_sticker_unreadable">Telegram 表情文件不可读</string>
+    <string name="chat_telegram_no_importable_stickers">没有可导入的 Telegram 表情</string>
+    <string name="chat_telegram_pack_import_failed">Telegram 表情包导入失败：%1$s</string>
+    <string name="chat_telegram_local_pack_create_failed">无法为 Telegram 表情包创建本地包</string>
+    <string name="chat_voice_path_invalid">语音路径无效</string>
+    <string name="chat_voice_file_empty">语音文件为空</string>
+    <string name="chat_voice_pack_path_invalid">语音包路径无效</string>
 </resources>

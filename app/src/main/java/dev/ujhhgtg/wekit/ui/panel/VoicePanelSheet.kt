@@ -998,7 +998,7 @@ private fun VoicePanelContent(
                 hasMore = providerPage.hasMore
                 page++
             } while (hasMore)
-            val packId = actions.ensureLocalPack(parent.title)
+            val packId = actions.ensureLocalPack(parent.metadata["localPackId"] ?: parent.title)
             if (packId.isFailure) {
                 onlineSaveProgress = null
                 onlineSaveJob = null

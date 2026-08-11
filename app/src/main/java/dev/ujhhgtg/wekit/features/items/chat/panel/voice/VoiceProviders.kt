@@ -153,7 +153,10 @@ object UoiceVoiceProvider : VoiceProvider {
                         title = localizedChatString(category.titleRes),
                         source = PanelSource.ONLINE,
                         isContainer = true,
-                        metadata = mapOf("category" to category.sourceName),
+                        metadata = mapOf(
+                            "category" to category.sourceName,
+                            "localPackId" to "uoice-${category.sourceName}",
+                        ),
                     )
                 },
                 page = 0,
@@ -259,7 +262,10 @@ object RingDuoDuoVoiceProvider : VoiceProvider {
                         title = localizedChatString(category.titleRes),
                         source = PanelSource.ONLINE,
                         isContainer = true,
-                        metadata = mapOf("category" to category.id.toString()),
+                        metadata = mapOf(
+                            "category" to category.id.toString(),
+                            "localPackId" to "ring-${category.id}",
+                        ),
                     )
                 },
                 0,

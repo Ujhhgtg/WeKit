@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel
 
 import androidx.annotation.StringRes
+import androidx.annotation.PluralsRes
 import kotlinx.serialization.Serializable
 
 enum class PanelSource {
@@ -101,11 +102,20 @@ sealed interface PanelUiText {
         val args: List<Any> = emptyList(),
     ) : PanelUiText
 
+    data class Quantity(
+        @param:PluralsRes val id: Int,
+        val quantity: Int,
+        val args: List<Any> = emptyList(),
+    ) : PanelUiText
+
     data class Raw(val value: String) : PanelUiText
 }
 
 fun panelUiText(@StringRes id: Int, vararg args: Any): PanelUiText =
     PanelUiText.Resource(id, args.toList())
+
+fun panelUiQuantity(@PluralsRes id: Int, quantity: Int, vararg args: Any): PanelUiText =
+    PanelUiText.Quantity(id, quantity, args.toList())
 
 fun Throwable.toPanelUiText(@StringRes fallbackId: Int, vararg fallbackArgs: Any): PanelUiText =
     message?.let(PanelUiText::Raw) ?: panelUiText(fallbackId, *fallbackArgs)

@@ -115,6 +115,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPack
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPackLayout
 import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiText
+import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiQuantity
 import dev.ujhhgtg.wekit.features.items.chat.panel.toPanelUiText
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.StickerOnlineSourceRecoveryProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.StickerOnlineSourceRecoveryResult
@@ -1701,8 +1702,9 @@ private fun StickerPanelContent(
                         telegramProgress = null
                         operationMessage = result.fold(
                             onSuccess = {
-                                panelUiText(
-                                    R.string.sticker_telegram_import_result,
+                                panelUiQuantity(
+                                    R.plurals.sticker_telegram_import_result,
+                                    it.imported,
                                     it.imported,
                                     it.packName,
                                     it.unchanged,

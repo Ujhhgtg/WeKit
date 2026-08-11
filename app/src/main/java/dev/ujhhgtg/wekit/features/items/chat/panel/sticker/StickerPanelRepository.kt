@@ -36,6 +36,7 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 object StickerPanelRepository {
+    private const val LEGACY_IMPORT_PACK = "导入"
     private val recentsFile get() = PanelPaths.stickerPanelDir / "recents.json"
     private val onlineRecentsFile get() = PanelPaths.stickerPanelDir / ".online_recents.json"
     private val statsFile get() = PanelPaths.stickerPanelDir / ".stats.json"
@@ -189,7 +190,7 @@ object StickerPanelRepository {
     }
 
     fun importSticker(packName: String, displayName: String, input: InputStream): Result<StickerItem> = runCatching {
-        val safePack = requirePackName(sanitizeName(packName).ifBlank { localizedChatString(R.string.chat_panel_imported) })
+        val safePack = requirePackName(sanitizeName(packName).ifBlank { LEGACY_IMPORT_PACK })
         val packDir = packPath(safePack).also { it.createDirectories() }
         val temporary = packDir / ".import-${UUID.randomUUID()}.part"
         try {

@@ -178,7 +178,7 @@ object VoicePanelRepository {
                 require(
                     path.startsWith(root) && path.parent != root &&
                             path.isRegularFile() && isVoiceFile(path),
-                ) { "语音路径无效" }
+                ) { localizedChatString(R.string.chat_voice_path_invalid) }
             }
         }.distinct()
         require(paths.isNotEmpty()) { localizedChatString(R.string.chat_voice_none_selected) }
@@ -209,9 +209,9 @@ object VoicePanelRepository {
         val temporary = directory / ".import-${UUID.randomUUID()}.part"
         try {
             input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
-            require(Files.size(temporary) > 0L) { "语音文件为空" }
+            require(Files.size(temporary) > 0L) { localizedChatString(R.string.chat_voice_file_empty) }
             val format = MediaFileTypeDetector.detectAudio(temporary)
-                ?: throw IllegalArgumentException("不支持或无法识别的语音格式")
+                ?: throw IllegalArgumentException(localizedChatString(R.string.chat_voice_unsupported_format))
             val destination = uniquePath(
                 directory,
                 "${importedFileStem(displayName, "voice")}.${format.extension}",
@@ -237,9 +237,9 @@ object VoicePanelRepository {
         val temporary = directory / "${identity.take(96)}.part"
         try {
             input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
-            require(Files.size(temporary) > 0L) { "服务器未返回语音数据" }
+            require(Files.size(temporary) > 0L) { localizedChatString(R.string.chat_voice_server_empty) }
             val extension = MediaFileTypeDetector.detectAudio(temporary)?.extension
-                ?: throw IllegalArgumentException("服务器返回了不支持的语音格式")
+                ?: throw IllegalArgumentException(localizedChatString(R.string.chat_voice_server_unsupported_format))
             val destination = directory / "${identity.take(96)}.$extension"
             moveImportedFile(temporary, destination)
             destination.toItem(safePack, PanelSource.IMPORTED, readStats())
@@ -493,7 +493,7 @@ object VoicePanelRepository {
     private fun packPath(name: String): java.nio.file.Path {
         val root = PanelPaths.voicePanelDir.toAbsolutePath().normalize()
         return root.resolve(name).normalize().also { path ->
-            require(path.parent == root) { "语音包路径无效" }
+            require(path.parent == root) { localizedChatString(R.string.chat_voice_pack_path_invalid) }
         }
     }
 
