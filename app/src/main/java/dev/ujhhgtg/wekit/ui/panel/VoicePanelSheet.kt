@@ -131,7 +131,9 @@ data class VoicePanelActions(
     val preview: suspend (VoiceItem) -> Result<VoicePreview> = { Result.failure(UnsupportedOperationException()) },
     val releasePreview: (VoicePreview) -> Unit = {},
     val send: suspend (VoiceItem) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
-    val ensureLocalPack: suspend (String) -> Result<String> = { Result.failure(UnsupportedOperationException()) },
+    val ensureLocalPack: suspend (String, String?) -> Result<String> = { _, _ ->
+        Result.failure(UnsupportedOperationException())
+    },
     val addToLocal: suspend (String, VoiceItem) -> Result<Unit> = { _, _ ->
         Result.failure(UnsupportedOperationException())
     },
@@ -998,7 +1000,10 @@ private fun VoicePanelContent(
                 hasMore = providerPage.hasMore
                 page++
             } while (hasMore)
-            val packId = actions.ensureLocalPack(parent.metadata["localPackId"] ?: parent.title)
+            val packId = actions.ensureLocalPack(
+                parent.metadata["localPackId"] ?: parent.title,
+                parent.metadata["legacyPackName"] ?: parent.title,
+            )
             if (packId.isFailure) {
                 onlineSaveProgress = null
                 onlineSaveJob = null

@@ -1412,7 +1412,7 @@
     <string name="sticker_telegram_batch_description">从 Telegram 数据库选择多个已安装的表情包</string>
     <string name="sticker_telegram_batch_pack_progress">第 %1$d/%2$d 个 · %3$s</string>
     <string name="sticker_telegram_batch_progress_title">正在批量导入 Telegram 表情包</string>
-    <string name="sticker_telegram_batch_result">已导入 %1$d 个 Telegram 表情包，%2$d 个失败；%3$s：%4$s</string>
+    <plurals name="sticker_telegram_batch_result"><item quantity="other">已导入 %1$d 个 Telegram 表情包，%2$d 个失败；%3$s：%4$s</item></plurals>
     <string name="sticker_telegram_batch_title">从 Telegram 实例批量导入包</string>
     <string name="sticker_telegram_empty_database">所选数据库中没有可导入的 Telegram 表情包</string>
     <plurals name="sticker_telegram_import_result"><item quantity="other">已导入 %1$d 个表情到“%2$s”，%3$d 个无需更新，%4$d 个失败</item></plurals>
@@ -2089,7 +2089,7 @@
     <string name="chat_voice_system_tts_start_failed">系统 TTS 无法开始合成</string>
     <string name="chat_voice_no_supported_selected">所选内容中没有支持的语音文件</string>
     <string name="chat_voice_selected_tone_read_failed">无法读取所选音色文件</string>
-    <string name="chat_voice_import_partial_failed">已导入 %1$d 个，%2$d 个失败；%3$s：%4$s</string>
+    <plurals name="chat_voice_import_partial_failed"><item quantity="other">已导入 %1$d 个语音文件，%2$d 个失败；%3$s：%4$s</item></plurals>
     <string name="chat_voice_pack_not_found">语音包不存在</string>
     <string name="chat_voice_not_in_pack">语音不属于当前语音包</string>
     <string name="chat_voice_tone_not_found">音色不存在</string>
@@ -2181,6 +2181,21 @@
     <string name="chat_sticker_selected_image_empty">所选图片内容为空</string>
     <string name="chat_sticker_send_failed">表情发送失败</string>
     <string name="chat_sticker_server_unsupported_format">服务器返回了不支持的图片格式</string>
+    <string name="chat_sticker_server_empty">服务器未返回表情数据</string>
+    <string name="chat_sticker_no_supported_selected">所选内容中没有支持的图片文件</string>
+    <string name="chat_sticker_file_read_failed">无法读取所选图片文件</string>
+    <plurals name="chat_sticker_import_partial_failed"><item quantity="other">已导入 %1$d 张图片，%2$d 个失败；%3$s：%4$s</item></plurals>
+    <string name="chat_telegram_database_read_failed">无法读取所选 Telegram 数据库</string>
+    <string name="chat_telegram_sticker_empty">Telegram 未返回表情数据</string>
+    <string name="chat_telegram_sticker_unsupported_format">Telegram 表情转换结果格式不受支持</string>
+    <string name="chat_wechat_sticker_database_not_ready">微信数据库尚未就绪</string>
+    <string name="chat_wechat_sticker_download_failed">微信表情下载失败</string>
+    <string name="chat_wechat_sticker_export_failed">无法导出微信表情</string>
+    <string name="chat_wechat_sticker_import_failed">微信原生表情导入失败：%1$s</string>
+    <string name="chat_wechat_sticker_no_custom">微信没有「添加的单个表情」</string>
+    <plurals name="chat_wechat_sticker_import_result"><item quantity="other">已更新「%1$s」：新增 %2$d 个，%3$d 个无需更新，%4$d 个失败</item></plurals>
+    <string name="chat_wechat_sticker_empty">微信未返回表情数据</string>
+    <string name="chat_wechat_sticker_unsupported_format">微信表情导出结果格式不受支持</string>
     <string name="chat_sticker_object_unavailable">没有可用表情对象</string>
     <string name="chat_sticker_recovery_already_linked">所选本地包均已有在线来源</string>
     <string name="chat_sticker_recovery_reading_catalog">正在读取在线表情包列表</string>

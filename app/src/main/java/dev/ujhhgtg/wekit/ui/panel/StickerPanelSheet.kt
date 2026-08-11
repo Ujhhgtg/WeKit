@@ -1922,8 +1922,9 @@ private fun StickerPanelContent(
                                 )
                             }
                             val firstFailure = failures.firstOrNull()
-                            operationMessage = panelUiText(
-                                R.string.sticker_telegram_batch_result,
+                            operationMessage = panelUiQuantity(
+                                R.plurals.sticker_telegram_batch_result,
+                                succeeded,
                                 succeeded,
                                 failures.size,
                                 firstFailure?.first.orEmpty(),

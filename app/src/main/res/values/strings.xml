@@ -1457,7 +1457,7 @@
     <string name="sticker_telegram_batch_description">Select multiple installed sticker packs from a Telegram database</string>
     <string name="sticker_telegram_batch_pack_progress">Pack %1$d/%2$d · %3$s</string>
     <string name="sticker_telegram_batch_progress_title">Importing Telegram sticker packs in batches</string>
-    <string name="sticker_telegram_batch_result">Imported %1$d Telegram sticker packs, %2$d failed; %3$s: %4$s</string>
+    <plurals name="sticker_telegram_batch_result"><item quantity="one">Imported %1$d Telegram sticker pack, %2$d failed; %3$s: %4$s</item><item quantity="other">Imported %1$d Telegram sticker packs, %2$d failed; %3$s: %4$s</item></plurals>
     <string name="sticker_telegram_batch_title">Import packs from a Telegram instance</string>
     <string name="sticker_telegram_empty_database">The selected database contains no Telegram sticker packs that can be imported</string>
     <plurals name="sticker_telegram_import_result"><item quantity="one">Imported %1$d sticker into “%2$s”; %3$d unchanged, %4$d failed</item><item quantity="other">Imported %1$d stickers into “%2$s”; %3$d unchanged, %4$d failed</item></plurals>
@@ -2204,7 +2204,7 @@
     <string name="chat_voice_system_tts_start_failed">System TTS could not start synthesis</string>
     <string name="chat_voice_no_supported_selected">The selection contains no supported voice files</string>
     <string name="chat_voice_selected_tone_read_failed">Failed to read the selected voice tone file</string>
-    <string name="chat_voice_import_partial_failed">Imported %1$d; %2$d failed; %3$s: %4$s</string>
+    <plurals name="chat_voice_import_partial_failed"><item quantity="one">Imported %1$d voice file; %2$d failed; %3$s: %4$s</item><item quantity="other">Imported %1$d voice files; %2$d failed; %3$s: %4$s</item></plurals>
     <string name="chat_voice_pack_not_found">Voice pack not found</string>
     <string name="chat_voice_not_in_pack">The voice does not belong to this voice pack</string>
     <string name="chat_voice_tone_not_found">Voice tone not found</string>
@@ -2296,6 +2296,21 @@
     <string name="chat_sticker_selected_image_empty">The selected image is empty</string>
     <string name="chat_sticker_send_failed">Failed to send sticker</string>
     <string name="chat_sticker_server_unsupported_format">The server returned an unsupported image format</string>
+    <string name="chat_sticker_server_empty">The server returned no sticker data</string>
+    <string name="chat_sticker_no_supported_selected">The selection contains no supported image files</string>
+    <string name="chat_sticker_file_read_failed">Failed to read the selected image file</string>
+    <plurals name="chat_sticker_import_partial_failed"><item quantity="one">Imported %1$d image; %2$d failed; %3$s: %4$s</item><item quantity="other">Imported %1$d images; %2$d failed; %3$s: %4$s</item></plurals>
+    <string name="chat_telegram_database_read_failed">Failed to read the selected Telegram database</string>
+    <string name="chat_telegram_sticker_empty">Telegram returned no sticker data</string>
+    <string name="chat_telegram_sticker_unsupported_format">The converted Telegram sticker has an unsupported format</string>
+    <string name="chat_wechat_sticker_database_not_ready">WeChat database is not ready</string>
+    <string name="chat_wechat_sticker_download_failed">Failed to download WeChat sticker</string>
+    <string name="chat_wechat_sticker_export_failed">Failed to export WeChat sticker</string>
+    <string name="chat_wechat_sticker_import_failed">Failed to import WeChat custom stickers: %1$s</string>
+    <string name="chat_wechat_sticker_no_custom">WeChat has no added custom stickers</string>
+    <plurals name="chat_wechat_sticker_import_result"><item quantity="one">Updated “%1$s”: imported %2$d sticker, %3$d unchanged, %4$d failed</item><item quantity="other">Updated “%1$s”: imported %2$d stickers, %3$d unchanged, %4$d failed</item></plurals>
+    <string name="chat_wechat_sticker_empty">WeChat returned no sticker data</string>
+    <string name="chat_wechat_sticker_unsupported_format">The exported WeChat sticker has an unsupported format</string>
     <string name="chat_sticker_object_unavailable">No sticker object is available</string>
     <string name="chat_sticker_recovery_already_linked">All selected local packs already have online sources</string>
     <string name="chat_sticker_recovery_reading_catalog">Reading online sticker packs</string>

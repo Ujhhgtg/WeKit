@@ -223,9 +223,13 @@ object StickerPanelRepository {
         val temporary = packDir / "$identity.part"
         try {
             input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
-            require(Files.size(temporary) > 0L) { "服务器未返回表情数据" }
+            require(Files.size(temporary) > 0L) {
+                localizedChatString(R.string.chat_sticker_server_empty)
+            }
             val extension = MediaFileTypeDetector.detectImage(temporary)?.extension
-                ?: throw IllegalArgumentException("服务器返回了不支持的图片格式")
+                ?: throw IllegalArgumentException(
+                    localizedChatString(R.string.chat_sticker_server_unsupported_format),
+                )
             val destination = packDir / "$identity.$extension"
             runCatching {
                 Files.move(
@@ -268,8 +272,8 @@ object StickerPanelRepository {
         packName = packName,
         identity = telegramIdentity(fileUniqueId),
         input = input,
-        emptyDataMessage = "Telegram 未返回表情数据",
-        unsupportedFormatMessage = "Telegram 表情转换结果格式不受支持",
+        emptyDataMessage = localizedChatString(R.string.chat_telegram_sticker_empty),
+        unsupportedFormatMessage = localizedChatString(R.string.chat_telegram_sticker_unsupported_format),
     )
 
     fun importWeChatSticker(
@@ -280,8 +284,8 @@ object StickerPanelRepository {
         packName = packName,
         identity = weChatIdentity(md5),
         input = input,
-        emptyDataMessage = "微信未返回表情数据",
-        unsupportedFormatMessage = "微信表情导出结果格式不受支持",
+        emptyDataMessage = localizedChatString(R.string.chat_wechat_sticker_empty),
+        unsupportedFormatMessage = localizedChatString(R.string.chat_wechat_sticker_unsupported_format),
     )
 
     private fun importStableSticker(

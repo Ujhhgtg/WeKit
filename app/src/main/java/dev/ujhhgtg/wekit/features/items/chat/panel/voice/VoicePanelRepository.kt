@@ -142,10 +142,23 @@ object VoicePanelRepository {
         safeName
     }
 
-    /** Returns an existing pack or creates it, allowing interrupted online downloads to resume. */
-    fun ensurePack(name: String): Result<String> = runCatching {
+    /**
+     * Returns an existing stable pack or creates it. If an older release stored this provider
+     * category under its display title, keep using that directory so its content is not split.
+     */
+    fun ensurePack(name: String, legacyName: String? = null): Result<String> = runCatching {
         val safeName = requirePackName(name)
-        packPath(safeName).createDirectories()
+        val stablePath = packPath(safeName)
+        if (stablePath.isDirectory()) return@runCatching safeName
+
+        val safeLegacyName = legacyName?.let(::sanitizeName)
+            ?.takeIf { it.isNotBlank() && it != safeName }
+            ?.let(::requirePackName)
+        if (safeLegacyName != null && packPath(safeLegacyName).isDirectory()) {
+            return@runCatching safeLegacyName
+        }
+
+        stablePath.createDirectories()
         safeName
     }
 

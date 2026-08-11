@@ -138,7 +138,9 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
             if (preview.temporary) preview.path.asPath.deleteIfExists()
         },
         send = { sendVoice(WeCurrentConversationApi.value, it) },
-        ensureLocalPack = { name -> withContext(Dispatchers.IO) { VoicePanelRepository.ensurePack(name) } },
+        ensureLocalPack = { name, legacyName ->
+            withContext(Dispatchers.IO) { VoicePanelRepository.ensurePack(name, legacyName) }
+        },
         addToLocal = addToLocal@{ packId, item ->
             if (VoicePanelRepository.hasOnlineVoice(packId, item)) return@addToLocal Result.success(Unit)
             resolveVoicePath(item).mapCatching { path ->
@@ -484,8 +486,9 @@ object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
             val first = failures.first()
             Result.failure(
                 IllegalStateException(
-                    localizedChatString(
-                        R.string.chat_voice_import_partial_failed,
+                    localizedChatQuantity(
+                        R.plurals.chat_voice_import_partial_failed,
+                        imported,
                         imported,
                         failures.size,
                         first.first,
