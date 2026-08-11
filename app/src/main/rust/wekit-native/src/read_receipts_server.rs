@@ -9,7 +9,8 @@ use std::{
 };
 use tokio::sync::oneshot;
 use wekit_read_receipts_server::{
-    BoundServer as ServerHandle, RouteProfile, ServerConfig, ServerError, bind_and_serve,
+    BoundServer as ServerHandle, ConnectorAuthenticator, RouteProfile, ServerConfig, ServerError,
+    bind_and_serve,
 };
 
 use crate::{loge, logi};
@@ -88,6 +89,7 @@ impl ServerStatus {
 struct ActiveConfig {
     database_path: PathBuf,
     requested_port: u16,
+    connector_authenticator: ConnectorAuthenticator,
 }
 
 struct Lifecycle {
@@ -169,7 +171,11 @@ fn shared_lifecycle() -> &'static SharedLifecycle {
     LIFECYCLE.get_or_init(SharedLifecycle::default)
 }
 
-pub fn start(database_path: &str, port: u16) -> Result<BoundServer, String> {
+pub fn start(
+    database_path: &str,
+    port: u16,
+    connector_authenticator: &str,
+) -> Result<BoundServer, String> {
     let database_path = Path::new(database_path);
     if !database_path.is_absolute() {
         return Err("database path must be absolute".to_owned());
@@ -177,6 +183,8 @@ pub fn start(database_path: &str, port: u16) -> Result<BoundServer, String> {
     let config = ActiveConfig {
         database_path: database_path.to_path_buf(),
         requested_port: port,
+        connector_authenticator: ConnectorAuthenticator::parse(connector_authenticator)
+            .map_err(str::to_owned)?,
     };
     let deadline = Instant::now() + STARTUP_TIMEOUT;
 
@@ -358,6 +366,7 @@ fn run_server(
         bind_addr: Ipv4Addr::LOCALHOST.into(),
         bind_port: config.requested_port,
         route_profile: RouteProfile::Embedded,
+        connector_authenticator: Some(config.connector_authenticator),
     };
     #[cfg(test)]
     spawn_test_runtime_task(&runtime);
@@ -614,6 +623,11 @@ mod tests {
     };
 
     static TEST_LOCK: Mutex<()> = Mutex::new(());
+    const TEST_CONNECTOR_AUTHENTICATOR: &str = "0123456789abcdef0123456789abcdef";
+
+    fn start_test(database_path: &str, port: u16) -> Result<BoundServer, String> {
+        start(database_path, port, TEST_CONNECTOR_AUTHENTICATOR)
+    }
 
     struct TestDirectory(PathBuf);
 
@@ -699,7 +713,7 @@ mod tests {
     fn rejects_relative_database_paths() {
         let _guard = TEST_LOCK.lock().unwrap();
         assert_eq!(
-            start(Path::new("relative/read_receipts.db").to_str().unwrap(), 0),
+            start_test(Path::new("relative/read_receipts.db").to_str().unwrap(), 0),
             Err("database path must be absolute".to_owned())
         );
         assert_eq!(status(), ServerStatus::Stopped);
@@ -712,7 +726,7 @@ mod tests {
         let database_path = directory.database_path("read_receipts.db");
         let database_path = database_path.to_str().unwrap();
 
-        let first = start(database_path, 0).unwrap();
+        let first = start_test(database_path, 0).unwrap();
         assert!(first.local_addr().ip().is_loopback());
         assert_ne!(first.local_addr().port(), 0);
         assert_eq!(
@@ -724,10 +738,10 @@ mod tests {
         assert!(get(first.local_addr().port(), "/health").starts_with("HTTP/1.1 204"));
         assert!(get(first.local_addr().port(), "/").starts_with("HTTP/1.1 404"));
 
-        assert_eq!(start(database_path, 0).unwrap(), first);
+        assert_eq!(start_test(database_path, 0).unwrap(), first);
         let conflict_path = directory.database_path("conflict.db");
         assert_eq!(
-            start(conflict_path.to_str().unwrap(), 0),
+            start_test(conflict_path.to_str().unwrap(), 0),
             Err("read receipts server is already active with a different configuration".to_owned())
         );
 
@@ -759,18 +773,18 @@ mod tests {
         let initial_generation = lifecycle_generation();
 
         let first_path = database_path.clone();
-        let first = thread::spawn(move || start(&first_path, port));
+        let first = thread::spawn(move || start_test(&first_path, port));
         runtime_task_entered.wait();
         before_bind_entered.wait();
         let second_path = database_path.clone();
-        let second = thread::spawn(move || start(&second_path, port));
+        let second = thread::spawn(move || start_test(&second_path, port));
         wait_for_startup_waiter();
         before_bind_release.wait();
 
         let first_error = first.join().unwrap().unwrap_err();
         let second_error = second.join().unwrap().unwrap_err();
         assert_eq!(second_error, first_error);
-        assert_eq!(start(&database_path, port), Err(first_error));
+        assert_eq!(start_test(&database_path, port), Err(first_error));
         assert_eq!(lifecycle_generation(), initial_generation.wrapping_add(1));
         assert_eq!(status(), ServerStatus::Starting);
 
@@ -779,7 +793,7 @@ mod tests {
         set_test_before_bind_gate(None);
         set_test_runtime_task_gate(None);
         drop(occupied);
-        let restarted = start(&database_path, port).unwrap();
+        let restarted = start_test(&database_path, port).unwrap();
         assert_eq!(restarted.local_addr().port(), port);
         stop();
         wait_until_stopped();
@@ -791,7 +805,7 @@ mod tests {
         let directory = TestDirectory::new();
         let database_path = directory.database_path("read_receipts.db");
         let database_path = database_path.to_str().unwrap();
-        let server = start(database_path, 0).unwrap();
+        let server = start_test(database_path, 0).unwrap();
         let shutdown_entered = Arc::new(Barrier::new(2));
         let shutdown_release = Arc::new(Barrier::new(2));
         set_test_shutdown_timeout_gate(Some((
@@ -811,14 +825,14 @@ mod tests {
             }
         );
         assert_eq!(
-            start(database_path, 0),
+            start_test(database_path, 0),
             Err("read receipts server is stopping".to_owned())
         );
 
         shutdown_release.wait();
         wait_until_failed();
         set_test_shutdown_timeout_gate(None);
-        let restarted = start(database_path, 0).unwrap();
+        let restarted = start_test(database_path, 0).unwrap();
         assert_ne!(restarted.local_addr().port(), 0);
         stop();
         wait_until_stopped();

@@ -32,6 +32,8 @@ library 提供两种路由配置：
 
 两种配置的核心协议都限制 wxId 为 128 UTF-8 字节、内容为 16 KiB、HTTP 请求体为 20 KiB、原始 query string 为 1 KiB，协议 message ID 最多 128 字节。内嵌配置进一步要求消息 ID 为 64 位小写十六进制 SHA-256；`/register` 和 `/count` 分别按 TCP 对端 IP 限制为每分钟 30 次和 120 次。未知或格式错误的内嵌消息不会记录读取事件，但 `/pixel` 始终返回静态透明图片。
 
+内嵌调用方还可通过 `ServerConfig::with_connector_authenticator` 提供 32-byte ASCII 认证值。只有同时带有匹配认证值和合法单一 reader IP 的 connector 请求才使用该 reader IP；认证比较为 constant-time。WeKit Android 集成复用已经通过 UID 授权 Binder START 传递的 24-byte 随机 nonce（Base64 后恰为 32 字符），不会生成第二份秘密。独立服务不配置该值，始终按直接 TCP 对端统计。
+
 ## 工作方式
 
 1. WeKit 在发送消息时调用 `POST /register` 注册消息。
@@ -126,7 +128,7 @@ sha256(wxId + "\0" + content + "\0" + createTime)
 GET /pixel?wxId=<wxId>&id=<messageId>
 ```
 
-服务端记录请求的直接 TCP 对端 IP，并始终返回禁止缓存的 1×1 透明 PNG。`Forwarded`、`X-Forwarded-For` 和 `CF-Connecting-IP` 等请求头不会改变读者身份。
+服务端默认记录请求的直接 TCP 对端 IP，并始终返回禁止缓存的 1×1 透明 PNG。`Forwarded`、`X-Forwarded-For` 和 `CF-Connecting-IP` 等请求头本身不会改变读者身份。仅内嵌配置中由可信 connector 写入、且通过进程内认证值验证的 WeKit reader 元数据可以覆盖对端 IP。
 
 ### 查询已读人数
 
@@ -192,7 +194,7 @@ cargo build --release
 - 独立参考服务没有身份认证、访问控制、协议速率限制或完整滥用防护，不应直接作为生产级公共服务部署。核心协议的字段/query/body 上限适用于两种路由配置；仅内嵌配置包含上述轻量速率限制和严格消息 ID/已知消息检查。
 - 服务会保存发送者 wxId、明文消息内容、读取请求来源 IP 和时间戳。部署者必须自行确认当地法律、隐私政策及用户授权要求。
 - 公网传输应使用 HTTPS，避免消息内容和标识符以明文形式经过网络。
-- `/pixel` 只使用直接 TCP 对端地址作为读者 IP。若服务位于反向代理或 tunnel connector 后方，所有请求可能会被记录为代理/连接器 IP；本参考实现不会读取任意转发请求头，也没有可配置的“可信代理”例外。
+- 独立服务的 `/pixel` 只使用直接 TCP 对端地址作为读者 IP；任意转发请求头和公开可配置的“可信代理”例外都不会被信任。WeKit 内嵌配置只接受上述经过 connector authenticator 验证的私有元数据通道。
 - 删除 `read_receipts.db` 会清除本地数据库；执行前请自行备份。
 
 ## 已知限制

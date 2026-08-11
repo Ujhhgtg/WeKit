@@ -85,6 +85,7 @@ async fn test_router(route_profile: RouteProfile) -> (TestDirectory, Router) {
         bind_addr: "127.0.0.1".parse().unwrap(),
         bind_port: 0,
         route_profile,
+        connector_authenticator: None,
     };
     let database = open_database(&config).await.unwrap();
     let state = Arc::new(AppState::new(database.connect().unwrap()));
@@ -93,6 +94,22 @@ async fn test_router(route_profile: RouteProfile) -> (TestDirectory, Router) {
 
 async fn embedded_test_router() -> (TestDirectory, Router) {
     test_router(RouteProfile::Embedded).await
+}
+
+async fn embedded_test_router_with_authenticator(authenticator: &str) -> (TestDirectory, Router) {
+    let directory = TestDirectory::new();
+    let config = ServerConfig {
+        database_path: directory.path().join("read-receipts.db"),
+        bind_addr: "127.0.0.1".parse().unwrap(),
+        bind_port: 0,
+        route_profile: RouteProfile::Embedded,
+        connector_authenticator: None,
+    }
+    .with_connector_authenticator(authenticator)
+    .unwrap();
+    let database = open_database(&config).await.unwrap();
+    let state = Arc::new(AppState::new(database.connect().unwrap()));
+    (directory, build_router(&config, state))
 }
 
 async fn request(app: &Router, method: &str, uri: &str, body: Body, peer: &str) -> Response {
@@ -365,6 +382,137 @@ async fn forwarded_headers_do_not_override_the_direct_tcp_peer() {
 }
 
 #[tokio::test]
+async fn authenticated_connector_metadata_counts_distinct_public_readers() {
+    let authenticator = "0123456789abcdef0123456789abcdef";
+    let (_directory, app) = embedded_test_router_with_authenticator(authenticator).await;
+    let registration = json!({
+        "wxId": "wxid_sender",
+        "content": "hello",
+        "createTime": 1_700_000_000_124_i64,
+    });
+    let response = request(
+        &app,
+        "POST",
+        "/register",
+        Body::from(registration.to_string()),
+        "127.0.0.1:41000",
+    )
+    .await;
+    let id = json_body(response).await["id"].as_str().unwrap().to_owned();
+
+    for reader_ip in ["198.51.100.20", "2001:db8::20"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/pixel?wxId=wxid_sender&id={id}"))
+                    .header("x-wekit-origin-authenticator", authenticator)
+                    .header("x-wekit-reader-ip", reader_ip)
+                    .extension(ConnectInfo(
+                        "127.0.0.1:42000".parse::<SocketAddr>().unwrap(),
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    let response = request(
+        &app,
+        "GET",
+        &format!("/count?wxId=wxid_sender&id={id}"),
+        Body::empty(),
+        "127.0.0.1:41000",
+    )
+    .await;
+    assert_eq!(json_body(response).await, json!({"count": 2}));
+}
+
+#[tokio::test]
+async fn direct_callers_cannot_opt_into_trusted_reader_metadata() {
+    let authenticator = "0123456789abcdef0123456789abcdef";
+    let (_directory, app) = embedded_test_router_with_authenticator(authenticator).await;
+    let registration = json!({
+        "wxId": "wxid_sender",
+        "content": "hello",
+        "createTime": 1_700_000_000_125_i64,
+    });
+    let response = request(
+        &app,
+        "POST",
+        "/register",
+        Body::from(registration.to_string()),
+        "127.0.0.1:41000",
+    )
+    .await;
+    let id = json_body(response).await["id"].as_str().unwrap().to_owned();
+
+    for claimed_ip in ["198.51.100.30", "198.51.100.31"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/pixel?wxId=wxid_sender&id={id}"))
+                    .header("x-wekit-origin-authenticator", "attacker-controlled")
+                    .header("x-wekit-reader-ip", claimed_ip)
+                    .header("cf-connecting-ip", claimed_ip)
+                    .extension(ConnectInfo(
+                        "127.0.0.1:43000".parse::<SocketAddr>().unwrap(),
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    let response = request(
+        &app,
+        "GET",
+        &format!("/count?wxId=wxid_sender&id={id}"),
+        Body::empty(),
+        "127.0.0.1:41000",
+    )
+    .await;
+    assert_eq!(json_body(response).await, json!({"count": 1}));
+}
+
+#[tokio::test]
+async fn standalone_management_paths_enforce_protocol_bounds() {
+    let (_directory, app) = test_router(RouteProfile::Standalone).await;
+    let valid_wx_id = "w".repeat(128);
+    let oversized_wx_id = "w".repeat(129);
+    let valid_id = "a".repeat(128);
+    let oversized_id = "a".repeat(129);
+
+    for (method, uri, expected) in [
+        ("GET", format!("/messages/{valid_wx_id}"), StatusCode::OK),
+        (
+            "GET",
+            format!("/messages/{oversized_wx_id}"),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            "DELETE",
+            format!("/messages/{oversized_wx_id}"),
+            StatusCode::BAD_REQUEST,
+        ),
+        ("GET", format!("/reads/{valid_id}"), StatusCode::OK),
+        (
+            "GET",
+            format!("/reads/{oversized_id}"),
+            StatusCode::BAD_REQUEST,
+        ),
+    ] {
+        let response = request(&app, method, &uri, Body::empty(), "127.0.0.1:41000").await;
+        assert_eq!(response.status(), expected, "{method} {uri}");
+    }
+}
+
+#[tokio::test]
 async fn embedded_health_is_metadata_free() {
     let (_directory, app) = embedded_test_router().await;
     let response = request(&app, "GET", "/health", Body::empty(), "127.0.0.1:41000").await;
@@ -503,6 +651,7 @@ async fn embedded_pixel_rejects_invalid_fields_but_still_returns_the_static_png(
         bind_addr: "127.0.0.1".parse().unwrap(),
         bind_port: 0,
         route_profile: RouteProfile::Embedded,
+        connector_authenticator: None,
     };
     let database = open_database(&config).await.unwrap();
     let connection = database.connect().unwrap();
@@ -553,6 +702,7 @@ async fn pixel_stays_static_when_read_insertion_fails() {
         bind_addr: "127.0.0.1".parse().unwrap(),
         bind_port: 0,
         route_profile: RouteProfile::Embedded,
+        connector_authenticator: None,
     };
     let database = open_database(&config).await.unwrap();
     let connection = database.connect().unwrap();
@@ -592,6 +742,7 @@ async fn bind_and_serve_reports_the_bound_address_and_shuts_down() {
         bind_addr: "127.0.0.1".parse().unwrap(),
         bind_port: 0,
         route_profile: RouteProfile::Embedded,
+        connector_authenticator: None,
     };
     let server = bind_and_serve(config, std::future::pending())
         .await

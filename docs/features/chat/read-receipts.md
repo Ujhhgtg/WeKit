@@ -82,10 +82,17 @@ certificate 写入 MMKV、Intent、广播、通知、日志、剪贴板或保存
 制定保留/删除政策并遵守适用法律；公网传输必须使用 HTTPS。数据库、dashboard、REPL、
 日志和备份都应按敏感数据保护。
 
-服务端只使用 Axum 从真实 TCP 连接得到的对端 IP，明确忽略 `Forwarded`、
-`X-Forwarded-For`、`CF-Connecting-IP` 等任意请求头。当前嵌入的 cloudflared bridge 没有
-独立的、经认证的来源元数据通道，因此经 tunnel 到达 loopback origin 的请求会被识别为
-本地连接器对端，而不是原始公网读者 IP。WeKit 不会信任可伪造请求头来“修复”这一点。
+内嵌 cloudflared bridge 在边缘请求转发到 loopback origin 之前读取 Cloudflare 提供的
+`CF-Connecting-IP`，删除外部携带的内部/转发 IP 头，然后写入规范化 reader IP 和进程内
+认证值。认证值不是第二份凭据：它复用控制器已经为 UID 授权 Binder START 消息生成的
+24-byte 随机 nonce（`Base64.NO_WRAP` 后为 32 个 ASCII 字符），不会写入持久配置、通知或
+日志。Rust origin 只有在 constant-time 验证该认证值后才采用 reader IP；直接访问
+loopback origin、第三方部署以及认证失败的请求仍只使用真实 TCP 对端，不能通过伪造
+`Forwarded`、`X-Forwarded-For`、`CF-Connecting-IP` 或 WeKit 内部头选择身份。
+
+Cloudflare 对 `CF-Connecting-IP` 的定义及 Workers 子请求差异见
+[HTTP request headers](https://developers.cloudflare.com/fundamentals/reference/http-request-headers/)；
+若在 tunnel 前另放 Worker，统计身份会受该文档描述的 same-zone/cross-zone 语义影响。
 
 ## 使用步骤
 

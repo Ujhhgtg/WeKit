@@ -378,6 +378,11 @@ class ReadReceiptsTunnelService : Service() {
     private fun isValidClientNonce(value: String): Boolean =
         value.length in 16..128 && value.all { it.code in 0x20..0x7e }
 
+    private fun isConnectorAuthenticator(value: String): Boolean =
+        value.length == 32 && value.all {
+            it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it == '+' || it == '/'
+        }
+
     private fun markAuthorizedCommand() {
         authorizedCommandSeen = true
         authorizationTimeout?.cancel()
@@ -913,6 +918,7 @@ class ReadReceiptsTunnelService : Service() {
             mode = ReadReceiptsTunnelMode.BROWSER_LOGIN,
             origin = "http://127.0.0.1:${selection.fixedOriginPort}/",
             publicRoot = selection.canonicalRoot.toHttpUrlOrNull()!!,
+            connectorAuthenticator = envelope.listener.nonce,
             pendingToken = null,
             browserCredential = payload,
             browserCredentialNeedsCommit = true,
@@ -1247,6 +1253,10 @@ class ReadReceiptsTunnelService : Service() {
             ?.let { name -> ReadReceiptsTunnelMode.entries.firstOrNull { it.name == name } }
         val origin = data.getString(ReadReceiptsTunnelProtocol.KEY_ORIGIN).orEmpty()
         val hostname = data.getString(ReadReceiptsTunnelProtocol.KEY_HOSTNAME).orEmpty()
+        if (nonce == null || !isConnectorAuthenticator(nonce)) {
+            rejectStart(requestedGeneration, client, nonce, "隧道请求认证无效")
+            return
+        }
         if (mode == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
             handleBrowserStart(
                 requestedGeneration,
@@ -1348,7 +1358,14 @@ class ReadReceiptsTunnelService : Service() {
             return
         }
 
-        val request = TunnelRequest(requestedGeneration, mode, origin, publicRoot, suppliedToken)
+        val request = TunnelRequest(
+            requestedGeneration,
+            mode,
+            origin,
+            publicRoot,
+            nonce,
+            suppliedToken,
+        )
         activeRequest = request
         check(nativeLease.activateRequest(requestedGeneration))
         replaceLifecycle(requestedGeneration, request)
@@ -1451,6 +1468,7 @@ class ReadReceiptsTunnelService : Service() {
                     ReadReceiptsTunnelMode.BROWSER_LOGIN,
                     origin,
                     publicRoot,
+                    checkNotNull(nonce),
                     pendingToken = null,
                     browserCredential = payload,
                 )
@@ -1667,11 +1685,22 @@ class ReadReceiptsTunnelService : Service() {
             val start = {
                 val startResult = when (request.mode) {
                     ReadReceiptsTunnelMode.QUICK ->
-                        ReadReceiptsTunnelNative.startQuick(request.origin)
+                        ReadReceiptsTunnelNative.startQuick(
+                            request.origin,
+                            request.connectorAuthenticator,
+                        )
                     ReadReceiptsTunnelMode.TOKEN ->
-                        ReadReceiptsTunnelNative.startToken(token!!, request.origin)
+                        ReadReceiptsTunnelNative.startToken(
+                            token!!,
+                            request.origin,
+                            request.connectorAuthenticator,
+                        )
                     ReadReceiptsTunnelMode.BROWSER_LOGIN ->
-                        ReadReceiptsTunnelNative.startToken(token!!, request.origin)
+                        ReadReceiptsTunnelNative.startToken(
+                            token!!,
+                            request.origin,
+                            request.connectorAuthenticator,
+                        )
                 }
                 startResult.isSuccess
             }
@@ -2312,6 +2341,7 @@ class ReadReceiptsTunnelService : Service() {
         val mode: ReadReceiptsTunnelMode,
         val origin: String,
         val publicRoot: HttpUrl?,
+        val connectorAuthenticator: String,
         var pendingToken: String?,
         var browserCredential: TunnelCredentialPayload? = null,
         var browserCredentialNeedsCommit: Boolean = false,

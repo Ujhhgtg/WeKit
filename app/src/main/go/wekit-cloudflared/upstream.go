@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"runtime"
 	"strings"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/cloudflare/cloudflared/edgediscovery/allregions"
 	"github.com/cloudflare/cloudflared/features"
 	"github.com/cloudflare/cloudflared/ingress"
+	"github.com/cloudflare/cloudflared/ingress/middleware"
 	"github.com/cloudflare/cloudflared/ingress/origins"
 	"github.com/cloudflare/cloudflared/orchestration"
 	"github.com/cloudflare/cloudflared/supervisor"
@@ -30,9 +32,12 @@ import (
 )
 
 const (
-	cloudflaredVersion = "2026.7.2"
-	quickServiceURL    = "https://api.trycloudflare.com"
-	quickHTTPTimeout   = 15 * time.Second
+	cloudflaredVersion          = "2026.7.2"
+	quickServiceURL             = "https://api.trycloudflare.com"
+	quickHTTPTimeout            = 15 * time.Second
+	originAuthenticatorHeader   = "X-WeKit-Origin-Authenticator"
+	originReaderIPHeader        = "X-WeKit-Reader-IP"
+	connectorAuthenticatorBytes = 32
 )
 
 var embeddedLog = zerolog.Nop()
@@ -110,6 +115,8 @@ func runUpstreamTunnel(ctx context.Context, origin string, quick quickTunnel, ob
 	if err != nil {
 		return err
 	}
+	defer wipeOriginMetadataHandlers(ingressConfig)
+	internalRules := append([]ingress.Rule(nil), ingressConfig.Rules...)
 	featureSelector, err := features.NewFeatureSelector(ctx, quick.Credentials.AccountTag, nil, false, &embeddedLog)
 	if err != nil {
 		return fmt.Errorf("could not initialize Cloudflare features: %w", err)
@@ -124,7 +131,7 @@ func runUpstreamTunnel(ctx context.Context, origin string, quick quickTunnel, ob
 		WarpRouting:         warpConfig,
 		OriginDialerService: originDialer,
 		ConfigurationFlags:  map[string]string{},
-	}, tags, nil, &embeddedLog)
+	}, tags, internalRules, &embeddedLog)
 	if err != nil {
 		return fmt.Errorf("could not initialize Cloudflare ingress: %w", err)
 	}
@@ -170,16 +177,39 @@ func runUpstreamTunnel(ctx context.Context, origin string, quick quickTunnel, ob
 }
 
 func prepareOrigin(origin string) (*ingress.Ingress, ingress.WarpRoutingConfig, *ingress.OriginDialerService, *origins.DNSResolverService, error) {
+	parsed, err := url.ParseRequestURI(origin)
+	if err != nil || parsed.User == nil {
+		return nil, ingress.WarpRoutingConfig{}, nil, nil, errors.New("origin connector authentication is missing")
+	}
+	authenticator := parsed.User.Username()
+	_, hasPassword := parsed.User.Password()
+	if hasPassword || !validConnectorAuthenticator(authenticator) {
+		return nil, ingress.WarpRoutingConfig{}, nil, nil, errors.New("origin connector authentication is invalid")
+	}
+	parsed.User = nil
+	sanitizedOrigin := parsed.String()
+	if err := validateLoopbackOrigin(sanitizedOrigin); err != nil {
+		return nil, ingress.WarpRoutingConfig{}, nil, nil, err
+	}
+	metadataHandler := newOriginMetadataHandler(authenticator)
 	raw := ingress.RemoteConfigJSON{
-		IngressRules: []cfconfig.UnvalidatedIngressRule{{Service: origin}},
+		IngressRules: []cfconfig.UnvalidatedIngressRule{{Service: sanitizedOrigin}},
 	}
 	payload, err := json.Marshal(raw)
 	if err != nil {
+		metadataHandler.wipe()
 		return nil, ingress.WarpRoutingConfig{}, nil, nil, err
 	}
 	var remote ingress.RemoteConfig
 	if err := json.Unmarshal(payload, &remote); err != nil {
+		metadataHandler.wipe()
 		return nil, ingress.WarpRoutingConfig{}, nil, nil, fmt.Errorf("invalid origin configuration: %w", err)
+	}
+	for index := range remote.Ingress.Rules {
+		remote.Ingress.Rules[index].Handlers = append(
+			remote.Ingress.Rules[index].Handlers,
+			metadataHandler,
+		)
 	}
 	originDialer := ingress.NewOriginDialer(ingress.OriginConfig{
 		DefaultDialer: ingress.NewDialer(remote.WarpRouting),
@@ -187,6 +217,74 @@ func prepareOrigin(origin string) (*ingress.Ingress, ingress.WarpRoutingConfig, 
 	dnsService := origins.NewDNSResolverService(ingress.NewDialer(remote.WarpRouting), &embeddedLog, noOpDNSMetrics{})
 	originDialer.AddReservedService(dnsService, []netip.AddrPort{origins.VirtualDNSServiceAddr})
 	return &remote.Ingress, remote.WarpRouting, originDialer, dnsService, nil
+}
+
+func validConnectorAuthenticator(value string) bool {
+	if len(value) != connectorAuthenticatorBytes {
+		return false
+	}
+	for index := range len(value) {
+		character := value[index]
+		if !((character >= 'A' && character <= 'Z') ||
+			(character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') ||
+			character == '+' || character == '/') {
+			return false
+		}
+	}
+	return true
+}
+
+type originMetadataHandler struct {
+	authenticator []byte
+}
+
+func newOriginMetadataHandler(authenticator string) *originMetadataHandler {
+	return &originMetadataHandler{authenticator: append([]byte(nil), authenticator...)}
+}
+
+func (h *originMetadataHandler) Name() string {
+	return "wekit-origin-reader-metadata"
+}
+
+func (h *originMetadataHandler) Handle(_ context.Context, request *http.Request) (*middleware.HandleResult, error) {
+	connectingIP := request.Header.Get("CF-Connecting-IP")
+	for _, name := range []string{
+		originAuthenticatorHeader,
+		originReaderIPHeader,
+		"CF-Connecting-IP",
+		"CF-Connecting-IPv6",
+		"True-Client-IP",
+		"Forwarded",
+		"X-Forwarded-For",
+		"X-Real-IP",
+	} {
+		request.Header.Del(name)
+	}
+	readerIP, err := netip.ParseAddr(strings.TrimSpace(connectingIP))
+	if err == nil && len(h.authenticator) == connectorAuthenticatorBytes {
+		request.Header.Set(originAuthenticatorHeader, string(h.authenticator))
+		request.Header.Set(originReaderIPHeader, readerIP.Unmap().String())
+	}
+	return &middleware.HandleResult{}, nil
+}
+
+func (h *originMetadataHandler) wipe() {
+	wipe(h.authenticator)
+	h.authenticator = nil
+}
+
+func wipeOriginMetadataHandlers(config *ingress.Ingress) {
+	if config == nil {
+		return
+	}
+	for _, rule := range config.Rules {
+		for _, handler := range rule.Handlers {
+			if metadataHandler, ok := handler.(*originMetadataHandler); ok {
+				metadataHandler.wipe()
+			}
+		}
+	}
 }
 
 func edgeTLSConfigs() (map[connection.Protocol]*tls.Config, error) {

@@ -462,7 +462,13 @@ func validateLoopbackOrigin(origin string) error {
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return errors.New("origin must use HTTP or HTTPS")
 	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if parsed.User != nil {
+		_, hasPassword := parsed.User.Password()
+		if hasPassword || !validConnectorAuthenticator(parsed.User.Username()) {
+			return errors.New("origin credentials must contain the connector authenticator")
+		}
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
 		return errors.New("origin must not contain credentials, query, or fragment")
 	}
 	if parsed.Path != "" && parsed.Path != "/" {

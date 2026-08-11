@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 interface ReadReceiptsServerController {
-    fun startBuiltIn(port: Int): Result<Int>
+    fun startBuiltIn(port: Int, connectorAuthenticator: String): Result<Int>
 
     fun stopBuiltIn()
 
@@ -17,17 +17,19 @@ internal class NativeReadReceiptsServerController : ReadReceiptsServerController
     private val generation = AtomicLong()
     private val lastStatus = AtomicReference(ReadReceiptsStatus(ReadReceiptsRuntimeState.STOPPED))
 
-    override fun startBuiltIn(port: Int): Result<Int> {
+    override fun startBuiltIn(port: Int, connectorAuthenticator: String): Result<Int> {
         val currentGeneration = generation.incrementAndGet()
         updateStatus(currentGeneration, ReadReceiptsStatus(ReadReceiptsRuntimeState.STARTING))
 
         val result = runCatching {
             require(port in 0..65535) { "server port must be between 0 and 65535" }
+            require(connectorAuthenticator.length == 32) { "invalid connector authenticator" }
             val database = databaseFile()
             check(database.parentFile!!.isDirectory || database.parentFile!!.mkdirs()) {
                 "无法创建内置服务器数据库目录"
             }
-            ReadReceiptsNative.startServer(database.absolutePath, port)?.let(::error)
+            ReadReceiptsNative.startServer(database.absolutePath, port, connectorAuthenticator)
+                ?.let(::error)
             val status = nativeStatus()
             check(status.state == ReadReceiptsRuntimeState.RUNNING && status.port != null) {
                 status.error ?: "内置服务器启动后未进入运行状态"

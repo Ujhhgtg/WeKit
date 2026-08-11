@@ -30,6 +30,8 @@ internal object ReadReceiptsTunnelController {
     private val lastIssuedGeneration = AtomicLong()
     private val clientNonce = ByteArray(24).also(SecureRandom()::nextBytes)
         .let { Base64.encodeToString(it, Base64.NO_WRAP) }
+
+    internal fun originAuthenticator(): String = clientNonce
     private val mainHandler = Handler(Looper.getMainLooper())
     private val incoming = Messenger(IncomingHandler(Looper.getMainLooper()))
     private val handoffGate = TunnelHandoffGate()

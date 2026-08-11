@@ -191,11 +191,31 @@ internal object ReadReceiptsTunnelNative {
     }
 
     @Synchronized
-    fun startQuick(origin: String): Result<Unit> = start { nativeStartQuick(origin) }
+    fun startQuick(origin: String, connectorAuthenticator: String): Result<Unit> = start {
+        nativeStartQuick(authenticatedOrigin(origin, connectorAuthenticator))
+    }
 
     @Synchronized
-    fun startToken(token: String, origin: String): Result<Unit> =
-        start { nativeStartToken(token, origin) }
+    fun startToken(
+        token: String,
+        origin: String,
+        connectorAuthenticator: String,
+    ): Result<Unit> = start {
+        nativeStartToken(token, authenticatedOrigin(origin, connectorAuthenticator))
+    }
+
+    private fun authenticatedOrigin(origin: String, connectorAuthenticator: String): String {
+        require(
+            connectorAuthenticator.length == 32 && connectorAuthenticator.all {
+                it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it == '+' || it == '/'
+            },
+        ) { "invalid connector authenticator" }
+        val parsed = checkNotNull(origin.toHttpUrlOrNull()) { "invalid loopback origin" }
+        check(parsed.username.isEmpty() && parsed.password.isEmpty()) {
+            "loopback origin must not contain credentials"
+        }
+        return parsed.newBuilder().username(connectorAuthenticator).build().toString()
+    }
 
     /** Replaces only browser authentication; the active connector remains untouched. */
     @Synchronized

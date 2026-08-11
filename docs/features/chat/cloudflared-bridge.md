@@ -78,12 +78,22 @@ endpoint are validated. Parse failures are generic; transport failures redact th
 decoded credential forms. Token mode enables cloudflared's normal remotely-managed configuration
 feature, so dashboard ingress is applied by Cloudflare after registration.
 
-There is no connector-specific authenticated reader-IP metadata channel in this bridge. The Rust
-origin therefore uses only Axum's direct TCP peer and ignores `Forwarded`, `X-Forwarded-For`,
-`CF-Connecting-IP`, and similar request headers. Direct callers are identified by their actual TCP
-peer. Requests forwarded through cloudflared reach the loopback origin from the local connector and
-are identified by that local peer, not by an untrusted header claiming the original public client.
-This limitation is intentional until a real authenticated metadata boundary exists.
+The pinned ingress pipeline installs a connector-specific authenticated reader-IP channel before
+the request reaches the loopback origin. Its local handler removes caller-supplied internal and
+forwarding headers, parses the edge-provided `CF-Connecting-IP` as one canonical IP address, and
+overwrites two WeKit-only origin headers. The authenticator reuses the controller's existing
+24-byte random Binder START nonce (32 ASCII characters after `Base64.NO_WRAP`); no second secret is
+created, persisted, displayed, or carried in a new Binder field or exported native entry point. It
+is removed from the origin URL before
+remote configuration is marshalled, and the local rule is retained across remotely-managed config
+updates. The Rust origin compares it in constant time before accepting the reader IP.
+
+Direct loopback callers and requests with missing, malformed, or forged metadata still use Axum's
+actual TCP peer. `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `True-Client-IP`, and raw
+`CF-Connecting-IP` never become trusted merely by reaching Rust. Cloudflare documents the edge
+header and the different same-zone/cross-zone Worker subrequest behavior in
+[HTTP request headers](https://developers.cloudflare.com/fundamentals/reference/http-request-headers/);
+placing a Worker in front of the tunnel changes the identity semantics accordingly.
 
 ## C ABI
 

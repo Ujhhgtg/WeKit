@@ -1,7 +1,7 @@
 use axum::{
     Extension, Json, Router,
     extract::{ConnectInfo, DefaultBodyLimit, Path, Query, State},
-    http::{StatusCode, header},
+    http::{HeaderMap, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -19,6 +19,7 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+use subtle::ConstantTimeEq;
 use tracing::{error, info, warn};
 
 const TRACKING_PIXEL: &[u8] = &[
@@ -36,6 +37,9 @@ const MAX_QUERY_BYTES: usize = 1024;
 const RATE_WINDOW: Duration = Duration::from_secs(60);
 const REGISTER_RATE_LIMIT: u32 = 30;
 const COUNT_RATE_LIMIT: u32 = 120;
+const CONNECTOR_AUTHENTICATOR_BYTES: usize = 32;
+const ORIGIN_AUTHENTICATOR_HEADER: &str = "x-wekit-origin-authenticator";
+const ORIGIN_READER_IP_HEADER: &str = "x-wekit-reader-ip";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RouteProfile {
@@ -49,6 +53,57 @@ pub struct ServerConfig {
     pub bind_addr: IpAddr,
     pub bind_port: u16,
     pub route_profile: RouteProfile,
+    pub connector_authenticator: Option<ConnectorAuthenticator>,
+}
+
+impl ServerConfig {
+    pub fn with_connector_authenticator(mut self, value: &str) -> Result<Self, &'static str> {
+        self.connector_authenticator = Some(ConnectorAuthenticator::parse(value)?);
+        Ok(self)
+    }
+}
+
+#[derive(Clone)]
+pub struct ConnectorAuthenticator([u8; CONNECTOR_AUTHENTICATOR_BYTES]);
+
+impl ConnectorAuthenticator {
+    pub fn parse(value: &str) -> Result<Self, &'static str> {
+        let bytes = value.as_bytes();
+        if bytes.len() != CONNECTOR_AUTHENTICATOR_BYTES
+            || !bytes
+                .iter()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/'))
+        {
+            return Err("invalid connector authenticator");
+        }
+        let mut authenticator = [0_u8; CONNECTOR_AUTHENTICATOR_BYTES];
+        authenticator.copy_from_slice(bytes);
+        Ok(Self(authenticator))
+    }
+
+    fn matches(&self, candidate: &[u8]) -> bool {
+        candidate.len() == self.0.len() && self.0.ct_eq(candidate).into()
+    }
+}
+
+impl PartialEq for ConnectorAuthenticator {
+    fn eq(&self, other: &Self) -> bool {
+        self.matches(&other.0)
+    }
+}
+
+impl Eq for ConnectorAuthenticator {}
+
+impl fmt::Debug for ConnectorAuthenticator {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ConnectorAuthenticator([redacted])")
+    }
+}
+
+impl Drop for ConnectorAuthenticator {
+    fn drop(&mut self) {
+        self.0.fill(0);
+    }
 }
 
 #[derive(Debug)]
@@ -270,6 +325,7 @@ pub fn build_router(config: &ServerConfig, state: Arc<AppState>) -> Router {
     router
         .layer(middleware::from_fn(limit_query_string))
         .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_BYTES))
+        .layer(Extension(config.connector_authenticator.clone()))
         .layer(Extension(config.route_profile))
         .with_state(state)
 }
@@ -346,10 +402,14 @@ async fn register_message(
 async fn serve_tracking_pixel(
     State(state): State<Arc<AppState>>,
     Extension(route_profile): Extension<RouteProfile>,
+    Extension(connector_authenticator): Extension<Option<ConnectorAuthenticator>>,
     Query(params): Query<ReadParams>,
     ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
 ) -> impl IntoResponse {
-    let client_ip = remote_addr.ip().to_string();
+    let client_ip = trusted_connector_reader_ip(&headers, connector_authenticator.as_ref())
+        .unwrap_or_else(|| remote_addr.ip())
+        .to_string();
     let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
     match (&params.wx_id, &params.id) {
         (Some(wx_id), Some(id)) => {
@@ -385,6 +445,23 @@ async fn serve_tracking_pixel(
         .header(header::PRAGMA, "no-cache")
         .body(axum::body::Body::from(TRACKING_PIXEL))
         .unwrap()
+}
+
+fn trusted_connector_reader_ip(
+    headers: &HeaderMap,
+    expected_authenticator: Option<&ConnectorAuthenticator>,
+) -> Option<IpAddr> {
+    let expected_authenticator = expected_authenticator?;
+    let supplied_authenticator = headers.get(ORIGIN_AUTHENTICATOR_HEADER)?.as_bytes();
+    if !expected_authenticator.matches(supplied_authenticator) {
+        return None;
+    }
+    headers
+        .get(ORIGIN_READER_IP_HEADER)?
+        .to_str()
+        .ok()?
+        .parse()
+        .ok()
 }
 
 async fn message_exists(connection: &Connection, wx_id: &str, id: &str) -> bool {
@@ -537,6 +614,7 @@ async fn list_messages_for_sender(
     Path(wx_id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Vec<MessageRecord>>, (StatusCode, String)> {
+    validate_management_path(&wx_id, MAX_WX_ID_BYTES)?;
     let query = params.get("q").map(String::as_str).unwrap_or("");
     let mut rows = if query.is_empty() {
         state
@@ -591,6 +669,7 @@ async fn list_reads_for_message(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Json<Vec<ReadRecord>>, (StatusCode, String)> {
+    validate_management_path(&id, MAX_MESSAGE_ID_BYTES)?;
     let mut rows = state
         .db
         .query(
@@ -634,6 +713,7 @@ async fn delete_messages_for_sender(
     State(state): State<Arc<AppState>>,
     Path(wx_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    validate_management_path(&wx_id, MAX_WX_ID_BYTES)?;
     state
         .db
         .execute(
@@ -651,6 +731,13 @@ async fn delete_messages_for_sender(
         .await
         .map_err(database_response_error("delete failed"))?;
     Ok(Json(serde_json::json!({"status": "ok"})))
+}
+
+fn validate_management_path(value: &str, maximum_bytes: usize) -> Result<(), (StatusCode, String)> {
+    if value.is_empty() || value.len() > maximum_bytes {
+        return Err((StatusCode::BAD_REQUEST, "invalid path field".to_owned()));
+    }
+    Ok(())
 }
 
 fn database_response_error(

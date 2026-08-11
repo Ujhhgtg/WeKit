@@ -676,6 +676,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bind_addr: bind_host,
         bind_port,
         route_profile: RouteProfile::Standalone,
+        connector_authenticator: None,
     };
     let app = build_router(&config, Arc::new(AppState::new(conn)));
 

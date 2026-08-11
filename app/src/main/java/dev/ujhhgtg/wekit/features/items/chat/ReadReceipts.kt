@@ -85,14 +85,27 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.security.MessageDigest
 import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import java.security.MessageDigest
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import javax.net.ssl.SSLException
 import kotlin.coroutines.resume
+
+internal fun readReceiptNetworkFailureCategory(failure: Throwable): String = when (failure) {
+    is SocketTimeoutException -> "timeout"
+    is UnknownHostException -> "dns"
+    is SSLException -> "tls"
+    is ConnectException -> "connect"
+    is IOException -> "io"
+    else -> "response"
+}
 
 /** Runs one connection owner's terminal policy exactly once. */
 internal class ConnectionTransactionOwner(
@@ -450,8 +463,8 @@ object ReadReceipts : ClickableFeature(),
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
                     registrationCalls -= call
-                    WeLogger.w(TAG, "register request failed", e)
-                    continuation.resumeIfActive("注册请求失败: ${e.message ?: e.javaClass.simpleName}")
+                    WeLogger.w(TAG, "register request failed (${readReceiptNetworkFailureCategory(e)})")
+                    continuation.resumeIfActive("注册请求失败")
                 }
 
                 override fun onResponse(call: Call, response: Response) {
@@ -482,7 +495,7 @@ object ReadReceipts : ClickableFeature(),
                 .get()
                 .build()
         }.getOrElse {
-            WeLogger.w(TAG, "invalid count endpoint", it)
+            WeLogger.w(TAG, "invalid count endpoint (response)")
             return null
         }
         return suspendCancellableCoroutine { continuation ->
@@ -490,7 +503,12 @@ object ReadReceipts : ClickableFeature(),
             continuation.invokeOnCancellation { call.cancel() }
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
-                    if (!call.isCanceled()) WeLogger.w(TAG, "count request failed", e)
+                    if (!call.isCanceled()) {
+                        WeLogger.w(
+                            TAG,
+                            "count request failed (${readReceiptNetworkFailureCategory(e)})",
+                        )
+                    }
                     continuation.resumeIfActive(null)
                 }
 
@@ -1360,7 +1378,9 @@ object ReadReceipts : ClickableFeature(),
         requestedPort: Int,
     ): OriginRequestTerminal<Int?> {
         if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-        val result = originController.startBuiltIn(requestedPort).map { it as Int? }
+        val result = originController
+            .startBuiltIn(requestedPort, ReadReceiptsTunnelController.originAuthenticator())
+            .map { it as Int? }
         return if (request.isCurrent()) {
             OriginRequestTerminal.Completed(result)
         } else {
@@ -1855,11 +1875,17 @@ object ReadReceipts : ClickableFeature(),
                 }
             }
             withContext(Dispatchers.Main.immediate) {
+                result.exceptionOrNull()?.let {
+                    WeLogger.w(
+                        TAG,
+                        "server connection failed (${readReceiptNetworkFailureCategory(it)})",
+                    )
+                }
                 showToast(
                     context,
                     result.fold(
                         onSuccess = { "服务器连接成功" },
-                        onFailure = { "服务器连接失败: ${it.message ?: it.javaClass.simpleName}" },
+                        onFailure = { "服务器连接失败" },
                     ),
                 )
             }

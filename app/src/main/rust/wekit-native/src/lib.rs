@@ -49,19 +49,24 @@ fn native_error_string(env: *mut RawJNIEnv, result: Result<(), String>) -> jstri
 
 /// Start the loopback-only embedded read-receipts origin.
 ///
-/// Java signature: `(Ljava/lang/String;I)Ljava/lang/String;`
+/// Java signature: `(Ljava/lang/String;ILjava/lang/String;)Ljava/lang/String;`
 #[unsafe(no_mangle)]
 pub extern "C" fn Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsNative_startServer(
     env: *mut RawJNIEnv,
     _thiz: jobject,
     database_path: jstring,
     port: jint,
+    connector_authenticator: jstring,
 ) -> jstring {
     let result = if !(0..=u16::MAX as jint).contains(&port) {
         Err("server port must be between 0 and 65535".to_owned())
     } else {
         with_jstring(env, database_path, |database_path| {
-            read_receipts_server::start(database_path, port as u16).map(|_| ())
+            with_jstring(env, connector_authenticator, |connector_authenticator| {
+                read_receipts_server::start(database_path, port as u16, connector_authenticator)
+                    .map(|_| ())
+            })
+            .unwrap_or_else(|| Err("missing or unreadable connector authenticator".to_owned()))
         })
         .unwrap_or_else(|| Err("missing or unreadable database path".to_owned()))
     };

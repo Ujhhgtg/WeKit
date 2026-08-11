@@ -97,6 +97,7 @@ fn pixel_info_logs_require_a_known_embedded_message_but_preserve_standalone_logg
                     bind_addr: "127.0.0.1".parse().unwrap(),
                     bind_port: 0,
                     route_profile: RouteProfile::Embedded,
+                    connector_authenticator: None,
                 };
                 let database = open_database(&config).await.unwrap();
                 let state = Arc::new(AppState::new(database.connect().unwrap()));
