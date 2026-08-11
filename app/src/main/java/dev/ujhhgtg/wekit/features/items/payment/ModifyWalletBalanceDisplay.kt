@@ -7,6 +7,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -56,12 +58,12 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
             var balanceInput by remember { mutableStateOf(balance ?: "") }
 
             AlertDialogContent(
-                title = { Text("修改显示余额") },
+                title = { Text(stringResource(R.string.feature_modify_wallet_balance_display_name)) },
                 text = {
                     TextField(
                         value = balanceInput,
                         onValueChange = { balanceInput = it },
-                        label = { Text("零钱余额 (留空不修改)") })
+                        label = { Text(stringResource(R.string.payment_wallet_balance_optional)) })
                 },
                 confirmButton = {
                     Button(onClick = {
@@ -70,9 +72,9 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
                         else
                             null
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }

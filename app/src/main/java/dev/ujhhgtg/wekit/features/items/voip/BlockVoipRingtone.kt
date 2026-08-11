@@ -10,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import androidx.compose.ui.Modifier
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -61,20 +63,20 @@ object BlockVoipRingtone : ClickableFeature(), IResolveDex {
             var inCall by remember { mutableStateOf(disableInCall) }
 
             AlertDialogContent(
-                title = { Text("屏蔽铃声") },
+                title = { Text(stringResource(R.string.feature_block_voip_ringtone_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
                             modifier = Modifier.clickable { outCall = !outCall },
                             trailingContent = { Switch(checked = outCall, onCheckedChange = { outCall = it }) },
-                            supportingContent = { Text("屏蔽拨出音视频通话时的铃声") },
-                            content = { Text("屏蔽呼出铃声") },
+                            supportingContent = { Text(stringResource(R.string.voip_block_outgoing_summary)) },
+                            content = { Text(stringResource(R.string.voip_block_outgoing)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable { inCall = !inCall },
                             trailingContent = { Switch(checked = inCall, onCheckedChange = { inCall = it }) },
-                            supportingContent = { Text("屏蔽收到音视频通话请求时的铃声") },
-                            content = { Text("屏蔽呼入铃声") },
+                            supportingContent = { Text(stringResource(R.string.voip_block_incoming_summary)) },
+                            content = { Text(stringResource(R.string.voip_block_incoming)) },
                         )
                     }
                 },
@@ -83,9 +85,9 @@ object BlockVoipRingtone : ClickableFeature(), IResolveDex {
                         disableOutCall = outCall
                         disableInCall = inCall
                         onDismiss()
-                    }) { Text("保存") }
+                    }) { Text(stringResource(R.string.action_save)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }

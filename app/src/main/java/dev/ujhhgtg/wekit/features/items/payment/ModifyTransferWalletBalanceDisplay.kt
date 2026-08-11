@@ -7,6 +7,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
@@ -89,9 +91,15 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                 }
 
                 if (value == "CFT" && customCft != null)
-                    updateBalanceText(obj, "零钱(剩余$customCft)")
+                    updateBalanceText(
+                        obj,
+                        localizedPaymentString(R.string.payment_transfer_wallet_balance, customCft),
+                    )
                 else if (value == "LQT" && customLqt != null)
-                    updateBalanceText(obj, "零钱通(剩余$customLqt)")
+                    updateBalanceText(
+                        obj,
+                        localizedPaymentString(R.string.payment_transfer_wealth_balance, customLqt),
+                    )
             }
 
             if (value is JSONObject) {
@@ -147,17 +155,17 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
             }
 
             AlertDialogContent(
-                title = { Text("修改转账显示余额") },
+                title = { Text(stringResource(R.string.feature_modify_transfer_wallet_balance_display_name)) },
                 text = {
                     DefaultColumn {
                         TextField(
                             value = cftInput,
                             onValueChange = { cftInput = it },
-                            label = { Text("零钱余额 (留空不修改)") })
+                            label = { Text(stringResource(R.string.payment_wallet_balance_optional)) })
                         TextField(
                             value = lqtInput,
                             onValueChange = { lqtInput = it },
-                            label = { Text("零钱通余额 (留空不修改)") })
+                            label = { Text(stringResource(R.string.payment_wealth_balance_optional)) })
                     }
                 },
                 confirmButton = {
@@ -172,9 +180,9 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                         else
                             WePrefs.remove(KEY_LQT_BALANCE)
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }

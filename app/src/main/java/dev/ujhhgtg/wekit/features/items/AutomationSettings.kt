@@ -24,14 +24,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.ui.content.BaseContactSelector
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.MINUTES_PER_DAY
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.WeTimeOfDayField
 import dev.ujhhgtg.wekit.ui.content.formatMinuteOfDay
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.KSerializer
@@ -102,11 +110,14 @@ internal data class AutomationKeywordRule(
         if (!enabled) return null
         return when (mode) {
             AutomationKeywordMode.STRING_LIST, AutomationKeywordMode.EXACT ->
-                if (strings.none(String::isNotBlank)) "${label}字符串列表不能为空" else null
+                if (strings.none(String::isNotBlank)) {
+                    localizedAutomationString(R.string.automation_keyword_list_required, label)
+                } else null
 
             AutomationKeywordMode.REGEX -> when {
-                regex.isBlank() -> "${label}正则表达式不能为空"
-                runCatching { Regex(regex) }.isFailure -> "${label}正则表达式格式不正确"
+                regex.isBlank() -> localizedAutomationString(R.string.automation_regex_required, label)
+                runCatching { Regex(regex) }.isFailure ->
+                    localizedAutomationString(R.string.automation_regex_invalid_for_label, label)
                 else -> null
             }
         }
@@ -179,15 +190,16 @@ internal fun AutomationContactSettingsSelector(
     onOpen: (IWeContact) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val chinaCollator = remember { Collator.getInstance(Locale.CHINA) }
-    val filteredContacts = remember(searchQuery, contacts, chinaCollator) {
+    val currentLocale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val collator = remember(currentLocale) { Collator.getInstance(currentLocale) }
+    val filteredContacts = remember(searchQuery, contacts, collator) {
         contacts.filter {
             it.displayName.contains(searchQuery, ignoreCase = true) ||
                     it.wxId.contains(searchQuery, ignoreCase = true)
         }.sortedWith(
             compareBy<IWeContact> { it.displayName.isBlank() }
                 .thenComparator { first, second ->
-                    chinaCollator.compare(first.displayName, second.displayName)
+                    collator.compare(first.displayName, second.displayName)
                 }
         )
     }
@@ -201,14 +213,14 @@ internal fun AutomationContactSettingsSelector(
         confirmButtonText = "",
         confirmButtonEnabled = false,
         showConfirmButton = false,
-        dismissButtonText = "关闭",
+        dismissButtonText = stringResource(R.string.dialog_close),
         onDismiss = onDismiss,
         onConfirm = {},
         selectionKey = selectionKey,
         isSelected = isConfigured,
         subtitleProvider = subtitle,
         trailingControl = { contact ->
-            TextButton(onClick = { onOpen(contact) }) { Text("设置") }
+            TextButton(onClick = { onOpen(contact) }) { Text(stringResource(R.string.action_settings)) }
         },
         onItemClick = onOpen
     )
@@ -227,7 +239,9 @@ internal fun AutomationRuleHeader(
     switchEnabled: Boolean = true,
 ) {
     val editable = isOverridden != false
-    val effectiveSummary = if (isOverridden == false) "跟随$parentLabel: $summary" else summary
+    val effectiveSummary = if (isOverridden == false) {
+        stringResource(R.string.automation_follow_parent, parentLabel, summary)
+    } else summary
     ListItem(
         modifier = Modifier.clickable {
             if (editable && switchEnabled) onEnabledChange(!enabled) else onActivate()
@@ -244,7 +258,7 @@ internal fun AutomationRuleHeader(
         trailingContent = if (isOverridden != null) {
             {
                 TextButton(enabled = isOverridden, onClick = onReset) {
-                    Text("重置")
+                    Text(stringResource(R.string.action_reset))
                 }
             }
         } else null
@@ -266,14 +280,14 @@ internal fun AutomationTimeRangeControls(
     ) {
         WeTimeOfDayField(
             modifier = Modifier.weight(1f),
-            label = "开始",
+            label = stringResource(R.string.automation_start),
             minuteOfDay = rule.startMinute,
             enabled = editable,
             onMinuteChange = { onChange(rule.copy(startMinute = it)) }
         )
         WeTimeOfDayField(
             modifier = Modifier.weight(1f),
-            label = "结束",
+            label = stringResource(R.string.automation_end),
             minuteOfDay = rule.endMinute,
             enabled = editable,
             onMinuteChange = { onChange(rule.copy(endMinute = it)) }
@@ -303,9 +317,9 @@ internal fun AutomationKeywordControls(
             ) {
                 Text(
                     when (mode) {
-                        AutomationKeywordMode.STRING_LIST -> "包含"
-                        AutomationKeywordMode.EXACT -> "相等"
-                        AutomationKeywordMode.REGEX -> "Regex"
+                        AutomationKeywordMode.STRING_LIST -> stringResource(R.string.automation_keyword_mode_contains)
+                        AutomationKeywordMode.EXACT -> stringResource(R.string.automation_keyword_mode_exact)
+                        AutomationKeywordMode.REGEX -> stringResource(R.string.automation_keyword_mode_regex)
                     }
                 )
             }
@@ -317,7 +331,7 @@ internal fun AutomationKeywordControls(
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("忽略大小写", modifier = Modifier.weight(1f))
+        Text(stringResource(R.string.automation_ignore_case), modifier = Modifier.weight(1f))
         Switch(
             checked = rule.ignoreCase,
             enabled = editable,
@@ -337,7 +351,7 @@ internal fun AutomationKeywordControls(
                 value = pendingKeyword,
                 enabled = editable,
                 onValueChange = { pendingKeyword = it },
-                label = { Text("新关键词") },
+                label = { Text(stringResource(R.string.automation_new_keyword)) },
                 singleLine = true
             )
             Button(
@@ -347,7 +361,7 @@ internal fun AutomationKeywordControls(
                     if (keyword !in rule.strings) onChange(rule.copy(strings = rule.strings + keyword))
                     pendingKeyword = ""
                 }
-            ) { Text("添加") }
+            ) { Text(stringResource(R.string.action_add)) }
         }
         rule.strings.forEach { keyword ->
             ListItem(
@@ -356,14 +370,12 @@ internal fun AutomationKeywordControls(
                     TextButton(
                         enabled = editable,
                         onClick = { onChange(rule.copy(strings = rule.strings - keyword)) }
-                    ) { Text("删除") }
+                    ) { Text(stringResource(R.string.action_delete)) }
                 }
             )
         }
     } else {
-        val regexError = rule.regex.takeIf(String::isNotBlank)?.let {
-            runCatching { Regex(it) }.exceptionOrNull()?.message
-        }
+        val regexInvalid = rule.regex.isNotBlank() && runCatching { Regex(rule.regex) }.isFailure
         OutlinedTextField(
             modifier = Modifier
                 .fillMaxWidth()
@@ -371,9 +383,11 @@ internal fun AutomationKeywordControls(
             value = rule.regex,
             enabled = editable,
             onValueChange = { onChange(rule.copy(regex = it)) },
-            label = { Text("Regex") },
-            supportingText = regexError?.let { error -> { Text(error) } },
-            isError = regexError != null,
+            label = { Text(stringResource(R.string.automation_keyword_mode_regex)) },
+            supportingText = if (regexInvalid) {
+                { Text(stringResource(R.string.automation_regex_invalid)) }
+            } else null,
+            isError = regexInvalid,
             singleLine = true
         )
     }
@@ -403,11 +417,31 @@ internal fun AutomationScrollableColumn(content: @Composable ColumnScope.() -> U
 
 internal fun formatAutomationMinute(value: Int): String = formatMinuteOfDay(value)
 
+@Composable
 internal fun automationKeywordSummary(rule: AutomationKeywordRule, unrestrictedText: String): String {
     if (!rule.enabled) return unrestrictedText
     return when (rule.mode) {
-        AutomationKeywordMode.STRING_LIST -> "匹配字符串列表中的任意一项 (${rule.strings.size})"
-        AutomationKeywordMode.EXACT -> "完全匹配字符串列表中的任意一项 (${rule.strings.size})"
-        AutomationKeywordMode.REGEX -> if (rule.regex.isBlank()) "尚未填写正则表达式" else "匹配单个正则表达式"
+        AutomationKeywordMode.STRING_LIST -> pluralStringResource(
+            R.plurals.automation_keyword_contains_summary,
+            rule.strings.size,
+            rule.strings.size,
+        )
+        AutomationKeywordMode.EXACT -> pluralStringResource(
+            R.plurals.automation_keyword_exact_summary,
+            rule.strings.size,
+            rule.strings.size,
+        )
+        AutomationKeywordMode.REGEX -> if (rule.regex.isBlank()) {
+            stringResource(R.string.automation_regex_empty_summary)
+        } else {
+            stringResource(R.string.automation_regex_summary)
+        }
     }
 }
+
+private fun localizedAutomationString(resourceId: Int, vararg formatArgs: Any): String =
+    LocalizedContextFactory.create(
+        HostInfo.application,
+        WeKitLocaleController.resolvedLocale,
+        LocaleResourceMode.InjectedHost,
+    ).getString(resourceId, *formatArgs)

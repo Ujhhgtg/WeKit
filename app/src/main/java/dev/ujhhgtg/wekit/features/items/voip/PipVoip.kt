@@ -13,10 +13,12 @@ import android.os.ResultReceiver
 import android.view.View
 import android.widget.FrameLayout
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.core.os.BundleCompat
 import com.tencent.mm.plugin.multitalk.ui.MultiTalkMainUI
 import com.tencent.mm.plugin.voip.ui.VideoActivity
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.PipVoipActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -978,15 +980,13 @@ object PipVoip : SwitchFeature(), IResolveDex {
         if (newState && isZygiskMode) {
             showComposeDialog(context) {
                 AlertDialogContent(
-                    title = { Text("音视频通话使用画中画") },
+                    title = { Text(stringResource(R.string.feature_pip_voip_name)) },
                     text = {
                         Text(
-                            "画中画窗口必须由模块应用自己的 Activity 承载（清单里要声明 " +
-                                    "supportsPictureInPicture，微信没有这样的 Activity）, " +
-                                    "而 Zygisk 模式下模块应用并未安装, 因此本功能仅在 LSPosed 模式下可用!"
+                            stringResource(R.string.voip_pip_zygisk_unavailable)
                         )
                     },
-                    confirmButton = { TextButton(onDismiss) { Text("取消") } })
+                    confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } })
             }
             return false
         }

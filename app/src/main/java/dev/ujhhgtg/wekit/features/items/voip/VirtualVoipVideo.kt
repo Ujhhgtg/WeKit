@@ -31,10 +31,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -272,6 +275,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var currentType by remember { mutableStateOf(sourceType) }
             var urlText by remember { mutableStateOf(streamUrl) }
 
@@ -282,7 +286,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
             var fileExists by remember { mutableStateOf(VIDEO_PATH.toFile().exists()) }
 
             AlertDialogContent(
-                title = { Text("虚拟视频通话配置") },
+                title = { Text(stringResource(R.string.voip_virtual_video_title)) },
                 text = {
                     DefaultColumn {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -295,7 +299,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                     orientationText = streamOrientation
                                 }
                             )
-                            Text("本地文件", modifier = Modifier.clickable {
+                            Text(stringResource(R.string.voip_virtual_video_local_file), modifier = Modifier.clickable {
                                 currentType = "file"
                                 sourceType = "file"
                                 orientationText = streamOrientation
@@ -315,7 +319,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                     }
                                 }
                             )
-                            Text("网络流地址", modifier = Modifier.clickable {
+                            Text(stringResource(R.string.voip_virtual_video_stream), modifier = Modifier.clickable {
                                 currentType = "stream"
                                 sourceType = "stream"
                                 if (orientationText == "auto") {
@@ -343,12 +347,18 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                                 }
                                             } ?: run {
                                                 WeLogger.e(TAG, "failed to open input stream")
-                                                showToast(context, "视频文件打开失败!")
+                                                showToast(
+                                                    context,
+                                                    localizedContext.getString(R.string.voip_virtual_video_open_failed),
+                                                )
                                                 return@registerForActivityResult
                                             }
 
                                             fileExists = true
-                                            showToast(context, "视频文件导入成功")
+                                            showToast(
+                                                context,
+                                                localizedContext.getString(R.string.voip_virtual_video_imported),
+                                            )
                                         }
 
                                         selMediaLauncher.launch(
@@ -360,15 +370,21 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("选择本地视频")
+                                Text(stringResource(R.string.voip_virtual_video_select))
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
-                                text = if (fileExists) "当前视频文件已就绪" else "当前无视频文件, 会自动放行真实相机"
+                                text = stringResource(
+                                    if (fileExists) {
+                                        R.string.voip_virtual_video_ready
+                                    } else {
+                                        R.string.voip_virtual_video_missing
+                                    }
+                                )
                             )
-                            Text("固定路径: $VIDEO_PATH")
+                            Text(stringResource(R.string.voip_virtual_video_path, VIDEO_PATH))
                         } else {
                             OutlinedTextField(
                                 value = urlText,
@@ -376,7 +392,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                     urlText = it
                                     streamUrl = it
                                 },
-                                label = { Text("输入流媒体 URL (HTTP/HLS/RTSP)") },
+                                label = { Text(stringResource(R.string.voip_virtual_video_url)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true
                             )
@@ -384,7 +400,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Text("视频显示方向:")
+                        Text(stringResource(R.string.voip_virtual_video_orientation))
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (currentType == "file") {
@@ -392,7 +408,10 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                     selected = orientationText == "auto",
                                     onClick = { orientationText = "auto"; streamOrientation = "auto" }
                                 )
-                                Text("自动", modifier = Modifier.clickable { orientationText = "auto"; streamOrientation = "auto" })
+                                Text(
+                                    stringResource(R.string.voip_virtual_video_orientation_auto),
+                                    modifier = Modifier.clickable { orientationText = "auto"; streamOrientation = "auto" },
+                                )
 
                                 Spacer(modifier = Modifier.width(16.dp))
                             }
@@ -401,7 +420,10 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                 selected = orientationText == "portrait",
                                 onClick = { orientationText = "portrait"; streamOrientation = "portrait" }
                             )
-                            Text("竖屏", modifier = Modifier.clickable { orientationText = "portrait"; streamOrientation = "portrait" })
+                            Text(
+                                stringResource(R.string.voip_virtual_video_orientation_portrait),
+                                modifier = Modifier.clickable { orientationText = "portrait"; streamOrientation = "portrait" },
+                            )
 
                             Spacer(modifier = Modifier.width(16.dp))
 
@@ -409,12 +431,15 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                 selected = orientationText == "landscape",
                                 onClick = { orientationText = "landscape"; streamOrientation = "landscape" }
                             )
-                            Text("横屏", modifier = Modifier.clickable { orientationText = "landscape"; streamOrientation = "landscape" })
+                            Text(
+                                stringResource(R.string.voip_virtual_video_orientation_landscape),
+                                modifier = Modifier.clickable { orientationText = "landscape"; streamOrientation = "landscape" },
+                            )
                         }
                     }
                 },
                 confirmButton = {
-                    Button(onClick = onDismiss) { Text("确定") }
+                    Button(onClick = onDismiss) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }

@@ -9,8 +9,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import dev.ujhhgtg.reflekt.utils.createInstance
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -426,8 +428,17 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
 
         val displayName = WeDatabaseApi.getDisplayName(info.talker)
         val isGroup = info.talker.isGroupChatWxId
-        val sourceLabel = if (isGroup) "群组" else "私聊"
-        showToast("抢到${sourceLabel}「${displayName}」中的红包 ¥${displayAmount}")
+        val sourceLabel = localizedPaymentString(
+            if (isGroup) R.string.payment_source_group else R.string.payment_source_private_chat
+        )
+        showToast(
+            localizedPaymentString(
+                R.string.payment_red_packet_received,
+                sourceLabel,
+                displayName,
+                displayAmount,
+            )
+        )
     }
 
     private fun createUnionOpenRequest(info: RedPacketInfo, timingIdentifier: String): Any {
@@ -463,15 +474,15 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
         if (newState) {
             showComposeDialog(context) {
                 AlertDialogContent(
-                    title = { Text(text = "警告") },
-                    text = { Text(text = "此功能可能导致账号异常, 确定要启用吗?") },
+                    title = { Text(text = stringResource(R.string.warning)) },
+                    text = { Text(text = stringResource(R.string.payment_risk_warning)) },
                     confirmButton = {
                         Button(onClick = {
                             applyToggle(true)
                             onDismiss()
-                        }) { Text("确定") }
+                        }) { Text(stringResource(R.string.dialog_confirm)) }
                     },
-                    dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
                 )
             }
             return false

@@ -19,8 +19,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
@@ -182,36 +186,37 @@ internal object RedPacketSettings {
     fun showMainDialog(context: Context) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("自动抢红包") },
+                title = { Text(stringResource(R.string.feature_auto_open_red_packets_name)) },
                 text = {
                     DefaultColumn {
                         ListItem(
                             modifier = Modifier.clickable { showGlobalDialog(context) },
-                            content = { Text("全局设置") },
-                            supportingContent = { Text("配置默认抢红包条件与抢到后的操作") }
+                            content = { Text(stringResource(R.string.automation_global_settings)) },
+                            supportingContent = { Text(stringResource(R.string.payment_red_packet_global_summary)) }
                         )
                         ListItem(
                             modifier = Modifier.clickable { showContactSelector(context) },
-                            content = { Text("分联系人设置") },
-                            supportingContent = { Text("为联系人、群聊或群成员覆盖全局设置") }
+                            content = { Text(stringResource(R.string.automation_contact_settings)) },
+                            supportingContent = { Text(stringResource(R.string.automation_contact_settings_summary)) }
                         )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("关闭") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }
 
     private fun showGlobalDialog(context: Context) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var draft by remember { mutableStateOf(globalRules()) }
-            val validationError = validate(draft)
+            val validationError = validate(localizedContext, draft)
 
             AlertDialogContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
-                title = { Text("全局设置") },
+                title = { Text(stringResource(R.string.automation_global_settings)) },
                 text = {
                     RuleSetEditor(
                         rules = draft,
@@ -228,31 +233,41 @@ internal object RedPacketSettings {
                         enabled = validationError == null,
                         onClick = {
                             updateConfig { it.copy(global = draft) }
-                            showToast("全局设置已保存")
+                            showToast(localizedContext.getString(R.string.automation_global_settings_saved))
                             onDismiss()
                         }
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
 
     private fun showContactSelector(context: Context) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var revision by remember { mutableIntStateOf(0) }
             val contacts = remember { loadContacts() }
             AutomationContactSettingsSelector(
-                title = "分联系人设置",
+                title = stringResource(R.string.automation_contact_settings),
                 contacts = contacts,
                 selectionKey = revision,
                 subtitle = { contact ->
                     val count = contactOverrides(contact.wxId).overriddenCount()
                     when {
-                        contact.wxId.isGroupChatWxId && count > 0 -> "群聊设置 - 已覆盖 $count 项"
-                        contact.wxId.isGroupChatWxId -> "群聊设置"
-                        count > 0 -> "已覆盖 $count 项"
-                        else -> "跟随全局设置"
+                        contact.wxId.isGroupChatWxId && count > 0 ->
+                            localizedContext.resources.getQuantityString(
+                                R.plurals.automation_group_overrides,
+                                count,
+                                count,
+                            )
+                        contact.wxId.isGroupChatWxId -> localizedContext.getString(R.string.automation_group_settings)
+                        count > 0 -> localizedContext.resources.getQuantityString(
+                            R.plurals.automation_overrides,
+                            count,
+                            count,
+                        )
+                        else -> localizedContext.getString(R.string.automation_follow_global)
                     }
                 },
                 isConfigured = { contact ->
@@ -267,7 +282,7 @@ internal object RedPacketSettings {
                         showOverrideDialog(
                             context = context,
                             title = contact.displayName.ifBlank { contact.wxId },
-                            parentLabel = "全局设置",
+                            parentLabel = localizedContext.getString(R.string.automation_global_settings),
                             parent = globalRules(),
                             initial = contactOverrides(contact.wxId),
                             onSave = {
@@ -283,6 +298,7 @@ internal object RedPacketSettings {
 
     private fun showGroupSettingsDialog(context: Context, groupId: String, onUpdated: () -> Unit) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var revision by remember { mutableIntStateOf(0) }
             val groupName = remember(groupId) { WeDatabaseApi.getDisplayName(groupId) }
             val groupOverrideCount = remember(revision) {
@@ -298,8 +314,8 @@ internal object RedPacketSettings {
                             modifier = Modifier.clickable {
                                 showOverrideDialog(
                                     context = context,
-                                    title = "群聊全局设置",
-                                    parentLabel = "全局设置",
+                                    title = localizedContext.getString(R.string.automation_group_global_settings),
+                                    parentLabel = localizedContext.getString(R.string.automation_global_settings),
                                     parent = globalRules(),
                                     initial = contactOverrides(groupId),
                                     onSave = {
@@ -309,9 +325,19 @@ internal object RedPacketSettings {
                                     }
                                 )
                             },
-                            content = { Text("群聊全局设置") },
+                            content = { Text(stringResource(R.string.automation_group_global_settings)) },
                             supportingContent = {
-                                Text(if (groupOverrideCount == 0) "跟随全局设置" else "已覆盖 $groupOverrideCount 项")
+                                Text(
+                                    if (groupOverrideCount == 0) {
+                                        stringResource(R.string.automation_follow_global)
+                                    } else {
+                                        pluralStringResource(
+                                            R.plurals.automation_overrides,
+                                            groupOverrideCount,
+                                            groupOverrideCount,
+                                        )
+                                    }
+                                )
                             }
                         )
                         ListItem(
@@ -321,20 +347,31 @@ internal object RedPacketSettings {
                                     onUpdated()
                                 }
                             },
-                            content = { Text("群聊分群成员设置") },
+                            content = { Text(stringResource(R.string.automation_group_member_settings)) },
                             supportingContent = {
-                                Text(if (memberCount == 0) "所有成员跟随群聊全局设置" else "已配置 $memberCount 个成员")
+                                Text(
+                                    if (memberCount == 0) {
+                                        stringResource(R.string.automation_all_members_follow_group)
+                                    } else {
+                                        pluralStringResource(
+                                            R.plurals.automation_configured_members,
+                                            memberCount,
+                                            memberCount,
+                                        )
+                                    }
+                                )
                             }
                         )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("关闭") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }
 
     private fun showGroupMemberSelector(context: Context, groupId: String, onUpdated: () -> Unit) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var revision by remember { mutableIntStateOf(0) }
             val members = remember(groupId) {
                 runCatching { WeDatabaseApi.getGroupMembers(groupId) }
@@ -344,12 +381,20 @@ internal object RedPacketSettings {
             val groupName = remember(groupId) { WeDatabaseApi.getDisplayName(groupId) }
 
             AutomationContactSettingsSelector(
-                title = "$groupName - 分群成员设置",
+                title = stringResource(R.string.automation_group_member_settings_title, groupName),
                 contacts = members,
                 selectionKey = revision,
                 subtitle = { member ->
                     val count = groupMemberOverrides(groupId, member.wxId).overriddenCount()
-                    if (count == 0) "跟随群聊全局设置" else "已覆盖 $count 项"
+                    if (count == 0) {
+                        localizedContext.getString(R.string.automation_follow_group_global)
+                    } else {
+                        localizedContext.resources.getQuantityString(
+                            R.plurals.automation_overrides,
+                            count,
+                            count,
+                        )
+                    }
                 },
                 isConfigured = { member ->
                     groupMemberOverrides(groupId, member.wxId).overriddenCount() > 0
@@ -359,7 +404,7 @@ internal object RedPacketSettings {
                     showOverrideDialog(
                         context = context,
                         title = member.displayName.ifBlank { member.wxId },
-                        parentLabel = "群聊全局设置",
+                        parentLabel = localizedContext.getString(R.string.automation_group_global_settings),
                         parent = globalRules().apply(contactOverrides(groupId)),
                         initial = groupMemberOverrides(groupId, member.wxId),
                         onSave = {
@@ -382,9 +427,10 @@ internal object RedPacketSettings {
         onSave: (RuleOverrides) -> Unit
     ) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var draft by remember { mutableStateOf(initial) }
             val effective = parent.apply(draft)
-            val validationError = validate(effective, draft.keys())
+            val validationError = validate(localizedContext, effective, draft.keys())
 
             AlertDialogContent(
                 modifier = Modifier
@@ -407,12 +453,12 @@ internal object RedPacketSettings {
                         enabled = validationError == null,
                         onClick = {
                             onSave(draft)
-                            showToast("设置已保存")
+                            showToast(localizedContext.getString(R.string.settings_saved))
                             onDismiss()
                         }
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
@@ -431,15 +477,15 @@ internal object RedPacketSettings {
 
         AutomationScrollableColumn {
             RuleHeader(
-                title = "默认抢红包",
+                title = stringResource(R.string.payment_red_packet_default_grab),
                 summary = if (isGlobalEditor && rules.grab.enabled) {
-                    "默认抢所有联系人, 分联系人设置可单独关闭"
+                    stringResource(R.string.payment_red_packet_default_all)
                 } else if (isGlobalEditor) {
-                    "默认不抢任何联系人, 分联系人设置可单独开启"
+                    stringResource(R.string.payment_red_packet_default_none)
                 } else if (rules.grab.enabled) {
-                    "在当前范围内抢红包"
+                    stringResource(R.string.payment_red_packet_grab_scope)
                 } else {
-                    "在当前范围内跳过红包"
+                    stringResource(R.string.payment_red_packet_skip_scope)
                 },
                 enabled = rules.grab.enabled,
                 key = RuleKey.GRAB,
@@ -451,8 +497,14 @@ internal object RedPacketSettings {
             )
 
             RuleHeader(
-                title = "抢自己的红包",
-                summary = if (rules.grabSelf.enabled) "允许抢自己发出的红包" else "跳过自己发出的红包",
+                title = stringResource(R.string.payment_red_packet_grab_self),
+                summary = stringResource(
+                    if (rules.grabSelf.enabled) {
+                        R.string.payment_red_packet_grab_self_enabled
+                    } else {
+                        R.string.payment_red_packet_grab_self_disabled
+                    }
+                ),
                 enabled = rules.grabSelf.enabled,
                 key = RuleKey.GRAB_SELF,
                 overriddenKeys = overriddenKeys,
@@ -466,11 +518,11 @@ internal object RedPacketSettings {
 
             val receiveModeEditable = overriddenKeys == null || RuleKey.RECEIVE_MODE in overriddenKeys
             RuleHeader(
-                title = "领取方式",
+                title = stringResource(R.string.payment_red_packet_receive_mode),
                 summary = if (rules.receiveMode == ReceiveMode.NETWORK) {
-                    "网络直发 (默认)"
+                    stringResource(R.string.payment_red_packet_network_default)
                 } else {
-                    "模拟手动点击"
+                    stringResource(R.string.payment_red_packet_manual_click)
                 },
                 enabled = true,
                 switchEnabled = false,
@@ -493,7 +545,15 @@ internal object RedPacketSettings {
                             onClick = { onChange(RuleKey.RECEIVE_MODE, rules.copy(receiveMode = mode)) },
                             shape = SegmentedButtonDefaults.itemShape(index, ReceiveMode.entries.size),
                         ) {
-                            Text(if (mode == ReceiveMode.NETWORK) "网络直发" else "模拟手动点击")
+                            Text(
+                                stringResource(
+                                    if (mode == ReceiveMode.NETWORK) {
+                                        R.string.payment_red_packet_network
+                                    } else {
+                                        R.string.payment_red_packet_manual_click
+                                    }
+                                )
+                            )
                         }
                     }
                 }
@@ -501,11 +561,11 @@ internal object RedPacketSettings {
 
             val timeEditable = overriddenKeys == null || RuleKey.TIME_RANGE in overriddenKeys
             RuleHeader(
-                title = "时间段抢红包",
+                title = stringResource(R.string.payment_red_packet_time_range),
                 summary = if (rules.timeRange.enabled) {
                     "${formatAutomationMinute(rules.timeRange.startMinute)} - ${formatAutomationMinute(rules.timeRange.endMinute)}"
                 } else {
-                    "不限制抢红包时间"
+                    stringResource(R.string.payment_red_packet_time_unrestricted)
                 },
                 enabled = rules.timeRange.enabled,
                 key = RuleKey.TIME_RANGE,
@@ -527,8 +587,11 @@ internal object RedPacketSettings {
 
             val keywordEditable = overriddenKeys == null || RuleKey.KEYWORD in overriddenKeys
             RuleHeader(
-                title = "关键词抢红包",
-                summary = automationKeywordSummary(rules.keyword, "不限制红包关键词"),
+                title = stringResource(R.string.payment_red_packet_keywords),
+                summary = automationKeywordSummary(
+                    rules.keyword,
+                    stringResource(R.string.payment_red_packet_keywords_unrestricted),
+                ),
                 enabled = rules.keyword.enabled,
                 key = RuleKey.KEYWORD,
                 overriddenKeys = overriddenKeys,
@@ -550,8 +613,11 @@ internal object RedPacketSettings {
 
             val skipKeywordEditable = overriddenKeys == null || RuleKey.SKIP_KEYWORD in overriddenKeys
             RuleHeader(
-                title = "关键词不抢红包",
-                summary = automationKeywordSummary(rules.skipKeyword, "不限制跳过关键词"),
+                title = stringResource(R.string.payment_red_packet_skip_keywords),
+                summary = automationKeywordSummary(
+                    rules.skipKeyword,
+                    stringResource(R.string.payment_red_packet_skip_keywords_unrestricted),
+                ),
                 enabled = rules.skipKeyword.enabled,
                 key = RuleKey.SKIP_KEYWORD,
                 overriddenKeys = overriddenKeys,
@@ -576,11 +642,15 @@ internal object RedPacketSettings {
 
             val delayEditable = overriddenKeys == null || RuleKey.DELAY in overriddenKeys
             RuleHeader(
-                title = "延迟抢红包",
+                title = stringResource(R.string.payment_red_packet_delay),
                 summary = if (rules.delay.enabled) {
-                    "基础 ${rules.delay.baseMs.ifBlank { "0" }} ms, 随机偏移 ±${rules.delay.randomRangeMs.ifBlank { "0" }} ms"
+                    stringResource(
+                        R.string.automation_delay_summary,
+                        rules.delay.baseMs.ifBlank { "0" },
+                        rules.delay.randomRangeMs.ifBlank { "0" },
+                    )
                 } else {
-                    "收到后立即抢红包"
+                    stringResource(R.string.payment_red_packet_immediate)
                 },
                 enabled = rules.delay.enabled,
                 key = RuleKey.DELAY,
@@ -603,7 +673,7 @@ internal object RedPacketSettings {
                         val value = it.filter(Char::isDigit).take(MAX_DELAY_DIGITS)
                         onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(baseMs = value)))
                     },
-                    label = { Text("基础延迟 (毫秒)") },
+                    label = { Text(stringResource(R.string.automation_base_delay_ms)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
@@ -620,15 +690,21 @@ internal object RedPacketSettings {
                             rules.copy(delay = rules.delay.copy(randomRangeMs = value))
                         )
                     },
-                    label = { Text("随机偏移范围 (±毫秒)") },
+                    label = { Text(stringResource(R.string.automation_random_delay_ms)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
             }
 
             RuleHeader(
-                title = "抢到后通知",
-                summary = if (rules.notification.enabled) "显示抢到的金额与来源" else "不显示通知",
+                title = stringResource(R.string.payment_red_packet_notification),
+                summary = stringResource(
+                    if (rules.notification.enabled) {
+                        R.string.payment_red_packet_notification_enabled
+                    } else {
+                        R.string.automation_notification_disabled
+                    }
+                ),
                 enabled = rules.notification.enabled,
                 key = RuleKey.NOTIFICATION,
                 overriddenKeys = overriddenKeys,
@@ -645,8 +721,14 @@ internal object RedPacketSettings {
 
             val replyEditable = overriddenKeys == null || RuleKey.AUTO_REPLY in overriddenKeys
             RuleHeader(
-                title = "抢到后自动回复",
-                summary = if (rules.autoReply.enabled) "成功后向来源会话发送消息" else "不自动回复",
+                title = stringResource(R.string.payment_red_packet_auto_reply),
+                summary = stringResource(
+                    if (rules.autoReply.enabled) {
+                        R.string.automation_auto_reply_enabled
+                    } else {
+                        R.string.automation_auto_reply_disabled
+                    }
+                ),
                 enabled = rules.autoReply.enabled,
                 key = RuleKey.AUTO_REPLY,
                 overriddenKeys = overriddenKeys,
@@ -667,8 +749,8 @@ internal object RedPacketSettings {
                     onValueChange = {
                         onChange(RuleKey.AUTO_REPLY, rules.copy(autoReply = rules.autoReply.copy(text = it)))
                     },
-                    label = { Text("回复内容") },
-                    supportingText = { Text($$"使用 $amount 表示抢到的金额") },
+                    label = { Text(stringResource(R.string.automation_reply_content)) },
+                    supportingText = { Text(stringResource(R.string.payment_red_packet_amount_placeholder)) },
                     singleLine = true
                 )
             }
@@ -754,21 +836,25 @@ internal object RedPacketSettings {
         RuleKey.AUTO_REPLY -> copy(autoReply = null)
     }
 
-    private fun validate(rules: RuleSet, keys: Set<RuleKey>? = null): String? {
+    private fun validate(context: Context, rules: RuleSet, keys: Set<RuleKey>? = null): String? {
         fun validates(key: RuleKey) = keys == null || key in keys
 
         if (validates(RuleKey.DELAY) && rules.delay.enabled) {
-            if (rules.delay.baseMs.toLongOrNull() == null) return "请输入有效的基础延迟"
-            if (rules.delay.randomRangeMs.toLongOrNull() == null) return "请输入有效的随机偏移范围"
+            if (rules.delay.baseMs.toLongOrNull() == null) {
+                return context.getString(R.string.automation_invalid_base_delay)
+            }
+            if (rules.delay.randomRangeMs.toLongOrNull() == null) {
+                return context.getString(R.string.automation_invalid_random_delay)
+            }
         }
         if (validates(RuleKey.KEYWORD)) {
-            rules.keyword.validationError("关键词")?.let { return it }
+            rules.keyword.validationError(context.getString(R.string.payment_red_packet_keyword_label))?.let { return it }
         }
         if (validates(RuleKey.SKIP_KEYWORD)) {
-            rules.skipKeyword.validationError("不抢关键词")?.let { return it }
+            rules.skipKeyword.validationError(context.getString(R.string.payment_red_packet_skip_keyword_label))?.let { return it }
         }
         if (validates(RuleKey.AUTO_REPLY) && rules.autoReply.enabled && rules.autoReply.text.isBlank()) {
-            return "自动回复内容不能为空"
+            return context.getString(R.string.automation_reply_required)
         }
         return null
     }

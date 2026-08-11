@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.payment
 import android.app.Activity
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,9 +17,11 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import dev.ujhhgtg.reflekt.utils.createInstance
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -99,7 +102,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
     }
 
     private var isRunning by mutableStateOf(false)
-    private val logList = mutableStateListOf<String>()
+    private val logList = mutableStateListOf<HistoryLog>()
 
     private val currentRedPacketMap = ConcurrentHashMap<String, RedPacketInfo>()
     private val scope = CoroutineScope(Dispatchers.Default + Job())
@@ -113,6 +116,11 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
         val channelId: Int,
         val headImg: String = "",
         val nickName: String = ""
+    )
+
+    private data class HistoryLog(
+        @StringRes val messageRes: Int,
+        val formatArgs: List<Any> = emptyList(),
     )
 
     override fun onEnable() {
@@ -138,7 +146,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "failed to open request", e)
                     currentRedPacketMap.remove(sendId)
-                    updateLog("红包 [${info.nickName}] 拆开请求异常")
+                    updateLog(R.string.payment_history_open_request_failed, info.nickName)
                 }
             }
         }
@@ -153,7 +161,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
             val retCode = json.optInt("retcode", -1)
 
             if (retCode != 0) {
-                updateLog("红包 [${info.nickName}] 领取失败 (retcode=$retCode)")
+                updateLog(R.string.payment_history_receive_failed, info.nickName, retCode)
                 return@hookAfter
             }
 
@@ -161,12 +169,12 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
                 2 -> {
                     val amount = json.optInt("amount", 0)
                     val displayAmount = amount / 100.0
-                    updateLog("红包 [${info.nickName}] 领取成功: ¥$displayAmount")
+                    updateLog(R.string.payment_history_receive_success, info.nickName, displayAmount)
                 }
 
-                3 -> updateLog("红包 [${info.nickName}] 领取完毕: 已过期")
-                4 -> updateLog("红包 [${info.nickName}] 领取完毕: 已被领完")
-                else -> updateLog("红包 [${info.nickName}] 状态未知 (status=$receiveStatus)")
+                3 -> updateLog(R.string.payment_history_expired, info.nickName)
+                4 -> updateLog(R.string.payment_history_empty, info.nickName)
+                else -> updateLog(R.string.payment_history_unknown_status, info.nickName, receiveStatus)
             }
         }
     }
@@ -184,7 +192,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
                 key = PREF_KEY,
-                title = "捡漏历史红包",
+                title = activity.localizedPaymentString(R.string.feature_open_history_red_packets_name),
                 position = 1
             )
         )
@@ -200,7 +208,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
             startScanning(convId)
             showProgressDialog(activity)
         } else {
-            showToast(activity, "已有正在进行的捡漏任务!")
+            showToast(activity, activity.localizedPaymentString(R.string.payment_history_already_running))
             showProgressDialog(activity)
         }
         return true
@@ -210,14 +218,14 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
         if (isRunning) {
             showProgressDialog(context)
         } else {
-            showToast(context, "当前没有正在进行的捡漏任务!")
+            showToast(context, context.localizedPaymentString(R.string.payment_history_not_running))
         }
     }
 
     private fun startScanning(convId: String) {
         isRunning = true
         logList.clear()
-        logList.add("开始扫描会话历史消息...")
+        logList.add(HistoryLog(R.string.payment_history_scan_started))
 
         scanJob = scope.launch {
             try {
@@ -252,16 +260,19 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
 
                 if (isRunning) {
                     if (reachedExpired) {
-                        updateLog("已扫描完 24 小时内的消息, 更早的红包已过期, 停止扫描")
+                        updateLog(R.string.payment_history_scan_expired_complete)
                     } else {
-                        updateLog("所有历史消息扫描完毕")
+                        updateLog(R.string.payment_history_scan_complete)
                     }
                     isRunning = false
                 }
             } catch (e: Throwable) {
                 if (e !is CancellationException) {
                     WeLogger.e(TAG, "扫描历史红包过程出错", e)
-                    updateLog("扫描异常终止: ${e.localizedMessage}")
+                    updateLog(
+                        R.string.payment_history_scan_failed,
+                        e.localizedMessage ?: e.javaClass.simpleName,
+                    )
                 }
                 isRunning = false
             }
@@ -288,7 +299,11 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
 
             if (sendId.isEmpty()) return
 
-            updateLog("发现历史红包 [${nickName.ifEmpty { "<未命名>" }}], 尝试领包...")
+            if (nickName.isEmpty()) {
+                updateLog(R.string.payment_history_found_unnamed)
+            } else {
+                updateLog(R.string.payment_history_found, nickName)
+            }
 
             currentRedPacketMap[sendId] = RedPacketInfo(
                 sendId = sendId,
@@ -313,12 +328,12 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
         isRunning = false
         scanJob?.cancel()
         scanJob = null
-        updateLog("已手动终止捡漏任务")
+        updateLog(R.string.payment_history_stopped)
     }
 
-    private fun updateLog(text: String) {
+    private fun updateLog(@StringRes messageRes: Int, vararg formatArgs: Any) {
         scope.launch(Dispatchers.Main) {
-            logList.add(text)
+            logList.add(HistoryLog(messageRes, formatArgs.toList()))
         }
     }
 
@@ -342,7 +357,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
             }
 
             AlertDialogContent(
-                title = { Text("历史红包捡漏") },
+                title = { Text(stringResource(R.string.payment_history_title)) },
                 text = {
                     LazyColumn(
                         state = listState,
@@ -351,7 +366,10 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
                             .fillMaxHeight(0.92f),
                     ) {
                         items(logList) { log ->
-                            Text(text = log, modifier = Modifier.padding(vertical = 2.dp))
+                            Text(
+                                text = stringResource(log.messageRes, *log.formatArgs.toTypedArray()),
+                                modifier = Modifier.padding(vertical = 2.dp),
+                            )
                         }
                     }
                 },
@@ -360,7 +378,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
                         Button(onClick = {
                             onDismiss()
                         }) {
-                            Text("后台")
+                            Text(stringResource(R.string.payment_history_background))
                         }
                     }
                 },
@@ -369,13 +387,13 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
                         TextButton(onClick = {
                             stopScanning()
                         }) {
-                            Text("终止")
+                            Text(stringResource(R.string.payment_history_stop))
                         }
                     } else {
                         TextButton(onClick = {
                             onDismiss()
                         }) {
-                            Text("关闭")
+                            Text(stringResource(R.string.dialog_close))
                         }
                     }
                 }
