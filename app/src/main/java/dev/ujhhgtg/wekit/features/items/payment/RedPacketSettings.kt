@@ -281,8 +281,8 @@ internal object RedPacketSettings {
                     } else {
                         showOverrideDialog(
                             context = context,
-                            title = contact.displayName.ifBlank { contact.wxId },
-                            parentLabel = localizedContext.getString(R.string.automation_global_settings),
+                            title = PaymentUiText.Raw(contact.displayName.ifBlank { contact.wxId }),
+                            parentLabelRes = R.string.automation_global_settings,
                             parent = globalRules(),
                             initial = contactOverrides(contact.wxId),
                             onSave = {
@@ -298,7 +298,6 @@ internal object RedPacketSettings {
 
     private fun showGroupSettingsDialog(context: Context, groupId: String, onUpdated: () -> Unit) {
         showComposeDialog(context) {
-            val localizedContext = LocalContext.current
             var revision by remember { mutableIntStateOf(0) }
             val groupName = remember(groupId) { WeDatabaseApi.getDisplayName(groupId) }
             val groupOverrideCount = remember(revision) {
@@ -314,8 +313,8 @@ internal object RedPacketSettings {
                             modifier = Modifier.clickable {
                                 showOverrideDialog(
                                     context = context,
-                                    title = localizedContext.getString(R.string.automation_group_global_settings),
-                                    parentLabel = localizedContext.getString(R.string.automation_global_settings),
+                                    title = PaymentUiText.Resource(R.string.automation_group_global_settings),
+                                    parentLabelRes = R.string.automation_global_settings,
                                     parent = globalRules(),
                                     initial = contactOverrides(groupId),
                                     onSave = {
@@ -403,8 +402,8 @@ internal object RedPacketSettings {
                 onOpen = { member ->
                     showOverrideDialog(
                         context = context,
-                        title = member.displayName.ifBlank { member.wxId },
-                        parentLabel = localizedContext.getString(R.string.automation_group_global_settings),
+                        title = PaymentUiText.Raw(member.displayName.ifBlank { member.wxId }),
+                        parentLabelRes = R.string.automation_group_global_settings,
                         parent = globalRules().apply(contactOverrides(groupId)),
                         initial = groupMemberOverrides(groupId, member.wxId),
                         onSave = {
@@ -420,8 +419,8 @@ internal object RedPacketSettings {
 
     private fun showOverrideDialog(
         context: Context,
-        title: String,
-        parentLabel: String,
+        title: PaymentUiText,
+        @androidx.annotation.StringRes parentLabelRes: Int,
         parent: RuleSet,
         initial: RuleOverrides,
         onSave: (RuleOverrides) -> Unit
@@ -436,12 +435,12 @@ internal object RedPacketSettings {
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
-                title = { Text(title) },
+                title = { Text(title.resolve()) },
                 text = {
                     RuleSetEditor(
                         rules = effective,
                         overriddenKeys = draft.keys(),
-                        parentLabel = parentLabel,
+                        parentLabel = stringResource(parentLabelRes),
                         onActivate = { key -> draft = draft.withRule(key, effective) },
                         onReset = { key -> draft = draft.withoutRule(key) },
                         onChange = { key, updated -> draft = draft.withRule(key, updated) },

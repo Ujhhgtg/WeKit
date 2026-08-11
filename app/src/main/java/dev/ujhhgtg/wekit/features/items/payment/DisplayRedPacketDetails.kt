@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -21,6 +22,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Feature(
     id = "红包页面详情",
@@ -78,7 +80,10 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
                         localizedPaymentString(R.string.payment_red_packet_date_same_year)
                     else -> localizedPaymentString(R.string.payment_red_packet_date_other_year)
                 }
-                val formatter = DateTimeFormatter.ofPattern(pattern)
+                val formatter = DateTimeFormatter.ofPattern(
+                    pattern,
+                    Locale.forLanguageTag(WeKitLocaleController.resolvedLocale.androidTag),
+                )
                 textView.text = localDateTime.format(formatter)
             }.onFailure {
                 WeLogger.e(TAG, "error binding red packet list item time", it)

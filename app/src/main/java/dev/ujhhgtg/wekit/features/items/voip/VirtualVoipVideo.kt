@@ -31,7 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.firstMethod
@@ -275,7 +274,6 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            val localizedContext = LocalContext.current
             var currentType by remember { mutableStateOf(sourceType) }
             var urlText by remember { mutableStateOf(streamUrl) }
 
@@ -349,7 +347,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                                 WeLogger.e(TAG, "failed to open input stream")
                                                 showToast(
                                                     context,
-                                                    localizedContext.getString(R.string.voip_virtual_video_open_failed),
+                                                    localizedVoipString(R.string.voip_virtual_video_open_failed),
                                                 )
                                                 return@registerForActivityResult
                                             }
@@ -357,7 +355,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                             fileExists = true
                                             showToast(
                                                 context,
-                                                localizedContext.getString(R.string.voip_virtual_video_imported),
+                                                localizedVoipString(R.string.voip_virtual_video_imported),
                                             )
                                         }
 
