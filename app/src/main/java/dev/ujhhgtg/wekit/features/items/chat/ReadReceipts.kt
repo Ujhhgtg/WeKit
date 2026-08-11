@@ -9,10 +9,15 @@ import android.view.View
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -57,6 +62,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
@@ -715,9 +721,15 @@ object ReadReceipts : ClickableFeature(),
         expectedHostname: String,
         expectedPort: Int,
         requireVerifiedEndpoint: Boolean,
+        maxAttempts: Int?,
     ): ReadReceiptsConfiguration? {
-        repeat(BROWSER_METADATA_RECONCILE_ATTEMPTS) {
+        var attempts = 0
+        while (maxAttempts == null || attempts < maxAttempts) {
+            currentCoroutineContext().ensureActive()
             val reconciled = withContext(Dispatchers.Main.immediate) {
+                if (attempts % BROWSER_METADATA_RECONCILE_ATTEMPTS == 0) {
+                    ReadReceiptsTunnelController.refresh()
+                }
                 reconcileBrowserConfiguration(
                     force = true,
                     expectedTunnelId = expectedTunnelId,
@@ -727,6 +739,7 @@ object ReadReceipts : ClickableFeature(),
                 )
             }
             if (reconciled != null) return reconciled
+            attempts++
             delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS)
         }
         return null
@@ -734,7 +747,8 @@ object ReadReceipts : ClickableFeature(),
 
     private fun startBrowserSelection(
         candidate: ReadReceiptsConfiguration,
-        onFinished: (OriginRequestTerminal<ReadReceiptsConfiguration?>) -> Unit,
+        onCommitPending: () -> Unit,
+        onFinished: (OriginRequestTerminal<ReadReceiptsConfiguration>) -> Unit,
     ) {
         startBuiltInCandidate(
             configuration = candidate,
@@ -750,6 +764,7 @@ object ReadReceipts : ClickableFeature(),
                         expectedHostname = candidate.hostname,
                         expectedPort = port,
                         requireVerifiedEndpoint = selection.isFailure,
+                        maxAttempts = BROWSER_METADATA_RECONCILE_ATTEMPTS,
                     )
                     withContext(Dispatchers.Main.immediate) {
                         if (authoritative != null) {
@@ -757,14 +772,28 @@ object ReadReceipts : ClickableFeature(),
                                 OriginRequestTerminal.Completed(Result.success(authoritative)),
                             )
                         } else if (selection.isSuccess) {
-                            // The encrypted service commit already succeeded. REGISTER reconciliation
-                            // will project its metadata when the delayed snapshot/rebind arrives.
-                            onFinished(OriginRequestTerminal.Completed(Result.success(null)))
+                            onCommitPending()
                         } else {
                             complete(
                                 OriginRequestTerminal.Completed(
                                     Result.failure(selection.exceptionOrNull()!!),
                                 ),
+                            )
+                        }
+                    }
+                    if (authoritative == null && selection.isSuccess) {
+                        val reconciled = checkNotNull(
+                            awaitBrowserConfiguration(
+                                expectedTunnelId = candidate.selectedTunnelId,
+                                expectedHostname = candidate.hostname,
+                                expectedPort = port,
+                                requireVerifiedEndpoint = false,
+                                maxAttempts = null,
+                            ),
+                        )
+                        withContext(Dispatchers.Main.immediate) {
+                            onFinished(
+                                OriginRequestTerminal.Completed(Result.success(reconciled)),
                             )
                         }
                     }
@@ -789,7 +818,7 @@ object ReadReceipts : ClickableFeature(),
         candidate: ReadReceiptsConfiguration,
         starter: (
             ReadReceiptsConfiguration,
-            (OriginRequestTerminal<ReadReceiptsConfiguration?>) -> Unit,
+            (OriginRequestTerminal<ReadReceiptsConfiguration>) -> Unit,
         ) -> Unit,
         onFinished: (OriginRequestTerminal<Unit>) -> Unit,
     ) {
@@ -900,9 +929,7 @@ object ReadReceipts : ClickableFeature(),
                 when (terminal) {
                     is OriginRequestTerminal.Completed -> terminal.result.fold(
                         onSuccess = { committedCandidate ->
-                            if (committedCandidate != null) {
-                                saveConfiguration(committedCandidate)
-                            }
+                            saveConfiguration(committedCandidate)
                             onFinished(
                                 OriginRequestTerminal.Completed(Result.success(Unit)),
                             )
@@ -952,7 +979,7 @@ object ReadReceipts : ClickableFeature(),
                         OriginRequestTerminal.Completed(
                             terminal.result.fold(
                                 onSuccess = {
-                                    Result.success<ReadReceiptsConfiguration?>(canonicalCandidate)
+                                    Result.success(canonicalCandidate)
                                 },
                                 onFailure = { Result.failure(it) },
                             ),
@@ -967,10 +994,13 @@ object ReadReceipts : ClickableFeature(),
 
     private fun applyAndSelectBrowserStack(
         candidate: ReadReceiptsConfiguration,
+        onCommitPending: () -> Unit,
         onFinished: (OriginRequestTerminal<Unit>) -> Unit,
     ) = runBuiltInCandidateTransaction(
         candidate = candidate,
-        starter = ::startBrowserSelection,
+        starter = { canonicalCandidate, complete ->
+            startBrowserSelection(canonicalCandidate, onCommitPending, complete)
+        },
         onFinished = onFinished,
     )
 
@@ -1749,6 +1779,10 @@ object ReadReceipts : ClickableFeature(),
             }
             var browserOperationActive by remember { mutableStateOf(false) }
             var browserActionError by remember { mutableStateOf<String?>(null) }
+            var browserCommitPending by remember { mutableStateOf(false) }
+            var hydratedBrowserAuthority by remember {
+                mutableStateOf<CommittedBrowserTunnelMetadata?>(null)
+            }
 
             LaunchedEffect(Unit) {
                 ReadReceiptsTunnelController.refresh()
@@ -1759,7 +1793,39 @@ object ReadReceipts : ClickableFeature(),
                     browserLoginState = ReadReceiptsTunnelController.browserLoginState
                     browserAccountId = ReadReceiptsTunnelController.browserAccountId
                     browserTunnels = ReadReceiptsTunnelController.browserExistingTunnels
-                    reconcileBrowserConfiguration(force = false)
+                    val authority = when (val decision =
+                        ReadReceiptsTunnelController.browserMetadataRebindDecision
+                    ) {
+                        BrowserMetadataRebindDecision.Keep -> null
+                        is BrowserMetadataRebindDecision.Replace -> decision.metadata
+                    }
+                    val reconciled = authority
+                        ?.takeIf { it != hydratedBrowserAuthority }
+                        ?.let {
+                            reconcileBrowserConfiguration(
+                                force = true,
+                                expectedTunnelId = it.tunnelId,
+                                expectedHostname = it.canonicalHostname,
+                                expectedPort = it.fixedOriginPort,
+                            )
+                        }
+                    if (
+                        reconciled != null && authority != hydratedBrowserAuthority
+                    ) {
+                        modeInput = ReadReceiptsServerMode.BUILT_IN
+                        tunnelModeInput = ReadReceiptsTunnelMode.BROWSER_LOGIN
+                        automaticPortInput = false
+                        builtInPortInput = reconciled.builtInPort.toString()
+                        hostnameInput = reconciled.hostname
+                        manualBrowserHostname = reconciled.hostname
+                        selectedBrowserTunnelId = reconciled.selectedTunnelId
+                        selectedConfiguredHostname = browserTunnels
+                            .firstOrNull { it.id == reconciled.selectedTunnelId }
+                            ?.hostnames
+                            ?.firstOrNull { "https://$it" == reconciled.hostname }
+                            ?.let { "https://$it" }
+                        hydratedBrowserAuthority = authority
+                    }
                     delay(500)
                 }
             }
@@ -1767,7 +1833,7 @@ object ReadReceipts : ClickableFeature(),
             AlertDialogContent(
                 title = { Text("已读追踪") },
                 text = {
-                    DefaultColumn {
+                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         ListItem(
                             modifier = Modifier.clickable {
                                 modeInput = ReadReceiptsServerMode.THIRD_PARTY
@@ -1984,6 +2050,9 @@ object ReadReceipts : ClickableFeature(),
                                     if (browserActionError != null) {
                                         Text("操作错误: $browserActionError")
                                     }
+                                    if (browserCommitPending) {
+                                        Text("服务已提交并验证 Tunnel，正在等待权威配置同步；同步完成前不会报告成功")
+                                    }
 
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2129,23 +2198,32 @@ object ReadReceipts : ClickableFeature(),
                                     ) {
                                         Text("尚未加载 Tunnel；点击“刷新”读取当前账号的已有 Tunnel")
                                     }
-                                    browserTunnels.forEach { tunnel ->
-                                        ListItem(
-                                            modifier = Modifier.clickable {
-                                                selectedBrowserTunnelId = tunnel.id
-                                                selectedConfiguredHostname = tunnel.hostnames
-                                                    .firstOrNull()
-                                                    ?.let { "https://$it" }
-                                            },
-                                            trailingContent = {
-                                                RadioButton(
-                                                    selected = selectedBrowserTunnelId == tunnel.id,
-                                                    onClick = null,
-                                                )
-                                            },
-                                            supportingContent = { Text("Tunnel ID: ${tunnel.id}") },
-                                            content = { Text(tunnel.name) },
-                                        )
+                                    LazyColumn(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(max = 320.dp),
+                                    ) {
+                                        items(browserTunnels, key = ExistingTunnel::id) { tunnel ->
+                                            ListItem(
+                                                modifier = Modifier.clickable {
+                                                    selectedBrowserTunnelId = tunnel.id
+                                                    selectedConfiguredHostname = tunnel.hostnames
+                                                        .firstOrNull()
+                                                        ?.let { "https://$it" }
+                                                },
+                                                trailingContent = {
+                                                    RadioButton(
+                                                        selected =
+                                                            selectedBrowserTunnelId == tunnel.id,
+                                                        onClick = null,
+                                                    )
+                                                },
+                                                supportingContent = {
+                                                    Text("Tunnel ID: ${tunnel.id}")
+                                                },
+                                                content = { Text(tunnel.name) },
+                                            )
+                                        }
                                     }
 
                                     val selectedTunnel = browserTunnels.firstOrNull {
@@ -2153,20 +2231,27 @@ object ReadReceipts : ClickableFeature(),
                                     }
                                     if (selectedTunnel != null) {
                                         Text("Public Hostname")
-                                        selectedTunnel.hostnames.forEach { hostname ->
-                                            val root = "https://$hostname"
-                                            ListItem(
-                                                modifier = Modifier.clickable {
-                                                    selectedConfiguredHostname = root
-                                                },
-                                                trailingContent = {
-                                                    RadioButton(
-                                                        selected = selectedConfiguredHostname == root,
-                                                        onClick = null,
-                                                    )
-                                                },
-                                                content = { Text(hostname) },
-                                            )
+                                        LazyColumn(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(max = 240.dp),
+                                        ) {
+                                            items(selectedTunnel.hostnames, key = { it }) { hostname ->
+                                                val root = "https://$hostname"
+                                                ListItem(
+                                                    modifier = Modifier.clickable {
+                                                        selectedConfiguredHostname = root
+                                                    },
+                                                    trailingContent = {
+                                                        RadioButton(
+                                                            selected =
+                                                                selectedConfiguredHostname == root,
+                                                            onClick = null,
+                                                        )
+                                                    },
+                                                    content = { Text(hostname) },
+                                                )
+                                            }
                                         }
                                         ListItem(
                                             modifier = Modifier.clickable {
@@ -2229,12 +2314,19 @@ object ReadReceipts : ClickableFeature(),
                                                     selectedTunnelName = selectedTunnel.name,
                                                 )
                                                 browserActionError = null
+                                                browserCommitPending = false
                                                 val transactionOwner =
                                                     connectionTransactionOwnership.acquire()
-                                                applyAndSelectBrowserStack(candidate) { terminal ->
+                                                applyAndSelectBrowserStack(
+                                                    candidate = candidate,
+                                                    onCommitPending = {
+                                                        browserCommitPending = true
+                                                    },
+                                                ) { terminal ->
                                                     transactionOwner.finish(
                                                         terminal = terminal,
                                                         onCompletedSuccess = {
+                                                            browserCommitPending = false
                                                             originStatus =
                                                                 originController.snapshot()
                                                             val reconciled = configuration()
@@ -2249,6 +2341,7 @@ object ReadReceipts : ClickableFeature(),
                                                             )
                                                         },
                                                         onCompletedFailure = { error ->
+                                                            browserCommitPending = false
                                                             originStatus =
                                                                 originController.snapshot()
                                                             browserActionError = error.message
@@ -2259,6 +2352,7 @@ object ReadReceipts : ClickableFeature(),
                                                             )
                                                         },
                                                         onSuperseded = {
+                                                            browserCommitPending = false
                                                             originStatus =
                                                                 originController.snapshot()
                                                             browserActionError =
@@ -2413,6 +2507,58 @@ object ReadReceipts : ClickableFeature(),
                                             }
                                             },
                                         ) { Text("验证并连接") }
+                                    } else {
+                                        Button(
+                                            enabled = tunnelStatus.state in setOf(
+                                                ReadReceiptsTunnelState.STOPPED,
+                                                ReadReceiptsTunnelState.FAILED,
+                                                ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                                            ) && !connectionTransactionActive,
+                                            onClick = {
+                                                val authoritative =
+                                                    reconcileBrowserConfiguration(force = true)
+                                                        ?: run {
+                                                            browserActionError =
+                                                                "尚未取得已保存 Browser Tunnel 的权威配置，请稍后重试"
+                                                            return@Button
+                                                        }
+                                                browserActionError = null
+                                                val transactionOwner =
+                                                    connectionTransactionOwnership.acquire()
+                                                applyAndStartBuiltInStack(
+                                                    candidate = authoritative,
+                                                    token = null,
+                                                ) { terminal ->
+                                                    transactionOwner.finish(
+                                                        terminal = terminal,
+                                                        onCompletedSuccess = {
+                                                            originStatus =
+                                                                originController.snapshot()
+                                                            showToast(
+                                                                context,
+                                                                "已使用保存的 Browser Tunnel 发起重连",
+                                                            )
+                                                        },
+                                                        onCompletedFailure = { error ->
+                                                            originStatus =
+                                                                originController.snapshot()
+                                                            browserActionError = error.message
+                                                                ?: "Browser Tunnel 重连失败"
+                                                            showToast(
+                                                                context,
+                                                                "重连失败: $browserActionError",
+                                                            )
+                                                        },
+                                                        onSuperseded = {
+                                                            originStatus =
+                                                                originController.snapshot()
+                                                            browserActionError =
+                                                                "重连请求已被新请求取代"
+                                                        },
+                                                    )
+                                                }
+                                            },
+                                        ) { Text("使用已保存配置重连") }
                                     }
                                     Button(
                                         enabled = !connectionTransactionActive && (
