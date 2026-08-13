@@ -33,3 +33,47 @@ The first run requires a JDK 21 environment, Android SDK `apkanalyzer`, CMake, N
 network access to fetch the pinned DexKit source. The pinned Linux native library is built from
 the DexKit version in `gradle/libs.versions.toml`; the tool verifies the cached checkout revision
 before reusing it.
+
+## CI and cloud reports
+
+The `dex-test` CI job runs independently from the Android build on pushes to `master` and `dev`,
+pull requests targeting those branches, and manual workflow runs. Its APK matrix comes from the
+download links in [`docs/getting-started.md`](../getting-started.md): domestic builds use the listed
+official WeChat URLs, while Google Play builds use the listed APKMirror release pages. Keep those
+links unique by version and channel.
+
+CI turns that document into a manifest with:
+
+```bash
+./x dex-test-ci sources \
+  --doc docs/getting-started.md \
+  --output /tmp/wekit-dex-test-sources.json
+```
+
+Downloaded APKs are validated as ZIPs containing `AndroidManifest.xml` and at least one DEX, then
+cached using a key derived from the document, downloader, and manifest implementation. A matching
+cached APK and SHA-256 sidecar are reused. APKMirror bundles are merged with the pinned APKEditor
+version before testing.
+
+Every CI event uploads the complete run directory as the `wekit-dex-test-reports` Actions artifact,
+including failed per-APK reports and the aggregate `summary.json`. Any failed, blocked, incomplete,
+worker, download, or infrastructure result still fails the `dex-test` job after the artifact has
+been preserved.
+
+On `master` only, a second job updates the prerelease named `Dex Test` at tag `Dex-Test`. Successful
+per-host reports use canonical asset names:
+
+```text
+wechat-<versionName>-<versionCode>-domestic.json
+wechat-<versionName>-<versionCode>-google-play.json
+```
+
+The publisher replaces only hosts whose current report is `PASS`. If another host fails, its last
+successful canonical asset remains available. If no host passes, the Release is not modified at
+all. When at least one host passes, the current aggregate `summary.json` and Release notes are also
+updated, so they may describe a failed attempt while a failed host's canonical asset remains from
+an older successful run.
+
+The Android cloud-resolution client consumes only its matching canonical PASS report. It does not
+use `summary.json`, and it revalidates the host identity, generated resolver hash, delegate keys,
+statuses, and descriptors before writing any local cache.
