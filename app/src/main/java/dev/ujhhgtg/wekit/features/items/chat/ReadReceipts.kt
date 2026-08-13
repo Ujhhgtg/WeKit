@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Handler
@@ -8,6 +9,7 @@ import android.os.Looper
 import android.view.View
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -108,6 +110,21 @@ internal fun readReceiptNetworkFailureCategory(failure: Throwable): String = whe
     is ConnectException -> "connect"
     is IOException -> "io"
     else -> "response"
+}
+
+private sealed interface ReadReceiptRuntimeError {
+    fun message(context: Context): String
+
+    class Resource(
+        @StringRes private val id: Int,
+        vararg private val formatArgs: Any,
+    ) : ReadReceiptRuntimeError {
+        override fun message(context: Context): String = context.localizedChatString(id, *formatArgs)
+    }
+
+    class LegacyText(private val value: String) : ReadReceiptRuntimeError {
+        override fun message(context: Context): String = value
+    }
 }
 
 /** Runs one connection owner's terminal policy exactly once. */
@@ -356,7 +373,7 @@ object ReadReceipts : ClickableFeature(),
     )
 
     @Volatile
-    private var runtimeError: String? = null
+    private var runtimeError: ReadReceiptRuntimeError? = null
 
     private val originController = NativeReadReceiptsServerController()
     private val originScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -491,14 +508,16 @@ object ReadReceipts : ClickableFeature(),
         wxId: String,
         content: String,
         createTime: Long,
-    ): String? {
+    ): ReadReceiptRuntimeError? {
         val bodyJson = buildJsonObject {
             put("wxId", wxId)
             put("content", content)
             put("createTime", createTime)
         }.toString()
         if (bodyJson.toByteArray(Charsets.UTF_8).size > MAX_REGISTRATION_BODY_BYTES) {
-            return localizedChatString(R.string.read_receipts_registration_request_too_large)
+            return ReadReceiptRuntimeError.Resource(
+                R.string.read_receipts_registration_request_too_large,
+            )
         }
         val body = bodyJson.toRequestBody(jsonMediaType)
         val request = Request.Builder().url("$endpoint/register").post(body).build()
@@ -511,7 +530,7 @@ object ReadReceipts : ClickableFeature(),
                     registrationCalls -= call
                     WeLogger.w(TAG, "register request failed (${readReceiptNetworkFailureCategory(e)})")
                     continuation.resumeIfActive(
-                        localizedChatString(R.string.read_receipts_registration_failed),
+                        ReadReceiptRuntimeError.Resource(R.string.read_receipts_registration_failed),
                     )
                 }
 
@@ -523,7 +542,7 @@ object ReadReceipts : ClickableFeature(),
                         } else {
                             WeLogger.w(TAG, "register failed: HTTP ${it.code}")
                             continuation.resumeIfActive(
-                                localizedChatString(
+                                ReadReceiptRuntimeError.Resource(
                                     R.string.read_receipts_registration_http_failed,
                                     it.code,
                                 ),
@@ -700,12 +719,14 @@ object ReadReceipts : ClickableFeature(),
     private fun verifiedTunnelEndpoint(): String? =
         ReadReceiptsTunnelController.verifiedEndpoint()
 
-    private fun resolveBackend(): Pair<ResolvedBackend?, String?> {
+    private fun resolveBackend(): Pair<ResolvedBackend?, ReadReceiptRuntimeError?> {
         val configuration = configuration()
         return when (configuration.mode) {
             ReadReceiptsServerMode.THIRD_PARTY -> {
                 val endpoint = normalizedHttpsEndpoint(configuration.thirdPartyUrl)
-                    ?: return null to localizedChatString(R.string.chat_read_receipts_server_missing)
+                    ?: return null to ReadReceiptRuntimeError.Resource(
+                        R.string.chat_read_receipts_server_missing,
+                    )
                 ResolvedBackend(
                     backend = ReadReceiptBackend.THIRD_PARTY,
                     requestEndpoint = endpoint,
@@ -717,10 +738,12 @@ object ReadReceipts : ClickableFeature(),
             ReadReceiptsServerMode.BUILT_IN -> {
                 val origin = originController.snapshot()
                 if (origin.state != ReadReceiptsRuntimeState.RUNNING || origin.port == null) {
-                    return null to "内置服务器未运行"
+                    return null to ReadReceiptRuntimeError.LegacyText("内置服务器未运行")
                 }
                 val publicEndpoint = verifiedTunnelEndpoint()
-                    ?: return null to "Cloudflare Tunnel 公网健康检查尚未通过"
+                    ?: return null to ReadReceiptRuntimeError.LegacyText(
+                        "Cloudflare Tunnel 公网健康检查尚未通过",
+                    )
                 ResolvedBackend(
                     backend = ReadReceiptBackend.BUILT_IN,
                     requestEndpoint = "http://127.0.0.1:${origin.port}",
@@ -1451,7 +1474,9 @@ object ReadReceipts : ClickableFeature(),
                             onFailure = { error ->
                                 lastBuiltInPort = status.port ?: 0
                                 lastBuiltInState = status.state.name
-                                runtimeError = error.message ?: error.javaClass.simpleName
+                                runtimeError = ReadReceiptRuntimeError.LegacyText(
+                                    error.message ?: error.javaClass.simpleName,
+                                )
                             },
                         )
                         true
@@ -1690,12 +1715,13 @@ object ReadReceipts : ClickableFeature(),
 
             val (backend, endpointError) = resolveBackend()
             if (backend == null) {
-                runtimeError = endpointError!!
+                val error = endpointError!!
+                runtimeError = error
                 showToast(
                     chatFooter.context,
                     chatFooter.context.localizedChatString(
                         R.string.read_receipts_error_prefix,
-                        endpointError,
+                        error.message(chatFooter.context),
                     ),
                 )
                 return@hookBefore
@@ -1707,12 +1733,15 @@ object ReadReceipts : ClickableFeature(),
                 selfWxId.toByteArray(Charsets.UTF_8).size > MAX_WX_ID_BYTES ||
                 actualText.toByteArray(Charsets.UTF_8).size > MAX_CONTENT_BYTES
             ) {
-                runtimeError = localizedChatString(R.string.read_receipts_sender_or_content_too_large)
+                val error = ReadReceiptRuntimeError.Resource(
+                    R.string.read_receipts_sender_or_content_too_large,
+                )
+                runtimeError = error
                 showToast(
                     chatFooter.context,
                     chatFooter.context.localizedChatString(
                         R.string.read_receipts_error_prefix,
-                        runtimeError!!,
+                        error.message(chatFooter.context),
                     ),
                 )
                 return@hookBefore
@@ -1770,12 +1799,13 @@ object ReadReceipts : ClickableFeature(),
                 if (registrationError != null) {
                     withContext(Dispatchers.Main.immediate) {
                         if (!ReadReceipts.isActive) return@withContext
-                        runtimeError = registrationError
+                        val error = registrationError
+                        runtimeError = error
                         showToast(
                             chatFooter.context,
                             chatFooter.context.localizedChatString(
                                 R.string.read_receipts_error_prefix,
-                                registrationError,
+                                error.message(chatFooter.context),
                             ),
                         )
                     }
@@ -1786,12 +1816,13 @@ object ReadReceipts : ClickableFeature(),
                     coroutineContext.ensureActive()
                     if (!ReadReceipts.isActive) return@withContext
                     if (!WeMessageApi.sendXmlAppMsg(target, xml)) {
-                        runtimeError = localizedChatString(R.string.read_receipts_send_failed)
+                        val error = ReadReceiptRuntimeError.Resource(R.string.read_receipts_send_failed)
+                        runtimeError = error
                         showToast(
                             chatFooter.context,
                             chatFooter.context.localizedChatString(
                                 R.string.read_receipts_error_prefix,
-                                runtimeError!!,
+                                error.message(chatFooter.context),
                             ),
                         )
                         return@withContext
@@ -1914,9 +1945,11 @@ object ReadReceipts : ClickableFeature(),
             MessageTimeEnhancements.renderMessageTime(
                 message,
                 receiptView.view,
+                forceVisible = true,
                 readReceiptCount = null,
             )
             receiptView.view.setTag(READ_RECEIPTS_COUNT_TAG, null)
+            receiptView.view.setTag(READ_RECEIPTS_NATIVE_TEXT_TAG, null)
         }
         val empty = synchronized(activeViews) { activeViews.isEmpty() }
         if (empty) {
@@ -1957,6 +1990,11 @@ object ReadReceipts : ClickableFeature(),
     ) {
         val count = counts[record.key()]
         timeTV.setTag(READ_RECEIPTS_MESSAGE_ID_TAG, message.id)
+        if (!MessageTimeEnhancements.isActive &&
+            timeTV.getTag(READ_RECEIPTS_NATIVE_TEXT_TAG) == null
+        ) {
+            timeTV.setTag(READ_RECEIPTS_NATIVE_TEXT_TAG, timeTV.text.toString())
+        }
         MessageTimeEnhancements.renderMessageTime(
             message,
             timeTV,
@@ -3029,11 +3067,11 @@ object ReadReceipts : ClickableFeature(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
-                        if (runtimeError != null) {
+                        runtimeError?.let { error ->
                             Text(
                                 context.localizedChatString(
                                     R.string.read_receipts_recent_error,
-                                    runtimeError!!,
+                                    error.message(context),
                                 ),
                             )
                         }

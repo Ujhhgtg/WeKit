@@ -2,6 +2,10 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 const val READ_RECEIPTS_PLACEHOLDER = $$"$readReceipts"
 
+/** Returns the retained locale-neutral native text when a view has already rendered a receipt. */
+fun readReceiptNativeText(renderedOrNativeText: String, retainedNativeText: String?): String =
+    retainedNativeText ?: renderedOrNativeText
+
 /**
  * Renders the read-receipt portion of a message-time string without depending on Android state.
  *

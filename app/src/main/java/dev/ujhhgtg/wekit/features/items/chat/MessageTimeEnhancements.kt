@@ -63,6 +63,7 @@ import dev.ujhhgtg.wekit.utils.formatEpoch
 internal const val READ_RECEIPTS_MESSAGE_ID_TAG = 0x7E000010
 internal const val READ_RECEIPTS_BINDING_GENERATION_TAG = 0x7E000011
 internal const val READ_RECEIPTS_COUNT_TAG = 0x7E000012
+internal const val READ_RECEIPTS_NATIVE_TEXT_TAG = 0x7E000013
 
 internal data class ReadReceiptCountState(val count: Int?)
 
@@ -192,13 +193,13 @@ object MessageTimeEnhancements : ClickableFeature(),
         if (!forceVisible && !isAlwaysVisible && !time.isVisible) return
 
         val context = time.context
-        val previousReadText = (time.getTag(READ_RECEIPTS_COUNT_TAG) as? ReadReceiptCountState)
-            ?.count
-            ?.let { localizedChatString(R.string.chat_read_receipts_count, it) }
         val baseText = if (enhancementActive) {
             getFormattedText(msgInfo)
         } else {
-            time.text?.toString().orEmpty().removeSuffix(" | $previousReadText")
+            readReceiptNativeText(
+                time.text?.toString().orEmpty(),
+                time.getTag(READ_RECEIPTS_NATIVE_TEXT_TAG) as? String,
+            )
         }
         val localizedReadText = readReceiptCount?.let {
             localizedChatString(R.string.chat_read_receipts_count, it)
@@ -294,6 +295,7 @@ object MessageTimeEnhancements : ClickableFeature(),
         if (!tracked) {
             time.setTag(READ_RECEIPTS_MESSAGE_ID_TAG, null)
             time.setTag(READ_RECEIPTS_COUNT_TAG, null)
+            time.setTag(READ_RECEIPTS_NATIVE_TEXT_TAG, null)
         }
         val count = if (tracked) {
             (time.getTag(READ_RECEIPTS_COUNT_TAG) as? ReadReceiptCountState)?.count

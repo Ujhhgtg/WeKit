@@ -58,4 +58,20 @@ class ReadReceiptRenderingTest {
             renderReadReceiptText("time " + READ_RECEIPTS_PLACEHOLDER, "Read by 3", true),
         )
     }
+
+    @Test
+    fun `uses retained native text when rerendering after locale changes`() {
+        val renderedInTraditionalChinese =
+            renderReadReceiptText("12:00", "已讀 2 人", enhancementActive = false)
+        val nativeText = readReceiptNativeText(renderedInTraditionalChinese, "12:00")
+
+        assertEquals(
+            "12:00 | Read by 2",
+            renderReadReceiptText(nativeText, "Read by 2", enhancementActive = false),
+        )
+        assertEquals(
+            "12:00",
+            renderReadReceiptText(nativeText, null, enhancementActive = false),
+        )
+    }
 }
