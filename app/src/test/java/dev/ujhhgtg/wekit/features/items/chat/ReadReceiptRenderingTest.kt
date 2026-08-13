@@ -6,25 +6,32 @@ import org.junit.jupiter.api.Test
 class ReadReceiptRenderingTest {
 
     @Test
-    fun `replaces placeholder in active template`() {
+    fun `replaces placeholder in active template with localized read text`() {
         assertEquals(
-            "time · 已读 3 人 · type",
-            renderReadReceiptText("time · " + READ_RECEIPTS_PLACEHOLDER + " · type", 3, true),
+            "12:00 · 已讀 2 人",
+            renderReadReceiptText(
+                $$"12:00 · $readReceipts",
+                "已讀 2 人",
+                enhancementActive = true,
+            ),
         )
     }
 
     @Test
-    fun `appends suffix to active template without placeholder`() {
-        assertEquals("time | 已读 3 人", renderReadReceiptText("time", 3, true))
+    fun `appends localized read text to active template without placeholder`() {
+        assertEquals("time | Read by 3", renderReadReceiptText("time", "Read by 3", true))
     }
 
     @Test
-    fun `appends suffix to native text when enhancement is inactive`() {
-        assertEquals("native | 已读 3 人", renderReadReceiptText("native", 3, false))
+    fun `appends localized read text to native text when enhancement is inactive`() {
+        assertEquals(
+            "12:00 | Read by 0",
+            renderReadReceiptText("12:00", "Read by 0", enhancementActive = false),
+        )
     }
 
     @Test
-    fun `clears placeholder when count is unknown`() {
+    fun `clears placeholder when localized read text is unknown`() {
         assertEquals(
             "time ·  · type",
             renderReadReceiptText("time · " + READ_RECEIPTS_PLACEHOLDER + " · type", null, true),
@@ -32,20 +39,23 @@ class ReadReceiptRenderingTest {
     }
 
     @Test
-    fun `renders known zero`() {
-        assertEquals("time | 已读 0 人", renderReadReceiptText("time", 0, true))
+    fun `renders localized zero`() {
+        assertEquals("time | Read by 0", renderReadReceiptText("time", "Read by 0", true))
     }
 
     @Test
-    fun `leaves native text unchanged when count is unknown`() {
-        assertEquals("native", renderReadReceiptText("native", null, false))
+    fun `leaves native text unchanged when localized read text is unknown`() {
+        assertEquals(
+            "12:00",
+            renderReadReceiptText("12:00", null, enhancementActive = false),
+        )
     }
 
     @Test
     fun `placeholder suppresses automatic suffix`() {
         assertEquals(
-            "time 已读 3 人",
-            renderReadReceiptText("time " + READ_RECEIPTS_PLACEHOLDER, 3, true),
+            "time Read by 3",
+            renderReadReceiptText("time " + READ_RECEIPTS_PLACEHOLDER, "Read by 3", true),
         )
     }
 }

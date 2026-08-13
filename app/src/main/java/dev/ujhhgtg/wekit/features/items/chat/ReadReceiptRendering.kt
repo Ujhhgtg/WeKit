@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 const val READ_RECEIPTS_PLACEHOLDER = $$"$readReceipts"
-const val READ_RECEIPTS_SUFFIX = " | 已读 "
 
 /**
  * Renders the read-receipt portion of a message-time string without depending on Android state.
@@ -11,15 +10,16 @@ const val READ_RECEIPTS_SUFFIX = " | 已读 "
  */
 fun renderReadReceiptText(
     templateOrNativeText: String,
-    count: Int?,
+    localizedReadText: String?,
     enhancementActive: Boolean,
 ): String {
     val hasPlaceholder = templateOrNativeText.contains(READ_RECEIPTS_PLACEHOLDER)
     if (enhancementActive && hasPlaceholder) {
-        val rendered = count?.let { "已读 $it 人" } ?: ""
-        return templateOrNativeText.replace(READ_RECEIPTS_PLACEHOLDER, rendered)
+        return templateOrNativeText.replace(
+            READ_RECEIPTS_PLACEHOLDER,
+            localizedReadText.orEmpty(),
+        )
     }
 
-    return count?.let { "$templateOrNativeText$READ_RECEIPTS_SUFFIX$it 人" }
-        ?: templateOrNativeText
+    return localizedReadText?.let { "$templateOrNativeText | $it" } ?: templateOrNativeText
 }

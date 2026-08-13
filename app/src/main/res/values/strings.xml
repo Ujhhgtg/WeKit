@@ -1804,6 +1804,13 @@
 <string name="chat_read_receipts_server_missing_short">Error: no server configured.</string>
 <string name="chat_read_receipts_empty_prefix_warning">Warning: the trigger prefix is empty, so read tracking will be enabled for every text message.</string>
 <string name="chat_read_receipts_invalid_interval">Error: invalid polling interval.</string>
+<string name="read_receipts_error_prefix">Error: %1$s</string>
+<string name="read_receipts_sender_or_content_too_large">The sender identifier or message content is too large</string>
+<string name="read_receipts_registration_request_too_large">The read-receipt registration request is too large</string>
+<string name="read_receipts_registration_failed">Read-receipt registration failed</string>
+<string name="read_receipts_registration_http_failed">Read-receipt registration failed: HTTP %1$d</string>
+<string name="read_receipts_send_failed">Message sending failed</string>
+<string name="read_receipts_recent_error">Latest error: %1$s</string>
 <string name="chat_emoji_game_scissors">Scissors</string>
 <string name="chat_emoji_game_rock">Rock</string>
 <string name="chat_emoji_game_paper">Paper</string>

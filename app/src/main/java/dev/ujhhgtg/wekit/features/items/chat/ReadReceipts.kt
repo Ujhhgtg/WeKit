@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -497,7 +498,7 @@ object ReadReceipts : ClickableFeature(),
             put("createTime", createTime)
         }.toString()
         if (bodyJson.toByteArray(Charsets.UTF_8).size > MAX_REGISTRATION_BODY_BYTES) {
-            return "注册请求过大"
+            return localizedChatString(R.string.read_receipts_registration_request_too_large)
         }
         val body = bodyJson.toRequestBody(jsonMediaType)
         val request = Request.Builder().url("$endpoint/register").post(body).build()
@@ -509,7 +510,9 @@ object ReadReceipts : ClickableFeature(),
                 override fun onFailure(call: Call, e: IOException) {
                     registrationCalls -= call
                     WeLogger.w(TAG, "register request failed (${readReceiptNetworkFailureCategory(e)})")
-                    continuation.resumeIfActive("注册请求失败")
+                    continuation.resumeIfActive(
+                        localizedChatString(R.string.read_receipts_registration_failed),
+                    )
                 }
 
                 override fun onResponse(call: Call, response: Response) {
@@ -519,7 +522,12 @@ object ReadReceipts : ClickableFeature(),
                             continuation.resumeIfActive(null)
                         } else {
                             WeLogger.w(TAG, "register failed: HTTP ${it.code}")
-                            continuation.resumeIfActive("注册失败: HTTP ${it.code}")
+                            continuation.resumeIfActive(
+                                localizedChatString(
+                                    R.string.read_receipts_registration_http_failed,
+                                    it.code,
+                                ),
+                            )
                         }
                     }
                 }
@@ -697,7 +705,7 @@ object ReadReceipts : ClickableFeature(),
         return when (configuration.mode) {
             ReadReceiptsServerMode.THIRD_PARTY -> {
                 val endpoint = normalizedHttpsEndpoint(configuration.thirdPartyUrl)
-                    ?: return null to "第三方服务器必须是有效的 HTTPS 地址"
+                    ?: return null to localizedChatString(R.string.chat_read_receipts_server_missing)
                 ResolvedBackend(
                     backend = ReadReceiptBackend.THIRD_PARTY,
                     requestEndpoint = endpoint,
@@ -1683,7 +1691,13 @@ object ReadReceipts : ClickableFeature(),
             val (backend, endpointError) = resolveBackend()
             if (backend == null) {
                 runtimeError = endpointError!!
-                showToast(chatFooter.context, "错误: $endpointError")
+                showToast(
+                    chatFooter.context,
+                    chatFooter.context.localizedChatString(
+                        R.string.read_receipts_error_prefix,
+                        endpointError,
+                    ),
+                )
                 return@hookBefore
             }
 
@@ -1693,8 +1707,14 @@ object ReadReceipts : ClickableFeature(),
                 selfWxId.toByteArray(Charsets.UTF_8).size > MAX_WX_ID_BYTES ||
                 actualText.toByteArray(Charsets.UTF_8).size > MAX_CONTENT_BYTES
             ) {
-                runtimeError = "发送者标识或消息内容过长"
-                showToast(chatFooter.context, "错误: 发送者标识或消息内容过长")
+                runtimeError = localizedChatString(R.string.read_receipts_sender_or_content_too_large)
+                showToast(
+                    chatFooter.context,
+                    chatFooter.context.localizedChatString(
+                        R.string.read_receipts_error_prefix,
+                        runtimeError!!,
+                    ),
+                )
                 return@hookBefore
             }
             // Assigned now (epoch millis) so two identical-text messages get distinct ids.
@@ -1751,7 +1771,13 @@ object ReadReceipts : ClickableFeature(),
                     withContext(Dispatchers.Main.immediate) {
                         if (!ReadReceipts.isActive) return@withContext
                         runtimeError = registrationError
-                        showToast(chatFooter.context, "错误: $registrationError")
+                        showToast(
+                            chatFooter.context,
+                            chatFooter.context.localizedChatString(
+                                R.string.read_receipts_error_prefix,
+                                registrationError,
+                            ),
+                        )
                     }
                     return@launch
                 }
@@ -1760,14 +1786,23 @@ object ReadReceipts : ClickableFeature(),
                     coroutineContext.ensureActive()
                     if (!ReadReceipts.isActive) return@withContext
                     if (!WeMessageApi.sendXmlAppMsg(target, xml)) {
-                        runtimeError = "消息发送失败"
-                        showToast(chatFooter.context, "错误: 消息发送失败")
+                        runtimeError = localizedChatString(R.string.read_receipts_send_failed)
+                        showToast(
+                            chatFooter.context,
+                            chatFooter.context.localizedChatString(
+                                R.string.read_receipts_error_prefix,
+                                runtimeError!!,
+                            ),
+                        )
                         return@withContext
                     }
                     insertRecord(record)
                     runtimeError = null
                     if (chatFooter.lastText == text) chatFooter.lastText = ""
-                    showToast(chatFooter.context, "已发送附带已读追踪的消息")
+                    showToast(
+                        chatFooter.context,
+                        chatFooter.context.localizedChatString(R.string.chat_read_receipts_sent),
+                    )
                 }
             }
         }
@@ -1881,6 +1916,7 @@ object ReadReceipts : ClickableFeature(),
                 receiptView.view,
                 readReceiptCount = null,
             )
+            receiptView.view.setTag(READ_RECEIPTS_COUNT_TAG, null)
         }
         val empty = synchronized(activeViews) { activeViews.isEmpty() }
         if (empty) {
@@ -1911,12 +1947,7 @@ object ReadReceipts : ClickableFeature(),
 
     @SuppressLint("SetTextI18n")
     private fun clearReceiptState(timeTV: TextView) {
-        val hadReceipt = timeTV.getTag(READ_RECEIPTS_MESSAGE_ID_TAG) != null
         timeTV.setTag(READ_RECEIPTS_MESSAGE_ID_TAG, null)
-        timeTV.setTag(READ_RECEIPTS_COUNT_TAG, null)
-        if (hadReceipt && !MessageTimeEnhancements.isActive) {
-            timeTV.text = timeTV.text.toString().substringBefore(READ_RECEIPTS_SUFFIX)
-        }
     }
 
     private fun stampAndRender(
@@ -1926,13 +1957,13 @@ object ReadReceipts : ClickableFeature(),
     ) {
         val count = counts[record.key()]
         timeTV.setTag(READ_RECEIPTS_MESSAGE_ID_TAG, message.id)
-        timeTV.setTag(READ_RECEIPTS_COUNT_TAG, ReadReceiptCountState(count))
         MessageTimeEnhancements.renderMessageTime(
             message,
             timeTV,
             forceVisible = true,
             readReceiptCount = count,
         )
+        timeTV.setTag(READ_RECEIPTS_COUNT_TAG, ReadReceiptCountState(count))
     }
 
     // ── Poll loop ──────────────────────────────────────────────────────────────
@@ -2018,13 +2049,13 @@ object ReadReceipts : ClickableFeature(),
                 }
                 val current = synchronized(activeViews) { activeViews[root] }
                 if (current !== target) return@post
-                receiptView.view.setTag(READ_RECEIPTS_COUNT_TAG, ReadReceiptCountState(count))
                 MessageTimeEnhancements.renderMessageTime(
                     target.message,
                     receiptView.view,
                     forceVisible = true,
                     readReceiptCount = count,
                 )
+                receiptView.view.setTag(READ_RECEIPTS_COUNT_TAG, ReadReceiptCountState(count))
             }
         }
     }
@@ -2999,7 +3030,12 @@ object ReadReceipts : ClickableFeature(),
                             modifier = Modifier.fillMaxWidth()
                         )
                         if (runtimeError != null) {
-                            Text("最近错误: $runtimeError")
+                            Text(
+                                context.localizedChatString(
+                                    R.string.read_receipts_recent_error,
+                                    runtimeError!!,
+                                ),
+                            )
                         }
                     }
                 },

@@ -1751,6 +1751,13 @@
 <string name="chat_read_receipts_server_missing_short">错误：未设置服务器！</string>
 <string name="chat_read_receipts_empty_prefix_warning">警告：「触发前缀」为空，所有文本消息将启用已读追踪！</string>
 <string name="chat_read_receipts_invalid_interval">错误：轮询间隔格式不正确！</string>
+<string name="read_receipts_error_prefix">错误：%1$s</string>
+<string name="read_receipts_sender_or_content_too_large">发送者标识或消息内容过长</string>
+<string name="read_receipts_registration_request_too_large">已读追踪注册请求过大</string>
+<string name="read_receipts_registration_failed">已读追踪注册失败</string>
+<string name="read_receipts_registration_http_failed">已读追踪注册失败：HTTP %1$d</string>
+<string name="read_receipts_send_failed">消息发送失败</string>
+<string name="read_receipts_recent_error">最近错误：%1$s</string>
 <string name="chat_emoji_game_scissors">剪刀</string><string name="chat_emoji_game_rock">石头</string><string name="chat_emoji_game_paper">布</string>
 <string name="chat_emoji_game_no_sensor">暂无传感器数据，正使用随机数！</string>
 <string name="chat_emoji_game_motion_fallback">加速度过高，正使用随机数！</string>

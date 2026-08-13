@@ -192,12 +192,18 @@ object MessageTimeEnhancements : ClickableFeature(),
         if (!forceVisible && !isAlwaysVisible && !time.isVisible) return
 
         val context = time.context
+        val previousReadText = (time.getTag(READ_RECEIPTS_COUNT_TAG) as? ReadReceiptCountState)
+            ?.count
+            ?.let { localizedChatString(R.string.chat_read_receipts_count, it) }
         val baseText = if (enhancementActive) {
             getFormattedText(msgInfo)
         } else {
-            time.text?.toString().orEmpty().substringBefore(READ_RECEIPTS_SUFFIX)
+            time.text?.toString().orEmpty().removeSuffix(" | $previousReadText")
         }
-        time.text = renderReadReceiptText(baseText, readReceiptCount, enhancementActive)
+        val localizedReadText = readReceiptCount?.let {
+            localizedChatString(R.string.chat_read_receipts_count, it)
+        }
+        time.text = renderReadReceiptText(baseText, localizedReadText, enhancementActive)
         if (forceVisible || isAlwaysVisible) {
             time.visibility = View.VISIBLE
         }

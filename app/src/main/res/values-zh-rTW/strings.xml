@@ -1743,6 +1743,13 @@
 <string name="chat_read_receipts_server_missing_short">錯誤：未設置服務器！</string>
 <string name="chat_read_receipts_empty_prefix_warning">警告：「觸發前綴」爲空，所有文本消息將啓用已讀追蹤！</string>
 <string name="chat_read_receipts_invalid_interval">錯誤：輪詢間隔格式不正確！</string>
+<string name="read_receipts_error_prefix">錯誤：%1$s</string>
+<string name="read_receipts_sender_or_content_too_large">發送者識別碼或訊息內容過長</string>
+<string name="read_receipts_registration_request_too_large">已讀追蹤註冊請求過大</string>
+<string name="read_receipts_registration_failed">已讀追蹤註冊失敗</string>
+<string name="read_receipts_registration_http_failed">已讀追蹤註冊失敗：HTTP %1$d</string>
+<string name="read_receipts_send_failed">訊息發送失敗</string>
+<string name="read_receipts_recent_error">最新錯誤：%1$s</string>
 <string name="chat_emoji_game_scissors">剪刀</string>
 <string name="chat_emoji_game_rock">石頭</string>
 <string name="chat_emoji_game_paper">布</string>
