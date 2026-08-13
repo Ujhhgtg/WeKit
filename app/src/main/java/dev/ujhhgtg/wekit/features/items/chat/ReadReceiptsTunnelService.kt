@@ -590,14 +590,15 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private fun listTunnels(envelope: ServiceAuthEnvelope) {
-        val admission = authCoordinator.admit(
+        val admission = authCoordinator.admitListOperation(
             envelope.key,
-            AuthOperationKind.LIST,
-            ServiceAuthOperationPhase.NATIVE_BLOCKING,
         ) { terminal -> sendAuthTerminal(envelope, terminal) }
-        if (admission is ServiceAuthAdmission.Rejected) {
-            rejectAuthAdmission(envelope, admission)
-            return
+        val operation = when (admission) {
+            is ServiceAuthOperationAdmission.Accepted -> admission.operation
+            is ServiceAuthOperationAdmission.Rejected -> {
+                rejectAuthAdmission(envelope, admission)
+                return
+            }
         }
         check(authCoordinator.claimAck(envelope.key, AuthOperationKind.LIST))
         sendAuthAck(envelope, accepted = true)
@@ -606,13 +607,13 @@ class ReadReceiptsTunnelService : Service() {
         worker = scope.launch(start = CoroutineStart.LAZY) {
             val result = ReadReceiptsTunnelNative.listExistingTunnels()
             withContext(Dispatchers.Main.immediate) {
-                finishList(envelope, result)
+                finishList(envelope, operation, result)
             }
         }
         val watchdog = authControlScope.launch {
             delay(AUTH_OPERATION_TIMEOUT_MILLIS)
             val plan = withContext(Dispatchers.Main.immediate) {
-                authCoordinator.planListTimeout(envelope.key)
+                operation.timeout()
             } ?: return@launch
             val jobsToDrain = withContext(Dispatchers.Main.immediate) {
                 claimPendingSelectTerminals()
@@ -637,6 +638,7 @@ class ReadReceiptsTunnelService : Service() {
 
     private fun finishList(
         envelope: ServiceAuthEnvelope,
+        operation: ServiceListAuthOperation,
         result: Result<NativeExistingTunnelList>,
     ) {
         if (!authCoordinator.canPublish(envelope.key, AuthOperationKind.LIST)) return
@@ -649,8 +651,7 @@ class ReadReceiptsTunnelService : Service() {
                 native.tunnels,
                 cachedCredentialMetadata,
             )
-        val failurePlan = authCoordinator.planListNativeResult(
-            envelope.key,
+        val failurePlan = operation.nativeResult(
             result,
             expectedNativeGeneration = nativeAuthGeneration,
             loginAvailable = login != null,
@@ -702,14 +703,15 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private fun selectTunnel(envelope: ServiceAuthEnvelope) {
-        val admission = authCoordinator.admit(
+        val admission = authCoordinator.admitSelectOperation(
             envelope.key,
-            AuthOperationKind.SELECT,
-            ServiceAuthOperationPhase.NATIVE_BLOCKING,
         ) { terminal -> sendAuthTerminal(envelope, terminal) }
-        if (admission is ServiceAuthAdmission.Rejected) {
-            rejectAuthAdmission(envelope, admission)
-            return
+        val operation = when (admission) {
+            is ServiceAuthOperationAdmission.Accepted -> admission.operation
+            is ServiceAuthOperationAdmission.Rejected -> {
+                rejectAuthAdmission(envelope, admission)
+                return
+            }
         }
         check(authCoordinator.claimAck(envelope.key, AuthOperationKind.SELECT))
         val selection = checkNotNull(envelope.selection)
@@ -737,54 +739,61 @@ class ReadReceiptsTunnelService : Service() {
 
         val tunnel = authTunnels.firstOrNull { it.id == selection.tunnelId }
         if (tunnel == null) {
-            finishSelectUnavailableCredential(envelope)
+            operation.withWorker { worker ->
+                finishSelectUnavailableCredential(envelope, worker)
+            }
             return
         }
         val expectedNativeGeneration = nativeAuthGeneration
         val commitGate = SelectCommitGate()
         lateinit var worker: Job
-        worker = scope.launch(start = CoroutineStart.LAZY) {
-            try {
-                val result = ReadReceiptsTunnelNative.selectExistingTunnelForService(
-                    selection.tunnelId,
-                    selection.canonicalRoot,
-                )
-                val prepared = withContext(Dispatchers.Main.immediate) {
-                    prepareSelectedCandidate(
-                        envelope,
-                        selection,
-                        tunnel.name,
-                        expectedNativeGeneration,
-                        result,
-                        commitGate,
+        worker = operation.withWorker { callback ->
+            scope.launch(start = CoroutineStart.LAZY) {
+                try {
+                    val result = ReadReceiptsTunnelNative.selectExistingTunnelForService(
+                        selection.tunnelId,
+                        selection.canonicalRoot,
                     )
-                } ?: return@launch
-                val outcome = prepared.firstVerification.await()
-                if (outcome != SelectCandidateOutcome.COMMITTED) {
-                    prepared.candidate.join()
+                    val prepared = withContext(Dispatchers.Main.immediate) {
+                        prepareSelectedCandidate(
+                            envelope,
+                            selection,
+                            tunnel.name,
+                            expectedNativeGeneration,
+                            result,
+                            commitGate,
+                            callback,
+                        )
+                    } ?: return@launch
+                    val outcome = prepared.firstVerification.await()
+                    if (outcome != SelectCandidateOutcome.COMMITTED) {
+                        prepared.candidate.join()
+                    }
+                    withContext(Dispatchers.Main.immediate) {
+                        finishSelectOutcome(envelope, prepared.operation, outcome)
+                    }
+                } catch (cancelled: CancellationException) {
+                    authControlScope.launch { finishCancelledSelect(envelope, callback) }
+                    throw cancelled
                 }
-                withContext(Dispatchers.Main.immediate) {
-                    finishSelectOutcome(envelope, outcome)
-                }
-            } catch (cancelled: CancellationException) {
-                authControlScope.launch { finishCancelledSelect(envelope) }
-                throw cancelled
             }
         }
-        val watchdog = authControlScope.launch {
-            delay(AUTH_OPERATION_TIMEOUT_MILLIS)
-            if (!commitGate.tryTerminal()) return@launch
-            val plan = withContext(Dispatchers.Main.immediate) {
-                authCoordinator.planSelectTimeout(envelope.key)
-            } ?: return@launch
-            withContext(Dispatchers.Main.immediate) {
-                when (plan.action) {
-                    ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED ->
-                        scheduleBrokenAuthFailure(plan)
-                    ServiceAuthCleanupAction.STOP_CANDIDATE_AND_PRESERVE_AUTH ->
-                        scheduleSelectCandidateFailure(envelope, plan)
-                    ServiceAuthCleanupAction.PRESERVE_AUTH ->
-                        error("invalid SELECT timeout cleanup")
+        val watchdog = operation.withWatchdog { callback ->
+            authControlScope.launch {
+                delay(AUTH_OPERATION_TIMEOUT_MILLIS)
+                if (!commitGate.tryTerminal()) return@launch
+                val plan = withContext(Dispatchers.Main.immediate) {
+                    callback.timeout()
+                } ?: return@launch
+                withContext(Dispatchers.Main.immediate) {
+                    when (plan.action) {
+                        ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED ->
+                            scheduleBrokenAuthFailure(plan)
+                        ServiceAuthCleanupAction.STOP_CANDIDATE_AND_PRESERVE_AUTH ->
+                            scheduleSelectCandidateFailure(envelope, plan)
+                        ServiceAuthCleanupAction.PRESERVE_AUTH ->
+                            error("invalid SELECT timeout cleanup")
+                    }
                 }
             }
         }
@@ -846,12 +855,12 @@ class ReadReceiptsTunnelService : Service() {
         expectedNativeGeneration: Long,
         result: Result<String>,
         commitGate: SelectCommitGate,
+        operation: ServiceSelectWorkerContinuation,
     ): PreparedSelectCandidate? {
         if (!authCoordinator.canPublish(envelope.key, AuthOperationKind.SELECT)) return null
         val sessionAvailable = expectedNativeGeneration != 0L &&
             nativeAuthGeneration == expectedNativeGeneration
-        val sessionPlan = authCoordinator.planSelectSessionAvailability(
-            envelope.key,
+        val sessionPlan = operation.sessionAvailability(
             available = sessionAvailable,
         )
         if (sessionPlan != null) {
@@ -876,10 +885,11 @@ class ReadReceiptsTunnelService : Service() {
                 result,
                 credentialValid = false,
                 commitGate = commitGate,
+                operation = operation,
             )
             return null
         }
-        check(authCoordinator.markSelectValidating(envelope.key))
+        val candidateOperation = checkNotNull(operation.beginCandidate())
         val request = TunnelRequest(
             generation = selection.connectorGeneration,
             mode = ReadReceiptsTunnelMode.BROWSER_LOGIN,
@@ -913,13 +923,19 @@ class ReadReceiptsTunnelService : Service() {
             return null
         }
         val firstVerification = CompletableDeferred<SelectCandidateOutcome>()
-        val candidate = replaceLifecycleForSelect(request, reservation, firstVerification)
+        val candidate = replaceLifecycleForSelect(
+            request,
+            reservation,
+            firstVerification,
+            candidateOperation,
+        )
         checkNotNull(authOperationJobs[envelope.key]).candidate = candidate
-        return PreparedSelectCandidate(firstVerification, candidate)
+        return PreparedSelectCandidate(firstVerification, candidate, candidateOperation)
     }
 
     private fun finishSelectOutcome(
         envelope: ServiceAuthEnvelope,
+        operation: ServiceSelectCandidateOperation,
         outcome: SelectCandidateOutcome,
     ) {
         if (!authCoordinator.canPublish(envelope.key, AuthOperationKind.SELECT)) return
@@ -951,10 +967,7 @@ class ReadReceiptsTunnelService : Service() {
                 val gate = checkNotNull(jobs.commitGate)
                 if (!gate.isCommitClaimed() && !gate.tryTerminal()) return
                 val plan = checkNotNull(
-                    authCoordinator.planSelectCandidateFailure(
-                        envelope.key,
-                        outcome.failure,
-                    ),
+                    operation.failurePlan(outcome.failure),
                 )
                 scheduleSelectCandidateFailure(envelope, plan)
             }
@@ -965,15 +978,12 @@ class ReadReceiptsTunnelService : Service() {
         envelope: ServiceAuthEnvelope,
         result: Result<String>,
         credentialValid: Boolean,
+        operation: ServiceSelectWorkerContinuation,
         commitGate: SelectCommitGate? = authOperationJobs[envelope.key]?.commitGate,
     ) {
         if (commitGate != null && !commitGate.tryTerminal()) return
         val failurePlan = checkNotNull(
-            authCoordinator.planSelectNativeResult(
-                envelope.key,
-                result,
-                credentialValid,
-            ),
+            operation.nativeResult(result, credentialValid),
         )
         if (authOperationJobs[envelope.key] == null) {
             check(authCoordinator.finishFailure(failurePlan))
@@ -982,10 +992,12 @@ class ReadReceiptsTunnelService : Service() {
         }
     }
 
-    private fun finishSelectUnavailableCredential(envelope: ServiceAuthEnvelope) {
+    private fun finishSelectUnavailableCredential(
+        envelope: ServiceAuthEnvelope,
+        operation: ServiceSelectWorkerContinuation,
+    ) {
         val plan = checkNotNull(
-            authCoordinator.planSelectCredentialAvailability(
-                envelope.key,
+            operation.credentialAvailability(
                 available = false,
             ),
         )
@@ -1020,13 +1032,16 @@ class ReadReceiptsTunnelService : Service() {
         }
     }
 
-    private suspend fun finishCancelledSelect(envelope: ServiceAuthEnvelope) {
+    private suspend fun finishCancelledSelect(
+        envelope: ServiceAuthEnvelope,
+        operation: ServiceSelectWorkerContinuation,
+    ) {
         val claimed = withContext(Dispatchers.Main.immediate) {
             authOperationJobs[envelope.key]?.commitGate?.tryTerminal() ?: false
         }
         if (!claimed) return
         val plan = withContext(Dispatchers.Main.immediate) {
-            authCoordinator.planSelectCancellation(envelope.key)
+            operation.cancelled()
         } ?: return
         withContext(Dispatchers.Main.immediate) {
             when (plan.action) {
@@ -1150,9 +1165,19 @@ class ReadReceiptsTunnelService : Service() {
     private fun rejectAuthAdmission(
         envelope: ServiceAuthEnvelope,
         rejection: ServiceAuthAdmission.Rejected,
+    ) = rejectAuthAdmission(envelope, rejection.reason)
+
+    private fun rejectAuthAdmission(
+        envelope: ServiceAuthEnvelope,
+        rejection: ServiceAuthOperationAdmission.Rejected,
+    ) = rejectAuthAdmission(envelope, rejection.reason)
+
+    private fun rejectAuthAdmission(
+        envelope: ServiceAuthEnvelope,
+        reason: ServiceAuthRejectReason,
     ) {
         sendAuthAck(envelope, accepted = false)
-        sendAuthTerminal(envelope, serviceAuthAdmissionTerminal(rejection.reason))
+        sendAuthTerminal(envelope, serviceAuthAdmissionTerminal(reason))
     }
 
     private fun clearTransientAuthState() {
@@ -1555,6 +1580,7 @@ class ReadReceiptsTunnelService : Service() {
         request: TunnelRequest,
         reservation: TunnelCandidateReservation,
         firstVerification: CompletableDeferred<SelectCandidateOutcome>,
+        operation: ServiceSelectCandidateOperation,
     ): Job {
         val previous = lifecycleJob
         lateinit var candidate: Job
@@ -1569,7 +1595,7 @@ class ReadReceiptsTunnelService : Service() {
                 ) {
                     return@launch
                 }
-                runTunnel(request, reservation, firstVerification)
+                runTunnel(request, reservation, firstVerification, operation)
             } finally {
                 try {
                     if (request.browserCredentialNeedsCommit) {
@@ -1619,6 +1645,7 @@ class ReadReceiptsTunnelService : Service() {
         request: TunnelRequest,
         initialReservation: TunnelCandidateReservation? = null,
         firstVerification: CompletableDeferred<SelectCandidateOutcome>? = null,
+        selectOperation: ServiceSelectCandidateOperation? = null,
     ) {
         publish(request.generation, ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING))
         val originRoot = normalizeLoopbackRoot(request.origin)
@@ -1629,7 +1656,9 @@ class ReadReceiptsTunnelService : Service() {
             )
             firstVerification?.complete(
                 SelectCandidateOutcome.Failed(
-                    ServiceSelectCandidateFailure.HealthVerification(healthy = false),
+                    checkNotNull(selectOperation).withHealthVerification { health ->
+                        health.failed(healthy = false)
+                    },
                 ),
             )
             return
@@ -1666,9 +1695,9 @@ class ReadReceiptsTunnelService : Service() {
                     )
                     firstVerification?.complete(
                         SelectCandidateOutcome.Failed(
-                            ServiceSelectCandidateFailure.ConnectorTerminal(
-                                ReadReceiptsTunnelErrorCode.TOKEN_INVALID,
-                            ),
+                            checkNotNull(selectOperation).withConnectorTerminal { connector ->
+                                connector.failed(ReadReceiptsTunnelErrorCode.TOKEN_INVALID)
+                            },
                         ),
                     )
                     return
@@ -1695,9 +1724,11 @@ class ReadReceiptsTunnelService : Service() {
                         )
                         firstVerification?.complete(
                             SelectCandidateOutcome.Failed(
-                                ServiceSelectCandidateFailure.ConnectorTerminal(
-                                    ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
-                                ),
+                                checkNotNull(selectOperation).withConnectorTerminal { connector ->
+                                    connector.failed(
+                                        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+                                    )
+                                },
                             ),
                         )
                         return
@@ -1744,7 +1775,9 @@ class ReadReceiptsTunnelService : Service() {
                 )
                 firstVerification?.complete(
                     SelectCandidateOutcome.Failed(
-                        ServiceSelectCandidateFailure.ConnectorTerminal(errorCode),
+                        checkNotNull(selectOperation).withConnectorTerminal { connector ->
+                            connector.failed(errorCode)
+                        },
                     ),
                 )
                 return
@@ -1846,9 +1879,9 @@ class ReadReceiptsTunnelService : Service() {
                                     }
                                     firstVerification?.complete(
                                         SelectCandidateOutcome.Failed(
-                                            ServiceSelectCandidateFailure.CredentialCommit(
-                                                commitResult,
-                                            ),
+                                            checkNotNull(selectOperation).withCredentialCommit {
+                                                it.failed(commitResult)
+                                            },
                                         ),
                                     )
                                     return
@@ -1935,7 +1968,9 @@ class ReadReceiptsTunnelService : Service() {
                 publishFailure(request.generation, checkNotNull(terminalErrorCode))
                 firstVerification?.complete(
                     SelectCandidateOutcome.Failed(
-                        ServiceSelectCandidateFailure.HealthVerification(healthy = false),
+                        checkNotNull(selectOperation).withHealthVerification { health ->
+                            health.failed(healthy = false)
+                        },
                     ),
                 )
                 return
@@ -1949,9 +1984,12 @@ class ReadReceiptsTunnelService : Service() {
                 )
                 firstVerification?.complete(
                     SelectCandidateOutcome.Failed(
-                        ServiceSelectCandidateFailure.ConnectorTerminal(
-                            terminalErrorCode ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
-                        ),
+                        checkNotNull(selectOperation).withConnectorTerminal { connector ->
+                            connector.failed(
+                                terminalErrorCode
+                                    ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                            )
+                        },
                     ),
                 )
                 return
@@ -2415,6 +2453,7 @@ class ReadReceiptsTunnelService : Service() {
     private data class PreparedSelectCandidate(
         val firstVerification: CompletableDeferred<SelectCandidateOutcome>,
         val candidate: Job,
+        val operation: ServiceSelectCandidateOperation,
     )
 
     private sealed interface SelectCandidateOutcome {

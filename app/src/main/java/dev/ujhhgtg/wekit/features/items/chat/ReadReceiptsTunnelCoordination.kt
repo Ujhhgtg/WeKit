@@ -927,6 +927,13 @@ internal sealed interface ServiceAuthAdmission {
     data class Rejected(val reason: ServiceAuthRejectReason) : ServiceAuthAdmission
 }
 
+internal sealed interface ServiceAuthOperationAdmission<out T> {
+    data class Accepted<T>(val operation: T) : ServiceAuthOperationAdmission<T>
+
+    data class Rejected(val reason: ServiceAuthRejectReason) :
+        ServiceAuthOperationAdmission<Nothing>
+}
+
 internal enum class ServiceAuthSessionPhase {
     IDLE,
     REPLACING,
@@ -950,15 +957,65 @@ internal enum class ServiceAuthFailure {
     SESSION_BROKEN,
 }
 
-internal sealed interface ServiceSelectCandidateFailure {
-    data class CredentialCommit(val result: TunnelVerificationCommit) :
-        ServiceSelectCandidateFailure
+internal interface ServiceListAuthOperation {
+    fun timeout(): ServiceAuthFailurePlan<List<ExistingTunnel>>?
 
-    data class HealthVerification(val healthy: Boolean) : ServiceSelectCandidateFailure
-
-    data class ConnectorTerminal(val errorCode: ReadReceiptsTunnelErrorCode) :
-        ServiceSelectCandidateFailure
+    fun nativeResult(
+        result: Result<NativeExistingTunnelList>,
+        expectedNativeGeneration: Long,
+        loginAvailable: Boolean,
+        snapshotValid: Boolean,
+    ): ServiceAuthFailurePlan<List<ExistingTunnel>>?
 }
+
+internal interface ServiceSelectAuthOperation {
+    fun <T> withWatchdog(block: (ServiceSelectWatchdogContinuation) -> T): T
+
+    fun <T> withWorker(block: (ServiceSelectWorkerContinuation) -> T): T
+}
+
+internal fun interface ServiceSelectWatchdogContinuation {
+    fun timeout(): ServiceAuthFailurePlan<Unit>?
+}
+
+internal interface ServiceSelectWorkerContinuation {
+    fun cancelled(): ServiceAuthFailurePlan<Unit>?
+
+    fun sessionAvailability(available: Boolean): ServiceAuthFailurePlan<Unit>?
+
+    fun nativeResult(
+        result: Result<String>,
+        credentialValid: Boolean = result.getOrNull() != null,
+    ): ServiceAuthFailurePlan<Unit>?
+
+    fun credentialAvailability(available: Boolean): ServiceAuthFailurePlan<Unit>?
+
+    fun beginCandidate(): ServiceSelectCandidateOperation?
+}
+
+internal interface ServiceSelectCandidateOperation {
+    fun <T> withCredentialCommit(block: (ServiceSelectCredentialCommitContinuation) -> T): T
+
+    fun <T> withHealthVerification(block: (ServiceSelectHealthContinuation) -> T): T
+
+    fun <T> withConnectorTerminal(block: (ServiceSelectConnectorContinuation) -> T): T
+
+    fun failurePlan(failure: ServiceSelectCandidateFailure): ServiceAuthFailurePlan<Unit>?
+}
+
+internal fun interface ServiceSelectCredentialCommitContinuation {
+    fun failed(result: TunnelVerificationCommit): ServiceSelectCandidateFailure
+}
+
+internal fun interface ServiceSelectHealthContinuation {
+    fun failed(healthy: Boolean): ServiceSelectCandidateFailure
+}
+
+internal fun interface ServiceSelectConnectorContinuation {
+    fun failed(errorCode: ReadReceiptsTunnelErrorCode): ServiceSelectCandidateFailure
+}
+
+internal sealed interface ServiceSelectCandidateFailure
 
 internal fun serviceAuthAdmissionTerminal(
     reason: ServiceAuthRejectReason,
@@ -1115,6 +1172,162 @@ internal class ServiceAuthCoordinator {
         return ServiceAuthAdmission.Accepted
     }
 
+    fun admitListOperation(
+        key: AuthOperationKey,
+        callback: (AuthOperationTerminal<List<ExistingTunnel>>) -> Unit,
+    ): ServiceAuthOperationAdmission<ServiceListAuthOperation> =
+        when (
+            val admission = admit(
+                key,
+                AuthOperationKind.LIST,
+                ServiceAuthOperationPhase.NATIVE_BLOCKING,
+                callback,
+            )
+        ) {
+            ServiceAuthAdmission.Accepted -> ServiceAuthOperationAdmission.Accepted(
+                ListAuthOperation(key),
+            )
+            is ServiceAuthAdmission.Rejected ->
+                ServiceAuthOperationAdmission.Rejected(admission.reason)
+        }
+
+    fun admitSelectOperation(
+        key: AuthOperationKey,
+        callback: (AuthOperationTerminal<Unit>) -> Unit,
+    ): ServiceAuthOperationAdmission<ServiceSelectAuthOperation> =
+        when (
+            val admission = admit(
+                key,
+                AuthOperationKind.SELECT,
+                ServiceAuthOperationPhase.NATIVE_BLOCKING,
+                callback,
+            )
+        ) {
+            ServiceAuthAdmission.Accepted -> ServiceAuthOperationAdmission.Accepted(
+                SelectAuthOperation(key),
+            )
+            is ServiceAuthAdmission.Rejected ->
+                ServiceAuthOperationAdmission.Rejected(admission.reason)
+        }
+
+    private inner class ListAuthOperation(
+        private val key: AuthOperationKey,
+    ) : ServiceListAuthOperation {
+        override fun timeout(): ServiceAuthFailurePlan<List<ExistingTunnel>>? =
+            planListTimeout(key)
+
+        override fun nativeResult(
+            result: Result<NativeExistingTunnelList>,
+            expectedNativeGeneration: Long,
+            loginAvailable: Boolean,
+            snapshotValid: Boolean,
+        ): ServiceAuthFailurePlan<List<ExistingTunnel>>? = planListNativeResult(
+            key,
+            result,
+            expectedNativeGeneration,
+            loginAvailable,
+            snapshotValid,
+        )
+    }
+
+    private inner class SelectAuthOperation(
+        private val key: AuthOperationKey,
+    ) : ServiceSelectAuthOperation {
+        private val watchdog = ServiceSelectWatchdogContinuation {
+            planSelectTimeout(key)
+        }
+        private val worker = object : ServiceSelectWorkerContinuation {
+            override fun cancelled(): ServiceAuthFailurePlan<Unit>? =
+                planSelectCancellation(key)
+
+            override fun sessionAvailability(
+                available: Boolean,
+            ): ServiceAuthFailurePlan<Unit>? = planSelectSessionAvailability(key, available)
+
+            override fun nativeResult(
+                result: Result<String>,
+                credentialValid: Boolean,
+            ): ServiceAuthFailurePlan<Unit>? =
+                planSelectNativeResult(key, result, credentialValid)
+
+            override fun credentialAvailability(
+                available: Boolean,
+            ): ServiceAuthFailurePlan<Unit>? =
+                planSelectCredentialAvailability(key, available)
+
+            override fun beginCandidate(): ServiceSelectCandidateOperation? =
+                if (markSelectValidating(key)) {
+                    SelectCandidateOperation(key)
+                } else {
+                    null
+                }
+        }
+
+        override fun <T> withWatchdog(
+            block: (ServiceSelectWatchdogContinuation) -> T,
+        ): T = block(watchdog)
+
+        override fun <T> withWorker(
+            block: (ServiceSelectWorkerContinuation) -> T,
+        ): T = block(worker)
+    }
+
+    private sealed interface SelectCandidateFailureSource {
+        data class CredentialCommit(val result: TunnelVerificationCommit) :
+            SelectCandidateFailureSource
+
+        data class HealthVerification(val healthy: Boolean) : SelectCandidateFailureSource
+
+        data class ConnectorTerminal(val errorCode: ReadReceiptsTunnelErrorCode) :
+            SelectCandidateFailureSource
+    }
+
+    private inner class SelectCandidateFailure(
+        val owner: SelectCandidateOperation,
+        val source: SelectCandidateFailureSource,
+    ) : ServiceSelectCandidateFailure
+
+    private inner class SelectCandidateOperation(
+        private val key: AuthOperationKey,
+    ) : ServiceSelectCandidateOperation {
+        private val credentialCommit = ServiceSelectCredentialCommitContinuation { result ->
+            SelectCandidateFailure(this, SelectCandidateFailureSource.CredentialCommit(result))
+        }
+        private val healthVerification = ServiceSelectHealthContinuation { healthy ->
+            SelectCandidateFailure(this, SelectCandidateFailureSource.HealthVerification(healthy))
+        }
+        private val connectorTerminal = ServiceSelectConnectorContinuation { errorCode ->
+            SelectCandidateFailure(this, SelectCandidateFailureSource.ConnectorTerminal(errorCode))
+        }
+
+        override fun <T> withCredentialCommit(
+            block: (ServiceSelectCredentialCommitContinuation) -> T,
+        ): T = block(credentialCommit)
+
+        override fun <T> withHealthVerification(
+            block: (ServiceSelectHealthContinuation) -> T,
+        ): T = block(healthVerification)
+
+        override fun <T> withConnectorTerminal(
+            block: (ServiceSelectConnectorContinuation) -> T,
+        ): T = block(connectorTerminal)
+
+        override fun failurePlan(
+            failure: ServiceSelectCandidateFailure,
+        ): ServiceAuthFailurePlan<Unit>? {
+            val ownedFailure = failure as? SelectCandidateFailure ?: return null
+            if (ownedFailure.owner !== this) return null
+            return when (val source = ownedFailure.source) {
+                is SelectCandidateFailureSource.CredentialCommit ->
+                    planSelectCredentialCommit(key, source.result)
+                is SelectCandidateFailureSource.HealthVerification ->
+                    planSelectHealthVerification(key, source.healthy)
+                is SelectCandidateFailureSource.ConnectorTerminal ->
+                    planSelectConnectorTerminal(key, source.errorCode)
+            }
+        }
+    }
+
     fun <T> claimAck(key: AuthOperationKey, kind: AuthOperationKind<T>): Boolean {
         if (operations.pendingKind(key) !== kind || ackKinds[key] !== kind) return false
         ackKinds.remove(key)
@@ -1215,7 +1428,7 @@ internal class ServiceAuthCoordinator {
         }
     }
 
-    fun planListTimeout(
+    private fun planListTimeout(
         key: AuthOperationKey,
     ): ServiceAuthFailurePlan<List<ExistingTunnel>>? = planFailure(
         key,
@@ -1224,7 +1437,7 @@ internal class ServiceAuthCoordinator {
         ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
     )
 
-    fun planListNativeResult(
+    private fun planListNativeResult(
         key: AuthOperationKey,
         result: Result<NativeExistingTunnelList>,
         expectedNativeGeneration: Long,
@@ -1252,21 +1465,22 @@ internal class ServiceAuthCoordinator {
         }
     }
 
-    fun planSelectTimeout(key: AuthOperationKey): ServiceAuthFailurePlan<Unit>? = planFailure(
+    private fun planSelectTimeout(key: AuthOperationKey): ServiceAuthFailurePlan<Unit>? = planFailure(
         key,
         AuthOperationKind.SELECT,
         ServiceAuthFailure.TIMEOUT,
         ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
     )
 
-    fun planSelectCancellation(key: AuthOperationKey): ServiceAuthFailurePlan<Unit>? = planFailure(
-        key,
-        AuthOperationKind.SELECT,
-        ServiceAuthFailure.COROUTINE_CANCELLED,
-        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
-    )
+    private fun planSelectCancellation(key: AuthOperationKey): ServiceAuthFailurePlan<Unit>? =
+        planFailure(
+            key,
+            AuthOperationKind.SELECT,
+            ServiceAuthFailure.COROUTINE_CANCELLED,
+            ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+        )
 
-    fun planSelectSessionAvailability(
+    private fun planSelectSessionAvailability(
         key: AuthOperationKey,
         available: Boolean,
     ): ServiceAuthFailurePlan<Unit>? = if (available) {
@@ -1280,7 +1494,7 @@ internal class ServiceAuthCoordinator {
         )
     }
 
-    fun planSelectNativeResult(
+    private fun planSelectNativeResult(
         key: AuthOperationKey,
         result: Result<String>,
         credentialValid: Boolean = result.getOrNull() != null,
@@ -1295,7 +1509,7 @@ internal class ServiceAuthCoordinator {
         )
     }
 
-    fun planSelectCredentialAvailability(
+    private fun planSelectCredentialAvailability(
         key: AuthOperationKey,
         available: Boolean,
     ): ServiceAuthFailurePlan<Unit>? = if (available) {
@@ -1360,18 +1574,6 @@ internal class ServiceAuthCoordinator {
             else -> ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
         }
         return planFailure(key, AuthOperationKind.SELECT, failure, semanticCode)
-    }
-
-    fun planSelectCandidateFailure(
-        key: AuthOperationKey,
-        failure: ServiceSelectCandidateFailure,
-    ): ServiceAuthFailurePlan<Unit>? = when (failure) {
-        is ServiceSelectCandidateFailure.CredentialCommit ->
-            planSelectCredentialCommit(key, failure.result)
-        is ServiceSelectCandidateFailure.HealthVerification ->
-            planSelectHealthVerification(key, failure.healthy)
-        is ServiceSelectCandidateFailure.ConnectorTerminal ->
-            planSelectConnectorTerminal(key, failure.errorCode)
     }
 
     private fun <T> planFailure(
