@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -317,18 +318,35 @@ internal object ReadReceiptsTunnelNative {
                 "UNSUPPORTED" -> ReadReceiptsTunnelState.NEEDS_USER_ACTION
                 else -> ReadReceiptsTunnelState.FAILED
             }
+            val diagnostic = value.getValue("error").jsonPrimitive.content
+                .takeIf(String::isNotEmpty)
+            if (diagnostic != null) {
+                WeLogger.w(
+                    TAG,
+                    "redacted connector diagnostic (chars=${diagnostic.length}, bytes=${diagnostic.toByteArray().size})",
+                )
+            }
             ReadReceiptsTunnelStatus(
                 state = state,
                 publicUrl = value.getValue("url").jsonPrimitive.content.takeIf(String::isNotEmpty),
-                error = value.getValue("error").jsonPrimitive.content.takeIf(String::isNotEmpty),
+                errorCode = when (state) {
+                    ReadReceiptsTunnelState.FAILED,
+                    ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+                    -> ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
+
+                    else -> null
+                },
             )
         }.getOrElse {
+            WeLogger.w(TAG, "failed to parse connector status (${it.javaClass.simpleName})")
             ReadReceiptsTunnelStatus(
                 ReadReceiptsTunnelState.FAILED,
-                error = "无法读取 Cloudflare Tunnel 状态",
+                errorCode = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
             )
         }
     }
+
+    private const val TAG = "ReadReceiptsTunnelNative"
 
     private external fun nativeStartQuick(origin: String): Long
 

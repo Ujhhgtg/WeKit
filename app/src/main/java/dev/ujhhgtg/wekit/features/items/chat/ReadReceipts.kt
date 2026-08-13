@@ -137,6 +137,8 @@ private sealed interface ReadReceiptRuntimeError {
 
     companion object {
         fun from(failure: Throwable): ReadReceiptRuntimeError = when (failure) {
+            is ReadReceiptsTunnelException -> Resource(failure.errorCode.messageRes)
+            is BrowserLoginException -> Resource(failure.errorCode.messageRes)
             is ReadReceiptsLocalFailure -> Resource(
                 failure.messageRes,
                 *failure.formatArgs,
@@ -177,6 +179,8 @@ private sealed interface ReadReceiptsUiText {
             failure: Throwable,
             @StringRes fallbackRes: Int,
         ): ReadReceiptsUiText = when (failure) {
+            is ReadReceiptsTunnelException -> Resource(failure.errorCode.messageRes)
+            is BrowserLoginException -> Resource(failure.errorCode.messageRes)
             is ReadReceiptsLocalFailure -> Resource(
                 failure.messageRes,
                 *failure.formatArgs,
@@ -1392,10 +1396,14 @@ object ReadReceipts : ClickableFeature(),
                 ) {
                     return@withTimeoutOrNull OriginRequestTerminal.Completed(
                         Result.failure(
-                            status.error?.let(::IllegalStateException)
-                                ?: ReadReceiptsLocalFailure(
-                                    R.string.read_receipts_candidate_verification_failed,
-                                ),
+                            status.errorCode?.let { errorCode ->
+                                ReadReceiptsTunnelException(
+                                    errorCode,
+                                    "browser candidate verification failed",
+                                )
+                            } ?: ReadReceiptsLocalFailure(
+                                R.string.read_receipts_candidate_verification_failed,
+                            ),
                         ),
                     )
                 }
@@ -2705,10 +2713,13 @@ object ReadReceipts : ClickableFeature(),
                                         )
                                     }
                                     browserLoginState.error?.let { error ->
+                                        val errorCode = ReadReceiptsTunnelErrorCode.entries
+                                            .firstOrNull { it.name == error }
+                                            ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
                                         Text(
                                             stringResource(
                                                 R.string.read_receipts_login_error,
-                                                error,
+                                                stringResource(errorCode.messageRes),
                                             ),
                                         )
                                     }
@@ -3174,11 +3185,11 @@ object ReadReceipts : ClickableFeature(),
                                         tunnelStateText,
                                     ),
                                 )
-                                tunnelStatus.error?.let { error ->
+                                tunnelStatus.errorCode?.let { errorCode ->
                                     Text(
                                         stringResource(
                                             R.string.read_receipts_tunnel_error,
-                                            error,
+                                            stringResource(errorCode.messageRes),
                                         ),
                                     )
                                 }

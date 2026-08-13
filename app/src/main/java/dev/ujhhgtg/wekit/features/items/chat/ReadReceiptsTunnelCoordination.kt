@@ -411,6 +411,76 @@ internal fun ReadReceiptsTunnelStatus.forAdministrativePublish(
     return copy(publicUrl = null)
 }
 
+internal data class DecodedReadReceiptsTunnelStatus(
+    val generation: Long,
+    val status: ReadReceiptsTunnelStatus,
+    val credentialExists: Boolean,
+    val clientNonce: String,
+)
+
+/** Strict status decoder shared by the Binder adapter and desktop coordination tests. */
+internal fun decodeReadReceiptsTunnelStatus(
+    values: Map<String, Any?>,
+): DecodedReadReceiptsTunnelStatus? = runCatching {
+    require(values.keys == ReadReceiptsTunnelProtocol.STATUS_KEYS)
+    val generation = (values[ReadReceiptsTunnelProtocol.KEY_GENERATION] as? Long)
+        ?.takeIf { it >= 0 } ?: error("invalid tunnel generation")
+    val stateName = values[ReadReceiptsTunnelProtocol.KEY_STATE] as? String
+        ?: error("invalid tunnel state")
+    val state = ReadReceiptsTunnelState.entries.firstOrNull { it.name == stateName }
+        ?: error("unknown tunnel state")
+    val publicUrl = values.strictNullableTunnelStatusString(
+        ReadReceiptsTunnelProtocol.KEY_PUBLIC_URL,
+    )
+    require(publicUrl == null || publicUrl.length <= 2048)
+    val errorName = values.strictNullableTunnelStatusString(
+        ReadReceiptsTunnelProtocol.KEY_ERROR_CODE,
+    )
+    val errorCode = errorName?.let { wireName ->
+        ReadReceiptsTunnelErrorCode.entries.firstOrNull { it.name == wireName }
+            ?: error("unknown tunnel error code")
+    }
+    val credentialExists = values[ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_EXISTS] as? Boolean
+        ?: error("invalid credential flag")
+    val needsNotificationSettings =
+        values[ReadReceiptsTunnelProtocol.KEY_NEEDS_NOTIFICATION_SETTINGS] as? Boolean
+            ?: error("invalid notification-settings flag")
+    val clientNonce = values[ReadReceiptsTunnelProtocol.KEY_CLIENT_NONCE] as? String
+        ?: error("invalid client nonce")
+    require(clientNonce.length in 16..128 && clientNonce.all { it.code in 0x20..0x7e })
+    when (state) {
+        ReadReceiptsTunnelState.FAILED,
+        ReadReceiptsTunnelState.NEEDS_USER_ACTION,
+        -> require(errorCode != null)
+
+        else -> require(errorCode == null)
+    }
+    if (needsNotificationSettings) {
+        require(
+            state == ReadReceiptsTunnelState.NEEDS_USER_ACTION &&
+                errorCode == ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED,
+        )
+    }
+    DecodedReadReceiptsTunnelStatus(
+        generation,
+        ReadReceiptsTunnelStatus(
+            state,
+            publicUrl,
+            errorCode,
+            needsNotificationSettings,
+        ),
+        credentialExists,
+        clientNonce,
+    )
+}.getOrNull()
+
+private fun Map<String, Any?>.strictNullableTunnelStatusString(key: String): String? {
+    require(containsKey(key))
+    val value = get(key)
+    require(value == null || value is String)
+    return value
+}
+
 internal enum class TunnelVerificationCommit {
     COMMITTED,
     STALE,

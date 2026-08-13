@@ -23,6 +23,8 @@ import android.util.AtomicFile
 import android.util.Base64
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CompletableDeferred
@@ -461,18 +463,19 @@ class ReadReceiptsTunnelService : Service() {
                     failBeginAfterBarrier(envelope, AUTH_BEGIN_FAILED)
                     return@withContext
                 }
+                val semanticLoginState = native.loginState.forServiceTransport()
                 nativeAuthGeneration = native.generation
-                authLoginState = native.loginState
+                authLoginState = semanticLoginState
                 authAccountId = native.accountId
                 authTunnels = emptyList()
-                if (native.loginState.state == ReadReceiptsTunnelState.CONNECTED) {
+                if (semanticLoginState.state == ReadReceiptsTunnelState.CONNECTED) {
                     check(authCoordinator.markAuthorized(envelope.key.authGeneration))
                 }
                 check(
                     authCoordinator.complete(
                         envelope.key,
                         AuthOperationKind.BEGIN,
-                        AuthOperationTerminal.Completed(native.loginState),
+                        AuthOperationTerminal.Completed(semanticLoginState),
                     ),
                 )
                 broadcastAuthSnapshot()
@@ -550,8 +553,9 @@ class ReadReceiptsTunnelService : Service() {
             scheduleBrokenAuthTeardown(plan, preserveLoginFailure = false)
             return false
         }
-        val changed = authLoginState != native.loginState || authAccountId != native.accountId
-        authLoginState = native.loginState
+        val semanticLoginState = native.loginState.forServiceTransport()
+        val changed = authLoginState != semanticLoginState || authAccountId != native.accountId
+        authLoginState = semanticLoginState
         authAccountId = native.accountId
         return when (native.loginState.state) {
             ReadReceiptsTunnelState.CONNECTED -> {
@@ -570,6 +574,15 @@ class ReadReceiptsTunnelService : Service() {
                 false
             }
         }
+    }
+
+    private fun CloudflareLoginState.forServiceTransport(): CloudflareLoginState {
+        if (error == null) return this
+        WeLogger.w(
+            TAG,
+            "redacted browser-login diagnostic (chars=${error.length}, bytes=${error.toByteArray().size})",
+        )
+        return copy(error = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name)
     }
 
     private fun scheduleBrokenAuthTeardown(
@@ -830,17 +843,17 @@ class ReadReceiptsTunnelService : Service() {
         foregroundAvailable: Boolean,
         notificationsAvailable: Boolean,
     ) {
-        val error = if (!foregroundAvailable) {
-            AUTH_SELECT_FOREGROUND_REQUIRED
+        val errorCode = if (!foregroundAvailable) {
+            ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED
         } else {
-            AUTH_SELECT_NOTIFICATION_REQUIRED
+            ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED
         }
         sendAuthAck(envelope, accepted = false)
         val plan = checkNotNull(
             authCoordinator.planTerminal(
                 envelope.key,
                 AuthOperationKind.SELECT,
-                AuthOperationTerminal.Failed(error),
+                AuthOperationTerminal.Failed(errorCode.name),
             ),
         )
         check(authCoordinator.finishTerminal(plan))
@@ -858,7 +871,7 @@ class ReadReceiptsTunnelService : Service() {
                     selection.connectorGeneration,
                     ReadReceiptsTunnelStatus(
                         ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                        error = error,
+                        errorCode = errorCode,
                         needsNotificationSettings = !notificationsAvailable && foregroundAvailable,
                     ),
                 ),
@@ -965,7 +978,10 @@ class ReadReceiptsTunnelService : Service() {
                 if (activeRequest?.generation == candidateGeneration) {
                     activeRequest = null
                     nativeLease.clearRequest(candidateGeneration)
-                    publishFailure(candidateGeneration, AUTH_SELECT_STALE)
+                    publishFailure(
+                        candidateGeneration,
+                        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                    )
                 }
                 val plan = checkNotNull(
                     authCoordinator.planTerminal(
@@ -1254,7 +1270,12 @@ class ReadReceiptsTunnelService : Service() {
         val origin = data.getString(ReadReceiptsTunnelProtocol.KEY_ORIGIN).orEmpty()
         val hostname = data.getString(ReadReceiptsTunnelProtocol.KEY_HOSTNAME).orEmpty()
         if (nonce == null || !isConnectorAuthenticator(nonce)) {
-            rejectStart(requestedGeneration, client, nonce, "隧道请求认证无效")
+            rejectStart(
+                requestedGeneration,
+                client,
+                nonce,
+                ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+            )
             return
         }
         if (mode == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
@@ -1287,7 +1308,7 @@ class ReadReceiptsTunnelService : Service() {
                 requestedGeneration,
                 ReadReceiptsTunnelStatus(
                     ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                    error = "请从可见设置界面启动前台隧道",
+                    errorCode = ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED,
                 ),
             )
             sendStartAck(client, nonce, requestedGeneration, accepted = false)
@@ -1300,7 +1321,7 @@ class ReadReceiptsTunnelService : Service() {
                 requestedGeneration,
                 ReadReceiptsTunnelStatus(
                     ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                    error = "WeKit 通知已关闭, 请在系统设置中允许通知后重试",
+                    errorCode = ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED,
                     needsNotificationSettings = true,
                 ),
             )
@@ -1317,7 +1338,12 @@ class ReadReceiptsTunnelService : Service() {
             return
         }
         if (mode == null) {
-            rejectStart(requestedGeneration, client, nonce, "隧道模式无效")
+            rejectStart(
+                requestedGeneration,
+                client,
+                nonce,
+                ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+            )
             return
         }
         val publicRoot = if (mode == ReadReceiptsTunnelMode.TOKEN) {
@@ -1326,7 +1352,7 @@ class ReadReceiptsTunnelService : Service() {
                     requestedGeneration,
                     client,
                     nonce,
-                    "Token 模式需要根路径 HTTPS 主机名",
+                    ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
                 )
                 return
             }
@@ -1337,7 +1363,12 @@ class ReadReceiptsTunnelService : Service() {
             suppliedToken != null &&
             (suppliedToken.length > MAX_TOKEN_CHARS || suppliedToken.isBlank())
         ) {
-            rejectStart(requestedGeneration, client, nonce, "Tunnel token 无效")
+            rejectStart(
+                requestedGeneration,
+                client,
+                nonce,
+                ReadReceiptsTunnelErrorCode.TOKEN_INVALID,
+            )
             return
         }
         if (
@@ -1349,7 +1380,7 @@ class ReadReceiptsTunnelService : Service() {
                 requestedGeneration,
                 ReadReceiptsTunnelStatus(
                     ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                    error = "请提供 Cloudflare Tunnel token",
+                    errorCode = ReadReceiptsTunnelErrorCode.TOKEN_REQUIRED,
                 ),
             )
             activeRequest = null
@@ -1390,7 +1421,7 @@ class ReadReceiptsTunnelService : Service() {
         ) {
             publishBrowserNeedsUserAction(
                 requestedGeneration,
-                "浏览器登录配置与已保存凭据不匹配",
+                ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
             )
             sendStartAck(client, nonce, requestedGeneration, accepted = false)
             return
@@ -1409,7 +1440,7 @@ class ReadReceiptsTunnelService : Service() {
                 if (decision != TunnelCredentialStartupDecision.START) {
                     publishBrowserNeedsUserAction(
                         requestedGeneration,
-                        "请先完成 Cloudflare 浏览器登录与 Tunnel 选择",
+                        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
                     )
                     sendStartAck(client, nonce, requestedGeneration, accepted = false)
                     return@withContext
@@ -1434,7 +1465,7 @@ class ReadReceiptsTunnelService : Service() {
                         requestedGeneration,
                         ReadReceiptsTunnelStatus(
                             ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                            error = "请从可见设置界面启动前台隧道",
+                            errorCode = ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED,
                         ),
                     )
                     sendStartAck(client, nonce, requestedGeneration, accepted = false)
@@ -1447,7 +1478,7 @@ class ReadReceiptsTunnelService : Service() {
                         requestedGeneration,
                         ReadReceiptsTunnelStatus(
                             ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                            error = "WeKit 通知已关闭, 请在系统设置中允许通知后重试",
+                            errorCode = ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED,
                             needsNotificationSettings = true,
                         ),
                     )
@@ -1480,7 +1511,10 @@ class ReadReceiptsTunnelService : Service() {
         }
     }
 
-    private fun publishBrowserNeedsUserAction(generation: Long, message: String) {
+    private fun publishBrowserNeedsUserAction(
+        generation: Long,
+        errorCode: ReadReceiptsTunnelErrorCode,
+    ) {
         // A rejected request never entered the native lease. Keep an existing connector's
         // generation authoritative so its monitor can continue publishing current status.
         if (activeRequest != null) return
@@ -1491,7 +1525,7 @@ class ReadReceiptsTunnelService : Service() {
                 generation,
                 ReadReceiptsTunnelStatus(
                     ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                    error = message.take(MAX_ERROR_CHARS),
+                    errorCode = errorCode,
                 ),
             ),
         )
@@ -1503,11 +1537,11 @@ class ReadReceiptsTunnelService : Service() {
         requestedGeneration: Long,
         client: Messenger?,
         nonce: String?,
-        message: String,
+        errorCode: ReadReceiptsTunnelErrorCode,
     ) {
         activeRequest = null
         replaceLifecycle(requestedGeneration, null)
-        publishFailure(requestedGeneration, message)
+        publishFailure(requestedGeneration, errorCode)
         sendStartAck(client, nonce, requestedGeneration, accepted = false)
     }
 
@@ -1542,7 +1576,7 @@ class ReadReceiptsTunnelService : Service() {
                                 ) {
                                     publishFailure(
                                         request.generation,
-                                        "Cloudflare Tunnel 连接失败",
+                                        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
                                     )
                                 }
                             }
@@ -1596,7 +1630,10 @@ class ReadReceiptsTunnelService : Service() {
                                         current.status.state !=
                                         ReadReceiptsTunnelState.NEEDS_USER_ACTION
                                     ) {
-                                        publishFailure(request.generation, AUTH_SELECT_FAILED)
+                                        publishFailure(
+                                            request.generation,
+                                            ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED,
+                                        )
                                     }
                                 }
                             }
@@ -1622,7 +1659,10 @@ class ReadReceiptsTunnelService : Service() {
         publish(request.generation, ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING))
         val originRoot = normalizeLoopbackRoot(request.origin)
         if (originRoot == null || !checkHealth(originRoot)) {
-            publishFailure(request.generation, "内置服务器健康检查失败")
+            publishFailure(
+                request.generation,
+                ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED,
+            )
             firstVerification?.complete(SelectCandidateOutcome.FAILED)
             return
         }
@@ -1653,7 +1693,7 @@ class ReadReceiptsTunnelService : Service() {
                         request.generation,
                         ReadReceiptsTunnelStatus(
                             ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                            error = "保存的 Tunnel token 已失效, 请重新输入",
+                            errorCode = ReadReceiptsTunnelErrorCode.TOKEN_INVALID,
                         ),
                     )
                     firstVerification?.complete(SelectCandidateOutcome.FAILED)
@@ -1675,7 +1715,8 @@ class ReadReceiptsTunnelService : Service() {
                             request.generation,
                             ReadReceiptsTunnelStatus(
                                 ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                                error = "保存的浏览器登录凭据不可用于当前隧道",
+                                errorCode =
+                                    ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
                             ),
                         )
                         firstVerification?.complete(SelectCandidateOutcome.FAILED)
@@ -1710,12 +1751,15 @@ class ReadReceiptsTunnelService : Service() {
             if (!started) {
                 if (activeRequest?.generation != request.generation) return
                 if (reservation != null && !nativeLease.isReservationCurrent(reservation)) return
-                publishFailure(request.generation, "Cloudflare Tunnel 启动失败")
+                publishFailure(
+                    request.generation,
+                    ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                )
                 firstVerification?.complete(SelectCandidateOutcome.FAILED)
                 return
             }
 
-            var terminalError: String? = null
+            var terminalErrorCode: ReadReceiptsTunnelErrorCode? = null
             var verifiedRoot: HttpUrl? = null
             var verifiedNetworkEpoch: Long? = null
             var lastPublicHealthAt = 0L
@@ -1738,7 +1782,7 @@ class ReadReceiptsTunnelService : Service() {
                         }
                         val candidate = request.publicRoot ?: normalizePublicRoot(native.publicUrl.orEmpty())
                         if (candidate == null) {
-                            terminalError = "Cloudflare 未返回有效的公网地址"
+                            terminalErrorCode = ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED
                             break
                         }
                         val needsHealthCheck = verifiedRoot != candidate ||
@@ -1801,7 +1845,8 @@ class ReadReceiptsTunnelService : Service() {
                                             request.generation,
                                             ReadReceiptsTunnelStatus(
                                                 ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                                                error = "隧道已验证, 但无法安全保存 Tunnel token",
+                                                errorCode =
+                                                    ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED,
                                             ),
                                         )
                                     }
@@ -1844,7 +1889,8 @@ class ReadReceiptsTunnelService : Service() {
                                 continue
                             }
                             if (publicHealthAttempts >= MAX_PUBLIC_HEALTH_ATTEMPTS) {
-                                terminalError = "公网 /health 验证失败, 请检查主机名与 ingress"
+                                terminalErrorCode =
+                                    ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED
                                 publicHealthTerminal = true
                                 break
                             }
@@ -1857,14 +1903,18 @@ class ReadReceiptsTunnelService : Service() {
                         verifiedNetworkEpoch = null
                         lastPublicHealthAt = 0L
                         publicHealthAttempts = 0
-                        publish(request.generation, native.copy(publicUrl = null, error = null))
+                        publish(
+                            request.generation,
+                            native.copy(publicUrl = null, errorCode = null),
+                        )
                     }
                     ReadReceiptsTunnelState.FAILED -> {
-                        terminalError = native.error ?: "Cloudflare Tunnel 连接失败"
+                        terminalErrorCode = native.errorCode
+                            ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
                         break
                     }
                     ReadReceiptsTunnelState.STOPPED -> {
-                        terminalError = "Cloudflare Tunnel 连接已断开"
+                        terminalErrorCode = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
                         break
                     }
                     ReadReceiptsTunnelState.NEEDS_USER_ACTION -> {
@@ -1885,14 +1935,17 @@ class ReadReceiptsTunnelService : Service() {
                 return
             }
             if (publicHealthTerminal) {
-                publishFailure(request.generation, terminalError!!)
+                publishFailure(request.generation, checkNotNull(terminalErrorCode))
                 firstVerification?.complete(SelectCandidateOutcome.FAILED)
                 return
             }
 
             attempt++
             if (attempt > MAX_RECONNECT_ATTEMPTS) {
-                publishFailure(request.generation, terminalError ?: "Cloudflare Tunnel 重连失败")
+                publishFailure(
+                    request.generation,
+                    terminalErrorCode ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                )
                 firstVerification?.complete(SelectCandidateOutcome.FAILED)
                 return
             }
@@ -2016,21 +2069,21 @@ class ReadReceiptsTunnelService : Service() {
             })
         }
 
-    private fun publishFailure(expectedGeneration: Long, message: String) {
+    private fun publishFailure(
+        expectedGeneration: Long,
+        errorCode: ReadReceiptsTunnelErrorCode,
+    ) {
         publish(
             expectedGeneration,
             ReadReceiptsTunnelStatus(
                 ReadReceiptsTunnelState.FAILED,
-                error = message.take(MAX_ERROR_CHARS),
+                errorCode = errorCode,
             ),
         )
     }
 
     private fun publish(expectedGeneration: Long, value: ReadReceiptsTunnelStatus) {
-        val sanitized = value.copy(
-            publicUrl = value.publicUrl?.take(MAX_URL_CHARS),
-            error = value.error?.take(MAX_ERROR_CHARS),
-        )
+        val sanitized = value.copy(publicUrl = value.publicUrl?.take(MAX_URL_CHARS))
         while (true) {
             val current = authoritativeState.get()
             if (current.generation != expectedGeneration) return
@@ -2055,7 +2108,7 @@ class ReadReceiptsTunnelService : Service() {
                 putLong(ReadReceiptsTunnelProtocol.KEY_GENERATION, snapshot.generation)
                 putString(ReadReceiptsTunnelProtocol.KEY_STATE, value.state.name)
                 putString(ReadReceiptsTunnelProtocol.KEY_PUBLIC_URL, value.publicUrl)
-                putString(ReadReceiptsTunnelProtocol.KEY_ERROR, value.error)
+                putString(ReadReceiptsTunnelProtocol.KEY_ERROR_CODE, value.errorCode?.name)
                 putBoolean(ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_EXISTS, cachedCredentialExists)
                 putBoolean(
                     ReadReceiptsTunnelProtocol.KEY_NEEDS_NOTIFICATION_SETTINGS,
@@ -2281,12 +2334,14 @@ class ReadReceiptsTunnelService : Service() {
             .onFailure { listeners.remove(listener.messenger.binder) }
     }
 
-    private fun createNotificationChannel() {
+    private fun createNotificationChannel(
+        localized: Context = readReceiptsModuleLocalizedContext(),
+    ) {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(
                 NOTIFICATION_CHANNEL,
-                "已读追踪公网隧道",
+                localized.getString(R.string.read_receipts_tunnel_notification_channel),
                 NotificationManager.IMPORTANCE_LOW,
             ),
         )
@@ -2306,6 +2361,8 @@ class ReadReceiptsTunnelService : Service() {
     }
 
     private fun notification(value: ReadReceiptsTunnelStatus): Notification {
+        val localized = readReceiptsModuleLocalizedContext()
+        createNotificationChannel(localized)
         val stopIntent = Intent(this, ReadReceiptsTunnelService::class.java).apply {
             action = ACTION_STOP
             putExtra(EXTRA_STOP_NONCE, notificationStopNonce)
@@ -2316,23 +2373,23 @@ class ReadReceiptsTunnelService : Service() {
             stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val detail = value.publicUrl?.toHttpUrlOrNull()?.host ?: when (value.state) {
-            ReadReceiptsTunnelState.STOPPED -> "已停止"
-            ReadReceiptsTunnelState.STARTING -> "正在启动"
-            ReadReceiptsTunnelState.CONNECTED -> "已连接"
-            ReadReceiptsTunnelState.RECONNECTING -> "正在重连"
-            ReadReceiptsTunnelState.NEEDS_USER_ACTION -> "需要用户操作"
-            ReadReceiptsTunnelState.FAILED -> "连接失败"
-            ReadReceiptsTunnelState.STOPPING -> "正在停止"
-        }
+        val detail = value.publicUrl?.toHttpUrlOrNull()?.host
+            ?: value.errorCode?.let { localized.getString(it.messageRes) }
+            ?: localized.getString(value.state.notificationDetailRes)
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_upload)
-            .setContentTitle("WeKit 已读追踪隧道")
+            .setContentTitle(
+                localized.getString(R.string.read_receipts_tunnel_notification_title),
+            )
             .setContentText(detail.take(128))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .addAction(0, "停止", stopPendingIntent)
+            .addAction(
+                0,
+                localized.getString(R.string.read_receipts_tunnel_notification_stop),
+                stopPendingIntent,
+            )
             .build()
     }
 
@@ -2448,19 +2505,16 @@ class ReadReceiptsTunnelService : Service() {
         private const val PUBLIC_HEALTH_RECHECK_MILLIS = 15_000L
         private const val MAX_TOKEN_CHARS = 16 * 1024
         private const val MAX_URL_CHARS = 2048
-        private const val MAX_ERROR_CHARS = 256
         private const val AUTH_OPERATION_TIMEOUT_MILLIS = 30_000L
         private const val AUTH_LOGIN_POLL_LIMIT = 1_200
-        private const val AUTH_REJECTED = "认证请求已被拒绝"
-        private const val AUTH_BEGIN_FAILED = "无法启动 Cloudflare 登录"
-        private const val AUTH_LIST_FAILED = "无法读取 Cloudflare Tunnel 列表"
-        private const val AUTH_SELECT_FAILED = "无法验证所选 Cloudflare Tunnel"
-        private const val AUTH_SELECT_FOREGROUND_REQUIRED = "请从可见设置界面启动前台隧道"
-        private const val AUTH_SELECT_NOTIFICATION_REQUIRED =
-            "WeKit 通知已关闭, 请在系统设置中允许通知后重试"
-        private const val AUTH_SELECT_STALE = "隧道启动已失效"
-        private const val AUTH_CLEANUP_FAILED = "认证清理未完成，请重新启动登录"
+        private val AUTH_REJECTED = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name
+        private val AUTH_BEGIN_FAILED = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name
+        private val AUTH_LIST_FAILED = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name
+        private val AUTH_SELECT_FAILED = ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED.name
+        private val AUTH_CLEANUP_FAILED = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name
         private val RECONNECT_DELAYS_MILLIS = longArrayOf(1_000, 2_000, 4_000, 8_000, 16_000)
+
+        private const val TAG = "ReadReceiptsTunnelService"
 
         internal fun normalizePublicRoot(value: String): HttpUrl? {
             if (value.isBlank() || value != value.trim() || value.any(Char::isWhitespace)) return null
@@ -2518,6 +2572,7 @@ internal object ReadReceiptsTunnelProtocol {
     const val KEY_STATE = "state"
     const val KEY_PUBLIC_URL = "public_url"
     const val KEY_ERROR = "error"
+    const val KEY_ERROR_CODE = "error_code"
     const val KEY_CREDENTIAL_EXISTS = "credential_exists"
     const val KEY_CLIENT_NONCE = "client_nonce"
     const val KEY_ACCEPTED = "accepted"
@@ -2546,6 +2601,15 @@ internal object ReadReceiptsTunnelProtocol {
     const val KEY_CREDENTIAL_ORIGIN_PORT = "credential_origin_port"
 
     val REGISTER_KEYS = setOf(KEY_CLIENT_NONCE, KEY_LAST_SEEN_AUTH_GENERATION)
+    val STATUS_KEYS = setOf(
+        KEY_GENERATION,
+        KEY_STATE,
+        KEY_PUBLIC_URL,
+        KEY_ERROR_CODE,
+        KEY_CREDENTIAL_EXISTS,
+        KEY_NEEDS_NOTIFICATION_SETTINGS,
+        KEY_CLIENT_NONCE,
+    )
     val AUTH_OPERATION_KEYS = setOf(
         KEY_AUTH_GENERATION,
         KEY_AUTH_REQUEST_ID,

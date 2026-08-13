@@ -19,12 +19,32 @@ enum class ReadReceiptsTunnelState {
     STOPPING,
 }
 
+enum class ReadReceiptsTunnelErrorCode {
+    VISIBLE_SETTINGS_REQUIRED,
+    NOTIFICATIONS_DISABLED,
+    TOKEN_REQUIRED,
+    TOKEN_INVALID,
+    BROWSER_CREDENTIAL_INVALID,
+    CREDENTIAL_SAVE_FAILED,
+    START_HANDOFF_TIMEOUT,
+    STOP_TIMEOUT,
+    SERVICE_UNAVAILABLE,
+    HEALTH_CHECK_FAILED,
+    UNEXPECTED_FAILURE,
+}
+
 data class ReadReceiptsTunnelStatus(
     val state: ReadReceiptsTunnelState,
     val publicUrl: String? = null,
-    val error: String? = null,
+    val errorCode: ReadReceiptsTunnelErrorCode? = null,
     val needsNotificationSettings: Boolean = false,
 )
+
+internal class ReadReceiptsTunnelException(
+    val errorCode: ReadReceiptsTunnelErrorCode,
+    diagnostic: String,
+    cause: Throwable? = null,
+) : IllegalStateException(diagnostic, cause)
 
 data class CloudflareLoginState(
     val authorizationUrl: String?,

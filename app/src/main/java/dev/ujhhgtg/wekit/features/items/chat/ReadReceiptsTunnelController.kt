@@ -102,7 +102,7 @@ internal object ReadReceiptsTunnelController {
         if (status.state == ReadReceiptsTunnelState.CONNECTED) return
         status = ReadReceiptsTunnelStatus(
             ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-            error = "请在已读追踪设置中点击连接以启动前台隧道",
+            errorCode = ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED,
         )
     }
 
@@ -116,7 +116,10 @@ internal object ReadReceiptsTunnelController {
         val handoffDelivery = TunnelHandoffTerminalDelivery(onHandoff)
         if (stopCompletion.hasPendingStop()) {
             handoffDelivery.complete(
-                Result.failure(IllegalStateException("隧道正在停止，请等待完成后重试")),
+                Result.failure(tunnelException(
+                    ReadReceiptsTunnelErrorCode.STOP_TIMEOUT,
+                    "tunnel stop is still pending",
+                )),
             )
             return
         }
@@ -136,10 +139,14 @@ internal object ReadReceiptsTunnelController {
         if (started.isFailure) {
             status = ReadReceiptsTunnelStatus(
                 ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                error = "系统阻止了前台服务启动, 请保持微信在前台后重试",
+                errorCode = ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED,
             )
             handoffGate.fail(nextGeneration)
-            handoffDelivery.complete(Result.failure(started.exceptionOrNull()!!))
+            handoffDelivery.complete(Result.failure(tunnelException(
+                ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED,
+                "foreground tunnel service startup was rejected",
+                started.exceptionOrNull(),
+            )))
             return
         }
 
@@ -160,7 +167,15 @@ internal object ReadReceiptsTunnelController {
         pendingStart = PendingStart(nextGeneration, command, handoffDelivery)
         sendPendingOrBind(context)
         mainHandler.postDelayed(
-            { failPendingStart(nextGeneration, IllegalStateException("隧道服务接管请求超时")) },
+            {
+                failPendingStart(
+                    nextGeneration,
+                    tunnelException(
+                        ReadReceiptsTunnelErrorCode.START_HANDOFF_TIMEOUT,
+                        "tunnel service handoff timed out",
+                    ),
+                )
+            },
             START_HANDOFF_TIMEOUT_MILLIS,
         )
     }
@@ -194,10 +209,13 @@ internal object ReadReceiptsTunnelController {
                     if (!drain.matched) return@postDelayed
                     status = ReadReceiptsTunnelStatus(
                         ReadReceiptsTunnelState.FAILED,
-                        error = "隧道停止超时; 已继续停止回环服务器",
+                        errorCode = ReadReceiptsTunnelErrorCode.STOP_TIMEOUT,
                     )
                     val failure = Result.failure<Unit>(
-                        IllegalStateException("隧道停止超时"),
+                        tunnelException(
+                            ReadReceiptsTunnelErrorCode.STOP_TIMEOUT,
+                            "tunnel stop timed out",
+                        ),
                     )
                     drain.callbacks.forEach { callback -> callback(failure) }
                 }
@@ -252,13 +270,22 @@ internal object ReadReceiptsTunnelController {
         canonicalRoot: String,
         fixedPort: Int,
     ): Result<Unit> = runCatching {
-        if (!ExistingTunnel.isCanonicalId(id)) throw authException("Tunnel ID 无效")
+        if (!ExistingTunnel.isCanonicalId(id)) throw authException(
+            ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+            "invalid tunnel ID",
+        )
         if (
             ReadReceiptsTunnelService.canonicalPublicRoot(canonicalRoot) != canonicalRoot
         ) {
-            throw authException("Tunnel 主机名无效")
+            throw authException(
+                ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                "invalid tunnel hostname",
+            )
         }
-        if (fixedPort !in 1..65535) throw authException("回环端口无效")
+        if (fixedPort !in 1..65535) throw authException(
+            ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+            "invalid loopback port",
+        )
         val generation = requireExpectedAuthGeneration()
         val connectorGeneration = reserveConnectorGeneration()
         awaitSelectForegroundReady(connectorGeneration)
@@ -312,11 +339,17 @@ internal object ReadReceiptsTunnelController {
             if (!continuation.isActive) return@Runnable
             if (beginGeneration) {
                 if (!authState.expectBegin(generation)) {
-                    continuation.resumeWithException(authException("登录请求已失效"))
+                    continuation.resumeWithException(authException(
+                        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                        "browser login request is stale",
+                    ))
                     return@Runnable
                 }
                 if (!authOperations.replaceGeneration(generation)) {
-                    continuation.resumeWithException(authException("登录请求已失效"))
+                    continuation.resumeWithException(authException(
+                        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                        "browser login request is stale",
+                    ))
                     return@Runnable
                 }
             }
@@ -336,7 +369,10 @@ internal object ReadReceiptsTunnelController {
                 deliverAuthTerminal(continuation, terminal)
             }
             if (!enqueued) {
-                continuation.resumeWithException(authException("认证请求已失效"))
+                continuation.resumeWithException(authException(
+                    ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                    "browser auth request is stale",
+                ))
                 return@Runnable
             }
             pendingAuthMessages[key] = PendingAuthMessage(key, kind, command, timeout)
@@ -361,13 +397,25 @@ internal object ReadReceiptsTunnelController {
         when (terminal) {
             is AuthOperationTerminal.Completed -> continuation.resume(terminal.value)
             is AuthOperationTerminal.Failed ->
-                continuation.resumeWithException(authException(terminal.error))
+                continuation.resumeWithException(authException(
+                    terminal.error.toTunnelErrorCode(),
+                    "browser auth operation failed",
+                ))
             AuthOperationTerminal.Superseded ->
-                continuation.resumeWithException(authException("认证请求已被新请求取代"))
+                continuation.resumeWithException(authException(
+                    ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                    "browser auth request was superseded",
+                ))
             AuthOperationTerminal.TimedOut ->
-                continuation.resumeWithException(authException("认证请求超时"))
+                continuation.resumeWithException(authException(
+                    ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                    "browser auth request timed out",
+                ))
             AuthOperationTerminal.Cancelled ->
-                continuation.resumeWithException(authException("认证请求已取消"))
+                continuation.resumeWithException(authException(
+                    ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                    "browser auth request was cancelled",
+                ))
         }
     }
 
@@ -387,7 +435,10 @@ internal object ReadReceiptsTunnelController {
                         ?: return@Runnable
                     if (pending.continuation.isActive) {
                         pending.continuation.resumeWithException(
-                            authException("前台隧道服务启动超时"),
+                            authException(
+                                ReadReceiptsTunnelErrorCode.START_HANDOFF_TIMEOUT,
+                                "foreground tunnel service startup timed out",
+                            ),
                         )
                     }
                 }
@@ -411,7 +462,8 @@ internal object ReadReceiptsTunnelController {
                     pendingSelectReadiness.remove(connectorGeneration)
                     continuation.resumeWithException(
                         authException(
-                            "系统阻止了前台隧道服务启动",
+                            ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED,
+                            "foreground tunnel service startup was rejected",
                             started.exceptionOrNull(),
                         ),
                     )
@@ -433,7 +485,10 @@ internal object ReadReceiptsTunnelController {
 
     private fun requireExpectedAuthGeneration(): Long =
         authState.lastSeenAuthGeneration().takeIf { it > 0 }
-            ?: throw authException("请先启动 Cloudflare 浏览器登录")
+            ?: throw authException(
+                ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+                "browser login is not active",
+            )
 
     private fun nextAuthGeneration(): Long = authGeneration.updateAndGet { current ->
         maxOf(current + 1, SystemClock.elapsedRealtimeNanos())
@@ -443,8 +498,29 @@ internal object ReadReceiptsTunnelController {
         if (current == Long.MAX_VALUE) 1 else current + 1
     }
 
-    private fun authException(message: String, cause: Throwable? = null): BrowserLoginException =
-        BrowserLoginException(message.take(MAX_AUTH_ERROR_CHARS), cause)
+    private fun authException(
+        errorCode: ReadReceiptsTunnelErrorCode,
+        diagnostic: String,
+        cause: Throwable? = null,
+    ): BrowserLoginException = BrowserLoginException(
+        errorCode,
+        diagnostic.take(MAX_AUTH_ERROR_CHARS),
+        cause,
+    )
+
+    private fun String.toTunnelErrorCode(): ReadReceiptsTunnelErrorCode =
+        ReadReceiptsTunnelErrorCode.entries.firstOrNull { it.name == this }
+            ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
+
+    private fun tunnelException(
+        errorCode: ReadReceiptsTunnelErrorCode,
+        diagnostic: String,
+        cause: Throwable? = null,
+    ): ReadReceiptsTunnelException = ReadReceiptsTunnelException(
+        errorCode,
+        diagnostic,
+        cause,
+    )
 
     private fun <T> authIdentityBundle(
         key: AuthOperationKey,
@@ -527,13 +603,19 @@ internal object ReadReceiptsTunnelController {
             binding = false
             status = ReadReceiptsTunnelStatus(
                 ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                error = "无法连接 WeKit 隧道服务",
+                errorCode = ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
             )
-            failPendingStart(IllegalStateException("无法连接 WeKit 隧道服务"))
+            failPendingStart(tunnelException(
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                "could not bind tunnel service",
+            ))
             stopCompletion.pendingGeneration()?.let { stoppingGeneration ->
                 completeStop(
                     stoppingGeneration,
-                    Result.failure(IllegalStateException("无法确认隧道已停止")),
+                    Result.failure(tunnelException(
+                        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                        "could not confirm tunnel stop after bind failure",
+                    )),
                 )
             }
             if (authOperations.unsentKeys().isNotEmpty()) {
@@ -581,7 +663,10 @@ internal object ReadReceiptsTunnelController {
     private fun handleBinderDied(expectedBinder: IBinder? = null) {
         val currentBinder = service?.binder
         if (expectedBinder != null && currentBinder !== expectedBinder) {
-            authOperations.binderDied(expectedBinder, "认证服务连接已断开")
+            authOperations.binderDied(
+                expectedBinder,
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE.name,
+            )
             return
         }
         val deadBinder = currentBinder
@@ -590,17 +675,26 @@ internal object ReadReceiptsTunnelController {
         bound = false
         awaitingAuthSnapshot = false
         if (deadBinder != null) {
-            authOperations.binderDied(deadBinder, "认证服务连接已断开")
+            authOperations.binderDied(
+                deadBinder,
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE.name,
+            )
         }
         if (authOperations.unsentKeys().isNotEmpty()) {
             mainHandler.postDelayed({ bind(HostInfo.application) }, REBIND_DELAY_MILLIS)
         }
-        failPendingStart(IllegalStateException("隧道服务在接管请求前断开"))
+        failPendingStart(tunnelException(
+            ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+            "tunnel service disconnected before handoff",
+        ))
         val stoppingGeneration = stopCompletion.pendingGeneration()
         if (stoppingGeneration != null) {
             completeStop(
                 stoppingGeneration,
-                Result.failure(IllegalStateException("无法确认隧道已停止")),
+                Result.failure(tunnelException(
+                    ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                    "could not confirm tunnel stop after Binder teardown",
+                )),
             )
             return
         }
@@ -612,7 +706,7 @@ internal object ReadReceiptsTunnelController {
         ) {
             status = ReadReceiptsTunnelStatus(
                 ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                error = "隧道服务已断开, 请在可见设置界面重新连接",
+                errorCode = ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
             )
             mainHandler.postDelayed({ bind(HostInfo.application) }, REBIND_DELAY_MILLIS)
         }
@@ -647,23 +741,17 @@ internal object ReadReceiptsTunnelController {
             }
             if (message.what != ReadReceiptsTunnelProtocol.STATUS) return
             val data = message.data
-            credentialExists = data.getBoolean(ReadReceiptsTunnelProtocol.KEY_CREDENTIAL_EXISTS)
-            val incomingGeneration = data.getLong(ReadReceiptsTunnelProtocol.KEY_GENERATION)
+            val decoded = decodeReadReceiptsTunnelStatus(
+                data.keySet().associateWith { key -> data.get(key) },
+            ) ?: return
+            if (decoded.clientNonce != clientNonce) return
+            val incomingGeneration = decoded.generation
             if (incomingGeneration < lastIssuedGeneration.get()) return
             generation.updateAndGet { current -> maxOf(current, incomingGeneration) }
             lastIssuedGeneration.updateAndGet { current -> maxOf(current, incomingGeneration) }
-            val state = data.getString(ReadReceiptsTunnelProtocol.KEY_STATE)
-                ?.let { name -> ReadReceiptsTunnelState.entries.firstOrNull { it.name == name } }
-                ?: ReadReceiptsTunnelState.FAILED
-            status = ReadReceiptsTunnelStatus(
-                state = state,
-                publicUrl = data.getString(ReadReceiptsTunnelProtocol.KEY_PUBLIC_URL),
-                error = data.getString(ReadReceiptsTunnelProtocol.KEY_ERROR),
-                needsNotificationSettings = data.getBoolean(
-                    ReadReceiptsTunnelProtocol.KEY_NEEDS_NOTIFICATION_SETTINGS,
-                ),
-            )
-            if (state == ReadReceiptsTunnelState.STOPPED) {
+            credentialExists = decoded.credentialExists
+            status = decoded.status
+            if (decoded.status.state == ReadReceiptsTunnelState.STOPPED) {
                 val drain = stopCompletion.complete(incomingGeneration)
                 if (!drain.matched) {
                     ReadReceipts.onTunnelServiceStopped()
@@ -795,7 +883,10 @@ internal object ReadReceiptsTunnelController {
                 null
             } else {
                 data.strictString(ReadReceiptsTunnelProtocol.KEY_ERROR)
-                    ?.takeIf(::isBoundedAuthError)
+                    ?.takeIf { error ->
+                        isBoundedAuthError(error) &&
+                            ReadReceiptsTunnelErrorCode.entries.any { it.name == error }
+                    }
                     ?.let { AuthOperationTerminal.Failed(it) }
             }
         }
@@ -836,7 +927,14 @@ internal object ReadReceiptsTunnelController {
             return
         }
         val error = data.strictNullableString(ReadReceiptsTunnelProtocol.KEY_ERROR) ?: return
-        if (error.value != null && !isBoundedAuthError(error.value)) return
+        if (
+            error.value != null && (
+                !isBoundedAuthError(error.value) ||
+                    ReadReceiptsTunnelErrorCode.entries.none { it.name == error.value }
+                )
+        ) {
+            return
+        }
         val accountId = data.strictString(ReadReceiptsTunnelProtocol.KEY_ACCOUNT_ID) ?: return
         if (accountId.isNotEmpty() && !accountId.matches(AUTH_ACCOUNT_ID_PATTERN)) return
         val tunnels = parseTunnels(data) ?: return
@@ -1003,7 +1101,7 @@ internal object ReadReceiptsTunnelController {
         if (data.getBoolean(ReadReceiptsTunnelProtocol.KEY_NEEDS_NOTIFICATION_SETTINGS)) {
             status = ReadReceiptsTunnelStatus(
                 ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                error = "WeKit 通知已关闭, 请在系统设置中允许通知后重试",
+                errorCode = ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED,
                 needsNotificationSettings = true,
             )
         }
@@ -1019,7 +1117,10 @@ internal object ReadReceiptsTunnelController {
             if (accepted) {
                 Result.success(Unit)
             } else {
-                Result.failure(IllegalStateException("隧道服务拒绝了连接请求"))
+                Result.failure(tunnelException(
+                    status.errorCode ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                    "tunnel service rejected start request",
+                ))
             },
         )
     }
@@ -1169,6 +1270,7 @@ internal object ReadReceiptsTunnelController {
 }
 
 internal class BrowserLoginException(
-    message: String,
+    val errorCode: ReadReceiptsTunnelErrorCode,
+    diagnostic: String,
     cause: Throwable? = null,
-) : IllegalStateException(message, cause)
+) : IllegalStateException(diagnostic, cause)
