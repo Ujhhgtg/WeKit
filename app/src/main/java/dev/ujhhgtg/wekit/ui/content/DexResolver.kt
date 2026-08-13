@@ -30,134 +30,106 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
-import dev.ujhhgtg.wekit.dexkit.resolution.resolveAllDex
-import dev.ujhhgtg.wekit.features.core.BaseFeature
+import dev.ujhhgtg.wekit.dexkit.cache.CloudDexNotice
+import dev.ujhhgtg.wekit.dexkit.cache.CloudDexResolver
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.reflection.withDexKitSuspending
 import dev.ujhhgtg.wekit.utils.restartHost
-import dev.ujhhgtg.wekit.utils.unreachable
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.buffer
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.launch
-import org.luckypray.dexkit.DexKitBridge
 import java.io.PrintWriter
 import java.io.StringWriter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-private sealed class ScanProgress {
-    data class Start(val displayName: String) : ScanProgress()
-    data class Complete(val displayName: String) : ScanProgress()
-    data class Failed(val displayName: String, val error: Exception) : ScanProgress()
+private sealed interface DialogPhase {
+    data class Idle(
+        val notice: CloudDexNotice? = null,
+        val cloudAttempted: Boolean = false,
+    ) : DialogPhase
+
+    data object DownloadingCloud : DialogPhase
+    data class ResolvingLocal(val total: Int) : DialogPhase
+    data class Done(
+        val source: CompletionSource,
+        val failures: List<LocalDexFailure>,
+    ) : DialogPhase
+
+    data class Error(val message: String) : DialogPhase
 }
 
-private sealed class ScanResult {
-    data class Success(val displayName: String) : ScanResult()
-    data class Failed(val displayName: String, val error: Exception) : ScanResult()
-}
+private enum class CompletionSource { Cloud, Local }
 
-private sealed class DialogPhase {
-    object Idle : DialogPhase()
-    object Scanning : DialogPhase()
-    data class Done(val failed: List<ScanResult.Failed>) : DialogPhase()
-    data class Error(val message: String) : DialogPhase()
-}
-
-private val TAG = "DexResolver"
+private const val TAG = "DexResolver"
 
 @Composable
 fun DexResolver(
     context: Context,
     outdatedItems: List<IResolveDex>,
     scope: CoroutineScope,
-    dismiss: () -> Unit
+    dismiss: () -> Unit,
 ) {
-    var phase by remember { mutableStateOf<DialogPhase>(DialogPhase.Idle) }
-    var currentTask by remember { mutableStateOf<ScanProgress?>(null) }
+    var phase by remember { mutableStateOf<DialogPhase>(DialogPhase.Idle()) }
+    var pendingItems by remember { mutableStateOf(outdatedItems) }
+    var currentTask by remember { mutableStateOf<LocalDexProgress?>(null) }
     var completed by remember { mutableIntStateOf(0) }
-    val scanResults = remember { mutableStateMapOf<String, ScanResult>() }
+    val localResults = remember { mutableStateMapOf<String, LocalDexProgress>() }
 
-    fun updateProgress(progress: ScanProgress) {
-        when (progress) {
-            is ScanProgress.Complete -> {
-                scanResults[progress.displayName] = ScanResult.Success(progress.displayName)
-                completed = scanResults.size
-                currentTask = progress
-            }
-
-            is ScanProgress.Failed -> {
-                scanResults[progress.displayName] = ScanResult.Failed(progress.displayName, progress.error)
-                completed = scanResults.size
-                currentTask = progress
-            }
-
-            else -> {}
+    fun updateProgress(progress: LocalDexProgress) {
+        currentTask = progress
+        if (progress is LocalDexProgress.Complete || progress is LocalDexProgress.Failed) {
+            localResults[progress.displayName] = progress
+            completed = localResults.size
         }
     }
 
-    suspend fun scanItem(
-        item: IResolveDex,
-        dexKit: DexKitBridge,
-        progressChannel: Channel<ScanProgress>
-    ): ScanResult {
-        val displayName = if (item is BaseFeature) item.technicalPath else unreachable()
-        return try {
-            progressChannel.send(ScanProgress.Start(displayName))
-
-            item.resolveAllDex(dexKit)
-
-            DexCacheManager.saveItemCache(item)
-            progressChannel.send(ScanProgress.Complete(displayName))
-            ScanResult.Success(displayName)
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to scan: $displayName", e)
-            progressChannel.send(ScanProgress.Failed(displayName, e))
-            ScanResult.Failed(displayName, e)
+    fun startCloudResolution() {
+        val currentItems = pendingItems
+        phase = DialogPhase.DownloadingCloud
+        scope.launch {
+            val result = try {
+                CloudDexResolver.resolve(currentItems)
+            } catch (error: Exception) {
+                WeLogger.e(TAG, "cloud resolution failed", error)
+                withContext(Dispatchers.Main.immediate) {
+                    phase = DialogPhase.Idle(
+                        notice = CloudDexNotice.NetworkFailure(error.message.orEmpty()),
+                        cloudAttempted = true,
+                    )
+                }
+                return@launch
+            }
+            withContext(Dispatchers.Main.immediate) {
+                pendingItems = result.remainingItems
+                phase = if (pendingItems.isEmpty()) {
+                    DialogPhase.Done(CompletionSource.Cloud, emptyList())
+                } else {
+                    DialogPhase.Idle(result.notice, cloudAttempted = true)
+                }
+            }
         }
     }
 
-    fun startScanning() {
-        phase = DialogPhase.Scanning
+    fun startLocalResolution() {
+        val currentItems = pendingItems
+        currentTask = null
+        completed = 0
+        localResults.clear()
+        phase = DialogPhase.ResolvingLocal(currentItems.size)
         scope.launch {
             try {
-                val progressChannel = Channel<ScanProgress>(Channel.UNLIMITED)
-
-                // progress consumer on Main
-                launch(Dispatchers.Main) {
-                    for (p in progressChannel) updateProgress(p)
+                val result = LocalDexResolver.resolve(currentItems) { progress ->
+                    withContext(Dispatchers.Main.immediate) { updateProgress(progress) }
                 }
-
-                // parallel scan — same flow/buffer/async structure
-                val results = withDexKitSuspending { dexKit ->
-                    outdatedItems.asFlow()
-                        .map { item ->
-                            async(Dispatchers.IO) {
-                                scanItem(
-                                    item,
-                                    dexKit,
-                                    progressChannel
-                                )
-                            }
-                        }
-                        .buffer(8)
-                        .map { it.await() }
-                        .toList()
+                withContext(Dispatchers.Main.immediate) {
+                    phase = DialogPhase.Done(CompletionSource.Local, result.failures)
                 }
-
-                progressChannel.close()
-
-                val failed = results.filterIsInstance<ScanResult.Failed>()
-                phase = DialogPhase.Done(failed)
-            } catch (e: Exception) {
-                WeLogger.e(TAG, "scanning failed", e)
-                phase = DialogPhase.Error(e.message.orEmpty())
+            } catch (error: Exception) {
+                WeLogger.e(TAG, "local resolution failed", error)
+                withContext(Dispatchers.Main.immediate) {
+                    phase = DialogPhase.Error(error.message.orEmpty())
+                }
             }
         }
     }
@@ -167,38 +139,39 @@ fun DexResolver(
         tonalElevation = 6.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(24.dp)
+            .padding(24.dp),
     ) {
         Column(
             modifier = Modifier
                 .padding(20.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Title with icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = stringResource(R.string.dex_cache_update_title),
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
 
-                // Badge showing count
-                if (phase is DialogPhase.Idle || phase is DialogPhase.Scanning) {
+                if (phase is DialogPhase.Idle ||
+                    phase is DialogPhase.DownloadingCloud ||
+                    phase is DialogPhase.ResolvingLocal
+                ) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        color = MaterialTheme.colorScheme.primaryContainer,
                     ) {
                         Text(
-                            text = "${outdatedItems.size}",
+                            text = "${pendingItems.size}",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -206,37 +179,52 @@ fun DexResolver(
 
             HorizontalDivider()
 
-            // Tip text
             val unknownError = stringResource(R.string.error_unknown)
-            val tipText = when (val p = phase) {
-                is DialogPhase.Idle -> stringResource(
-                    R.string.dex_cache_update_required_message,
-                    outdatedItems.size,
-                )
+            val tipText = when (val currentPhase = phase) {
+                is DialogPhase.Idle -> if (currentPhase.notice == null) {
+                    stringResource(R.string.dex_cache_update_required_message, pendingItems.size)
+                } else {
+                    stringResource(
+                        R.string.dex_cache_unknown_error,
+                        currentPhase.notice.javaClass.simpleName,
+                    )
+                }
 
-                is DialogPhase.Scanning -> null
-                is DialogPhase.Done ->
-                    if (p.failed.isEmpty()) stringResource(R.string.dex_cache_update_success)
-                    else stringResource(R.string.dex_cache_update_partial_failure, p.failed.size)
+                is DialogPhase.DownloadingCloud -> stringResource(R.string.dex_cache_status_adapting)
+                is DialogPhase.ResolvingLocal -> null
+                is DialogPhase.Done -> when {
+                    currentPhase.source == CompletionSource.Cloud ->
+                        stringResource(R.string.dex_cache_update_success)
+                    currentPhase.failures.isEmpty() ->
+                        stringResource(R.string.dex_cache_update_success)
+                    else -> stringResource(
+                        R.string.dex_cache_update_partial_failure,
+                        currentPhase.failures.size,
+                    )
+                }
 
                 is DialogPhase.Error -> stringResource(
                     R.string.dex_cache_unknown_error,
-                    p.message.ifBlank { unknownError },
+                    currentPhase.message.ifBlank { unknownError },
                 )
             }
             if (tipText != null) {
                 Text(text = tipText, style = MaterialTheme.typography.bodyMedium)
             }
 
-            // Progress
-            AnimatedVisibility(visible = phase is DialogPhase.Scanning) {
+            AnimatedVisibility(visible = phase is DialogPhase.DownloadingCloud) {
+                LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+
+            val localPhase = phase as? DialogPhase.ResolvingLocal
+            AnimatedVisibility(visible = localPhase != null) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     val currentTaskText = when (val task = currentTask) {
-                        is ScanProgress.Complete -> stringResource(
+                        is LocalDexProgress.Complete -> stringResource(
                             R.string.dex_cache_status_completed,
                             task.displayName,
                         )
-                        is ScanProgress.Failed -> stringResource(
+                        is LocalDexProgress.Failed -> stringResource(
                             R.string.dex_cache_status_failed,
                             task.displayName,
                         )
@@ -244,61 +232,65 @@ fun DexResolver(
                     }
                     Text(text = currentTaskText, style = MaterialTheme.typography.bodyMedium)
                     LinearWavyProgressIndicator(
-                        progress = { if (outdatedItems.isEmpty()) 0f else completed.toFloat() / outdatedItems.size },
-                        modifier = Modifier.fillMaxWidth(),
-                        amplitude = { progress ->
-                            if (progress == 0f || progress == 1f) {
+                        progress = {
+                            if (localPhase == null || localPhase.total == 0) {
                                 0f
                             } else {
-                                1f
+                                completed.toFloat() / localPhase.total
                             }
-                        }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        amplitude = { progress -> if (progress == 0f || progress == 1f) 0f else 1f },
                     )
                     Text(
                         text = stringResource(
                             R.string.dex_cache_total_progress,
                             completed,
-                            outdatedItems.size,
+                            localPhase?.total ?: 0,
                         ),
-                        style = MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelSmall,
                     )
-                    LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth()) // indeterminate sub-bar
+                    LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
             }
 
-            // Error details (Done with failures)
             val donePhase = phase as? DialogPhase.Done
-            AnimatedVisibility(visible = donePhase?.failed?.isNotEmpty() == true) {
-                donePhase?.failed?.let { failed ->
+            AnimatedVisibility(visible = donePhase?.failures?.isNotEmpty() == true) {
+                donePhase?.failures?.let { failures ->
                     ErrorDetailsSection(
-                        failedResults = failed,
+                        failedResults = failures,
                         onCopy = {
-                            val report = buildErrorReport(context, failed)
-                            copyToClipboard(context, report)
+                            copyToClipboard(context, buildErrorReport(context, failures))
                             showToast(context, context.getString(R.string.clipboard_copied))
-                        }
+                        },
                     )
                 }
             }
 
-            // Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
-                if (phase !is DialogPhase.Scanning) {
+                val isBusy = phase is DialogPhase.DownloadingCloud || phase is DialogPhase.ResolvingLocal
+                if (!isBusy) {
                     TextButton(onClick = dismiss) { Text(stringResource(R.string.dialog_close)) }
                 }
-                if (phase is DialogPhase.Idle) {
-                    Button(onClick = ::startScanning) {
+                val idlePhase = phase as? DialogPhase.Idle
+                if (idlePhase != null) {
+                    TextButton(onClick = ::startCloudResolution) {
+                        Text(stringResource(R.string.dex_cache_start_adaptation))
+                    }
+                    Button(onClick = ::startLocalResolution) {
                         Text(stringResource(R.string.dex_cache_start_adaptation))
                     }
                 }
                 if (phase is DialogPhase.Done || phase is DialogPhase.Error) {
-                    Button(onClick = {
-                        dismiss()
-                        restartHost()
-                    }) { Text(stringResource(R.string.restart_wechat)) }
+                    Button(
+                        onClick = {
+                            dismiss()
+                            restartHost()
+                        },
+                    ) { Text(stringResource(R.string.restart_wechat)) }
                 }
             }
         }
@@ -307,17 +299,17 @@ fun DexResolver(
 
 @Composable
 private fun ErrorDetailsSection(
-    failedResults: List<ScanResult.Failed>,
-    onCopy: () -> Unit
+    failedResults: List<LocalDexFailure>,
+    onCopy: () -> Unit,
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.errorContainer,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             val unknownError = stringResource(R.string.error_unknown)
             val errorText = failedResults.mapIndexed { index, result ->
@@ -335,7 +327,7 @@ private fun ErrorDetailsSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 160.dp)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(rememberScrollState()),
             )
             TextButton(onClick = onCopy) {
                 Text(stringResource(R.string.dex_cache_copy_error_information))
@@ -344,18 +336,21 @@ private fun ErrorDetailsSection(
     }
 }
 
-private fun buildErrorReport(context: Context, failedResults: List<ScanResult.Failed>) = buildString {
+private fun buildErrorReport(
+    context: Context,
+    failedResults: List<LocalDexFailure>,
+) = buildString {
     append(context.getString(R.string.dex_error_report_title)).append("\n\n")
-    failedResults.forEachIndexed { i, r ->
-        val sw = StringWriter()
-        r.error.printStackTrace(PrintWriter(sw))
+    failedResults.forEachIndexed { index, result ->
+        val stackTrace = StringWriter()
+        result.error.printStackTrace(PrintWriter(stackTrace))
         append(
             context.getString(
                 R.string.dex_error_report_entry,
-                i + 1,
-                r.displayName,
-                r.error.message ?: context.getString(R.string.error_unknown),
-                sw.toString(),
+                index + 1,
+                result.displayName,
+                result.error.message ?: context.getString(R.string.error_unknown),
+                stackTrace.toString(),
             ),
         )
     }
