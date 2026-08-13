@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Feature(
-    id = "重置适配信息",
+    id = "重置解析缓存",
     nameRes = "feature_reset_dex_cache_name",
     categoryIds = [FeatureCategoryIds.DEBUG],
     descriptionRes = "feature_reset_dex_cache_description",

@@ -184,27 +184,46 @@ fun DexResolver(
                 is DialogPhase.Idle -> if (currentPhase.notice == null) {
                     stringResource(R.string.dex_cache_update_required_message, pendingItems.size)
                 } else {
-                    stringResource(
-                        R.string.dex_cache_unknown_error,
-                        currentPhase.notice.javaClass.simpleName,
-                    )
+                    when (val notice = currentPhase.notice) {
+                        is CloudDexNotice.ReportNotFound ->
+                            stringResource(R.string.dex_cache_cloud_not_found)
+                        is CloudDexNotice.NetworkFailure -> stringResource(
+                            R.string.dex_cache_cloud_network_failure,
+                            notice.message.ifBlank { unknownError },
+                        )
+                        is CloudDexNotice.InvalidReport -> stringResource(
+                            R.string.dex_cache_cloud_invalid_report,
+                            notice.message.ifBlank { unknownError },
+                        )
+                        is CloudDexNotice.CacheWriteFailure -> stringResource(
+                            R.string.dex_cache_cloud_write_failure,
+                            notice.message.ifBlank { unknownError },
+                        )
+                        is CloudDexNotice.NoMatchingEntries ->
+                            stringResource(R.string.dex_cache_cloud_no_matches)
+                        is CloudDexNotice.Partial -> stringResource(
+                            R.string.dex_cache_cloud_partial,
+                            notice.importedCount,
+                            notice.remainingCount,
+                        )
+                    }
                 }
 
-                is DialogPhase.DownloadingCloud -> stringResource(R.string.dex_cache_status_adapting)
+                is DialogPhase.DownloadingCloud -> stringResource(R.string.dex_cache_cloud_downloading)
                 is DialogPhase.ResolvingLocal -> null
                 is DialogPhase.Done -> when {
                     currentPhase.source == CompletionSource.Cloud ->
-                        stringResource(R.string.dex_cache_update_success)
+                        stringResource(R.string.dex_cache_cloud_complete)
                     currentPhase.failures.isEmpty() ->
-                        stringResource(R.string.dex_cache_update_success)
+                        stringResource(R.string.dex_cache_resolution_success)
                     else -> stringResource(
-                        R.string.dex_cache_update_partial_failure,
+                        R.string.dex_cache_resolution_partial_failure,
                         currentPhase.failures.size,
                     )
                 }
 
                 is DialogPhase.Error -> stringResource(
-                    R.string.dex_cache_unknown_error,
+                    R.string.dex_cache_resolution_error,
                     currentPhase.message.ifBlank { unknownError },
                 )
             }
@@ -228,7 +247,7 @@ fun DexResolver(
                             R.string.dex_cache_status_failed,
                             task.displayName,
                         )
-                        else -> stringResource(R.string.dex_cache_status_adapting)
+                        else -> stringResource(R.string.dex_cache_status_resolving)
                     }
                     Text(text = currentTaskText, style = MaterialTheme.typography.bodyMedium)
                     LinearWavyProgressIndicator(
@@ -278,10 +297,18 @@ fun DexResolver(
                 val idlePhase = phase as? DialogPhase.Idle
                 if (idlePhase != null) {
                     TextButton(onClick = ::startCloudResolution) {
-                        Text(stringResource(R.string.dex_cache_start_adaptation))
+                        Text(stringResource(R.string.dex_cache_cloud_resolution))
                     }
                     Button(onClick = ::startLocalResolution) {
-                        Text(stringResource(R.string.dex_cache_start_adaptation))
+                        Text(
+                            stringResource(
+                                if (idlePhase.cloudAttempted) {
+                                    R.string.dex_cache_continue_local_resolution
+                                } else {
+                                    R.string.dex_cache_start_local_resolution
+                                },
+                            ),
+                        )
                     }
                 }
                 if (phase is DialogPhase.Done || phase is DialogPhase.Error) {

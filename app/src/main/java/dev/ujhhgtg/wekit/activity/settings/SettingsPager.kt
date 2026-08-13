@@ -188,20 +188,20 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 PrefSwitch(
                     key = Preferences.NO_DEX_RESOLVE,
-                    title = stringResource(R.string.settings_disable_adaptation_title),
-                    summary = stringResource(R.string.settings_disable_adaptation_summary),
+                    title = stringResource(R.string.settings_disable_resolution_title),
+                    summary = stringResource(R.string.settings_disable_resolution_summary),
                     icon = MaterialSymbols.Outlined.Block,
                 )
                 PrefArrow(
-                    title = stringResource(R.string.settings_reset_adaptation_title),
-                    summary = stringResource(R.string.settings_reset_adaptation_summary),
+                    title = stringResource(R.string.settings_reset_resolution_title),
+                    summary = stringResource(R.string.settings_reset_resolution_summary),
                     icon = MaterialSymbols.Outlined.Build_circle,
                     onClick = { ResetDexCache.onClick(context) },
                 )
                 PrefSwitch(
                     key = Preferences.RESET_DEX_ON_HOT_UPDATE,
-                    title = stringResource(R.string.settings_hot_update_adaptation_title),
-                    summary = stringResource(R.string.settings_hot_update_adaptation_summary),
+                    title = stringResource(R.string.settings_hot_update_resolution_title),
+                    summary = stringResource(R.string.settings_hot_update_resolution_summary),
                     icon = MaterialSymbols.Outlined.Auto_delete,
                 )
             }

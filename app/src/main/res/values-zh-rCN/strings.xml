@@ -74,16 +74,26 @@
     <string name="clipboard_copied">已复制</string>
     <string name="clipboard_label_link">链接</string>
     <string name="restart_wechat">重启微信</string>
-    <string name="dex_cache_status_adapting">正在适配...</string>
+    <string name="dex_cache_status_resolving">正在解析...</string>
     <string name="dex_cache_status_completed">已完成: %1$s</string>
     <string name="dex_cache_status_failed">失败: %1$s</string>
-    <string name="dex_cache_unknown_error">扫描过程中发生未知错误: %1$s</string>
+    <string name="dex_cache_resolution_error">解析过程中发生错误: %1$s</string>
     <string name="dex_cache_update_title">DEX 缓存更新</string>
-    <string name="dex_cache_update_required_message">检测到 %1$d 个功能需要更新 DEX 缓存, 开始适配后将自动扫描并更新。若直接关闭对话框, 相关功能将不会被加载</string>
-    <string name="dex_cache_update_success">适配完成! 所有功能已成功更新 DEX 缓存</string>
-    <string name="dex_cache_update_partial_failure">适配完成, 但有 %1$d 个功能失败 (不影响其他功能使用)</string>
+    <string name="dex_cache_update_required_message">检测到 %1$d 个功能需要更新 DEX 缓存，可从云端解析或在本机解析。若直接关闭对话框，相关功能将不会被加载</string>
+    <string name="dex_cache_resolution_success">解析完成！所有功能已成功更新 DEX 缓存</string>
+    <string name="dex_cache_resolution_partial_failure">解析完成，但有 %1$d 个功能失败（不影响其他功能使用）</string>
+    <string name="dex_cache_cloud_downloading">正在下载并校验云端解析报告…</string>
+    <string name="dex_cache_cloud_complete">云端解析完成，请重启微信以加载已解析的功能</string>
+    <string name="dex_cache_cloud_partial">云端已解析 %1$d 个功能，仍有 %2$d 个功能需要本地解析</string>
+    <string name="dex_cache_cloud_not_found">云端暂无当前微信版本的解析报告，可继续本地解析</string>
+    <string name="dex_cache_cloud_network_failure">无法下载云端解析报告：%1$s。可继续本地解析</string>
+    <string name="dex_cache_cloud_invalid_report">云端解析报告无效或不兼容：%1$s。可继续本地解析</string>
+    <string name="dex_cache_cloud_write_failure">无法保存云端解析缓存：%1$s。现有缓存已保留</string>
+    <string name="dex_cache_cloud_no_matches">云端报告中没有可用于当前版本的解析结果，可继续本地解析</string>
     <string name="dex_cache_total_progress">总进度: %1$d/%2$d</string>
-    <string name="dex_cache_start_adaptation">开始适配</string>
+    <string name="dex_cache_cloud_resolution">云端解析</string>
+    <string name="dex_cache_start_local_resolution">开始本地解析</string>
+    <string name="dex_cache_continue_local_resolution">继续本地解析</string>
     <string name="dex_cache_failure_detail">%1$d. %2$s\n   错误: %3$s\n\n</string>
     <string name="dex_cache_copy_error_information">复制错误信息</string>
     <string name="dex_error_report_title">=== WeKit DEX 扫描错误报告 ===</string>
@@ -235,12 +245,12 @@
     <string name="settings_generic_wxid_title">清理消息内容微信 ID 前缀时允许非标准 ID</string>
     <string name="settings_generic_wxid_summary">允许处理不带 wxid_ 前缀的微信 ID，可能导致误伤消息原始内容（实验性）</string>
     <string name="settings_section_compatibility">兼容</string>
-    <string name="settings_disable_adaptation_title">禁用版本适配</string>
-    <string name="settings_disable_adaptation_summary">不弹出 DEX 查找对话框，未适配功能将不会被加载</string>
-    <string name="settings_reset_adaptation_title">重置适配信息</string>
-    <string name="settings_reset_adaptation_summary">清除 DEX 缓存，等待下次启动时重新适配</string>
-    <string name="settings_hot_update_adaptation_title">宿主热更新时重新适配</string>
-    <string name="settings_hot_update_adaptation_summary">宿主热更新时是否重置 DEX 缓存，可能导致频繁重新适配（实验性）</string>
+    <string name="settings_disable_resolution_title">禁用 DEX 解析</string>
+    <string name="settings_disable_resolution_summary">不弹出 DEX 解析对话框，未解析功能将不会被加载</string>
+    <string name="settings_reset_resolution_title">重置解析缓存</string>
+    <string name="settings_reset_resolution_summary">清除 DEX 缓存，等待下次启动时重新解析</string>
+    <string name="settings_hot_update_resolution_title">宿主热更新时重新解析</string>
+    <string name="settings_hot_update_resolution_summary">宿主热更新时是否重置 DEX 缓存，可能导致频繁重新解析（实验性）</string>
     <string name="settings_section_configuration">配置</string>
     <string name="settings_export_config_title">导出配置</string>
     <string name="settings_export_config_summary">将模块配置导出为 JSON</string>
@@ -647,8 +657,8 @@
     <string name="feature_profile_memory_description">分析微信内存占用组成</string>
     <string name="feature_redirect_host_logs_name">重定向微信日志</string>
     <string name="feature_redirect_host_logs_description">将微信内部日志打印至模块日志</string>
-    <string name="feature_reset_dex_cache_name">重置适配信息</string>
-    <string name="feature_reset_dex_cache_description">清除全部 DEX 适配信息, 等待下次启动时重新适配</string>
+    <string name="feature_reset_dex_cache_name">重置解析缓存</string>
+    <string name="feature_reset_dex_cache_description">清除全部 DEX 解析缓存，等待下次启动时重新解析</string>
     <string name="feature_send_packet_name">发包调试</string>
     <string name="feature_send_packet_description">发送自定义数据包到微信服务器</string>
     <string name="feature_trigger_crash_name">测试崩溃</string>
@@ -3127,7 +3137,7 @@
     <string name="debug_log_level_debug">调试</string><string name="debug_log_level_error">错误</string><string name="debug_log_level_info">信息</string><string name="debug_log_level_verbose">详细</string><string name="debug_log_level_warning">警告</string>
     <string name="debug_native_crash_details">Native 崩溃详情</string><string name="debug_native_crash_detected">检测到 Native 崩溃</string><string name="debug_native_crash_preparing_report">正在生成崩溃报告…</string>
     <string name="debug_redirect_host_logs_title">重定向微信日志</string>
-    <string name="debug_reset_dex_cache_clearing">正在清除适配信息…</string><string name="debug_reset_dex_cache_confirmation">确定清除全部缓存的适配信息吗？</string><string name="debug_reset_dex_cache_success">适配信息已清除</string><string name="debug_reset_dex_cache_title">重置适配信息</string>
+    <string name="debug_reset_dex_cache_clearing">正在清除解析缓存…</string><string name="debug_reset_dex_cache_confirmation">确定清除全部 DEX 解析缓存吗？</string><string name="debug_reset_dex_cache_success">解析缓存已清除</string><string name="debug_reset_dex_cache_title">重置解析缓存</string>
     <string name="debug_trigger_crash_category_java">Java 层崩溃</string><string name="debug_trigger_crash_category_native">Native 层崩溃</string><string name="debug_trigger_crash_select_category">选择崩溃类别</string>
     <string name="debug_trigger_crash_java_null_pointer">空指针异常 (NullPointerException)</string><string name="debug_trigger_crash_java_array_bounds">数组越界 (ArrayIndexOutOfBoundsException)</string><string name="debug_trigger_crash_java_class_cast">类型转换异常 (ClassCastException)</string><string name="debug_trigger_crash_java_arithmetic">算术异常 (ArithmeticException)</string><string name="debug_trigger_crash_java_stack_overflow">栈溢出 (StackOverflowError)</string><string name="debug_trigger_crash_select_java_type">选择 Java 崩溃类型</string>
     <string name="debug_trigger_crash_native_sigsegv">段错误 (SIGSEGV - 空指针访问)</string><string name="debug_trigger_crash_native_sigabrt">异常终止 (SIGABRT - abort)</string><string name="debug_trigger_crash_native_sigfpe">浮点异常 (SIGFPE - 除零错误)</string><string name="debug_trigger_crash_native_sigill">非法指令 (SIGILL)</string><string name="debug_trigger_crash_native_sigbus">总线错误 (SIGBUS - 未对齐访问)</string><string name="debug_trigger_crash_select_native_type">选择 Native 崩溃类型</string>

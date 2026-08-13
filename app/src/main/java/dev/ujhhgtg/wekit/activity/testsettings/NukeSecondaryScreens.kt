@@ -310,14 +310,14 @@ private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
             NukeSettingGroup(title = stringResource(R.string.settings_section_compatibility)) {
                 NukeBooleanPreference(
                     key = Preferences.NO_DEX_RESOLVE,
-                    title = stringResource(R.string.settings_disable_adaptation_title),
-                    description = stringResource(R.string.settings_disable_adaptation_summary),
+                    title = stringResource(R.string.settings_disable_resolution_title),
+                    description = stringResource(R.string.settings_disable_resolution_summary),
                     imageVector = MaterialSymbols.Outlined.Block,
                 )
                 NukeDivider()
                 NukePreferenceRow(
-                    title = stringResource(R.string.settings_reset_adaptation_title),
-                    description = stringResource(R.string.settings_reset_adaptation_summary),
+                    title = stringResource(R.string.settings_reset_resolution_title),
+                    description = stringResource(R.string.settings_reset_resolution_summary),
                     leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Build_circle) },
                     trailing = { NukeCountAndChevron(text = null) },
                     onClick = { ResetDexCache.onClick(activity) },
@@ -325,8 +325,8 @@ private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
                 NukeDivider()
                 NukeBooleanPreference(
                     key = Preferences.RESET_DEX_ON_HOT_UPDATE,
-                    title = stringResource(R.string.settings_hot_update_adaptation_title),
-                    description = stringResource(R.string.settings_hot_update_adaptation_summary),
+                    title = stringResource(R.string.settings_hot_update_resolution_title),
+                    description = stringResource(R.string.settings_hot_update_resolution_summary),
                     imageVector = MaterialSymbols.Outlined.Auto_delete,
                 )
             }
