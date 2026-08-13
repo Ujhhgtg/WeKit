@@ -118,11 +118,13 @@ class MainActivity : ComponentActivity() {
                     RootTelegramStickerSetPickerContent(
                         discoverInstances = {
                             RootTelegramStickerSetRepository.discoverInstances(
+                                this,
                                 applicationInfo.uid / 100000,
                             )
                         },
                         readInstalledSets = { instance ->
                             RootTelegramStickerSetRepository.readInstalledSets(
+                                this,
                                 cacheDir,
                                 applicationInfo.uid,
                                 instance,

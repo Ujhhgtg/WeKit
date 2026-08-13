@@ -3008,4 +3008,82 @@
     <string name="system_qr_code_record_empty">暂无记录</string><string name="system_qr_code_record_copy">复制 URL</string><string name="system_qr_code_record_open">打开</string><string name="system_qr_code_record_open_in_system">在系统中打开</string>
     <string name="system_safe_mode_enable_title">开启安全模式？</string><string name="system_safe_mode_enable_message">开启后，下次启动微信时普通功能不会被加载，只保留核心功能；普通功能仍会显示在设置页中，以便关闭安全模式后恢复使用。\n\n确认开启安全模式？</string><string name="system_safe_mode_enable">开启</string>
     <string name="system_api_server_mcp_started">MCP 服务器启动于 http://0.0.0.0:%1$d/mcp</string><string name="system_api_server_rest_started">REST API 服务器启动于 http://0.0.0.0:%1$d/api</string><string name="system_api_server_stopped">服务器已停止</string><string name="system_api_server_auth_token">认证令牌</string><string name="system_api_server_port">端口</string><string name="system_api_server_invalid_port">端口格式不正确！</string>
+    <!-- Non-Compose and injected-host messages -->
+    <string name="noncompose_features_loaded">WeKit 加载成功！</string>
+    <string name="noncompose_restarting_host">正在重启…</string>
+    <string name="noncompose_bsh_saved">已保存到 %1$s</string>
+    <string name="noncompose_bsh_empty_result">错误：反编译结果为空。</string>
+    <string name="noncompose_bsh_error">错误：%1$s</string>
+    <string name="noncompose_bsh_selection_cancelled">已取消选择文件。</string>
+    <string name="noncompose_update_download_title">WeKit 更新</string>
+    <string name="noncompose_update_downloading">正在下载更新…</string>
+    <string name="noncompose_moments_thumbnail_warning">警告：正在使用缩略图。建议先查看一次图片以下载原图。</string>
+    <string name="noncompose_chat_input_no_actions">没有可用的聊天输入栏功能。</string>
+    <string name="noncompose_chat_input_actions_title">聊天功能</string>
+    <string name="noncompose_message_menu_no_actions">没有可用于所选消息的 WeKit 菜单项。</string>
+    <plurals name="noncompose_message_menu_selected_title">
+        <item quantity="other">WeKit（%1$d 条消息）</item>
+    </plurals>
+    <string name="noncompose_message_menu_adapted_section">已适配多选消息</string>
+    <string name="noncompose_message_menu_automatic_section">自动兼容多选消息</string>
+    <string name="noncompose_wekit_settings_entry">WeKit 设置</string>
+    <string name="noncompose_wekit_settings_group">插件</string>
+
+    <!-- WeAgent live panel -->
+    <string name="agent_panel_collapse_sessions">收起会话侧栏</string>
+    <string name="agent_panel_sessions">会话</string>
+    <string name="agent_panel_new_session">新建会话</string>
+    <string name="agent_panel_unfavorite">取消收藏</string>
+    <string name="agent_panel_favorite">收藏</string>
+    <string name="agent_panel_expand_sessions">展开会话侧栏</string>
+    <string name="agent_panel_usage_empty">用量：暂无数据</string>
+    <string name="agent_panel_interrupt">中断</string>
+    <string name="agent_panel_cancel_queued">取消排队</string>
+    <string name="agent_panel_message_placeholder">给 WeAgent 发消息…</string>
+    <string name="agent_panel_send">发送</string>
+    <string name="agent_panel_default">默认</string>
+    <string name="agent_panel_none">无</string>
+    <string name="agent_panel_not_selected">未选择</string>
+    <string name="agent_panel_quick_actions">快捷操作</string>
+    <string name="agent_panel_model">模型</string>
+    <string name="agent_panel_workspace">工作区</string>
+    <string name="agent_panel_memory">记忆</string>
+    <string name="agent_panel_system_prompt">系统提示词</string>
+    <string name="agent_panel_preset_prompt">预设提示词</string>
+    <string name="agent_panel_tap_to_choose">点击选择</string>
+    <string name="agent_panel_checked_value">%1$s  ✓</string>
+    <string name="agent_panel_add_model_first">请先在设置中添加模型</string>
+    <string name="agent_panel_no_presets">暂无预设</string>
+    <string name="agent_panel_copy">复制</string>
+    <string name="agent_panel_confirm_return_here">确认回到此处</string>
+    <string name="agent_panel_return_here">回到此处</string>
+    <string name="agent_panel_create_branch">创建分支</string>
+    <string name="agent_panel_collapse">收起</string>
+    <string name="agent_panel_expand">展开</string>
+    <string name="agent_panel_tool_input_copy">输入：\n%1$s</string>
+    <string name="agent_panel_tool_output_copy">输出：</string>
+    <string name="agent_panel_input">输入</string>
+    <string name="agent_panel_output">输出</string>
+    <string name="agent_panel_running">（执行中…）</string>
+    <string name="agent_panel_thinking">思考中%1$s</string>
+    <string name="agent_panel_reasoning">💭 思考过程</string>
+    <string name="agent_panel_tool_approval_request">请求执行工具“%1$s”</string>
+    <string name="agent_panel_rejection_reason">拒绝理由（可选）</string>
+    <string name="agent_panel_reject">拒绝</string>
+    <string name="agent_panel_approve">同意</string>
+    <string name="telegram_root_permission_required">需要授予 WeKit 模块应用 Root 权限。</string>
+    <string name="telegram_database_scan_failed">扫描 Telegram 数据库失败：%1$s</string>
+    <string name="telegram_root_command_failed">Root 命令执行失败</string>
+    <string name="telegram_database_not_found">未找到 cache4.db，请确认 Telegram 已登录并至少启动过一次。</string>
+    <string name="telegram_database_app_unrecognized">找到 %1$d 个 cache4.db，但所属应用未识别为 Telegram：%2$s</string>
+    <string name="telegram_database_path_unavailable">Telegram 数据库路径不可用</string>
+    <string name="telegram_database_temp_directory_failed">无法创建数据库临时目录</string>
+    <string name="telegram_database_copy_failed">复制 Telegram 数据库失败</string>
+    <string name="telegram_instance_scan_failed">扫描 Telegram 实例失败</string>
+    <string name="telegram_no_importable_sticker_sets">所选实例中没有可导入的表情包</string>
+    <string name="telegram_database_parse_failed">解析 Telegram 数据库失败</string>
+    <string name="telegram_choose_instance">选择 Telegram 实例</string>
+    <string name="telegram_parsing_database">正在解析数据库…</string>
+    <string name="telegram_retry">重试</string>
+    <string name="telegram_current_account">当前账户</string>
 </resources>

@@ -31,6 +31,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.buildMusicTimelineBundle
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.items.moments.localizedMomentsString
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.Intent
@@ -2062,7 +2063,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             if (bigPath != null && vfsFileExists(bigPath)) {
                 bigPath
             } else {
-                if (warnOnThumb) showToast("警告: 正在使用缩略图, 建议先查看一次图片以下载原图!")
+                if (warnOnThumb) {
+                    showToast(localizedMomentsString(R.string.noncompose_moments_thumbnail_warning))
+                }
                 val thumbPath = resolveThumbImagePath(media, nativeMedia)
                 if (thumbPath != null && vfsFileExists(thumbPath)) thumbPath else null
             }

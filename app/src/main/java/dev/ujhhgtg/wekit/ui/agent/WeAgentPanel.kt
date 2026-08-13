@@ -66,6 +66,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -85,6 +87,7 @@ import com.composables.icons.materialsymbols.outlined.Star
 import com.composables.icons.materialsymbols.outlined.Stop
 import com.composables.icons.materialsymbols.outlinedfilled.Star
 import dev.ujhhgtg.wekit.activity.agent.WeAgentSettingsActivity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ChatRow
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -202,11 +205,21 @@ private fun SessionDrawerContent(modifier: Modifier, onClose: () -> Unit) {
         Column(Modifier.padding(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose, modifier = Modifier.width(36.dp)) {
-                    Icon(MaterialSymbols.Outlined.Menu_open, contentDescription = "收起会话侧栏")
+                    Icon(
+                        MaterialSymbols.Outlined.Menu_open,
+                        contentDescription = stringResource(R.string.agent_panel_collapse_sessions),
+                    )
                 }
-                Text("会话", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Text(
+                    stringResource(R.string.agent_panel_sessions),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
                 IconButton(onClick = { WeAgentService.newSession(); onClose() }) {
-                    Icon(MaterialSymbols.Outlined.Add, contentDescription = "新建会话")
+                    Icon(
+                        MaterialSymbols.Outlined.Add,
+                        contentDescription = stringResource(R.string.agent_panel_new_session),
+                    )
                 }
             }
             Spacer(Modifier.height(4.dp))
@@ -233,14 +246,20 @@ private fun SessionDrawerContent(modifier: Modifier, onClose: () -> Unit) {
                             IconButton(onClick = { WeAgentService.toggleFavorite(s.id) }, modifier = Modifier.width(28.dp)) {
                                 Icon(
                                     if (s.favorite) MaterialSymbols.OutlinedFilled.Star else MaterialSymbols.Outlined.Star,
-                                    contentDescription = if (s.favorite) "取消收藏" else "收藏",
+                                    contentDescription = stringResource(
+                                        if (s.favorite) R.string.agent_panel_unfavorite else R.string.agent_panel_favorite,
+                                    ),
                                     tint = if (s.favorite) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                                     modifier = Modifier.width(16.dp),
                                 )
                             }
                             if (!s.favorite) {
                                 IconButton(onClick = { WeAgentService.deleteSession(s.id) }, modifier = Modifier.width(28.dp)) {
-                                    Icon(MaterialSymbols.Outlined.Delete, contentDescription = "删除", modifier = Modifier.width(16.dp))
+                                    Icon(
+                                        MaterialSymbols.Outlined.Delete,
+                                        contentDescription = stringResource(R.string.action_delete),
+                                        modifier = Modifier.width(16.dp),
+                                    )
                                 }
                             }
                         }
@@ -260,7 +279,10 @@ private fun ChatPane(modifier: Modifier, onDismiss: () -> Unit, onOpenSidebar: (
         // Header: sidebar toggle + title + settings entry + close.
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onOpenSidebar) {
-                Icon(MaterialSymbols.Outlined.Menu, contentDescription = "展开会话侧栏")
+                Icon(
+                    MaterialSymbols.Outlined.Menu,
+                    contentDescription = stringResource(R.string.agent_panel_expand_sessions),
+                )
             }
             Text("WeAgent", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             IconButton(onClick = {
@@ -271,10 +293,10 @@ private fun ChatPane(modifier: Modifier, onDismiss: () -> Unit, onOpenSidebar: (
                 )
                 onDismiss()
             }) {
-                Icon(MaterialSymbols.Outlined.Settings, contentDescription = "设置")
+                Icon(MaterialSymbols.Outlined.Settings, contentDescription = stringResource(R.string.action_settings))
             }
             IconButton(onClick = onDismiss) {
-                Icon(MaterialSymbols.Outlined.Close, contentDescription = "关闭")
+                Icon(MaterialSymbols.Outlined.Close, contentDescription = stringResource(R.string.action_close))
             }
         }
 
@@ -326,7 +348,7 @@ private fun UsageStrip() {
                 u.totalTokens?.let { add("Σ ${fmtTokens(it)}") }
             }
             Text(
-                parts.joinToString("   ").ifEmpty { "用量：暂无数据" },
+                parts.joinToString("   ").ifEmpty { stringResource(R.string.agent_panel_usage_empty) },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -415,11 +437,17 @@ private fun InputBar(
                     Spacer(Modifier.weight(1f))
                     if (isRunning) {
                         IconButton(onClick = { WeAgentService.cancelTurn() }) {
-                            Icon(MaterialSymbols.Outlined.Stop, contentDescription = "中断")
+                            Icon(
+                                MaterialSymbols.Outlined.Stop,
+                                contentDescription = stringResource(R.string.agent_panel_interrupt),
+                            )
                         }
                     }
                     IconButton(onClick = { WeAgentService.cancelQueuedMessage() }) {
-                        Icon(MaterialSymbols.Outlined.Cancel, contentDescription = "取消排队")
+                        Icon(
+                            MaterialSymbols.Outlined.Cancel,
+                            contentDescription = stringResource(R.string.agent_panel_cancel_queued),
+                        )
                     }
                 }
             }
@@ -443,7 +471,7 @@ private fun InputBar(
             OutlinedTextField(
                 value = text,
                 onValueChange = onTextChange,
-                placeholder = { Text("给 WeAgent 发消息…") },
+                placeholder = { Text(stringResource(R.string.agent_panel_message_placeholder)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 56.dp),
@@ -461,14 +489,20 @@ private fun InputBar(
                 Spacer(Modifier.weight(1f))
                 if (isRunning) {
                     IconButton(onClick = { WeAgentService.cancelTurn() }) {
-                        Icon(MaterialSymbols.Outlined.Stop, contentDescription = "中断")
+                        Icon(
+                            MaterialSymbols.Outlined.Stop,
+                            contentDescription = stringResource(R.string.agent_panel_interrupt),
+                        )
                     }
                 }
                 IconButton(
                     onClick = ::send,
                     enabled = text.isNotBlank(),
                 ) {
-                    Icon(MaterialSymbols.Outlined.Send, contentDescription = "发送")
+                    Icon(
+                        MaterialSymbols.Outlined.Send,
+                        contentDescription = stringResource(R.string.agent_panel_send),
+                    )
                 }
             }
         }
@@ -498,18 +532,21 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
 
     // A null model id means "默认": the session follows the settings default model, resolved at turn
     // time (mirrors workspace/systemPrompt). Show "默认" for null rather than "未选择".
-    val modelLabel = if (currentModelId == null) "默认"
-    else models.firstOrNull { it.id == currentModelId }?.label ?: "未选择"
+    val defaultLabel = stringResource(R.string.agent_panel_default)
+    val noneLabel = stringResource(R.string.agent_panel_none)
+    val modelLabel = if (currentModelId == null) defaultLabel
+    else models.firstOrNull { it.id == currentModelId }?.label
+        ?: stringResource(R.string.agent_panel_not_selected)
     // A null workspace means "默认": the session follows the settings default workspace, resolved
     // dynamically at turn time (see WeAgentService.runTurn).
     // id semantics: null = "默认" (follow settings default), "" = "无" (explicitly none), else the item.
     val workspaceLabel = when (currentWorkspaceId) {
-        null -> "默认"; "" -> "无"
-        else -> workspaces.firstOrNull { it.id == currentWorkspaceId }?.name ?: "默认"
+        null -> defaultLabel; "" -> noneLabel
+        else -> workspaces.firstOrNull { it.id == currentWorkspaceId }?.name ?: defaultLabel
     }
     val systemPromptLabel = when (currentSystemPromptId) {
-        null -> "默认"; "" -> "无"
-        else -> systemPrompts.firstOrNull { it.id == currentSystemPromptId }?.name ?: "默认"
+        null -> defaultLabel; "" -> noneLabel
+        else -> systemPrompts.firstOrNull { it.id == currentSystemPromptId }?.name ?: defaultLabel
     }
 
     fun close() {
@@ -522,45 +559,66 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
 
     Box {
         IconButton(onClick = { expanded = true; submenu = PlusSubmenu.NONE }) {
-            Icon(MaterialSymbols.Outlined.Add, contentDescription = "快捷操作")
+            Icon(
+                MaterialSymbols.Outlined.Add,
+                contentDescription = stringResource(R.string.agent_panel_quick_actions),
+            )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = ::handleDismissRequest) {
             when (submenu) {
                 PlusSubmenu.NONE -> {
                     DropdownMenuItem(
-                        text = { NestedRow("模型", modelLabel) },
+                        text = { NestedRow(stringResource(R.string.agent_panel_model), modelLabel) },
                         onClick = { submenu = PlusSubmenu.MODEL },
                     )
                     DropdownMenuItem(
-                        text = { NestedRow("工作区", workspaceLabel) },
+                        text = { NestedRow(stringResource(R.string.agent_panel_workspace), workspaceLabel) },
                         onClick = { submenu = PlusSubmenu.WORKSPACE },
                     )
                     DropdownMenuItem(
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Text("记忆", modifier = Modifier.weight(1f))
+                                Text(stringResource(R.string.agent_panel_memory), modifier = Modifier.weight(1f))
                                 Switch(checked = memoryOn, onCheckedChange = { WeAgentService.setMemoryEnabled(it) })
                             }
                         },
                         onClick = { WeAgentService.setMemoryEnabled(!memoryOn) },
                     )
                     DropdownMenuItem(
-                        text = { NestedRow("系统提示词", systemPromptLabel) },
+                        text = {
+                            NestedRow(stringResource(R.string.agent_panel_system_prompt), systemPromptLabel)
+                        },
                         onClick = { submenu = PlusSubmenu.PROFILE },
                     )
                     DropdownMenuItem(
-                        text = { NestedRow("预设提示词", "点击选择") },
+                        text = {
+                            NestedRow(
+                                stringResource(R.string.agent_panel_preset_prompt),
+                                stringResource(R.string.agent_panel_tap_to_choose),
+                            )
+                        },
                         onClick = { submenu = PlusSubmenu.PRESET },
                     )
                 }
 
                 PlusSubmenu.MODEL -> {
-                    SubmenuHeader("模型") { submenu = PlusSubmenu.NONE }
+                    SubmenuHeader(stringResource(R.string.agent_panel_model)) { submenu = PlusSubmenu.NONE }
                     DropdownMenuItem(
-                        text = { Text("默认" + if (currentModelId == null) "  ✓" else "") },
+                        text = {
+                            Text(
+                                if (currentModelId == null) {
+                                    stringResource(R.string.agent_panel_checked_value, defaultLabel)
+                                } else defaultLabel,
+                            )
+                        },
                         onClick = { WeAgentService.setSessionModel(null); close() },
                     )
-                    if (models.isEmpty()) DropdownMenuItem(text = { Text("请先在设置中添加模型") }, onClick = ::close)
+                    if (models.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.agent_panel_add_model_first)) },
+                            onClick = ::close,
+                        )
+                    }
                     models.forEach { m ->
                         DropdownMenuItem(
                             text = { Text(m.label + if (m.id == currentModelId) "  ✓" else "") },
@@ -570,14 +628,26 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                 }
 
                 PlusSubmenu.WORKSPACE -> {
-                    SubmenuHeader("工作区") { submenu = PlusSubmenu.NONE }
+                    SubmenuHeader(stringResource(R.string.agent_panel_workspace)) { submenu = PlusSubmenu.NONE }
                     DropdownMenuItem(
-                        text = { Text("默认" + if (currentWorkspaceId == null) "  ✓" else "") },
+                        text = {
+                            Text(
+                                if (currentWorkspaceId == null) {
+                                    stringResource(R.string.agent_panel_checked_value, defaultLabel)
+                                } else defaultLabel,
+                            )
+                        },
                         onClick = { WeAgentService.setSessionWorkspace(null); close() },
                     )
                     // "无" = explicitly no workspace (sentinel ""), distinct from "默认" (follow default).
                     DropdownMenuItem(
-                        text = { Text("无" + if (currentWorkspaceId == "") "  ✓" else "") },
+                        text = {
+                            Text(
+                                if (currentWorkspaceId == "") {
+                                    stringResource(R.string.agent_panel_checked_value, noneLabel)
+                                } else noneLabel,
+                            )
+                        },
                         onClick = { WeAgentService.setSessionWorkspace(""); close() },
                     )
                     workspaces.forEach { w ->
@@ -589,14 +659,26 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                 }
 
                 PlusSubmenu.PROFILE -> {
-                    SubmenuHeader("系统提示词") { submenu = PlusSubmenu.NONE }
+                    SubmenuHeader(stringResource(R.string.agent_panel_system_prompt)) { submenu = PlusSubmenu.NONE }
                     DropdownMenuItem(
-                        text = { Text("默认" + if (currentSystemPromptId == null) "  ✓" else "") },
+                        text = {
+                            Text(
+                                if (currentSystemPromptId == null) {
+                                    stringResource(R.string.agent_panel_checked_value, defaultLabel)
+                                } else defaultLabel,
+                            )
+                        },
                         onClick = { WeAgentService.setSessionSystemPrompt(null); close() },
                     )
                     // "无" = explicitly no system prompt (sentinel ""), distinct from "默认" (follow default).
                     DropdownMenuItem(
-                        text = { Text("无" + if (currentSystemPromptId == "") "  ✓" else "") },
+                        text = {
+                            Text(
+                                if (currentSystemPromptId == "") {
+                                    stringResource(R.string.agent_panel_checked_value, noneLabel)
+                                } else noneLabel,
+                            )
+                        },
                         onClick = { WeAgentService.setSessionSystemPrompt(""); close() },
                     )
                     systemPrompts.forEach { sp ->
@@ -608,8 +690,13 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                 }
 
                 PlusSubmenu.PRESET -> {
-                    SubmenuHeader("预设提示词") { submenu = PlusSubmenu.NONE }
-                    if (presets.isEmpty()) DropdownMenuItem(text = { Text("暂无预设") }, onClick = ::close)
+                    SubmenuHeader(stringResource(R.string.agent_panel_preset_prompt)) { submenu = PlusSubmenu.NONE }
+                    if (presets.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.agent_panel_no_presets)) },
+                            onClick = ::close,
+                        )
+                    }
                     presets.forEach { preset ->
                         DropdownMenuItem(
                             text = { Text(preset.title) },
@@ -717,6 +804,7 @@ private fun MessageBubble(
     onRestoreInput: (String) -> Unit = {},
     prevAssistantTimestamp: java.time.Instant? = null,
 ) {
+    val context = LocalContext.current
     when (row.role) {
         ChatRow.Role.TOOL -> ToolCard(row)
         else -> {
@@ -797,13 +885,16 @@ private fun MessageBubble(
                             ) {
                                 // --- 复制 ---
                                 DropdownMenuItem(
-                                    text = { Text("复制") },
+                                    text = { Text(stringResource(R.string.agent_panel_copy)) },
                                     leadingIcon = {
                                         Icon(MaterialSymbols.Outlined.Copy_all, contentDescription = null)
                                     },
                                     onClick = {
                                         copyToClipboard(row.text)
-                                        showToast("已复制")
+                                        showToast(
+                                            context,
+                                            context.getString(R.string.copied_to_clipboard),
+                                        )
                                         menuOpen = false
                                     },
                                 )
@@ -813,7 +904,11 @@ private fun MessageBubble(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            if (confirmGoBack) "确认回到此处" else "回到此处",
+                                            stringResource(
+                                                if (confirmGoBack) {
+                                                    R.string.agent_panel_confirm_return_here
+                                                } else R.string.agent_panel_return_here,
+                                            ),
                                             color = if (confirmGoBack) MaterialTheme.colorScheme.error
                                             else LocalContentColor.current,
                                         )
@@ -844,7 +939,7 @@ private fun MessageBubble(
                                 // User rows: branches from the preceding assistant turn and restores
                                 // the user message text to the input bar in the new session.
                                 DropdownMenuItem(
-                                    text = { Text("创建分支") },
+                                    text = { Text(stringResource(R.string.agent_panel_create_branch)) },
                                     leadingIcon = {
                                         Icon(MaterialSymbols.Outlined.Call_split, contentDescription = null)
                                     },
@@ -875,6 +970,7 @@ private fun MessageBubble(
 private fun ToolCard(row: ChatRow) {
     var expanded by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val caretRotation by animateFloatAsState(if (expanded) 180f else 0f, tween(220), label = "caret")
 
     Card(
@@ -902,7 +998,9 @@ private fun ToolCard(row: ChatRow) {
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        if (expanded) "收起 " else "展开 ",
+                        stringResource(
+                            if (expanded) R.string.agent_panel_collapse else R.string.agent_panel_expand,
+                        ) + " ",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -915,18 +1013,24 @@ private fun ToolCard(row: ChatRow) {
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text("复制") },
+                        text = { Text(stringResource(R.string.agent_panel_copy)) },
                         leadingIcon = { Icon(MaterialSymbols.Outlined.Copy_all, contentDescription = null) },
                         onClick = {
                             val content = buildString {
-                                row.toolInput?.let { append("输入：\n$it") }
+                                row.toolInput?.let {
+                                    append(context.getString(R.string.agent_panel_tool_input_copy, it))
+                                }
                                 if (row.text.isNotEmpty()) {
-                                    if (row.toolInput != null) append("\n\n输出：\n")
+                                    if (row.toolInput != null) {
+                                        append("\n\n")
+                                        append(context.getString(R.string.agent_panel_tool_output_copy))
+                                        append('\n')
+                                    }
                                     append(row.text)
                                 }
                             }
                             copyToClipboard(content)
-                            showToast("已复制")
+                            showToast(context, context.getString(R.string.copied_to_clipboard))
                             menuOpen = false
                         },
                     )
@@ -943,7 +1047,7 @@ private fun ToolCard(row: ChatRow) {
                     // Input (arguments JSON)
                     if (toolInput != null) {
                         Text(
-                            "输入",
+                            stringResource(R.string.agent_panel_input),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         )
@@ -961,13 +1065,13 @@ private fun ToolCard(row: ChatRow) {
                     }
                     // Output (result)
                     Text(
-                        "输出",
+                        stringResource(R.string.agent_panel_output),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        row.text.ifEmpty { "（执行中…）" },
+                        row.text.ifEmpty { stringResource(R.string.agent_panel_running) },
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -989,6 +1093,7 @@ private fun ReasoningCard(
     isStreaming: Boolean,
     containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
+    val context = LocalContext.current
     // expanded tracks the user's manual preference. effectiveExpanded also opens the body
     // automatically while streaming so reasoning text is visible as it arrives.
     var expanded by remember { mutableStateOf(false) }
@@ -1019,7 +1124,12 @@ private fun ReasoningCard(
 
     val primary = MaterialTheme.colorScheme.primary
     val secondary = MaterialTheme.colorScheme.secondary
-    val titleText = if (isStreaming) "思考中${"·".repeat(dotPhase.toInt() % 3 + 1)}" else "💭 思考过程"
+    val titleText = if (isStreaming) {
+        stringResource(
+            R.string.agent_panel_thinking,
+            "·".repeat(dotPhase.toInt() % 3 + 1),
+        )
+    } else stringResource(R.string.agent_panel_reasoning)
 
     Card(
         colors = CardDefaults.cardColors(containerColor = containerColor),
@@ -1068,7 +1178,9 @@ private fun ReasoningCard(
                     )
                     // Caret always shown so the user can collapse during or after streaming.
                     Text(
-                        if (effectiveExpanded) "收起 " else "展开 ",
+                        stringResource(
+                            if (effectiveExpanded) R.string.agent_panel_collapse else R.string.agent_panel_expand,
+                        ) + " ",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -1081,11 +1193,11 @@ private fun ReasoningCard(
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text("复制") },
+                        text = { Text(stringResource(R.string.agent_panel_copy)) },
                         leadingIcon = { Icon(MaterialSymbols.Outlined.Copy_all, contentDescription = null) },
                         onClick = {
                             copyToClipboard(reasoning ?: "")
-                            showToast("已复制")
+                            showToast(context, context.getString(R.string.copied_to_clipboard))
                             menuOpen = false
                         },
                     )
@@ -1120,7 +1232,10 @@ private fun ApprovalCard() {
             .padding(vertical = 6.dp),
     ) {
         Column(Modifier.padding(10.dp)) {
-            Text("请求执行工具「${p.pending.toolName}」", style = MaterialTheme.typography.titleSmall)
+            Text(
+                stringResource(R.string.agent_panel_tool_approval_request, p.pending.toolName),
+                style = MaterialTheme.typography.titleSmall,
+            )
             Text(p.pending.argumentsJson, style = MaterialTheme.typography.bodySmall, maxLines = 4, overflow = TextOverflow.Ellipsis)
             p.pending.modelExplanation?.takeIf { it.isNotBlank() }?.let {
                 Spacer(Modifier.height(4.dp))
@@ -1129,7 +1244,7 @@ private fun ApprovalCard() {
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
-                label = { Text("拒绝理由（可选）") },
+                label = { Text(stringResource(R.string.agent_panel_rejection_reason)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 6.dp),
@@ -1139,10 +1254,10 @@ private fun ApprovalCard() {
                     WeAgentService.resolveApproval(
                         dev.ujhhgtg.wekit.agent.engine.ManualApprovalResult.Rejected(reason.ifBlank { null })
                     )
-                }) { Text("拒绝") }
+                }) { Text(stringResource(R.string.agent_panel_reject)) }
                 TextButton(onClick = {
                     WeAgentService.resolveApproval(dev.ujhhgtg.wekit.agent.engine.ManualApprovalResult.Approved)
-                }) { Text("同意") }
+                }) { Text(stringResource(R.string.agent_panel_approve)) }
             }
         }
     }

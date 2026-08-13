@@ -11,7 +11,11 @@ import android.os.Environment
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.utils.android.getSystemService
@@ -187,9 +191,14 @@ object AppUpdater {
         fileName: String,
         mimeType: String,
     ): Long {
+        val localizedContext = LocalizedContextFactory.create(
+            context,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.InjectedHost,
+        )
         val request = DownloadManager.Request(url.toUri()).apply {
-            setTitle("WeKit 更新")
-            setDescription("正在下载更新...")
+            setTitle(localizedContext.getString(R.string.noncompose_update_download_title))
+            setDescription(localizedContext.getString(R.string.noncompose_update_downloading))
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
             setMimeType(mimeType)

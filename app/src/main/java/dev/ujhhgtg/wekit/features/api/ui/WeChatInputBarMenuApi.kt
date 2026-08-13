@@ -11,11 +11,14 @@ import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -77,13 +80,13 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
             .filter { it.isSupported(context, chatFooter) }
 
         if (applicableItems.isEmpty()) {
-            showToast("没有可用的聊天输入栏功能!")
+            showToast(context, context.localizedChatString(R.string.noncompose_chat_input_no_actions))
             return
         }
 
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("聊天功能") },
+                title = { Text(stringResource(R.string.noncompose_chat_input_actions_title)) },
                 text = {
                     LazyColumn(
                         Modifier
@@ -100,7 +103,7 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
                         }
                     }
                 },
-                confirmButton = { Button(onDismiss) { Text("关闭") } }
+                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }

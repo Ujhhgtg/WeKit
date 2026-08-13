@@ -14,6 +14,8 @@ import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,6 +30,8 @@ import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.MergeChatMessageContextMenuItems
+import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.utils.ExtensionIcon
@@ -387,7 +391,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     ) {
         showComposeDialog(view.context) {
             AlertDialogContent(
-                title = { Text("WeKit") },
+                title = { Text(stringResource(R.string.app_name)) },
                 text = {
                     LazyColumn(
                         Modifier
@@ -419,7 +423,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         }
                     }
                 },
-                confirmButton = { Button(onDismiss) { Text("关闭") } }
+                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }
@@ -464,13 +468,24 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         }
 
         if (adaptedRows.isEmpty() && autoRows.isEmpty()) {
-            showToast("没有可用于所选消息的 WeKit 菜单项")
+            showToast(
+                view.context,
+                view.context.localizedChatString(R.string.noncompose_message_menu_no_actions),
+            )
             return
         }
 
         showComposeDialog(view.context) {
             AlertDialogContent(
-                title = { Text("WeKit (${msgInfos.size} 条消息)") },
+                title = {
+                    Text(
+                        pluralStringResource(
+                            R.plurals.noncompose_message_menu_selected_title,
+                            msgInfos.size,
+                            msgInfos.size,
+                        ),
+                    )
+                },
                 text = {
                     LazyColumn(
                         Modifier
@@ -478,20 +493,28 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                             .clip(MaterialTheme.shapes.large)
                     ) {
                         if (adaptedRows.isNotEmpty()) {
-                            item { MultiSelectSectionHeader("已适配多选消息") }
+                            item {
+                                MultiSelectSectionHeader(
+                                    stringResource(R.string.noncompose_message_menu_adapted_section),
+                                )
+                            }
                             items(adaptedRows) { row ->
                                 MultiSelectMenuRow(row) { onDismiss() }
                             }
                         }
                         if (autoRows.isNotEmpty()) {
-                            item { MultiSelectSectionHeader("自动兼容多选消息") }
+                            item {
+                                MultiSelectSectionHeader(
+                                    stringResource(R.string.noncompose_message_menu_automatic_section),
+                                )
+                            }
                             items(autoRows) { row ->
                                 MultiSelectMenuRow(row) { onDismiss() }
                             }
                         }
                     }
                 },
-                confirmButton = { Button(onDismiss) { Text("关闭") } }
+                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }
