@@ -89,6 +89,10 @@ struct ReadReportRequest {
     reader_wx_id: String,
     #[serde(rename = "readerNickname")]
     reader_nickname: Option<String>,
+    /// Conversation the read happened in (peer wxid or `xxx@chatroom`), decoded
+    /// by the client from the pixel URL. Lets the dashboard pair each probed IP
+    /// with the exact group member (reader wxid + 群昵称) who read it.
+    talker: Option<String>,
 }
 
 /// Both carry the sender `wxId` and the message `id` (no more uuid/msg).
@@ -1842,6 +1846,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ensure_reads_columns(&conn).await?;
     ensure_messages_columns(&conn).await?;
 
+    // One-time cleanup of legacy duplicates. Before the dedup logic below
+    // existed, three things produced duplicate rows for one real read:
+    //   a) an empty-visitor /read-report row + a cookie /pixel row for the same
+    //      (msg_id, ip);
+    //   b) a reader-less row duplicating a row that carries reader info for the
+    //      same (msg_id, ip);
+    //   c) WeChat's built-in browser mints a fresh visitor id per image request
+    //      (it does not persist cookies), so repeated opens used to create N
+    //      rows for the same (msg_id, ip).
+    // Keep at most ONE row per (msg_id, ip), preferring reader info.
+    conn.execute(
+        "DELETE FROM reads WHERE rowid IN (
+            SELECT r.rowid FROM reads r
+            WHERE (r.reader_wx_id IS NULL OR r.reader_wx_id = '')
+              AND EXISTS (
+                SELECT 1 FROM reads r2
+                WHERE r2.msg_id = r.msg_id AND r2.ip = r.ip AND r2.rowid != r.rowid
+                  AND r2.reader_wx_id IS NOT NULL AND r2.reader_wx_id != ''
+              )
+        )",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "DELETE FROM reads WHERE rowid NOT IN (
+            SELECT r.rowid FROM reads r
+            WHERE r.rowid IN (SELECT MAX(rowid) FROM reads GROUP BY msg_id, ip)
+        )",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "DELETE FROM reads WHERE rowid IN (
+            SELECT r.rowid FROM reads r
+            WHERE (r.visitor_id IS NULL OR r.visitor_id = '')
+              AND EXISTS (
+                SELECT 1 FROM reads r2
+                WHERE r2.msg_id = r.msg_id AND r2.ip = r.ip AND r2.rowid != r.rowid
+                  AND r2.visitor_id IS NOT NULL AND r2.visitor_id != ''
+              )
+        )",
+        (),
+    )
+    .await?;
+    info!("legacy duplicate read rows cleaned");
+
     // Broadcast channel used to push real-time updates to dashboard clients.
     let (ws_tx, _ws_rx) = broadcast::channel::<String>(1024);
 
@@ -2288,12 +2338,13 @@ async fn read_report(
     let now_str = now_db_str();
     let now_ms = Utc::now().timestamp_millis();
     let nickname = req.reader_nickname.as_deref().unwrap_or("").to_string();
+    let talker = req.talker.as_deref().unwrap_or("").to_string();
 
     let geo = lookup_geoip(&state.geoip, &client_ip);
 
     info!(
-        "/read-report\nmsg_id = {}, sender = {}, reader = {} ({}), ip = {}",
-        req.msg_id, req.sender_wx_id, req.reader_wx_id, nickname, client_ip
+        "/read-report\nmsg_id = {}, sender = {}, reader = {} ({}), talker = {}, ip = {}",
+        req.msg_id, req.sender_wx_id, req.reader_wx_id, nickname, talker, client_ip
     );
 
     // 1) Prefer enriching an existing pixel row for the same message+IP so the
@@ -2301,11 +2352,12 @@ async fn read_report(
     let updated = state
         .db
         .execute(
-            "UPDATE reads SET reader_wx_id = ?1, reader_nickname = ?2
-             WHERE msg_id = ?3 AND ip = ?4 AND (reader_wx_id IS NULL OR reader_wx_id = '')",
+            "UPDATE reads SET reader_wx_id = ?1, reader_nickname = ?2, talker = ?3
+             WHERE msg_id = ?4 AND ip = ?5 AND (reader_wx_id IS NULL OR reader_wx_id = '')",
             libsql::params![
                 req.reader_wx_id.as_str(),
                 nickname.as_str(),
+                talker.as_str(),
                 req.msg_id.as_str(),
                 client_ip.as_str()
             ],
@@ -2320,13 +2372,15 @@ async fn read_report(
 
     if updated == 0 {
         // 2) No pixel row to enrich yet — insert a standalone read record.
-        //    visitor_id stays empty so GROUP BY COALESCE(visitor_id, ip) merges
-        //    it with other rows from the same IP.
+        //    visitor_id is a STABLE `v-report-<ip>` token: repeated reports from
+        //    the same IP merge into one dashboard row (GROUP BY visitor_id), so
+        //    the same reader opening a message multiple times is deduplicated.
+        let report_visitor = format!("v-report-{}", client_ip.replace(':', "_"));
         state
             .db
             .execute(
-                "INSERT INTO reads (id, wx_id, ip, timestamp, country, city, reader_wx_id, reader_nickname, device_type, os_name, os_version, browser_name, browser_version, isp, referrer, created_at, msg_id, visitor_id)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, '', '', '', '', '', ?9, '', ?10, ?1, '')",
+                "INSERT INTO reads (id, wx_id, ip, timestamp, country, city, reader_wx_id, reader_nickname, device_type, os_name, os_version, browser_name, browser_version, isp, referrer, created_at, msg_id, visitor_id, talker)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, '', '', '', '', '', ?9, '', ?10, ?1, ?11, ?12)",
                 libsql::params![
                     req.msg_id.as_str(),
                     req.sender_wx_id.as_str(),
@@ -2337,7 +2391,9 @@ async fn read_report(
                     req.reader_wx_id.as_str(),
                     nickname.as_str(),
                     geo.isp,
-                    now_ms
+                    now_ms,
+                    report_visitor.as_str(),
+                    talker.as_str()
                 ],
             )
             .await
@@ -2369,16 +2425,20 @@ async fn serve_tracking_pixel(
     let now_ms = Utc::now().timestamp_millis();
 
     // Stable per-browser visitor identity: reuse the `rr_vid` cookie when the
-    // client already has one, otherwise mint a fresh id and set the cookie so
-    // the SAME person opening the message again (even from another IP/network)
-    // counts as one visitor instead of many.
+    // client already has one, otherwise fall back to a STABLE `v-ip-<ip>`
+    // token. The cookie path covers normal browsers (same person opening the
+    // message again from another IP/network counts once). The IP fallback is
+    // the critical dedup for WeChat's built-in browser, which does NOT persist
+    // cookies for image requests — without it, the same person re-opening the
+    // same message would mint a fresh visitor id every time and show up as
+    // duplicate "reads".
     let cookie_header = headers
         .get(header::COOKIE)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     let visitor_id = extract_cookie(cookie_header, "rr_vid")
         .filter(|v| !v.is_empty())
-        .unwrap_or_else(generate_visitor_id);
+        .unwrap_or_else(|| format!("v-ip-{}", client_ip.replace(':', "_")));
     let set_cookie = format!(
         "rr_vid={visitor_id}; Max-Age=31536000; Path=/; SameSite=Lax"
     );
@@ -2397,46 +2457,86 @@ async fn serve_tracking_pixel(
         (Some(wx_id), Some(id)) => {
             info!("/pixel request\nid = {id}, wxId = {wx_id}, client_ip = {client_ip}, visitor = {visitor_id}, country = {}, city = {}", geo.country, geo.city);
 
-            if let Err(e) = state
+            // Dedup with a prior /read-report row: if one already exists for this
+            // message+IP (stable `v-report-*` visitor token), upgrade it into a
+            // pixel row (cookie visitor id + latest UA/geo) instead of inserting
+            // a duplicate — one person = one dashboard row.
+            let merged = state
                 .db
                 .execute(
-                    "INSERT INTO reads (id, wx_id, ip, timestamp, country, city, reader_wx_id, talker, chat_name, device_type, os_name, os_version, browser_name, browser_version, isp, referrer, created_at, msg_id, visitor_id) 
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                    "UPDATE reads SET visitor_id = ?1, timestamp = ?2, created_at = ?3,
+                            country = ?4, city = ?5, isp = ?6,
+                            device_type = ?7, os_name = ?8, os_version = ?9,
+                            browser_name = ?10, browser_version = ?11, referrer = ?12
+                     WHERE msg_id = ?13 AND ip = ?14 AND (visitor_id LIKE 'v-report-%' OR visitor_id LIKE 'v-ip-%')",
                     libsql::params![
-                        id.as_str(), 
-                        wx_id.as_str(), 
-                        client_ip, 
-                        now_str,
-                        geo.country,
-                        geo.city,
-                        params.reader_wx_id.as_deref().unwrap_or(""),
-                        params.talker.as_deref().unwrap_or(""),
-                        params.chat_name.as_deref().unwrap_or(""),
+                        visitor_id.as_str(),
+                        now_str.as_str(),
+                        now_ms,
+                        geo.country.as_str(),
+                        geo.city.as_str(),
+                        geo.isp.as_str(),
                         device_type.as_deref().unwrap_or(""),
                         os_name.as_deref().unwrap_or(""),
                         os_version.as_deref().unwrap_or(""),
                         browser_name.as_deref().unwrap_or(""),
                         browser_version.as_deref().unwrap_or(""),
-                        geo.isp,
-                        referrer,
-                        now_ms,
+                        referrer.as_str(),
                         id.as_str(),
-                        visitor_id.as_str()
+                        client_ip.as_str()
                     ],
                 )
-                .await
-            {
-                error!("failed to log read: {e}");
-            } else {
-                // Broadcast real-time update to WebSocket clients
-                let _ = state.ws_tx.send(serde_json::json!({
-                    "type": "read_update",
-                    "msg_id": id
-                }).to_string());
-                
-                // Broadcast updated stats
-                broadcast_stats(&state).await;
+                .await;
+            let merged_rows = match merged {
+                Ok(n) => n,
+                Err(e) => {
+                    error!("failed to merge read-report row: {e}");
+                    0
+                }
+            };
+
+            if merged_rows == 0 {
+                if let Err(e) = state
+                    .db
+                    .execute(
+                        "INSERT INTO reads (id, wx_id, ip, timestamp, country, city, reader_wx_id, talker, chat_name, device_type, os_name, os_version, browser_name, browser_version, isp, referrer, created_at, msg_id, visitor_id) 
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                        libsql::params![
+                            id.as_str(), 
+                            wx_id.as_str(), 
+                            client_ip, 
+                            now_str,
+                            geo.country,
+                            geo.city,
+                            params.reader_wx_id.as_deref().unwrap_or(""),
+                            params.talker.as_deref().unwrap_or(""),
+                            params.chat_name.as_deref().unwrap_or(""),
+                            device_type.as_deref().unwrap_or(""),
+                            os_name.as_deref().unwrap_or(""),
+                            os_version.as_deref().unwrap_or(""),
+                            browser_name.as_deref().unwrap_or(""),
+                            browser_version.as_deref().unwrap_or(""),
+                            geo.isp,
+                            referrer,
+                            now_ms,
+                            id.as_str(),
+                            visitor_id.as_str()
+                        ],
+                    )
+                    .await
+                {
+                    error!("failed to log read: {e}");
+                }
             }
+
+            // Broadcast real-time update to WebSocket clients (insert or merge)
+            let _ = state.ws_tx.send(serde_json::json!({
+                "type": "read_update",
+                "msg_id": id
+            }).to_string());
+            
+            // Broadcast updated stats
+            broadcast_stats(&state).await;
         }
         _ => {
             warn!("/pixel request missing 'wxId' or 'id' query parameter — read not logged");

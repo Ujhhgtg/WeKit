@@ -50,6 +50,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.Collections
@@ -152,9 +153,14 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
      * tracking pixels — i.e. the receiver is looking at the probing message.
      * Reports the reader's own wxid + nickname to the server, so each probed IP
      * can be labelled with WHO read it (this also covers group chats, where the
-     * pixel URL alone can only name the room).
+     * pixel URL alone can only name the room — for group messages we resolve the
+     * reader's GROUP display name, i.e. 群昵称, so the dashboard can pair each IP
+     * with the exact group member who read it).
+     *
+     * @param talkerEncoded the URL-encoded `talker` carried on the pixel URL
+     *   (peer wxid for direct chats, `xxx@chatroom` for groups), may be blank.
      */
-    private fun reportRead(senderWxId: String, id: String) {
+    private fun reportRead(senderWxId: String, id: String, talkerEncoded: String) {
         if (serverBase.isEmpty()) return
         if (!reportedReads.add(id)) return
         if (reportedReads.size > 200) {
@@ -163,13 +169,23 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                 if (it.hasNext()) { it.next(); it.remove() }
             }
         }
+        val talker = runCatching { URLDecoder.decode(talkerEncoded, "UTF-8") }
+            .getOrDefault(talkerEncoded)
+        val isGroup = talker.endsWith("@chatroom")
         CoroutineScope(Dispatchers.IO).launch {
             runCatching {
+                val nickname = if (isGroup) {
+                    // 群内昵称（群聊里显示的名字），与微信昵称可能不同
+                    resolveGroupNickname(talker)
+                } else {
+                    resolveSelfNickname()
+                }
                 val body = buildJsonObject {
                     put("msgId", id)
                     put("senderWxId", senderWxId)
                     put("readerWxId", WeApi.selfWxId)
-                    put("readerNickname", resolveSelfNickname())
+                    put("readerNickname", nickname)
+                    put("talker", talker)
                 }.toString().toRequestBody(jsonMediaType)
                 val request = Request.Builder().url("$serverBase/read-report").post(body).build()
                 httpClient.newCall(request).execute().use { resp ->
@@ -177,6 +193,15 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                 }
             }.onFailure { WeLogger.w(TAG, "read-report request failed", it) }
         }
+    }
+
+    /** Resolves this device's display name INSIDE a group chat (群昵称), falling
+     * back to the plain WeChat nickname when the group row/display name is missing. */
+    private fun resolveGroupNickname(groupId: String): String {
+        val selfId = WeApi.selfWxId
+        if (selfId.isBlank()) return resolveSelfNickname()
+        val display = WeDatabaseApi.getGroupMemberDisplayName(groupId, selfId)
+        return display.ifBlank { resolveSelfNickname() }
     }
 
     /** Fire-and-forget registration of the plaintext content so the server can match reads to it. */
@@ -278,13 +303,9 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
 
             val actualText = text.removePrefix(prefix)
 
-            // Only the bare prefix (e.g. "#" with nothing after it) would produce
-            // an empty tracked message; refuse it instead of registering empty
-            // content that shows up as a blank row in the dashboard.
-            if (actualText.isBlank()) {
-                showToast(chatFooter.context, "已读追踪: 请输入要追踪的文字内容")
-                return@hookBefore
-            }
+            // NOTE: empty probe messages are intentional — typing just the prefix
+            // (e.g. "#") sends a blank tracked message whose ONLY purpose is to be
+            // read by the receiver and log their IP/wxid. Do not block it.
 
             val selfWxId = WeApi.selfWxId
             // Assigned now (epoch millis) so two identical-text messages get distinct ids.
@@ -371,21 +392,24 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
 
     // ── View listener: detect tracked self-messages and render the count ───────
 
-    /** Pulls `wxId` and `id` out of an embedded `/pixel?wxId=..&id=..` URL, tolerating `&`/`&amp;`. */
+    /** Pulls `wxId`, `id` and (optional, URL-encoded) `talker` out of an embedded
+     * `/pixel?wxId=..&id=..&talker=..` URL, tolerating `&`/`&amp;` separators. */
     private val pixelParamRegex =
-        Regex("""/pixel\?wxId=([^&"<\s]+)(?:&amp;|&)id=([0-9a-fA-F]+)""")
+        Regex("""/pixel\?wxId=([^&"<\s]+)(?:&amp;|&)id=([0-9a-fA-F]+)(?:(?:&amp;|&)talker=([^&"<\s]*))?""")
 
     override fun onCreateView(param: HookParam, view: View) {
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
         val content = runCatching { msgInfo.content }.getOrNull() ?: return
         val match = pixelParamRegex.find(content) ?: return
         val (wxId, id) = match.destructured
+        val talker = match.groupValues.getOrNull(3) ?: ""
 
         // Incoming message that carries one of our pixels → I (this device) am the
-        // reader: report my wxid + nickname so the dashboard can label the probed
-        // IP with WHO read it. Only outgoing messages render the live count.
+        // reader: report my wxid + nickname (group display name in group chats) so
+        // the dashboard can label the probed IP with WHO read it. Only outgoing
+        // messages render the live count.
         if (msgInfo.isSend == 0) {
-            reportRead(wxId, id)
+            reportRead(wxId, id, talker)
             return
         }
 

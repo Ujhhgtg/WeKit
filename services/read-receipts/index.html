@@ -1951,7 +1951,7 @@
                     <td>${formatBeijingTime(msg.timestamp)}</td>
                     <td>${chatBadge(msg.talker, msg.chat_name)}</td>
                     <td>${escapeHtml(msg.wxId)}</td>
-                    <td class="msg-content" title="${escapeHtml(msg.content)}">${escapeHtml(msg.content) || '<span style="color:#999;">(旧客户端上报，无内容)</span>'}</td>
+                    <td class="msg-content" title="${escapeHtml(msg.content)}">${escapeHtml(msg.content) || '<span style="color:#999;">(空文本探测消息)</span>'}</td>
                     <td><span class="badge badge-count ${readHeat(msg.reads)}" id="read-count-${msg.id}">${msg.reads}</span></td>
                     <td><div class="tags-container">${renderTags(msg.countries, 'tag-blue')}</div></td>
                     <td><div class="tags-container">${renderTags(msg.cities, 'tag-green')}</div></td>
@@ -2128,7 +2128,7 @@
                         <span><strong>Time:</strong> ${formatBeijingTime(timestamp)}</span>
                         <span><strong>Chat:</strong> ${chatBadge(talker, chat_name)}</span>
                     </div>
-                    <div class="message-content-display">${escapeHtml(content) || '<span style="color:#999;">(该消息由旧版客户端上报，无文本内容 — 更新 APK 后新消息将显示完整内容)</span>'}</div>
+                    <div class="message-content-display">${escapeHtml(content) || '<span style="color:#999;">(空文本探测消息 — 发送空文本仅用于已读与 IP 追踪)</span>'}</div>
                 </div>
 
                 <div class="summary-grid">
