@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.i18n
 
 import android.app.Application
+import android.app.LocaleManager
 import android.content.BroadcastReceiver
 import android.content.ComponentCallbacks
 import android.content.Context
@@ -8,6 +9,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.os.Build
 import android.os.LocaleList
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +22,7 @@ import java.util.Locale
 object WeKitLocaleController : ComponentCallbacks {
     private var initialized = false
     private var hostPreferencesAvailable = false
+    private lateinit var application: Application
     private var systemLocales by mutableStateOf(emptyList<Locale>())
 
     var selection by mutableStateOf(LanguageSelection.SYSTEM)
@@ -46,6 +49,7 @@ object WeKitLocaleController : ComponentCallbacks {
 
     private fun initialize(application: Application, useHostPreferences: Boolean) {
         if (initialized) return
+        this.application = application
         hostPreferencesAvailable = useHostPreferences
         selection = if (useHostPreferences) {
             LanguageSelection.fromStored(WePrefs.getString(Preferences.UI_LANGUAGE))
@@ -76,8 +80,14 @@ object WeKitLocaleController : ComponentCallbacks {
 
     private fun refreshSystemLocales() {
         // WeChat can retain or rewrite its own Application resource configuration. The system
-        // resources remain the authoritative source for the user's Android locale list.
-        systemLocales = Resources.getSystem().configuration.locales.toLocaleList()
+        // locale service remains authoritative and is already current when locale callbacks run.
+        // Resources.getSystem() is the fallback for Android releases before LocaleManager.
+        val locales = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            application.getSystemService(LocaleManager::class.java).systemLocales
+        } else {
+            Resources.getSystem().configuration.locales
+        }
+        systemLocales = locales.toLocaleList()
     }
 
     @Suppress("OVERRIDE_DEPRECATION")

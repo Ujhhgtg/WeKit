@@ -149,14 +149,20 @@ Introduce one process-local locale controller with these responsibilities:
 - track the current system locale list;
 - expose `resolvedLocale` as derived observable state;
 - persist and publish a manual selection synchronously;
-- update the system locale list from application configuration callbacks while Follow system is
-  active;
+- update the system locale list from application configuration callbacks and the system locale
+  broadcast while Follow system is active;
 - build localized contexts for Compose and non-Compose consumers.
 
 Register `ComponentCallbacks` once against the WeChat-process application context so a real system
 configuration change updates the controller. Do not register one callback per screen or Compose
 root. Manual selection changes update state immediately after the preference write and do not wait
 for an Android configuration callback.
+
+On Android 13 and later, read the authoritative global locale list from
+`LocaleManager.systemLocales`. A device may deliver the configuration callback before
+`Resources.getSystem()` reflects the new list, so using the system resources object in that callback
+can publish a stale locale indefinitely. Android 12L and earlier retain
+`Resources.getSystem().configuration.locales` as the compatibility source.
 
 The controller contains no cross-process transport. If another process later initializes it, that
 process owns an independent state instance seeded from the persisted preference.

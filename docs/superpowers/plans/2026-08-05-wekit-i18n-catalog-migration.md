@@ -1248,3 +1248,30 @@ git add app/src/main/java/dev/ujhhgtg/wekit/ui/content/WeKitWindowDialog.kt \
 git diff --cached --check
 git commit -m "fix: localize window dialog compositions"
 ```
+
+### Task 11: Remove the system-locale callback race
+
+**Files:**
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/i18n/WeKitLocaleController.kt`
+- Modify: `docs/superpowers/specs/2026-08-05-wekit-i18n-design.md`
+
+- [ ] **Step 1: Record the device RED case**
+
+On Android 16 / ColorOS, start WeChat under Simplified Chinese with WeKit set to Follow system.
+Change the global language to English through the system locale UI while preserving the WeChat PID.
+The system and Activity configuration become English, but the controller can retain Simplified
+Chinese because `Resources.getSystem()` is still stale when the callback runs.
+
+- [ ] **Step 2: Use the authoritative Android 13+ locale service**
+
+Store the process application in the controller. On API 33 and later, refresh from
+`LocaleManager.systemLocales`; on API 28-32, retain
+`Resources.getSystem().configuration.locales`. Keep the existing single application callback and
+process-lifetime locale broadcast receiver.
+
+- [ ] **Step 3: Verify compilation, resources, build, and device behavior**
+
+Run the focused locale unit tests, `./x i18n-check`, `./x build`, and `git diff --check`. Install the
+exact build, enter hosted settings only through the module home shortcut, and repeat a clean system
+English/Simplified Chinese transition. Expected: the visible settings UI and a persistent WeAgent
+overlay panel update under the same WeChat PID.
