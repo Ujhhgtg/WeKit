@@ -8,6 +8,7 @@
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
 //!   dex-test [OPTIONS]   Resolve WeKit DexKit targets against desktop APKs.
+//!   i18n-check           Validate the Android English and Chinese resource catalogs.
 //!
 //! Run `cargo xtask <COMMAND> --help` for per-command options.
 
@@ -25,6 +26,7 @@ use walkdir::WalkDir;
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 mod dex_test;
+mod i18n_check;
 
 // ── Project constants (mirror app/build.gradle.kts / libs.versions.toml) ──────
 
@@ -134,6 +136,9 @@ enum Cmd {
 
     /// Run DexKit resolvers against one or more WeChat APKs on this Linux desktop.
     DexTest(dex_test::DexTestArgs),
+
+    /// Validate the Android English and Chinese resource catalogs.
+    I18nCheck,
 }
 
 #[derive(Args)]
@@ -358,6 +363,7 @@ fn main() -> Result<()> {
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
         Cmd::Clippy(args) => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
         Cmd::DexTest(args) => dex_test::task_dex_test(args)?,
+        Cmd::I18nCheck => i18n_check::check_repository(&workspace_root())?,
     }
     Ok(())
 }
