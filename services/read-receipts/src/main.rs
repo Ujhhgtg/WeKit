@@ -67,6 +67,36 @@ struct RegisterRequest {
     talker: Option<String>,
     #[serde(rename = "chatName")]
     chat_name: Option<String>,
+    /// JSON array of the group member roster (群昵称 + nickname + remark + wxId),
+    /// uploaded by the sender's client so the detail view can list group members
+    /// even when they did NOT install WeKit. Empty for direct chats.
+    members: Option<String>,
+}
+
+/// One row of the group member roster uploaded at message-registration time.
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct GroupMember {
+    #[serde(rename = "wxId")]
+    wx_id: String,
+    #[serde(rename = "groupNick")]
+    group_nick: String,
+    nick: String,
+    remark: String,
+}
+
+impl GroupMember {
+    /// Best human-readable name: 群昵称 > 微信昵称 > 备注 > wxid.
+    fn display_name(&self) -> String {
+        if !self.group_nick.is_empty() {
+            self.group_nick.clone()
+        } else if !self.nick.is_empty() {
+            self.nick.clone()
+        } else if !self.remark.is_empty() {
+            self.remark.clone()
+        } else {
+            self.wx_id.clone()
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -257,6 +287,14 @@ struct ReadRecord {
     talker: String,
     /// Human-readable conversation name (remark/nickname or group name).
     chat_name: String,
+    /// Best-effort hint for rows WITHOUT a precise reader: if the same IP was
+    /// recently attributed to a specific group member (via a WeKit client), we
+    /// suggest "可能是 X" so un-instrumented members can be cross-checked.
+    /// This is a HINT only — the same IP may be shared by several people.
+    #[serde(rename = "likelyReaderWxId")]
+    likely_reader_wx_id: String,
+    #[serde(rename = "likelyReaderNickname")]
+    likely_reader_nickname: String,
     load_count: i64,
     /// Third-party enrichment fields (may be empty when all APIs fail).
     province: String,
@@ -285,6 +323,55 @@ struct MessageDetailResponse {
     /// Conversation id / name of the chat this message was sent in.
     talker: String,
     chat_name: String,
+    /// Group member roster uploaded at registration time (群昵称 + nick + remark + wxId).
+    /// Lets the detail view show who is IN the group even without WeKit installed.
+    members: Vec<GroupMember>,
+}
+
+/// For each read row that has NO precise reader, look up whether the same IP
+/// was recently attributed to a specific group member (via a WeKit client).
+/// Fills `likely_reader_*` as a cross-check hint — not a certainty, because a
+/// single IP (esp. mobile carrier NAT / shared WiFi) can be used by several
+/// people. Rows already carrying a reader are left untouched.
+async fn enrich_likely_readers(
+    db: &libsql::Connection,
+    reads: &mut [ReadRecord],
+) -> Result<(), (StatusCode, String)> {
+    for r in reads.iter_mut() {
+        if !r.reader_wx_id.is_empty() {
+            continue;
+        }
+        let ip = r.ip.clone();
+        if ip.is_empty() {
+            continue;
+        }
+        // Most recent reader attribution for this IP within the last 14 days,
+        // excluding the sender themselves.
+        let mut rows = db
+            .query(
+                "SELECT reader_wx_id, reader_nickname, MAX(timestamp)
+                 FROM reads
+                 WHERE ip = ?1
+                   AND reader_wx_id IS NOT NULL AND reader_wx_id != ''
+                   AND reader_nickname != '发送者本人'
+                   AND timestamp >= datetime('now', '-14 days')
+                 GROUP BY reader_wx_id, reader_nickname
+                 ORDER BY MAX(timestamp) DESC
+                 LIMIT 1",
+                libsql::params![ip],
+            )
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("likely-reader query failed: {e}")))?;
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("likely-reader row failed: {e}")))?
+        {
+            r.likely_reader_wx_id = row.get_str(0).unwrap_or_default().to_string();
+            r.likely_reader_nickname = row.get_str(1).unwrap_or_default().to_string();
+        }
+    }
+    Ok(())
 }
 
 #[derive(Serialize)]
@@ -1717,6 +1804,7 @@ async fn ensure_messages_columns(
     let wanted: &[(&str, &str)] = &[
         ("talker", "TEXT"),
         ("chat_name", "TEXT"),
+        ("members_json", "TEXT"),
     ];
 
     for (col, ty) in wanted {
@@ -1805,14 +1893,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // messages: registered by the sender before tampering. PK = deterministic hash of (wx_id + content).
     conn.execute(
         "CREATE TABLE IF NOT EXISTS messages (
-            id          TEXT PRIMARY KEY,
-            wx_id       TEXT NOT NULL,
-            content     TEXT NOT NULL,
-            timestamp   TEXT NOT NULL,
-            create_time INTEGER,
-            created_at  INTEGER,
-            talker      TEXT,
-            chat_name   TEXT
+            id           TEXT PRIMARY KEY,
+            wx_id        TEXT NOT NULL,
+            content      TEXT NOT NULL,
+            timestamp    TEXT NOT NULL,
+            create_time  INTEGER,
+            created_at   INTEGER,
+            talker       TEXT,
+            chat_name    TEXT,
+            members_json TEXT
         );",
         (),
     )
@@ -2104,12 +2193,13 @@ async fn register_message(
     state
         .db
         .execute(
-            "INSERT INTO messages (id, wx_id, content, timestamp, create_time, talker, chat_name) VALUES (?1, ?2, ?3, ?4, ?7, ?5, ?6)
+            "INSERT INTO messages (id, wx_id, content, timestamp, create_time, talker, chat_name, members_json) VALUES (?1, ?2, ?3, ?4, ?7, ?5, ?6, ?8)
              ON CONFLICT(id) DO UPDATE SET
                 content = COALESCE(NULLIF(excluded.content, ''), messages.content),
                 create_time = COALESCE(excluded.create_time, messages.create_time),
                 talker = COALESCE(NULLIF(excluded.talker, ''), messages.talker),
-                chat_name = COALESCE(NULLIF(excluded.chat_name, ''), messages.chat_name)",
+                chat_name = COALESCE(NULLIF(excluded.chat_name, ''), messages.chat_name),
+                members_json = COALESCE(NULLIF(excluded.members_json, ''), messages.members_json)",
             libsql::params![
                 id.as_str(),
                 req.wx_id.as_str(),
@@ -2117,7 +2207,8 @@ async fn register_message(
                 now,
                 req.talker.as_deref().unwrap_or(""),
                 req.chat_name.as_deref().unwrap_or(""),
-                req.create_time
+                req.create_time,
+                req.members.as_deref().unwrap_or("[]")
             ],
         )
         .await
@@ -2357,11 +2448,16 @@ async fn read_report(
     //    name / anonymous row.
     if req.role.as_deref() == Some("sender") {
         let sender_label = format!("{}", req.reader_nickname.as_deref().unwrap_or("发送者本人"));
+        // CRITICAL: only label rows that are NOT already attributed to a real
+        // reader. A group member may share the sender's network egress IP (e.g.
+        // both on the same WiFi / same mobile carrier IPv6 prefix) — previously
+        // this unconditional UPDATE overwrote the real reader (wxid + 群昵称)
+        // with 发送者本人, losing the identity we had just captured.
         let sender_updated = state
             .db
             .execute(
                 "UPDATE reads SET reader_wx_id = ?1, reader_nickname = ?2, talker = ?3
-                 WHERE msg_id = ?4 AND ip = ?5",
+                 WHERE msg_id = ?4 AND ip = ?5 AND (reader_wx_id IS NULL OR reader_wx_id = '')",
                 libsql::params![
                     req.sender_wx_id.as_str(),
                     sender_label.as_str(),
@@ -2378,6 +2474,29 @@ async fn read_report(
                 )
             })?;
         if sender_updated == 0 {
+            // No anonymous row to label: only INSERT when this msg+ip has NO row
+            // at all (e.g. the pixel did not fire for the sender's own view). If
+            // the row already carries a real reader identity, keep it untouched.
+            let existing = state
+                .db
+                .execute(
+                    "SELECT 1 FROM reads WHERE msg_id = ?1 AND ip = ?2 LIMIT 1",
+                    libsql::params![req.msg_id.as_str(), client_ip.as_str()],
+                )
+                .await
+                .map_err(|e| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("read-report(sender) exists-check failed: {e}"),
+                    )
+                })?;
+            if existing > 0 {
+                let _ = state
+                    .ws_tx
+                    .send(serde_json::json!({ "type": "read_update", "msg_id": req.msg_id }).to_string());
+                broadcast_stats(&state).await;
+                return Ok(Json(serde_json::json!({ "ok": true, "msg_id": req.msg_id, "role": "sender" })));
+            }
             let report_visitor = format!("v-report-{}", client_ip.replace(':', "_"));
             state
                 .db
@@ -3286,6 +3405,8 @@ async fn message_detail(
             reader_nickname: row.get_str(15).unwrap_or_default().to_string(),
             talker: row.get_str(16).unwrap_or_default().to_string(),
             chat_name: row.get_str(17).unwrap_or_default().to_string(),
+            likely_reader_wx_id: String::new(),
+            likely_reader_nickname: String::new(),
             load_count: match row.get_value(18) {
                 Ok(libsql::Value::Integer(n)) => n,
                 _ => 0,
@@ -3303,6 +3424,30 @@ async fn message_detail(
 
     // Enrich with third-party geolocation (street/district/city chain).
     enrich_reads(&state, &mut reads).await;
+
+    // Cross-check hint: un-identified rows whose IP was recently attributed to
+    // a specific member get a "可能是 X" suggestion.
+    enrich_likely_readers(&state.db, &mut reads).await?;
+
+    // Parse the uploaded group member roster (empty for direct chats).
+    let members_json: String = state
+        .db
+        .query(
+            "SELECT COALESCE(members_json, '') FROM messages WHERE id = ?1",
+            libsql::params![msg_id.clone()],
+        )
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("members query failed: {e}")))?
+        .next()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("members row failed: {e}")))?
+        .and_then(|row| row.get_str(0).map(|s| s.to_string()).ok())
+        .unwrap_or_default();
+    let members: Vec<GroupMember> = if members_json.trim().is_empty() {
+        Vec::new()
+    } else {
+        serde_json::from_str(&members_json).unwrap_or_default()
+    };
 
     // Get total count of distinct visitors
     let total: i64 = state
@@ -3337,6 +3482,7 @@ async fn message_detail(
         timestamp,
         talker,
         chat_name,
+        members,
     }))
 }
 
@@ -3541,6 +3687,8 @@ async fn list_reads_for_message(
             reader_nickname: row.get_str(15).unwrap_or_default().to_string(),
             talker: row.get_str(16).unwrap_or_default().to_string(),
             chat_name: row.get_str(17).unwrap_or_default().to_string(),
+            likely_reader_wx_id: String::new(),
+            likely_reader_nickname: String::new(),
             load_count: match row.get_value(18) {
                 Ok(libsql::Value::Integer(n)) => n,
                 _ => 0,

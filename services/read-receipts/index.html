@@ -160,6 +160,8 @@
         .chat-badge-direct { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
         .chat-badge-sender { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
         .chat-badge-oa { background: #fff7e6; color: #d46b08; border: 1px solid #ffd591; }
+        .member-chip { display: inline-flex; align-items: center; gap: 2px; padding: 3px 9px; border-radius: 12px; background: #f5f5f5; border: 1px solid #e8e8e8; font-size: 12px; color: #555; cursor: default; }
+        .member-chip-read { background: #f6ffed; border-color: #b7eb8f; color: #389e0d; font-weight: 500; }
         .chat-badge-unknown { background: #f5f5f5; color: #8c8c8c; border: 1px solid #d9d9d9; }
         .chat-name { font-size: 12px; color: #666; margin-top: 3px; word-break: break-all; }
 
@@ -2035,12 +2037,61 @@
                     <div class="chat-name" title="${escapeHtml(readerId + (readerName ? ' (' + readerName + ')' : ''))}" style="font-weight:600;">${escapeHtml(readerId)}${readerName ? ' <span style="color:#888; font-weight:400; font-size:12px;">(' + escapeHtml(readerName) + ')</span>' : ''}</div>
                 </div>`;
             }
+            // No precise WeKit reader: cross-check hint from the server — this IP
+            // was recently attributed to a specific member (possibly not installed
+            // WeKit on THIS message, or sharing the same egress IP). HINT only.
+            const likelyId = (r.likely_reader_wx_id || '').trim();
+            const likelyName = (r.likely_reader_nickname || '').trim();
+            if (likelyId) {
+                const hintLabel = likelyName
+                    ? `可能是 ${escapeHtml(likelyName)}`
+                    : `可能是 ${escapeHtml(likelyId)}`;
+                return `<div style="min-width:0;">
+                    <span class="chat-badge" style="background:#3a3f4b; color:#e8c56b;">🤔 可能</span>
+                    <div class="chat-name" style="font-weight:500; color:#d8c88a;" title="该 IP 最近被识别为 ${escapeHtml(likelyId + (likelyName ? ' (' + likelyName + ')' : ''))}（提示，非确定）">${hintLabel}</div>
+                </div>`;
+            }
             if (r.talker || r.chat_name) {
                 const isGroup = (r.talker || '').endsWith('@chatroom');
                 const hint = isGroup ? '<div style="font-size:11px; color:#bbb; margin-top:2px;">群成员未装 WeKit，无法识别身份</div>' : '';
                 return chatBadge(r.talker, r.chat_name) + hint;
             }
             return '';
+        }
+
+        // Group member roster panel: uploaded by the sender's WeKit client when
+        // the probe was sent into a group. Lets you cross-check IP rows against
+        // EVERY member of the group — including members who did NOT install
+        // WeKit. Members identified as readers (via WeKit) are highlighted.
+        // Honest caveat: WeChat never reports who read a message, so un-
+        // instrumented members can only be matched by cross-referencing IPs.
+        function renderGroupMembers(members, reads) {
+            if (!members || !members.length) return '';
+            const readIds = new Set();
+            (reads || []).forEach(r => {
+                const rid = (r.reader_wx_id || '').trim();
+                if (rid) readIds.add(rid);
+            });
+            const chips = members.map(m => {
+                const name = m.groupNick || m.nick || m.remark || m.wxId;
+                const read = readIds.has(m.wxId);
+                return `<span class="member-chip ${read ? 'member-chip-read' : ''}" title="${escapeHtml('wxId: ' + m.wxId + (m.groupNick ? ' · 群昵称: ' + m.groupNick : '') + (m.nick ? ' · 微信昵称: ' + m.nick : '') + (m.remark ? ' · 备注: ' + m.remark : ''))}">
+                    ${read ? '✓ ' : ''}${escapeHtml(name)}
+                    <span style="font-size:10px; opacity:.6; margin-left:4px;">${escapeHtml(m.wxId)}</span>
+                </span>`;
+            }).join('');
+            return `
+                <details class="member-panel" style="margin-bottom:16px; border:1px solid #eee; border-radius:8px; padding:10px 12px; background:#fcfcfc;">
+                    <summary style="cursor:pointer; font-size:13px; color:#666; font-weight:600; user-select:none;">
+                        👥 群成员名单 (${members.length})${readIds.size ? ` · 已识别已读 ${readIds.size} 人` : ''}
+                    </summary>
+                    <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
+                        ${chips}
+                    </div>
+                    <div style="margin-top:8px; font-size:11px; color:#aaa;">
+                        提示：微信不提供"谁已读"回执。✓ = 装了 WeKit 且已上报的成员（精确）；未装 WeKit 的成员请对照上方 IP/城市交叉判断。
+                    </div>
+                </details>`;
         }
 
         // Device emoji for the visitor marker
@@ -2113,7 +2164,7 @@
         }
 
         function renderDetail(data) {
-            const { summary, reads, total, page, page_size, total_pages, wx_id, content, timestamp, talker, chat_name } = data;
+            const { summary, reads, total, page, page_size, total_pages, wx_id, content, timestamp, talker, chat_name, members } = data;
             const body = document.getElementById('modalBody');
 
             // Number visitors by their FIRST read time (#1 = first person to open).
@@ -2164,6 +2215,8 @@
 
                 <h4 style="margin-bottom:12px; font-size:14px; color:#666;">Cities Distribution</h4>
                 ${renderDonut(summary.cities, '城市')}
+
+                ${renderGroupMembers(members, reads)}
 
                 <h4 style="margin-bottom:12px; font-size:14px; color:#666;">Read Events (${total} visitors)</h4>
                 <div class="table-wrapper">

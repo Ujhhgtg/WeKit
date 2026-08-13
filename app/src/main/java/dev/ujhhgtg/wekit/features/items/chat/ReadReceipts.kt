@@ -131,13 +131,22 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
      * in `userinfo` id 2 (the logged-in wxid).
      */
     private fun resolveSelfNickname(): String {
+        // Query the reader's own rcontact row directly (WeApi.selfWxId is the
+        // authoritative self wxid). The old `userinfo WHERE id = 2` lookup fails
+        // on some WeChat versions, leaving the dashboard with a bare wxid and no
+        // nickname — that was the "只有 wxid 没有昵称" bug.
+        val selfId = WeApi.selfWxId
+        if (selfId.isBlank()) return ""
         return try {
             val cursor = WeDatabaseApi.rawQuery(
-                "SELECT nickname FROM rcontact WHERE username = (SELECT value FROM userinfo WHERE id = 2) LIMIT 1",
-                null
+                "SELECT nickname, conRemark FROM rcontact WHERE username = ? LIMIT 1",
+                arrayOf<Any>(selfId)
             )
             cursor.use { c ->
-                if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else ""
+                if (!c.moveToFirst()) return@use ""
+                val nickname = if (!c.isNull(0)) c.getString(0) else ""
+                val remark = if (!c.isNull(1)) c.getString(1) else ""
+                nickname.ifBlank { remark }
             }
         } catch (e: Exception) {
             WeLogger.w(TAG, "resolveSelfNickname failed", e)
@@ -244,7 +253,14 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
     }
 
     /** Fire-and-forget registration of the plaintext content so the server can match reads to it. */
-    private fun registerMessage(wxId: String, content: String, createTime: Long, talker: String = "", chatName: String = "") {
+    private fun registerMessage(
+        wxId: String,
+        content: String,
+        createTime: Long,
+        talker: String = "",
+        chatName: String = "",
+        membersJson: String = "[]",
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
             runCatching {
                 val body = buildJsonObject {
@@ -253,12 +269,42 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                     put("createTime", createTime)
                     put("talker", talker)
                     put("chatName", chatName)
+                    put("members", membersJson)
                 }.toString().toRequestBody(jsonMediaType)
                 val request = Request.Builder().url("$serverBase/register").post(body).build()
                 httpClient.newCall(request).execute().use { resp ->
                     if (!resp.isSuccessful) WeLogger.w(TAG, "register failed: HTTP ${resp.code}")
                 }
             }.onFailure { WeLogger.w(TAG, "register request failed", it) }
+        }
+    }
+
+    /**
+     * Builds the JSON array of the group's member roster (group display name
+     * 群昵称 + WeChat nickname + remark + wxId) so the dashboard detail view can
+     * list WHO is in the group even for members that do NOT install WeKit.
+     * WeChat never tells us who read a message — only a WeKit client actively
+     * reports "I rendered this probe" — so this roster is the reference users
+     * can cross-check the IP rows against. Empty for direct chats.
+     */
+    private fun buildGroupMembersJson(groupId: String): String {
+        if (!groupId.endsWith("@chatroom")) return "[]"
+        return try {
+            // Parse roomdata ONCE to get every member's 群昵称 (much cheaper than
+            // calling getGroupMemberDisplayName per member).
+            val displayNames = WeDatabaseApi.getGroupMemberDisplayNameMap(groupId)
+            val roster = WeDatabaseApi.getGroupMembers(groupId).take(300).map { m ->
+                buildJsonObject {
+                    put("wxId", m.wxId)
+                    put("groupNick", displayNames[m.wxId].orEmpty())
+                    put("nick", m.nickname)
+                    put("remark", m.remarkName)
+                }.toString()
+            }
+            roster.joinToString(",", "[", "]")
+        } catch (e: Exception) {
+            WeLogger.w(TAG, "buildGroupMembersJson failed", e)
+            "[]"
         }
     }
 
@@ -357,8 +403,11 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             val chatName = resolveChatName(talker)
 
             // Record the plaintext content server-side (idempotent); the id is derived locally so
-            // polling never depends on this call succeeding.
-            registerMessage(selfWxId, actualText, createTime, talker, chatName)
+            // polling never depends on this call succeeding. For group chats we also upload the
+            // member roster (群昵称 + wxid), so the dashboard can show group members that did NOT
+            // install WeKit (WeChat never reports who read a message — only WeKit clients do).
+            val membersJson = if (talker.endsWith("@chatroom")) buildGroupMembersJson(talker) else "[]"
+            registerMessage(selfWxId, actualText, createTime, talker, chatName, membersJson)
 
             // The pixel URL also carries the conversation context (talker = the chat id /
             // peer wxid, chatName = human-readable conversation name). The server stores

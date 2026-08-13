@@ -611,6 +611,34 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     /**
+     * 批量获取群内所有成员的群昵称（群备注）map：memberWxId -> 群昵称
+     * 只解析一次 roomdata protobuf，避免逐成员重复解析
+     */
+    fun getGroupMemberDisplayNameMap(groupId: String): Map<String, String> {
+        if (!groupId.isGroupChatWxId) return emptyMap()
+        return try {
+            val cursor = db.rawQuery(
+                "SELECT roomdata FROM chatroom WHERE chatroomname = ?",
+                arrayOf(groupId)
+            )
+            cursor.use { cursor ->
+                if (cursor != null && cursor.moveToFirst()) {
+                    val blob = cursor.getBlob(0) ?: return@use emptyMap()
+                    val data = ProtoBuf.decodeFromByteArray<ChatRoomDataProto>(blob)
+                    data.members
+                        .filter { it.displayName.isNotBlank() }
+                        .associate { it.wxId to it.displayName }
+                } else {
+                    emptyMap()
+                }
+            }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "failed to get group member display names; groupId=$groupId", e)
+            emptyMap()
+        }
+    }
+
+    /**
      * 获取邀请指定群成员进群的邀请者 wxId
      * 数据来自 chatroom.roomdata protobuf，群主或无邀请者信息时返回空字符串
      * @param groupId 群聊 wxId（xxx@chatroom）
