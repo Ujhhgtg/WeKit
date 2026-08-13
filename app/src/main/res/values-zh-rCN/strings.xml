@@ -2956,4 +2956,56 @@
     <string name="voip_virtual_video_orientation_auto">自动</string>
     <string name="voip_virtual_video_orientation_portrait">竖屏</string>
     <string name="voip_virtual_video_orientation_landscape">横屏</string>
+    <!-- Task 5 group 4: debug, entertain, notifications, scripting, and system -->
+    <string name="debug_copied">已复制</string>
+    <string name="debug_crash_copy_full_log">复制完整日志</string>
+    <string name="debug_crash_exception_information">异常信息</string>
+    <string name="debug_crash_ignore">忽略</string>
+    <string name="debug_crash_log_truncated_notice">日志已截断，请复制完整日志查看全部内容。</string>
+    <string name="debug_crash_stack_preview">堆栈预览</string>
+    <string name="debug_crash_summary_parse_failed">崩溃摘要解析失败</string>
+    <string name="debug_crash_view_details">查看详情</string>
+    <string name="debug_crash_view_full_log_hint">请查看完整日志了解更多信息。</string>
+    <string name="debug_experiments_exception">异常：%1$s</string>
+    <string name="debug_experiments_instructions">选择联系人后开始测试。</string>
+    <string name="debug_experiments_phase_one_result">第一阶段结果：%1$s</string>
+    <string name="debug_experiments_phase_two_title">第二阶段</string>
+    <string name="debug_experiments_request_failed">请求失败（可能已被删除、拉黑或账号异常）</string>
+    <string name="debug_experiments_request_timed_out">请求超时</string>
+    <string name="debug_experiments_select_contact">选择联系人</string>
+    <string name="debug_experiments_sending">正在发送…</string>
+    <string name="debug_experiments_start">开始</string>
+    <string name="debug_experiments_stop">停止</string>
+    <string name="debug_experiments_tap_to_select_contact">点击选择联系人</string>
+    <string name="debug_experiments_title">测试</string>
+    <string name="debug_java_crash_details">Java 崩溃详情</string>
+    <string name="debug_java_crash_detected">检测到 Java 崩溃</string>
+    <string name="debug_java_crash_preparing_report">正在生成崩溃报告…</string>
+    <string name="debug_launch_internal_url_arguments">参数</string>
+    <string name="debug_launch_internal_url_title">启动微信内部 URL</string>
+    <string name="debug_launch_internal_url_url">URL</string>
+    <string name="debug_log_level_debug">调试</string><string name="debug_log_level_error">错误</string><string name="debug_log_level_info">信息</string><string name="debug_log_level_verbose">详细</string><string name="debug_log_level_warning">警告</string>
+    <string name="debug_native_crash_details">Native 崩溃详情</string><string name="debug_native_crash_detected">检测到 Native 崩溃</string><string name="debug_native_crash_preparing_report">正在生成崩溃报告…</string>
+    <string name="debug_redirect_host_logs_title">重定向微信日志</string>
+    <string name="debug_reset_dex_cache_clearing">正在清除适配信息…</string><string name="debug_reset_dex_cache_confirmation">确定清除全部缓存的适配信息吗？</string><string name="debug_reset_dex_cache_success">适配信息已清除</string><string name="debug_reset_dex_cache_title">重置适配信息</string>
+    <string name="debug_trigger_crash_category_java">Java 层崩溃</string><string name="debug_trigger_crash_category_native">Native 层崩溃</string><string name="debug_trigger_crash_select_category">选择崩溃类别</string>
+    <string name="debug_trigger_crash_java_null_pointer">空指针异常 (NullPointerException)</string><string name="debug_trigger_crash_java_array_bounds">数组越界 (ArrayIndexOutOfBoundsException)</string><string name="debug_trigger_crash_java_class_cast">类型转换异常 (ClassCastException)</string><string name="debug_trigger_crash_java_arithmetic">算术异常 (ArithmeticException)</string><string name="debug_trigger_crash_java_stack_overflow">栈溢出 (StackOverflowError)</string><string name="debug_trigger_crash_select_java_type">选择 Java 崩溃类型</string>
+    <string name="debug_trigger_crash_native_sigsegv">段错误 (SIGSEGV - 空指针访问)</string><string name="debug_trigger_crash_native_sigabrt">异常终止 (SIGABRT - abort)</string><string name="debug_trigger_crash_native_sigfpe">浮点异常 (SIGFPE - 除零错误)</string><string name="debug_trigger_crash_native_sigill">非法指令 (SIGILL)</string><string name="debug_trigger_crash_native_sigbus">总线错误 (SIGBUS - 未对齐访问)</string><string name="debug_trigger_crash_select_native_type">选择 Native 崩溃类型</string>
+    <string name="debug_trigger_crash_confirmation_title">确认触发崩溃</string><string name="debug_trigger_crash_confirmation_message">确定要触发“%1$s”吗？\n这可能导致微信数据丢失。</string>
+    <string name="debug_send_packet_title">发包调试</string><string name="debug_send_packet_cgi_path">CGI 路径 (str)</string><string name="debug_send_packet_cmd_id">cmdId (int)</string><string name="debug_send_packet_func_id">funcId (int)</string><string name="debug_send_packet_route_id">routeId (int)</string><string name="debug_send_packet_json_payload">JSON 载荷 (str)</string>
+    <string name="debug_send_packet_uri_required">URI 不能为空</string><string name="debug_send_packet_integer_ids_required">cmdId、funcId 和 routeId 必须为整数</string><string name="debug_send_packet_success_title">发送成功，响应结果：</string><string name="debug_send_packet_success_result">JSON：%1$s\n\nbyteArray：%2$s</string><plurals name="debug_send_packet_byte_count"><item quantity="other">%1$d 字节</item></plurals><string name="debug_send_packet_failure_title">发送失败，响应结果：</string><string name="debug_send_packet_failure_result">type: %1$d, code: %2$d, msg: %3$s</string>
+    <string name="clear_profile_details_confirmation">确定要清空资料信息吗？清空后仍可重新选择。</string><string name="clear_profile_details_send_success">发送成功</string><string name="clear_profile_details_server_response_code">服务器返回码：%1$s</string><string name="clear_profile_details_send_failure">发送失败</string><string name="clear_profile_details_send_failure_details">类型：%1$s，代码：%2$s，消息：%3$s</string>
+    <string name="image_rotation_only_avatars">只对头像生效</string><string name="image_rotation_period_milliseconds">旋转周期（毫秒）</string><string name="image_rotation_period_requirement">请输入大于 0 的毫秒数</string>
+    <string name="java_scripts_dialog_title">Java 脚本</string><string name="java_scripts_empty">暂无脚本</string><string name="java_script_status_enabled">已启用</string><string name="java_script_status_disabled">已禁用</string><string name="java_script_version">版本 %1$s</string><string name="java_script_author">作者 %1$s</string><string name="java_script_unnamed">未命名</string><string name="java_script_notification_channel">脚本：%1$s</string>
+    <string name="notifications_action_mark_read">标为已读</string><string name="notifications_action_reply">回复</string><string name="notifications_reply_hint">输入回复内容…</string><string name="notifications_self">我</string><string name="notifications_unknown_content">未知内容（请向模块开发者报告错误）</string><string name="notifications_unknown_conversation">未知对话（请向模块开发者报告错误）</string>
+    <string name="system_auto_approve_auto_login">自动批准登录</string><string name="system_auto_approve_auto_login_summary">自动批准其他设备的登录请求</string><string name="system_auto_approve_sync">自动批准同步</string><string name="system_auto_approve_sync_summary">自动批准聊天记录同步请求</string>
+    <string name="system_auto_clean_complete">清理完成：%1$s%2$s</string><string name="system_auto_clean_next">\n下次清理：%1$s</string><string name="system_custom_dpi_width">显示宽度（dp）</string><string name="system_failure">失败</string>
+    <string name="system_fake_location_launch_failed">打开位置选择器失败：%1$s</string><string name="system_fake_location_listener_failed">注册位置监听器失败</string><string name="system_fake_location_no_activity">当前没有前台 Activity</string><string name="system_fake_location_osm">OpenStreetMap 选择器</string><string name="system_fake_location_osm_summary">在 OpenStreetMap 上选择位置</string><string name="system_fake_location_parse_failed">解析所选位置失败</string><string name="system_fake_location_select">选择位置</string><string name="system_fake_location_selected">已选择：%1$s，%2$s</string><string name="system_fake_location_wechat">微信位置选择器</string><string name="system_fake_location_wechat_summary">使用微信选择位置</string>
+    <string name="system_feature_flags_copy_class">复制类名</string><string name="system_feature_flags_copy_config_key">复制配置键</string><string name="system_feature_flags_copy_description">复制描述</string><string name="system_feature_flags_copy_internal_name">复制内部名称</string><string name="system_feature_flags_empty">暂无灰度配置</string><string name="system_feature_flags_invalid_type">不支持的值类型</string><string name="system_feature_flags_invalid_value">值无效</string><string name="system_feature_flags_key_unavailable">该灰度配置没有运行时键</string><string name="system_feature_flags_no_match">没有匹配的灰度配置</string><string name="system_feature_flags_override">覆盖值</string><string name="system_feature_flags_override_not_found">不存在覆盖值</string><string name="system_feature_flags_override_summary">设置本地运行时覆盖值</string><string name="system_feature_flags_scanning">正在扫描灰度配置…</string><string name="system_feature_flags_search_hint">搜索灰度配置</string><string name="system_feature_flags_set_override">设置覆盖值</string><string name="system_feature_flags_type">类型</string><string name="system_feature_flags_value">值</string>
+    <string name="system_invalid_format">格式无效</string><string name="system_invalid_number">数字无效</string><string name="system_link_copied">链接已复制</string><string name="system_link_copy">复制链接</string><string name="system_link_custom_tabs">Custom Tabs</string><string name="system_link_custom_tabs_summary">使用 Android Custom Tabs 打开链接</string><string name="system_link_open_with">打开链接方式</string><string name="system_link_wechat">微信</string><string name="system_link_wechat_summary">在微信内打开链接</string><string name="system_loading">加载中…</string><string name="system_none">无</string>
+    <string name="system_predictive_back_unsupported">当前 Android 版本不支持预见性返回</string><string name="system_prevent_xposed_google_play_warning">微信 Google Play 版本无法使用此功能。</string><string name="system_risky_feature_warning">此功能可能带来账号风险，请在了解后果的情况下继续。</string>
+    <string name="system_sports_active_value">要上传的步数</string><string name="system_sports_fixed">固定值</string><string name="system_sports_multiplier">倍数</string><string name="system_sports_passive_mode">被动修改</string><string name="system_sports_passive_value">数值</string><string name="system_sports_upload">上传</string><string name="system_sports_upload_result">上传%1$s</string><string name="system_success">成功</string>
+    <string name="system_qr_code_record_empty">暂无记录</string><string name="system_qr_code_record_copy">复制 URL</string><string name="system_qr_code_record_open">打开</string><string name="system_qr_code_record_open_in_system">在系统中打开</string>
+    <string name="system_safe_mode_enable_title">开启安全模式？</string><string name="system_safe_mode_enable_message">开启后，下次启动微信时普通功能不会被加载，只保留核心功能；普通功能仍会显示在设置页中，以便关闭安全模式后恢复使用。\n\n确认开启安全模式？</string><string name="system_safe_mode_enable">开启</string>
+    <string name="system_api_server_mcp_started">MCP 服务器启动于 http://0.0.0.0:%1$d/mcp</string><string name="system_api_server_rest_started">REST API 服务器启动于 http://0.0.0.0:%1$d/api</string><string name="system_api_server_stopped">服务器已停止</string><string name="system_api_server_auth_token">认证令牌</string><string name="system_api_server_port">端口</string><string name="system_api_server_invalid_port">端口格式不正确！</string>
 </resources>

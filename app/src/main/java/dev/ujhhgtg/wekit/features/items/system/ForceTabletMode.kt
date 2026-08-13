@@ -3,6 +3,8 @@ package dev.ujhhgtg.wekit.features.items.system
 import android.content.Context
 import android.widget.Button
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
@@ -76,19 +78,19 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
         if (newState) {
             showComposeDialog(context) {
                 AlertDialogContent(
-                    title = { Text(text = "警告") },
-                    text = { Text(text = "此功能可能导致账号异常, 确定要启用吗?") },
+                    title = { Text(text = stringResource(R.string.warning)) },
+                    text = { Text(text = stringResource(R.string.system_risky_feature_warning)) },
                     confirmButton = {
                         Button(onClick = {
                             applyToggle(true)
                             onDismiss()
                         }) {
-                            Text("确定")
+                            Text(stringResource(R.string.dialog_confirm))
                         }
                     },
                     dismissButton = {
                         TextButton(onDismiss) {
-                            Text("取消")
+                            Text(stringResource(R.string.dialog_cancel))
                         }
                     }
                 )

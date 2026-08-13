@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.system
 
 import androidx.activity.ComponentActivity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -112,10 +113,16 @@ object AutoCleanCache : ClickableFeature() {
             val sizeText = formatBytesSize(deletedSize)
 
             val timeText =
-                if (isEnabled) "\n下次自动清理将在 ${formatEpoch(System.currentTimeMillis() + CLEAN_INTERVAL)} 进行"
+                if (isEnabled) context.localizedSystemString(
+                    R.string.system_auto_clean_next,
+                    formatEpoch(System.currentTimeMillis() + CLEAN_INTERVAL)
+                )
                 else ""
 
-            showToastSuspend(context, "缓存清理完成, 共释放 $sizeText$timeText")
+            showToastSuspend(
+                context,
+                context.localizedSystemString(R.string.system_auto_clean_complete, sizeText, timeText)
+            )
 
             if (isEnabled) startCleaningJob()
         }

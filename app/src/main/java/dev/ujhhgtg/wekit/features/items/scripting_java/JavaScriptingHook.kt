@@ -15,10 +15,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import bsh.Interpreter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -159,10 +161,10 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
         val entries = listScriptEntries()
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("Java 脚本") },
+                title = { Text(stringResource(R.string.java_scripts_dialog_title)) },
                 text = {
                     if (entries.isEmpty()) {
-                        Text("暂无脚本")
+                        Text(stringResource(R.string.java_scripts_empty))
                     } else {
                         LazyColumn(
                             modifier = Modifier
@@ -182,14 +184,44 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { toggle() },
-                                    content = { Text(entry.info.name) },
+                                    content = {
+                                        Text(
+                                            if (entry.info.name == "unnamed") {
+                                                stringResource(R.string.java_script_unnamed)
+                                            } else {
+                                                entry.info.name
+                                            }
+                                        )
+                                    },
                                     supportingContent = {
                                         Text(
                                             buildList {
                                                 add(entry.dir.name)
-                                                add(if (enabled) "已启用" else "已禁用")
-                                                entry.info.version?.let { add("版本 $it") }
-                                                entry.info.author?.let { add("作者 $it") }
+                                                add(
+                                                    stringResource(
+                                                        if (enabled) {
+                                                            R.string.java_script_status_enabled
+                                                        } else {
+                                                            R.string.java_script_status_disabled
+                                                        }
+                                                    )
+                                                )
+                                                entry.info.version?.let {
+                                                    add(
+                                                        stringResource(
+                                                            R.string.java_script_version,
+                                                            it,
+                                                        )
+                                                    )
+                                                }
+                                                entry.info.author?.let {
+                                                    add(
+                                                        stringResource(
+                                                            R.string.java_script_author,
+                                                            it,
+                                                        )
+                                                    )
+                                                }
                                             }.joinToString(" · ")
                                         )
                                     },
@@ -205,7 +237,7 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = onDismiss) { Text("完成") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
                 },
             )
         }

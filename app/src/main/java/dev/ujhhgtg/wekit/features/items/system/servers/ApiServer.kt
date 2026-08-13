@@ -8,11 +8,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.items.system.localizedSystemString
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -2268,13 +2271,13 @@ object ApiServer : ClickableFeature() {
         netServer = embeddedServer(CIO, host = "0.0.0.0", port = serverPort) {
             configureServer()
         }.start(wait = false)
-        showToast("MCP 服务器启动于 http://0.0.0.0:$serverPort/mcp")
-        showToast("REST API 服务器启动于 http://0.0.0.0:$serverPort/api")
+        showToast(localizedSystemString(R.string.system_api_server_mcp_started, serverPort))
+        showToast(localizedSystemString(R.string.system_api_server_rest_started, serverPort))
     }
 
     override fun onDisable() {
         netServer.stop(1000, 2000)
-        showToast("服务器已停止")
+        showToast(localizedSystemString(R.string.system_api_server_stopped))
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -2283,34 +2286,35 @@ object ApiServer : ClickableFeature() {
             var serverPortInput by remember { mutableStateOf(serverPort.toString()) }
 
             AlertDialogContent(
-                title = { Text("API + MCP 服务器") },
+                title = { Text(stringResource(R.string.feature_api_server_name)) },
                 text = {
                     DefaultColumn {
                         TextField(
                             value = authToken,
                             onValueChange = { authToken = it },
-                            label = { Text("认证令牌") })
+                            label = { Text(stringResource(R.string.system_api_server_auth_token)) })
                         TextField(
                             value = serverPortInput,
                             onValueChange = { serverPortInput = it },
-                            label = { Text("端口") })
+                            label = { Text(stringResource(R.string.system_api_server_port)) })
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
                     Button(onClick = {
                         val serverPort = serverPortInput.toIntOrNull()
                         if (serverPort == null || serverPort < 1024 || serverPort > 65536) {
-                            showToast("端口格式不正确!")
+                            showToast(localizedSystemString(R.string.system_api_server_invalid_port))
                             return@Button
                         }
 
                         ApiServer.serverPort = serverPort
                         ApiServer.authToken = authToken
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
     }
 }
-

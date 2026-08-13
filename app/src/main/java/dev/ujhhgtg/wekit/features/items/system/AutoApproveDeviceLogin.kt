@@ -14,8 +14,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import com.tencent.mm.plugin.webwx.ui.ExtDeviceWXLoginUI
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -91,7 +93,7 @@ object AutoApproveDeviceLogin : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("自动批准设备登录") },
+                title = { Text(stringResource(R.string.feature_auto_approve_device_login_name)) },
                 text = {
                     DefaultColumn {
                         var syncMessagesInput by remember { mutableStateOf(syncMessages) }
@@ -105,8 +107,8 @@ object AutoApproveDeviceLogin : ClickableFeature() {
                             trailingContent = {
                                 Switch(checked = syncMessagesInput, onCheckedChange = null)
                             },
-                            supportingContent = { Text("批准登录时勾选 \"同步最近的消息\", 把手机上的近期聊天记录同步到该设备") },
-                            content = { Text("同步最近的消息") },
+                            supportingContent = { Text(stringResource(R.string.system_auto_approve_sync_summary)) },
+                            content = { Text(stringResource(R.string.system_auto_approve_sync)) },
                         )
 
                         ListItem(
@@ -117,8 +119,8 @@ object AutoApproveDeviceLogin : ClickableFeature() {
                             trailingContent = {
                                 Switch(checked = autoLoginDeviceInput, onCheckedChange = null)
                             },
-                            supportingContent = { Text("批准登录时勾选 \"自动登录该设备\", 该设备以后无需再次确认即可登录") },
-                            content = { Text("自动登录该设备") },
+                            supportingContent = { Text(stringResource(R.string.system_auto_approve_auto_login_summary)) },
+                            content = { Text(stringResource(R.string.system_auto_approve_auto_login)) },
                         )
                     }
                 })

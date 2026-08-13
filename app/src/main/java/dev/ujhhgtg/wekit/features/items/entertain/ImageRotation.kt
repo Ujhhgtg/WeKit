@@ -18,10 +18,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -101,7 +103,7 @@ object ImageRotation : ClickableFeature() {
             val durationValid = (duration.toIntOrNull() ?: 0) > 0
 
             AlertDialogContent(
-                title = { Text("图片旋转") },
+                title = { Text(stringResource(R.string.feature_image_rotation_name)) },
                 text = {
                     DefaultColumn {
                         Row(
@@ -110,7 +112,10 @@ object ImageRotation : ClickableFeature() {
                                 .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("只对头像生效", modifier = Modifier.weight(1f))
+                            Text(
+                                stringResource(R.string.image_rotation_only_avatars),
+                                modifier = Modifier.weight(1f),
+                            )
                             Switch(checked = avatars, onCheckedChange = { avatars = it })
                         }
                         OutlinedTextField(
@@ -119,8 +124,10 @@ object ImageRotation : ClickableFeature() {
                                 .padding(horizontal = 16.dp),
                             value = duration,
                             onValueChange = { duration = it.filter(Char::isDigit).take(6) },
-                            label = { Text("旋转周期 (毫秒)") },
-                            supportingText = { Text("请输入大于 0 的毫秒数") },
+                            label = { Text(stringResource(R.string.image_rotation_period_milliseconds)) },
+                            supportingText = {
+                                Text(stringResource(R.string.image_rotation_period_requirement))
+                            },
                             isError = !durationValid,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
@@ -142,9 +149,11 @@ object ImageRotation : ClickableFeature() {
                             }
                             onDismiss()
                         },
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
             )
         }
     }

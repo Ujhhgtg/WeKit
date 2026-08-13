@@ -13,6 +13,7 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeAuthApi
 import dev.ujhhgtg.wekit.features.api.core.WeContactApi
@@ -503,9 +504,17 @@ object JavaEngine {
                     val context = HostInfo.application
                     val nm = context.getSystemService<NotificationManager>()
                     val channelId = "script_${plugin.name}"
+                    val localizedPluginName = if (plugin.info.name == "unnamed") {
+                        localizedScriptingJavaString(R.string.java_script_unnamed)
+                    } else {
+                        plugin.info.name
+                    }
                     val channel = NotificationChannel(
                         channelId,
-                        "Script: ${plugin.info.name}",
+                        localizedScriptingJavaString(
+                            R.string.java_script_notification_channel,
+                            localizedPluginName,
+                        ),
                         NotificationManager.IMPORTANCE_DEFAULT
                     )
                     nm.createNotificationChannel(channel)

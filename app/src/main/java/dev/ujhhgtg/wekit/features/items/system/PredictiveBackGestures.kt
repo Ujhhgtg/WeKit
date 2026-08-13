@@ -7,6 +7,8 @@ import android.content.pm.ApplicationInfo
 import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -91,11 +93,11 @@ object PredictiveBackGestures : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("预见性返回动画") },
+                title = { Text(stringResource(R.string.feature_predictive_back_gestures_name)) },
                 text = {
-                    Text("如果预见性返回动画没有生效, 说明系统 Android 版本过低 (SDK < 33)")
+                    Text(stringResource(R.string.system_predictive_back_unsupported))
                 },
-                confirmButton = { Button(onDismiss) { Text("关闭") } })
+                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.action_close)) } })
         }
     }
 }

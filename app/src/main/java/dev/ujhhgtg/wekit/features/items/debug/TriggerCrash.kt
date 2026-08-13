@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.debug
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -9,7 +10,9 @@ import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -30,21 +33,25 @@ object TriggerCrash : ClickableFeature() {
 
     private const val TAG = "TriggerCrash"
 
+    private enum class CrashCategory(@StringRes val titleRes: Int) {
+        JAVA(R.string.debug_trigger_crash_category_java),
+        NATIVE(R.string.debug_trigger_crash_category_native),
+    }
+
     override fun onClick(context: ComponentActivity) {
         showCrashCategoryDialog(context)
     }
 
     private fun showCrashCategoryDialog(context: Context) {
-        val categories = listOf("Java 层崩溃", "Native 层崩溃")
         showCrashTypeListDialog(
             context = context,
-            title = "选择崩溃类别",
-            items = categories,
+            titleRes = R.string.debug_trigger_crash_select_category,
+            itemResources = CrashCategory.entries.map(CrashCategory::titleRes),
             onBack = null,
             onSelect = { index ->
-                when (index) {
-                    0 -> showJavaCrashTypeDialog(context)
-                    1 -> showNativeCrashTypeDialog(context)
+                when (CrashCategory.entries[index]) {
+                    CrashCategory.JAVA -> showJavaCrashTypeDialog(context)
+                    CrashCategory.NATIVE -> showNativeCrashTypeDialog(context)
                 }
             }
         )
@@ -52,35 +59,35 @@ object TriggerCrash : ClickableFeature() {
 
     private fun showJavaCrashTypeDialog(context: Context) {
         val crashTypes = listOf(
-            "空指针异常 (NullPointerException)",
-            "数组越界 (ArrayIndexOutOfBoundsException)",
-            "类型转换异常 (ClassCastException)",
-            "算术异常 (ArithmeticException)",
-            "栈溢出 (StackOverflowError)"
+            R.string.debug_trigger_crash_java_null_pointer,
+            R.string.debug_trigger_crash_java_array_bounds,
+            R.string.debug_trigger_crash_java_class_cast,
+            R.string.debug_trigger_crash_java_arithmetic,
+            R.string.debug_trigger_crash_java_stack_overflow,
         )
         showCrashTypeListDialog(
             context = context,
-            title = "选择 Java 崩溃类型",
-            items = crashTypes,
+            titleRes = R.string.debug_trigger_crash_select_java_type,
+            itemResources = crashTypes,
             onBack = { showCrashCategoryDialog(context) },
-            onSelect = { index -> confirmTriggerCrash(context, "Java", index) }
+            onSelect = { index -> confirmTriggerCrash(context, CrashCategory.JAVA, index) }
         )
     }
 
     private fun showNativeCrashTypeDialog(context: Context) {
         val crashTypes = listOf(
-            "段错误 (SIGSEGV - 空指针访问)",
-            "异常终止 (SIGABRT - abort)",
-            "浮点异常 (SIGFPE - 除零错误)",
-            "非法指令 (SIGILL)",
-            "总线错误 (SIGBUS - 未对齐访问)"
+            R.string.debug_trigger_crash_native_sigsegv,
+            R.string.debug_trigger_crash_native_sigabrt,
+            R.string.debug_trigger_crash_native_sigfpe,
+            R.string.debug_trigger_crash_native_sigill,
+            R.string.debug_trigger_crash_native_sigbus,
         )
         showCrashTypeListDialog(
             context = context,
-            title = "选择 Native 崩溃类型",
-            items = crashTypes,
+            titleRes = R.string.debug_trigger_crash_select_native_type,
+            itemResources = crashTypes,
             onBack = { showCrashCategoryDialog(context) },
-            onSelect = { index -> confirmTriggerCrash(context, "Native", index) }
+            onSelect = { index -> confirmTriggerCrash(context, CrashCategory.NATIVE, index) }
         )
     }
 
@@ -89,17 +96,17 @@ object TriggerCrash : ClickableFeature() {
      */
     private fun showCrashTypeListDialog(
         context: Context,
-        title: String,
-        items: List<String>,
+        @StringRes titleRes: Int,
+        itemResources: List<Int>,
         onBack: (() -> Unit)?,
         onSelect: (Int) -> Unit,
     ) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text(title) },
+                title = { Text(stringResource(titleRes)) },
                 text = {
                     Column {
-                        items.forEachIndexed { index, item ->
+                        itemResources.forEachIndexed { index, itemRes ->
                             ListItem(
                                 modifier = Modifier.clickable {
                                     onDismiss()
@@ -107,44 +114,53 @@ object TriggerCrash : ClickableFeature() {
                                 },
                                 content = {
                                     Text(
-                                        text = item,
+                                        text = stringResource(itemRes),
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 },
                             )
-                            if (index < items.lastIndex) HorizontalDivider(thickness = 0.5.dp)
+                            if (index < itemResources.lastIndex) HorizontalDivider(thickness = 0.5.dp)
                         }
                     }
                 },
                 confirmButton = {
                     if (onBack != null) {
-                        TextButton(onClick = { onDismiss(); onBack() }) { Text("返回") }
+                        TextButton(onClick = { onDismiss(); onBack() }) {
+                            Text(stringResource(R.string.action_back))
+                        }
                     } else {
-                        TextButton(onClick = onDismiss) { Text("取消") }
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                     }
                 }
             )
         }
     }
 
-    private fun confirmTriggerCrash(context: Context, category: String, crashType: Int) {
+    private fun confirmTriggerCrash(context: Context, category: CrashCategory, crashType: Int) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("确认触发崩溃") },
-                text = { Text("确定要触发 $category 测试崩溃吗?\n这可能导致微信数据丢失") },
+                title = { Text(stringResource(R.string.debug_trigger_crash_confirmation_title)) },
+                text = {
+                    Text(
+                        stringResource(
+                            R.string.debug_trigger_crash_confirmation_message,
+                            stringResource(category.titleRes),
+                        )
+                    )
+                },
                 confirmButton = {
                     Button(onClick = {
                         onDismiss()
                         when (category) {
-                            "Java" -> triggerJavaCrash(crashType)
-                            "Native" -> NativeCrashHandler.triggerCrash(crashType)
+                            CrashCategory.JAVA -> triggerJavaCrash(crashType)
+                            CrashCategory.NATIVE -> NativeCrashHandler.triggerCrash(crashType)
                         }
                     }) {
-                        Text("确定")
+                        Text(stringResource(R.string.dialog_confirm))
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 }
             )
         }

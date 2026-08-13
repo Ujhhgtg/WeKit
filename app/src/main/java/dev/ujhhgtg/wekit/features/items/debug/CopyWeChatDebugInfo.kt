@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import com.tencent.mm.plugin.setting.ui.setting.SettingsAboutMMHeaderPreference
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -33,7 +34,7 @@ object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
             }.hookBeforeDirectly {
                 val debugText = (args[0] as StringBuilder).toString()
                 copyToClipboard(context, debugText)
-                showToast(context, "已复制")
+                showToast(context, context.localizedDebugString(R.string.debug_copied))
                 throwable = RuntimeException("halt method")
             }
 

@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.debug
 
 import android.app.Activity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -39,7 +40,7 @@ object CrashInterceptor : SwitchFeature() {
                     TAG,
                     "pending Java crash detected, will show dialog when Activity is ready"
                 )
-                showToast("检测到上次 Java 崩溃, 正在准备崩溃报告...")
+                showToast(localizedDebugString(R.string.debug_java_crash_preparing_report))
                 CrashInterceptorUtils.startActivityPolling(TAG) { activity ->
                     showPendingJavaCrashDialog(activity)
                 }
@@ -54,8 +55,8 @@ object CrashInterceptor : SwitchFeature() {
             CrashInterceptorUtils.showPendingCrashDialog(
                 activity = activity,
                 crashLogFile = crashLogFile,
-                titleSummary = "检测到上次 Java 崩溃",
-                titleDetail = "Java 崩溃详情",
+                titleSummaryRes = R.string.debug_java_crash_detected,
+                titleDetailRes = R.string.debug_java_crash_details,
                 clearPendingFlag = CrashLogsManager::clearPendingJavaCrashFlag,
                 extractSummary = ::extractCrashSummary
             )
@@ -74,7 +75,7 @@ object CrashInterceptor : SwitchFeature() {
                 line.startsWith("Crash Type:") -> summary.append(line).append("\n\n")
                 line.contains("Exception Stack Trace") -> {
                     foundException = true
-                    summary.append("异常信息:\n")
+                    summary.append(localizedDebugString(R.string.debug_crash_exception_information)).append("\n")
                 }
 
                 foundException -> {
@@ -86,8 +87,8 @@ object CrashInterceptor : SwitchFeature() {
             }
             if (exceptionLineCount >= 10) break
         }
-        if (summary.isEmpty()) return "崩溃信息解析失败\n\n点击「查看详情」查看完整日志"
-        summary.append("\n点击「查看详情」查看完整日志")
+        if (summary.isEmpty()) return localizedDebugString(R.string.debug_crash_summary_parse_failed)
+        summary.append("\n").append(localizedDebugString(R.string.debug_crash_view_full_log_hint))
         return summary.toString()
     }
 

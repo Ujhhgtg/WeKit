@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -40,6 +41,7 @@ import com.composables.icons.materialsymbols.outlined.Open_in_new
 import com.composables.icons.materialsymbols.outlined.Person
 import com.composables.icons.materialsymbols.outlined.Shopping_cart
 import com.tencent.mm.plugin.webview.ui.tools.WebViewUI
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -107,11 +109,11 @@ object QrCodeRecord : ClickableFeature(), IResolveDex {
             var list by remember { mutableStateOf(records.toList()) }
 
             AlertDialogContent(
-                title = { Text("二维码扫描记录") },
+                title = { Text(stringResource(R.string.feature_qr_code_record_name)) },
                 text = {
                     if (list.isEmpty()) {
                         Text(
-                            text = "暂无记录",
+                            text = stringResource(R.string.system_qr_code_record_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -169,11 +171,16 @@ object QrCodeRecord : ClickableFeature(), IResolveDex {
                                     ) {
                                         IconButton({
                                             copyToClipboard(context, record.url)
-                                            showToast(context, "已复制")
+                                            showToast(
+                                                context,
+                                                context.localizedSystemString(R.string.copied_to_clipboard)
+                                            )
                                         }) {
                                             Icon(
                                                 imageVector = MaterialSymbols.Outlined.Content_copy,
-                                                contentDescription = "Copy",
+                                                contentDescription = stringResource(
+                                                    R.string.system_qr_code_record_copy
+                                                ),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
@@ -187,7 +194,9 @@ object QrCodeRecord : ClickableFeature(), IResolveDex {
                                                 imageVector =
                                                     if (LinkExternalAppJump.isEnabled) MaterialSymbols.Outlined.Open_in_new
                                                     else MaterialSymbols.Outlined.Globe,
-                                                contentDescription = "Open",
+                                                contentDescription = stringResource(
+                                                    R.string.system_qr_code_record_open
+                                                ),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
@@ -197,7 +206,9 @@ object QrCodeRecord : ClickableFeature(), IResolveDex {
                                             }) {
                                                 Icon(
                                                     imageVector = MaterialSymbols.Outlined.Open_in_new,
-                                                    contentDescription = "Open in system",
+                                                    contentDescription = stringResource(
+                                                        R.string.system_qr_code_record_open_in_system
+                                                    ),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
@@ -217,9 +228,9 @@ object QrCodeRecord : ClickableFeature(), IResolveDex {
                         records.clear()
                         list = emptyList()
                         clearRecords()
-                    }) { Text("清空") }
+                    }) { Text(stringResource(R.string.action_clear)) }
                 },
-                confirmButton = { TextButton(onDismiss) { Text("关闭") } }
+                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.action_close)) } }
             )
         }
     }

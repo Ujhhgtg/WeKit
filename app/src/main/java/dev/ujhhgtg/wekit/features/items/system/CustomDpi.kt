@@ -11,10 +11,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -70,29 +72,29 @@ object CustomDpi : ClickableFeature(), IResolveDex {
             var value by remember { mutableStateOf(customDpi.toString()) }
 
             AlertDialogContent(
-                title = { Text("DPI 修改") },
+                title = { Text(stringResource(R.string.feature_custom_dpi_name)) },
                 text = {
                     TextField(
                         value = value,
                         onValueChange = { value = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("显示宽度") },
+                        label = { Text(stringResource(R.string.system_custom_dpi_width)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         val dpiInput = value.toIntOrNull()
                         if (dpiInput == null || dpiInput <= 0) {
-                            showToast("数字格式不正确!")
+                            showToast(localizedSystemString(R.string.system_invalid_number))
                             return@Button
                         }
                         customDpi = dpiInput
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }
@@ -124,4 +126,3 @@ object CustomDpi : ClickableFeature(), IResolveDex {
         }
     }
 }
-

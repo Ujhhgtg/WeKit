@@ -7,6 +7,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -37,29 +40,29 @@ object SendPacket : ClickableFeature() {
             var jsonPayloadStr by remember { mutableStateOf("{}") }
 
             AlertDialogContent(
-                title = { Text("发包调试") },
+                title = { Text(stringResource(R.string.debug_send_packet_title)) },
                 text = {
                     DefaultColumn {
                         TextField(
                             uri, onValueChange = { uri = it },
-                            label = { Text("CGI 路径 (str)") })
+                            label = { Text(stringResource(R.string.debug_send_packet_cgi_path)) })
                         TextField(
                             cmdIdStr, onValueChange = { cmdIdStr = it },
-                            label = { Text("cmdId (int)") })
+                            label = { Text(stringResource(R.string.debug_send_packet_cmd_id)) })
                         TextField(
                             funcIdStr, onValueChange = { funcIdStr = it },
-                            label = { Text("funcId (int)") })
+                            label = { Text(stringResource(R.string.debug_send_packet_func_id)) })
                         TextField(
                             routeIdStr, onValueChange = { routeIdStr = it },
-                            label = { Text("routeId (int)") })
+                            label = { Text(stringResource(R.string.debug_send_packet_route_id)) })
                         TextField(
                             jsonPayloadStr,
                             onValueChange = { jsonPayloadStr = it },
-                            label = { Text("JSON 载荷 (str)") })
+                            label = { Text(stringResource(R.string.debug_send_packet_json_payload)) })
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     TextButton(onClick = {
@@ -70,12 +73,15 @@ object SendPacket : ClickableFeature() {
                         val payload = jsonPayloadStr.trim()
 
                         if (uri.isEmpty()) {
-                            showToast(context, "URI 不能为空")
+                            showToast(context, context.localizedDebugString(R.string.debug_send_packet_uri_required))
                             return@TextButton
                         }
 
                         if (cmdId == null || funcId == null || routeId == null) {
-                            showToast(context, "cmdId, funcId 和 routeId 必须为整数")
+                            showToast(
+                                context,
+                                context.localizedDebugString(R.string.debug_send_packet_integer_ids_required),
+                            )
                             return@TextButton
                         }
 
@@ -93,10 +99,25 @@ object SendPacket : ClickableFeature() {
                                 WeLogger.i(TAG, "success: $json")
                                 showComposeDialog(context) {
                                     AlertDialogContent(
-                                        title = { Text("发送成功, 响应结果:") },
-                                        text = { Text("json: $json\n\nbyteArray: ${byteArray?.size ?: 0} 字节") },
+                                        title = { Text(stringResource(R.string.debug_send_packet_success_title)) },
+                                        text = {
+                                            val byteCount = byteArray?.size ?: 0
+                                            Text(
+                                                stringResource(
+                                                    R.string.debug_send_packet_success_result,
+                                                    json,
+                                                    pluralStringResource(
+                                                        R.plurals.debug_send_packet_byte_count,
+                                                        byteCount,
+                                                        byteCount,
+                                                    ),
+                                                )
+                                            )
+                                        },
                                         confirmButton = {
-                                            TextButton(onClick = onDismiss) { Text("关闭") }
+                                            TextButton(onClick = onDismiss) {
+                                                Text(stringResource(R.string.action_close))
+                                            }
                                         }
                                     )
                                 }
@@ -105,17 +126,28 @@ object SendPacket : ClickableFeature() {
                                 WeLogger.e(TAG, "失败: $type, $code, $msg")
                                 showComposeDialog(context) {
                                     AlertDialogContent(
-                                        title = { Text("发送失败, 响应结果:") },
-                                        text = { Text("type: $type, code: $code, msg: $msg") },
+                                        title = { Text(stringResource(R.string.debug_send_packet_failure_title)) },
+                                        text = {
+                                            Text(
+                                                stringResource(
+                                                    R.string.debug_send_packet_failure_result,
+                                                    type,
+                                                    code,
+                                                    msg,
+                                                )
+                                            )
+                                        },
                                         confirmButton = {
-                                            TextButton(onClick = onDismiss) { Text("关闭") }
+                                            TextButton(onClick = onDismiss) {
+                                                Text(stringResource(R.string.action_close))
+                                            }
                                         }
                                     )
                                 }
                             }
                         }
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
     }

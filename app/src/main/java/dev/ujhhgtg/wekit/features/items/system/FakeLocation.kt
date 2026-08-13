@@ -9,13 +9,16 @@ import androidx.compose.foundation.clickable
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -26,6 +29,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.android.showToast
 import org.osmdroid.util.GeoPoint
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 @Feature(
@@ -97,7 +101,7 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     private fun showLocationPickerChooser(context: Context) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("选择虚拟定位") },
+                title = { Text(stringResource(R.string.system_fake_location_select)) },
                 text = {
                     DefaultColumn {
                         ListItem(
@@ -105,22 +109,22 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                                 onDismiss()
                                 launchWechatLocationPicker()
                             },
-                            supportingContent = { Text("调用微信内置地图选择位置") },
-                            content = { Text("微信原生地图选点") },
+                            supportingContent = { Text(stringResource(R.string.system_fake_location_wechat_summary)) },
+                            content = { Text(stringResource(R.string.system_fake_location_wechat)) },
                         )
                         ListItem(
                             modifier = Modifier.clickable {
                                 onDismiss()
                                 showOsmLocationPicker(context)
                             },
-                            supportingContent = { Text("使用 OpenStreetMap 选择位置") },
-                            content = { Text("OSM 地图选点") },
+                            supportingContent = { Text(stringResource(R.string.system_fake_location_osm_summary)) },
+                            content = { Text(stringResource(R.string.system_fake_location_osm)) },
                         )
                     }
                 },
                 dismissButton = {
                     TextButton(onDismiss) {
-                        Text("取消")
+                        Text(stringResource(R.string.dialog_cancel))
                     }
                 }
             )
@@ -147,14 +151,14 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     private fun launchWechatLocationPicker() {
         val activity = getTopMostActivity()
         if (activity == null) {
-            showToast("获取当前 Activity 失败!")
+            showToast(localizedSystemString(R.string.system_fake_location_no_activity))
             return
         }
 
         val redirectUiClass = "${activity.packageName}.plugin.location.ui.RedirectUI".toClass()
 
         if (!ensureWeChatPickerHooked(redirectUiClass)) {
-            showToast("微信地图选点结果监听失败!")
+            showToast(localizedSystemString(R.string.system_fake_location_listener_failed))
             return
         }
 
@@ -169,7 +173,7 @@ object FakeLocation : ClickableFeature(), IResolveDex {
         }.onFailure {
             pendingWeChatPicker = false
             WeLogger.e(TAG, "failed to launch native location picker", it)
-            showToast("启动微信地图失败! 错因: ${it.message}")
+            showToast(localizedSystemString(R.string.system_fake_location_launch_failed, it.message.orEmpty()))
         }
     }
 
@@ -234,7 +238,7 @@ object FakeLocation : ClickableFeature(), IResolveDex {
         val longitude = match?.groupValues?.getOrNull(2)?.toFloatOrNull()
         if (latitude == null || longitude == null) {
             WeLogger.w(TAG, "failed to parse native location result: $locationData")
-            showToast("解析微信地图选点失败")
+            showToast(localizedSystemString(R.string.system_fake_location_parse_failed))
             return
         }
 
@@ -244,6 +248,13 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     private fun saveLocation(latitude: Float, longitude: Float) {
         this.latitude = latitude
         this.longitude = longitude
-        showToast("已选择 ${"%.4f".format(latitude)}, ${"%.4f".format(longitude)}")
+        val locale = Locale.forLanguageTag(WeKitLocaleController.resolvedLocale.androidTag)
+        showToast(
+            localizedSystemString(
+                R.string.system_fake_location_selected,
+                String.format(locale, "%.4f", latitude),
+                String.format(locale, "%.4f", longitude),
+            )
+        )
     }
 }

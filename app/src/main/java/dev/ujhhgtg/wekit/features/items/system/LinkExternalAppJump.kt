@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.net.toUri
@@ -35,6 +36,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.Open_in_new
 import com.tencent.mm.ui.LauncherUI
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -117,7 +119,7 @@ object LinkExternalAppJump : SwitchFeature(),
 
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("选择打开方式") },
+                title = { Text(stringResource(R.string.system_link_open_with)) },
                 text = {
                     LazyColumn {
                         items(resolveInfos) { info ->
@@ -153,11 +155,11 @@ object LinkExternalAppJump : SwitchFeature(),
                 dismissButton = {
                     TextButton(onClick = {
                         copyToClipboard(context, url.toString())
-                        showToast(context, "已复制链接")
+                        showToast(context, context.localizedSystemString(R.string.system_link_copied))
                         onDismiss()
-                    }) { Text("复制链接") }
+                    }) { Text(stringResource(R.string.system_link_copy)) }
                 },
-                confirmButton = { TextButton(onClick = onDismiss) { Text("取消") } })
+                confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } })
         }
 
         param.result = null
@@ -185,9 +187,9 @@ object LinkExternalAppJump : SwitchFeature(),
             Spacer(modifier = Modifier.width(12.dp))
 
             Column {
-                Text(text = "系统默认 (Custom Tabs)", style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(R.string.system_link_custom_tabs), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    text = "使用系统默认浏览器的 Custom Tabs 模式打开",
+                    text = stringResource(R.string.system_link_custom_tabs_summary),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.Gray
                 )
@@ -217,9 +219,9 @@ object LinkExternalAppJump : SwitchFeature(),
             Spacer(modifier = Modifier.width(12.dp))
 
             Column {
-                Text(text = "微信", style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(R.string.system_link_wechat), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    text = "不改变打开方式, 仍使用微信内置 WebView 打开",
+                    text = stringResource(R.string.system_link_wechat_summary),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.Gray
                 )
