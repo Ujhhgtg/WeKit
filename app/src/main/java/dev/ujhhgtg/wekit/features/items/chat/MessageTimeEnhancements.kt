@@ -59,6 +59,13 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
 
+/** View tags shared with [ReadReceipts] while keeping its bind state on the time view. */
+internal const val READ_RECEIPTS_MESSAGE_ID_TAG = 0x7E000010
+internal const val READ_RECEIPTS_BINDING_GENERATION_TAG = 0x7E000011
+internal const val READ_RECEIPTS_COUNT_TAG = 0x7E000012
+
+internal data class ReadReceiptCountState(val count: Int?)
+
 @Feature(
     id = "消息时间增强",
     nameRes = "feature_message_time_enhancements_name",
@@ -166,31 +173,36 @@ object MessageTimeEnhancements : ClickableFeature(),
         return result
     }
 
+    /**
+     * Re-renders the message-time view, optionally including a read-receipt count.
+     *
+     * Read-receipt updates use this entry point instead of reproducing the time formatting and
+     * styling rules. A null count is meaningful: it clears an active template placeholder but
+     * never adds a suffix to native text.
+     */
     @SuppressLint("SetTextI18n")
-    override fun onCreateView(
-        param: HookParam,
-        view: View
+    internal fun renderMessageTime(
+        msgInfo: MessageInfo,
+        time: TextView,
+        forceVisible: Boolean = false,
+        readReceiptCount: Int? = null,
     ) {
-        val tag = view.tag ?: return
-        val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
-        val text = getFormattedText(msgInfo)
-
-        val time = tag.reflekt()
-            .firstField {
-                name = "timeTV"
-                superclass()
-            }
-            .get() as? TextView? ?: return
+        val enhancementActive = isActive
+        if (!enhancementActive && !forceVisible) return
+        if (!forceVisible && !isAlwaysVisible && !time.isVisible) return
 
         val context = time.context
-
-        if (isAlwaysVisible) {
-            time.visibility = View.VISIBLE
+        val baseText = if (enhancementActive) {
+            getFormattedText(msgInfo)
         } else {
-            if (!time.isVisible) return
+            time.text?.toString().orEmpty().substringBefore(READ_RECEIPTS_SUFFIX)
+        }
+        time.text = renderReadReceiptText(baseText, readReceiptCount, enhancementActive)
+        if (forceVisible || isAlwaysVisible) {
+            time.visibility = View.VISIBLE
         }
 
-        time.text = text
+        if (!enhancementActive) return
 
         // Dynamic text color configuration based on system theme
         val rawColor = if (context.isDarkMode) textColorDark else textColorLight
@@ -253,6 +265,38 @@ object MessageTimeEnhancements : ClickableFeature(),
         }
     }
 
+    @SuppressLint("SetTextI18n")
+    override fun onCreateView(
+        param: HookParam,
+        view: View
+    ) {
+        val tag = view.tag ?: return
+        val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
+
+        val time = tag.reflekt()
+            .firstField {
+                name = "timeTV"
+                superclass()
+            }
+            .get() as? TextView? ?: return
+
+        val nextGeneration = ((time.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) as? Long) ?: 0L) + 1L
+        time.setTag(READ_RECEIPTS_BINDING_GENERATION_TAG, nextGeneration)
+
+        val trackedMessageId = time.getTag(READ_RECEIPTS_MESSAGE_ID_TAG) as? Long
+        val tracked = trackedMessageId == msgInfo.id
+        if (!tracked) {
+            time.setTag(READ_RECEIPTS_MESSAGE_ID_TAG, null)
+            time.setTag(READ_RECEIPTS_COUNT_TAG, null)
+        }
+        val count = if (tracked) {
+            (time.getTag(READ_RECEIPTS_COUNT_TAG) as? ReadReceiptCountState)?.count
+        } else {
+            null
+        }
+        renderMessageTime(msgInfo, time, forceVisible = tracked, readReceiptCount = count)
+    }
+
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val localizedContext = LocalContext.current
@@ -307,7 +351,8 @@ object MessageTimeEnhancements : ClickableFeature(),
                                 $$"$type",
                                 $$"$msgId",
                                 $$"$msgSvrId",
-                                $$"$mentionedUsers"
+                                $$"$mentionedUsers",
+                                READ_RECEIPTS_PLACEHOLDER,
                             )
                             placeholders.forEach { ph ->
                                 Box(
