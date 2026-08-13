@@ -114,21 +114,21 @@ internal object ReadReceiptsTunnelController {
         onHandoff: (OriginRequestTerminal<Unit>) -> Unit,
     ) {
         val handoffDelivery = TunnelHandoffTerminalDelivery(onHandoff)
-        when (val admission = stopCompletion.startAdmission()) {
-            TunnelStartAdmission.Allowed -> Unit
+        handoffGate.drainPending(
+            pendingGeneration = { pendingStart?.generation },
+            supersede = { supersededGeneration ->
+                supersedePendingStart(supersededGeneration)
+            },
+        )
+        val nextGeneration = when (val admission = stopCompletion.startAdmission(::nextGeneration)) {
+            is TunnelStartAdmission.Admitted -> admission.generation
             is TunnelStartAdmission.Rejected -> {
                 handoffDelivery.complete(Result.failure(admission.failure))
                 return
             }
         }
         val context = HostInfo.application
-        val nextGeneration = handoffGate.beginAfterSuperseding(
-            pendingGeneration = { pendingStart?.generation },
-            supersede = { supersededGeneration ->
-                supersedePendingStart(supersededGeneration)
-            },
-            generationFactory = ::nextGeneration,
-        )
+        handoffGate.begin(nextGeneration)
         status = ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING)
         val startIntent = serviceIntent(context).apply {
             action = ReadReceiptsTunnelService.ACTION_START
@@ -284,8 +284,13 @@ internal object ReadReceiptsTunnelController {
             ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
             "invalid loopback port",
         )
+        val connectorGeneration = when (
+            val admission = stopCompletion.startAdmission(::reserveConnectorGeneration)
+        ) {
+            is TunnelStartAdmission.Admitted -> admission.generation
+            is TunnelStartAdmission.Rejected -> throw admission.failure
+        }
         val generation = requireExpectedAuthGeneration()
-        val connectorGeneration = reserveConnectorGeneration()
         awaitSelectForegroundReady(connectorGeneration)
         executeAuthOperation<Unit>(
             generation = generation,

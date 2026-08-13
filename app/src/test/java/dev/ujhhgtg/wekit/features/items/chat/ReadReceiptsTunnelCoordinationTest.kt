@@ -772,50 +772,113 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
-    fun `pending stop rejects a new start without issuing a generation or consuming its token`() {
+    fun `pending stop rejects connector start admission without allocating generation token or send`() {
         val completions = TunnelStopCompletion()
         val issuedGeneration = AtomicLong(100)
-        val stopCallback = AtomicInteger()
-        val tokenClears = AtomicInteger()
-        val startTerminal = AtomicReference<OriginRequestTerminal<Unit>>()
+        val startGenerationAllocations = AtomicInteger()
+        val tokenUses = AtomicInteger()
+        val startSends = AtomicInteger()
 
         val stop = completions.register(
-            callback = { stopCallback.incrementAndGet() },
+            callback = null,
             latestIssuedGeneration = issuedGeneration.get(),
             generationFactory = issuedGeneration::incrementAndGet,
         )
         assertEquals(101, stop.generation)
 
-        when (val admission = completions.startAdmission()) {
-            TunnelStartAdmission.Allowed -> {
-                issuedGeneration.incrementAndGet()
-                tokenClears.incrementAndGet()
+        val admission = completions.startAdmission {
+            startGenerationAllocations.incrementAndGet()
+            issuedGeneration.incrementAndGet()
+        }
+        when (admission) {
+            is TunnelStartAdmission.Admitted -> {
+                tokenUses.incrementAndGet()
+                startSends.incrementAndGet()
             }
-            is TunnelStartAdmission.Rejected -> startTerminal.set(
-                OriginRequestTerminal.Completed(Result.failure(admission.failure)),
-            )
+            is TunnelStartAdmission.Rejected -> Unit
         }
 
         assertEquals(101, issuedGeneration.get())
-        assertEquals(0, tokenClears.get())
-        val completed = startTerminal.get() as OriginRequestTerminal.Completed
-        assertTrue(completed.result.isFailure)
+        assertEquals(0, startGenerationAllocations.get())
+        assertEquals(0, tokenUses.get())
+        assertEquals(0, startSends.get())
+        assertTrue(admission is TunnelStartAdmission.Rejected)
         assertEquals(
             ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
-            (completed.result.exceptionOrNull() as ReadReceiptsTunnelException).errorCode,
+            (admission as TunnelStartAdmission.Rejected).failure.errorCode,
         )
-        assertEquals(0, stopCallback.get())
+    }
 
-        val drain = completions.completeTimeout(
-            generation = stop.generation,
-            authoritativeGeneration = issuedGeneration.get(),
-        )
-        assertTrue(drain.matched)
-        drain.callbacks.forEach {
-            it(Result.failure(IllegalStateException("隧道停止超时")))
+    @Test
+    fun `connector start reservation linearizes before stop and stop completes newer generation once`() {
+        val completions = TunnelStopCompletion()
+        val issuedGeneration = AtomicLong(100)
+        val reservationEntered = CountDownLatch(1)
+        val releaseReservation = CountDownLatch(1)
+        val startAdmission = AtomicReference<TunnelStartAdmission>()
+        val stopCallStarted = CountDownLatch(1)
+        val stopRegistration = AtomicReference<StopRegistration>()
+        val stopCallback = AtomicInteger()
+
+        val starter = thread {
+            startAdmission.set(
+                completions.startAdmission {
+                    reservationEntered.countDown()
+                    releaseReservation.await()
+                    issuedGeneration.incrementAndGet()
+                },
+            )
         }
+        assertTrue(reservationEntered.await(5, TimeUnit.SECONDS))
+
+        val stopper = thread {
+            stopCallStarted.countDown()
+            stopRegistration.set(
+                completions.register(
+                    callback = { stopCallback.incrementAndGet() },
+                    latestIssuedGeneration = issuedGeneration.get(),
+                    generationFactory = issuedGeneration::incrementAndGet,
+                ),
+            )
+        }
+        assertTrue(stopCallStarted.await(5, TimeUnit.SECONDS))
+        try {
+            val blockedDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (
+                stopper.state != Thread.State.BLOCKED && stopper.isAlive &&
+                System.nanoTime() < blockedDeadline
+            ) {
+                Thread.yield()
+            }
+            assertEquals(Thread.State.BLOCKED, stopper.state)
+        } finally {
+            releaseReservation.countDown()
+        }
+        starter.join(5_000)
+        stopper.join(5_000)
+        assertFalse(starter.isAlive)
+        assertFalse(stopper.isAlive)
+
+        val admitted = startAdmission.get() as TunnelStartAdmission.Admitted
+        val stop = stopRegistration.get()
+        assertEquals(101, admitted.generation)
+        assertTrue(stop.shouldSend)
+        assertEquals(102, stop.generation)
+        assertEquals(102, issuedGeneration.get())
+
+        assertFalse(completions.complete(admitted.generation).matched)
+        val drain = completions.complete(stop.generation)
+        assertTrue(drain.matched)
+        drain.callbacks.forEach { it(Result.success(Unit)) }
         assertEquals(1, stopCallback.get())
-        assertEquals(TunnelStartAdmission.Allowed, completions.startAdmission())
+        assertTrue(completions.complete(stop.generation).callbacks.isEmpty())
+        assertTrue(
+            completions.completeTimeout(
+                generation = stop.generation,
+                authoritativeGeneration = issuedGeneration.get(),
+            ).callbacks.isEmpty(),
+        )
+        assertEquals(1, stopCallback.get())
     }
 
     @Test

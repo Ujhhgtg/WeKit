@@ -551,12 +551,12 @@ internal data class StopDrain(
 )
 
 internal sealed interface TunnelStartAdmission {
-    data object Allowed : TunnelStartAdmission
+    data class Admitted(val generation: Long) : TunnelStartAdmission
 
     data class Rejected(val failure: ReadReceiptsTunnelException) : TunnelStartAdmission
 }
 
-/** Collects concurrent stop callers and lets exactly one terminal path drain their callbacks. */
+/** Linearizes connector-start reservation with STOP ownership and drains STOP callbacks once. */
 internal class TunnelStopCompletion {
     private data class Pending(
         var generation: Long,
@@ -613,8 +613,8 @@ internal class TunnelStopCompletion {
     fun pendingGeneration(): Long? = pending?.generation
 
     @Synchronized
-    fun startAdmission(): TunnelStartAdmission = if (pending == null) {
-        TunnelStartAdmission.Allowed
+    fun startAdmission(generationFactory: () -> Long): TunnelStartAdmission = if (pending == null) {
+        TunnelStartAdmission.Admitted(generationFactory())
     } else {
         TunnelStartAdmission.Rejected(
             ReadReceiptsTunnelException(
