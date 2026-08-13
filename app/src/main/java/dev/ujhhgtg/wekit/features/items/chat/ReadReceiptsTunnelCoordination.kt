@@ -10,6 +10,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
@@ -455,12 +457,17 @@ internal fun decodeReadReceiptsTunnelStatus(
 
         else -> require(errorCode == null)
     }
-    if (needsNotificationSettings) {
-        require(
-            state == ReadReceiptsTunnelState.NEEDS_USER_ACTION &&
-                errorCode == ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED,
-        )
+    if (state == ReadReceiptsTunnelState.CONNECTED) {
+        require(publicUrl != null && canonicalTunnelPublicRoot(publicUrl) == publicUrl)
+    } else {
+        require(publicUrl == null)
     }
+    require(
+        needsNotificationSettings == (
+            state == ReadReceiptsTunnelState.NEEDS_USER_ACTION &&
+                errorCode == ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED
+            ),
+    )
     DecodedReadReceiptsTunnelStatus(
         generation,
         ReadReceiptsTunnelStatus(
@@ -480,6 +487,23 @@ private fun Map<String, Any?>.strictNullableTunnelStatusString(key: String): Str
     require(value == null || value is String)
     return value
 }
+
+internal fun normalizeTunnelPublicRoot(value: String): HttpUrl? {
+    if (value.isBlank() || value != value.trim() || value.any(Char::isWhitespace)) return null
+    val url = value.toHttpUrlOrNull() ?: return null
+    if (
+        url.scheme != "https" || url.port != 443 || url.username.isNotEmpty() ||
+        url.password.isNotEmpty() || url.query != null || url.fragment != null ||
+        url.encodedPath != "/" || url.host.length > 253 || !url.host.contains('.') ||
+        url.host.contains(':') || url.host.all { it.isDigit() || it == '.' }
+    ) {
+        return null
+    }
+    return url
+}
+
+internal fun canonicalTunnelPublicRoot(value: String): String? =
+    normalizeTunnelPublicRoot(value)?.toString()?.trimEnd('/')
 
 internal enum class TunnelVerificationCommit {
     COMMITTED,
@@ -521,6 +545,12 @@ internal data class StopDrain(
     val matched: Boolean,
     val callbacks: List<(Result<Unit>) -> Unit> = emptyList(),
 )
+
+internal sealed interface TunnelStartAdmission {
+    data object Allowed : TunnelStartAdmission
+
+    data class Rejected(val failure: ReadReceiptsTunnelException) : TunnelStartAdmission
+}
 
 /** Collects concurrent stop callers and lets exactly one terminal path drain their callbacks. */
 internal class TunnelStopCompletion {
@@ -579,7 +609,16 @@ internal class TunnelStopCompletion {
     fun pendingGeneration(): Long? = pending?.generation
 
     @Synchronized
-    fun hasPendingStop(): Boolean = pending != null
+    fun startAdmission(): TunnelStartAdmission = if (pending == null) {
+        TunnelStartAdmission.Allowed
+    } else {
+        TunnelStartAdmission.Rejected(
+            ReadReceiptsTunnelException(
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                "tunnel start is unavailable while stop is pending",
+            ),
+        )
+    }
 
     /** Prevents a single-slot administrative command from replacing pending START/STOP work. */
     @Synchronized
@@ -907,6 +946,92 @@ internal enum class ServiceAuthFailure {
     SESSION_BROKEN,
 }
 
+internal enum class ServiceAuthFailureSource(
+    val operationKind: AuthOperationKind<*>,
+    val failure: ServiceAuthFailure,
+    val errorCode: ReadReceiptsTunnelErrorCode,
+) {
+    BEGIN_CLEANUP_FAILED(
+        AuthOperationKind.BEGIN,
+        ServiceAuthFailure.SESSION_BROKEN,
+        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+    ),
+    BEGIN_REJECTED(
+        AuthOperationKind.BEGIN,
+        ServiceAuthFailure.SESSION_BROKEN,
+        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+    ),
+    LIST_TIMEOUT(
+        AuthOperationKind.LIST,
+        ServiceAuthFailure.TIMEOUT,
+        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+    ),
+    LIST_SESSION_LOST(
+        AuthOperationKind.LIST,
+        ServiceAuthFailure.SESSION_BROKEN,
+        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+    ),
+    LIST_REJECTED(
+        AuthOperationKind.LIST,
+        ServiceAuthFailure.API_RETURNED,
+        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+    ),
+    LIST_CANCELLED(
+        AuthOperationKind.LIST,
+        ServiceAuthFailure.COROUTINE_CANCELLED,
+        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+    ),
+    SELECT_TIMEOUT(
+        AuthOperationKind.SELECT,
+        ServiceAuthFailure.TIMEOUT,
+        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+    ),
+    SELECT_SESSION_LOST(
+        AuthOperationKind.SELECT,
+        ServiceAuthFailure.SESSION_BROKEN,
+        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+    ),
+    SELECT_REJECTED(
+        AuthOperationKind.SELECT,
+        ServiceAuthFailure.API_RETURNED,
+        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+    ),
+    SELECT_CREDENTIAL_SAVE_FAILED(
+        AuthOperationKind.SELECT,
+        ServiceAuthFailure.STORAGE,
+        ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED,
+    ),
+    SELECT_HEALTH_CHECK_FAILED(
+        AuthOperationKind.SELECT,
+        ServiceAuthFailure.API_RETURNED,
+        ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED,
+    ),
+    SELECT_CANCELLED(
+        AuthOperationKind.SELECT,
+        ServiceAuthFailure.COROUTINE_CANCELLED,
+        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+    ),
+    SELECT_UNEXPECTED(
+        AuthOperationKind.SELECT,
+        ServiceAuthFailure.API_RETURNED,
+        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+    ),
+}
+
+internal fun serviceAuthAdmissionTerminal(
+    reason: ServiceAuthRejectReason,
+): AuthOperationTerminal<Nothing> = when (reason) {
+    ServiceAuthRejectReason.STALE_GENERATION,
+    ServiceAuthRejectReason.DUPLICATE_REQUEST,
+    -> AuthOperationTerminal.Superseded
+    ServiceAuthRejectReason.SESSION_UNAVAILABLE -> AuthOperationTerminal.Failed(
+        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE.name,
+    )
+    ServiceAuthRejectReason.INVALID_KIND -> AuthOperationTerminal.Failed(
+        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name,
+    )
+}
+
 internal enum class ServiceAuthCleanupAction {
     PRESERVE_AUTH,
     STOP_CANDIDATE_AND_PRESERVE_AUTH,
@@ -923,6 +1048,7 @@ internal class ServiceAuthFailurePlan<T> internal constructor(
     internal val kind: AuthOperationKind<T>,
     internal val terminal: AuthOperationTerminal<T>,
     val action: ServiceAuthCleanupAction,
+    val errorCode: ReadReceiptsTunnelErrorCode,
 )
 
 internal class ServiceAuthTerminalPlan<T> internal constructor(
@@ -1116,8 +1242,24 @@ internal class ServiceAuthCoordinator {
     fun <T> planFailure(
         key: AuthOperationKey,
         kind: AuthOperationKind<T>,
+        source: ServiceAuthFailureSource,
+    ): ServiceAuthFailurePlan<T>? {
+        require(source.operationKind === kind)
+        return planFailure(
+            key,
+            kind,
+            source.failure,
+            source.errorCode.name,
+            source.errorCode,
+        )
+    }
+
+    private fun <T> planFailure(
+        key: AuthOperationKey,
+        kind: AuthOperationKind<T>,
         failure: ServiceAuthFailure,
         message: String,
+        errorCode: ReadReceiptsTunnelErrorCode,
     ): ServiceAuthFailurePlan<T>? {
         if (
             key.authGeneration != activeGeneration ||
@@ -1160,7 +1302,7 @@ internal class ServiceAuthCoordinator {
             ServiceAuthFailure.SESSION_BROKEN,
             -> AuthOperationTerminal.Failed(message)
         }
-        return ServiceAuthFailurePlan(key, kind, terminal, cleanup).also {
+        return ServiceAuthFailurePlan(key, kind, terminal, cleanup, errorCode).also {
             plannedFailures[key] = it
         }
     }

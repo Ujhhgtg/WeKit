@@ -7,6 +7,152 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ReadReceiptsTunnelServiceAuthCoordinationTest {
+
+    @Test
+    fun `auth failure sources preserve typed terminals and semantic wire remediation`() {
+        data class Case<T>(
+            val generation: Long,
+            val kind: AuthOperationKind<T>,
+            val source: ServiceAuthFailureSource,
+            val expectedErrorCode: ReadReceiptsTunnelErrorCode,
+            val expected: AuthOperationTerminal<T>,
+        )
+
+        val cases = listOf(
+            Case(
+                98,
+                AuthOperationKind.LIST,
+                ServiceAuthFailureSource.LIST_CANCELLED,
+                ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                AuthOperationTerminal.Cancelled,
+            ),
+            Case(
+                99,
+                AuthOperationKind.BEGIN,
+                ServiceAuthFailureSource.BEGIN_CLEANUP_FAILED,
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                AuthOperationTerminal.Failed("SERVICE_UNAVAILABLE"),
+            ),
+            Case(
+                100,
+                AuthOperationKind.BEGIN,
+                ServiceAuthFailureSource.BEGIN_REJECTED,
+                ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+                AuthOperationTerminal.Failed("BROWSER_CREDENTIAL_INVALID"),
+            ),
+            Case(
+                101,
+                AuthOperationKind.LIST,
+                ServiceAuthFailureSource.LIST_TIMEOUT,
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                AuthOperationTerminal.TimedOut,
+            ),
+            Case(
+                102,
+                AuthOperationKind.LIST,
+                ServiceAuthFailureSource.LIST_SESSION_LOST,
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                AuthOperationTerminal.Failed("SERVICE_UNAVAILABLE"),
+            ),
+            Case(
+                103,
+                AuthOperationKind.LIST,
+                ServiceAuthFailureSource.LIST_REJECTED,
+                ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+                AuthOperationTerminal.Failed("BROWSER_CREDENTIAL_INVALID"),
+            ),
+            Case(
+                104,
+                AuthOperationKind.SELECT,
+                ServiceAuthFailureSource.SELECT_TIMEOUT,
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                AuthOperationTerminal.TimedOut,
+            ),
+            Case(
+                105,
+                AuthOperationKind.SELECT,
+                ServiceAuthFailureSource.SELECT_SESSION_LOST,
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                AuthOperationTerminal.Failed("SERVICE_UNAVAILABLE"),
+            ),
+            Case(
+                106,
+                AuthOperationKind.SELECT,
+                ServiceAuthFailureSource.SELECT_REJECTED,
+                ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+                AuthOperationTerminal.Failed("BROWSER_CREDENTIAL_INVALID"),
+            ),
+            Case(
+                107,
+                AuthOperationKind.SELECT,
+                ServiceAuthFailureSource.SELECT_CREDENTIAL_SAVE_FAILED,
+                ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED,
+                AuthOperationTerminal.Failed("CREDENTIAL_SAVE_FAILED"),
+            ),
+            Case(
+                108,
+                AuthOperationKind.SELECT,
+                ServiceAuthFailureSource.SELECT_HEALTH_CHECK_FAILED,
+                ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED,
+                AuthOperationTerminal.Failed("HEALTH_CHECK_FAILED"),
+            ),
+            Case(
+                109,
+                AuthOperationKind.SELECT,
+                ServiceAuthFailureSource.SELECT_CANCELLED,
+                ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                AuthOperationTerminal.Cancelled,
+            ),
+            Case(
+                110,
+                AuthOperationKind.SELECT,
+                ServiceAuthFailureSource.SELECT_UNEXPECTED,
+                ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                AuthOperationTerminal.Failed("UNEXPECTED_FAILURE"),
+            ),
+        )
+
+        cases.forEach { case ->
+            val coordinator = if (case.kind === AuthOperationKind.BEGIN) {
+                ServiceAuthCoordinator()
+            } else {
+                authorizedCoordinator(case.generation)
+            }
+            val key = AuthOperationKey(case.generation, 2)
+            val terminals = mutableListOf<AuthOperationTerminal<Any?>>()
+            @Suppress("UNCHECKED_CAST")
+            val kind = case.kind as AuthOperationKind<Any?>
+            if (case.kind === AuthOperationKind.BEGIN) {
+                assertTrue(coordinator.begin(key, terminals::add) is ServiceAuthAdmission.Accepted)
+                assertTrue(coordinator.finishBeginBarrier(key))
+            } else {
+                coordinator.admit(
+                    key,
+                    kind,
+                    ServiceAuthOperationPhase.NATIVE_BLOCKING,
+                    terminals::add,
+                )
+            }
+
+            val plan = coordinator.planFailure(key, kind, case.source)!!
+            assertEquals(case.expectedErrorCode, plan.errorCode, case.source.name)
+            assertTrue(coordinator.finishFailure(plan))
+
+            assertEquals(listOf(case.expected), terminals, case.source.name)
+        }
+    }
+
+    @Test
+    fun `auth admission rejection distinguishes unavailable session from invalid protocol kind`() {
+        assertEquals(
+            AuthOperationTerminal.Failed("SERVICE_UNAVAILABLE"),
+            serviceAuthAdmissionTerminal(ServiceAuthRejectReason.SESSION_UNAVAILABLE),
+        )
+        assertEquals(
+            AuthOperationTerminal.Failed("UNEXPECTED_FAILURE"),
+            serviceAuthAdmissionTerminal(ServiceAuthRejectReason.INVALID_KIND),
+        )
+    }
     @Test
     fun `select commit and timeout claims are mutually exclusive`() {
         val committed = SelectCommitGate()
@@ -151,8 +297,7 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
         val timeoutPlan = timeoutCoordinator.planFailure(
             timeoutKey,
             AuthOperationKind.LIST,
-            ServiceAuthFailure.TIMEOUT,
-            "list timed out",
+            ServiceAuthFailureSource.LIST_TIMEOUT,
         )!!
         assertEquals(
             ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED,
@@ -193,8 +338,7 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
         val apiPlan = apiCoordinator.planFailure(
             apiKey,
             AuthOperationKind.LIST,
-            ServiceAuthFailure.API_RETURNED,
-            "list failed",
+            ServiceAuthFailureSource.LIST_REJECTED,
         )!!
         assertEquals(
             ServiceAuthCleanupAction.PRESERVE_AUTH,
@@ -204,7 +348,10 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
         assertTrue(apiCoordinator.finishFailure(apiPlan))
         assertEquals(ServiceAuthSessionPhase.AUTHORIZED, apiCoordinator.snapshot().phase)
         assertEquals(31L, apiCoordinator.snapshot().authGeneration)
-        assertEquals(listOf(AuthOperationTerminal.Failed("list failed")), apiTerminals)
+        assertEquals(
+            listOf(AuthOperationTerminal.Failed("BROWSER_CREDENTIAL_INVALID")),
+            apiTerminals,
+        )
     }
 
     @Test
@@ -221,8 +368,7 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
         val cancelledPlan = cancelledCoordinator.planFailure(
             cancelledKey,
             AuthOperationKind.LIST,
-            ServiceAuthFailure.COROUTINE_CANCELLED,
-            "list cancelled",
+            ServiceAuthFailureSource.LIST_CANCELLED,
         )!!
         assertEquals(
             ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED,
@@ -254,8 +400,7 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
         val timeoutPlan = coordinator.planFailure(
             key,
             AuthOperationKind.SELECT,
-            ServiceAuthFailure.TIMEOUT,
-            "validation timed out",
+            ServiceAuthFailureSource.SELECT_TIMEOUT,
         )!!
         assertEquals(
             ServiceAuthCleanupAction.STOP_CANDIDATE_AND_PRESERVE_AUTH,
@@ -287,8 +432,7 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
         val storagePlan = storageCoordinator.planFailure(
             storageKey,
             AuthOperationKind.SELECT,
-            ServiceAuthFailure.STORAGE,
-            "credential write failed",
+            ServiceAuthFailureSource.SELECT_CREDENTIAL_SAVE_FAILED,
         )!!
         assertEquals(
             ServiceAuthCleanupAction.STOP_CANDIDATE_AND_PRESERVE_AUTH,
@@ -297,7 +441,7 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
         assertTrue(storageTerminals.isEmpty())
         assertTrue(storageCoordinator.finishFailure(storagePlan))
         assertEquals(
-            listOf(AuthOperationTerminal.Failed("credential write failed")),
+            listOf(AuthOperationTerminal.Failed("CREDENTIAL_SAVE_FAILED")),
             storageTerminals,
         )
         assertEquals(ServiceAuthSessionPhase.AUTHORIZED, storageCoordinator.snapshot().phase)
@@ -601,8 +745,7 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
         val plan = coordinator.planFailure(
             key,
             AuthOperationKind.BEGIN,
-            ServiceAuthFailure.SESSION_BROKEN,
-            "login failed",
+            ServiceAuthFailureSource.BEGIN_REJECTED,
         )!!
         assertEquals(
             ServiceAuthCleanupAction.CANCEL_AUTH_AND_RESTART_REQUIRED,
@@ -617,7 +760,10 @@ class ReadReceiptsTunnelServiceAuthCoordinationTest {
             ),
         )
         assertTrue(coordinator.finishFailure(plan))
-        assertEquals(listOf(AuthOperationTerminal.Failed("login failed")), terminals)
+        assertEquals(
+            listOf(AuthOperationTerminal.Failed("BROWSER_CREDENTIAL_INVALID")),
+            terminals,
+        )
         assertEquals(ServiceAuthSessionPhase.RESTART_REQUIRED, coordinator.snapshot().phase)
         assertEquals(0L, coordinator.snapshot().authGeneration)
     }

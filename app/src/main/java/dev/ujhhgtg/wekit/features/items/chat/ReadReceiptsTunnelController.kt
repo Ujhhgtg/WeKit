@@ -114,14 +114,12 @@ internal object ReadReceiptsTunnelController {
         onHandoff: (OriginRequestTerminal<Unit>) -> Unit,
     ) {
         val handoffDelivery = TunnelHandoffTerminalDelivery(onHandoff)
-        if (stopCompletion.hasPendingStop()) {
-            handoffDelivery.complete(
-                Result.failure(tunnelException(
-                    ReadReceiptsTunnelErrorCode.STOP_TIMEOUT,
-                    "tunnel stop is still pending",
-                )),
-            )
-            return
+        when (val admission = stopCompletion.startAdmission()) {
+            TunnelStartAdmission.Allowed -> Unit
+            is TunnelStartAdmission.Rejected -> {
+                handoffDelivery.complete(Result.failure(admission.failure))
+                return
+            }
         }
         val context = HostInfo.application
         val nextGeneration = handoffGate.beginAfterSuperseding(

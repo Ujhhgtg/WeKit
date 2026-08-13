@@ -786,21 +786,24 @@ class ReadReceiptsTunnelCoordinationTest {
         )
         assertEquals(101, stop.generation)
 
-        if (completions.hasPendingStop()) {
-            startTerminal.set(
-                OriginRequestTerminal.Completed(
-                    Result.failure(IllegalStateException("tunnel is stopping")),
-                ),
+        when (val admission = completions.startAdmission()) {
+            TunnelStartAdmission.Allowed -> {
+                issuedGeneration.incrementAndGet()
+                tokenClears.incrementAndGet()
+            }
+            is TunnelStartAdmission.Rejected -> startTerminal.set(
+                OriginRequestTerminal.Completed(Result.failure(admission.failure)),
             )
-        } else {
-            issuedGeneration.incrementAndGet()
-            tokenClears.incrementAndGet()
         }
 
         assertEquals(101, issuedGeneration.get())
         assertEquals(0, tokenClears.get())
         val completed = startTerminal.get() as OriginRequestTerminal.Completed
         assertTrue(completed.result.isFailure)
+        assertEquals(
+            ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+            (completed.result.exceptionOrNull() as ReadReceiptsTunnelException).errorCode,
+        )
         assertEquals(0, stopCallback.get())
 
         val drain = completions.completeTimeout(
@@ -812,6 +815,7 @@ class ReadReceiptsTunnelCoordinationTest {
             it(Result.failure(IllegalStateException("隧道停止超时")))
         }
         assertEquals(1, stopCallback.get())
+        assertEquals(TunnelStartAdmission.Allowed, completions.startAdmission())
     }
 
     @Test

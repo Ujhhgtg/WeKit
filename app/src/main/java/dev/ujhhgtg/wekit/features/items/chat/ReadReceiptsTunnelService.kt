@@ -422,7 +422,10 @@ class ReadReceiptsTunnelService : Service() {
             if (!barrierFinished) return@launch
             if (!cancelled) {
                 withContext(Dispatchers.Main.immediate) {
-                    failBeginAfterBarrier(envelope, AUTH_CLEANUP_FAILED)
+                    failBeginAfterBarrier(
+                        envelope,
+                        ServiceAuthFailureSource.BEGIN_CLEANUP_FAILED,
+                    )
                 }
                 return@launch
             }
@@ -442,8 +445,7 @@ class ReadReceiptsTunnelService : Service() {
                         authCoordinator.planFailure(
                             envelope.key,
                             AuthOperationKind.BEGIN,
-                            ServiceAuthFailure.SESSION_BROKEN,
-                            AUTH_BEGIN_FAILED,
+                            ServiceAuthFailureSource.BEGIN_REJECTED,
                         ),
                     )
                 } ?: return@launch
@@ -460,7 +462,7 @@ class ReadReceiptsTunnelService : Service() {
                 }
                 val native = result.getOrNull()
                 if (native == null) {
-                    failBeginAfterBarrier(envelope, AUTH_BEGIN_FAILED)
+                    failBeginAfterBarrier(envelope, ServiceAuthFailureSource.BEGIN_REJECTED)
                     return@withContext
                 }
                 val semanticLoginState = native.loginState.forServiceTransport()
@@ -486,13 +488,15 @@ class ReadReceiptsTunnelService : Service() {
         }
     }
 
-    private fun failBeginAfterBarrier(envelope: ServiceAuthEnvelope, message: String) {
+    private fun failBeginAfterBarrier(
+        envelope: ServiceAuthEnvelope,
+        source: ServiceAuthFailureSource,
+    ) {
         val plan = checkNotNull(
             authCoordinator.planFailure(
                 envelope.key,
                 AuthOperationKind.BEGIN,
-                ServiceAuthFailure.SESSION_BROKEN,
-                message,
+                source,
             ),
         )
         finishBrokenBegin(plan)
@@ -582,7 +586,7 @@ class ReadReceiptsTunnelService : Service() {
             TAG,
             "redacted browser-login diagnostic (chars=${error.length}, bytes=${error.toByteArray().size})",
         )
-        return copy(error = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name)
+        return copy(error = ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID.name)
     }
 
     private fun scheduleBrokenAuthTeardown(
@@ -640,8 +644,7 @@ class ReadReceiptsTunnelService : Service() {
                 authCoordinator.planFailure(
                     envelope.key,
                     AuthOperationKind.LIST,
-                    ServiceAuthFailure.TIMEOUT,
-                    AUTH_LIST_FAILED,
+                    ServiceAuthFailureSource.LIST_TIMEOUT,
                 )
             } ?: return@launch
             val jobsToDrain = withContext(Dispatchers.Main.immediate) {
@@ -679,8 +682,7 @@ class ReadReceiptsTunnelService : Service() {
                 authCoordinator.planFailure(
                     envelope.key,
                     AuthOperationKind.LIST,
-                    ServiceAuthFailure.SESSION_BROKEN,
-                    AUTH_LIST_FAILED,
+                    ServiceAuthFailureSource.LIST_SESSION_LOST,
                 ),
             )
             scheduleBrokenListTeardown(plan)
@@ -701,8 +703,7 @@ class ReadReceiptsTunnelService : Service() {
                 authCoordinator.planFailure(
                     envelope.key,
                     AuthOperationKind.LIST,
-                    ServiceAuthFailure.API_RETURNED,
-                    AUTH_LIST_FAILED,
+                    ServiceAuthFailureSource.LIST_REJECTED,
                 ),
             )
             check(authCoordinator.finishFailure(plan))
@@ -819,8 +820,7 @@ class ReadReceiptsTunnelService : Service() {
                 authCoordinator.planFailure(
                     envelope.key,
                     AuthOperationKind.SELECT,
-                    ServiceAuthFailure.TIMEOUT,
-                    AUTH_SELECT_FAILED,
+                    ServiceAuthFailureSource.SELECT_TIMEOUT,
                 )
             } ?: return@launch
             withContext(Dispatchers.Main.immediate) {
@@ -902,8 +902,7 @@ class ReadReceiptsTunnelService : Service() {
                 authCoordinator.planFailure(
                     envelope.key,
                     AuthOperationKind.SELECT,
-                    ServiceAuthFailure.SESSION_BROKEN,
-                    AUTH_SELECT_FAILED,
+                    ServiceAuthFailureSource.SELECT_SESSION_LOST,
                 ),
             )
             scheduleBrokenAuthFailure(plan)
@@ -992,7 +991,7 @@ class ReadReceiptsTunnelService : Service() {
                 )
                 scheduleSelectTerminal(envelope, plan)
             }
-            SelectCandidateOutcome.FAILED -> {
+            is SelectCandidateOutcome.Failed -> {
                 val jobs = checkNotNull(authOperationJobs[envelope.key])
                 val gate = checkNotNull(jobs.commitGate)
                 if (!gate.isCommitClaimed() && !gate.tryTerminal()) return
@@ -1000,8 +999,7 @@ class ReadReceiptsTunnelService : Service() {
                     authCoordinator.planFailure(
                         envelope.key,
                         AuthOperationKind.SELECT,
-                        ServiceAuthFailure.API_RETURNED,
-                        AUTH_SELECT_FAILED,
+                        outcome.source,
                     ),
                 )
                 scheduleSelectCandidateFailure(envelope, plan)
@@ -1018,8 +1016,7 @@ class ReadReceiptsTunnelService : Service() {
             authCoordinator.planFailure(
                 envelope.key,
                 AuthOperationKind.SELECT,
-                ServiceAuthFailure.API_RETURNED,
-                AUTH_SELECT_FAILED,
+                ServiceAuthFailureSource.SELECT_REJECTED,
             ),
         )
         if (authOperationJobs[envelope.key] == null) {
@@ -1066,8 +1063,7 @@ class ReadReceiptsTunnelService : Service() {
             authCoordinator.planFailure(
                 envelope.key,
                 AuthOperationKind.SELECT,
-                ServiceAuthFailure.COROUTINE_CANCELLED,
-                AUTH_SELECT_FAILED,
+                ServiceAuthFailureSource.SELECT_CANCELLED,
             )
         } ?: return
         withContext(Dispatchers.Main.immediate) {
@@ -1092,6 +1088,20 @@ class ReadReceiptsTunnelService : Service() {
             for (job in jobs) job.join()
             withContext(Dispatchers.Main.immediate) {
                 authCleanupJob = null
+                val generation = checkNotNull(envelope.selection).connectorGeneration
+                val current = authoritativeState.get()
+                val shouldPublishSemanticFailure = when (current.status.state) {
+                    ReadReceiptsTunnelState.STARTING,
+                    ReadReceiptsTunnelState.RECONNECTING,
+                    ReadReceiptsTunnelState.STOPPING,
+                    -> true
+                    ReadReceiptsTunnelState.FAILED -> current.status.errorCode ==
+                        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
+                    else -> false
+                }
+                if (current.generation == generation && shouldPublishSemanticFailure) {
+                    publishFailure(generation, plan.errorCode)
+                }
                 check(authCoordinator.finishFailure(plan))
             }
         }
@@ -1180,15 +1190,7 @@ class ReadReceiptsTunnelService : Service() {
         rejection: ServiceAuthAdmission.Rejected,
     ) {
         sendAuthAck(envelope, accepted = false)
-        val terminal = when (rejection.reason) {
-            ServiceAuthRejectReason.STALE_GENERATION,
-            ServiceAuthRejectReason.DUPLICATE_REQUEST,
-            -> AuthOperationTerminal.Superseded
-            ServiceAuthRejectReason.SESSION_UNAVAILABLE,
-            ServiceAuthRejectReason.INVALID_KIND,
-            -> AuthOperationTerminal.Failed(AUTH_REJECTED)
-        }
-        sendAuthTerminal(envelope, terminal)
+        sendAuthTerminal(envelope, serviceAuthAdmissionTerminal(rejection.reason))
     }
 
     private fun clearTransientAuthState() {
@@ -1632,7 +1634,7 @@ class ReadReceiptsTunnelService : Service() {
                                     ) {
                                         publishFailure(
                                             request.generation,
-                                            ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED,
+                                            ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
                                         )
                                     }
                                 }
@@ -1663,7 +1665,11 @@ class ReadReceiptsTunnelService : Service() {
                 request.generation,
                 ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED,
             )
-            firstVerification?.complete(SelectCandidateOutcome.FAILED)
+            firstVerification?.complete(
+                SelectCandidateOutcome.Failed(
+                    ServiceAuthFailureSource.SELECT_HEALTH_CHECK_FAILED,
+                ),
+            )
             return
         }
 
@@ -1696,7 +1702,11 @@ class ReadReceiptsTunnelService : Service() {
                             errorCode = ReadReceiptsTunnelErrorCode.TOKEN_INVALID,
                         ),
                     )
-                    firstVerification?.complete(SelectCandidateOutcome.FAILED)
+                    firstVerification?.complete(
+                        SelectCandidateOutcome.Failed(
+                            ServiceAuthFailureSource.SELECT_REJECTED,
+                        ),
+                    )
                     return
                 }
                 ReadReceiptsTunnelMode.BROWSER_LOGIN ->
@@ -1719,7 +1729,11 @@ class ReadReceiptsTunnelService : Service() {
                                     ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
                             ),
                         )
-                        firstVerification?.complete(SelectCandidateOutcome.FAILED)
+                        firstVerification?.complete(
+                            SelectCandidateOutcome.Failed(
+                                ServiceAuthFailureSource.SELECT_REJECTED,
+                            ),
+                        )
                         return
                     }
             }
@@ -1751,11 +1765,22 @@ class ReadReceiptsTunnelService : Service() {
             if (!started) {
                 if (activeRequest?.generation != request.generation) return
                 if (reservation != null && !nativeLease.isReservationCurrent(reservation)) return
+                val errorCode = when (request.mode) {
+                    ReadReceiptsTunnelMode.QUICK ->
+                        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
+                    ReadReceiptsTunnelMode.TOKEN -> ReadReceiptsTunnelErrorCode.TOKEN_INVALID
+                    ReadReceiptsTunnelMode.BROWSER_LOGIN ->
+                        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID
+                }
                 publishFailure(
                     request.generation,
-                    ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                    errorCode,
                 )
-                firstVerification?.complete(SelectCandidateOutcome.FAILED)
+                firstVerification?.complete(
+                    SelectCandidateOutcome.Failed(
+                        ServiceAuthFailureSource.SELECT_REJECTED,
+                    ),
+                )
                 return
             }
 
@@ -1853,7 +1878,11 @@ class ReadReceiptsTunnelService : Service() {
                                     nativeLease.stopIfOwner(request.generation) {
                                         ReadReceiptsTunnelNative.stop().getOrThrow()
                                     }
-                                    firstVerification?.complete(SelectCandidateOutcome.FAILED)
+                                    firstVerification?.complete(
+                                        SelectCandidateOutcome.Failed(
+                                            ServiceAuthFailureSource.SELECT_CREDENTIAL_SAVE_FAILED,
+                                        ),
+                                    )
                                     return
                                 }
                                 TunnelVerificationCommit.STALE -> {
@@ -1936,7 +1965,11 @@ class ReadReceiptsTunnelService : Service() {
             }
             if (publicHealthTerminal) {
                 publishFailure(request.generation, checkNotNull(terminalErrorCode))
-                firstVerification?.complete(SelectCandidateOutcome.FAILED)
+                firstVerification?.complete(
+                    SelectCandidateOutcome.Failed(
+                        ServiceAuthFailureSource.SELECT_HEALTH_CHECK_FAILED,
+                    ),
+                )
                 return
             }
 
@@ -1946,7 +1979,13 @@ class ReadReceiptsTunnelService : Service() {
                     request.generation,
                     terminalErrorCode ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
                 )
-                firstVerification?.complete(SelectCandidateOutcome.FAILED)
+                firstVerification?.complete(
+                    SelectCandidateOutcome.Failed(
+                        selectFailureSource(
+                            terminalErrorCode ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+                        ),
+                    ),
+                )
                 return
             }
             publish(
@@ -2410,10 +2449,27 @@ class ReadReceiptsTunnelService : Service() {
         val candidate: Job,
     )
 
-    private enum class SelectCandidateOutcome {
-        COMMITTED,
-        STALE,
-        FAILED,
+    private sealed interface SelectCandidateOutcome {
+        data object COMMITTED : SelectCandidateOutcome
+
+        data object STALE : SelectCandidateOutcome
+
+        data class Failed(val source: ServiceAuthFailureSource) : SelectCandidateOutcome
+    }
+
+    private fun selectFailureSource(
+        errorCode: ReadReceiptsTunnelErrorCode,
+    ): ServiceAuthFailureSource = when (errorCode) {
+        ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED ->
+            ServiceAuthFailureSource.SELECT_CREDENTIAL_SAVE_FAILED
+        ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED ->
+            ServiceAuthFailureSource.SELECT_HEALTH_CHECK_FAILED
+        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+        ReadReceiptsTunnelErrorCode.TOKEN_INVALID,
+        -> ServiceAuthFailureSource.SELECT_REJECTED
+        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE ->
+            ServiceAuthFailureSource.SELECT_SESSION_LOST
+        else -> ServiceAuthFailureSource.SELECT_UNEXPECTED
     }
 
     private data class StatusListener(
@@ -2507,32 +2563,15 @@ class ReadReceiptsTunnelService : Service() {
         private const val MAX_URL_CHARS = 2048
         private const val AUTH_OPERATION_TIMEOUT_MILLIS = 30_000L
         private const val AUTH_LOGIN_POLL_LIMIT = 1_200
-        private val AUTH_REJECTED = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name
-        private val AUTH_BEGIN_FAILED = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name
-        private val AUTH_LIST_FAILED = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name
-        private val AUTH_SELECT_FAILED = ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED.name
-        private val AUTH_CLEANUP_FAILED = ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE.name
         private val RECONNECT_DELAYS_MILLIS = longArrayOf(1_000, 2_000, 4_000, 8_000, 16_000)
 
         private const val TAG = "ReadReceiptsTunnelService"
 
-        internal fun normalizePublicRoot(value: String): HttpUrl? {
-            if (value.isBlank() || value != value.trim() || value.any(Char::isWhitespace)) return null
-            val url = value.toHttpUrlOrNull() ?: return null
-            if (
-                url.scheme != "https" || url.port != 443 || url.username.isNotEmpty() ||
-                url.password.isNotEmpty() || url.query != null || url.fragment != null ||
-                url.encodedPath != "/" || url.host.length > 253 ||
-                !url.host.contains('.') || url.host.contains(':') ||
-                url.host.all { it.isDigit() || it == '.' }
-            ) {
-                return null
-            }
-            return url
-        }
+        internal fun normalizePublicRoot(value: String): HttpUrl? =
+            normalizeTunnelPublicRoot(value)
 
         internal fun canonicalPublicRoot(value: String): String? =
-            normalizePublicRoot(value)?.toString()?.trimEnd('/')
+            canonicalTunnelPublicRoot(value)
 
         internal fun normalizeLoopbackRoot(value: String): HttpUrl? {
             val url = value.toHttpUrlOrNull() ?: return null
