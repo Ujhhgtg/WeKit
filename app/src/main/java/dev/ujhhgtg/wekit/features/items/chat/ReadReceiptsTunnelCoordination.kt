@@ -950,96 +950,14 @@ internal enum class ServiceAuthFailure {
     SESSION_BROKEN,
 }
 
-internal data class ServiceAuthFailureClassification(
-    val failure: ServiceAuthFailure,
-    val errorCode: ReadReceiptsTunnelErrorCode,
-)
+internal sealed interface ServiceSelectCandidateFailure {
+    data class CredentialCommit(val result: TunnelVerificationCommit) :
+        ServiceSelectCandidateFailure
 
-internal sealed class ServiceAuthFailureEvent<T>(
-    val kind: AuthOperationKind<T>,
-) {
-    data object BeginCleanupFailed :
-        ServiceAuthFailureEvent<CloudflareLoginState>(AuthOperationKind.BEGIN)
+    data class HealthVerification(val healthy: Boolean) : ServiceSelectCandidateFailure
 
-    data object BeginRejected :
-        ServiceAuthFailureEvent<CloudflareLoginState>(AuthOperationKind.BEGIN)
-
-    data object ListTimeout :
-        ServiceAuthFailureEvent<List<ExistingTunnel>>(AuthOperationKind.LIST)
-
-    data object ListSessionLost :
-        ServiceAuthFailureEvent<List<ExistingTunnel>>(AuthOperationKind.LIST)
-
-    data object ListRejected :
-        ServiceAuthFailureEvent<List<ExistingTunnel>>(AuthOperationKind.LIST)
-
-    data object ListCancelled :
-        ServiceAuthFailureEvent<List<ExistingTunnel>>(AuthOperationKind.LIST)
-
-    data object SelectTimeout : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
-
-    data object SelectSessionLost : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
-
-    data object SelectRejected : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
-
-    data object SelectCredentialSaveFailed :
-        ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
-
-    data object SelectHealthCheckFailed :
-        ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
-
-    data object SelectCancelled : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
-
-    data object SelectUnexpected : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
-}
-
-internal fun classifyServiceAuthFailure(
-    event: ServiceAuthFailureEvent<*>,
-): ServiceAuthFailureClassification = when (event) {
-    ServiceAuthFailureEvent.BeginCleanupFailed -> ServiceAuthFailureClassification(
-        ServiceAuthFailure.SESSION_BROKEN,
-        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
-    )
-    ServiceAuthFailureEvent.BeginRejected -> ServiceAuthFailureClassification(
-        ServiceAuthFailure.SESSION_BROKEN,
-        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
-    )
-    ServiceAuthFailureEvent.ListTimeout,
-    ServiceAuthFailureEvent.SelectTimeout,
-    -> ServiceAuthFailureClassification(
-        ServiceAuthFailure.TIMEOUT,
-        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
-    )
-    ServiceAuthFailureEvent.ListSessionLost,
-    ServiceAuthFailureEvent.SelectSessionLost,
-    -> ServiceAuthFailureClassification(
-        ServiceAuthFailure.SESSION_BROKEN,
-        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
-    )
-    ServiceAuthFailureEvent.ListRejected,
-    ServiceAuthFailureEvent.SelectRejected,
-    -> ServiceAuthFailureClassification(
-        ServiceAuthFailure.API_RETURNED,
-        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
-    )
-    ServiceAuthFailureEvent.ListCancelled,
-    ServiceAuthFailureEvent.SelectCancelled,
-    -> ServiceAuthFailureClassification(
-        ServiceAuthFailure.COROUTINE_CANCELLED,
-        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
-    )
-    ServiceAuthFailureEvent.SelectCredentialSaveFailed -> ServiceAuthFailureClassification(
-        ServiceAuthFailure.STORAGE,
-        ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED,
-    )
-    ServiceAuthFailureEvent.SelectHealthCheckFailed -> ServiceAuthFailureClassification(
-        ServiceAuthFailure.API_RETURNED,
-        ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED,
-    )
-    ServiceAuthFailureEvent.SelectUnexpected -> ServiceAuthFailureClassification(
-        ServiceAuthFailure.API_RETURNED,
-        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
-    )
+    data class ConnectorTerminal(val errorCode: ReadReceiptsTunnelErrorCode) :
+        ServiceSelectCandidateFailure
 }
 
 internal fun serviceAuthAdmissionTerminal(
@@ -1263,25 +1181,203 @@ internal class ServiceAuthCoordinator {
         return completed
     }
 
-    fun <T> planFailure(
+    fun planBeginCleanupResult(
         key: AuthOperationKey,
-        event: ServiceAuthFailureEvent<T>,
-    ): ServiceAuthFailurePlan<T>? {
-        val classification = classifyServiceAuthFailure(event)
-        return planFailure(
+        succeeded: Boolean,
+    ): ServiceAuthFailurePlan<CloudflareLoginState>? = if (succeeded) {
+        null
+    } else {
+        planFailure(
             key,
-            event.kind,
-            classification.failure,
-            classification.errorCode.name,
-            classification.errorCode,
+            AuthOperationKind.BEGIN,
+            ServiceAuthFailure.SESSION_BROKEN,
+            ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
         )
+    }
+
+    fun planBeginNativeResult(
+        key: AuthOperationKey,
+        result: Result<NativeCloudflareLoginStatus>,
+    ): ServiceAuthFailurePlan<CloudflareLoginState>? {
+        val state = result.getOrNull()?.loginState?.state
+        return if (
+            state == ReadReceiptsTunnelState.STARTING ||
+            state == ReadReceiptsTunnelState.CONNECTED
+        ) {
+            null
+        } else {
+            planFailure(
+                key,
+                AuthOperationKind.BEGIN,
+                ServiceAuthFailure.SESSION_BROKEN,
+                ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+            )
+        }
+    }
+
+    fun planListTimeout(
+        key: AuthOperationKey,
+    ): ServiceAuthFailurePlan<List<ExistingTunnel>>? = planFailure(
+        key,
+        AuthOperationKind.LIST,
+        ServiceAuthFailure.TIMEOUT,
+        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+    )
+
+    fun planListNativeResult(
+        key: AuthOperationKey,
+        result: Result<NativeExistingTunnelList>,
+        expectedNativeGeneration: Long,
+        loginAvailable: Boolean,
+        snapshotValid: Boolean,
+    ): ServiceAuthFailurePlan<List<ExistingTunnel>>? {
+        val native = result.getOrNull()
+        return when {
+            native == null || !loginAvailable || native.generation != expectedNativeGeneration ->
+                planFailure(
+                    key,
+                    AuthOperationKind.LIST,
+                    ServiceAuthFailure.SESSION_BROKEN,
+                    ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                )
+
+            native.error != null || !snapshotValid -> planFailure(
+                key,
+                AuthOperationKind.LIST,
+                ServiceAuthFailure.API_RETURNED,
+                ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+            )
+
+            else -> null
+        }
+    }
+
+    fun planSelectTimeout(key: AuthOperationKey): ServiceAuthFailurePlan<Unit>? = planFailure(
+        key,
+        AuthOperationKind.SELECT,
+        ServiceAuthFailure.TIMEOUT,
+        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+    )
+
+    fun planSelectCancellation(key: AuthOperationKey): ServiceAuthFailurePlan<Unit>? = planFailure(
+        key,
+        AuthOperationKind.SELECT,
+        ServiceAuthFailure.COROUTINE_CANCELLED,
+        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
+    )
+
+    fun planSelectSessionAvailability(
+        key: AuthOperationKey,
+        available: Boolean,
+    ): ServiceAuthFailurePlan<Unit>? = if (available) {
+        null
+    } else {
+        planFailure(
+            key,
+            AuthOperationKind.SELECT,
+            ServiceAuthFailure.SESSION_BROKEN,
+            ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+        )
+    }
+
+    fun planSelectNativeResult(
+        key: AuthOperationKey,
+        result: Result<String>,
+        credentialValid: Boolean = result.getOrNull() != null,
+    ): ServiceAuthFailurePlan<Unit>? = if (result.isSuccess && credentialValid) {
+        null
+    } else {
+        planFailure(
+            key,
+            AuthOperationKind.SELECT,
+            ServiceAuthFailure.API_RETURNED,
+            ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+        )
+    }
+
+    fun planSelectCredentialAvailability(
+        key: AuthOperationKey,
+        available: Boolean,
+    ): ServiceAuthFailurePlan<Unit>? = if (available) {
+        null
+    } else {
+        planFailure(
+            key,
+            AuthOperationKind.SELECT,
+            ServiceAuthFailure.API_RETURNED,
+            ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+        )
+    }
+
+    private fun planSelectCredentialCommit(
+        key: AuthOperationKey,
+        result: TunnelVerificationCommit,
+    ): ServiceAuthFailurePlan<Unit>? = when (result) {
+        TunnelVerificationCommit.CREDENTIAL_FAILURE -> planFailure(
+            key,
+            AuthOperationKind.SELECT,
+            ServiceAuthFailure.STORAGE,
+            ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED,
+        )
+        TunnelVerificationCommit.COMMITTED,
+        TunnelVerificationCommit.STALE,
+        -> null
+    }
+
+    private fun planSelectHealthVerification(
+        key: AuthOperationKey,
+        healthy: Boolean,
+    ): ServiceAuthFailurePlan<Unit>? = if (healthy) {
+        null
+    } else {
+        planFailure(
+            key,
+            AuthOperationKind.SELECT,
+            ServiceAuthFailure.API_RETURNED,
+            ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED,
+        )
+    }
+
+    private fun planSelectConnectorTerminal(
+        key: AuthOperationKey,
+        errorCode: ReadReceiptsTunnelErrorCode,
+    ): ServiceAuthFailurePlan<Unit>? {
+        val failure = when (errorCode) {
+            ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED -> ServiceAuthFailure.STORAGE
+            ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE -> ServiceAuthFailure.SESSION_BROKEN
+            else -> ServiceAuthFailure.API_RETURNED
+        }
+        val semanticCode = when (errorCode) {
+            ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED ->
+                ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED
+            ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED ->
+                ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED
+            ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
+            ReadReceiptsTunnelErrorCode.TOKEN_INVALID,
+            -> ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID
+            ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE ->
+                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE
+            else -> ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
+        }
+        return planFailure(key, AuthOperationKind.SELECT, failure, semanticCode)
+    }
+
+    fun planSelectCandidateFailure(
+        key: AuthOperationKey,
+        failure: ServiceSelectCandidateFailure,
+    ): ServiceAuthFailurePlan<Unit>? = when (failure) {
+        is ServiceSelectCandidateFailure.CredentialCommit ->
+            planSelectCredentialCommit(key, failure.result)
+        is ServiceSelectCandidateFailure.HealthVerification ->
+            planSelectHealthVerification(key, failure.healthy)
+        is ServiceSelectCandidateFailure.ConnectorTerminal ->
+            planSelectConnectorTerminal(key, failure.errorCode)
     }
 
     private fun <T> planFailure(
         key: AuthOperationKey,
         kind: AuthOperationKind<T>,
         failure: ServiceAuthFailure,
-        message: String,
         errorCode: ReadReceiptsTunnelErrorCode,
     ): ServiceAuthFailurePlan<T>? {
         if (
@@ -1323,7 +1419,7 @@ internal class ServiceAuthCoordinator {
             ServiceAuthFailure.API_RETURNED,
             ServiceAuthFailure.STORAGE,
             ServiceAuthFailure.SESSION_BROKEN,
-            -> AuthOperationTerminal.Failed(message)
+            -> AuthOperationTerminal.Failed(errorCode.name)
         }
         return ServiceAuthFailurePlan(key, kind, terminal, cleanup, errorCode).also {
             plannedFailures[key] = it
