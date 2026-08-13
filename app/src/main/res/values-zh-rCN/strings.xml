@@ -1862,6 +1862,19 @@
 <string name="read_receipts_save_superseded">保存请求已被新请求取代</string>
 <string name="read_receipts_built_in_not_running">内置服务器未运行</string>
 <string name="read_receipts_public_health_check_pending">Cloudflare Tunnel 公网健康检查尚未通过</string>
+<string name="read_receipts_configuration_rollback_failed">候选配置失败，且无法恢复此前服务</string>
+<string name="read_receipts_token_fixed_port_route_required">Token 模式必须使用固定回环端口，并在 Cloudflare 控制台将路由指向该端口</string>
+<string name="read_receipts_browser_fixed_port_route_required">Browser Login 模式必须使用固定回环端口，并在 Cloudflare 控制台将路由指向该端口</string>
+<string name="read_receipts_managed_tunnel_requires_hostname">Token 与 Browser Login 模式需要根路径 HTTPS 主机名</string>
+<string name="read_receipts_invalid_cloudflare_tunnel">请选择有效的 Cloudflare Tunnel</string>
+<string name="read_receipts_candidate_verification_failed">隧道候选配置验证失败</string>
+<string name="read_receipts_candidate_verification_timed_out">隧道候选配置验证超时</string>
+<string name="read_receipts_origin_stop_timed_out">内置服务器未能及时停止</string>
+<string name="read_receipts_origin_stop_before_apply_timed_out">内置服务器未能及时停止，配置尚未应用</string>
+<string name="read_receipts_origin_port_switch_failed">内置服务器未能切换到指定端口</string>
+<string name="read_receipts_origin_start_timed_out">内置服务器未能及时完成启动</string>
+<string name="read_receipts_unknown_error">未知错误</string>
+<string name="read_receipts_disconnect_failed">断开失败</string>
 <string name="chat_emoji_game_scissors">剪刀</string><string name="chat_emoji_game_rock">石头</string><string name="chat_emoji_game_paper">布</string>
 <string name="chat_emoji_game_no_sensor">暂无传感器数据，正使用随机数！</string>
 <string name="chat_emoji_game_motion_fallback">加速度过高，正使用随机数！</string>

@@ -669,9 +669,9 @@ class ReadReceiptsTunnelCoordinationTest {
         ) as OriginRequestTerminal.Completed
 
         assertTrue(terminal.result.isFailure)
-        val message = terminal.result.exceptionOrNull()!!.message!!
-        assertEquals("候选配置失败，且无法恢复此前服务", message)
-        assertFalse(message.contains("raw-connector-secret"))
+        val failure = terminal.result.exceptionOrNull()!!
+        assertNull(failure.message)
+        assertFalse(failure.toString().contains("raw-connector-secret"))
     }
 
     @Test

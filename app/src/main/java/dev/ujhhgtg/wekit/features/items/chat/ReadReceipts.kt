@@ -114,6 +114,13 @@ internal fun readReceiptNetworkFailureCategory(failure: Throwable): String = whe
     else -> "response"
 }
 
+private class ReadReceiptsLocalFailure(
+    @StringRes val messageRes: Int,
+    vararg formatArgs: Any,
+) : IllegalStateException() {
+    val formatArgs: Array<out Any> = formatArgs
+}
+
 private sealed interface ReadReceiptRuntimeError {
     fun message(context: Context): String
 
@@ -126,6 +133,18 @@ private sealed interface ReadReceiptRuntimeError {
 
     class LegacyText(private val value: String) : ReadReceiptRuntimeError {
         override fun message(context: Context): String = value
+    }
+
+    companion object {
+        fun from(failure: Throwable): ReadReceiptRuntimeError = when (failure) {
+            is ReadReceiptsLocalFailure -> Resource(
+                failure.messageRes,
+                *failure.formatArgs,
+            )
+
+            else -> failure.message?.let(::LegacyText)
+                ?: Resource(R.string.read_receipts_unknown_error)
+        }
     }
 }
 
@@ -151,6 +170,20 @@ private sealed interface ReadReceiptsUiText {
         override fun resolve(): String = value
 
         override fun resolve(context: Context): String = value
+    }
+
+    companion object {
+        fun from(
+            failure: Throwable,
+            @StringRes fallbackRes: Int,
+        ): ReadReceiptsUiText = when (failure) {
+            is ReadReceiptsLocalFailure -> Resource(
+                failure.messageRes,
+                *failure.formatArgs,
+            )
+
+            else -> failure.message?.let(::Raw) ?: Resource(fallbackRes)
+        }
     }
 }
 
@@ -342,7 +375,9 @@ internal fun configurationRollbackTerminal(
             Result.failure(originalFailure)
         } else {
             Result.failure(
-                IllegalStateException("候选配置失败，且无法恢复此前服务"),
+                ReadReceiptsLocalFailure(
+                    R.string.read_receipts_configuration_rollback_failed,
+                ),
             )
         },
     )
@@ -866,12 +901,15 @@ object ReadReceipts : ClickableFeature(),
                 ReadReceiptsTunnelMode.BROWSER_LOGIN,
             ) && configuration.automaticPort
         ) {
-            val label = if (mode == ReadReceiptsTunnelMode.TOKEN) "Token" else "浏览器登录"
             onFinished?.invoke(
                 OriginRequestTerminal.Completed(
                     Result.failure(
-                        IllegalArgumentException(
-                            "$label 模式必须使用固定回环端口, 并在 Cloudflare 控制台将路由指向该端口",
+                        ReadReceiptsLocalFailure(
+                            if (mode == ReadReceiptsTunnelMode.TOKEN) {
+                                R.string.read_receipts_token_fixed_port_route_required
+                            } else {
+                                R.string.read_receipts_browser_fixed_port_route_required
+                            },
                         ),
                     ),
                 ),
@@ -1092,8 +1130,8 @@ object ReadReceipts : ClickableFeature(),
                     onFinished(
                         OriginRequestTerminal.Completed(
                             Result.failure(
-                                IllegalArgumentException(
-                                    "Token 与浏览器登录模式需要根路径 HTTPS 主机名",
+                                ReadReceiptsLocalFailure(
+                                    R.string.read_receipts_managed_tunnel_requires_hostname,
                                 ),
                             ),
                         ),
@@ -1111,7 +1149,11 @@ object ReadReceipts : ClickableFeature(),
             owner.finishIfCurrent()
             onFinished(
                 OriginRequestTerminal.Completed(
-                    Result.failure(IllegalArgumentException("请选择有效的 Cloudflare Tunnel")),
+                    Result.failure(
+                        ReadReceiptsLocalFailure(
+                            R.string.read_receipts_invalid_cloudflare_tunnel,
+                        ),
+                    ),
                 ),
             )
             return
@@ -1350,7 +1392,10 @@ object ReadReceipts : ClickableFeature(),
                 ) {
                     return@withTimeoutOrNull OriginRequestTerminal.Completed(
                         Result.failure(
-                            IllegalStateException(status.error ?: "隧道候选配置验证失败"),
+                            status.error?.let(::IllegalStateException)
+                                ?: ReadReceiptsLocalFailure(
+                                    R.string.read_receipts_candidate_verification_failed,
+                                ),
                         ),
                     )
                 }
@@ -1363,7 +1408,11 @@ object ReadReceipts : ClickableFeature(),
         if (terminal != null) return terminal
         return if (owner.isCurrent()) {
             OriginRequestTerminal.Completed(
-                Result.failure(IllegalStateException("隧道候选配置验证超时")),
+                Result.failure(
+                    ReadReceiptsLocalFailure(
+                        R.string.read_receipts_candidate_verification_timed_out,
+                    ),
+                ),
             )
         } else {
             OriginRequestTerminal.Superseded
@@ -1534,9 +1583,7 @@ object ReadReceipts : ClickableFeature(),
                             onFailure = { error ->
                                 lastBuiltInPort = status.port ?: 0
                                 lastBuiltInState = status.state.name
-                                runtimeError = ReadReceiptRuntimeError.LegacyText(
-                                    error.message ?: error.javaClass.simpleName,
-                                )
+                                runtimeError = ReadReceiptRuntimeError.from(error)
                             },
                         )
                         true
@@ -1565,7 +1612,11 @@ object ReadReceipts : ClickableFeature(),
             val result = if (terminal == ReadReceiptsRuntimeState.STOPPED) {
                 Result.success<Int?>(null)
             } else {
-                Result.failure(IllegalStateException("内置服务器未能及时停止"))
+                Result.failure(
+                    ReadReceiptsLocalFailure(
+                        R.string.read_receipts_origin_stop_timed_out,
+                    ),
+                )
             }
             return OriginRequestTerminal.Completed(result)
         }
@@ -1577,7 +1628,9 @@ object ReadReceipts : ClickableFeature(),
                 if (!request.isCurrent()) return OriginRequestTerminal.Superseded
                 return OriginRequestTerminal.Completed(
                     Result.failure(
-                        IllegalStateException("内置服务器未能及时停止, 配置尚未应用"),
+                        ReadReceiptsLocalFailure(
+                            R.string.read_receipts_origin_stop_before_apply_timed_out,
+                        ),
                     ),
                 )
             }
@@ -1604,7 +1657,9 @@ object ReadReceipts : ClickableFeature(),
                 } else {
                     OriginRequestTerminal.Completed(
                         Result.failure(
-                            IllegalStateException("内置服务器未能切换到指定端口"),
+                            ReadReceiptsLocalFailure(
+                                R.string.read_receipts_origin_port_switch_failed,
+                            ),
                         ),
                     )
                 }
@@ -1615,7 +1670,11 @@ object ReadReceipts : ClickableFeature(),
             if (!request.isCurrent()) return OriginRequestTerminal.Superseded
             if (settled == null) {
                 OriginRequestTerminal.Completed(
-                    Result.failure(IllegalStateException("内置服务器未能及时完成启动")),
+                    Result.failure(
+                        ReadReceiptsLocalFailure(
+                            R.string.read_receipts_origin_start_timed_out,
+                        ),
+                    ),
                 )
             } else {
                 startOriginFromStatus(request, requestedPort, settled)
@@ -1627,7 +1686,11 @@ object ReadReceipts : ClickableFeature(),
             if (!request.isCurrent()) return OriginRequestTerminal.Superseded
             if (terminal == null) {
                 OriginRequestTerminal.Completed(
-                    Result.failure(IllegalStateException("内置服务器未能及时停止")),
+                    Result.failure(
+                        ReadReceiptsLocalFailure(
+                            R.string.read_receipts_origin_stop_timed_out,
+                        ),
+                    ),
                 )
             } else {
                 startOriginNative(request, requestedPort)
@@ -2641,19 +2704,19 @@ object ReadReceipts : ClickableFeature(),
                                             ),
                                         )
                                     }
-                                    if (browserLoginState.error != null) {
+                                    browserLoginState.error?.let { error ->
                                         Text(
                                             stringResource(
                                                 R.string.read_receipts_login_error,
-                                                browserLoginState.error!!,
+                                                error,
                                             ),
                                         )
                                     }
-                                    if (browserActionError != null) {
+                                    browserActionError?.let { error ->
                                         Text(
                                             stringResource(
                                                 R.string.read_receipts_operation_error,
-                                                browserActionError!!.resolve(),
+                                                error.resolve(),
                                             ),
                                         )
                                     }
@@ -2682,11 +2745,11 @@ object ReadReceipts : ClickableFeature(),
                                                     }.fold(
                                                         onSuccess = { browserLoginState = it },
                                                         onFailure = {
-                                                            browserActionError = it.message?.let(
-                                                                ReadReceiptsUiText::Raw,
-                                                            ) ?: ReadReceiptsUiText.Resource(
-                                                                R.string.read_receipts_browser_login_start_failed,
-                                                            )
+                                                            browserActionError =
+                                                                ReadReceiptsUiText.from(
+                                                                    it,
+                                                                    R.string.read_receipts_browser_login_start_failed,
+                                                                )
                                                         },
                                                     )
                                                     browserOperationActive = false
@@ -2723,11 +2786,11 @@ object ReadReceipts : ClickableFeature(),
                                                     }.fold(
                                                         onSuccess = { browserTunnels = it },
                                                         onFailure = {
-                                                            browserActionError = it.message?.let(
-                                                                ReadReceiptsUiText::Raw,
-                                                            ) ?: ReadReceiptsUiText.Resource(
-                                                                R.string.read_receipts_tunnel_list_refresh_failed,
-                                                            )
+                                                            browserActionError =
+                                                                ReadReceiptsUiText.from(
+                                                                    it,
+                                                                    R.string.read_receipts_tunnel_list_refresh_failed,
+                                                                )
                                                         },
                                                     )
                                                     browserOperationActive = false
@@ -2800,11 +2863,11 @@ object ReadReceipts : ClickableFeature(),
                                                     ReadReceiptsTunnelController
                                                         .cancelBrowserLogin()
                                                         .onFailure {
-                                                            browserActionError = it.message?.let(
-                                                                ReadReceiptsUiText::Raw,
-                                                            ) ?: ReadReceiptsUiText.Resource(
-                                                                R.string.read_receipts_cancel_login_failed,
-                                                            )
+                                                            browserActionError =
+                                                                ReadReceiptsUiText.from(
+                                                                    it,
+                                                                    R.string.read_receipts_cancel_login_failed,
+                                                                )
                                                         }
                                                     browserOperationActive = false
                                                 }
@@ -2828,11 +2891,11 @@ object ReadReceipts : ClickableFeature(),
                                                     ReadReceiptsTunnelController
                                                         .logoutBrowserLogin()
                                                         .onFailure {
-                                                            browserActionError = it.message?.let(
-                                                                ReadReceiptsUiText::Raw,
-                                                            ) ?: ReadReceiptsUiText.Resource(
-                                                                R.string.read_receipts_logout_failed,
-                                                            )
+                                                            browserActionError =
+                                                                ReadReceiptsUiText.from(
+                                                                    it,
+                                                                    R.string.read_receipts_logout_failed,
+                                                                )
                                                         }
                                                     browserOperationActive = false
                                                 }
@@ -3028,16 +3091,16 @@ object ReadReceipts : ClickableFeature(),
                                                             browserCommitPending = false
                                                             originStatus =
                                                                 originController.snapshot()
-                                                            browserActionError = error.message?.let(
-                                                                ReadReceiptsUiText::Raw,
-                                                            ) ?: ReadReceiptsUiText.Resource(
+                                                            val actionError = ReadReceiptsUiText.from(
+                                                                error,
                                                                 R.string.read_receipts_browser_tunnel_connection_failed,
                                                             )
+                                                            browserActionError = actionError
                                                             showToast(
                                                                 context,
                                                                 context.localizedChatString(
                                                                     R.string.read_receipts_connection_failed,
-                                                                    browserActionError!!.resolve(context),
+                                                                    actionError.resolve(context),
                                                                 ),
                                                             )
                                                         },
@@ -3096,11 +3159,11 @@ object ReadReceipts : ClickableFeature(),
                                         if (database.isFile) database.length() else 0L,
                                     ),
                                 )
-                                if (originStatus.error != null) {
+                                originStatus.error?.let { error ->
                                     Text(
                                         stringResource(
                                             R.string.read_receipts_error_prefix,
-                                            originStatus.error!!,
+                                            error,
                                         ),
                                     )
                                 }
@@ -3111,11 +3174,11 @@ object ReadReceipts : ClickableFeature(),
                                         tunnelStateText,
                                     ),
                                 )
-                                if (tunnelStatus.error != null) {
+                                tunnelStatus.error?.let { error ->
                                     Text(
                                         stringResource(
                                             R.string.read_receipts_tunnel_error,
-                                            tunnelStatus.error!!,
+                                            error,
                                         ),
                                     )
                                 }
@@ -3269,7 +3332,10 @@ object ReadReceipts : ClickableFeature(),
                                                             context,
                                                             context.localizedChatString(
                                                                 R.string.read_receipts_connection_failed,
-                                                                error.message!!,
+                                                                ReadReceiptsUiText.from(
+                                                                    error,
+                                                                    R.string.read_receipts_unknown_error,
+                                                                ).resolve(context),
                                                             ),
                                                         )
                                                     },
@@ -3331,16 +3397,16 @@ object ReadReceipts : ClickableFeature(),
                                                         onCompletedFailure = { error ->
                                                             originStatus =
                                                                 originController.snapshot()
-                                                            browserActionError = error.message?.let(
-                                                                ReadReceiptsUiText::Raw,
-                                                            ) ?: ReadReceiptsUiText.Resource(
+                                                            val actionError = ReadReceiptsUiText.from(
+                                                                error,
                                                                 R.string.read_receipts_browser_reconnect_failed,
                                                             )
+                                                            browserActionError = actionError
                                                             showToast(
                                                                 context,
                                                                 context.localizedChatString(
                                                                     R.string.read_receipts_reconnect_failed,
-                                                                    browserActionError!!.resolve(context),
+                                                                    actionError.resolve(context),
                                                                 ),
                                                             )
                                                         },
@@ -3387,7 +3453,10 @@ object ReadReceipts : ClickableFeature(),
                                                                     )
                                                                 },
                                                                 onFailure = { error ->
-                                                                    error.message!!
+                                                                    ReadReceiptsUiText.from(
+                                                                        error,
+                                                                        R.string.read_receipts_disconnect_failed,
+                                                                    ).resolve(context)
                                                                 },
                                                             ),
                                                         )
@@ -3602,7 +3671,10 @@ object ReadReceipts : ClickableFeature(),
                                             context,
                                             context.localizedChatString(
                                                 R.string.read_receipts_save_failed,
-                                                error.message!!,
+                                                ReadReceiptsUiText.from(
+                                                    error,
+                                                    R.string.read_receipts_unknown_error,
+                                                ).resolve(context),
                                             ),
                                         )
                                     },
