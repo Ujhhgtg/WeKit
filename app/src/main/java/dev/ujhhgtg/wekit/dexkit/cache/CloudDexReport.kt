@@ -62,7 +62,7 @@ internal object CloudDexReport {
             for (key in item.delegateKeys) {
                 val delegate = delegatesByKey[key]?.singleOrNull() ?: return@mapNotNull null
                 val descriptor = delegate.descriptor
-                if (delegate.status !in DELEGATE_PASS_STATUSES || descriptor.isNullOrEmpty()) {
+                if (!delegate.hasValidOutcome() || descriptor.isNullOrEmpty()) {
                     return@mapNotNull null
                 }
                 descriptors[key] = descriptor
@@ -81,7 +81,12 @@ internal object CloudDexReport {
     private const val SCHEMA_VERSION = 1
     private const val APK_PASS = "PASS"
     private val FEATURE_PASS_OUTCOMES = setOf("PASS", "PASS_WITH_EXPECTED_FAILURES")
-    private val DELEGATE_PASS_STATUSES = setOf("SUCCESS", "EXPECTED_FAILURE")
+
+    private fun Delegate.hasValidOutcome(): Boolean = when (status) {
+        "SUCCESS" -> !isPlaceholder
+        "EXPECTED_FAILURE" -> isPlaceholder
+        else -> false
+    }
 }
 
 @Serializable

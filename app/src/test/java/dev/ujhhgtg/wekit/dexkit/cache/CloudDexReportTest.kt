@@ -59,8 +59,8 @@ class CloudDexReportTest {
     @Test
     fun expectedFailureFeatureAndDelegateRemainEligible() {
         val report = validReport().replace(
-            "\"outcome\": \"PASS\",\n          \"elapsedMillis\": 1,\n          \"delegates\": [\n            {\"key\": \"SecondFeature:method\", \"status\": \"SUCCESS\"",
-            "\"outcome\": \"PASS_WITH_EXPECTED_FAILURES\",\n          \"elapsedMillis\": 1,\n          \"delegates\": [\n            {\"key\": \"SecondFeature:method\", \"status\": \"EXPECTED_FAILURE\"",
+            "\"outcome\": \"PASS\",\n          \"elapsedMillis\": 1,\n          \"delegates\": [\n            {\"key\": \"SecondFeature:method\", \"status\": \"SUCCESS\", \"descriptor\": \"Lsecond;->method()V\", \"isPlaceholder\": false}",
+            "\"outcome\": \"PASS_WITH_EXPECTED_FAILURES\",\n          \"elapsedMillis\": 1,\n          \"delegates\": [\n            {\"key\": \"SecondFeature:method\", \"status\": \"EXPECTED_FAILURE\", \"descriptor\": \"Lsecond;->method()V\", \"isPlaceholder\": true}",
         )
 
         val selection = CloudDexReport.select(report, host, listOf(secondItem))
@@ -91,6 +91,14 @@ class CloudDexReportTest {
             validReport().replace(
                 "\"key\": \"FirstFeature:method\", \"status\": \"SUCCESS\"",
                 "\"key\": \"FirstFeature:method\", \"status\": \"UNEXPECTED_FAILURE\"",
+            ),
+            validReport().replace(
+                "\"key\": \"FirstFeature:method\", \"status\": \"SUCCESS\", \"descriptor\": \"Lfirst/Class;->method()V\", \"isPlaceholder\": false",
+                "\"key\": \"FirstFeature:method\", \"status\": \"SUCCESS\", \"descriptor\": \"Lfirst/Class;->method()V\", \"isPlaceholder\": true",
+            ),
+            validReport().replace(
+                "\"key\": \"FirstFeature:method\", \"status\": \"SUCCESS\", \"descriptor\": \"Lfirst/Class;->method()V\", \"isPlaceholder\": false",
+                "\"key\": \"FirstFeature:method\", \"status\": \"EXPECTED_FAILURE\", \"descriptor\": \"Lfirst/Class;->method()V\", \"isPlaceholder\": false",
             ),
             validReport().replace(
                 featureBlock("FirstFeature", "first-hash", firstDelegates()),
