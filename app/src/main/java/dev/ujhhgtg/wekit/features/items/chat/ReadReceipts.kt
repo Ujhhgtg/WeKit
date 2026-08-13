@@ -53,6 +53,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.Collections
+import java.util.LinkedHashSet
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -120,6 +121,62 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
         }.getOrNull()
         if (!fromRealInput.isNullOrBlank()) return fromRealInput
         return chatFooter.lastText
+    }
+
+    /**
+     * Resolves this device's own WeChat nickname, so a read report can tell the
+     * server exactly WHO opened a probing message (reader wxid + nickname).
+     * WeChat stores the self contact row in `rcontact` with username = the value
+     * in `userinfo` id 2 (the logged-in wxid).
+     */
+    private fun resolveSelfNickname(): String {
+        return try {
+            val cursor = WeDatabaseApi.rawQuery(
+                "SELECT nickname FROM rcontact WHERE username = (SELECT value FROM userinfo WHERE id = 2) LIMIT 1",
+                null
+            )
+            cursor.use { c ->
+                if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else ""
+            }
+        } catch (e: Exception) {
+            WeLogger.w(TAG, "resolveSelfNickname failed", e)
+            ""
+        }
+    }
+
+    /** Recently reported message ids (bounded), so a single message is only reported once. */
+    private val reportedReads = Collections.synchronizedSet(LinkedHashSet<String>())
+
+    /**
+     * Fired when THIS device renders an INCOMING message that carries one of our
+     * tracking pixels — i.e. the receiver is looking at the probing message.
+     * Reports the reader's own wxid + nickname to the server, so each probed IP
+     * can be labelled with WHO read it (this also covers group chats, where the
+     * pixel URL alone can only name the room).
+     */
+    private fun reportRead(senderWxId: String, id: String) {
+        if (serverBase.isEmpty()) return
+        if (!reportedReads.add(id)) return
+        if (reportedReads.size > 200) {
+            synchronized(reportedReads) {
+                val it = reportedReads.iterator()
+                if (it.hasNext()) { it.next(); it.remove() }
+            }
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                val body = buildJsonObject {
+                    put("msgId", id)
+                    put("senderWxId", senderWxId)
+                    put("readerWxId", WeApi.selfWxId)
+                    put("readerNickname", resolveSelfNickname())
+                }.toString().toRequestBody(jsonMediaType)
+                val request = Request.Builder().url("$serverBase/read-report").post(body).build()
+                httpClient.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) WeLogger.w(TAG, "read-report failed: HTTP ${resp.code}")
+                }
+            }.onFailure { WeLogger.w(TAG, "read-report request failed", it) }
+        }
     }
 
     /** Fire-and-forget registration of the plaintext content so the server can match reads to it. */
@@ -248,13 +305,17 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             // these on each read so the dashboard can label every probed IP with the
             // conversation it was read in. Names are URL-encoded so CJK/special chars
             // survive inside the XML-embedded URL.
+            //
+            // NOTE: the URL is embedded into an XML app message, so every `&` MUST be
+            // written as `&amp;` — a bare `&` makes the XML invalid and WeChat silently
+            // drops the message (that was the "message blocked" bug).
             val pixelUrl = buildString {
-                append("$serverBase/pixel?wxId=$selfWxId&id=$id")
+                append("$serverBase/pixel?wxId=$selfWxId&amp;id=$id")
                 if (talker.isNotBlank()) {
-                    append("&talker=").append(URLEncoder.encode(talker, "UTF-8"))
+                    append("&amp;talker=").append(URLEncoder.encode(talker, "UTF-8"))
                 }
                 if (chatName.isNotBlank()) {
-                    append("&chatName=").append(URLEncoder.encode(chatName, "UTF-8"))
+                    append("&amp;chatName=").append(URLEncoder.encode(chatName, "UTF-8"))
                 }
             }
 
@@ -316,12 +377,17 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
 
     override fun onCreateView(param: HookParam, view: View) {
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
-        // Only our own outgoing messages carry a read receipt.
-        if (msgInfo.isSend == 0) return
-
         val content = runCatching { msgInfo.content }.getOrNull() ?: return
         val match = pixelParamRegex.find(content) ?: return
         val (wxId, id) = match.destructured
+
+        // Incoming message that carries one of our pixels → I (this device) am the
+        // reader: report my wxid + nickname so the dashboard can label the probed
+        // IP with WHO read it. Only outgoing messages render the live count.
+        if (msgInfo.isSend == 0) {
+            reportRead(wxId, id)
+            return
+        }
 
         val tag = view.tag ?: return
         val timeTV = tag.reflekt()

@@ -75,6 +75,22 @@ struct RegisterResponse {
 }
 
 /// Query parameters for the tracking pixel and count endpoints.
+/// Payload of `/read-report`: a WeKit client that RENDERED an incoming probing
+/// message reports itself as the reader, so the dashboard can label the probed
+/// IP with the reader's wxid + nickname (works for group chats too, where the
+/// pixel URL alone can only name the room).
+#[derive(Deserialize)]
+struct ReadReportRequest {
+    #[serde(rename = "msgId")]
+    msg_id: String,
+    #[serde(rename = "senderWxId")]
+    sender_wx_id: String,
+    #[serde(rename = "readerWxId")]
+    reader_wx_id: String,
+    #[serde(rename = "readerNickname")]
+    reader_nickname: Option<String>,
+}
+
 /// Both carry the sender `wxId` and the message `id` (no more uuid/msg).
 #[derive(Deserialize)]
 struct ReadParams {
@@ -225,6 +241,11 @@ struct ReadRecord {
     browser_version: String,
     referrer: String,
     reader_wx_id: String,
+    /// Nickname of the reader (reported by the WeKit client that rendered the
+    /// incoming probing message), so the dashboard can label each probed IP
+    /// with both WHO read it (wxid) and their display name.
+    #[serde(rename = "readerNickname")]
+    reader_nickname: String,
     /// Conversation id this read happened in (peer wxid or chatroom id).
     talker: String,
     /// Human-readable conversation name (remark/nickname or group name).
@@ -1649,6 +1670,7 @@ async fn ensure_reads_columns(
         ("country", "TEXT"),
         ("city", "TEXT"),
         ("reader_wx_id", "TEXT"),
+        ("reader_nickname", "TEXT"),
         ("talker", "TEXT"),
         ("chat_name", "TEXT"),
         ("device_type", "TEXT"),
@@ -1799,6 +1821,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             country          TEXT,
             city             TEXT,
             reader_wx_id     TEXT,
+            reader_nickname  TEXT,
             device_type      TEXT,
             os_name          TEXT,
             os_version       TEXT,
@@ -1839,6 +1862,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/", get(serve_index))
         .route("/register", post(register_message))
+        .route("/read-report", post(read_report))
         .route("/pixel", get(serve_tracking_pixel))
         .route("/count", get(read_count))
         .route("/health", get(health_check))
@@ -2235,6 +2259,105 @@ async fn broadcast_stats(state: &Arc<AppState>) {
 /// id. The reader's wxId is never observable here, so identity is approximated
 /// by a per-browser visitor cookie (falling back to distinct IP for legacy
 /// clients that do not store cookies).
+/// `/read-report`: a WeKit client that rendered an INCOMING probing message
+/// reports itself as the reader, so the dashboard can label the probed IP with
+/// the reader's wxid + nickname (covers group chats too, where the pixel URL
+/// alone can only name the room). We first try to enrich an existing pixel
+/// record for the same message+IP (keeps its visitor id, so the identity lands
+/// on the same dashboard row); if none exists yet, a standalone read record is
+/// inserted (no visitor cookie, so it groups with other rows from the same IP).
+async fn read_report(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
+    body: String,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let req: ReadReportRequest = serde_json::from_str(&body).map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("invalid read-report JSON: {e}"),
+        )
+    })?;
+    if req.msg_id.is_empty() || req.reader_wx_id.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "msgId and readerWxId must not be empty".to_string(),
+        ));
+    }
+    let client_ip = extract_client_ip(&headers, remote_addr);
+    let now_str = now_db_str();
+    let now_ms = Utc::now().timestamp_millis();
+    let nickname = req.reader_nickname.as_deref().unwrap_or("").to_string();
+
+    let geo = lookup_geoip(&state.geoip, &client_ip);
+
+    info!(
+        "/read-report\nmsg_id = {}, sender = {}, reader = {} ({}), ip = {}",
+        req.msg_id, req.sender_wx_id, req.reader_wx_id, nickname, client_ip
+    );
+
+    // 1) Prefer enriching an existing pixel row for the same message+IP so the
+    //    reader identity lands on the same dashboard row (keeps visitor id).
+    let updated = state
+        .db
+        .execute(
+            "UPDATE reads SET reader_wx_id = ?1, reader_nickname = ?2
+             WHERE msg_id = ?3 AND ip = ?4 AND (reader_wx_id IS NULL OR reader_wx_id = '')",
+            libsql::params![
+                req.reader_wx_id.as_str(),
+                nickname.as_str(),
+                req.msg_id.as_str(),
+                client_ip.as_str()
+            ],
+        )
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("read-report update failed: {e}"),
+            )
+        })?;
+
+    if updated == 0 {
+        // 2) No pixel row to enrich yet — insert a standalone read record.
+        //    visitor_id stays empty so GROUP BY COALESCE(visitor_id, ip) merges
+        //    it with other rows from the same IP.
+        state
+            .db
+            .execute(
+                "INSERT INTO reads (id, wx_id, ip, timestamp, country, city, reader_wx_id, reader_nickname, device_type, os_name, os_version, browser_name, browser_version, isp, referrer, created_at, msg_id, visitor_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, '', '', '', '', '', ?9, '', ?10, ?1, '')",
+                libsql::params![
+                    req.msg_id.as_str(),
+                    req.sender_wx_id.as_str(),
+                    client_ip,
+                    now_str,
+                    geo.country,
+                    geo.city,
+                    req.reader_wx_id.as_str(),
+                    nickname.as_str(),
+                    geo.isp,
+                    now_ms
+                ],
+            )
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("read-report insert failed: {e}"),
+                )
+            })?;
+    }
+
+    // Broadcast real-time update to WebSocket clients
+    let _ = state
+        .ws_tx
+        .send(serde_json::json!({ "type": "read_update", "msg_id": req.msg_id }).to_string());
+    broadcast_stats(&state).await;
+
+    Ok(Json(serde_json::json!({ "ok": true, "msg_id": req.msg_id })))
+}
+
 async fn serve_tracking_pixel(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ReadParams>,
@@ -2960,6 +3083,7 @@ async fn message_detail(
                     MAX(device_type) AS device_type, MAX(os_name) AS os_name, MAX(os_version) AS os_version,
                     MAX(browser_name) AS browser_name, MAX(browser_version) AS browser_version,
                     MAX(referrer) AS referrer, MAX(reader_wx_id) AS reader_wx_id,
+                    MAX(reader_nickname) AS reader_nickname,
                     MAX(talker) AS talker, MAX(chat_name) AS chat_name, COUNT(*) AS load_count,
                     MAX(visitor_id) AS visitor_id
              FROM reads WHERE msg_id = ?1
@@ -2992,13 +3116,14 @@ async fn message_detail(
             browser_version: row.get_str(12).unwrap_or_default().to_string(),
             referrer: row.get_str(13).unwrap_or_default().to_string(),
             reader_wx_id: row.get_str(14).unwrap_or_default().to_string(),
-            talker: row.get_str(15).unwrap_or_default().to_string(),
-            chat_name: row.get_str(16).unwrap_or_default().to_string(),
-            load_count: match row.get_value(17) {
+            reader_nickname: row.get_str(15).unwrap_or_default().to_string(),
+            talker: row.get_str(16).unwrap_or_default().to_string(),
+            chat_name: row.get_str(17).unwrap_or_default().to_string(),
+            load_count: match row.get_value(18) {
                 Ok(libsql::Value::Integer(n)) => n,
                 _ => 0,
             },
-            visitor_id: row.get_str(18).unwrap_or_default().to_string(),
+            visitor_id: row.get_str(19).unwrap_or_default().to_string(),
             province: String::new(),
             district: String::new(),
             street: String::new(),
@@ -3208,6 +3333,7 @@ async fn list_reads_for_message(
                     MAX(device_type) AS device_type, MAX(os_name) AS os_name, MAX(os_version) AS os_version,
                     MAX(browser_name) AS browser_name, MAX(browser_version) AS browser_version,
                     MAX(referrer) AS referrer, MAX(reader_wx_id) AS reader_wx_id,
+                    MAX(reader_nickname) AS reader_nickname,
                     MAX(talker) AS talker, MAX(chat_name) AS chat_name, COUNT(*) AS load_count,
                     MAX(visitor_id) AS visitor_id
              FROM reads WHERE msg_id = ?1
@@ -3245,13 +3371,14 @@ async fn list_reads_for_message(
             browser_version: row.get_str(12).unwrap_or_default().to_string(),
             referrer: row.get_str(13).unwrap_or_default().to_string(),
             reader_wx_id: row.get_str(14).unwrap_or_default().to_string(),
-            talker: row.get_str(15).unwrap_or_default().to_string(),
-            chat_name: row.get_str(16).unwrap_or_default().to_string(),
-            load_count: match row.get_value(17) {
+            reader_nickname: row.get_str(15).unwrap_or_default().to_string(),
+            talker: row.get_str(16).unwrap_or_default().to_string(),
+            chat_name: row.get_str(17).unwrap_or_default().to_string(),
+            load_count: match row.get_value(18) {
                 Ok(libsql::Value::Integer(n)) => n,
                 _ => 0,
             },
-            visitor_id: row.get_str(18).unwrap_or_default().to_string(),
+            visitor_id: row.get_str(19).unwrap_or_default().to_string(),
             province: String::new(),
             district: String::new(),
             street: String::new(),

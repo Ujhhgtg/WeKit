@@ -2017,6 +2017,27 @@
             </div>`;
         }
 
+        // Render WHO read the message for a read row:
+        // 1. precise reader (wxid + nickname) reported by the WeKit client that
+        //    rendered the incoming probing message — works for group chats too;
+        // 2. fallback: the conversation context carried on the pixel URL (in a
+        //    direct chat the receiver IS the reader, so talker/chatName are
+        //    effectively the reader's wxid and nickname).
+        function readerBadge(r) {
+            const readerId = (r.reader_wx_id || '').trim();
+            const readerName = (r.reader_nickname || '').trim();
+            if (readerId) {
+                return `<div style="min-width:0;">
+                    <span class="chat-badge chat-badge-direct">已读</span>
+                    <div class="chat-name" title="${escapeHtml(readerId + (readerName ? ' (' + readerName + ')' : ''))}" style="font-weight:600;">${escapeHtml(readerId)}${readerName ? ' <span style="color:#888; font-weight:400; font-size:12px;">(' + escapeHtml(readerName) + ')</span>' : ''}</div>
+                </div>`;
+            }
+            if (r.talker || r.chat_name) {
+                return chatBadge(r.talker, r.chat_name);
+            }
+            return '';
+        }
+
         // Device emoji for the visitor marker
         function deviceEmoji(dt) {
             const t = (dt || '').toLowerCase();
@@ -2147,7 +2168,7 @@
                                 <th style="width:80px;">Visitor</th>
                                 <th style="width:170px;">IP(s)</th>
                                 <th style="width:200px;">Location</th>
-                                <th style="width:140px;">会话 (Chat)</th>
+                                <th style="width:170px;">已读 (Reader)</th>
                                 <th style="width:100px;">wxId (发送者)</th>
                                 <th style="width:100px;">OS</th>
                                 <th style="width:90px;">Browser</th>
@@ -2183,8 +2204,8 @@
                                         ${(!r.full_address && (r.province || r.district || r.street)) ? `<div style="font-size:11px; color:#999; margin-top:2px;">${escapeHtml([r.province, r.district, r.street].filter(Boolean).join(' '))}</div>` : ''}
                                     </td>
                                     <td>
-                                        ${chatBadge(r.talker, r.chat_name)}
-                                        ${!r.talker && !r.chat_name ? '<span style="color:#bbb; font-size:12px;">-</span>' : ''}
+                                        ${readerBadge(r)}
+                                        ${!r.reader_wx_id && !r.reader_nickname && !r.talker && !r.chat_name ? '<span style="color:#bbb; font-size:12px;">-</span>' : ''}
                                     </td>
                                     <td title="${r.reader_wx_id ? '已读者 wxId: ' + escapeHtml(r.reader_wx_id) : '发送者 wxId（即该消息由谁发出）'}">${escapeHtml(r.wxId || r.reader_wx_id || '-')}${r.reader_wx_id ? '<span style="font-size:10px; color:#999; margin-left:4px;">(读)</span>' : ''}</td>
                                     <td>${escapeHtml(r.os_name || '-')}${r.os_version ? ' ' + escapeHtml(r.os_version) : ''}</td>
