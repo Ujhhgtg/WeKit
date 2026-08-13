@@ -7,7 +7,9 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 strip = true
-panic = "abort"
+# NOTE: `panic = "abort"` was removed because maxminddb (used by
+# contrib/wekit-read-receipts-server) requires the unwind panic runtime.
+panic = "unwind"
 
 [profile.release.package.wekit-zygisk]
 strip = "none"

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeApi
+import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
@@ -97,20 +98,71 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
         return md.digest().joinToString("") { "%02x".format(it) }
     }
 
+    /**
+     * Resolves the current text in the chat input bar.
+     *
+     * Since WeChat 8.0.77 the `ChatFooter.lastText` getter can return an incomplete
+     * value (e.g. only the bare trigger prefix `#` instead of `#雷猴`), which caused
+     * empty `content` to be registered on the server. To work around that, we prefer
+     * reading the real input EditText — the field exposed by the input-bar API is the
+     * field whose type is an interface declaring `addTextChangedListener` (fl5.i) —
+     * and fall back to `lastText` only when the real input can't be read.
+     */
+    private fun resolveInputText(chatFooter: ChatFooter): String {
+        val fromRealInput = runCatching {
+            val input = chatFooter.reflekt().firstField {
+                type { clazz ->
+                    clazz.isInterface && clazz.declaredMethods.any { it.name == "addTextChangedListener" }
+                }
+            }.get()
+            (input as? android.widget.EditText)?.text?.toString()
+        }.getOrNull()
+        if (!fromRealInput.isNullOrBlank()) return fromRealInput
+        return chatFooter.lastText
+    }
+
     /** Fire-and-forget registration of the plaintext content so the server can match reads to it. */
-    private fun registerMessage(wxId: String, content: String, createTime: Long) {
+    private fun registerMessage(wxId: String, content: String, createTime: Long, talker: String = "", chatName: String = "") {
         CoroutineScope(Dispatchers.IO).launch {
             runCatching {
                 val body = buildJsonObject {
                     put("wxId", wxId)
                     put("content", content)
                     put("createTime", createTime)
+                    put("talker", talker)
+                    put("chatName", chatName)
                 }.toString().toRequestBody(jsonMediaType)
                 val request = Request.Builder().url("$serverBase/register").post(body).build()
                 httpClient.newCall(request).execute().use { resp ->
                     if (!resp.isSuccessful) WeLogger.w(TAG, "register failed: HTTP ${resp.code}")
                 }
             }.onFailure { WeLogger.w(TAG, "register request failed", it) }
+        }
+    }
+
+    /**
+     * Resolves a human-readable name for the conversation the tracked message is
+     * sent into, so the dashboard can label each message with where it came from:
+     * - direct chat: remark name (备注) if set, otherwise the contact nickname;
+     * - group chat: the group name (WeChat stores it as the room contact nickname).
+     * Returns "" when the talker is blank or the contact row is missing.
+     */
+    private fun resolveChatName(talker: String): String {
+        if (talker.isBlank()) return ""
+        return try {
+            val cursor = WeDatabaseApi.rawQuery(
+                "SELECT nickname, conRemark FROM rcontact WHERE username = ? LIMIT 1",
+                arrayOf<Any>(talker)
+            )
+            cursor.use { c ->
+                if (!c.moveToFirst()) return@use ""
+                val nickname = if (!c.isNull(0)) c.getString(0) else ""
+                val remark = if (!c.isNull(1)) c.getString(1) else ""
+                remark.ifBlank { nickname }
+            }
+        } catch (e: Exception) {
+            WeLogger.w(TAG, "resolveChatName failed for $talker", e)
+            ""
         }
     }
 
@@ -158,7 +210,7 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                 type = ChatFooter::class
             }.get()!! as ChatFooter
 
-            val text = chatFooter.lastText
+            val text = resolveInputText(chatFooter)
             if (!text.startsWith(prefix)) return@hookBefore
 
             if (serverBase.isEmpty()) {
@@ -167,14 +219,28 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             }
 
             val actualText = text.removePrefix(prefix)
+
+            // Only the bare prefix (e.g. "#" with nothing after it) would produce
+            // an empty tracked message; refuse it instead of registering empty
+            // content that shows up as a blank row in the dashboard.
+            if (actualText.isBlank()) {
+                showToast(chatFooter.context, "已读追踪: 请输入要追踪的文字内容")
+                return@hookBefore
+            }
+
             val selfWxId = WeApi.selfWxId
             // Assigned now (epoch millis) so two identical-text messages get distinct ids.
             val createTime = System.currentTimeMillis()
             val id = computeId(selfWxId, actualText, createTime)
 
+            // Which chat is this being sent into? Drives the 私聊/群聊 badge and the
+            // conversation name shown on the dashboard.
+            val talker = WeCurrentConversationApi.value
+            val chatName = resolveChatName(talker)
+
             // Record the plaintext content server-side (idempotent); the id is derived locally so
             // polling never depends on this call succeeding.
-            registerMessage(selfWxId, actualText, createTime)
+            registerMessage(selfWxId, actualText, createTime, talker, chatName)
 
             val pixelUrl = "$serverBase/pixel?wxId=$selfWxId&amp;id=$id"
 
