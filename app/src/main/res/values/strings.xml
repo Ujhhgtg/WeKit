@@ -85,6 +85,7 @@
     <string name="contact_confirm_selected_count">Confirm (%1$d)</string>
     <string name="error_unknown">Unknown error</string>
     <string name="clipboard_copied">Copied</string>
+    <string name="clipboard_label_link">Link</string>
     <string name="restart_wechat">Restart WeChat</string>
     <string name="dex_cache_status_adapting">Adapting…</string>
     <string name="dex_cache_status_completed">Completed: %1$s</string>

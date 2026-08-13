@@ -71,6 +71,7 @@
 <string name="contact_confirm_selected_count">確定 (%1$d)</string>
 <string name="error_unknown">未知錯誤</string>
 <string name="clipboard_copied">已複製</string>
+<string name="clipboard_label_link">連結</string>
 <string name="restart_wechat">重啓微信</string>
 <string name="dex_cache_status_adapting">正在適配...</string>
 <string name="dex_cache_status_completed">已完成: %1$s</string>

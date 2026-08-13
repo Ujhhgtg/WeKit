@@ -2828,7 +2828,13 @@ object ReadReceipts : ClickableFeature(),
                                             }
                                             TextButton(
                                                 onClick = {
-                                                    copyToClipboard(context, authorizationUrl)
+                                                    copyToClipboard(
+                                                        context,
+                                                        context.localizedChatString(
+                                                            R.string.clipboard_label_link,
+                                                        ),
+                                                        authorizationUrl,
+                                                    )
                                                     showToast(
                                                         context,
                                                         context.localizedChatString(
@@ -3218,7 +3224,13 @@ object ReadReceipts : ClickableFeature(),
                                         modifier = Modifier.fillMaxWidth(),
                                     ) {
                                         Button(onClick = {
-                                            copyToClipboard(context, verifiedUrl)
+                                            copyToClipboard(
+                                                context,
+                                                context.localizedChatString(
+                                                    R.string.clipboard_label_link,
+                                                ),
+                                                verifiedUrl,
+                                            )
                                             showToast(
                                                 context,
                                                 context.localizedChatString(
