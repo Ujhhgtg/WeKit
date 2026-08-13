@@ -134,9 +134,14 @@ fn parse_catalog(xml: &str) -> Result<Catalog> {
     Ok(Catalog { entries })
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn validate_pair(source_xml: &str, target_xml: &str, locale: &str) -> Result<()> {
     let source = parse_catalog(source_xml).map_err(|error| anyhow!("English source: {error}"))?;
     let target = parse_catalog(target_xml).map_err(|error| anyhow!("{locale}: {error}"))?;
+    validate_catalogs(&source, &target, locale)
+}
+
+fn validate_catalogs(source: &Catalog, target: &Catalog, locale: &str) -> Result<()> {
     let mut errors = Vec::new();
 
     for entry in source.entries.values() {
@@ -198,9 +203,21 @@ pub fn check_repository(root: &Path) -> Result<()> {
 
     let source_path = res.join("values/strings.xml");
     let source = match read_catalog(&source_path) {
-        Ok(source) => Some(source),
+        Ok(source_xml) => match parse_catalog(&source_xml) {
+            Ok(source) => Some(source),
+            Err(error) => {
+                errors.push(format!(
+                    "{} [English source]: {error}",
+                    source_path.display()
+                ));
+                None
+            }
+        },
         Err(error) => {
-            errors.push(error.to_string());
+            errors.push(format!(
+                "{} [English source]: {error}",
+                source_path.display()
+            ));
             None
         }
     };
@@ -209,15 +226,24 @@ pub fn check_repository(root: &Path) -> Result<()> {
         ("zh-rTW", "values-zh-rTW/strings.xml"),
     ] {
         let target_path = res.join(relative_path);
-        match read_catalog(&target_path) {
-            Ok(target) => {
-                if let Some(source) = &source
-                    && let Err(error) = validate_pair(source, &target, locale)
-                {
+        let target_xml = match read_catalog(&target_path) {
+            Ok(target) => Some(target),
+            Err(error) => {
+                errors.push(format!("{} [{locale}]: {error}", target_path.display()));
+                None
+            }
+        };
+        if let (Some(source), Some(target_xml)) = (&source, target_xml) {
+            match parse_catalog(&target_xml) {
+                Ok(target) => {
+                    if let Err(error) = validate_catalogs(source, &target, locale) {
+                        errors.push(format!("{} [{locale}]: {error}", target_path.display()));
+                    }
+                }
+                Err(error) => {
                     errors.push(format!("{} [{locale}]: {error}", target_path.display()));
                 }
             }
-            Err(error) => errors.push(format!("{} [{locale}]: {error}", target_path.display())),
         }
     }
     fail_if_errors("repository", errors)?;
@@ -283,9 +309,33 @@ fn collect_value_metadata(
     markup_signature: &mut Vec<String>,
 ) {
     let text = node_text(node);
-    let mut tokens = placeholder_regex
-        .captures_iter(&text)
-        .map(|captures| {
+    let mut tokens = extract_placeholders(&text, placeholder_regex);
+    tokens.sort();
+    for (index, token) in tokens.into_iter().enumerate() {
+        placeholders.insert(format!("{scope}:placeholder:{index}"), token);
+    }
+    collect_markup(node, scope, markup_signature);
+}
+
+fn extract_placeholders(text: &str, placeholder_regex: &Regex) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut tokens = Vec::new();
+    let mut offset = 0;
+    while offset < bytes.len() {
+        let Some(relative) = bytes[offset..].iter().position(|byte| *byte == b'%') else {
+            break;
+        };
+        let percent = offset + relative;
+        if bytes.get(percent + 1) == Some(&b'%') {
+            offset = percent + 2;
+            continue;
+        }
+
+        let remainder = &text[percent..];
+        if let Some(captures) = placeholder_regex.captures(remainder)
+            && captures.get(0).is_some_and(|whole| whole.start() == 0)
+        {
+            let whole = captures.get(0).expect("whole placeholder match");
             let index = captures.name("index").expect("placeholder index").as_str();
             let date = captures
                 .name("date")
@@ -296,14 +346,13 @@ fn collect_value_metadata(
                 .expect("placeholder conversion")
                 .as_str()
                 .to_ascii_lowercase();
-            format!("%{index}${date}{conversion}")
-        })
-        .collect::<Vec<_>>();
-    tokens.sort();
-    for (index, token) in tokens.into_iter().enumerate() {
-        placeholders.insert(format!("{scope}:placeholder:{index}"), token);
+            tokens.push(format!("%{index}${date}{conversion}"));
+            offset = percent + whole.end();
+        } else {
+            offset = percent + 1;
+        }
     }
-    collect_markup(node, scope, markup_signature);
+    tokens
 }
 
 fn collect_markup(node: Node<'_, '_>, scope: &str, signature: &mut Vec<String>) {
@@ -471,6 +520,21 @@ mod tests {
     }
 
     #[test]
+    fn treats_placeholder_shaped_text_after_escaped_percent_as_literal() {
+        let literal = r#"<resources><string name="example">%%1$s</string></resources>"#;
+        validate_pair(literal, literal, "zh-rCN").unwrap();
+
+        let actual_placeholder = r#"<resources><string name="example">%1$s</string></resources>"#;
+        let error = validate_pair(literal, actual_placeholder, "zh-rCN")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("placeholder mismatch: example"), "{error}");
+
+        let mixed = r#"<resources><string name="example">%% — %1$s</string></resources>"#;
+        validate_pair(mixed, mixed, "zh-rCN").unwrap();
+    }
+
+    #[test]
     fn compares_ordered_markup_attributes() {
         let source = r#"<resources><string name="link"><a href="one" style="bold">Open</a></string></resources>"#;
         let compatible = r#"<resources><string name="link"><a href="one" style="bold">打开</a></string></resources>"#;
@@ -620,6 +684,26 @@ mod tests {
             error.contains("unexpected Chinese resource directory: values-zh"),
             "{error}"
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn attributes_malformed_english_catalog_once_to_its_source_path() {
+        let root = temporary_root("malformed-english");
+        write_catalog(
+            &root,
+            "values",
+            r#"<resources><string name="hello">Hello</resources>"#,
+        );
+        write_catalog(&root, "values-zh-rCN", r#"<resources/>"#);
+        write_catalog(&root, "values-zh-rTW", r#"<resources/>"#);
+
+        let error = check_repository(&root).unwrap_err().to_string();
+        assert!(error.contains("values/strings.xml"), "{error}");
+        assert!(error.contains("English source"), "{error}");
+        assert_eq!(error.matches("English source").count(), 1, "{error}");
+        assert!(!error.contains("values-zh-rCN/strings.xml"), "{error}");
+        assert!(!error.contains("values-zh-rTW/strings.xml"), "{error}");
         fs::remove_dir_all(root).unwrap();
     }
 
