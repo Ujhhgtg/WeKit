@@ -119,7 +119,7 @@ jobs:
         if: github.event_name == 'pull_request' || env.HAS_KEYSTORE != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease --warning-mode all --stacktrace
+        run: ./gradlew assembleRelease --warning-mode all --stacktrace
 
       - name: Collect APKs
         run: |
