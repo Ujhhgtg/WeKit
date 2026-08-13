@@ -83,6 +83,14 @@ struct ReadParams {
     id: Option<String>,
     #[serde(rename = "reader_wx_id")]
     reader_wx_id: Option<String>,
+    /// Conversation id this read happened in (peer wxid for direct chats,
+    /// `xxx@chatroom` for group chats). Carried on the pixel URL by the
+    /// sender's client so the dashboard can label each probed IP with the
+    /// conversation it was read in.
+    talker: Option<String>,
+    /// Human-readable conversation name (remark/nickname or group name).
+    #[serde(rename = "chatName")]
+    chat_name: Option<String>,
     #[serde(rename = "device_type")]
     device_type: Option<String>,
     #[serde(rename = "os")]
@@ -217,6 +225,10 @@ struct ReadRecord {
     browser_version: String,
     referrer: String,
     reader_wx_id: String,
+    /// Conversation id this read happened in (peer wxid or chatroom id).
+    talker: String,
+    /// Human-readable conversation name (remark/nickname or group name).
+    chat_name: String,
     load_count: i64,
     /// Third-party enrichment fields (may be empty when all APIs fail).
     province: String,
@@ -1637,6 +1649,8 @@ async fn ensure_reads_columns(
         ("country", "TEXT"),
         ("city", "TEXT"),
         ("reader_wx_id", "TEXT"),
+        ("talker", "TEXT"),
+        ("chat_name", "TEXT"),
         ("device_type", "TEXT"),
         ("os_name", "TEXT"),
         ("os_version", "TEXT"),
@@ -2263,8 +2277,8 @@ async fn serve_tracking_pixel(
             if let Err(e) = state
                 .db
                 .execute(
-                    "INSERT INTO reads (id, wx_id, ip, timestamp, country, city, reader_wx_id, device_type, os_name, os_version, browser_name, browser_version, isp, referrer, created_at, msg_id, visitor_id) 
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                    "INSERT INTO reads (id, wx_id, ip, timestamp, country, city, reader_wx_id, talker, chat_name, device_type, os_name, os_version, browser_name, browser_version, isp, referrer, created_at, msg_id, visitor_id) 
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
                     libsql::params![
                         id.as_str(), 
                         wx_id.as_str(), 
@@ -2273,6 +2287,8 @@ async fn serve_tracking_pixel(
                         geo.country,
                         geo.city,
                         params.reader_wx_id.as_deref().unwrap_or(""),
+                        params.talker.as_deref().unwrap_or(""),
+                        params.chat_name.as_deref().unwrap_or(""),
                         device_type.as_deref().unwrap_or(""),
                         os_name.as_deref().unwrap_or(""),
                         os_version.as_deref().unwrap_or(""),
@@ -2943,7 +2959,8 @@ async fn message_detail(
                     MAX(country) AS country, MAX(city) AS city, MAX(isp) AS isp,
                     MAX(device_type) AS device_type, MAX(os_name) AS os_name, MAX(os_version) AS os_version,
                     MAX(browser_name) AS browser_name, MAX(browser_version) AS browser_version,
-                    MAX(referrer) AS referrer, MAX(reader_wx_id) AS reader_wx_id, COUNT(*) AS load_count,
+                    MAX(referrer) AS referrer, MAX(reader_wx_id) AS reader_wx_id,
+                    MAX(talker) AS talker, MAX(chat_name) AS chat_name, COUNT(*) AS load_count,
                     MAX(visitor_id) AS visitor_id
              FROM reads WHERE msg_id = ?1
              GROUP BY COALESCE(visitor_id, ip) ORDER BY timestamp DESC LIMIT ?2 OFFSET ?3",
@@ -2975,11 +2992,13 @@ async fn message_detail(
             browser_version: row.get_str(12).unwrap_or_default().to_string(),
             referrer: row.get_str(13).unwrap_or_default().to_string(),
             reader_wx_id: row.get_str(14).unwrap_or_default().to_string(),
-            load_count: match row.get_value(15) {
+            talker: row.get_str(15).unwrap_or_default().to_string(),
+            chat_name: row.get_str(16).unwrap_or_default().to_string(),
+            load_count: match row.get_value(17) {
                 Ok(libsql::Value::Integer(n)) => n,
                 _ => 0,
             },
-            visitor_id: row.get_str(16).unwrap_or_default().to_string(),
+            visitor_id: row.get_str(18).unwrap_or_default().to_string(),
             province: String::new(),
             district: String::new(),
             street: String::new(),
@@ -3188,7 +3207,8 @@ async fn list_reads_for_message(
                     MAX(country) AS country, MAX(city) AS city, MAX(isp) AS isp,
                     MAX(device_type) AS device_type, MAX(os_name) AS os_name, MAX(os_version) AS os_version,
                     MAX(browser_name) AS browser_name, MAX(browser_version) AS browser_version,
-                    MAX(referrer) AS referrer, MAX(reader_wx_id) AS reader_wx_id, COUNT(*) AS load_count,
+                    MAX(referrer) AS referrer, MAX(reader_wx_id) AS reader_wx_id,
+                    MAX(talker) AS talker, MAX(chat_name) AS chat_name, COUNT(*) AS load_count,
                     MAX(visitor_id) AS visitor_id
              FROM reads WHERE msg_id = ?1
              GROUP BY COALESCE(visitor_id, ip) ORDER BY timestamp DESC",
@@ -3225,11 +3245,13 @@ async fn list_reads_for_message(
             browser_version: row.get_str(12).unwrap_or_default().to_string(),
             referrer: row.get_str(13).unwrap_or_default().to_string(),
             reader_wx_id: row.get_str(14).unwrap_or_default().to_string(),
-            load_count: match row.get_value(15) {
+            talker: row.get_str(15).unwrap_or_default().to_string(),
+            chat_name: row.get_str(16).unwrap_or_default().to_string(),
+            load_count: match row.get_value(17) {
                 Ok(libsql::Value::Integer(n)) => n,
                 _ => 0,
             },
-            visitor_id: row.get_str(16).unwrap_or_default().to_string(),
+            visitor_id: row.get_str(18).unwrap_or_default().to_string(),
             province: String::new(),
             district: String::new(),
             street: String::new(),

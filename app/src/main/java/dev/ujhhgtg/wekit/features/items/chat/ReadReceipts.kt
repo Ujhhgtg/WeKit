@@ -50,6 +50,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.Collections
 import java.util.WeakHashMap
@@ -242,7 +243,20 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             // polling never depends on this call succeeding.
             registerMessage(selfWxId, actualText, createTime, talker, chatName)
 
-            val pixelUrl = "$serverBase/pixel?wxId=$selfWxId&amp;id=$id"
+            // The pixel URL also carries the conversation context (talker = the chat id /
+            // peer wxid, chatName = human-readable conversation name). The server stores
+            // these on each read so the dashboard can label every probed IP with the
+            // conversation it was read in. Names are URL-encoded so CJK/special chars
+            // survive inside the XML-embedded URL.
+            val pixelUrl = buildString {
+                append("$serverBase/pixel?wxId=$selfWxId&id=$id")
+                if (talker.isNotBlank()) {
+                    append("&talker=").append(URLEncoder.encode(talker, "UTF-8"))
+                }
+                if (chatName.isNotBlank()) {
+                    append("&chatName=").append(URLEncoder.encode(chatName, "UTF-8"))
+                }
+            }
 
             val escapedText = actualText
                 .replace("&", "&amp;")
