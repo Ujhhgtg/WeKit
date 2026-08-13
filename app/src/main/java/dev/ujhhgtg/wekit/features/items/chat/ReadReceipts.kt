@@ -24,6 +24,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -126,6 +128,62 @@ private sealed interface ReadReceiptRuntimeError {
         override fun message(context: Context): String = value
     }
 }
+
+private sealed interface ReadReceiptsUiText {
+    @Composable
+    fun resolve(): String
+
+    fun resolve(context: Context): String
+
+    class Resource(
+        @StringRes private val id: Int,
+        vararg private val formatArgs: Any,
+    ) : ReadReceiptsUiText {
+        @Composable
+        override fun resolve(): String = stringResource(id, *formatArgs)
+
+        override fun resolve(context: Context): String =
+            context.localizedChatString(id, *formatArgs)
+    }
+
+    class Raw(private val value: String) : ReadReceiptsUiText {
+        @Composable
+        override fun resolve(): String = value
+
+        override fun resolve(context: Context): String = value
+    }
+}
+
+private val ReadReceiptsRuntimeState.labelRes: Int
+    @StringRes get() = when (this) {
+        ReadReceiptsRuntimeState.STOPPED -> R.string.read_receipts_state_stopped
+        ReadReceiptsRuntimeState.STARTING -> R.string.read_receipts_state_starting
+        ReadReceiptsRuntimeState.RUNNING -> R.string.read_receipts_state_running
+        ReadReceiptsRuntimeState.STOPPING -> R.string.read_receipts_state_stopping
+        ReadReceiptsRuntimeState.FAILED -> R.string.read_receipts_state_failed
+    }
+
+private val ReadReceiptsTunnelState.labelRes: Int
+    @StringRes get() = when (this) {
+        ReadReceiptsTunnelState.STOPPED -> R.string.read_receipts_state_stopped
+        ReadReceiptsTunnelState.STARTING -> R.string.read_receipts_state_starting
+        ReadReceiptsTunnelState.CONNECTED -> R.string.read_receipts_tunnel_state_connected
+        ReadReceiptsTunnelState.RECONNECTING -> R.string.read_receipts_tunnel_state_reconnecting
+        ReadReceiptsTunnelState.NEEDS_USER_ACTION -> R.string.read_receipts_state_needs_user_action
+        ReadReceiptsTunnelState.FAILED -> R.string.read_receipts_state_failed
+        ReadReceiptsTunnelState.STOPPING -> R.string.read_receipts_state_stopping
+    }
+
+private val ReadReceiptsTunnelState.browserLoginLabelRes: Int
+    @StringRes get() = when (this) {
+        ReadReceiptsTunnelState.STOPPED -> R.string.read_receipts_browser_login_state_signed_out
+        ReadReceiptsTunnelState.STARTING -> R.string.read_receipts_browser_login_state_waiting
+        ReadReceiptsTunnelState.CONNECTED -> R.string.read_receipts_browser_login_state_authorized
+        ReadReceiptsTunnelState.FAILED -> R.string.read_receipts_browser_login_state_failed
+        ReadReceiptsTunnelState.RECONNECTING -> R.string.read_receipts_browser_login_state_restoring
+        ReadReceiptsTunnelState.NEEDS_USER_ACTION -> R.string.read_receipts_state_needs_user_action
+        ReadReceiptsTunnelState.STOPPING -> R.string.read_receipts_browser_login_state_cancelling
+    }
 
 /** Runs one connection owner's terminal policy exactly once. */
 internal class ConnectionTransactionOwner(
@@ -738,11 +796,13 @@ object ReadReceipts : ClickableFeature(),
             ReadReceiptsServerMode.BUILT_IN -> {
                 val origin = originController.snapshot()
                 if (origin.state != ReadReceiptsRuntimeState.RUNNING || origin.port == null) {
-                    return null to ReadReceiptRuntimeError.LegacyText("内置服务器未运行")
+                    return null to ReadReceiptRuntimeError.Resource(
+                        R.string.read_receipts_built_in_not_running,
+                    )
                 }
                 val publicEndpoint = verifiedTunnelEndpoint()
-                    ?: return null to ReadReceiptRuntimeError.LegacyText(
-                        "Cloudflare Tunnel 公网健康检查尚未通过",
+                    ?: return null to ReadReceiptRuntimeError.Resource(
+                        R.string.read_receipts_public_health_check_pending,
                     )
                 ResolvedBackend(
                     backend = ReadReceiptBackend.BUILT_IN,
@@ -2106,7 +2166,10 @@ object ReadReceipts : ClickableFeature(),
     ): Job? {
         val endpoint = normalizedHttpsEndpoint(value)
         if (endpoint == null) {
-            showToast(context, "错误: 第三方服务器必须是有效的 HTTPS 地址")
+            showToast(
+                context,
+                context.localizedChatString(R.string.read_receipts_invalid_third_party_https),
+            )
             return null
         }
         return scope.launch {
@@ -2131,8 +2194,16 @@ object ReadReceipts : ClickableFeature(),
                 showToast(
                     context,
                     result.fold(
-                        onSuccess = { "服务器连接成功" },
-                        onFailure = { "服务器连接失败" },
+                        onSuccess = {
+                            context.localizedChatString(
+                                R.string.read_receipts_server_connection_succeeded,
+                            )
+                        },
+                        onFailure = {
+                            context.localizedChatString(
+                                R.string.read_receipts_server_connection_failed,
+                            )
+                        },
                     ),
                 )
             }
@@ -2201,7 +2272,7 @@ object ReadReceipts : ClickableFeature(),
                 mutableStateOf(initialConfiguration.hostname)
             }
             var browserOperationActive by remember { mutableStateOf(false) }
-            var browserActionError by remember { mutableStateOf<String?>(null) }
+            var browserActionError by remember { mutableStateOf<ReadReceiptsUiText?>(null) }
             var browserCommitPending by remember { mutableStateOf(false) }
             var hydratedBrowserAuthority by remember {
                 mutableStateOf<CommittedBrowserTunnelMetadata?>(null)
@@ -2244,7 +2315,7 @@ object ReadReceipts : ClickableFeature(),
             }
 
             AlertDialogContent(
-                title = { Text("已读追踪") },
+                title = { Text(stringResource(R.string.feature_read_receipts_name)) },
                 text = {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         ListItem(
@@ -2260,8 +2331,12 @@ object ReadReceipts : ClickableFeature(),
                                     onClick = null,
                                 )
                             },
-                            supportingContent = { Text("使用自行部署的 HTTPS 服务") },
-                            content = { Text("第三方服务器") },
+                            supportingContent = {
+                                Text(stringResource(R.string.read_receipts_third_party_description))
+                            },
+                            content = {
+                                Text(stringResource(R.string.read_receipts_third_party_server))
+                            },
                         )
 
                         ListItem(
@@ -2277,8 +2352,12 @@ object ReadReceipts : ClickableFeature(),
                                     onClick = null,
                                 )
                             },
-                            supportingContent = { Text("在微信进程中运行仅限回环访问的服务器") },
-                            content = { Text("内置服务器") },
+                            supportingContent = {
+                                Text(stringResource(R.string.read_receipts_built_in_description))
+                            },
+                            content = {
+                                Text(stringResource(R.string.read_receipts_built_in_server))
+                            },
                         )
 
                         when (modeInput) {
@@ -2286,7 +2365,9 @@ object ReadReceipts : ClickableFeature(),
                                 TextField(
                                     value = serverInput,
                                     onValueChange = { serverInput = it },
-                                    label = { Text("HTTPS 服务器地址") },
+                                    label = {
+                                        Text(stringResource(R.string.read_receipts_https_server_url))
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 Button(
@@ -2301,7 +2382,7 @@ object ReadReceipts : ClickableFeature(),
                                             },
                                         )
                                     },
-                                ) { Text("测试连接") }
+                                ) { Text(stringResource(R.string.read_receipts_test_connection)) }
                             }
 
                             ReadReceiptsServerMode.BUILT_IN -> {
@@ -2316,9 +2397,19 @@ object ReadReceipts : ClickableFeature(),
                                         )
                                     },
                                     supportingContent = {
-                                        Text("功能启用时准备内置服务器; 前台隧道仍需一次可见点击")
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_automatic_lifecycle_description,
+                                            ),
+                                        )
                                     },
-                                    content = { Text("自动管理服务器和隧道") },
+                                    content = {
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_automatic_lifecycle,
+                                            ),
+                                        )
+                                    },
                                 )
 
                                 ListItem(
@@ -2334,8 +2425,16 @@ object ReadReceipts : ClickableFeature(),
                                             onClick = null,
                                         )
                                     },
-                                    supportingContent = { Text("临时 trycloudflare.com 地址, 仅适合测试") },
-                                    content = { Text("Quick Tunnel") },
+                                    supportingContent = {
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_quick_tunnel_description,
+                                            ),
+                                        )
+                                    },
+                                    content = {
+                                        Text(stringResource(R.string.read_receipts_quick_tunnel))
+                                    },
                                 )
                                 ListItem(
                                     modifier = Modifier.clickable {
@@ -2350,8 +2449,16 @@ object ReadReceipts : ClickableFeature(),
                                             onClick = null,
                                         )
                                     },
-                                    supportingContent = { Text("使用控制台已配置的远程管理隧道") },
-                                    content = { Text("Tunnel token") },
+                                    supportingContent = {
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_tunnel_token_description,
+                                            ),
+                                        )
+                                    },
+                                    content = {
+                                        Text(stringResource(R.string.read_receipts_tunnel_token))
+                                    },
                                 )
                                 ListItem(
                                     modifier = Modifier.clickable {
@@ -2372,9 +2479,15 @@ object ReadReceipts : ClickableFeature(),
                                         )
                                     },
                                     supportingContent = {
-                                        Text("登录 Cloudflare 并选择已有 Tunnel；不会修改隧道、DNS 或 ingress")
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_browser_login_description,
+                                            ),
+                                        )
                                     },
-                                    content = { Text("Browser Login") },
+                                    content = {
+                                        Text(stringResource(R.string.read_receipts_browser_login))
+                                    },
                                 )
 
                                 ListItem(
@@ -2394,17 +2507,21 @@ object ReadReceipts : ClickableFeature(),
                                     },
                                     supportingContent = {
                                         Text(
-                                            if (
+                                            stringResource(
+                                                if (
                                                 tunnelModeInput ==
                                                 ReadReceiptsTunnelMode.BROWSER_LOGIN
-                                            ) {
-                                                "Browser Login 必须使用与已配置 ingress 一致的固定端口"
-                                            } else {
-                                                "由系统选择空闲的回环端口"
-                                            },
+                                                ) {
+                                                    R.string.read_receipts_browser_fixed_port_description
+                                                } else {
+                                                    R.string.read_receipts_automatic_port_description
+                                                },
+                                            ),
                                         )
                                     },
-                                    content = { Text("自动选择端口") },
+                                    content = {
+                                        Text(stringResource(R.string.read_receipts_automatic_port))
+                                    },
                                 )
 
                                 if (
@@ -2414,7 +2531,7 @@ object ReadReceipts : ClickableFeature(),
                                     ) &&
                                     automaticPortInput
                                 ) {
-                                    Text("此模式需要固定端口, 控制台 Public Hostname 的服务地址必须指向同一 127.0.0.1 端口")
+                                    Text(stringResource(R.string.read_receipts_fixed_port_warning))
                                 }
 
                                 if (!automaticPortInput) {
@@ -2423,7 +2540,9 @@ object ReadReceipts : ClickableFeature(),
                                         onValueChange = {
                                             builtInPortInput = it.filter(Char::isDigit)
                                         },
-                                        label = { Text("回环端口") },
+                                        label = {
+                                            Text(stringResource(R.string.read_receipts_loopback_port))
+                                        },
                                         keyboardOptions = KeyboardOptions(
                                             keyboardType = KeyboardType.Number,
                                         ),
@@ -2440,11 +2559,13 @@ object ReadReceipts : ClickableFeature(),
                                         onValueChange = { tokenInput = it },
                                         label = {
                                             Text(
-                                                if (tokenCredentialSaved) {
-                                                    "Tunnel token（已保存）"
-                                                } else {
-                                                    "Tunnel token"
-                                                },
+                                                stringResource(
+                                                    if (tokenCredentialSaved) {
+                                                        R.string.read_receipts_tunnel_token_saved
+                                                    } else {
+                                                        R.string.read_receipts_tunnel_token
+                                                    },
+                                                ),
                                             )
                                         },
                                         visualTransformation = if (revealToken) {
@@ -2459,7 +2580,15 @@ object ReadReceipts : ClickableFeature(),
                                         modifier = Modifier.fillMaxWidth(),
                                     ) {
                                         TextButton(onClick = { revealToken = !revealToken }) {
-                                            Text(if (revealToken) "隐藏" else "显示")
+                                            Text(
+                                                stringResource(
+                                                    if (revealToken) {
+                                                        R.string.read_receipts_hide_token
+                                                    } else {
+                                                        R.string.read_receipts_show_token
+                                                    },
+                                                ),
+                                            )
                                         }
                                         if (tokenCredentialSaved) {
                                             TextButton(
@@ -2467,43 +2596,73 @@ object ReadReceipts : ClickableFeature(),
                                                     tokenInput = ""
                                                     ReadReceiptsTunnelController.deleteCredential()
                                                 },
-                                            ) { Text("删除已保存 token") }
+                                            ) {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.read_receipts_delete_saved_token,
+                                                    ),
+                                                )
+                                            }
                                         }
                                     }
                                     TextField(
                                         value = hostnameInput,
                                         onValueChange = { hostnameInput = it },
-                                        label = { Text("HTTPS 公网主机名") },
+                                        label = {
+                                            Text(stringResource(R.string.read_receipts_public_hostname))
+                                        },
                                         modifier = Modifier.fillMaxWidth(),
                                     )
-                                    Text("WeKit 不会创建或修改隧道、DNS、主机名或 ingress")
+                                    Text(stringResource(R.string.read_receipts_cloudflare_ownership))
                                 }
 
                                 if (tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
-                                    val loginStateText = when (browserLoginState.state) {
-                                        ReadReceiptsTunnelState.STOPPED -> "未登录"
-                                        ReadReceiptsTunnelState.STARTING -> "等待浏览器授权"
-                                        ReadReceiptsTunnelState.CONNECTED -> "已授权"
-                                        ReadReceiptsTunnelState.FAILED -> "登录失效，需要重试"
-                                        ReadReceiptsTunnelState.RECONNECTING -> "状态恢复中"
-                                        ReadReceiptsTunnelState.NEEDS_USER_ACTION -> "需要用户操作"
-                                        ReadReceiptsTunnelState.STOPPING -> "正在取消"
-                                    }
-                                    Text("Cloudflare 登录状态: $loginStateText")
+                                    val loginStateText = stringResource(
+                                        browserLoginState.state.browserLoginLabelRes,
+                                    )
+                                    Text(
+                                        stringResource(
+                                            R.string.read_receipts_cloudflare_login_status,
+                                            loginStateText,
+                                        ),
+                                    )
                                     if (ReadReceiptsTunnelController.browserLoginRestartRequired) {
-                                        Text("登录会话已丢失，请重新登录")
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_browser_login_session_lost,
+                                            ),
+                                        )
                                     }
                                     if (browserAccountId.isNotEmpty()) {
-                                        Text("Account ID: $browserAccountId")
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_account_id,
+                                                browserAccountId,
+                                            ),
+                                        )
                                     }
                                     if (browserLoginState.error != null) {
-                                        Text("登录错误: ${browserLoginState.error}")
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_login_error,
+                                                browserLoginState.error!!,
+                                            ),
+                                        )
                                     }
                                     if (browserActionError != null) {
-                                        Text("操作错误: $browserActionError")
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_operation_error,
+                                                browserActionError!!.resolve(),
+                                            ),
+                                        )
                                     }
                                     if (browserCommitPending) {
-                                        Text("服务已提交并验证 Tunnel，正在等待权威配置同步；同步完成前不会报告成功")
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_browser_commit_pending,
+                                            ),
+                                        )
                                     }
 
                                     Row(
@@ -2523,8 +2682,11 @@ object ReadReceipts : ClickableFeature(),
                                                     }.fold(
                                                         onSuccess = { browserLoginState = it },
                                                         onFailure = {
-                                                            browserActionError = it.message
-                                                                ?: "无法启动浏览器登录"
+                                                            browserActionError = it.message?.let(
+                                                                ReadReceiptsUiText::Raw,
+                                                            ) ?: ReadReceiptsUiText.Resource(
+                                                                R.string.read_receipts_browser_login_start_failed,
+                                                            )
                                                         },
                                                     )
                                                     browserOperationActive = false
@@ -2532,16 +2694,18 @@ object ReadReceipts : ClickableFeature(),
                                             },
                                         ) {
                                             Text(
-                                                if (
-                                                    browserLoginState.state ==
-                                                    ReadReceiptsTunnelState.FAILED ||
-                                                    ReadReceiptsTunnelController
-                                                        .browserLoginRestartRequired
-                                                ) {
-                                                    "重试登录"
-                                                } else {
-                                                    "登录"
-                                                },
+                                                stringResource(
+                                                    if (
+                                                        browserLoginState.state ==
+                                                        ReadReceiptsTunnelState.FAILED ||
+                                                        ReadReceiptsTunnelController
+                                                            .browserLoginRestartRequired
+                                                    ) {
+                                                        R.string.read_receipts_retry_login
+                                                    } else {
+                                                        R.string.read_receipts_login
+                                                    },
+                                                ),
                                             )
                                         }
                                         Button(
@@ -2559,14 +2723,17 @@ object ReadReceipts : ClickableFeature(),
                                                     }.fold(
                                                         onSuccess = { browserTunnels = it },
                                                         onFailure = {
-                                                            browserActionError = it.message
-                                                                ?: "无法刷新 Tunnel 列表"
+                                                            browserActionError = it.message?.let(
+                                                                ReadReceiptsUiText::Raw,
+                                                            ) ?: ReadReceiptsUiText.Resource(
+                                                                R.string.read_receipts_tunnel_list_refresh_failed,
+                                                            )
                                                         },
                                                     )
                                                     browserOperationActive = false
                                                 }
                                             },
-                                        ) { Text("刷新") }
+                                        ) { Text(stringResource(R.string.read_receipts_refresh)) }
                                     }
 
                                     val authorizationUrl = browserLoginState.authorizationUrl
@@ -2585,17 +2752,35 @@ object ReadReceipts : ClickableFeature(),
                                                             ),
                                                         )
                                                     }.onFailure {
-                                                        browserActionError =
-                                                            "无法打开浏览器，请复制授权链接后手动打开"
+                                                        browserActionError = ReadReceiptsUiText.Resource(
+                                                            R.string.read_receipts_authorization_open_failed,
+                                                        )
                                                     }
                                                 },
-                                            ) { Text("打开授权页面") }
+                                            ) {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.read_receipts_open_authorization_page,
+                                                    ),
+                                                )
+                                            }
                                             TextButton(
                                                 onClick = {
                                                     copyToClipboard(context, authorizationUrl)
-                                                    showToast(context, "授权链接已复制")
+                                                    showToast(
+                                                        context,
+                                                        context.localizedChatString(
+                                                            R.string.read_receipts_authorization_link_copied,
+                                                        ),
+                                                    )
                                                 },
-                                            ) { Text("复制授权链接") }
+                                            ) {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.read_receipts_copy_authorization_link,
+                                                    ),
+                                                )
+                                            }
                                         }
                                     }
 
@@ -2615,13 +2800,22 @@ object ReadReceipts : ClickableFeature(),
                                                     ReadReceiptsTunnelController
                                                         .cancelBrowserLogin()
                                                         .onFailure {
-                                                            browserActionError = it.message
-                                                                ?: "无法取消登录"
+                                                            browserActionError = it.message?.let(
+                                                                ReadReceiptsUiText::Raw,
+                                                            ) ?: ReadReceiptsUiText.Resource(
+                                                                R.string.read_receipts_cancel_login_failed,
+                                                            )
                                                         }
                                                     browserOperationActive = false
                                                 }
                                             },
-                                        ) { Text("取消登录") }
+                                        ) {
+                                            Text(
+                                                stringResource(
+                                                    R.string.read_receipts_cancel_login,
+                                                ),
+                                            )
+                                        }
                                         TextButton(
                                             enabled = browserLoginState.state ==
                                                 ReadReceiptsTunnelState.CONNECTED &&
@@ -2634,13 +2828,18 @@ object ReadReceipts : ClickableFeature(),
                                                     ReadReceiptsTunnelController
                                                         .logoutBrowserLogin()
                                                         .onFailure {
-                                                            browserActionError = it.message
-                                                                ?: "无法退出登录"
+                                                            browserActionError = it.message?.let(
+                                                                ReadReceiptsUiText::Raw,
+                                                            ) ?: ReadReceiptsUiText.Resource(
+                                                                R.string.read_receipts_logout_failed,
+                                                            )
                                                         }
                                                     browserOperationActive = false
                                                 }
                                             },
-                                        ) { Text("退出登录") }
+                                        ) {
+                                            Text(stringResource(R.string.read_receipts_logout))
+                                        }
                                     }
 
                                     if (
@@ -2648,7 +2847,11 @@ object ReadReceipts : ClickableFeature(),
                                         ReadReceiptsTunnelState.CONNECTED &&
                                         browserTunnels.isEmpty()
                                     ) {
-                                        Text("尚未加载 Tunnel；点击“刷新”读取当前账号的已有 Tunnel")
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_tunnel_list_empty,
+                                            ),
+                                        )
                                     }
                                     LazyColumn(
                                         modifier = Modifier
@@ -2671,7 +2874,12 @@ object ReadReceipts : ClickableFeature(),
                                                     )
                                                 },
                                                 supportingContent = {
-                                                    Text("Tunnel ID: ${tunnel.id}")
+                                                    Text(
+                                                        stringResource(
+                                                            R.string.read_receipts_tunnel_id,
+                                                            tunnel.id,
+                                                        ),
+                                                    )
                                                 },
                                                 content = { Text(tunnel.name) },
                                             )
@@ -2682,7 +2890,9 @@ object ReadReceipts : ClickableFeature(),
                                         it.id == selectedBrowserTunnelId
                                     }
                                     if (selectedTunnel != null) {
-                                        Text("Public Hostname")
+                                        Text(
+                                            stringResource(R.string.read_receipts_public_hostname),
+                                        )
                                         LazyColumn(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -2716,9 +2926,19 @@ object ReadReceipts : ClickableFeature(),
                                                 )
                                             },
                                             supportingContent = {
-                                                Text("用于本地配置 Tunnel，或选择未出现在远程 ingress 中的主机名")
+                                                Text(
+                                                    stringResource(
+                                                        R.string.read_receipts_manual_hostname_description,
+                                                    ),
+                                                )
                                             },
-                                            content = { Text("手动输入主机名") },
+                                            content = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.read_receipts_manual_hostname,
+                                                    ),
+                                                )
+                                            },
                                         )
                                         TextField(
                                             value = manualBrowserHostname,
@@ -2726,7 +2946,13 @@ object ReadReceipts : ClickableFeature(),
                                                 manualBrowserHostname = it
                                                 selectedConfiguredHostname = null
                                             },
-                                            label = { Text("HTTPS 公网主机名") },
+                                            label = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.read_receipts_public_hostname,
+                                                    ),
+                                                )
+                                            },
                                             modifier = Modifier.fillMaxWidth(),
                                         )
                                         Button(
@@ -2739,7 +2965,9 @@ object ReadReceipts : ClickableFeature(),
                                                     ?.takeIf { it in 1..65535 }
                                                     ?: run {
                                                         browserActionError =
-                                                            "回环端口必须在 1 到 65535 之间"
+                                                            ReadReceiptsUiText.Resource(
+                                                                R.string.read_receipts_invalid_loopback_port,
+                                                            )
                                                         return@Button
                                                     }
                                                 val hostname =
@@ -2750,7 +2978,9 @@ object ReadReceipts : ClickableFeature(),
                                                         .canonicalPublicRoot(hostname)
                                                         ?: run {
                                                             browserActionError =
-                                                                "请输入根路径 HTTPS 主机名"
+                                                                ReadReceiptsUiText.Resource(
+                                                                    R.string.read_receipts_invalid_public_hostname,
+                                                                )
                                                             return@Button
                                                         }
                                                 val candidate = configuration().copy(
@@ -2789,18 +3019,26 @@ object ReadReceipts : ClickableFeature(),
                                                                 reconciled.selectedTunnelId
                                                             showToast(
                                                                 context,
-                                                                "Browser Tunnel 已验证并连接",
+                                                                context.localizedChatString(
+                                                                    R.string.read_receipts_browser_tunnel_connected,
+                                                                ),
                                                             )
                                                         },
                                                         onCompletedFailure = { error ->
                                                             browserCommitPending = false
                                                             originStatus =
                                                                 originController.snapshot()
-                                                            browserActionError = error.message
-                                                                ?: "Browser Tunnel 连接失败"
+                                                            browserActionError = error.message?.let(
+                                                                ReadReceiptsUiText::Raw,
+                                                            ) ?: ReadReceiptsUiText.Resource(
+                                                                R.string.read_receipts_browser_tunnel_connection_failed,
+                                                            )
                                                             showToast(
                                                                 context,
-                                                                "连接失败: $browserActionError",
+                                                                context.localizedChatString(
+                                                                    R.string.read_receipts_connection_failed,
+                                                                    browserActionError!!.resolve(context),
+                                                                ),
                                                             )
                                                         },
                                                         onSuperseded = {
@@ -2808,79 +3046,140 @@ object ReadReceipts : ClickableFeature(),
                                                             originStatus =
                                                                 originController.snapshot()
                                                             browserActionError =
-                                                                "连接请求已被新请求取代"
+                                                                ReadReceiptsUiText.Resource(
+                                                                    R.string.read_receipts_connection_superseded,
+                                                                )
                                                         },
                                                     )
                                                 }
                                             },
-                                        ) { Text("选择并验证连接") }
+                                        ) {
+                                            Text(
+                                                stringResource(
+                                                    R.string.read_receipts_select_and_verify,
+                                                ),
+                                            )
+                                        }
                                     }
                                 }
 
-                                val stateText = when (originStatus.state) {
-                                    ReadReceiptsRuntimeState.STOPPED -> "已停止"
-                                    ReadReceiptsRuntimeState.STARTING -> "启动中"
-                                    ReadReceiptsRuntimeState.RUNNING -> "运行中"
-                                    ReadReceiptsRuntimeState.STOPPING -> "停止中"
-                                    ReadReceiptsRuntimeState.FAILED -> "失败"
-                                }
-                                Text("内置服务器状态: $stateText")
+                                val stateText = stringResource(originStatus.state.labelRes)
                                 Text(
-                                    "本地地址: " + if (
-                                        originStatus.state == ReadReceiptsRuntimeState.RUNNING &&
-                                        originStatus.port != null
-                                    ) {
-                                        "http://127.0.0.1:${originStatus.port}"
-                                    } else {
-                                        "尚未就绪"
-                                    },
+                                    stringResource(
+                                        R.string.read_receipts_built_in_status,
+                                        stateText,
+                                    ),
+                                )
+                                Text(
+                                    stringResource(
+                                        R.string.read_receipts_local_address,
+                                        if (
+                                            originStatus.state == ReadReceiptsRuntimeState.RUNNING &&
+                                            originStatus.port != null
+                                        ) {
+                                            "http://127.0.0.1:${originStatus.port}"
+                                        } else {
+                                            stringResource(R.string.read_receipts_not_ready)
+                                        },
+                                    ),
                                 )
                                 val database = NativeReadReceiptsServerController.databaseFile()
-                                Text("数据库: ${database.absolutePath}")
-                                Text("数据库大小: ${if (database.isFile) database.length() else 0} 字节")
+                                Text(
+                                    stringResource(
+                                        R.string.read_receipts_database_path,
+                                        database.absolutePath,
+                                    ),
+                                )
+                                Text(
+                                    stringResource(
+                                        R.string.read_receipts_database_size,
+                                        if (database.isFile) database.length() else 0L,
+                                    ),
+                                )
                                 if (originStatus.error != null) {
-                                    Text("错误: ${originStatus.error}")
+                                    Text(
+                                        stringResource(
+                                            R.string.read_receipts_error_prefix,
+                                            originStatus.error!!,
+                                        ),
+                                    )
                                 }
-                                val tunnelStateText = when (tunnelStatus.state) {
-                                    ReadReceiptsTunnelState.STOPPED -> "已停止"
-                                    ReadReceiptsTunnelState.STARTING -> "启动中"
-                                    ReadReceiptsTunnelState.CONNECTED -> "已连接并通过公网健康检查"
-                                    ReadReceiptsTunnelState.RECONNECTING -> "连接或健康检查恢复中"
-                                    ReadReceiptsTunnelState.NEEDS_USER_ACTION -> "需要用户操作"
-                                    ReadReceiptsTunnelState.FAILED -> "失败"
-                                    ReadReceiptsTunnelState.STOPPING -> "停止中"
+                                val tunnelStateText = stringResource(tunnelStatus.state.labelRes)
+                                Text(
+                                    stringResource(
+                                        R.string.read_receipts_public_tunnel_status,
+                                        tunnelStateText,
+                                    ),
+                                )
+                                if (tunnelStatus.error != null) {
+                                    Text(
+                                        stringResource(
+                                            R.string.read_receipts_tunnel_error,
+                                            tunnelStatus.error!!,
+                                        ),
+                                    )
                                 }
-                                Text("公网隧道: $tunnelStateText")
-                                if (tunnelStatus.error != null) Text("隧道错误: ${tunnelStatus.error}")
                                 if (tunnelStatus.needsNotificationSettings) {
                                     Button(
                                         onClick = {
                                             ReadReceiptsTunnelController.openNotificationSettings(context)
                                                 .onFailure {
-                                                    showToast(context, "无法打开 WeKit 通知设置")
+                                                    showToast(
+                                                        context,
+                                                        context.localizedChatString(
+                                                            R.string.read_receipts_notification_settings_failed,
+                                                        ),
+                                                    )
                                                 }
                                         },
-                                    ) { Text("打开 WeKit 通知设置") }
+                                    ) {
+                                        Text(
+                                            stringResource(
+                                                R.string.read_receipts_open_notification_settings,
+                                            ),
+                                        )
+                                    }
                                 }
                                 val verifiedUrl = tunnelStatus.publicUrl
                                     ?.takeIf { tunnelStatus.state == ReadReceiptsTunnelState.CONNECTED }
                                 if (verifiedUrl != null) {
-                                    Text("已验证公网地址: $verifiedUrl")
+                                    Text(
+                                        stringResource(
+                                            R.string.read_receipts_verified_public_url,
+                                            verifiedUrl,
+                                        ),
+                                    )
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         modifier = Modifier.fillMaxWidth(),
                                     ) {
                                         Button(onClick = {
                                             copyToClipboard(context, verifiedUrl)
-                                            showToast(context, "公网地址已复制")
-                                        }) { Text("复制地址") }
+                                            showToast(
+                                                context,
+                                                context.localizedChatString(
+                                                    R.string.read_receipts_public_url_copied,
+                                                ),
+                                            )
+                                        }) {
+                                            Text(stringResource(R.string.read_receipts_copy_url))
+                                        }
                                         Button(onClick = {
                                             val intent = Intent(Intent.ACTION_SEND).apply {
                                                 type = "text/plain"
                                                 putExtra(Intent.EXTRA_TEXT, verifiedUrl)
                                             }
-                                            context.startActivity(Intent.createChooser(intent, "分享公网地址"))
-                                        }) { Text("分享地址") }
+                                            context.startActivity(
+                                                Intent.createChooser(
+                                                    intent,
+                                                    context.localizedChatString(
+                                                        R.string.read_receipts_share_public_url,
+                                                    ),
+                                                ),
+                                            )
+                                        }) {
+                                            Text(stringResource(R.string.read_receipts_share_url))
+                                        }
                                     }
                                 }
 
@@ -2902,7 +3201,12 @@ object ReadReceipts : ClickableFeature(),
                                                 builtInPortInput.toIntOrNull()
                                                     ?.takeIf { it in 1..65535 }
                                                     ?: run {
-                                                        showToast(context, "错误: 回环端口必须在 1 到 65535 之间")
+                                                        showToast(
+                                                            context,
+                                                            context.localizedChatString(
+                                                                R.string.read_receipts_invalid_loopback_port,
+                                                            ),
+                                                        )
                                                         return@Button
                                                     }
                                             }
@@ -2910,7 +3214,12 @@ object ReadReceipts : ClickableFeature(),
                                                 tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
                                                 automaticPortInput
                                             ) {
-                                                showToast(context, "错误: Token 模式必须关闭自动端口")
+                                                showToast(
+                                                    context,
+                                                    context.localizedChatString(
+                                                        R.string.read_receipts_token_requires_fixed_port,
+                                                    ),
+                                                )
                                                 return@Button
                                             }
                                             val canonicalHostname = if (
@@ -2918,7 +3227,12 @@ object ReadReceipts : ClickableFeature(),
                                             ) {
                                                 ReadReceiptsTunnelService.canonicalPublicRoot(hostnameInput)
                                                     ?: run {
-                                                        showToast(context, "错误: 请输入根路径 HTTPS 主机名")
+                                                        showToast(
+                                                            context,
+                                                            context.localizedChatString(
+                                                                R.string.read_receipts_invalid_public_hostname,
+                                                            ),
+                                                        )
                                                         return@Button
                                                     }
                                             } else {
@@ -2942,23 +3256,42 @@ object ReadReceipts : ClickableFeature(),
                                                     onCompletedSuccess = {
                                                         tokenInput = ""
                                                         originStatus = originController.snapshot()
-                                                        showToast(context, "隧道启动请求已提交")
+                                                        showToast(
+                                                            context,
+                                                            context.localizedChatString(
+                                                                R.string.read_receipts_tunnel_start_submitted,
+                                                            ),
+                                                        )
                                                     },
                                                     onCompletedFailure = { error ->
                                                         originStatus = originController.snapshot()
                                                         showToast(
                                                             context,
-                                                            "连接失败: ${error.message}",
+                                                            context.localizedChatString(
+                                                                R.string.read_receipts_connection_failed,
+                                                                error.message!!,
+                                                            ),
                                                         )
                                                     },
                                                     onSuperseded = {
                                                         originStatus = originController.snapshot()
-                                                        showToast(context, "连接请求已被新请求取代")
+                                                        showToast(
+                                                            context,
+                                                            context.localizedChatString(
+                                                                R.string.read_receipts_connection_superseded,
+                                                            ),
+                                                        )
                                                     },
                                                 )
                                             }
                                             },
-                                        ) { Text("验证并连接") }
+                                        ) {
+                                            Text(
+                                                stringResource(
+                                                    R.string.read_receipts_verify_and_connect,
+                                                ),
+                                            )
+                                        }
                                     } else {
                                         Button(
                                             enabled = tunnelStatus.state in setOf(
@@ -2971,7 +3304,9 @@ object ReadReceipts : ClickableFeature(),
                                                     authoritativeBrowserConfiguration(configuration())
                                                         ?: run {
                                                             browserActionError =
-                                                                "尚未取得已保存 Browser Tunnel 的权威配置，请稍后重试"
+                                                                ReadReceiptsUiText.Resource(
+                                                                    R.string.read_receipts_authoritative_config_pending,
+                                                                )
                                                             return@Button
                                                         }
                                                 browserActionError = null
@@ -2988,29 +3323,45 @@ object ReadReceipts : ClickableFeature(),
                                                                 originController.snapshot()
                                                             showToast(
                                                                 context,
-                                                                "已使用保存的 Browser Tunnel 发起重连",
+                                                                context.localizedChatString(
+                                                                    R.string.read_receipts_browser_reconnect_submitted,
+                                                                ),
                                                             )
                                                         },
                                                         onCompletedFailure = { error ->
                                                             originStatus =
                                                                 originController.snapshot()
-                                                            browserActionError = error.message
-                                                                ?: "Browser Tunnel 重连失败"
+                                                            browserActionError = error.message?.let(
+                                                                ReadReceiptsUiText::Raw,
+                                                            ) ?: ReadReceiptsUiText.Resource(
+                                                                R.string.read_receipts_browser_reconnect_failed,
+                                                            )
                                                             showToast(
                                                                 context,
-                                                                "重连失败: $browserActionError",
+                                                                context.localizedChatString(
+                                                                    R.string.read_receipts_reconnect_failed,
+                                                                    browserActionError!!.resolve(context),
+                                                                ),
                                                             )
                                                         },
                                                         onSuperseded = {
                                                             originStatus =
                                                                 originController.snapshot()
                                                             browserActionError =
-                                                                "重连请求已被新请求取代"
+                                                                ReadReceiptsUiText.Resource(
+                                                                    R.string.read_receipts_reconnect_superseded,
+                                                                )
                                                         },
                                                     )
                                                 }
                                             },
-                                        ) { Text("使用已保存配置重连") }
+                                        ) {
+                                            Text(
+                                                stringResource(
+                                                    R.string.read_receipts_reconnect_saved,
+                                                ),
+                                            )
+                                        }
                                     }
                                     Button(
                                         enabled = !connectionTransactionActive && (
@@ -3031,7 +3382,9 @@ object ReadReceipts : ClickableFeature(),
                                                             context,
                                                             terminal.result.fold(
                                                                 onSuccess = {
-                                                                    "隧道与内置服务器已停止"
+                                                                    context.localizedChatString(
+                                                                        R.string.read_receipts_stack_stopped,
+                                                                    )
                                                                 },
                                                                 onFailure = { error ->
                                                                     error.message!!
@@ -3042,12 +3395,17 @@ object ReadReceipts : ClickableFeature(),
 
                                                     OriginRequestTerminal.Superseded -> {
                                                         originStatus = originController.snapshot()
-                                                        showToast(context, "断开请求已被新请求取代")
+                                                        showToast(
+                                                            context,
+                                                            context.localizedChatString(
+                                                                R.string.read_receipts_disconnect_superseded,
+                                                            ),
+                                                        )
                                                     }
                                                 }
                                             }
                                         },
-                                    ) { Text("断开") }
+                                    ) { Text(stringResource(R.string.read_receipts_disconnect)) }
                                 }
                             }
                         }
@@ -3055,13 +3413,17 @@ object ReadReceipts : ClickableFeature(),
                         TextField(
                             value = prefixInput,
                             onValueChange = { prefixInput = it },
-                            label = { Text("触发前缀") },
+                            label = {
+                                Text(stringResource(R.string.chat_read_receipts_prefix))
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                         TextField(
                             value = intervalInput,
                             onValueChange = { intervalInput = it.filter { ch -> ch.isDigit() } },
-                            label = { Text("轮询间隔 (秒)") },
+                            label = {
+                                Text(stringResource(R.string.chat_read_receipts_poll_interval))
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -3075,7 +3437,9 @@ object ReadReceipts : ClickableFeature(),
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
                     Button(
                         enabled = !connectionTransactionActive,
@@ -3084,7 +3448,12 @@ object ReadReceipts : ClickableFeature(),
                             modeInput == ReadReceiptsServerMode.THIRD_PARTY
                         ) {
                             normalizedHttpsEndpoint(serverInput) ?: run {
-                                showToast(context, "错误: 第三方服务器必须是有效的 HTTPS 地址")
+                                showToast(
+                                    context,
+                                    context.localizedChatString(
+                                        R.string.read_receipts_invalid_third_party_https,
+                                    ),
+                                )
                                 return@Button
                             }
                         } else {
@@ -3093,7 +3462,12 @@ object ReadReceipts : ClickableFeature(),
 
                         val interval = intervalInput.toIntOrNull()
                         if (interval == null || interval <= 0) {
-                            showToast(context, "错误: 轮询间隔格式不正确!")
+                            showToast(
+                                context,
+                                context.localizedChatString(
+                                    R.string.chat_read_receipts_invalid_interval,
+                                ),
+                            )
                             return@Button
                         }
 
@@ -3103,7 +3477,12 @@ object ReadReceipts : ClickableFeature(),
                             initialConfiguration.builtInPort
                         } else {
                             builtInPortInput.toIntOrNull()?.takeIf { it in 1..65535 } ?: run {
-                                showToast(context, "错误: 回环端口必须在 1 到 65535 之间")
+                                showToast(
+                                    context,
+                                    context.localizedChatString(
+                                        R.string.read_receipts_invalid_loopback_port,
+                                    ),
+                                )
                                 return@Button
                             }
                         }
@@ -3115,7 +3494,12 @@ object ReadReceipts : ClickableFeature(),
                             ) &&
                             automaticPortInput
                         ) {
-                            showToast(context, "错误: 当前隧道模式必须使用固定回环端口")
+                            showToast(
+                                context,
+                                context.localizedChatString(
+                                    R.string.read_receipts_tunnel_mode_requires_fixed_port,
+                                ),
+                            )
                             return@Button
                         }
                         var normalizedHostname = if (
@@ -3133,7 +3517,12 @@ object ReadReceipts : ClickableFeature(),
                                 hostnameInput
                             }
                             ReadReceiptsTunnelService.canonicalPublicRoot(input) ?: run {
-                                showToast(context, "错误: 请输入根路径 HTTPS 主机名")
+                                showToast(
+                                    context,
+                                    context.localizedChatString(
+                                        R.string.read_receipts_invalid_public_hostname,
+                                    ),
+                                )
                                 return@Button
                             }
                         } else {
@@ -3157,7 +3546,12 @@ object ReadReceipts : ClickableFeature(),
                                 expectedHostname = normalizedHostname,
                                 expectedPort = configuredPort,
                             ) ?: run {
-                                showToast(context, "错误: 请先选择并验证一个 Browser Tunnel")
+                                showToast(
+                                    context,
+                                    context.localizedChatString(
+                                        R.string.read_receipts_select_browser_tunnel_first,
+                                    ),
+                                )
                                 return@Button
                             }
                         } else {
@@ -3186,7 +3580,9 @@ object ReadReceipts : ClickableFeature(),
                             if (prefixInput.isEmpty()) {
                                 showToast(
                                     context,
-                                    "警告: 「触发前缀」为空, 所有文本消息将启用已读追踪!",
+                                    context.localizedChatString(
+                                        R.string.chat_read_receipts_empty_prefix_warning,
+                                    ),
                                 )
                             }
                             onDismiss()
@@ -3202,11 +3598,22 @@ object ReadReceipts : ClickableFeature(),
                                     onCompletedSuccess = { finishSuccessfulSave() },
                                     onCompletedFailure = { error ->
                                         originStatus = originController.snapshot()
-                                        showToast(context, "保存失败: ${error.message}")
+                                        showToast(
+                                            context,
+                                            context.localizedChatString(
+                                                R.string.read_receipts_save_failed,
+                                                error.message!!,
+                                            ),
+                                        )
                                     },
                                     onSuperseded = {
                                         originStatus = originController.snapshot()
-                                        showToast(context, "保存请求已被新请求取代")
+                                        showToast(
+                                            context,
+                                            context.localizedChatString(
+                                                R.string.read_receipts_save_superseded,
+                                            ),
+                                        )
                                     },
                                 )
                             }
@@ -3244,7 +3651,7 @@ object ReadReceipts : ClickableFeature(),
                             }
                         }
                         },
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
     }
