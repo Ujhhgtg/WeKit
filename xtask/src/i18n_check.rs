@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use regex::Regex;
 use roxmltree::{Document, Node};
 use std::{
@@ -37,7 +37,10 @@ fn parse_catalog(xml: &str) -> Result<Catalog> {
         bail!("malformed XML: root element must be <resources>");
     }
 
-    let placeholder_regex = Regex::new(r"%(\d+)\$([sdf])").expect("valid placeholder regex");
+    let placeholder_regex = Regex::new(
+        r"%(?P<index>[1-9]\d*)\$(?:[-#+ 0,(<]*)(?:\d+)?(?:\.\d+)?(?P<date>[tT])?(?P<conversion>[a-zA-Z])",
+    )
+    .expect("valid placeholder regex");
     let mut entries = BTreeMap::new();
     for node in root.children().filter(Node::is_element) {
         let kind = match node.tag_name().name() {
@@ -131,44 +134,53 @@ fn parse_catalog(xml: &str) -> Result<Catalog> {
     Ok(Catalog { entries })
 }
 
-fn validate_pair(source_xml: &str, target_xml: &str, _locale: &str) -> Result<()> {
-    let source = parse_catalog(source_xml)?;
-    let target = parse_catalog(target_xml)?;
+fn validate_pair(source_xml: &str, target_xml: &str, locale: &str) -> Result<()> {
+    let source = parse_catalog(source_xml).map_err(|error| anyhow!("English source: {error}"))?;
+    let target = parse_catalog(target_xml).map_err(|error| anyhow!("{locale}: {error}"))?;
+    let mut errors = Vec::new();
 
     for entry in source.entries.values() {
         if !entry.has_default_text {
-            bail!("missing English default: {}", entry.name);
+            errors.push(format!("missing English default: {}", entry.name));
         }
     }
 
     for (name, target_entry) in &target.entries {
         let Some(source_entry) = source.entries.get(name) else {
-            bail!("target-only resource: {name}");
+            errors.push(format!("target-only resource: {name}"));
+            continue;
         };
         if !source_entry.translatable {
-            bail!("non-translatable resource in target: {name}");
+            errors.push(format!("non-translatable resource in target: {name}"));
+            continue;
         }
         if source_entry.kind != target_entry.kind {
-            bail!("resource kind mismatch: {name}");
+            errors.push(format!("resource kind mismatch: {name}"));
+            continue;
         }
 
         match source_entry.kind {
-            ResourceKind::Plurals => validate_plural_entry(source_entry, target_entry)?,
+            ResourceKind::Plurals => {
+                if let Err(error) = validate_plural_entry(source_entry, target_entry) {
+                    errors.push(error.to_string());
+                }
+            }
             ResourceKind::String | ResourceKind::StringArray => {
                 if source_entry.placeholders != target_entry.placeholders {
-                    bail!("placeholder mismatch: {name}");
+                    errors.push(format!("placeholder mismatch: {name}"));
                 }
                 if source_entry.markup_signature != target_entry.markup_signature {
-                    bail!("markup mismatch: {name}");
+                    errors.push(format!("markup mismatch: {name}"));
                 }
             }
         }
     }
-    Ok(())
+    fail_if_errors(locale, errors)
 }
 
 pub fn check_repository(root: &Path) -> Result<()> {
     let res = root.join("app/src/main/res");
+    let mut errors = Vec::new();
     for entry in fs::read_dir(&res).with_context(|| format!("read {}", res.display()))? {
         let entry = entry?;
         if !entry.file_type()?.is_dir() {
@@ -176,21 +188,49 @@ pub fn check_repository(root: &Path) -> Result<()> {
         }
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if name.starts_with("values-zh-") && name != "values-zh-rCN" && name != "values-zh-rTW" {
-            bail!("unexpected Chinese resource directory: {name}");
+        if (name == "values-zh" || name.starts_with("values-zh-"))
+            && name != "values-zh-rCN"
+            && name != "values-zh-rTW"
+        {
+            errors.push(format!("unexpected Chinese resource directory: {name}"));
         }
     }
 
     let source_path = res.join("values/strings.xml");
-    let simplified_path = res.join("values-zh-rCN/strings.xml");
-    let traditional_path = res.join("values-zh-rTW/strings.xml");
-    let source = read_catalog(&source_path)?;
-    let simplified = read_catalog(&simplified_path)?;
-    let traditional = read_catalog(&traditional_path)?;
-    validate_pair(&source, &simplified, "zh-rCN")?;
-    validate_pair(&source, &traditional, "zh-rTW")?;
+    let source = match read_catalog(&source_path) {
+        Ok(source) => Some(source),
+        Err(error) => {
+            errors.push(error.to_string());
+            None
+        }
+    };
+    for (locale, relative_path) in [
+        ("zh-rCN", "values-zh-rCN/strings.xml"),
+        ("zh-rTW", "values-zh-rTW/strings.xml"),
+    ] {
+        let target_path = res.join(relative_path);
+        match read_catalog(&target_path) {
+            Ok(target) => {
+                if let Some(source) = &source
+                    && let Err(error) = validate_pair(source, &target, locale)
+                {
+                    errors.push(format!("{} [{locale}]: {error}", target_path.display()));
+                }
+            }
+            Err(error) => errors.push(format!("{} [{locale}]: {error}", target_path.display())),
+        }
+    }
+    fail_if_errors("repository", errors)?;
     println!("i18n catalogs are valid");
     Ok(())
+}
+
+fn fail_if_errors(context: &str, errors: Vec<String>) -> Result<()> {
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        bail!("{context} validation failed:\n{}", errors.join("\n"))
+    }
 }
 
 fn read_catalog(path: &Path) -> Result<String> {
@@ -246,11 +286,17 @@ fn collect_value_metadata(
     let mut tokens = placeholder_regex
         .captures_iter(&text)
         .map(|captures| {
-            captures
-                .get(0)
-                .expect("whole placeholder match")
+            let index = captures.name("index").expect("placeholder index").as_str();
+            let date = captures
+                .name("date")
+                .map(|value| value.as_str().to_ascii_lowercase())
+                .unwrap_or_default();
+            let conversion = captures
+                .name("conversion")
+                .expect("placeholder conversion")
                 .as_str()
-                .to_owned()
+                .to_ascii_lowercase();
+            format!("%{index}${date}{conversion}")
         })
         .collect::<Vec<_>>();
     tokens.sort();
@@ -408,6 +454,23 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_indexed_formatter_flags_width_and_precision() {
+        let source = r#"<resources><string name="ratio">100%% — %1$.2f</string></resources>"#;
+        let compatible = r#"<resources><string name="ratio">%1$.3f — 100%%</string></resources>"#;
+        validate_pair(source, compatible, "zh-rCN").unwrap();
+
+        for changed in [
+            r#"<resources><string name="ratio">%2$.2f</string></resources>"#,
+            r#"<resources><string name="ratio">%1$.2s</string></resources>"#,
+        ] {
+            let error = validate_pair(source, changed, "zh-rCN")
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("placeholder mismatch: ratio"), "{error}");
+        }
+    }
+
+    #[test]
     fn compares_ordered_markup_attributes() {
         let source = r#"<resources><string name="link"><a href="one" style="bold">Open</a></string></resources>"#;
         let compatible = r#"<resources><string name="link"><a href="one" style="bold">打开</a></string></resources>"#;
@@ -465,6 +528,58 @@ mod tests {
     }
 
     #[test]
+    fn aggregates_pair_and_repository_errors_with_locale_and_path() {
+        let source = r#"<resources>
+            <string name="hello">Hello</string>
+            <string name="wire" translatable="false">stable</string>
+        </resources>"#;
+        let target = r#"<resources>
+            <string name="extra">额外</string>
+            <string name="wire">变化</string>
+        </resources>"#;
+        let error = validate_pair(source, target, "zh-rCN")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("zh-rCN"), "{error}");
+        assert!(error.contains("target-only resource: extra"), "{error}");
+        assert!(
+            error.contains("non-translatable resource in target: wire"),
+            "{error}"
+        );
+
+        let root = temporary_root("aggregate-errors");
+        write_catalog(&root, "values", source);
+        write_catalog(&root, "values-zh-rCN", target);
+        write_catalog(
+            &root,
+            "values-zh-rTW",
+            r#"<resources><string name="hello">你好</resources>"#,
+        );
+        let error = check_repository(&root).unwrap_err().to_string();
+        assert!(error.contains("values-zh-rCN/strings.xml"), "{error}");
+        assert!(error.contains("zh-rCN"), "{error}");
+        assert!(error.contains("target-only resource: extra"), "{error}");
+        assert!(error.contains("values-zh-rTW/strings.xml"), "{error}");
+        assert!(error.contains("zh-rTW"), "{error}");
+        assert!(error.contains("malformed XML"), "{error}");
+
+        write_catalog(&root, "values-zh-rCN", r#"<resources/>"#);
+        write_catalog(
+            &root,
+            "values-zh-rTW",
+            r#"<resources>
+                <string name="hello">你好</string>
+                <string name="hello">嗨</string>
+            </resources>"#,
+        );
+        let error = check_repository(&root).unwrap_err().to_string();
+        assert!(error.contains("values-zh-rTW/strings.xml"), "{error}");
+        assert!(error.contains("zh-rTW"), "{error}");
+        assert!(error.contains("duplicate resource: hello"), "{error}");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn repository_check_reads_exact_catalogs_and_rejects_unexpected_chinese_directories() {
         let root = temporary_root("repository-check");
         write_catalog(
@@ -484,6 +599,25 @@ mod tests {
         let error = check_repository(&root).unwrap_err().to_string();
         assert!(
             error.contains("unexpected Chinese resource directory: values-zh-rHK"),
+            "{error}"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_unqualified_values_zh_directory() {
+        let root = temporary_root("unqualified-values-zh");
+        write_catalog(
+            &root,
+            "values",
+            r#"<resources><string name="hello">Hello</string></resources>"#,
+        );
+        write_catalog(&root, "values-zh-rCN", r#"<resources/>"#);
+        write_catalog(&root, "values-zh-rTW", r#"<resources/>"#);
+        write_catalog(&root, "values-zh", r#"<resources/>"#);
+        let error = check_repository(&root).unwrap_err().to_string();
+        assert!(
+            error.contains("unexpected Chinese resource directory: values-zh"),
             "{error}"
         );
         fs::remove_dir_all(root).unwrap();
