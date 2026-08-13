@@ -1941,15 +1941,13 @@ object ReadReceipts : ClickableFeature(),
         if (receiptView.view.getTag(READ_RECEIPTS_MESSAGE_ID_TAG) == message.id &&
             receiptView.view.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) == generation
         ) {
-            clearReceiptState(receiptView.view)
             MessageTimeEnhancements.renderMessageTime(
                 message,
                 receiptView.view,
                 forceVisible = true,
                 readReceiptCount = null,
             )
-            receiptView.view.setTag(READ_RECEIPTS_COUNT_TAG, null)
-            receiptView.view.setTag(READ_RECEIPTS_NATIVE_TEXT_TAG, null)
+            clearReceiptState(receiptView.view)
         }
         val empty = synchronized(activeViews) { activeViews.isEmpty() }
         if (empty) {
@@ -1981,6 +1979,8 @@ object ReadReceipts : ClickableFeature(),
     @SuppressLint("SetTextI18n")
     private fun clearReceiptState(timeTV: TextView) {
         timeTV.setTag(READ_RECEIPTS_MESSAGE_ID_TAG, null)
+        timeTV.setTag(READ_RECEIPTS_COUNT_TAG, null)
+        timeTV.setTag(READ_RECEIPTS_NATIVE_TEXT_TAG, null)
     }
 
     private fun stampAndRender(
@@ -1990,9 +1990,7 @@ object ReadReceipts : ClickableFeature(),
     ) {
         val count = counts[record.key()]
         timeTV.setTag(READ_RECEIPTS_MESSAGE_ID_TAG, message.id)
-        if (!MessageTimeEnhancements.isActive &&
-            timeTV.getTag(READ_RECEIPTS_NATIVE_TEXT_TAG) == null
-        ) {
+        if (timeTV.getTag(READ_RECEIPTS_NATIVE_TEXT_TAG) == null) {
             timeTV.setTag(READ_RECEIPTS_NATIVE_TEXT_TAG, timeTV.text.toString())
         }
         MessageTimeEnhancements.renderMessageTime(
