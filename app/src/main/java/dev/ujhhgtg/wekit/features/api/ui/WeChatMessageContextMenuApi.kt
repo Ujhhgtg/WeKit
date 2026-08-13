@@ -93,15 +93,18 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     // id of the single merged entry shown when MergeChatMessageContextMenuItems is enabled
     private const val MERGED_MENU_ITEM_ID = 777000
 
-    private val menuItems = mutableMapOf<String, List<MenuItem>>()
+    private val providers = mutableMapOf<String, IMenuItemsProvider>()
 
     fun addProvider(provider: IMenuItemsProvider) {
-        menuItems[provider.javaClass.name] = provider.getMenuItems()
+        providers[provider.javaClass.name] = provider
     }
 
     fun removeProvider(provider: IMenuItemsProvider) {
-        menuItems.remove(provider.javaClass.name)
+        providers.remove(provider.javaClass.name)
     }
+
+    private fun currentMenuItems(): List<MenuItem> =
+        providers.values.flatMap(IMenuItemsProvider::getMenuItems)
 
     private val methodCreateMenu by dexMethod {
         searchPackages("com.tencent.mm.ui.chatting.viewitems")
@@ -265,7 +268,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         returnType = android.view.MenuItem::class
                     }
 
-                val applicableItems = menuItems.values.flatten()
+                val applicableItems = currentMenuItems()
                     .filter { it.isSupported(msgInfoWrapper) }
 
                 if (MergeChatMessageContextMenuItems.isEnabled) {
@@ -310,14 +313,14 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
             val context = getChattingContextFromOnSelectHandler(thisObject!!)
             try {
                 if (menuItem.itemId == MERGED_MENU_ITEM_ID) {
-                    val applicableItems = menuItems.values.flatten()
+                    val applicableItems = currentMenuItems()
                         .filter { it.isSupported(msgInfoWrapper) }
                     showMergedMenuDialog(curView, context, msgInfoWrapper, applicableItems)
                     result = null
                     return@hookBefore
                 }
 
-                for (item in menuItems.values.flatten()) {
+                for (item in currentMenuItems()) {
                     if (item.id == menuItem.itemId) {
                         item.onClick(curView, context, msgInfoWrapper)
                         result = null
@@ -338,7 +341,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
 
             try {
                 // nothing to offer if no provider supports multi-select
-                val hasMultiSelectItem = menuItems.values.flatten()
+                val hasMultiSelectItem = currentMenuItems()
                     .any { it.multiSelect !is MultiSelectSupport.Unsupported }
                 if (!hasMultiSelectItem) return@hookBefore
 
@@ -443,7 +446,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         chattingContext: ChattingContext,
         msgInfos: List<MessageInfo>
     ) {
-        val allItems = menuItems.values.flatten()
+        val allItems = currentMenuItems()
 
         val adaptedRows = allItems.mapNotNull { item ->
             val support = item.multiSelect as? MultiSelectSupport.Adapted ?: return@mapNotNull null
