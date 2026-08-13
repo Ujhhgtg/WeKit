@@ -114,7 +114,8 @@ WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
 
 ```kotlin
 val localizedContext = LocalizedContextFactory.create(
-    baseContext = context,
+    base = context,
+    locale = WeKitLocaleController.resolvedLocale,
     mode = LocaleResourceMode.InjectedHost,
 )
 showToast(localizedContext.getString(R.string.example_saved))
