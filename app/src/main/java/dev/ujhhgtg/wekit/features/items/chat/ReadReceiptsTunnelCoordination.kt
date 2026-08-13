@@ -468,6 +468,10 @@ internal fun decodeReadReceiptsTunnelStatus(
                 errorCode == ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED
             ),
     )
+    require(
+        errorCode != ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED ||
+            state == ReadReceiptsTunnelState.NEEDS_USER_ACTION && needsNotificationSettings,
+    )
     DecodedReadReceiptsTunnelStatus(
         generation,
         ReadReceiptsTunnelStatus(
@@ -946,76 +950,96 @@ internal enum class ServiceAuthFailure {
     SESSION_BROKEN,
 }
 
-internal enum class ServiceAuthFailureSource(
-    val operationKind: AuthOperationKind<*>,
+internal data class ServiceAuthFailureClassification(
     val failure: ServiceAuthFailure,
     val errorCode: ReadReceiptsTunnelErrorCode,
+)
+
+internal sealed class ServiceAuthFailureEvent<T>(
+    val kind: AuthOperationKind<T>,
 ) {
-    BEGIN_CLEANUP_FAILED(
-        AuthOperationKind.BEGIN,
+    data object BeginCleanupFailed :
+        ServiceAuthFailureEvent<CloudflareLoginState>(AuthOperationKind.BEGIN)
+
+    data object BeginRejected :
+        ServiceAuthFailureEvent<CloudflareLoginState>(AuthOperationKind.BEGIN)
+
+    data object ListTimeout :
+        ServiceAuthFailureEvent<List<ExistingTunnel>>(AuthOperationKind.LIST)
+
+    data object ListSessionLost :
+        ServiceAuthFailureEvent<List<ExistingTunnel>>(AuthOperationKind.LIST)
+
+    data object ListRejected :
+        ServiceAuthFailureEvent<List<ExistingTunnel>>(AuthOperationKind.LIST)
+
+    data object ListCancelled :
+        ServiceAuthFailureEvent<List<ExistingTunnel>>(AuthOperationKind.LIST)
+
+    data object SelectTimeout : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
+
+    data object SelectSessionLost : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
+
+    data object SelectRejected : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
+
+    data object SelectCredentialSaveFailed :
+        ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
+
+    data object SelectHealthCheckFailed :
+        ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
+
+    data object SelectCancelled : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
+
+    data object SelectUnexpected : ServiceAuthFailureEvent<Unit>(AuthOperationKind.SELECT)
+}
+
+internal fun classifyServiceAuthFailure(
+    event: ServiceAuthFailureEvent<*>,
+): ServiceAuthFailureClassification = when (event) {
+    ServiceAuthFailureEvent.BeginCleanupFailed -> ServiceAuthFailureClassification(
         ServiceAuthFailure.SESSION_BROKEN,
         ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
-    ),
-    BEGIN_REJECTED(
-        AuthOperationKind.BEGIN,
+    )
+    ServiceAuthFailureEvent.BeginRejected -> ServiceAuthFailureClassification(
         ServiceAuthFailure.SESSION_BROKEN,
         ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
-    ),
-    LIST_TIMEOUT(
-        AuthOperationKind.LIST,
+    )
+    ServiceAuthFailureEvent.ListTimeout,
+    ServiceAuthFailureEvent.SelectTimeout,
+    -> ServiceAuthFailureClassification(
         ServiceAuthFailure.TIMEOUT,
         ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
-    ),
-    LIST_SESSION_LOST(
-        AuthOperationKind.LIST,
+    )
+    ServiceAuthFailureEvent.ListSessionLost,
+    ServiceAuthFailureEvent.SelectSessionLost,
+    -> ServiceAuthFailureClassification(
         ServiceAuthFailure.SESSION_BROKEN,
         ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
-    ),
-    LIST_REJECTED(
-        AuthOperationKind.LIST,
+    )
+    ServiceAuthFailureEvent.ListRejected,
+    ServiceAuthFailureEvent.SelectRejected,
+    -> ServiceAuthFailureClassification(
         ServiceAuthFailure.API_RETURNED,
         ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
-    ),
-    LIST_CANCELLED(
-        AuthOperationKind.LIST,
+    )
+    ServiceAuthFailureEvent.ListCancelled,
+    ServiceAuthFailureEvent.SelectCancelled,
+    -> ServiceAuthFailureClassification(
         ServiceAuthFailure.COROUTINE_CANCELLED,
         ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
-    ),
-    SELECT_TIMEOUT(
-        AuthOperationKind.SELECT,
-        ServiceAuthFailure.TIMEOUT,
-        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
-    ),
-    SELECT_SESSION_LOST(
-        AuthOperationKind.SELECT,
-        ServiceAuthFailure.SESSION_BROKEN,
-        ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
-    ),
-    SELECT_REJECTED(
-        AuthOperationKind.SELECT,
-        ServiceAuthFailure.API_RETURNED,
-        ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
-    ),
-    SELECT_CREDENTIAL_SAVE_FAILED(
-        AuthOperationKind.SELECT,
+    )
+    ServiceAuthFailureEvent.SelectCredentialSaveFailed -> ServiceAuthFailureClassification(
         ServiceAuthFailure.STORAGE,
         ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED,
-    ),
-    SELECT_HEALTH_CHECK_FAILED(
-        AuthOperationKind.SELECT,
+    )
+    ServiceAuthFailureEvent.SelectHealthCheckFailed -> ServiceAuthFailureClassification(
         ServiceAuthFailure.API_RETURNED,
         ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED,
-    ),
-    SELECT_CANCELLED(
-        AuthOperationKind.SELECT,
-        ServiceAuthFailure.COROUTINE_CANCELLED,
-        ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
-    ),
-    SELECT_UNEXPECTED(
-        AuthOperationKind.SELECT,
+    )
+    ServiceAuthFailureEvent.SelectUnexpected -> ServiceAuthFailureClassification(
         ServiceAuthFailure.API_RETURNED,
         ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
-    ),
+    )
 }
 
 internal fun serviceAuthAdmissionTerminal(
@@ -1241,16 +1265,15 @@ internal class ServiceAuthCoordinator {
 
     fun <T> planFailure(
         key: AuthOperationKey,
-        kind: AuthOperationKind<T>,
-        source: ServiceAuthFailureSource,
+        event: ServiceAuthFailureEvent<T>,
     ): ServiceAuthFailurePlan<T>? {
-        require(source.operationKind === kind)
+        val classification = classifyServiceAuthFailure(event)
         return planFailure(
             key,
-            kind,
-            source.failure,
-            source.errorCode.name,
-            source.errorCode,
+            event.kind,
+            classification.failure,
+            classification.errorCode.name,
+            classification.errorCode,
         )
     }
 

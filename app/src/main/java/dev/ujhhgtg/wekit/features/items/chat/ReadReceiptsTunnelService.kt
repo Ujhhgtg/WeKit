@@ -424,7 +424,7 @@ class ReadReceiptsTunnelService : Service() {
                 withContext(Dispatchers.Main.immediate) {
                     failBeginAfterBarrier(
                         envelope,
-                        ServiceAuthFailureSource.BEGIN_CLEANUP_FAILED,
+                        ServiceAuthFailureEvent.BeginCleanupFailed,
                     )
                 }
                 return@launch
@@ -444,8 +444,7 @@ class ReadReceiptsTunnelService : Service() {
                     checkNotNull(
                         authCoordinator.planFailure(
                             envelope.key,
-                            AuthOperationKind.BEGIN,
-                            ServiceAuthFailureSource.BEGIN_REJECTED,
+                            ServiceAuthFailureEvent.BeginRejected,
                         ),
                     )
                 } ?: return@launch
@@ -462,7 +461,7 @@ class ReadReceiptsTunnelService : Service() {
                 }
                 val native = result.getOrNull()
                 if (native == null) {
-                    failBeginAfterBarrier(envelope, ServiceAuthFailureSource.BEGIN_REJECTED)
+                    failBeginAfterBarrier(envelope, ServiceAuthFailureEvent.BeginRejected)
                     return@withContext
                 }
                 val semanticLoginState = native.loginState.forServiceTransport()
@@ -490,13 +489,12 @@ class ReadReceiptsTunnelService : Service() {
 
     private fun failBeginAfterBarrier(
         envelope: ServiceAuthEnvelope,
-        source: ServiceAuthFailureSource,
+        event: ServiceAuthFailureEvent<CloudflareLoginState>,
     ) {
         val plan = checkNotNull(
             authCoordinator.planFailure(
                 envelope.key,
-                AuthOperationKind.BEGIN,
-                source,
+                event,
             ),
         )
         finishBrokenBegin(plan)
@@ -643,8 +641,7 @@ class ReadReceiptsTunnelService : Service() {
             val plan = withContext(Dispatchers.Main.immediate) {
                 authCoordinator.planFailure(
                     envelope.key,
-                    AuthOperationKind.LIST,
-                    ServiceAuthFailureSource.LIST_TIMEOUT,
+                    ServiceAuthFailureEvent.ListTimeout,
                 )
             } ?: return@launch
             val jobsToDrain = withContext(Dispatchers.Main.immediate) {
@@ -681,8 +678,7 @@ class ReadReceiptsTunnelService : Service() {
             val plan = checkNotNull(
                 authCoordinator.planFailure(
                     envelope.key,
-                    AuthOperationKind.LIST,
-                    ServiceAuthFailureSource.LIST_SESSION_LOST,
+                    ServiceAuthFailureEvent.ListSessionLost,
                 ),
             )
             scheduleBrokenListTeardown(plan)
@@ -702,8 +698,7 @@ class ReadReceiptsTunnelService : Service() {
             val plan = checkNotNull(
                 authCoordinator.planFailure(
                     envelope.key,
-                    AuthOperationKind.LIST,
-                    ServiceAuthFailureSource.LIST_REJECTED,
+                    ServiceAuthFailureEvent.ListRejected,
                 ),
             )
             check(authCoordinator.finishFailure(plan))
@@ -819,8 +814,7 @@ class ReadReceiptsTunnelService : Service() {
             val plan = withContext(Dispatchers.Main.immediate) {
                 authCoordinator.planFailure(
                     envelope.key,
-                    AuthOperationKind.SELECT,
-                    ServiceAuthFailureSource.SELECT_TIMEOUT,
+                    ServiceAuthFailureEvent.SelectTimeout,
                 )
             } ?: return@launch
             withContext(Dispatchers.Main.immediate) {
@@ -901,8 +895,7 @@ class ReadReceiptsTunnelService : Service() {
             val plan = checkNotNull(
                 authCoordinator.planFailure(
                     envelope.key,
-                    AuthOperationKind.SELECT,
-                    ServiceAuthFailureSource.SELECT_SESSION_LOST,
+                    ServiceAuthFailureEvent.SelectSessionLost,
                 ),
             )
             scheduleBrokenAuthFailure(plan)
@@ -998,8 +991,7 @@ class ReadReceiptsTunnelService : Service() {
                 val plan = checkNotNull(
                     authCoordinator.planFailure(
                         envelope.key,
-                        AuthOperationKind.SELECT,
-                        outcome.source,
+                        outcome.event,
                     ),
                 )
                 scheduleSelectCandidateFailure(envelope, plan)
@@ -1015,8 +1007,7 @@ class ReadReceiptsTunnelService : Service() {
         val plan = checkNotNull(
             authCoordinator.planFailure(
                 envelope.key,
-                AuthOperationKind.SELECT,
-                ServiceAuthFailureSource.SELECT_REJECTED,
+                ServiceAuthFailureEvent.SelectRejected,
             ),
         )
         if (authOperationJobs[envelope.key] == null) {
@@ -1062,8 +1053,7 @@ class ReadReceiptsTunnelService : Service() {
         val plan = withContext(Dispatchers.Main.immediate) {
             authCoordinator.planFailure(
                 envelope.key,
-                AuthOperationKind.SELECT,
-                ServiceAuthFailureSource.SELECT_CANCELLED,
+                ServiceAuthFailureEvent.SelectCancelled,
             )
         } ?: return
         withContext(Dispatchers.Main.immediate) {
@@ -1667,7 +1657,7 @@ class ReadReceiptsTunnelService : Service() {
             )
             firstVerification?.complete(
                 SelectCandidateOutcome.Failed(
-                    ServiceAuthFailureSource.SELECT_HEALTH_CHECK_FAILED,
+                    ServiceAuthFailureEvent.SelectHealthCheckFailed,
                 ),
             )
             return
@@ -1704,7 +1694,7 @@ class ReadReceiptsTunnelService : Service() {
                     )
                     firstVerification?.complete(
                         SelectCandidateOutcome.Failed(
-                            ServiceAuthFailureSource.SELECT_REJECTED,
+                            ServiceAuthFailureEvent.SelectRejected,
                         ),
                     )
                     return
@@ -1731,7 +1721,7 @@ class ReadReceiptsTunnelService : Service() {
                         )
                         firstVerification?.complete(
                             SelectCandidateOutcome.Failed(
-                                ServiceAuthFailureSource.SELECT_REJECTED,
+                                ServiceAuthFailureEvent.SelectRejected,
                             ),
                         )
                         return
@@ -1778,7 +1768,7 @@ class ReadReceiptsTunnelService : Service() {
                 )
                 firstVerification?.complete(
                     SelectCandidateOutcome.Failed(
-                        ServiceAuthFailureSource.SELECT_REJECTED,
+                        ServiceAuthFailureEvent.SelectRejected,
                     ),
                 )
                 return
@@ -1880,7 +1870,7 @@ class ReadReceiptsTunnelService : Service() {
                                     }
                                     firstVerification?.complete(
                                         SelectCandidateOutcome.Failed(
-                                            ServiceAuthFailureSource.SELECT_CREDENTIAL_SAVE_FAILED,
+                                            ServiceAuthFailureEvent.SelectCredentialSaveFailed,
                                         ),
                                     )
                                     return
@@ -1967,7 +1957,7 @@ class ReadReceiptsTunnelService : Service() {
                 publishFailure(request.generation, checkNotNull(terminalErrorCode))
                 firstVerification?.complete(
                     SelectCandidateOutcome.Failed(
-                        ServiceAuthFailureSource.SELECT_HEALTH_CHECK_FAILED,
+                        ServiceAuthFailureEvent.SelectHealthCheckFailed,
                     ),
                 )
                 return
@@ -1981,7 +1971,7 @@ class ReadReceiptsTunnelService : Service() {
                 )
                 firstVerification?.complete(
                     SelectCandidateOutcome.Failed(
-                        selectFailureSource(
+                        selectFailureEvent(
                             terminalErrorCode ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
                         ),
                     ),
@@ -2454,22 +2444,24 @@ class ReadReceiptsTunnelService : Service() {
 
         data object STALE : SelectCandidateOutcome
 
-        data class Failed(val source: ServiceAuthFailureSource) : SelectCandidateOutcome
+        data class Failed(
+            val event: ServiceAuthFailureEvent<Unit>,
+        ) : SelectCandidateOutcome
     }
 
-    private fun selectFailureSource(
+    private fun selectFailureEvent(
         errorCode: ReadReceiptsTunnelErrorCode,
-    ): ServiceAuthFailureSource = when (errorCode) {
+    ): ServiceAuthFailureEvent<Unit> = when (errorCode) {
         ReadReceiptsTunnelErrorCode.CREDENTIAL_SAVE_FAILED ->
-            ServiceAuthFailureSource.SELECT_CREDENTIAL_SAVE_FAILED
+            ServiceAuthFailureEvent.SelectCredentialSaveFailed
         ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED ->
-            ServiceAuthFailureSource.SELECT_HEALTH_CHECK_FAILED
+            ServiceAuthFailureEvent.SelectHealthCheckFailed
         ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
         ReadReceiptsTunnelErrorCode.TOKEN_INVALID,
-        -> ServiceAuthFailureSource.SELECT_REJECTED
+        -> ServiceAuthFailureEvent.SelectRejected
         ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE ->
-            ServiceAuthFailureSource.SELECT_SESSION_LOST
-        else -> ServiceAuthFailureSource.SELECT_UNEXPECTED
+            ServiceAuthFailureEvent.SelectSessionLost
+        else -> ServiceAuthFailureEvent.SelectUnexpected
     }
 
     private data class StatusListener(

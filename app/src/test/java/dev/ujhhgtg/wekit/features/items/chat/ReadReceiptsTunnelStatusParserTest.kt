@@ -157,6 +157,16 @@ class ReadReceiptsTunnelStatusParserTest {
             errorCode = "VISIBLE_SETTINGS_REQUIRED",
             needsNotificationSettings = true,
         )))
+        assertNull(decodeReadReceiptsTunnelStatus(statusWire(
+            state = "FAILED",
+            errorCode = "NOTIFICATIONS_DISABLED",
+            needsNotificationSettings = false,
+        )))
+        assertNull(decodeReadReceiptsTunnelStatus(statusWire(
+            state = "FAILED",
+            errorCode = "NOTIFICATIONS_DISABLED",
+            needsNotificationSettings = true,
+        )))
         assertEquals(
             ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED,
             decodeReadReceiptsTunnelStatus(statusWire(
