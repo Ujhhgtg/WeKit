@@ -15,6 +15,7 @@ on:
   pull_request:
     branches:
       - master
+      - dev
     paths-ignore:
       - '**/*.md'
       - '**/*.txt'
@@ -92,6 +93,11 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y gcc-multilib
+
+      - name: Validate i18n catalogs
+        run: |
+          cargo test -p xtask i18n_check
+          ./x i18n-check
 
       - name: Build native library
         run: |
