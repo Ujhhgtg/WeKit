@@ -32,6 +32,7 @@ import dev.ujhhgtg.wekit.agent.trigger.TriggerConditionsJson
 import dev.ujhhgtg.wekit.agent.trigger.TriggerScope
 import dev.ujhhgtg.wekit.agent.trigger.TriggerType
 import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
+import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
@@ -42,7 +43,6 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 import java.time.Instant
 import java.util.UUID
 
@@ -249,7 +249,7 @@ private fun TriggerEditorDialog(
     var cooldownSec by remember(existing) { mutableStateOf(((existing?.cooldownMillis ?: 0) / 1000).toString()) }
     var filterOwn by remember(existing) { mutableStateOf(existing?.filterOwnEvents ?: true) }
 
-    WindowDialog(
+    WeKitWindowDialog(
         show = show,
         title = stringResource(if (creating) R.string.agent_add_trigger else R.string.agent_edit_trigger),
         onDismissRequest = onDismiss,

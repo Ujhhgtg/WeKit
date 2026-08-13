@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity
 import dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore
@@ -34,7 +35,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 import java.util.UUID
 
 /** Workspace directory management (§7). Each workspace's name doubles as its on-disk folder. No
@@ -125,7 +125,7 @@ private fun EditWorkspaceDialog(
     // is being edited and [initialName] is blank. Unkeyed state would leave the field empty when the
     // user later taps a workspace to rename it.
     var name by remember(initialName, show) { mutableStateOf(initialName) }
-    WindowDialog(show = show, title = stringResource(R.string.agent_edit_workspace), onDismissRequest = onDismiss) {
+    WeKitWindowDialog(show = show, title = stringResource(R.string.agent_edit_workspace), onDismissRequest = onDismiss) {
         Column {
             TextField(value = name, onValueChange = { name = it }, label = stringResource(R.string.agent_workspace_edit_name_label), useLabelAsPlaceholder = true, singleLine = true)
             Spacer(Modifier.height(16.dp))
@@ -152,7 +152,7 @@ private fun AddWorkspaceDialog(
     onConfirm: (String) -> Unit,
 ) {
     var name by remember(show.value) { mutableStateOf("") }
-    WindowDialog(show = show.value, title = stringResource(R.string.agent_add_workspace), onDismissRequest = { show.value = false }) {
+    WeKitWindowDialog(show = show.value, title = stringResource(R.string.agent_add_workspace), onDismissRequest = { show.value = false }) {
         Column {
             TextField(value = name, onValueChange = { name = it }, label = stringResource(R.string.agent_workspace_add_name_label), useLabelAsPlaceholder = true, singleLine = true)
             Spacer(Modifier.height(16.dp))

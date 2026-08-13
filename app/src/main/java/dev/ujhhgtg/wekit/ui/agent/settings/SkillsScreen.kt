@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
 import dev.ujhhgtg.wekit.agent.skill.SkillStore
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
@@ -33,7 +34,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * Skills management (§ Skills): add/edit/delete skills and toggle each on/off globally. Skills are
@@ -134,7 +134,7 @@ private fun SkillEditorDialog(
     var description by remember(existing) { mutableStateOf(existing?.description.orEmpty()) }
     var body by remember(existing) { mutableStateOf(existing?.body.orEmpty()) }
 
-    WindowDialog(
+    WeKitWindowDialog(
         show = show,
         title = stringResource(if (existing == null) R.string.agent_add_skill else R.string.agent_edit_skill),
         onDismissRequest = onDismiss,

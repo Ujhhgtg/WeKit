@@ -86,6 +86,7 @@ import dev.ujhhgtg.wekit.i18n.LanguageSelection
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
+import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.theme.AppColorSpec
@@ -117,7 +118,6 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 // ---------------------------------------------------------------------------
 //  Page 2 — Settings
@@ -575,7 +575,7 @@ private fun ThemeSection() {
 private fun SeedColorPickerDialog(show: Boolean, onDismiss: () -> Unit) {
     var picked by remember(show) { mutableStateOf(Color(ThemeSettings.seedColor)) }
 
-    WindowDialog(
+    WeKitWindowDialog(
         show = show,
         title = stringResource(R.string.settings_custom_color_title),
         onDismissRequest = onDismiss,
@@ -808,7 +808,7 @@ private fun MiuixConfirmDialog(
     onConfirm: () -> Unit,
     dismissText: String? = null,
 ) {
-    WindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
+    WeKitWindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
         Column {
             Text(text = message)
             Spacer(Modifier.height(20.dp))
@@ -839,7 +839,7 @@ private fun MiuixMessageDialog(
     dismissText: String,
     onDismiss: () -> Unit,
 ) {
-    WindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
+    WeKitWindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
         Column {
             Text(text = message)
             Spacer(Modifier.height(20.dp))

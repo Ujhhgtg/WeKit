@@ -26,6 +26,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
@@ -40,7 +41,6 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 import java.util.UUID
 
 /** Lists model providers; opens each for editing; adds a new one via dialog (§5.1/§5.2). */
@@ -114,7 +114,7 @@ private fun AddProviderDialog(
     val typeLabels = types.map { it.label() }
     val selectedTypeLabel = typeLabels[typeIndex]
 
-    WindowDialog(
+    WeKitWindowDialog(
         show = show.value,
         title = stringResource(R.string.agent_add_model_provider),
         onDismissRequest = { show.value = false },

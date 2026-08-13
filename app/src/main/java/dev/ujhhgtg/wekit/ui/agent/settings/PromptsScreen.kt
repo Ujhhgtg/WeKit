@@ -23,6 +23,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PresetPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
+import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -31,7 +32,6 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 import java.util.UUID
 
 /**
@@ -238,7 +238,7 @@ private fun TwoFieldEditor(
     // freeze those blanks and 保存 would then wipe the prompt's name/regex with an empty string.
     var f1 by remember(field1, show) { mutableStateOf(field1) }
     var f2 by remember(field2, show) { mutableStateOf(field2) }
-    WindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
+    WeKitWindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
         Column {
             TextField(value = f1, onValueChange = { f1 = it }, label = field1Label, useLabelAsPlaceholder = true, singleLine = true)
             Spacer(Modifier.height(8.dp))
