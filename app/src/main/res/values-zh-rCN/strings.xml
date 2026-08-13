@@ -1835,6 +1835,7 @@
 <string name="read_receipts_not_ready">尚未就绪</string>
 <string name="read_receipts_database_path">数据库：%1$s</string>
 <string name="read_receipts_database_size">数据库大小：%1$d 字节</string>
+<string name="read_receipts_built_in_server_error">内置服务器运行失败</string>
 <string name="read_receipts_public_tunnel_status">公网隧道：%1$s</string>
 <string name="read_receipts_tunnel_error">隧道错误：%1$s</string>
 <string name="read_receipts_notification_settings_failed">无法打开 WeKit 通知设置</string>

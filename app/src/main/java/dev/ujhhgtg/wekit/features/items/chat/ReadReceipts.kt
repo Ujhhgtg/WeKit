@@ -131,10 +131,6 @@ private sealed interface ReadReceiptRuntimeError {
         override fun message(context: Context): String = context.localizedChatString(id, *formatArgs)
     }
 
-    class LegacyText(private val value: String) : ReadReceiptRuntimeError {
-        override fun message(context: Context): String = value
-    }
-
     companion object {
         fun from(failure: Throwable): ReadReceiptRuntimeError = when (failure) {
             is ReadReceiptsTunnelException -> Resource(failure.errorCode.messageRes)
@@ -144,8 +140,7 @@ private sealed interface ReadReceiptRuntimeError {
                 *failure.formatArgs,
             )
 
-            else -> failure.message?.let(::LegacyText)
-                ?: Resource(R.string.read_receipts_unknown_error)
+            else -> Resource(R.string.read_receipts_unknown_error)
         }
     }
 }
@@ -167,13 +162,6 @@ private sealed interface ReadReceiptsUiText {
             context.localizedChatString(id, *formatArgs)
     }
 
-    class Raw(private val value: String) : ReadReceiptsUiText {
-        @Composable
-        override fun resolve(): String = value
-
-        override fun resolve(context: Context): String = value
-    }
-
     companion object {
         fun from(
             failure: Throwable,
@@ -186,7 +174,7 @@ private sealed interface ReadReceiptsUiText {
                 *failure.formatArgs,
             )
 
-            else -> failure.message?.let(::Raw) ?: Resource(fallbackRes)
+            else -> Resource(fallbackRes)
         }
     }
 }
@@ -3170,11 +3158,13 @@ object ReadReceipts : ClickableFeature(),
                                         if (database.isFile) database.length() else 0L,
                                     ),
                                 )
-                                originStatus.error?.let { error ->
+                                if (originStatus.error != null) {
                                     Text(
                                         stringResource(
                                             R.string.read_receipts_error_prefix,
-                                            error,
+                                            stringResource(
+                                                R.string.read_receipts_built_in_server_error,
+                                            ),
                                         ),
                                     )
                                 }

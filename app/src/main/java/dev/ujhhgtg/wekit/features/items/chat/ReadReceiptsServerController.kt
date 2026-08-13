@@ -29,13 +29,13 @@ internal class NativeReadReceiptsServerController : ReadReceiptsServerController
             require(connectorAuthenticator.length == 32) { "invalid connector authenticator" }
             val database = databaseFile()
             check(database.parentFile!!.isDirectory || database.parentFile!!.mkdirs()) {
-                "无法创建内置服务器数据库目录"
+                "could not create built-in server database directory"
             }
             ReadReceiptsNative.startServer(database.absolutePath, port, connectorAuthenticator)
                 ?.let(::error)
             val status = nativeStatus()
             check(status.state == ReadReceiptsRuntimeState.RUNNING && status.port != null) {
-                status.error ?: "内置服务器启动后未进入运行状态"
+                status.error ?: "built-in server did not enter running state after startup"
             }
             status.port
         }
@@ -132,7 +132,7 @@ internal class NativeReadReceiptsServerController : ReadReceiptsServerController
     }
 
     internal companion object {
-        private const val STATUS_READ_ERROR = "无法读取内置服务器状态"
+        private const val STATUS_READ_ERROR = "could not read built-in server status"
 
         fun databaseFile(): File = File(
             HostInfo.application.filesDir,

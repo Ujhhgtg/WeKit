@@ -1827,6 +1827,7 @@
 <string name="read_receipts_not_ready">尚未就緒</string>
 <string name="read_receipts_database_path">資料庫：%1$s</string>
 <string name="read_receipts_database_size">資料庫大小：%1$d 位元組</string>
+<string name="read_receipts_built_in_server_error">內建伺服器執行失敗</string>
 <string name="read_receipts_public_tunnel_status">公開網路隧道：%1$s</string>
 <string name="read_receipts_tunnel_error">隧道錯誤：%1$s</string>
 <string name="read_receipts_notification_settings_failed">無法開啟 WeKit 通知設定</string>

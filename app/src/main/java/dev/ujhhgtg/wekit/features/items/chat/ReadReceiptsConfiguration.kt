@@ -165,7 +165,7 @@ object ReadReceiptsConfigurationCodec {
                 canonicalThirdPartyUrl != null -> value.copy(
                     thirdPartyUrl = canonicalThirdPartyUrl,
                 )
-                else -> throw IllegalArgumentException("第三方服务器地址无效")
+                else -> throw IllegalArgumentException("invalid third-party server URL")
             }
 
             ReadReceiptsServerMode.BUILT_IN -> if (canonicalThirdPartyUrl != null) {

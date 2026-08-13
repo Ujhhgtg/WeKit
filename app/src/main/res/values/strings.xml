@@ -1888,6 +1888,7 @@
 <string name="read_receipts_not_ready">Not ready</string>
 <string name="read_receipts_database_path">Database: %1$s</string>
 <string name="read_receipts_database_size">Database size: %1$d bytes</string>
+<string name="read_receipts_built_in_server_error">The built-in server failed</string>
 <string name="read_receipts_public_tunnel_status">Public tunnel: %1$s</string>
 <string name="read_receipts_tunnel_error">Tunnel error: %1$s</string>
 <string name="read_receipts_notification_settings_failed">Could not open WeKit notification settings</string>
