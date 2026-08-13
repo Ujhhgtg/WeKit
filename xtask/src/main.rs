@@ -9,6 +9,7 @@
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
 //!   dex-test [OPTIONS]   Resolve WeKit DexKit targets against desktop APKs.
+//!   dex-test-ci          Prepare APK sources and mutable Dex-Test Release assets.
 //!   i18n-check           Validate the Android English and Chinese resource catalogs.
 //!
 //! Run `cargo xtask <COMMAND> --help` for per-command options.
@@ -27,6 +28,7 @@ use walkdir::WalkDir;
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 mod dex_test;
+mod dex_test_ci;
 mod i18n_check;
 
 // ── Project constants (mirror app/build.gradle.kts / libs.versions.toml) ──────
@@ -161,6 +163,9 @@ enum Cmd {
 
     /// Run DexKit resolvers against one or more WeChat APKs on this Linux desktop.
     DexTest(dex_test::DexTestArgs),
+
+    /// Prepare inputs and outputs used by the cloud Dex resolution CI jobs.
+    DexTestCi(dex_test_ci::DexTestCiArgs),
 
     /// Validate the Android English and Chinese resource catalogs.
     I18nCheck,
@@ -389,6 +394,7 @@ fn main() -> Result<()> {
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
         Cmd::Clippy(args) => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
         Cmd::DexTest(args) => dex_test::task_dex_test(args)?,
+        Cmd::DexTestCi(args) => dex_test_ci::task_dex_test_ci(args)?,
         Cmd::I18nCheck => i18n_check::check_repository(&workspace_root())?,
     }
     Ok(())
