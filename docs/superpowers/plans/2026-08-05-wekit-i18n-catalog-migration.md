@@ -1161,3 +1161,90 @@ On a real WeChat host, test each settings engine and representative injected sur
 
 Record failures with the exact Android/WeChat version and surface. A desktop build or unit test does
 not prove these host behaviors.
+
+### Task 10: Preserve the injected locale inside Miuix window compositions
+
+**Files:**
+- Create: `app/src/main/java/dev/ujhhgtg/wekit/ui/content/WeKitWindowDialog.kt`
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/activity/settings/SettingsPager.kt`
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/ui/agent/settings/PromptsScreen.kt`
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/ui/agent/settings/McpServersScreen.kt`
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/ui/agent/settings/ModelProviderDetailScreen.kt`
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/ui/agent/settings/ModelProvidersScreen.kt`
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/ui/agent/settings/TriggersScreen.kt`
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/ui/agent/settings/WorkspacesScreen.kt`
+- Modify: `app/src/main/java/dev/ujhhgtg/wekit/ui/agent/settings/SkillsScreen.kt`
+
+**Interfaces:**
+- Consumes: `WeKitLocaleProvider(LocaleResourceMode.InjectedHost)` and Miuix `WindowDialog`.
+- Produces: `@Composable fun WeKitWindowDialog(show: Boolean, title: String, onDismissRequest: () -> Unit, content: @Composable () -> Unit)`.
+
+- [ ] **Step 1: Record the device RED case**
+
+With Android system English, select WeKit Traditional Chinese, open Settings -> Clear configuration,
+then observe the dialog after a live switch. Expected RED on `git+63eb16b6`: title, message, and
+confirm action are Traditional Chinese, while the dialog-internal default dismiss label is `Cancel`.
+Record the WeChat PID and do not confirm the destructive action.
+
+- [ ] **Step 2: Add the shared dialog locale boundary**
+
+Create `WeKitWindowDialog.kt` with this API and behavior:
+
+```kotlin
+@Composable
+fun WeKitWindowDialog(
+    show: Boolean,
+    title: String,
+    onDismissRequest: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    WindowDialog(show = show, title = title, onDismissRequest = onDismissRequest) {
+        WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost, content = content)
+    }
+}
+```
+
+- [ ] **Step 3: Replace every raw Miuix window call**
+
+Replace all 12 repository `WindowDialog` call sites and imports with `WeKitWindowDialog`. Do not
+change dialog state, callbacks, copy, layout, or business behavior.
+
+- [ ] **Step 4: Verify structural coverage and compile**
+
+```bash
+rg -n 'import top\.yukonga\.miuix\.kmp\.window\.WindowDialog|WindowDialog\('
+  app/src/main/java/dev/ujhhgtg/wekit
+./gradlew :app:compileStandardDebugKotlin
+```
+
+Expected: the only raw Miuix import/call is in `WeKitWindowDialog.kt`; Kotlin compilation succeeds.
+No JVM UI test is added because the failure depends on Android window composition and injected-host
+resource state, which the repository testing rules reserve for real-host verification.
+
+- [ ] **Step 5: Run full verification and install the exact build**
+
+```bash
+./gradlew :app:testStandardDebugUnitTest --tests dev.ujhhgtg.wekit.i18n.LocaleResolverTest
+./x i18n-check
+./x build
+git diff --check
+adb -s 192.168.1.9:5555 install -r app/build/outputs/apk/standard/debug/app-standard-debug.apk
+```
+
+- [ ] **Step 6: Verify device GREEN and dialog families**
+
+Enter the hosted settings through the module home shortcut. Under Android system English and WeKit
+Traditional Chinese, open the Clear configuration dialog without confirming it. Expected GREEN:
+title, message, dismiss label, and confirm label are all Traditional Chinese. Repeat one WeAgent
+window dialog containing an internal `stringResource`, then switch WeKit language while it is open
+and confirm dialog content refreshes without restarting WeChat.
+
+- [ ] **Step 7: Commit the scoped fix**
+
+```bash
+git add app/src/main/java/dev/ujhhgtg/wekit/ui/content/WeKitWindowDialog.kt \
+  app/src/main/java/dev/ujhhgtg/wekit/activity/settings/SettingsPager.kt \
+  app/src/main/java/dev/ujhhgtg/wekit/ui/agent/settings
+git diff --cached --check
+git commit -m "fix: localize window dialog compositions"
+```

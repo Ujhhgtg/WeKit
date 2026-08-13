@@ -687,6 +687,19 @@ successful settings screen proves every independent `ComposeView` is wrapped. De
 prove live behavior in WeChat; device verification must record the tested Android version, WeChat
 version, UI surface, language transition, and result.
 
+### Window-backed Compose roots
+
+Miuix `WindowDialog` creates a separate window composition. Inherited `LocalContext` and
+`LocalConfiguration` from the parent settings composition are not a reliable locale boundary for
+dialog content. Every WeKit-owned `WindowDialog` must therefore be created through a shared
+`WeKitWindowDialog` wrapper. The wrapper keeps Miuix window behavior unchanged and re-enters
+`WeKitLocaleProvider(LocaleResourceMode.InjectedHost)` inside the dialog content composition.
+
+Dialog titles or other strings resolved by the caller remain ordinary parameters; strings resolved
+inside the dialog body, including default button labels and dynamic fields, use the effective WeKit
+locale. Raw `WindowDialog` imports/calls are prohibited outside the wrapper so future dialogs cannot
+silently regress to the system locale.
+
 ## Failure Handling
 
 - Invalid language preference: normalize to Follow system and continue.
@@ -739,6 +752,9 @@ The eventual implementation is accepted only when all of the following are true:
 - Unsupported system locales and missing Chinese entries show English.
 - Every WeKit Compose root uses the locale provider and visible Compose UI changes language without
   Activity recreation or WeChat restart.
+- Every Miuix window dialog re-enters the injected-host locale provider through the shared wrapper;
+  dialog-internal `stringResource` calls never fall back to the Android system locale while a manual
+  WeKit language override is active.
 - Both `LocalContext` and `LocalConfiguration` reflect the effective locale, allowing
   `stringResource`/`LocalResources` to re-resolve.
 - Non-Compose user-facing text uses the current localized context.
