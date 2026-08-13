@@ -1,12 +1,18 @@
 package dev.ujhhgtg.wekit.i18n
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.ComponentCallbacks
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.os.LocaleList
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import java.util.Locale
@@ -21,6 +27,12 @@ object WeKitLocaleController : ComponentCallbacks {
 
     val resolvedLocale: SupportedLocale
         get() = LocaleResolver.resolve(selection, systemLocales)
+
+    private val systemLocaleReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            refreshSystemLocales()
+        }
+    }
 
     /** The standalone module UID cannot access MMKV initialized inside WeChat's UID. */
     fun initializeModuleProcess(application: Application) {
@@ -40,8 +52,14 @@ object WeKitLocaleController : ComponentCallbacks {
         } else {
             LanguageSelection.SYSTEM
         }
-        systemLocales = application.resources.configuration.locales.toLocaleList()
+        refreshSystemLocales()
         application.registerComponentCallbacks(this)
+        ContextCompat.registerReceiver(
+            application,
+            systemLocaleReceiver,
+            IntentFilter(Intent.ACTION_LOCALE_CHANGED),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
         initialized = true
     }
 
@@ -53,7 +71,13 @@ object WeKitLocaleController : ComponentCallbacks {
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
-        systemLocales = newConfig.locales.toLocaleList()
+        refreshSystemLocales()
+    }
+
+    private fun refreshSystemLocales() {
+        // WeChat can retain or rewrite its own Application resource configuration. The system
+        // resources remain the authoritative source for the user's Android locale list.
+        systemLocales = Resources.getSystem().configuration.locales.toLocaleList()
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
