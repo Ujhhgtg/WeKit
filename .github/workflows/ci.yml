@@ -30,6 +30,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
     if: |
       github.event_name == 'workflow_dispatch' || 
       (
@@ -99,12 +101,12 @@ jobs:
           cargo xtask build --native-only
 
       - name: Decode keystore
-        if: github.event_name != 'pull_request' && secrets.KEYSTORE_BASE64 != ''
+        if: github.event_name != 'pull_request' && env.HAS_KEYSTORE == 'true'
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/wekit-keystore.jks
 
       - name: Build Release (Signed)
-        if: github.event_name != 'pull_request' && secrets.KEYSTORE_BASE64 != ''
+        if: github.event_name != 'pull_request' && env.HAS_KEYSTORE == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WEKIT_KEYSTORE_FILE: ${{ runner.temp }}/wekit-keystore.jks
@@ -114,7 +116,7 @@ jobs:
         run: ./gradlew assembleRelease --warning-mode all --stacktrace
 
       - name: Build Release (Unsigned)
-        if: github.event_name == 'pull_request' || secrets.KEYSTORE_BASE64 == ''
+        if: github.event_name == 'pull_request' || env.HAS_KEYSTORE != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew assembleRelease --warning-mode all --stacktrace
