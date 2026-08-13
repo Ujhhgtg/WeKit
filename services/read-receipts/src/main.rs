@@ -93,6 +93,9 @@ struct ReadReportRequest {
     /// by the client from the pixel URL. Lets the dashboard pair each probed IP
     /// with the exact group member (reader wxid + 群昵称) who read it.
     talker: Option<String>,
+    /// `"sender"` when this device is the probe's SENDER viewing their own
+    /// outgoing message — labels the row as 发送者本人 instead of a bare group.
+    role: Option<String>,
 }
 
 /// Both carry the sender `wxId` and the message `id` (no more uuid/msg).
@@ -2343,9 +2346,73 @@ async fn read_report(
     let geo = lookup_geoip(&state.geoip, &client_ip);
 
     info!(
-        "/read-report\nmsg_id = {}, sender = {}, reader = {} ({}), talker = {}, ip = {}",
-        req.msg_id, req.sender_wx_id, req.reader_wx_id, nickname, talker, client_ip
+        "/read-report\nmsg_id = {}, sender = {}, reader = {} ({}), talker = {}, role = {}, ip = {}",
+        req.msg_id, req.sender_wx_id, req.reader_wx_id, nickname, talker,
+        req.role.as_deref().unwrap_or(""), client_ip
     );
+
+    // 0) Sender-view report: the probe's sender re-opened their own outgoing
+    //    message (e.g. to check the live count). Label that IP as the sender
+    //    themselves so the dashboard shows 发送者本人 rather than a bare group
+    //    name / anonymous row.
+    if req.role.as_deref() == Some("sender") {
+        let sender_label = format!("{}", req.reader_nickname.as_deref().unwrap_or("发送者本人"));
+        let sender_updated = state
+            .db
+            .execute(
+                "UPDATE reads SET reader_wx_id = ?1, reader_nickname = ?2, talker = ?3
+                 WHERE msg_id = ?4 AND ip = ?5",
+                libsql::params![
+                    req.sender_wx_id.as_str(),
+                    sender_label.as_str(),
+                    talker.as_str(),
+                    req.msg_id.as_str(),
+                    client_ip.as_str()
+                ],
+            )
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("read-report(sender) update failed: {e}"),
+                )
+            })?;
+        if sender_updated == 0 {
+            let report_visitor = format!("v-report-{}", client_ip.replace(':', "_"));
+            state
+                .db
+                .execute(
+                    "INSERT INTO reads (id, wx_id, ip, timestamp, country, city, reader_wx_id, reader_nickname, device_type, os_name, os_version, browser_name, browser_version, isp, referrer, created_at, msg_id, visitor_id, talker)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, '', '', '', '', '', ?9, '', ?10, ?1, ?11, ?12)",
+                    libsql::params![
+                        req.msg_id.as_str(),
+                        req.sender_wx_id.as_str(),
+                        client_ip,
+                        now_str,
+                        geo.country,
+                        geo.city,
+                        req.sender_wx_id.as_str(),
+                        sender_label.as_str(),
+                        geo.isp,
+                        now_ms,
+                        report_visitor.as_str(),
+                        talker.as_str()
+                    ],
+                )
+                .await
+                .map_err(|e| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("read-report(sender) insert failed: {e}"),
+                    )
+                })?;
+        }
+        let _ = state
+            .ws_tx
+            .send(serde_json::json!({ "type": "read_update", "msg_id": req.msg_id }).to_string());
+        broadcast_stats(&state).await;
+        return Ok(Json(serde_json::json!({ "ok": true, "msg_id": req.msg_id, "role": "sender" })));
+    }
 
     // 1) Prefer enriching an existing pixel row for the same message+IP so the
     //    reader identity lands on the same dashboard row (keeps visitor id).

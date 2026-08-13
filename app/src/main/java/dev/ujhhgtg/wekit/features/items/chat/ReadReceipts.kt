@@ -148,6 +148,9 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
     /** Recently reported message ids (bounded), so a single message is only reported once. */
     private val reportedReads = Collections.synchronizedSet(LinkedHashSet<String>())
 
+    /** Message ids whose "sender viewing own probe" report has already been sent. */
+    private val senderViewsReported = Collections.synchronizedSet(LinkedHashSet<String>())
+
     /**
      * Fired when THIS device renders an INCOMING message that carries one of our
      * tracking pixels — i.e. the receiver is looking at the probing message.
@@ -192,6 +195,42 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                     if (!resp.isSuccessful) WeLogger.w(TAG, "read-report failed: HTTP ${resp.code}")
                 }
             }.onFailure { WeLogger.w(TAG, "read-report request failed", it) }
+        }
+    }
+
+    /**
+     * Fired when THIS device renders an OUTGOING probe message (the sender
+     * re-opening their own message, e.g. to check the live read count). The
+     * embedded pixel still fires and would create an anonymous IP row in the
+     * dashboard — this report labels that row as the sender themselves, so the
+     * details page shows 发送者本人 instead of a bare group name.
+     */
+    private fun reportSenderView(senderWxId: String, id: String, talkerEncoded: String) {
+        if (serverBase.isEmpty()) return
+        if (!senderViewsReported.add(id)) return
+        if (senderViewsReported.size > 200) {
+            synchronized(senderViewsReported) {
+                val it = senderViewsReported.iterator()
+                if (it.hasNext()) { it.next(); it.remove() }
+            }
+        }
+        val talker = runCatching { URLDecoder.decode(talkerEncoded, "UTF-8") }
+            .getOrDefault(talkerEncoded)
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                val body = buildJsonObject {
+                    put("msgId", id)
+                    put("senderWxId", senderWxId)
+                    put("readerWxId", WeApi.selfWxId)
+                    put("readerNickname", "发送者本人")
+                    put("talker", talker)
+                    put("role", "sender")
+                }.toString().toRequestBody(jsonMediaType)
+                val request = Request.Builder().url("$serverBase/read-report").post(body).build()
+                httpClient.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) WeLogger.w(TAG, "read-report(sender) failed: HTTP ${resp.code}")
+                }
+            }.onFailure { WeLogger.w(TAG, "read-report(sender) request failed", it) }
         }
     }
 
@@ -412,6 +451,10 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             reportRead(wxId, id, talker)
             return
         }
+
+        // Outgoing message: mark this IP as "the sender viewing their own probe"
+        // so the dashboard shows 发送者本人 instead of an anonymous group row.
+        reportSenderView(wxId, id, talker)
 
         val tag = view.tag ?: return
         val timeTV = tag.reflekt()
