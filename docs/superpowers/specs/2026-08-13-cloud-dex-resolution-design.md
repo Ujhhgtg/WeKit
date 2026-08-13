@@ -131,7 +131,7 @@ exactly equal `HostInfo.versionName`, `HostInfo.versionCode`, and `HostInfo.isHo
 The selector associates a report feature with an `IResolveDex` item by exact runtime class name.
 Each item is independently eligible only when:
 
-1. its report feature outcome is `PASS`;
+1. its report feature outcome is `PASS` or `PASS_WITH_EXPECTED_FAILURES`;
 2. its report `methodHash` equals the current generated method hash;
 3. every current delegate key occurs exactly once in the report;
 4. every selected delegate has status `SUCCESS` or `EXPECTED_FAILURE`;
