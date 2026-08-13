@@ -276,6 +276,16 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                     },
                 )
                 PrefArrow(
+                    title = stringResource(R.string.about_translators_title),
+                    summary = stringResource(R.string.about_translators_summary),
+                    icon = MaterialSymbols.Outlined.Volunteer_activism,
+                    onClick = {
+                        "https://github.com/Ujhhgtg/WeKit/blob/dev/docs/translations/TRANSLATORS.md"
+                            .toUri()
+                            .openInSystem(context, true)
+                    },
+                )
+                PrefArrow(
                     title = stringResource(R.string.settings_open_source_licenses_title),
                     summary = stringResource(R.string.settings_open_source_licenses_summary),
                     icon = MaterialSymbols.Outlined.License,

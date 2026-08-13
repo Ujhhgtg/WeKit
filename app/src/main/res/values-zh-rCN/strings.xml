@@ -3086,4 +3086,6 @@
     <string name="telegram_parsing_database">正在解析数据库…</string>
     <string name="telegram_retry">重试</string>
     <string name="telegram_current_account">当前账户</string>
+    <string name="about_translators_title">翻译贡献者</string>
+    <string name="about_translators_summary">帮助翻译 WeKit 的贡献者</string>
 </resources>

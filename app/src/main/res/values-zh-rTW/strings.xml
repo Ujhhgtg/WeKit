@@ -3207,4 +3207,6 @@
 <string name="telegram_parsing_database">正在解析數據庫…</string>
 <string name="telegram_retry">重試</string>
 <string name="telegram_current_account">當前賬戶</string>
+<string name="about_translators_title">翻譯貢獻者</string>
+<string name="about_translators_summary">協助翻譯 WeKit 的貢獻者</string>
 </resources>

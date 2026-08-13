@@ -3321,4 +3321,7 @@
     <string name="telegram_parsing_database">Parsing database…</string>
     <string name="telegram_retry">Retry</string>
     <string name="telegram_current_account">Current account</string>
+    <!-- Link to the repository-maintained public translation credit record. -->
+    <string name="about_translators_title">Translators</string>
+    <string name="about_translators_summary">People who help translate WeKit</string>
 </resources>
