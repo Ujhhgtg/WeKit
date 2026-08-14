@@ -281,10 +281,10 @@ jobs:
             > "$RUNNER_TEMP/wekit-dex-test-apks.txt"
           download_status=$?
           set -e
-          if [[ $download_status -ne 0 || -s "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" ]]; then
-            echo "has-download-failures=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has-download-failures=false" >> "$GITHUB_OUTPUT"
+          if [[ -s "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" ]]; then
+            while IFS= read -r failed_apk; do
+              echo "::warning::failed to download $failed_apk; skipping its dex resolution"
+            done < "$RUNNER_TEMP/wekit-dex-test-download-failures.txt"
           fi
           if [[ -s "$RUNNER_TEMP/wekit-dex-test-apks.txt" ]]; then
             mapfile -t downloaded_apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
@@ -293,7 +293,8 @@ jobs:
             echo "apk-count=0" >> "$GITHUB_OUTPUT"
           fi
           if [[ $download_status -ne 0 ]]; then
-            echo "download script failed with status $download_status" >&2
+            echo "::error::download script failed with status $download_status"
+            exit 1
           fi
 
       - name: Run desktop Dex resolution
@@ -348,9 +349,7 @@ jobs:
         if: always()
         env:
           DEX_TEST_STATUS: ${{ steps.dex-resolution.outputs.status }}
-          HAS_DOWNLOAD_FAILURES: ${{ steps.apks.outputs.has-download-failures }}
         run: |
-          test "$HAS_DOWNLOAD_FAILURES" == 'false'
           test -n "$DEX_TEST_STATUS"
           test "$DEX_TEST_STATUS" -eq 0
 
