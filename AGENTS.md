@@ -1,5 +1,13 @@
 # WeKit — Agent Guide
 
+## Superpowers
+
+- All Superpowers workflow artifacts for WeKit (plans, specs/designs, SDD ledgers and
+  reports, brainstorm sessions) are written, edited, and committed **only** in
+  `~/coding/wekit_dev/superpowers` (its own git repo; read its `AGENTS.md` for layout and
+  rules). Never create, edit, or commit `.superpowers/` or `docs/superpowers/` inside this
+  repo — those paths are gitignored here by design.
+
 ## Build
 
 ```bash
