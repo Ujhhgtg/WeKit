@@ -356,7 +356,7 @@ jobs:
   release-dex-test:
     needs: dex-test
     runs-on: ubuntu-latest
-    if: ${{ always() && github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && needs.dex-test.outputs.reports-available == 'true' }}
+    if: ${{ always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request' && needs.dex-test.outputs.reports-available == 'true' }}
     permissions:
       contents: write
     steps:

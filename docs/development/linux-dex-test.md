@@ -71,7 +71,7 @@ for the hosts that did download so a retry only re-fetches the missing ones. Wit
 `--failures-out` the script keeps its original fail-fast behavior for standalone use. Only when no
 APK at all could be downloaded is the resolution step skipped and the job failed.
 
-On `master` only, a second job updates the prerelease named `Dex Test` at tag `Dex-Test`. Successful
+On `master` and `dev`, a second job updates the prerelease named `Dex Test` at tag `Dex-Test`. Successful
 per-host reports use canonical asset names:
 
 ```text
