@@ -218,6 +218,8 @@ jobs:
 
   dex-test:
     runs-on: ubuntu-latest
+    outputs:
+      reports-available: ${{ steps.report-check.outputs.available }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -271,15 +273,32 @@ jobs:
         id: apks
         run: |
           chmod +x .github/scripts/download-dex-test-apks.sh
+          set +e
           .github/scripts/download-dex-test-apks.sh \
             "$RUNNER_TEMP/wekit-dex-test-sources.json" \
             "$RUNNER_TEMP/wekit-dex-test-apks" \
+            --failures-out "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" \
             > "$RUNNER_TEMP/wekit-dex-test-apks.txt"
-          test "$(wc -l < "$RUNNER_TEMP/wekit-dex-test-apks.txt")" -eq \
-            "$(jq '.sources | length' "$RUNNER_TEMP/wekit-dex-test-sources.json")"
+          download_status=$?
+          set -e
+          if [[ $download_status -ne 0 || -s "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" ]]; then
+            echo "has-download-failures=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-download-failures=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ -s "$RUNNER_TEMP/wekit-dex-test-apks.txt" ]]; then
+            mapfile -t downloaded_apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+            echo "apk-count=${#downloaded_apks[@]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "apk-count=0" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ $download_status -ne 0 ]]; then
+            echo "download script failed with status $download_status" >&2
+          fi
 
       - name: Run desktop Dex resolution
         id: dex-resolution
+        if: steps.apks.outcome == 'success' && fromJSON(steps.apks.outputs.apk-count || '0') > 0
         run: |
           mapfile -t apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
           args=()
@@ -293,13 +312,23 @@ jobs:
           echo "status=$status" >> "$GITHUB_OUTPUT"
           test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"
 
+      - name: Check Dex resolution reports
+        id: report-check
+        if: always()
+        run: |
+          if test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload Dex resolution reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: wekit-dex-test-reports
           path: dex-test-results/ci
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Save fixed WeChat APKs
         if: always() && steps.apks.outcome == 'success'
@@ -319,14 +348,16 @@ jobs:
         if: always()
         env:
           DEX_TEST_STATUS: ${{ steps.dex-resolution.outputs.status }}
+          HAS_DOWNLOAD_FAILURES: ${{ steps.apks.outputs.has-download-failures }}
         run: |
+          test "$HAS_DOWNLOAD_FAILURES" == 'false'
           test -n "$DEX_TEST_STATUS"
           test "$DEX_TEST_STATUS" -eq 0
 
   release-dex-test:
     needs: dex-test
     runs-on: ubuntu-latest
-    if: ${{ always() && github.ref == 'refs/heads/master' && github.event_name != 'pull_request' }}
+    if: ${{ always() && github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && needs.dex-test.outputs.reports-available == 'true' }}
     permissions:
       contents: write
     steps:

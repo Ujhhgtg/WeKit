@@ -57,8 +57,15 @@ version before testing.
 
 Every CI event uploads the complete run directory as the `wekit-dex-test-reports` Actions artifact,
 including failed per-APK reports and the aggregate `summary.json`. Any failed, blocked, incomplete,
-worker, download, or infrastructure result still fails the `dex-test` job after the artifact has
-been preserved.
+worker, download, or infrastructure result still fails the `dex-test` job after the available
+reports have been preserved.
+
+The downloader attempts every source even when an earlier one fails. CI passes `--failures-out` so
+per-source failures are recorded, the successfully downloaded APKs are still resolved and
+reported, and the APK cache is saved for the hosts that did download — a retry only re-fetches the
+missing ones. Without `--failures-out` the script keeps its original fail-fast behavior. When every
+download fails there are no reports, the artifact upload degrades to a warning, and the job still
+fails via the download and resolution gates.
 
 On `master` only, a second job updates the prerelease named `Dex Test` at tag `Dex-Test`. Successful
 per-host reports use canonical asset names:

@@ -1,13 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 2 ]]; then
-  echo "usage: $0 MANIFEST CACHE_DIR" >&2
+if [[ $# -lt 2 ]]; then
+  echo "usage: $0 MANIFEST CACHE_DIR [--failures-out FILE]" >&2
   exit 2
 fi
 
 manifest=$1
 cache_dir=$2
+shift 2
+failures_out=''
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --failures-out)
+      if [[ $# -lt 2 ]]; then
+        echo "--failures-out requires a file path" >&2
+        exit 2
+      fi
+      failures_out=$2
+      shift 2
+      ;;
+    *)
+      echo "unknown option: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+if [[ -n "$failures_out" ]]; then
+  : >"$failures_out"
+fi
 user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128 Safari/537.36'
 apkeditor_version='V1.4.7'
 apkeditor_url="https://github.com/REAndroid/APKEditor/releases/download/${apkeditor_version}/APKEditor-1.4.7.jar"
@@ -55,6 +76,17 @@ write_sidecar() {
   local digest
   digest=$(sha256sum "$apk" | cut -d' ' -f1)
   printf '%s  %s\n' "$digest" "$(basename "$apk")" >"${apk}.sha256"
+}
+
+record_failure() {
+  local file_name=$1
+  local reason=$2
+  echo "failed to download $file_name: $reason" >&2
+  if [[ -n "$failures_out" ]]; then
+    printf '%s\n' "$file_name" >>"$failures_out"
+  else
+    exit 1
+  fi
 }
 
 select_apkmirror_variant() {
@@ -142,20 +174,30 @@ for source in "${sources[@]}"; do
   rm -f "$target" "${target}.sha256"
   echo "downloading $file_name from $channel source" >&2
   if [[ "$channel" == domestic ]]; then
-    request "$source_url" "${target}.download.$$"
+    if ! request "$source_url" "${target}.download.$$"; then
+      record_failure "$file_name" "HTTP request failed"
+      continue
+    fi
     mv -f "${target}.download.$$" "$target"
   elif [[ "$channel" == google-play ]]; then
-    download_apkmirror "$source_url" "$target"
+    if ! download_apkmirror "$source_url" "$target"; then
+      record_failure "$file_name" "APKMirror download failed"
+      continue
+    fi
   else
-    echo "unknown APK source channel: $channel" >&2
-    exit 1
+    record_failure "$file_name" "unknown APK source channel: $channel"
+    continue
   fi
 
   if ! validate_apk "$target"; then
     rm -f "$target"
-    echo "downloaded file is not a valid Android APK: $file_name" >&2
-    exit 1
+    record_failure "$file_name" "downloaded file is not a valid Android APK"
+    continue
   fi
   write_sidecar "$target"
   printf '%s\n' "$target"
 done
+
+if [[ -n "$failures_out" && -s "$failures_out" ]]; then
+  echo "$(wc -l <"$failures_out") of ${#sources[@]} APK sources failed to download" >&2
+fi
