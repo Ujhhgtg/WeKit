@@ -29,6 +29,7 @@ local.properties
 /app/nul
 /.idea/deploymentTargetSelector.xml
 /app/src/main/jniLibs/*/libwekit_native.so
+/app/src/main/jniLibs/*/libwekit_cloudflared.so
 /build-logic/convention/build/
 
 /decrypted_wechat.db
