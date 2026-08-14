@@ -55,6 +55,10 @@ cached using a key derived from the document, downloader, and manifest implement
 cached APK and SHA-256 sidecar are reused. APKMirror bundles are merged with the pinned APKEditor
 version before testing.
 
+CI caches only the verified DexKit source checkout under `.wekit/dex-test/source`; the native
+library is rebuilt on every run so CMake never reuses stale absolute JDK include paths from an
+older runner image.
+
 Every CI event uploads the complete run directory as the `wekit-dex-test-reports` Actions artifact,
 including failed per-APK reports and the aggregate `summary.json`. Any failed, blocked, incomplete,
 worker, APK, or infrastructure result still fails the `dex-test` job after the available reports

@@ -259,8 +259,8 @@ jobs:
         id: dexkit-cache
         uses: actions/cache/restore@v6
         with:
-          path: .wekit/dex-test
-          key: dexkit-desktop-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', 'xtask/src/dex_test.rs') }}
+          path: .wekit/dex-test/source
+          key: dexkit-desktop-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', 'xtask/src/dex_test.rs') }}
 
       - name: Generate supported APK manifest
         run: |
@@ -342,7 +342,7 @@ jobs:
         if: always() && steps.dex-resolution.outcome == 'success'
         uses: actions/cache/save@v6
         with:
-          path: .wekit/dex-test
+          path: .wekit/dex-test/source
           key: ${{ steps.dexkit-cache.outputs.cache-primary-key }}
 
       - name: Enforce Dex resolution result
