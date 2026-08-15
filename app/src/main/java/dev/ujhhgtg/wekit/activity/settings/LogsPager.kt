@@ -6,9 +6,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -98,6 +98,7 @@ import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.formatBytesSize
 import dev.ujhhgtg.wekit.utils.formatEpoch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -116,7 +117,7 @@ private enum class LogKind { RUN, CRASH }
 private data class LogRefreshRequest(
     val generation: Int,
     val kind: LogKind,
-    val fromPull: Boolean,
+    val ownsPullIndicator: Boolean,
 )
 
 // ---------------------------------------------------------------------------
@@ -301,6 +302,7 @@ fun LogsPager() {
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val kind = LOG_TABS[selectedTab]
+    val pagerState = rememberPagerState(initialPage = selectedTab, pageCount = { LOG_TABS.size })
 
     // One LazyListState per tab, retained across refreshes so scroll position survives a reload.
     val runListState = rememberLazyListState()
@@ -308,9 +310,9 @@ fun LogsPager() {
     val listState = if (kind == LogKind.RUN) runListState else crashListState
 
     var refreshGeneration by remember { mutableIntStateOf(0) }
-    var refreshRequest by remember { mutableStateOf<LogRefreshRequest?>(null) }
-    var activePullRequest by remember { mutableStateOf<LogRefreshRequest?>(null) }
-    // Keep each tab's selection independent while Crossfade composes both tabs.
+    val refreshRequests = remember { mutableStateMapOf<LogKind, LogRefreshRequest>() }
+    val activePullRequests = remember { mutableStateMapOf<LogKind, LogRefreshRequest>() }
+    // Keep each tab's selection independent while both pages remain composed.
     val currentFiles = remember { mutableStateMapOf<LogKind, Path?>() }
     val currentFile = currentFiles[kind]
     var menuExpanded by remember { mutableStateOf(false) }
@@ -319,9 +321,10 @@ fun LogsPager() {
     val barBackdrop = rememberMaterial3BlurBackdrop()
 
     fun requestRefresh(targetKind: LogKind, fromPull: Boolean) {
-        val request = LogRefreshRequest(++refreshGeneration, targetKind, fromPull)
-        refreshRequest = request
-        if (fromPull) activePullRequest = request
+        val ownsPullIndicator = fromPull || activePullRequests[targetKind] != null
+        val request = LogRefreshRequest(++refreshGeneration, targetKind, ownsPullIndicator)
+        refreshRequests[targetKind] = request
+        if (ownsPullIndicator) activePullRequests[targetKind] = request
     }
 
     Scaffold(
@@ -434,7 +437,10 @@ fun LogsPager() {
                         LOG_TABS.forEachIndexed { index, tabKind ->
                             Tab(
                                 selected = selectedTab == index,
-                                onClick = { selectedTab = index },
+                                onClick = {
+                                    selectedTab = index
+                                    scope.launch { pagerState.animateScrollToPage(index) }
+                                },
                                 text = {
                                     Text(
                                         stringResource(
@@ -450,18 +456,25 @@ fun LogsPager() {
             }
         },
     ) { innerPadding ->
-        Crossfade(targetState = kind, animationSpec = tween(200), label = "logKind") { k ->
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            beyondViewportPageCount = 1,
+            userScrollEnabled = false,
+            key = { LOG_TABS[it] },
+        ) { page ->
+            val k = LOG_TABS[page]
+            val request = refreshRequests[k]
             LogTabContent(
                 kind = k,
                 listState = if (k == LogKind.RUN) runListState else crashListState,
                 backdropLayer = Modifier.m3BackdropLayer(barBackdrop),
                 innerPadding = innerPadding,
-                refreshRequest = refreshRequest?.takeIf { it.kind == k },
-                isPullRefreshing = activePullRequest == refreshRequest &&
-                    refreshRequest?.kind == k && refreshRequest?.fromPull == true,
+                refreshRequest = request,
+                isPullRefreshing = activePullRequests[k] == request && request?.ownsPullIndicator == true,
                 onRefreshRequested = { requestRefresh(k, fromPull = true) },
                 onRefreshFinished = { completedRequest ->
-                    if (activePullRequest == completedRequest) activePullRequest = null
+                    if (activePullRequests[k] == completedRequest) activePullRequests.remove(k)
                 },
                 onCurrentFileChange = { currentFiles[k] = it },
             )
@@ -501,6 +514,7 @@ private fun LogTabContent(
         val request = refreshRequest
         val shouldRelist = !listed ||
             (request != null && request.generation != handledRefreshGeneration)
+        var completedSuccessfully = false
         loading = true
         try {
             if (shouldRelist) {
@@ -529,10 +543,13 @@ private fun LogTabContent(
                     LogKind.CRASH -> crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }
                 }
             }
+            completedSuccessfully = true
+        } catch (e: CancellationException) {
+            throw e
         } finally {
             if (currentOperationToken === operationToken) {
                 loading = false
-                request?.let(onRefreshFinished)
+                if (completedSuccessfully) request?.let(onRefreshFinished)
             }
         }
     }
@@ -678,6 +695,9 @@ private fun FileSelector(
 /** Long messages (over this many lines) collapse to a preview with an expand toggle. */
 private const val RUN_LOG_COLLAPSE_LINES = 5
 
+/** Crash sections over this many lines collapse to a preview. */
+private const val CRASH_SECTION_COLLAPSE_LINES = 12
+
 @Composable
 private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
     // Split once; if the message runs past the threshold, show a 5-line preview + expand toggle.
@@ -772,24 +792,75 @@ private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
 
 @Composable
 private fun CrashSectionCard(section: CrashSection, modifier: Modifier = Modifier) {
+    val lines = remember(section.body) { section.body.split("\n") }
+    val isLong = lines.size > CRASH_SECTION_COLLAPSE_LINES
+    val head = remember(lines) { lines.take(CRASH_SECTION_COLLAPSE_LINES).joinToString("\n") }
+    val rest = remember(lines) { lines.drop(CRASH_SECTION_COLLAPSE_LINES).joinToString("\n") }
+    var expanded by rememberSaveable(section.title, section.body) { mutableStateOf(false) }
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = animTween(250),
+        label = "crashChevron",
+    )
+
     BaseItemContainer(modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            if (section.title.isNotEmpty()) {
-                Text(
-                    text = section.title,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+            if (section.title.isNotEmpty() || isLong) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (section.title.isNotEmpty()) {
+                        Text(
+                            text = section.title,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                    if (isLong) {
+                        IconButton(
+                            onClick = { expanded = !expanded },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector = MaterialSymbols.Outlined.Expand_more,
+                                contentDescription = stringResource(
+                                    if (expanded) R.string.logs_collapse else R.string.logs_expand
+                                ),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .rotate(chevronRotation),
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
             }
             SelectionContainer {
-                Text(
-                    text = section.body,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Column {
+                    Text(
+                        text = if (isLong) head else section.body,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (isLong) {
+                        AnimatedVisibility(
+                            visible = expanded,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
+                        ) {
+                            Text(
+                                text = rest,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
