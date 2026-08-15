@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import java.io.File
 import dev.ujhhgtg.wekit.agent.data.dao.ConditionalPromptDao
 import dev.ujhhgtg.wekit.agent.data.dao.ExternalServiceDao
 import dev.ujhhgtg.wekit.agent.data.dao.MessageDao
@@ -38,8 +39,8 @@ import dev.ujhhgtg.wekit.agent.data.entity.ToolPermissionEntity
 import dev.ujhhgtg.wekit.agent.data.entity.TriggerEntity
 import dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 
 @Database(
     entities = [
@@ -85,6 +86,8 @@ abstract class WeAgentDatabase : RoomDatabase() {
     abstract fun externalServiceDao(): ExternalServiceDao
 
     companion object {
+        private const val TAG = "WeAgentDatabase"
+
         @Volatile
         private var INSTANCE: WeAgentDatabase? = null
 
@@ -109,27 +112,55 @@ abstract class WeAgentDatabase : RoomDatabase() {
         }
 
         private fun build(): WeAgentDatabase {
-            val dbFile = KnownPaths.moduleData
-                .resolve("agent")
-                .createDirsSafe()
-                .resolve("weagent.db")
-            return Room.databaseBuilder(
-                HostInfo.application,
-                WeAgentDatabase::class.java,
-                dbFile.toString()
-            )
-                // WAL uses mmap'd -shm/-wal sidecars that misbehave on FUSE-emulated
-                // external storage (moduleData lives on /sdcard); TRUNCATE is safe there.
-                .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(MIGRATION_11_12)
-                // Destructive fallback is scoped to the pre-release schemas (1–8) only, which no
-                // migration path was ever written for. From 9 onwards every step must have a
-                // migration: a missing one then fails loudly at open time instead of silently
-                // wiping every session, prompt, workspace, trigger and model provider (API keys
-                // included). If you bump `version`, add the matching migration — do NOT widen this
-                // list.
-                .fallbackToDestructiveMigrationFrom(true, 1, 2, 3, 4, 5, 6, 7, 8)
-                .build()
+            val external = KnownPaths.moduleData.resolve("agent/weagent.db").toFile()
+            val private = File(HostInfo.application.filesDir, "wekit-agent/weagent.db")
+            val relocator = WeAgentDatabaseRelocator(external, private) { source ->
+                android.database.sqlite.SQLiteDatabase.openDatabase(
+                    source.absolutePath,
+                    null,
+                    android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
+                ).close()
+            }
+            val prepared = relocator.prepare()
+            if (prepared.externalFallback) {
+                val failure = prepared.failure
+                if (failure == null) WeLogger.w(TAG, "private storage migration failed; staying on external storage")
+                else WeLogger.w(TAG, "private storage migration failed; staying on external storage", failure)
+                return buildAt(prepared.file, JournalMode.TRUNCATE)
+            }
+            if (!prepared.migratedNow) return buildAt(prepared.file, JournalMode.WRITE_AHEAD_LOGGING)
+            val database = buildAt(prepared.file, JournalMode.WRITE_AHEAD_LOGGING)
+            return try {
+                database.openHelper.writableDatabase
+                relocator.commit(prepared)
+                database
+            } catch (t: Throwable) {
+                WeLogger.e(TAG, "migrated database failed to open; rolling back to external storage", t)
+                runCatching { database.close() }
+                relocator.rollback(prepared)
+                buildAt(external, JournalMode.TRUNCATE)
+            }
         }
+
+        private fun buildAt(
+            dbFile: File,
+            journalMode: JournalMode,
+        ): WeAgentDatabase = Room.databaseBuilder(
+            HostInfo.application,
+            WeAgentDatabase::class.java,
+            dbFile.toString()
+        )
+            // WAL uses mmap'd -shm/-wal sidecars that misbehave on FUSE-emulated
+            // external storage (moduleData lives on /sdcard); TRUNCATE is safe there.
+            .setJournalMode(journalMode)
+            .addMigrations(MIGRATION_11_12)
+            // Destructive fallback is scoped to the pre-release schemas (1–8) only, which no
+            // migration path was ever written for. From 9 onwards every step must have a
+            // migration: a missing one then fails loudly at open time instead of silently
+            // wiping every session, prompt, workspace, trigger and model provider (API keys
+            // included). If you bump `version`, add the matching migration — do NOT widen this
+            // list.
+            .fallbackToDestructiveMigrationFrom(true, 1, 2, 3, 4, 5, 6, 7, 8)
+            .build()
     }
 }
