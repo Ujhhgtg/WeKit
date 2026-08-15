@@ -265,8 +265,6 @@
     <string name="settings_section_about">关于</string>
     <string name="settings_version_title">版本</string>
     <string name="settings_build_commit_time_title">构建提交时间</string>
-    <string name="settings_tip_title">提示</string>
-    <string name="settings_tip_summary">牙膏要一点一点挤，显卡要一刀一刀切，PPT 要一张一张放，代码要一行一行写，单个功能预计自出现在 commit 之日起，三年内开发完毕</string>
     <string name="settings_donate_title">捐赠</string>
     <string name="settings_donate_summary">支持项目开发（模块完全开源免费，捐赠无特权）</string>
     <string name="settings_open_source_licenses_title">开放源代码许可</string>
@@ -277,7 +275,7 @@
     <string name="theme_mode_light">浅色模式</string>
     <string name="theme_mode_dark">深色模式</string>
     <string name="settings_custom_color_title">自定义颜色</string>
-    <string name="settings_custom_color_summary">使用调色板样式生成配色，而非 Miuix 默认蓝</string>
+    <string name="settings_custom_color_summary">使用调色板样式生成配色，而非 Material 3 默认颜色</string>
     <string name="settings_dynamic_wallpaper_title">动态壁纸取色</string>
     <string name="settings_dynamic_wallpaper_summary">使用系统壁纸的强调色作为种子\n需系统 Android SDK &gt;= 31</string>
     <string name="settings_seed_color_title">种子颜色</string>
@@ -288,7 +286,7 @@
     <string name="settings_apply_to_wechat_title">同时对微信生效</string>
     <string name="settings_apply_to_wechat_summary">将自定义配色应用到微信本身</string>
     <string name="settings_safe_mode_title">安全模式</string>
-    <string name="settings_safe_mode_summary">在不稳定环境中保守加载模块能力。</string>
+    <string name="settings_safe_mode_summary">在不稳定环境中保守加载模块能力</string>
     <string name="action_reset">重置</string>
     <string name="action_clear">清除</string>
     <string name="update_checking">正在检查更新…</string>
@@ -304,6 +302,8 @@
     <string name="update_error_message">错误信息: %1$s</string>
     <string name="licenses_title">开放源代码库</string>
     <string name="licenses_search_hint">搜索库</string>
+    <string name="licenses_visit_home_page">访问主页</string>
+    <string name="licenses_no_license_text">暂无许可证文本</string>
     <string name="licenses_count">%1$d 个库</string>
     <string name="licenses_filtered_count">%1$d/%2$d 个库</string>
     <string name="licenses_no_results">找不到「%1$s」的结果</string>
@@ -3239,6 +3239,4 @@
     <string name="telegram_parsing_database">正在解析数据库…</string>
     <string name="telegram_retry">重试</string>
     <string name="telegram_current_account">当前账户</string>
-    <string name="about_translators_title">翻译贡献者</string>
-    <string name="about_translators_summary">帮助翻译 WeKit 的贡献者</string>
 </resources>

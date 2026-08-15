@@ -264,8 +264,6 @@
 <string name="settings_section_about">關於</string>
 <string name="settings_version_title">版本</string>
 <string name="settings_build_commit_time_title">構建提交時間</string>
-<string name="settings_tip_title">提示</string>
-<string name="settings_tip_summary">牙膏要一點一點擠，顯卡要一刀一刀切，PPT 要一張一張放，代碼要一行一行寫，單個功能預計自出現在 commit 之日起，三年內開發完畢</string>
 <string name="settings_donate_title">捐贈</string>
 <string name="settings_donate_summary">支持項目開發（模塊完全開源免費，捐贈無特權）</string>
 <string name="settings_open_source_licenses_title">開放源代碼許可</string>
@@ -276,7 +274,7 @@
 <string name="theme_mode_light">淺色模式</string>
 <string name="theme_mode_dark">深色模式</string>
 <string name="settings_custom_color_title">自定義顏色</string>
-<string name="settings_custom_color_summary">使用調色板樣式生成配色，而非 Miuix 默認藍</string>
+<string name="settings_custom_color_summary">使用調色板樣式生成配色，而非 Material 3 默認顏色</string>
 <string name="settings_dynamic_wallpaper_title">動態壁紙取色</string>
 <string name="settings_dynamic_wallpaper_summary">使用系統壁紙的強調色作爲種子\n需系統 Android SDK &gt;= 31</string>
 <string name="settings_seed_color_title">種子顏色</string>
@@ -287,7 +285,7 @@
 <string name="settings_apply_to_wechat_title">同時對微信生效</string>
 <string name="settings_apply_to_wechat_summary">將自定義配色應用到微信本身</string>
 <string name="settings_safe_mode_title">安全模式</string>
-<string name="settings_safe_mode_summary">在不穩定環境中保守加載模塊能力。</string>
+<string name="settings_safe_mode_summary">在不穩定環境中保守加載模塊能力</string>
 <string name="action_reset">重置</string>
 <string name="action_clear">清除</string>
 <string name="update_checking">正在檢查更新…</string>
@@ -303,6 +301,8 @@
 <string name="update_error_message">錯誤信息: %1$s</string>
 <string name="licenses_title">開放源代碼庫</string>
 <string name="licenses_search_hint">搜索庫</string>
+<string name="licenses_visit_home_page">訪問主頁</string>
+<string name="licenses_no_license_text">暫無許可證文本</string>
 <string name="licenses_count">%1$d 個庫</string>
 <string name="licenses_filtered_count">%1$d/%2$d 個庫</string>
 <string name="licenses_no_results">找不到「%1$s」的結果</string>
@@ -3360,6 +3360,4 @@
 <string name="telegram_parsing_database">正在解析數據庫…</string>
 <string name="telegram_retry">重試</string>
 <string name="telegram_current_account">當前賬戶</string>
-<string name="about_translators_title">翻譯貢獻者</string>
-<string name="about_translators_summary">協助翻譯 WeKit 的貢獻者</string>
 </resources>

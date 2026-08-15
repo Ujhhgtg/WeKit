@@ -292,8 +292,6 @@
     <string name="settings_section_about">About</string>
     <string name="settings_version_title">Version</string>
     <string name="settings_build_commit_time_title">Build commit time</string>
-    <string name="settings_tip_title">A word from the developers</string>
-    <string name="settings_tip_summary">Toothpaste is squeezed a little at a time, GPUs are trimmed one cut at a time, slides are presented one by one, and code is written line by line. Each feature should be finished within three years of first appearing in a commit.</string>
     <string name="settings_donate_title">Donate</string>
     <string name="settings_donate_summary">Support project development (the module is completely free and open source; donations grant no privileges)</string>
     <string name="settings_open_source_licenses_title">Open-source licenses</string>
@@ -304,7 +302,7 @@
     <string name="theme_mode_light">Light mode</string>
     <string name="theme_mode_dark">Dark mode</string>
     <string name="settings_custom_color_title">Custom colors</string>
-    <string name="settings_custom_color_summary">Generate colors from a palette instead of using Miuix blue</string>
+    <string name="settings_custom_color_summary">Generate colors from a palette instead of using the default Material 3 color</string>
     <string name="settings_dynamic_wallpaper_title">Dynamic wallpaper colors</string>
     <string name="settings_dynamic_wallpaper_summary">Use the system wallpaper accent as the seed color\nRequires Android SDK 31 or later</string>
     <string name="settings_seed_color_title">Seed color</string>
@@ -326,7 +324,7 @@
     <string name="settings_apply_to_wechat_title">Also apply to WeChat</string>
     <string name="settings_apply_to_wechat_summary">Apply the custom color scheme to WeChat itself</string>
     <string name="settings_safe_mode_title">Safe mode</string>
-    <string name="settings_safe_mode_summary">Load module capabilities conservatively in unstable environments.</string>
+    <string name="settings_safe_mode_summary">Load module capabilities conservatively in unstable environments</string>
     <string name="action_reset">Reset</string>
     <string name="action_clear">Clear</string>
     <string name="update_checking">Checking for updates…</string>
@@ -342,6 +340,8 @@
     <string name="update_error_message">Error details: %1$s</string>
     <string name="licenses_title">Open-source libraries</string>
     <string name="licenses_search_hint">Search libraries</string>
+    <string name="licenses_visit_home_page">Visit home page</string>
+    <string name="licenses_no_license_text">No license text available</string>
     <string name="licenses_count">%1$d libraries</string>
     <string name="licenses_filtered_count">%1$d/%2$d libraries</string>
     <string name="licenses_no_results">No results for “%1$s”</string>
@@ -3471,7 +3471,4 @@
     <string name="telegram_parsing_database">Parsing database…</string>
     <string name="telegram_retry">Retry</string>
     <string name="telegram_current_account">Current account</string>
-    <!-- Link to the repository-maintained public translation credit record. -->
-    <string name="about_translators_title">Translators</string>
-    <string name="about_translators_summary">People who help translate WeKit</string>
 </resources>

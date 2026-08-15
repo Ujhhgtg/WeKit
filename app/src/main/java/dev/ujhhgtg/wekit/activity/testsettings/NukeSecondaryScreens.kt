@@ -53,7 +53,6 @@ import com.composables.icons.materialsymbols.outlined.Notifications
 import com.composables.icons.materialsymbols.outlined.Rule_settings
 import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Upload
-import com.composables.icons.materialsymbols.outlined.Volunteer_activism
 import com.mikepenz.aboutlibraries.Libs
 import com.mikepenz.aboutlibraries.entity.Library
 import dev.ujhhgtg.wekit.BuildConfig
@@ -582,20 +581,6 @@ private fun NukeAboutPage(
                     trailing = { NukeCountAndChevron(text = null) },
                     onClick = {
                         "https://t.me/+7j5dJ6g16B43OWVl".toUri().openInSystem(context, true)
-                    },
-                )
-                NukeDivider()
-                NukePreferenceRow(
-                    title = stringResource(R.string.about_translators_title),
-                    description = stringResource(R.string.about_translators_summary),
-                    leading = {
-                        NukeVectorCategoryIcon(MaterialSymbols.Outlined.Volunteer_activism)
-                    },
-                    trailing = { NukeCountAndChevron(text = null) },
-                    onClick = {
-                        "https://github.com/Ujhhgtg/WeKit/blob/dev/docs/translations/TRANSLATORS.md"
-                            .toUri()
-                            .openInSystem(context, true)
                     },
                 )
                 NukeDivider()

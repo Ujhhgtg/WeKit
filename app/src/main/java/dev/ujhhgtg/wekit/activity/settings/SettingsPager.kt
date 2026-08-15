@@ -3,30 +3,43 @@ package dev.ujhhgtg.wekit.activity.settings
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,14 +52,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
@@ -66,7 +81,6 @@ import com.composables.icons.materialsymbols.outlined.Frame_bug
 import com.composables.icons.materialsymbols.outlined.Label
 import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.License
-import com.composables.icons.materialsymbols.outlined.Lightbulb_2
 import com.composables.icons.materialsymbols.outlined.Notifications
 import com.composables.icons.materialsymbols.outlined.Palette
 import com.composables.icons.materialsymbols.outlined.Rule_settings
@@ -78,8 +92,14 @@ import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Upload
 import com.composables.icons.materialsymbols.outlined.Volunteer_activism
 import com.composables.icons.materialsymbols.outlined.Wallpaper
-import com.mikepenz.aboutlibraries.Libs
 import com.mikepenz.aboutlibraries.entity.Library
+import com.mikepenz.aboutlibraries.ui.compose.LibraryDefaults
+import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
+import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
+import com.mikepenz.aboutlibraries.ui.compose.m3.libraryColors
+import com.mikepenz.aboutlibraries.ui.compose.m3.style.m3VariantColors
+import com.mikepenz.aboutlibraries.ui.compose.variant.LibraryDetailMode
+import com.mikepenz.aboutlibraries.ui.compose.variant.LibraryRow
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
@@ -91,11 +111,16 @@ import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.CornerRadius
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
+import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
+import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
+import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.theme.AppColorSpec
@@ -277,13 +302,6 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                 }
                 item {
                     PrefArrow(
-                        title = stringResource(R.string.settings_tip_title),
-                        summary = stringResource(R.string.settings_tip_summary),
-                        icon = MaterialSymbols.Outlined.Lightbulb_2,
-                    )
-                }
-                item {
-                    PrefArrow(
                         title = stringResource(R.string.settings_donate_title),
                         summary = stringResource(R.string.settings_donate_summary),
                         icon = MaterialSymbols.Outlined.Volunteer_activism,
@@ -294,18 +312,6 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 //                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 //                        })
                             "https://ifdian.net/a/ujhhgtg".toUri().openInSystem(context, true)
-                        },
-                    )
-                }
-                item {
-                    PrefArrow(
-                        title = stringResource(R.string.about_translators_title),
-                        summary = stringResource(R.string.about_translators_summary),
-                        icon = MaterialSymbols.Outlined.Volunteer_activism,
-                        onClick = {
-                            "https://github.com/Ujhhgtg/WeKit/blob/dev/docs/translations/TRANSLATORS.md"
-                                .toUri()
-                                .openInSystem(context, true)
                         },
                     )
                 }
@@ -922,165 +928,172 @@ private fun MessageDialog(
 //  Open-source license screen
 // ---------------------------------------------------------------------------
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LicenseScreen(onBack: () -> Unit) {
-    val resources = LocalResources.current
-    val libraries = remember(resources) {
-        val json = resources.openRawResource(R.raw.aboutlibraries)
-            .bufferedReader()
-            .use { it.readText() }
-        Libs.Builder().withJson(json).build().libraries
-    }
-
+    val libraries by produceLibraries(R.raw.aboutlibraries)
     var query by remember { mutableStateOf("") }
-    val filtered = remember(query, libraries) {
-        if (query.isBlank()) libraries
-        else libraries.filter { lib ->
-            lib.name.contains(query, ignoreCase = true) ||
-                    lib.developers.any { it.name?.contains(query, ignoreCase = true) == true } ||
-                    lib.description?.contains(query, ignoreCase = true) == true
-        }
+    val filteredLibraries = remember(query, libraries) {
+        libraries?.copy(
+            libraries = libraries!!.libraries.filter { library ->
+                query.isBlank() ||
+                    library.name.contains(query, ignoreCase = true) ||
+                    library.developers.any { it.name?.contains(query, ignoreCase = true) == true } ||
+                    library.description?.contains(query, ignoreCase = true) == true
+            },
+        )
     }
+    var selectedLibrary by remember { mutableStateOf<Library?>(null) }
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val barBackdrop = rememberMaterial3BlurBackdrop()
 
-    M3ListScaffold(
-        title = stringResource(R.string.licenses_title),
-        navigationIcon = {
-            ExpressiveBackButton(onClick = onBack)
-        },
-    ) {
-        item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier
-                    .padding(top = 12.dp, start = 16.dp, end = 16.dp)
-                    .fillMaxWidth(),
-                label = { Text(stringResource(R.string.licenses_search_hint)) },
-                singleLine = true,
-                leadingIcon = {
-                    Icon(
-                        imageVector = MaterialSymbols.Outlined.Search,
-                        contentDescription = null,
-                    )
-                },
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) {
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        topBar = {
+            LargeFlexibleTopAppBar(
+                modifier = Modifier.m3AppBarBlur(barBackdrop),
+                title = { Text(stringResource(R.string.licenses_title)) },
+                navigationIcon = { ExpressiveBackButton(onClick = onBack) },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = barBackdrop.m3AppBarColor(),
+                    scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                ),
+            )
+        }
+    ) { scaffoldPadding ->
+        LibrariesContainer(
+            libraries = filteredLibraries,
+            modifier = Modifier
+                .fillMaxSize()
+                .m3BackdropLayer(barBackdrop),
+            contentPadding = scaffoldPadding + PaddingValues(horizontal = 16.dp),
+            colors = LibraryDefaults.libraryColors(
+                libraryBackgroundColor = MaterialTheme.colorScheme.surfaceContainer,
+                libraryContentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+            variantColors = LibraryDefaults.m3VariantColors(
+                rowBackground = MaterialTheme.colorScheme.surfaceBright,
+                rowExpandedBackground = MaterialTheme.colorScheme.surfaceBright,
+                rowOnBackground = MaterialTheme.colorScheme.onSurface,
+                rowSubtleContent = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+            detailMode = LibraryDetailMode.None,
+            header = {
+                item(key = "search") {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .fillMaxWidth(),
+                        label = { Text(stringResource(R.string.licenses_search_hint)) },
+                        singleLine = true,
+                        leadingIcon = {
                             Icon(
-                                imageVector = MaterialSymbols.Outlined.Close,
-                                contentDescription = stringResource(R.string.action_clear),
+                                imageVector = MaterialSymbols.Outlined.Search,
+                                contentDescription = null,
                             )
+                        },
+                        trailingIcon = {
+                            if (query.isNotEmpty()) {
+                                IconButton(onClick = { query = "" }) {
+                                    Icon(
+                                        imageVector = MaterialSymbols.Outlined.Close,
+                                        contentDescription = stringResource(R.string.action_clear),
+                                    )
+                                }
+                            }
+                        },
+                    )
+                }
+            },
+            libraryRow = { _, library, expanded, toggle, style ->
+                LibraryRow(
+                    library = library,
+                    expanded = expanded,
+                    onToggle = toggle,
+                    style = style,
+                    modifier = Modifier
+                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(CornerRadius)),
+                )
+            },
+            onLibraryClick = { library ->
+                selectedLibrary = library
+                true
+            },
+        )
+
+        selectedLibrary?.let { library ->
+            val uriHandler = LocalUriHandler.current
+            AlertDialog(
+                onDismissRequest = { selectedLibrary = null },
+                confirmButton = {
+                    Button(onClick = { selectedLibrary = null }) {
+                        Text(stringResource(R.string.dialog_close))
+                    }
+                },
+                dismissButton = {
+                    library.website?.let { url ->
+                        OutlinedButton(onClick = { uriHandler.openUri(url) }) {
+                            Text(stringResource(R.string.licenses_visit_home_page))
                         }
                     }
                 },
-            )
-        }
-
-        item {
-            Text(
-                text = if (query.isBlank()) {
-                    stringResource(R.string.licenses_count, libraries.size)
-                } else {
-                    stringResource(R.string.licenses_filtered_count, filtered.size, libraries.size)
-                },
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
-            )
-        }
-
-        if (filtered.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 48.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = stringResource(R.string.licenses_no_results, query),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        } else {
-            items(filtered, key = { it.uniqueId }) { library ->
-                SegmentedColumn {
-                    item {
-                        LibraryRow(library)
-                    }
-                }
-            }
-        }
-
-        item { Spacer(Modifier.height(CONTENT_BOTTOM_INSET)) }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun LibraryRow(library: Library) {
-    BaseItemContainer {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = library.name,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                library.artifactVersion?.let { version ->
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = version,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            val author = library.developers.firstOrNull()?.name ?: library.organization?.name
-            if (!author.isNullOrBlank()) {
-                Text(
-                    text = author,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-
-            library.description?.takeIf { it.isNotBlank() }?.let { desc ->
-                Text(
-                    text = desc,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-
-            if (library.licenses.isNotEmpty()) {
-                FlowRow(
-                    modifier = Modifier.padding(top = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    library.licenses.forEach { license ->
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
                         Text(
-                            text = license.name,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                            text = library.name,
+                            style = MaterialTheme.typography.headlineSmall,
                         )
                     }
-                }
-            }
+                },
+                text = {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(library.licenses.toList()) { license ->
+                            OutlinedCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.outlinedCardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                ),
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = license.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                license.url?.let(uriHandler::openUri)
+                                            },
+                                    )
+                                    Spacer(modifier = Modifier.size(8.dp))
+                                    Text(
+                                        text = license.licenseContent
+                                            ?: stringResource(R.string.licenses_no_license_text),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+                modifier = Modifier.padding(24.dp),
+            )
         }
     }
 }
