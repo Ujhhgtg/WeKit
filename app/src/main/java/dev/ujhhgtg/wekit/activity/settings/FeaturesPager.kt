@@ -103,7 +103,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier
-                    .padding(top = 12.dp)
+                    .padding(top = 12.dp, start = 16.dp, end = 16.dp)
                     .fillMaxWidth(),
                 label = { Text(stringResource(R.string.features_search_hint)) },
                 singleLine = true,

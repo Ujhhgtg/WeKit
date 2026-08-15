@@ -77,7 +77,7 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                         BuiltinToolProvider.exaKeyPresent = exaKey.isNotBlank()
                     }
                 },
-                modifier = Modifier.padding(bottom = 6.dp),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
             )
         }
 
@@ -93,7 +93,7 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                         BuiltinToolProvider.braveKeyPresent = braveKey.isNotBlank()
                     }
                 },
-                modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
             )
         }
     }

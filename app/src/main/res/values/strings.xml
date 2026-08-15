@@ -298,8 +298,6 @@
     <string name="settings_open_source_licenses_title">Open-source licenses</string>
     <string name="settings_open_source_licenses_summary">Licenses of the open-source libraries used by this project</string>
     <string name="settings_ui_engine_title">UI component engine</string>
-    <string name="ui_engine_miuix" translatable="false">Miuix</string>
-    <string name="ui_engine_nuke" translatable="false">Nuke</string>
     <string name="settings_theme_mode_title">Theme mode</string>
     <string name="theme_mode_system">Follow system</string>
     <string name="theme_mode_light">Light mode</string>

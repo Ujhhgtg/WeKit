@@ -75,7 +75,7 @@ fun ModelProvidersScreen(
                 onClick = { showAdd.value = true },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
+                    .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
             ) { Text(stringResource(R.string.agent_add_provider)) }
         }
     }

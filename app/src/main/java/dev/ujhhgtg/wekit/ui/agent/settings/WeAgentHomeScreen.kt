@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.ui.agent.settings
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
@@ -324,7 +326,7 @@ internal fun AgentDropdownRow(
             onDismissRequest = { showDialog = false },
             title = { Text(title) },
             text = {
-                Column {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     items.forEachIndexed { index, label ->
                         RadioButtonWidget(
                             title = label,

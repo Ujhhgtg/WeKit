@@ -116,6 +116,7 @@ private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp)
             .height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,

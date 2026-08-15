@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -447,7 +449,7 @@ private fun <T> EnumDropdown(
             onDismissRequest = { showDialog = false },
             title = { Text(title) },
             text = {
-                Column {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     entries.forEach { entry ->
                         RadioButtonWidget(
                             title = labelOf(entry),
@@ -473,7 +475,11 @@ private fun <T> EnumDropdown(
         onClick = if (enabled) {
             { showDialog = true }
         } else null,
-        trailingContent = { Icon(imageVector = MaterialSymbols.Outlined.Chevron_right, contentDescription = null) },
+        trailingContent = if (enabled) {
+            { Icon(imageVector = MaterialSymbols.Outlined.Chevron_right, contentDescription = null) }
+        } else {
+            {}
+        },
     )
 }
 

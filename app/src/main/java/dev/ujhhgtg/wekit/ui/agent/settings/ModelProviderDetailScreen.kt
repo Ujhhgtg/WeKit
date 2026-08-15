@@ -187,7 +187,7 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                 onClick = { editingModel = ModelEntity("", providerId, "", null, null, "", null) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .padding(start = 16.dp, top = 8.dp, end = 16.dp),
             ) { Text(stringResource(R.string.agent_add_model)) }
         }
         // Auto-import is only meaningful for the OpenAI-style /models endpoint.
@@ -218,7 +218,7 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                     enabled = !importing,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                        .padding(start = 16.dp, end = 16.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
                 ) { Text(stringResource(if (importing) R.string.agent_fetching_models else R.string.agent_auto_import_models)) }
             }
         }
