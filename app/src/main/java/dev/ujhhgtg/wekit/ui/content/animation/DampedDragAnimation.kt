@@ -36,6 +36,7 @@ class DampedDragAnimation(
     val canDrag: (Offset) -> Boolean = { true },
     val onDragStarted: DampedDragAnimation.(position: Offset) -> Unit,
     val onDragStopped: DampedDragAnimation.() -> Unit,
+    val onDragCancelled: DampedDragAnimation.() -> Unit = onDragStopped,
     val onDrag: DampedDragAnimation.(size: IntSize, dragAmount: Offset) -> Unit,
     // Fired when a gesture on the indicator ends without meaningfully moving (a tap on the
     // pill rather than a drag). Because the pill always sits over the selected tab, this is
@@ -126,7 +127,7 @@ class DampedDragAnimation(
                 longPressJob?.cancel()
                 longPressJob = null
                 longPressFired = false
-                onDragStopped()
+                onDragCancelled()
                 release()
             }
         ) { change, dragAmount ->
