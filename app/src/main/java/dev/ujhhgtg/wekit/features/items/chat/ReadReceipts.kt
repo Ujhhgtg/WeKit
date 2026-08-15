@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -11,13 +10,13 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.RadioButton
@@ -38,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
@@ -50,6 +50,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.items.chat.ReadReceipts.originLifecycleMutex
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -68,6 +69,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -79,18 +81,17 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -104,6 +105,7 @@ import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl.SSLException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.time.Duration.Companion.milliseconds
 
 internal fun readReceiptNetworkFailureCategory(failure: Throwable): String = when (failure) {
     is SocketTimeoutException -> "timeout"
@@ -116,17 +118,15 @@ internal fun readReceiptNetworkFailureCategory(failure: Throwable): String = whe
 
 private class ReadReceiptsLocalFailure(
     @StringRes val messageRes: Int,
-    vararg formatArgs: Any,
-) : IllegalStateException() {
-    val formatArgs: Array<out Any> = formatArgs
-}
+    vararg val formatArgs: Any,
+) : IllegalStateException()
 
 private sealed interface ReadReceiptRuntimeError {
     fun message(context: Context): String
 
     class Resource(
         @StringRes private val id: Int,
-        vararg private val formatArgs: Any,
+        private vararg val formatArgs: Any,
     ) : ReadReceiptRuntimeError {
         override fun message(context: Context): String = context.localizedChatString(id, *formatArgs)
     }
@@ -1024,7 +1024,7 @@ object ReadReceipts : ClickableFeature(),
             }
             if (authoritative != null) return authoritative
             attempts++
-            delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS)
+            delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS.milliseconds)
         }
         return null
     }
@@ -1354,7 +1354,7 @@ object ReadReceipts : ClickableFeature(),
             ReadReceiptsTunnelMode.BROWSER_LOGIN,
             -> candidate.hostname
         }
-        val terminal = withTimeoutOrNull(TUNNEL_CANDIDATE_VERIFY_TIMEOUT_MILLIS) {
+        val terminal = withTimeoutOrNull(TUNNEL_CANDIDATE_VERIFY_TIMEOUT_MILLIS.milliseconds) {
             var attempts = 0
             while (true) {
                 currentCoroutineContext().ensureActive()
@@ -1396,7 +1396,7 @@ object ReadReceipts : ClickableFeature(),
                     )
                 }
                 attempts++
-                delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS)
+                delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS.milliseconds)
             }
             @Suppress("UNREACHABLE_CODE")
             OriginRequestTerminal.Superseded
@@ -1735,7 +1735,7 @@ object ReadReceipts : ClickableFeature(),
     private suspend fun awaitOriginTerminal(
         request: OriginRequest,
     ): ReadReceiptsRuntimeState? = withTimeoutOrNull(
-        ORIGIN_STOP_TIMEOUT_MILLIS,
+        ORIGIN_STOP_TIMEOUT_MILLIS.milliseconds,
     ) {
         while (true) {
             val status = originController.snapshot()
@@ -1746,7 +1746,7 @@ object ReadReceipts : ClickableFeature(),
                 -> return@withTimeoutOrNull status.state
 
                 else -> {
-                    delay(50)
+                    delay(50.milliseconds)
                     if (!request.isCurrent()) return@withTimeoutOrNull null
                 }
             }
@@ -1757,14 +1757,14 @@ object ReadReceipts : ClickableFeature(),
 
     private suspend fun awaitOriginStartSettlement(
         request: OriginRequest,
-    ): ReadReceiptsStatus? = withTimeoutOrNull(ORIGIN_STOP_TIMEOUT_MILLIS) {
+    ): ReadReceiptsStatus? = withTimeoutOrNull(ORIGIN_STOP_TIMEOUT_MILLIS.milliseconds) {
         while (true) {
             val status = originController.snapshot()
             if (!request.isCurrent()) return@withTimeoutOrNull null
             if (status.state != ReadReceiptsRuntimeState.STARTING) {
                 return@withTimeoutOrNull status
             }
-            delay(50)
+            delay(50.milliseconds)
             if (!request.isCurrent()) return@withTimeoutOrNull null
         }
         @Suppress("UNREACHABLE_CODE")
@@ -1806,7 +1806,7 @@ object ReadReceipts : ClickableFeature(),
                         }
                         return@launch
                     }
-                    delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS)
+                    delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS.milliseconds)
                 }
             }
             startOrigin(requestedBuiltInPort(configuration)) { terminal ->
@@ -1918,13 +1918,12 @@ object ReadReceipts : ClickableFeature(),
                 if (registrationError != null) {
                     withContext(Dispatchers.Main.immediate) {
                         if (!ReadReceipts.isActive) return@withContext
-                        val error = registrationError
-                        runtimeError = error
+                        runtimeError = registrationError
                         showToast(
                             chatFooter.context,
                             chatFooter.context.localizedChatString(
                                 R.string.read_receipts_error_prefix,
-                                error.message(chatFooter.context),
+                                registrationError.message(chatFooter.context),
                             ),
                         )
                     }
@@ -2090,7 +2089,7 @@ object ReadReceipts : ClickableFeature(),
     }
 
     private fun nextGeneration(timeTV: TextView): Long {
-        val generation = ((timeTV.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) as? Long) ?: 0L) + 1
+        val generation = (timeTV.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) as? Long ?: 0L) + 1
         timeTV.setTag(READ_RECEIPTS_BINDING_GENERATION_TAG, generation)
         return generation
     }
@@ -2138,7 +2137,7 @@ object ReadReceipts : ClickableFeature(),
 
                     val now = System.currentTimeMillis()
                     val due = activeRecords.filter {
-                        (backoffs[it.key()]?.nextAttemptAtMillis ?: 0L) <= now
+                        backoffs[it.key()]?.nextAttemptAtMillis ?: 0L <= now
                     }
                     if (due.isNotEmpty()) {
                         pollRecords(due)
@@ -2148,7 +2147,7 @@ object ReadReceipts : ClickableFeature(),
                     val nextAttempt = activeRecords.minOf {
                         backoffs[it.key()]?.nextAttemptAtMillis ?: now
                     }
-                    withTimeoutOrNull((nextAttempt - now).coerceAtLeast(1L)) {
+                    withTimeoutOrNull((nextAttempt - now).coerceAtLeast(1L).milliseconds) {
                         pollWake.receive()
                     }
                 }
@@ -2369,7 +2368,7 @@ object ReadReceipts : ClickableFeature(),
                             ?.let { "https://$it" }
                         hydratedBrowserAuthority = authority
                     }
-                    delay(500)
+                    delay(500.milliseconds)
                 }
             }
 
@@ -2810,7 +2809,7 @@ object ReadReceipts : ClickableFeature(),
                                                         context.startActivity(
                                                             Intent(
                                                                 Intent.ACTION_VIEW,
-                                                                Uri.parse(authorizationUrl),
+                                                                authorizationUrl.toUri(),
                                                             ),
                                                         )
                                                     }.onFailure {
