@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -70,6 +71,7 @@ val LocalSegmentedItemShape = compositionLocalOf<Shape> { RoundedCornerShape(Cor
  * @param onTrailingClick Callback to be invoked when the trailing/right area is clicked.
  * @param clickHaptic The type of haptic feedback to perform on click. Set to null to disable.
  * @param trailingDivider If true, displays a vertical divider before [trailingContent].
+ * @param headlineTrailingContent A composable slot displayed inline after the headline text.
  * @param foreContent A composable slot for content displayed alongside/over the headline.
  * @param trailingContent A composable slot for trailing content, e.g. switches, checkboxes, or arrows.
  */
@@ -92,6 +94,7 @@ fun BaseWidget(
     onTrailingClick: (() -> Unit)? = null,
     clickHaptic: HapticFeedbackType? = HapticFeedbackType.VirtualKey,
     trailingDivider: Boolean = false,
+    headlineTrailingContent: @Composable RowScope.() -> Unit = {},
     foreContent: @Composable BoxScope.() -> Unit = {},
     trailingContent: @Composable BoxScope.(interactionSource: MutableInteractionSource) -> Unit = {}
 ) {
@@ -252,10 +255,13 @@ fun BaseWidget(
                     bottom = if (description == null) dynamicInternalPadding else 0.dp
                 )
         ) {
-            Text(
-                text = title,
-                style = titleStyle
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = titleStyle
+                )
+                headlineTrailingContent()
+            }
 
             foreContent()
         }
