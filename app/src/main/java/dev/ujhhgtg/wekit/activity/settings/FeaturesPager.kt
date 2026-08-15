@@ -2,17 +2,19 @@ package dev.ujhhgtg.wekit.activity.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.input.clearText
-import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -21,7 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Arrow_back
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Fiber_new
 import com.composables.icons.materialsymbols.outlined.Search
@@ -32,13 +34,9 @@ import dev.ujhhgtg.wekit.features.core.NewFeatures
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import java.text.Collator
 import java.util.Locale
 
@@ -74,8 +72,7 @@ private fun featureChecked(item: BaseFeature): Boolean {
 fun FeaturesPager(onOpenCategory: (String) -> Unit) {
     val context = LocalContext.current
     val resolvedLocale = WeKitLocaleController.resolvedLocale
-    val queryState = rememberTextFieldState()
-    val query = queryState.text.toString()
+    var query by remember { mutableStateOf("") }
     val searching = query.isNotBlank()
 
     val featureNameCollator = remember(resolvedLocale) {
@@ -98,31 +95,32 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
 
     // A back press while searching clears the query first (after the IME's own
     // back has dismissed the keyboard) rather than exiting the module settings.
-    BackHandler(enabled = searching) { queryState.clearText() }
+    BackHandler(enabled = searching) { query = "" }
 
-    MiuixListScaffold(title = stringResource(R.string.nav_features)) {
+    M3ListScaffold(title = stringResource(R.string.nav_features)) {
         item {
-            TextField(
-                state = queryState,
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
                 modifier = Modifier
                     .padding(top = 12.dp)
                     .fillMaxWidth(),
-                label = stringResource(R.string.features_search_hint),
+                label = { Text(stringResource(R.string.features_search_hint)) },
+                singleLine = true,
                 leadingIcon = {
                     Icon(
                         imageVector = MaterialSymbols.Outlined.Search,
                         contentDescription = null,
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 },
                 trailingIcon = {
                     if (searching) {
-                        IconButton(onClick = { queryState.clearText() }) {
+                        IconButton(onClick = { query = "" }) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Close,
                                 contentDescription = stringResource(R.string.features_clear_search),
-                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -142,22 +140,22 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                     ) {
                         Text(
                             text = stringResource(R.string.features_no_results),
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             } else {
-                itemsIndexed(filteredItems, key = { _, item -> item.technicalId }) { index, item ->
-                    Column(
-                        modifier = Modifier
-                            .then(if (index == 0) Modifier.padding(top = 12.dp) else Modifier)
-                            .groupedCardItem(index, filteredItems.size),
-                    ) {
-                        FeatureRow(
-                            item = item,
-                            checked = featureChecked(item),
-                            onCheckedChange = { featureToggleRevision++ },
-                        )
+                item {
+                    SegmentedColumn(modifier = Modifier.padding(top = 12.dp)) {
+                        filteredItems.forEach { feature ->
+                            item(key = feature.technicalId) {
+                                FeatureRow(
+                                    item = feature,
+                                    checked = featureChecked(feature),
+                                    onCheckedChange = { featureToggleRevision++ },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -165,51 +163,47 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
             // Its own card, so it reads as separate from the real categories below.
             if (NEW_FEATURE_ITEMS.isNotEmpty()) {
                 item {
-                    Card(
-                        modifier = Modifier
-                            .padding(top = 12.dp)
-                            .fillMaxWidth()
-                    ) {
-                        ArrowPreference(
-                            title = stringResource(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
-                            summary = stringResource(
-                                R.string.features_new_summary,
-                                NewFeatures.WINDOW_DAYS,
-                                NEW_FEATURE_ITEMS.size,
-                            ),
-                            startAction = {
-                                Icon(
-                                    imageVector = MaterialSymbols.Outlined.Fiber_new,
-                                    contentDescription = null,
-                                    modifier = Modifier.padding(end = 6.dp),
-                                    tint = MiuixTheme.colorScheme.onBackground,
-                                )
-                            },
-                            onClick = { onOpenCategory(NEW_FEATURES_CATEGORY) },
-                        )
+                    SegmentedColumn(modifier = Modifier.padding(top = 12.dp)) {
+                        item {
+                            BaseWidget(
+                                icon = MaterialSymbols.Outlined.Fiber_new,
+                                title = stringResource(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
+                                description = stringResource(
+                                    R.string.features_new_summary,
+                                    NewFeatures.WINDOW_DAYS,
+                                    NEW_FEATURE_ITEMS.size,
+                                ),
+                                onClick = { onOpenCategory(NEW_FEATURES_CATEGORY) },
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = MaterialSymbols.Outlined.Chevron_right,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                            )
+                        }
                     }
                 }
             }
 
             item {
-                Card(
-                    modifier = Modifier
-                        .padding(top = 12.dp)
-                        .fillMaxWidth()
-                ) {
+                SegmentedColumn(modifier = Modifier.padding(top = 12.dp)) {
                     FEATURE_CATEGORIES.forEach { category ->
-                        ArrowPreference(
-                            title = stringResource(category.titleRes),
-                            startAction = {
-                                Icon(
-                                    imageVector = category.icon,
-                                    contentDescription = null,
-                                    modifier = Modifier.padding(end = 6.dp),
-                                    tint = MiuixTheme.colorScheme.onBackground,
-                                )
-                            },
-                            onClick = { onOpenCategory(category.id) },
-                        )
+                        item(key = category.id) {
+                            BaseWidget(
+                                icon = category.icon,
+                                title = stringResource(category.titleRes),
+                                onClick = { onOpenCategory(category.id) },
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = MaterialSymbols.Outlined.Chevron_right,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -239,32 +233,24 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
             }
     }
 
-    MiuixListScaffold(
+    M3ListScaffold(
         title = stringResource(featureCategoryTitleRes(categoryId)),
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = MaterialSymbols.Outlined.Arrow_back,
-                    contentDescription = stringResource(R.string.accessibility_back),
-                    tint = MiuixTheme.colorScheme.onBackground,
-                )
-            }
-        },
+        navigationIcon = { ExpressiveBackButton(onClick = onBack) },
     ) {
-        if (items.isEmpty()) return@MiuixListScaffold
+        if (items.isEmpty()) return@M3ListScaffold
 
-        itemsIndexed(items, key = { _, item -> item.technicalId }) { index, item ->
-            Column(
-                modifier = Modifier
-                    .then(if (index == 0) Modifier.padding(top = 12.dp) else Modifier)
-                    .groupedCardItem(index, items.size),
-            ) {
-                FeatureRow(
-                    item = item,
-                    checked = featureChecked(item),
-                    onCheckedChange = { featureToggleRevision++ },
-                )
-                item.Ui()
+        item {
+            SegmentedColumn(modifier = Modifier.padding(top = 12.dp)) {
+                items.forEach { feature ->
+                    item(key = feature.technicalId) {
+                        FeatureRow(
+                            item = feature,
+                            checked = featureChecked(feature),
+                            onCheckedChange = { featureToggleRevision++ },
+                        )
+                        feature.Ui()
+                    }
+                }
             }
         }
 

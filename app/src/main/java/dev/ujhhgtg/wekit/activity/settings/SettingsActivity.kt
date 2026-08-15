@@ -116,8 +116,6 @@ import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
@@ -128,8 +126,6 @@ import top.yukonga.miuix.kmp.nav.core.NavKey
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import top.yukonga.miuix.kmp.nav.transition.NavTransitions
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -465,33 +461,6 @@ fun MiuixListScaffold(
             content = content,
         )
     }
-}
-
-// ---------------------------------------------------------------------------
-//  Grouped card: emit each row as its own LazyColumn item so the list stays
-//  virtualized, while the per-corner squircle background makes the rows read as
-//  one continuous card (round top on the first row, round bottom on the last).
-// ---------------------------------------------------------------------------
-
-/**
- * Squircle background matching [Card]'s look but applied per-row, so a long feature list can be
- * emitted as individual `item {}`s (virtualized) instead of one giant `item { Card { forEach } }`
- * that composes every row at once. [index]/[count] pick which corners are rounded.
- */
-@Composable
-fun Modifier.groupedCardItem(index: Int, count: Int): Modifier {
-    val r = CardDefaults.CornerRadius
-    val z = 0.dp
-    val top = index == 0
-    val bottom = index == count - 1
-    return fillMaxWidth()
-        .squircleSurface(
-            color = MiuixTheme.colorScheme.surfaceContainer,
-            topStart = if (top) r else z,
-            topEnd = if (top) r else z,
-            bottomEnd = if (bottom) r else z,
-            bottomStart = if (bottom) r else z,
-        )
 }
 
 // ---------------------------------------------------------------------------
