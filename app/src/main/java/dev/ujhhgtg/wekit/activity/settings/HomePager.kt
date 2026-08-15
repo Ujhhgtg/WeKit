@@ -40,7 +40,6 @@ import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.android.baseActivity
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
 
@@ -68,6 +67,7 @@ fun HomePager() {
 @Composable
 private fun StatusCard() {
     val context = LocalContext.current
+    val activity = LocalComponentActivity.current
     var showNoRootManager by remember { mutableStateOf(false) }
     val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     val statusTitle = stringResource(R.string.home_module_activated)
@@ -85,7 +85,7 @@ private fun StatusCard() {
             if (StartupInfo.loaderService is ZygiskLoaderService) {
                 showNoRootManager = !openRootManager(context)
             } else {
-                openLsposedManager(context.baseActivity!!)
+                openLsposedManager(activity)
             }
         },
     ) {
