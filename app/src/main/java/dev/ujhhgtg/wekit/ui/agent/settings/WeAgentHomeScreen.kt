@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.activity.agent.AgentSettingsScreen
+import dev.ujhhgtg.wekit.activity.agent.AgentSettingsRoute
 import dev.ujhhgtg.wekit.agent.data.OverlayMode
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
@@ -36,7 +36,7 @@ import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
  * WeAgent settings home.
  */
 @Composable
-fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
+fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
     val scope = rememberCoroutineScope()
     val overlayModeLabels = mapOf(
         OverlayMode.DISABLED to stringResource(R.string.agent_overlay_mode_disabled),
@@ -103,7 +103,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
                 ArrowPreference(
                     title = stringResource(R.string.agent_model_providers_title),
                     summary = stringResource(R.string.agent_model_providers_summary),
-                    onClick = { onOpen(AgentSettingsScreen.ModelProviders) },
+                    onClick = { onOpen(AgentSettingsRoute.ModelProviders) },
                 )
                 if (loaded) {
                     // 文本在左，短输入框在右
@@ -154,12 +154,12 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
                 ArrowPreference(
                     title = stringResource(R.string.agent_builtin_tools_title),
                     summary = stringResource(R.string.agent_builtin_tools_summary),
-                    onClick = { onOpen(AgentSettingsScreen.BuiltinTools) },
+                    onClick = { onOpen(AgentSettingsRoute.BuiltinTools) },
                 )
                 ArrowPreference(
                     title = stringResource(R.string.agent_mcp_servers_title),
                     summary = stringResource(R.string.agent_mcp_servers_summary),
-                    onClick = { onOpen(AgentSettingsScreen.McpServers) },
+                    onClick = { onOpen(AgentSettingsRoute.McpServers) },
                 )
                 if (loaded) {
                     SwitchPreference(
@@ -175,17 +175,17 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
                 ArrowPreference(
                     title = stringResource(R.string.agent_workspaces_title),
                     summary = stringResource(R.string.agent_workspaces_summary),
-                    onClick = { onOpen(AgentSettingsScreen.Workspaces) },
+                    onClick = { onOpen(AgentSettingsRoute.Workspaces) },
                 )
                 ArrowPreference(
                     title = stringResource(R.string.agent_memory_title),
                     summary = stringResource(R.string.agent_memory_summary),
-                    onClick = { onOpen(AgentSettingsScreen.Memory) },
+                    onClick = { onOpen(AgentSettingsRoute.Memory) },
                 )
                 ArrowPreference(
                     title = stringResource(R.string.agent_external_services_title),
                     summary = stringResource(R.string.agent_external_services_summary),
-                    onClick = { onOpen(AgentSettingsScreen.ExternalServices) },
+                    onClick = { onOpen(AgentSettingsRoute.ExternalServices) },
                 )
             }
         }
@@ -197,17 +197,17 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
                 ArrowPreference(
                     title = stringResource(R.string.agent_prompts_title),
                     summary = stringResource(R.string.agent_prompts_summary),
-                    onClick = { onOpen(AgentSettingsScreen.Prompts) },
+                    onClick = { onOpen(AgentSettingsRoute.Prompts) },
                 )
                 ArrowPreference(
                     title = stringResource(R.string.agent_skills_title),
                     summary = stringResource(R.string.agent_skills_summary),
-                    onClick = { onOpen(AgentSettingsScreen.Skills) },
+                    onClick = { onOpen(AgentSettingsRoute.Skills) },
                 )
                 ArrowPreference(
                     title = stringResource(R.string.agent_triggers_title),
                     summary = stringResource(R.string.agent_triggers_summary),
-                    onClick = { onOpen(AgentSettingsScreen.Triggers) },
+                    onClick = { onOpen(AgentSettingsRoute.Triggers) },
                 )
             }
         }

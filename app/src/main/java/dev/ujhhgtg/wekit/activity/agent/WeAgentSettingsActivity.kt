@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.Keep
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
@@ -26,18 +26,24 @@ import dev.ujhhgtg.wekit.ui.agent.settings.WeAgentHomeScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WorkspacesScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderTools
 import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderDisplayName
-import dev.ujhhgtg.wekit.ui.content.MiuixStackNavigator
+import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
+import dev.ujhhgtg.wekit.ui.navigation.Navigator
+import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
+import top.yukonga.miuix.kmp.nav.core.NavDisplay
+import top.yukonga.miuix.kmp.nav.core.NavKey
+import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
+import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
+import top.yukonga.miuix.kmp.nav.transition.NavTransitions
 
 /**
  * Dedicated WeAgent configuration Activity (§8). Deliberately separate from the floating overlay:
  * the overlay stays lean while all detailed configuration (model providers, MCP servers, tool
  * permissions, prompts, workspaces, skills, global settings) lives here.
  *
- * Navigation mirrors [dev.ujhhgtg.wekit.activity.settings.SettingsActivity]: a stack of screens
- * rendered with the miuix predictive-back drill-down transition (slide-from-right + squircle clip +
- * background parallax/dim), supporting arbitrary depth.
+ * Navigation mirrors [dev.ujhhgtg.wekit.activity.settings.SettingsActivity]: a miuix-nav
+ * [NavDisplay] stack with the predictive-back drill-down transition, supporting arbitrary depth.
  *
  * Named `*SettingsActivity` so [dev.ujhhgtg.wekit.loader.utils.ActivityProxy] routes it through the
  * opaque splash proxy when launched from WeChat's host process.
@@ -62,73 +68,77 @@ class WeAgentSettingsActivity : ComponentActivity() {
 }
 
 /** In-Activity navigation targets. [Home] is the stack root and also hosts global settings. */
-sealed interface AgentSettingsScreen {
-    data object Home : AgentSettingsScreen
-    data object ModelProviders : AgentSettingsScreen
-    data class ModelProviderDetail(val providerId: String) : AgentSettingsScreen
-    data object BuiltinTools : AgentSettingsScreen
-    data class BuiltinToolPermissions(val providerId: String) : AgentSettingsScreen
-    data object McpServers : AgentSettingsScreen
-    data class McpServerDetail(val serverId: String) : AgentSettingsScreen
-    data object Prompts : AgentSettingsScreen
-    data object Workspaces : AgentSettingsScreen
-    data object Memory : AgentSettingsScreen
-    data object Skills : AgentSettingsScreen
-    data object Triggers : AgentSettingsScreen
-    data object ExternalServices : AgentSettingsScreen
+sealed interface AgentSettingsRoute : NavKey {
+    data object Home : AgentSettingsRoute
+    data object ModelProviders : AgentSettingsRoute
+    data class ModelProviderDetail(val providerId: String) : AgentSettingsRoute
+    data object BuiltinTools : AgentSettingsRoute
+    data class BuiltinToolPermissions(val providerId: String) : AgentSettingsRoute
+    data object McpServers : AgentSettingsRoute
+    data class McpServerDetail(val serverId: String) : AgentSettingsRoute
+    data object Prompts : AgentSettingsRoute
+    data object Workspaces : AgentSettingsRoute
+    data object Memory : AgentSettingsRoute
+    data object Skills : AgentSettingsRoute
+    data object Triggers : AgentSettingsRoute
+    data object ExternalServices : AgentSettingsRoute
 }
 
 @Composable
 private fun WeAgentSettingsRoot(onFinish: () -> Unit) {
-    // Screen back-stack. index 0 is Home; the last element is the visible top screen.
-    val backStack = remember { mutableStateListOf<AgentSettingsScreen>(AgentSettingsScreen.Home) }
-    MiuixStackNavigator(
-        stack = backStack,
-        onExitRoot = onFinish,
-    ) { screen, push, pop -> RenderScreen(screen, push, pop) }
-}
+    val backStack = rememberNavBackStack<AgentSettingsRoute>(AgentSettingsRoute.Home)
+    val navigator = remember(backStack) { Navigator(backStack) }
 
-@Composable
-private fun RenderScreen(
-    screen: AgentSettingsScreen,
-    push: (AgentSettingsScreen) -> Unit,
-    pop: () -> Unit,
-) {
-    when (screen) {
-        AgentSettingsScreen.Home -> WeAgentHomeScreen(onOpen = push)
-        AgentSettingsScreen.ModelProviders -> ModelProvidersScreen(
-            onBack = pop,
-            onOpenProvider = { push(AgentSettingsScreen.ModelProviderDetail(it)) },
-        )
-
-        is AgentSettingsScreen.ModelProviderDetail -> ModelProviderDetailScreen(
-            providerId = screen.providerId,
-            onBack = pop,
-        )
-
-        AgentSettingsScreen.BuiltinTools -> BuiltinProvidersScreen(
-            onBack = pop,
-            onOpenProvider = { push(AgentSettingsScreen.BuiltinToolPermissions(it)) },
-        )
-
-        is AgentSettingsScreen.BuiltinToolPermissions -> ToolPermissionListScreen(
-            title = builtinProviderDisplayName(screen.providerId),
-            providerId = screen.providerId,
-            tools = builtinProviderTools(screen.providerId),
-            onBack = pop,
-        )
-
-        AgentSettingsScreen.McpServers -> McpServersScreen(
-            onBack = pop,
-            onOpenServer = { push(AgentSettingsScreen.McpServerDetail(it)) },
-        )
-
-        is AgentSettingsScreen.McpServerDetail -> McpServerDetailScreen(serverId = screen.serverId, onBack = pop)
-        AgentSettingsScreen.Prompts -> PromptsScreen(onBack = pop)
-        AgentSettingsScreen.Workspaces -> WorkspacesScreen(onBack = pop)
-        AgentSettingsScreen.Memory -> MemoryScreen(onBack = pop)
-        AgentSettingsScreen.Skills -> SkillsScreen(onBack = pop)
-        AgentSettingsScreen.Triggers -> TriggersScreen(onBack = pop)
-        AgentSettingsScreen.ExternalServices -> ExternalServicesScreen(onBack = pop)
+    CompositionLocalProvider(LocalNavigator provides navigator) {
+        NavDisplay(
+            backStack = backStack,
+            onBack = {
+                if (navigator.backStackSize() <= 1) onFinish() else navigator.pop()
+            },
+            transition = NavTransitions.MiuixDefault,
+            effects = rememberM3NavEffects(),
+        ) {
+            entry<AgentSettingsRoute.Home> {
+                WeAgentHomeScreen(onOpen = { navigator.push(it) })
+            }
+            entry<AgentSettingsRoute.ModelProviders>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+                ModelProvidersScreen(
+                    onBack = { navigator.pop() },
+                    onOpenProvider = { navigator.push(AgentSettingsRoute.ModelProviderDetail(it)) },
+                )
+            }
+            entry<AgentSettingsRoute.ModelProviderDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
+                ModelProviderDetailScreen(providerId = key.providerId, onBack = { navigator.pop() })
+            }
+            entry<AgentSettingsRoute.BuiltinTools>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+                BuiltinProvidersScreen(
+                    onBack = { navigator.pop() },
+                    onOpenProvider = { navigator.push(AgentSettingsRoute.BuiltinToolPermissions(it)) },
+                )
+            }
+            entry<AgentSettingsRoute.BuiltinToolPermissions>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
+                ToolPermissionListScreen(
+                    title = builtinProviderDisplayName(key.providerId),
+                    providerId = key.providerId,
+                    tools = builtinProviderTools(key.providerId),
+                    onBack = { navigator.pop() },
+                )
+            }
+            entry<AgentSettingsRoute.McpServers>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+                McpServersScreen(
+                    onBack = { navigator.pop() },
+                    onOpenServer = { navigator.push(AgentSettingsRoute.McpServerDetail(it)) },
+                )
+            }
+            entry<AgentSettingsRoute.McpServerDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
+                McpServerDetailScreen(serverId = key.serverId, onBack = { navigator.pop() })
+            }
+            entry<AgentSettingsRoute.Prompts>(swipeDismiss = NavSwipeDirection.LeftToRight) { PromptsScreen(onBack = { navigator.pop() }) }
+            entry<AgentSettingsRoute.Workspaces>(swipeDismiss = NavSwipeDirection.LeftToRight) { WorkspacesScreen(onBack = { navigator.pop() }) }
+            entry<AgentSettingsRoute.Memory>(swipeDismiss = NavSwipeDirection.LeftToRight) { MemoryScreen(onBack = { navigator.pop() }) }
+            entry<AgentSettingsRoute.Skills>(swipeDismiss = NavSwipeDirection.LeftToRight) { SkillsScreen(onBack = { navigator.pop() }) }
+            entry<AgentSettingsRoute.Triggers>(swipeDismiss = NavSwipeDirection.LeftToRight) { TriggersScreen(onBack = { navigator.pop() }) }
+            entry<AgentSettingsRoute.ExternalServices>(swipeDismiss = NavSwipeDirection.LeftToRight) { ExternalServicesScreen(onBack = { navigator.pop() }) }
+        }
     }
 }
