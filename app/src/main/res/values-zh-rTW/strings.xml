@@ -203,8 +203,10 @@
 <string name="features_category_empty">目前分類沒有可顯示的功能</string>
 <string name="features_new_summary">最近 %1$d 天新增 %2$d 項</string>
 <string name="home_module_activated">模塊已激活</string>
-<string name="home_enabled_features">已啓用功能</string>
-<string name="home_all_features">全部功能</string>
+<string name="home_device_info_title">裝置資訊</string>
+<string name="home_learn_more_title">瞭解更多</string>
+<string name="home_learn_more_item_title">WeKit 文件</string>
+<string name="home_learn_more_item_summary">瞭解如何設定和使用 WeKit</string>
 <string name="home_wechat_version">微信版本</string>
 <string name="home_module_version">模塊版本</string>
 <string name="home_build_time">構建時間</string>

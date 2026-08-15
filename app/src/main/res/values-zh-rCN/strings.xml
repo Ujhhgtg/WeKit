@@ -204,8 +204,10 @@
     <string name="features_category_empty">当前分类没有可显示的功能</string>
     <string name="features_new_summary">最近 %1$d 天新增 %2$d 项</string>
     <string name="home_module_activated">模块已激活</string>
-    <string name="home_enabled_features">已启用功能</string>
-    <string name="home_all_features">全部功能</string>
+    <string name="home_device_info_title">设备信息</string>
+    <string name="home_learn_more_title">了解更多</string>
+    <string name="home_learn_more_item_title">WeKit 文档</string>
+    <string name="home_learn_more_item_summary">了解如何配置和使用 WeKit</string>
     <string name="home_wechat_version">微信版本</string>
     <string name="home_module_version">模块版本</string>
     <string name="home_build_time">构建时间</string>

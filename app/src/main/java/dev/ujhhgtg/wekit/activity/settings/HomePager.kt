@@ -4,41 +4,36 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Block
 import com.composables.icons.materialsymbols.outlined.Check_circle
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -86,189 +81,183 @@ private fun openLsposedManager(context: Context) {
 }
 
 @Composable
-fun HomePager(onOpenFeatures: () -> Unit) {
-    val enabledCount = remember {
-        FeaturesProvider.ALL_HOOK_ITEMS.count { WePrefs.getBoolOrFalse(it.technicalId) }
-    }
-    val totalCount = remember { FeaturesProvider.ALL_HOOK_ITEMS.size }
-
+fun HomePager() {
     M3ListScaffold(title = stringResource(R.string.app_name)) {
         item {
             Column(
                 modifier = Modifier.padding(top = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                StatusRow(
-                    enabledCount = enabledCount,
-                    totalCount = totalCount,
-                    onOpenFeatures = onOpenFeatures
-                )
-                SystemInfoCard()
+                StatusCard()
+                DeviceInformation()
+                LearnMore()
                 Spacer(Modifier.height(CONTENT_BOTTOM_INSET))
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> Unit) {
+private fun StatusCard() {
     val context = LocalContext.current
-    Row(
+    // SettingsActivity is hosted in the injected process, so reaching this screen means WeKit is active.
+    val isActive = true
+    val containerColor = if (isActive) {
+        MaterialTheme.colorScheme.secondaryContainer
+    } else {
+        MaterialTheme.colorScheme.errorContainer
+    }
+    val contentColor = if (isActive) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        MaterialTheme.colorScheme.onErrorContainer
+    }
+    val statusTitle = stringResource(
+        if (isActive) R.string.home_module_activated else R.string.module_app_activation_inactive
+    )
+    val loaderName = StartupInfo.loaderService.loaderName
+    val hookBridgeName = StartupInfo.hookBridge?.hookBridgeName
+        ?: stringResource(R.string.common_not_provided)
+
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp)
-            .height(IntrinsicSize.Min),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 16.dp),
+        color = containerColor,
+        contentColor = contentColor,
+        shape = MaterialTheme.shapes.large,
+        onClick = { openLsposedManager(context) },
     ) {
-        // Left: activation status. No detection — seeing this screen means the module is active.
-        Card(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ListItem(
+            leadingContent = {
+                Icon(
+                    imageVector = if (isActive) {
+                        MaterialSymbols.Outlined.Check_circle
+                    } else {
+                        MaterialSymbols.Outlined.Block
+                    },
+                    contentDescription = statusTitle,
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = "${BuildConfig.VERSION_NAME} · $loaderName",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            trailingContent = {
+                StatusTag(
+                    label = hookBridgeName,
+                    backgroundColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                )
+            },
+            colors = ListItemDefaults.colors(
+                containerColor = Color.Transparent,
+                contentColor = contentColor,
+                leadingContentColor = contentColor,
+                trailingContentColor = contentColor,
+                supportingContentColor = contentColor.copy(alpha = 0.7f),
             ),
-            onClick = { openLsposedManager(context) },
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .offset(38.dp, 45.dp),
-                    contentAlignment = Alignment.BottomEnd,
-                ) {
-                    Icon(
-                        modifier = Modifier.size(170.dp),
-                        imageVector = MaterialSymbols.Outlined.Check_circle,
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        contentDescription = null,
-                    )
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.home_module_activated),
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = BuildConfig.VERSION_NAME,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-        }
-        // Right: enabled / total feature counts.
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
-        ) {
-            CountCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                label = stringResource(R.string.home_enabled_features), value = enabledCount.toString(),
-                onClick = onOpenFeatures,
-            )
-            Spacer(Modifier.height(12.dp))
-            CountCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                label = stringResource(R.string.home_all_features), value = totalCount.toString(),
-                onClick = onOpenFeatures,
-            )
-        }
+            content = {
+                Text(
+                    text = statusTitle,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                )
+            },
+        )
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun CountCard(modifier: Modifier, label: String, value: String, onClick: () -> Unit) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceBright,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
-        onClick = onClick
+private fun StatusTag(label: String, backgroundColor: Color, contentColor: Color) {
+    Box(
+        modifier = Modifier.background(
+            color = backgroundColor,
+            shape = RoundedCornerShape(4.dp),
+        )
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-            )
-        }
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmallEmphasized,
+            color = contentColor,
+        )
     }
 }
 
 @Composable
-private fun SystemInfoCard() {
-    SegmentedColumn {
+private fun DeviceInformation() {
+    SegmentedColumn(title = stringResource(R.string.home_device_info_title)) {
         item {
-            BaseItemContainer {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    InfoText(
-                        stringResource(R.string.home_wechat_version),
-                        stringResource(R.string.home_version_value, HostInfo.versionName, HostInfo.versionCode),
-                    )
-                    InfoText(
-                        stringResource(R.string.home_module_version),
-                        stringResource(R.string.home_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
-                    )
-                    InfoText(stringResource(R.string.home_build_time), formatEpoch(BuildConfig.BUILD_TIMESTAMP, true))
-                    InfoText(
-                        stringResource(R.string.home_device_model),
-                        stringResource(R.string.home_device_model_value, Build.MANUFACTURER, Build.MODEL),
-                    )
-                    InfoText(
-                        stringResource(R.string.home_android_version),
-                        stringResource(R.string.home_android_version_value, Build.VERSION.RELEASE, Build.VERSION.SDK_INT),
-                    )
-                    InfoText(
-                        title = stringResource(R.string.home_loading_environment),
-                        content = stringResource(
-                            R.string.home_loading_environment_value,
-                            StartupInfo.loaderService.loaderName,
-                            StartupInfo.hookBridge?.hookBridgeName ?: stringResource(R.string.common_not_provided),
-                        ),
-                        bottomPadding = 0.dp,
-                    )
-                }
-            }
+            BaseWidget(
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_wechat_version),
+                description = stringResource(R.string.home_version_value, HostInfo.versionName, HostInfo.versionCode),
+            )
+        }
+        item {
+            BaseWidget(
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_module_version),
+                description = stringResource(
+                    R.string.home_version_value,
+                    BuildConfig.VERSION_NAME,
+                    BuildConfig.VERSION_CODE,
+                ),
+            )
+        }
+        item {
+            BaseWidget(
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_build_time),
+                description = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true),
+            )
+        }
+        item {
+            BaseWidget(
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_device_model),
+                description = stringResource(R.string.home_device_model_value, Build.MANUFACTURER, Build.MODEL),
+            )
+        }
+        item {
+            BaseWidget(
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_android_version),
+                description = stringResource(
+                    R.string.home_android_version_value,
+                    Build.VERSION.RELEASE,
+                    Build.VERSION.SDK_INT,
+                ),
+            )
+        }
+        item {
+            BaseWidget(
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_loading_environment),
+                description = stringResource(
+                    R.string.home_loading_environment_value,
+                    StartupInfo.loaderService.loaderName,
+                    StartupInfo.hookBridge?.hookBridgeName ?: stringResource(R.string.common_not_provided),
+                ),
+            )
         }
     }
 }
 
 @Composable
-private fun InfoText(title: String, content: String, bottomPadding: Dp = 24.dp) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.bodyLarge,
-    )
-    Text(
-        text = content,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 2.dp, bottom = bottomPadding),
-    )
+private fun LearnMore() {
+    val uriHandler = LocalUriHandler.current
+    SegmentedColumn(title = stringResource(R.string.home_learn_more_title)) {
+        item {
+            BaseWidget(
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_learn_more_item_title),
+                description = stringResource(R.string.home_learn_more_item_summary),
+                onClick = { uriHandler.openUri("https://ujhhgtgteams.gitbook.io/wekit-docs") },
+            )
+        }
+    }
 }

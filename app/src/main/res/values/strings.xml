@@ -228,8 +228,10 @@
     <string name="features_category_empty">There are no features to show in this category</string>
     <string name="features_new_summary">%2$d added in the last %1$d days</string>
     <string name="home_module_activated">Module activated</string>
-    <string name="home_enabled_features">Enabled features</string>
-    <string name="home_all_features">All features</string>
+    <string name="home_device_info_title">Device information</string>
+    <string name="home_learn_more_title">Learn more</string>
+    <string name="home_learn_more_item_title">WeKit documentation</string>
+    <string name="home_learn_more_item_summary">Learn how to configure and use WeKit</string>
     <string name="home_wechat_version">WeChat version</string>
     <string name="home_module_version">Module version</string>
     <string name="home_build_time">Build time</string>
