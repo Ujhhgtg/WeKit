@@ -24,13 +24,14 @@ import dev.ujhhgtg.wekit.ui.agent.settings.ToolPermissionListScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.TriggersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WeAgentHomeScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WorkspacesScreen
-import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderTools
 import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderDisplayName
+import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderTools
 import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
 import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
+import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavKey
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
@@ -68,19 +69,33 @@ class WeAgentSettingsActivity : ComponentActivity() {
 }
 
 /** In-Activity navigation targets. [Home] is the stack root and also hosts global settings. */
+@Serializable
 sealed interface AgentSettingsRoute : NavKey {
+    @Serializable
     data object Home : AgentSettingsRoute
+    @Serializable
     data object ModelProviders : AgentSettingsRoute
+    @Serializable
     data class ModelProviderDetail(val providerId: String) : AgentSettingsRoute
+    @Serializable
     data object BuiltinTools : AgentSettingsRoute
+    @Serializable
     data class BuiltinToolPermissions(val providerId: String) : AgentSettingsRoute
+    @Serializable
     data object McpServers : AgentSettingsRoute
+    @Serializable
     data class McpServerDetail(val serverId: String) : AgentSettingsRoute
+    @Serializable
     data object Prompts : AgentSettingsRoute
+    @Serializable
     data object Workspaces : AgentSettingsRoute
+    @Serializable
     data object Memory : AgentSettingsRoute
+    @Serializable
     data object Skills : AgentSettingsRoute
+    @Serializable
     data object Triggers : AgentSettingsRoute
+    @Serializable
     data object ExternalServices : AgentSettingsRoute
 }
 
