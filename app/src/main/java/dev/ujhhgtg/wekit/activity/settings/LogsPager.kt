@@ -52,9 +52,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -308,8 +310,9 @@ fun LogsPager() {
     var refreshGeneration by remember { mutableIntStateOf(0) }
     var refreshRequest by remember { mutableStateOf<LogRefreshRequest?>(null) }
     var activePullRequest by remember { mutableStateOf<LogRefreshRequest?>(null) }
-    // The file currently selected in the visible tab, hoisted so the toolbar can share/save it.
-    var currentFile by remember { mutableStateOf<Path?>(null) }
+    // Keep each tab's selection independent while Crossfade composes both tabs.
+    val currentFiles = remember { mutableStateMapOf<LogKind, Path?>() }
+    val currentFile = currentFiles[kind]
     var menuExpanded by remember { mutableStateOf(false) }
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -460,7 +463,7 @@ fun LogsPager() {
                 onRefreshFinished = { completedRequest ->
                     if (activePullRequest == completedRequest) activePullRequest = null
                 },
-                onCurrentFileChange = { if (k == kind) currentFile = it },
+                onCurrentFileChange = { currentFiles[k] = it },
             )
         }
     }
@@ -490,6 +493,8 @@ private fun LogTabContent(
     var listed by remember(kind) { mutableStateOf(false) }
     var fileReadGeneration by remember(kind) { mutableIntStateOf(0) }
     var handledRefreshGeneration by remember(kind) { mutableIntStateOf(0) }
+    val operationToken = remember(kind, refreshRequest?.generation, fileReadGeneration) { Any() }
+    val currentOperationToken by rememberUpdatedState(operationToken)
 
     // One cancellation-keyed lifecycle owns listing, selection normalization, reading, and parsing.
     LaunchedEffect(kind, refreshRequest?.generation, fileReadGeneration) {
@@ -525,8 +530,10 @@ private fun LogTabContent(
                 }
             }
         } finally {
-            loading = false
-            request?.let(onRefreshFinished)
+            if (currentOperationToken === operationToken) {
+                loading = false
+                request?.let(onRefreshFinished)
+            }
         }
     }
 
