@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.activity.settings
 
 import android.content.Context
 import androidx.activity.ComponentActivity
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,8 +19,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.input.clearText
-import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalResources
@@ -48,11 +52,11 @@ import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Account_circle
-import com.composables.icons.materialsymbols.outlined.Arrow_back
 import com.composables.icons.materialsymbols.outlined.Auto_delete
 import com.composables.icons.materialsymbols.outlined.Block
 import com.composables.icons.materialsymbols.outlined.Brightness_medium
 import com.composables.icons.materialsymbols.outlined.Build_circle
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Colorize
 import com.composables.icons.materialsymbols.outlined.Contrast
@@ -85,8 +89,12 @@ import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.LanguageSelection
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
-import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.theme.AppColorSpec
@@ -105,19 +113,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.ColorPicker
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import android.graphics.Color as AndroidColor
 
 // ---------------------------------------------------------------------------
 //  Page 2 — Settings
@@ -137,7 +133,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
     UpdateAvailableDialog(info = updateInfo, onDismiss = { updateInfo = null }, context = context)
     UpdateErrorDialog(message = updateError, onDismiss = { updateError = null })
 
-    MiuixListScaffold(title = stringResource(R.string.settings_title)) {
+    M3ListScaffold(title = stringResource(R.string.settings_title)) {
         // Account info card.
         item {
             Spacer(Modifier.height(12.dp))
@@ -146,161 +142,194 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 界面
         item {
-            MiuixSmallTitle(
-                text = stringResource(R.string.settings_section_interface),
-                modifier = Modifier.padding(top = 12.dp),
-            )
-            Card(modifier = Modifier.fillMaxWidth()) {
-                ThemeSection()
-            }
+            ThemeSection()
         }
 
         // 调试
         item {
-            MiuixSmallTitle(text = stringResource(R.string.settings_section_debug), modifier = Modifier.padding(top = 12.dp))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                SecuritySwitch(context)
-                PrefSwitch(
-                    key = Preferences.VERBOSE_LOG,
-                    title = stringResource(R.string.settings_verbose_log_title),
-                    summary = stringResource(R.string.settings_verbose_log_summary),
-                    icon = MaterialSymbols.Outlined.Frame_bug,
-                )
-                PrefSwitch(
-                    key = Preferences.SHOW_STARTUP_TOAST,
-                    title = stringResource(R.string.settings_startup_toast_title),
-                    summary = stringResource(R.string.settings_startup_toast_summary),
-                    icon = MaterialSymbols.Outlined.Notifications,
-                )
-                PrefSwitch(
-                    key = Preferences.MATCH_GENERIC_WXID_EXP,
-                    title = stringResource(R.string.settings_generic_wxid_title),
-                    summary = stringResource(R.string.settings_generic_wxid_summary),
-                    icon = MaterialSymbols.Outlined.Rule_settings,
-                    default = true,
-                )
+            SegmentedColumn(title = stringResource(R.string.settings_section_debug)) {
+                item { SecuritySwitch(context) }
+                item {
+                    PrefSwitch(
+                        key = Preferences.VERBOSE_LOG,
+                        title = stringResource(R.string.settings_verbose_log_title),
+                        summary = stringResource(R.string.settings_verbose_log_summary),
+                        icon = MaterialSymbols.Outlined.Frame_bug,
+                    )
+                }
+                item {
+                    PrefSwitch(
+                        key = Preferences.SHOW_STARTUP_TOAST,
+                        title = stringResource(R.string.settings_startup_toast_title),
+                        summary = stringResource(R.string.settings_startup_toast_summary),
+                        icon = MaterialSymbols.Outlined.Notifications,
+                    )
+                }
+                item {
+                    PrefSwitch(
+                        key = Preferences.MATCH_GENERIC_WXID_EXP,
+                        title = stringResource(R.string.settings_generic_wxid_title),
+                        summary = stringResource(R.string.settings_generic_wxid_summary),
+                        icon = MaterialSymbols.Outlined.Rule_settings,
+                        default = true,
+                    )
+                }
             }
         }
 
         // 兼容
         item {
-            MiuixSmallTitle(text = stringResource(R.string.settings_section_compatibility), modifier = Modifier.padding(top = 12.dp))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                PrefSwitch(
-                    key = Preferences.NO_DEX_RESOLVE,
-                    title = stringResource(R.string.settings_disable_resolution_title),
-                    summary = stringResource(R.string.settings_disable_resolution_summary),
-                    icon = MaterialSymbols.Outlined.Block,
-                )
-                PrefArrow(
-                    title = stringResource(R.string.settings_reset_resolution_title),
-                    summary = stringResource(R.string.settings_reset_resolution_summary),
-                    icon = MaterialSymbols.Outlined.Build_circle,
-                    onClick = { ResetDexCache.onClick(context) },
-                )
-                PrefSwitch(
-                    key = Preferences.RESET_DEX_ON_HOT_UPDATE,
-                    title = stringResource(R.string.settings_hot_update_resolution_title),
-                    summary = stringResource(R.string.settings_hot_update_resolution_summary),
-                    icon = MaterialSymbols.Outlined.Auto_delete,
-                )
+            SegmentedColumn(title = stringResource(R.string.settings_section_compatibility)) {
+                item {
+                    PrefSwitch(
+                        key = Preferences.NO_DEX_RESOLVE,
+                        title = stringResource(R.string.settings_disable_resolution_title),
+                        summary = stringResource(R.string.settings_disable_resolution_summary),
+                        icon = MaterialSymbols.Outlined.Block,
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_reset_resolution_title),
+                        summary = stringResource(R.string.settings_reset_resolution_summary),
+                        icon = MaterialSymbols.Outlined.Build_circle,
+                        onClick = { ResetDexCache.onClick(context) },
+                    )
+                }
+                item {
+                    PrefSwitch(
+                        key = Preferences.RESET_DEX_ON_HOT_UPDATE,
+                        title = stringResource(R.string.settings_hot_update_resolution_title),
+                        summary = stringResource(R.string.settings_hot_update_resolution_summary),
+                        icon = MaterialSymbols.Outlined.Auto_delete,
+                    )
+                }
             }
         }
 
         // 配置
         item {
-            MiuixSmallTitle(text = stringResource(R.string.settings_section_configuration), modifier = Modifier.padding(top = 12.dp))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                PrefArrow(
-                    title = stringResource(R.string.settings_export_config_title),
-                    summary = stringResource(R.string.settings_export_config_summary),
-                    icon = MaterialSymbols.Outlined.Upload,
-                    onClick = { SettingsConfigActions.export(localizedContext) },
-                )
-                PrefArrow(
-                    title = stringResource(R.string.settings_import_config_title),
-                    summary = stringResource(R.string.settings_import_config_summary),
-                    icon = MaterialSymbols.Outlined.Download,
-                    onClick = { SettingsConfigActions.importFromDocument(localizedContext) },
-                )
-                PrefArrow(
-                    title = stringResource(R.string.settings_clear_config_title),
-                    summary = stringResource(R.string.settings_clear_config_summary),
-                    icon = MaterialSymbols.Outlined.Delete_forever,
-                    onClick = { showClearConfirm = true },
-                )
+            SegmentedColumn(title = stringResource(R.string.settings_section_configuration)) {
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_export_config_title),
+                        summary = stringResource(R.string.settings_export_config_summary),
+                        icon = MaterialSymbols.Outlined.Upload,
+                        onClick = { SettingsConfigActions.export(localizedContext) },
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_import_config_title),
+                        summary = stringResource(R.string.settings_import_config_summary),
+                        icon = MaterialSymbols.Outlined.Download,
+                        onClick = { SettingsConfigActions.importFromDocument(localizedContext) },
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_clear_config_title),
+                        summary = stringResource(R.string.settings_clear_config_summary),
+                        icon = MaterialSymbols.Outlined.Delete_forever,
+                        onClick = { showClearConfirm = true },
+                    )
+                }
             }
         }
 
         // 更新
         item {
-            MiuixSmallTitle(text = stringResource(R.string.settings_section_update), modifier = Modifier.padding(top = 12.dp))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                PrefArrow(
-                    title = stringResource(R.string.settings_check_update_title),
-                    summary = stringResource(R.string.settings_check_update_summary),
-                    icon = MaterialSymbols.Outlined.Update,
-                    onClick = {
-                        checkForUpdate(
-                            context = { currentLocalizedContext.value },
-                            onAvailable = { updateInfo = it },
-                            onError = { updateError = it },
-                        )
-                    },
-                )
+            SegmentedColumn(title = stringResource(R.string.settings_section_update)) {
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_check_update_title),
+                        summary = stringResource(R.string.settings_check_update_summary),
+                        icon = MaterialSymbols.Outlined.Update,
+                        onClick = {
+                            checkForUpdate(
+                                context = { currentLocalizedContext.value },
+                                onAvailable = { updateInfo = it },
+                                onError = { updateError = it },
+                            )
+                        },
+                    )
+                }
             }
         }
 
         // 关于
         item {
-            MiuixSmallTitle(text = stringResource(R.string.settings_section_about), modifier = Modifier.padding(top = 12.dp))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                PrefArrow(title = stringResource(R.string.settings_version_title), summary = stringResource(R.string.home_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE), icon = MaterialSymbols.Outlined.Label)
-                PrefArrow(title = stringResource(R.string.settings_build_commit_time_title), summary = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true), icon = MaterialSymbols.Outlined.Build_circle)
-                PrefArrow(
-                    title = stringResource(R.string.settings_tip_title),
-                    summary = stringResource(R.string.settings_tip_summary),
-                    icon = MaterialSymbols.Outlined.Lightbulb_2,
-                )
-                PrefArrow(
-                    title = stringResource(R.string.settings_donate_title),
-                    summary = stringResource(R.string.settings_donate_summary),
-                    icon = MaterialSymbols.Outlined.Volunteer_activism,
-                    onClick = {
+            SegmentedColumn(title = stringResource(R.string.settings_section_about)) {
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_version_title),
+                        summary = stringResource(R.string.home_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                        icon = MaterialSymbols.Outlined.Label,
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_build_commit_time_title),
+                        summary = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true),
+                        icon = MaterialSymbols.Outlined.Build_circle,
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_tip_title),
+                        summary = stringResource(R.string.settings_tip_summary),
+                        icon = MaterialSymbols.Outlined.Lightbulb_2,
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_donate_title),
+                        summary = stringResource(R.string.settings_donate_summary),
+                        icon = MaterialSymbols.Outlined.Volunteer_activism,
+                        onClick = {
 //                        context.startActivity(Intent().apply {
 //                            setClassName(HostInfo.packageName, "${PackageNames.WECHAT}.plugin.collect.reward.ui.QrRewardSelectMoneyUI")
 //                            putExtra("key_qrcode_url", "m0n#Z7LGW*s4AVH!z'd(?)")
 //                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 //                        })
-                        "https://ifdian.net/a/ujhhgtg".toUri().openInSystem(context, true)
-                    },
-                )
-                PrefArrow(
-                    title = stringResource(R.string.about_translators_title),
-                    summary = stringResource(R.string.about_translators_summary),
-                    icon = MaterialSymbols.Outlined.Volunteer_activism,
-                    onClick = {
-                        "https://github.com/Ujhhgtg/WeKit/blob/dev/docs/translations/TRANSLATORS.md"
-                            .toUri()
-                            .openInSystem(context, true)
-                    },
-                )
-                PrefArrow(
-                    title = stringResource(R.string.settings_open_source_licenses_title),
-                    summary = stringResource(R.string.settings_open_source_licenses_summary),
-                    icon = MaterialSymbols.Outlined.License,
-                    onClick = onOpenLicense,
-                )
-                PrefArrow(
-                    title = stringResource(R.string.brand_github),
-                    summary = "Ujhhgtg/WeKit",
-                    icon = GitHubIcon,
-                    onClick = { "https://github.com/Ujhhgtg/WeKit".toUri().openInSystem(context, true) })
-                PrefArrow(
-                    title = stringResource(R.string.brand_telegram),
-                    summary = "https://t.me/+7j5dJ6g16B43OWVl",
-                    icon = TelegramIcon,
-                    onClick = { "https://t.me/+7j5dJ6g16B43OWVl".toUri().openInSystem(context, true) })
+                            "https://ifdian.net/a/ujhhgtg".toUri().openInSystem(context, true)
+                        },
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.about_translators_title),
+                        summary = stringResource(R.string.about_translators_summary),
+                        icon = MaterialSymbols.Outlined.Volunteer_activism,
+                        onClick = {
+                            "https://github.com/Ujhhgtg/WeKit/blob/dev/docs/translations/TRANSLATORS.md"
+                                .toUri()
+                                .openInSystem(context, true)
+                        },
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_open_source_licenses_title),
+                        summary = stringResource(R.string.settings_open_source_licenses_summary),
+                        icon = MaterialSymbols.Outlined.License,
+                        onClick = onOpenLicense,
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.brand_github),
+                        summary = "Ujhhgtg/WeKit",
+                        icon = GitHubIcon,
+                        onClick = { "https://github.com/Ujhhgtg/WeKit".toUri().openInSystem(context, true) })
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.brand_telegram),
+                        summary = "https://t.me/+7j5dJ6g16B43OWVl",
+                        icon = TelegramIcon,
+                        onClick = { "https://t.me/+7j5dJ6g16B43OWVl".toUri().openInSystem(context, true) })
+                }
             }
         }
 
@@ -331,46 +360,50 @@ private fun ProfileCard() {
         }
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (identity.avatarUrl.isNotEmpty()) {
-                AsyncImage(
-                    model = identity.avatarUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
+    SegmentedColumn {
+        item {
+            BaseItemContainer {
+                Row(
                     modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape),
-                )
-            } else {
-                AvatarPlaceholder()
-            }
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (identity.avatarUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = identity.avatarUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape),
+                        )
+                    } else {
+                        AvatarPlaceholder()
+                    }
 
-            Spacer(Modifier.width(14.dp))
+                    Spacer(Modifier.width(14.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = identity.nickname.ifEmpty { wxId.ifEmpty { "—" } },
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MiuixTheme.colorScheme.onSurface,
-                )
-                if (wxId.isNotEmpty()) {
-                    Text(
-                        text = wxId,
-                        fontSize = 13.sp,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier.padding(top = 2.dp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = identity.nickname.ifEmpty { wxId.ifEmpty { "—" } },
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (wxId.isNotEmpty()) {
+                            Text(
+                                text = wxId,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -383,19 +416,19 @@ private fun AvatarPlaceholder() {
         modifier = Modifier
             .size(56.dp)
             .clip(CircleShape)
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = MaterialSymbols.Outlined.Account_circle,
             contentDescription = null,
             modifier = Modifier.size(34.dp),
-            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
-/** A miuix dropdown bound to an enum's entries. */
+/** A row opening an M3 dialog with radio choices, bound to an enum's entries. */
 @Composable
 private fun <T> EnumDropdown(
     title: String,
@@ -407,14 +440,40 @@ private fun <T> EnumDropdown(
     enabled: Boolean = true,
     icon: ImageVector? = null,
 ) {
-    WindowDropdownPreference(
+    var showDialog by remember { mutableStateOf(false) }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(title) },
+            text = {
+                Column {
+                    entries.forEach { entry ->
+                        RadioButtonWidget(
+                            title = labelOf(entry),
+                            selected = entry == selected,
+                            enabled = enabled,
+                            onClick = {
+                                showDialog = false
+                                onSelected(entry)
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+        )
+    }
+
+    BaseWidget(
+        icon = icon,
         title = title,
-        summary = summary,
-        items = entries.map(labelOf),
-        selectedIndex = entries.indexOf(selected).coerceAtLeast(0),
+        description = summary ?: labelOf(selected),
         enabled = enabled,
-        startAction = icon?.let { { PrefIcon(it) } },
-        onSelectedIndexChange = { onSelected(entries[it]) },
+        onClick = if (enabled) {
+            { showDialog = true }
+        } else null,
+        trailingContent = { Icon(imageVector = MaterialSymbols.Outlined.Chevron_right, contentDescription = null) },
     )
 }
 
@@ -443,10 +502,6 @@ private fun ThemeSection() {
         AppThemeMode.LIGHT to stringResource(R.string.theme_mode_light),
         AppThemeMode.DARK to stringResource(R.string.theme_mode_dark),
     )
-    val uiEngineLabels = mapOf(
-        SettingsUiEngine.MATERIAL3 to stringResource(R.string.ui_engine_miuix),
-        SettingsUiEngine.NUKE to stringResource(R.string.ui_engine_nuke),
-    )
     val paletteStyleLabels = mapOf(
         AppPaletteStyle.TONAL_SPOT to stringResource(R.string.palette_style_tonal_spot),
         AppPaletteStyle.NEUTRAL to stringResource(R.string.palette_style_neutral),
@@ -462,78 +517,100 @@ private fun ThemeSection() {
         AppColorSpec.SPEC_2021 to stringResource(R.string.color_spec_material_2021),
         AppColorSpec.SPEC_2025 to stringResource(R.string.color_spec_expressive_2025),
     )
-    EnumDropdown(
-        title = stringResource(R.string.settings_language_title),
-        entries = LanguageSelection.entries,
-        selected = selectedLanguage,
-        labelOf = languageLabels::getValue,
-        onSelected = WeKitLocaleController::updateSelection,
-        summary = languageSummary,
-        icon = MaterialSymbols.Outlined.Language,
-    )
-
-    EnumDropdown(
-        title = stringResource(R.string.settings_ui_engine_title),
-        entries = SettingsUiEngine.entries,
-        selected = ThemeSettings.uiEngine,
-        labelOf = uiEngineLabels::getValue,
-        onSelected = { ThemeSettings.updateUiEngine(it) },
-        icon = MaterialSymbols.Outlined.Style,
-    )
-
-    EnumDropdown(
-        title = stringResource(R.string.settings_theme_mode_title),
-        entries = AppThemeMode.entries,
-        selected = ThemeSettings.themeMode,
-        labelOf = themeModeLabels::getValue,
-        onSelected = { ThemeSettings.updateThemeMode(it) },
-        icon = MaterialSymbols.Outlined.Brightness_medium,
-    )
-
     var customColor by remember { mutableStateOf(ThemeSettings.customColor) }
-    SwitchPreference(
-        title = stringResource(R.string.settings_custom_color_title),
-        summary = stringResource(R.string.settings_custom_color_summary),
-        startAction = { PrefIcon(MaterialSymbols.Outlined.Palette) },
-        checked = customColor,
-        onCheckedChange = {
-            customColor = it
-            ThemeSettings.updateCustomColor(it)
-        },
-    )
-
+    var dynamicWallpaper by remember { mutableStateOf(ThemeSettings.dynamicWallpaper) }
     var showColorPicker by remember { mutableStateOf(false) }
     SeedColorPickerDialog(show = showColorPicker, onDismiss = { showColorPicker = false })
 
-    AnimatedVisibility(visible = customColor) {
-        Column {
-            var dynamicWallpaper by remember { mutableStateOf(ThemeSettings.dynamicWallpaper) }
-            SwitchPreference(
+    SegmentedColumn(title = stringResource(R.string.settings_section_interface)) {
+        item {
+            EnumDropdown(
+                title = stringResource(R.string.settings_language_title),
+                entries = LanguageSelection.entries,
+                selected = selectedLanguage,
+                labelOf = languageLabels::getValue,
+                onSelected = WeKitLocaleController::updateSelection,
+                summary = languageSummary,
+                icon = MaterialSymbols.Outlined.Language,
+            )
+        }
+
+        // UI engine picker — radio pair instead of a dropdown.
+        item {
+            RadioButtonWidget(
+                title = SettingsUiEngine.MATERIAL3.displayName,
+                selected = ThemeSettings.uiEngine == SettingsUiEngine.MATERIAL3,
+                onClick = {
+                    if (ThemeSettings.uiEngine != SettingsUiEngine.MATERIAL3) {
+                        ThemeSettings.updateUiEngine(SettingsUiEngine.MATERIAL3)
+                    }
+                },
+            )
+        }
+        item {
+            RadioButtonWidget(
+                title = SettingsUiEngine.NUKE.displayName,
+                selected = ThemeSettings.uiEngine == SettingsUiEngine.NUKE,
+                onClick = {
+                    if (ThemeSettings.uiEngine != SettingsUiEngine.NUKE) {
+                        ThemeSettings.updateUiEngine(SettingsUiEngine.NUKE)
+                    }
+                },
+            )
+        }
+
+        item {
+            EnumDropdown(
+                title = stringResource(R.string.settings_theme_mode_title),
+                entries = AppThemeMode.entries,
+                selected = ThemeSettings.themeMode,
+                labelOf = themeModeLabels::getValue,
+                onSelected = { ThemeSettings.updateThemeMode(it) },
+                icon = MaterialSymbols.Outlined.Brightness_medium,
+            )
+        }
+
+        item {
+            SwitchWidget(
+                title = stringResource(R.string.settings_custom_color_title),
+                description = stringResource(R.string.settings_custom_color_summary),
+                icon = MaterialSymbols.Outlined.Palette,
+                checked = customColor,
+                onCheckedChange = {
+                    customColor = it
+                    ThemeSettings.updateCustomColor(it)
+                },
+            )
+        }
+
+        item(animatedVisibility = customColor) {
+            SwitchWidget(
                 title = stringResource(R.string.settings_dynamic_wallpaper_title),
-                summary = stringResource(R.string.settings_dynamic_wallpaper_summary),
-                startAction = { PrefIcon(MaterialSymbols.Outlined.Wallpaper) },
+                description = stringResource(R.string.settings_dynamic_wallpaper_summary),
+                icon = MaterialSymbols.Outlined.Wallpaper,
                 checked = dynamicWallpaper,
                 onCheckedChange = {
                     dynamicWallpaper = it
                     ThemeSettings.updateDynamicWallpaper(it)
                 },
             )
-            AnimatedVisibility(visible = !dynamicWallpaper) {
-                BasicComponent(
-                    title = stringResource(R.string.settings_seed_color_title),
-                    summary = stringResource(R.string.settings_seed_color_summary),
-                    startAction = { PrefIcon(MaterialSymbols.Outlined.Colorize) },
-                    onClick = { showColorPicker = true },
-                    endActions = {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(Color(ThemeSettings.seedColor)),
-                        )
-                    },
+        }
+        item(animatedVisibility = customColor && !dynamicWallpaper) {
+            BaseWidget(
+                title = stringResource(R.string.settings_seed_color_title),
+                description = stringResource(R.string.settings_seed_color_summary),
+                icon = MaterialSymbols.Outlined.Colorize,
+                onClick = { showColorPicker = true },
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color(ThemeSettings.seedColor)),
                 )
             }
+        }
+        item(animatedVisibility = customColor) {
             EnumDropdown(
                 title = stringResource(R.string.settings_palette_style_title),
                 entries = AppPaletteStyle.entries,
@@ -548,7 +625,9 @@ private fun ThemeSection() {
                 },
                 icon = MaterialSymbols.Outlined.Style,
             )
-            val spec2025Supported = ThemeSettings.paletteStyle.supportsSpec2025
+        }
+        val spec2025Supported = ThemeSettings.paletteStyle.supportsSpec2025
+        item(animatedVisibility = customColor) {
             EnumDropdown(
                 title = stringResource(R.string.settings_color_spec_title),
                 entries = if (spec2025Supported) AppColorSpec.entries else listOf(AppColorSpec.SPEC_2021),
@@ -561,12 +640,14 @@ private fun ThemeSection() {
                 } else null,
                 icon = MaterialSymbols.Outlined.Contrast,
             )
+        }
 
+        item(animatedVisibility = customColor) {
             var applyToWechat by remember { mutableStateOf(ThemeSettings.applyToWechat) }
-            SwitchPreference(
+            SwitchWidget(
                 title = stringResource(R.string.settings_apply_to_wechat_title),
-                summary = stringResource(R.string.settings_apply_to_wechat_summary),
-                startAction = { PrefIcon(MaterialSymbols.Outlined.Sync) },
+                description = stringResource(R.string.settings_apply_to_wechat_summary),
+                icon = MaterialSymbols.Outlined.Sync,
                 checked = applyToWechat,
                 onCheckedChange = {
                     applyToWechat = it
@@ -580,46 +661,94 @@ private fun ThemeSection() {
     }
 }
 
-/** miuix color-picker dialog for the custom seed color; commits to ThemeSettings on confirm. */
+/**
+ * HSV color-picker dialog for the custom seed color; commits to ThemeSettings on confirm.
+ * Simplified vs the old miuix ColorPicker: three labeled sliders (Hue / Saturation / Value)
+ * plus a live preview, no alpha channel (the seed color is opaque anyway).
+ */
 @Composable
 private fun SeedColorPickerDialog(show: Boolean, onDismiss: () -> Unit) {
-    var picked by remember(show) { mutableStateOf(Color(ThemeSettings.seedColor)) }
+    if (!show) return
 
-    WeKitWindowDialog(
-        show = show,
-        title = stringResource(R.string.settings_custom_color_title),
+    val initialHsv = remember {
+        FloatArray(3).also { AndroidColor.colorToHSV(ThemeSettings.seedColor, it) }
+    }
+    var hue by remember { mutableStateOf(initialHsv[0]) }
+    var saturation by remember { mutableStateOf(initialHsv[1] * 100f) }
+    var value by remember { mutableStateOf(initialHsv[2] * 100f) }
+    val picked = AndroidColor.HSVToColor(floatArrayOf(hue, saturation / 100f, value / 100f))
+
+    AlertDialog(
         onDismissRequest = onDismiss,
-    ) {
-        Column {
-            ColorPicker(
-                color = picked,
-                onColorChanged = { picked = it },
-            )
-            Spacer(Modifier.height(20.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                TextButton(
-                    text = stringResource(R.string.action_reset),
-                    onClick = { picked = Color(ThemeSettings.DEFAULT_SEED_COLOR) },
-                    modifier = Modifier.weight(1f),
+        title = { Text(stringResource(R.string.settings_custom_color_title)) },
+        text = {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(picked)),
                 )
-                Spacer(Modifier.width(20.dp))
-                TextButton(
-                    text = stringResource(R.string.dialog_cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
+                Spacer(Modifier.height(16.dp))
+                HsvSlider(
+                    label = stringResource(R.string.color_picker_hue),
+                    value = hue,
+                    onValueChange = { hue = it },
+                    valueRange = 0f..360f,
                 )
-                Spacer(Modifier.width(20.dp))
-                TextButton(
-                    text = stringResource(R.string.dialog_confirm),
-                    onClick = {
-                        ThemeSettings.updateSeedColor(picked.toArgb())
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                HsvSlider(
+                    label = stringResource(R.string.color_picker_saturation),
+                    value = saturation,
+                    onValueChange = { saturation = it },
+                    valueRange = 0f..100f,
                 )
+                HsvSlider(
+                    label = stringResource(R.string.color_picker_value),
+                    value = value,
+                    onValueChange = { value = it },
+                    valueRange = 0f..100f,
+                )
+                TextButton(onClick = {
+                    val reset = FloatArray(3).also { AndroidColor.colorToHSV(ThemeSettings.DEFAULT_SEED_COLOR, it) }
+                    hue = reset[0]
+                    saturation = reset[1] * 100f
+                    value = reset[2] * 100f
+                }) {
+                    Text(stringResource(R.string.action_reset))
+                }
             }
-        }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                ThemeSettings.updateSeedColor(AndroidColor.HSVToColor(floatArrayOf(hue, saturation / 100f, value / 100f)))
+                onDismiss()
+            }) { Text(stringResource(R.string.dialog_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+        },
+    )
+}
+
+@Composable
+private fun HsvSlider(
+    label: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+) {
+    Column {
+        Text(
+            text = "$label: ${value.toInt()}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+        )
     }
 }
 
@@ -638,10 +767,10 @@ private fun PrefSwitch(
     // Must match the default declared on the matching `prefOption`, otherwise the switch shows
     // "off" for a preference that is actually on until the user toggles it once.
     var checked by remember(key, default) { mutableStateOf(WePrefs.getBoolOrDef(key, default)) }
-    SwitchPreference(
+    SwitchWidget(
         title = title,
-        summary = summary,
-        startAction = { PrefIcon(icon) },
+        description = summary,
+        icon = icon,
         checked = checked,
         onCheckedChange = {
             checked = it
@@ -659,38 +788,29 @@ private fun PrefArrow(
 ) {
     if (onClick == null) {
         // Informational row: no trailing arrow, no ripple.
-        BasicComponent(
+        BaseWidget(
             title = title,
-            summary = summary,
-            startAction = icon?.let { { PrefIcon(it) } },
+            description = summary,
+            icon = icon,
         )
     } else {
-        ArrowPreference(
+        BaseWidget(
             title = title,
-            summary = summary,
-            startAction = icon?.let { { PrefIcon(it) } },
+            description = summary,
+            icon = icon,
             onClick = onClick,
+            trailingContent = { Icon(imageVector = MaterialSymbols.Outlined.Chevron_right, contentDescription = null) },
         )
     }
 }
 
 @Composable
-private fun PrefIcon(icon: ImageVector) {
-    Icon(
-        imageVector = icon,
-        contentDescription = null,
-        modifier = Modifier.padding(end = 6.dp),
-        tint = MiuixTheme.colorScheme.onBackground,
-    )
-}
-
-@Composable
 private fun SecuritySwitch(context: Context) {
     var checked by remember { mutableStateOf(SafeMode.isEnabled) }
-    SwitchPreference(
+    SwitchWidget(
         title = stringResource(R.string.settings_safe_mode_title),
-        summary = stringResource(R.string.settings_safe_mode_summary),
-        startAction = { PrefIcon(MaterialSymbols.Outlined.Shield) },
+        description = stringResource(R.string.settings_safe_mode_summary),
+        icon = MaterialSymbols.Outlined.Shield,
         checked = checked,
         onCheckedChange = {
             if (it) {
@@ -728,13 +848,13 @@ private fun checkForUpdate(
 }
 
 // ---------------------------------------------------------------------------
-//  Dialogs (miuix WindowDialog)
+//  Dialogs (Material 3 AlertDialog)
 // ---------------------------------------------------------------------------
 
 @Composable
 private fun ClearConfigDialog(show: Boolean, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    MiuixConfirmDialog(
+    ConfirmDialog(
         show = show,
         title = stringResource(R.string.clear_config_dialog_title),
         message = stringResource(R.string.clear_config_dialog_message),
@@ -758,7 +878,7 @@ private fun UpdateAvailableDialog(
     context: ComponentActivity,
 ) {
     val currentLocalizedContext = rememberUpdatedState(LocalContext.current)
-    MiuixConfirmDialog(
+    ConfirmDialog(
         show = info != null,
         title = stringResource(R.string.update_available_title),
         message = if (info != null) {
@@ -771,7 +891,7 @@ private fun UpdateAvailableDialog(
         confirmText = stringResource(R.string.dialog_confirm),
         onDismiss = onDismiss,
         onConfirm = {
-            val target = info ?: return@MiuixConfirmDialog
+            val target = info ?: return@ConfirmDialog
             onDismiss()
             // The activity's scope, so closing settings mid-download cancels the download wait
             // (and with it the BroadcastReceiver it keeps registered on this activity).
@@ -798,7 +918,7 @@ private fun UpdateAvailableDialog(
 
 @Composable
 private fun UpdateErrorDialog(message: String?, onDismiss: () -> Unit) {
-    MiuixMessageDialog(
+    MessageDialog(
         show = message != null,
         title = stringResource(R.string.update_check_failed_title),
         message = stringResource(R.string.update_error_message, message.orEmpty()),
@@ -807,9 +927,9 @@ private fun UpdateErrorDialog(message: String?, onDismiss: () -> Unit) {
     )
 }
 
-/** Two-button (cancel / confirm) miuix dialog. */
+/** Two-button (cancel / confirm) dialog. */
 @Composable
-private fun MiuixConfirmDialog(
+private fun ConfirmDialog(
     show: Boolean,
     title: String,
     message: String,
@@ -818,49 +938,38 @@ private fun MiuixConfirmDialog(
     onConfirm: () -> Unit,
     dismissText: String? = null,
 ) {
-    WeKitWindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
-        Column {
-            Text(text = message)
-            Spacer(Modifier.height(20.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                TextButton(
-                    text = dismissText ?: stringResource(R.string.dialog_cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(20.dp))
-                TextButton(
-                    text = confirmText,
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                )
-            }
-        }
-    }
+    if (!show) return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(confirmText) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(dismissText ?: stringResource(R.string.dialog_cancel)) }
+        },
+    )
 }
 
-/** Single-button (dismiss only) miuix dialog. */
+/** Single-button (dismiss only) dialog. */
 @Composable
-private fun MiuixMessageDialog(
+private fun MessageDialog(
     show: Boolean,
     title: String,
     message: String,
     dismissText: String,
     onDismiss: () -> Unit,
 ) {
-    WeKitWindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
-        Column {
-            Text(text = message)
-            Spacer(Modifier.height(20.dp))
-            TextButton(
-                text = dismissText,
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
-        }
-    }
+    if (!show) return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(dismissText) }
+        },
+    )
 }
 
 
@@ -878,8 +987,7 @@ fun LicenseScreen(onBack: () -> Unit) {
         Libs.Builder().withJson(json).build().libraries
     }
 
-    val queryState = rememberTextFieldState()
-    val query = queryState.text.toString()
+    var query by remember { mutableStateOf("") }
     val filtered = remember(query, libraries) {
         if (query.isBlank()) libraries
         else libraries.filter { lib ->
@@ -889,40 +997,33 @@ fun LicenseScreen(onBack: () -> Unit) {
         }
     }
 
-    MiuixListScaffold(
+    M3ListScaffold(
         title = stringResource(R.string.licenses_title),
         navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = MaterialSymbols.Outlined.Arrow_back,
-                    contentDescription = stringResource(R.string.accessibility_back),
-                    tint = MiuixTheme.colorScheme.onBackground,
-                )
-            }
+            ExpressiveBackButton(onClick = onBack)
         },
     ) {
         item {
-            TextField(
-                state = queryState,
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
                 modifier = Modifier
-                    .padding(top = 12.dp)
+                    .padding(top = 12.dp, start = 16.dp, end = 16.dp)
                     .fillMaxWidth(),
-                label = stringResource(R.string.licenses_search_hint),
+                label = { Text(stringResource(R.string.licenses_search_hint)) },
+                singleLine = true,
                 leadingIcon = {
                     Icon(
                         imageVector = MaterialSymbols.Outlined.Search,
                         contentDescription = null,
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
-                        IconButton(onClick = { queryState.clearText() }) {
+                        IconButton(onClick = { query = "" }) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Close,
                                 contentDescription = stringResource(R.string.action_clear),
-                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
                     }
@@ -931,13 +1032,15 @@ fun LicenseScreen(onBack: () -> Unit) {
         }
 
         item {
-            MiuixSmallTitle(
+            Text(
                 text = if (query.isBlank()) {
                     stringResource(R.string.licenses_count, libraries.size)
                 } else {
                     stringResource(R.string.licenses_filtered_count, filtered.size, libraries.size)
                 },
-                modifier = Modifier.padding(top = 6.dp),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
             )
         }
 
@@ -951,13 +1054,17 @@ fun LicenseScreen(onBack: () -> Unit) {
                 ) {
                     Text(
                         text = stringResource(R.string.licenses_no_results, query),
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         } else {
             items(filtered, key = { it.uniqueId }) { library ->
-                LibraryRow(library, modifier = Modifier.padding(top = 12.dp))
+                SegmentedColumn {
+                    item {
+                        LibraryRow(library)
+                    }
+                }
             }
         }
 
@@ -967,14 +1074,14 @@ fun LicenseScreen(onBack: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun LibraryRow(library: Library, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.fillMaxWidth()) {
+private fun LibraryRow(library: Library) {
+    BaseItemContainer {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = library.name,
                     fontWeight = FontWeight.SemiBold,
-                    color = MiuixTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -984,7 +1091,7 @@ private fun LibraryRow(library: Library, modifier: Modifier = Modifier) {
                     Text(
                         text = version,
                         fontSize = 12.sp,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -994,7 +1101,7 @@ private fun LibraryRow(library: Library, modifier: Modifier = Modifier) {
                 Text(
                     text = author,
                     fontSize = 13.sp,
-                    color = MiuixTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
@@ -1003,7 +1110,7 @@ private fun LibraryRow(library: Library, modifier: Modifier = Modifier) {
                 Text(
                     text = desc,
                     fontSize = 13.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 8.dp),
@@ -1020,10 +1127,10 @@ private fun LibraryRow(library: Library, modifier: Modifier = Modifier) {
                         Text(
                             text = license.name,
                             fontSize = 12.sp,
-                            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                                 .padding(horizontal = 8.dp, vertical = 3.dp),
                         )
                     }
