@@ -39,11 +39,16 @@ enum class AppThemeMode(val displayName: String) {
 }
 
 enum class SettingsUiEngine(val displayName: String) {
-    MIUIX("Miuix"),
+    MATERIAL3("Material 3"),
     NUKE("Nuke");
 
     companion object {
-        fun fromName(value: String?) = entries.find { it.name == value } ?: MIUIX
+        fun fromName(value: String?): SettingsUiEngine = when (value) {
+            // legacy names written by older builds
+            "MIUIX", "Miuix" -> MATERIAL3
+            NUKE.name -> NUKE
+            else -> MATERIAL3
+        }
     }
 }
 

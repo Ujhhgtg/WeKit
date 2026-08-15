@@ -444,7 +444,7 @@ private fun ThemeSection() {
         AppThemeMode.DARK to stringResource(R.string.theme_mode_dark),
     )
     val uiEngineLabels = mapOf(
-        SettingsUiEngine.MIUIX to stringResource(R.string.ui_engine_miuix),
+        SettingsUiEngine.MATERIAL3 to stringResource(R.string.ui_engine_miuix),
         SettingsUiEngine.NUKE to stringResource(R.string.ui_engine_nuke),
     )
     val paletteStyleLabels = mapOf(

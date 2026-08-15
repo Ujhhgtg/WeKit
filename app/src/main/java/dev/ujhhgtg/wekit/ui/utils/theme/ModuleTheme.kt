@@ -14,8 +14,6 @@ import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeController
-import top.yukonga.miuix.kmp.theme.darkColorScheme as miuixDarkColorScheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme as miuixLightColorScheme
 
 /**
  * Theme for the module's OWN UI (settings page + module dialogs). Wraps content in BOTH a Material 3
@@ -61,7 +59,7 @@ fun ModuleTheme(
         }
 
         ThemeSettings.uiEngine == SettingsUiEngine.NUKE -> defaultNukeMaterialScheme(darkTheme)
-        else -> defaultMiuixMaterialScheme(darkTheme)
+        else -> defaultMaterial3Scheme(darkTheme)
     }
 
     MiuixTheme(controller = controller) {
@@ -90,39 +88,12 @@ private fun defaultNukeMaterialScheme(darkTheme: Boolean): ColorScheme = dynamic
     specVersion = ColorSpec.SpecVersion.SPEC_2021,
 )
 
-private fun defaultMiuixMaterialScheme(darkTheme: Boolean): ColorScheme {
-    val miuixColors = if (darkTheme) miuixDarkColorScheme() else miuixLightColorScheme()
-    val dialogSurface = miuixColors.surfaceContainer
-
-    return dynamicColorScheme(
-        seedColor = miuixColors.primary,
-        isDark = darkTheme,
-        style = PaletteStyle.TonalSpot,
-        specVersion = ColorSpec.SpecVersion.SPEC_2021,
-    ).copy(
-        primary = miuixColors.primary,
-        onPrimary = miuixColors.onPrimary,
-        primaryContainer = miuixColors.primaryContainer,
-        onPrimaryContainer = miuixColors.onPrimaryContainer,
-        error = miuixColors.error,
-        onError = miuixColors.onError,
-        errorContainer = miuixColors.errorContainer,
-        onErrorContainer = miuixColors.onErrorContainer,
-        background = miuixColors.background,
-        onBackground = miuixColors.onBackground,
-        surface = dialogSurface,
-        onSurface = miuixColors.onSurfaceContainer,
-        surfaceVariant = miuixColors.surfaceVariant,
-        onSurfaceVariant = miuixColors.onSurfaceVariantSummary,
-        surfaceTint = dialogSurface,
-        outline = miuixColors.outline,
-        outlineVariant = miuixColors.dividerLine,
-        surfaceBright = dialogSurface,
-        surfaceContainerLowest = dialogSurface,
-        surfaceContainerLow = dialogSurface,
-        surfaceContainer = dialogSurface,
-        surfaceContainerHigh = miuixColors.surfaceContainerHigh,
-        surfaceContainerHighest = miuixColors.surfaceContainerHighest,
-        surfaceDim = miuixColors.surface,
-    )
-}
+/**
+ * Default Material 3 scheme for the Material 3 engine (no custom color): WeChat-green Tonal Spot.
+ */
+private fun defaultMaterial3Scheme(darkTheme: Boolean): ColorScheme = dynamicColorScheme(
+    seedColor = Color(ThemeSettings.DEFAULT_SEED_COLOR),
+    isDark = darkTheme,
+    style = PaletteStyle.TonalSpot,
+    specVersion = ColorSpec.SpecVersion.SPEC_2021,
+)

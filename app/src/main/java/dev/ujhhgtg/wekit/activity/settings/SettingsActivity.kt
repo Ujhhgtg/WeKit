@@ -135,7 +135,7 @@ class SettingsActivity : ComponentActivity() {
             ) {
                 WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
                     when (ThemeSettings.uiEngine) {
-                        SettingsUiEngine.MIUIX -> ModuleTheme {
+                        SettingsUiEngine.MATERIAL3 -> ModuleTheme {
                             SettingsRoot(onFinish = { finish() })
                         }
 
