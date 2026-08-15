@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Block
 import com.composables.icons.materialsymbols.outlined.Check_circle
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
@@ -102,25 +101,9 @@ fun HomePager() {
 @Composable
 private fun StatusCard() {
     val context = LocalContext.current
-    val isActive = StartupInfo.isInitialized
-    val containerColor = if (isActive) {
-        MaterialTheme.colorScheme.secondaryContainer
-    } else {
-        MaterialTheme.colorScheme.errorContainer
-    }
-    val contentColor = if (isActive) {
-        MaterialTheme.colorScheme.onSecondaryContainer
-    } else {
-        MaterialTheme.colorScheme.onErrorContainer
-    }
-    val statusTitle = stringResource(
-        if (isActive) R.string.home_module_activated else R.string.module_app_activation_inactive
-    )
-    val loaderName = if (isActive) {
-        StartupInfo.loaderService.loaderName
-    } else {
-        stringResource(R.string.common_not_provided)
-    }
+    val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    val statusTitle = stringResource(R.string.home_module_activated)
+    val loaderName = StartupInfo.loaderService.loaderName
     val hookBridgeName = StartupInfo.hookBridge?.hookBridgeName
         ?: stringResource(R.string.common_not_provided)
 
@@ -128,7 +111,7 @@ private fun StatusCard() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        color = containerColor,
+        color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = contentColor,
         shape = MaterialTheme.shapes.large,
         onClick = { openLsposedManager(context) },
@@ -136,11 +119,7 @@ private fun StatusCard() {
         ListItem(
             leadingContent = {
                 Icon(
-                    imageVector = if (isActive) {
-                        MaterialSymbols.Outlined.Check_circle
-                    } else {
-                        MaterialSymbols.Outlined.Block
-                    },
+                    imageVector = MaterialSymbols.Outlined.Check_circle,
                     contentDescription = statusTitle,
                 )
             },
@@ -198,11 +177,7 @@ private fun StatusTag(label: String, backgroundColor: Color, contentColor: Color
 
 @Composable
 private fun DeviceInformation() {
-    val loaderName = if (StartupInfo.isInitialized) {
-        StartupInfo.loaderService.loaderName
-    } else {
-        stringResource(R.string.common_not_provided)
-    }
+    val loaderName = StartupInfo.loaderService.loaderName
     SegmentedColumn(title = stringResource(R.string.home_device_info_title)) {
         item {
             BaseWidget(

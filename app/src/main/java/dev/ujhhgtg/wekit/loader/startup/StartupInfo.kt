@@ -7,7 +7,5 @@ object StartupInfo {
 
     lateinit var modulePath: String
     lateinit var loaderService: ILoaderService
-    val isInitialized: Boolean
-        get() = ::loaderService.isInitialized
     var hookBridge: IHookBridge? = null
 }
