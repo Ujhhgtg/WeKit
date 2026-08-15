@@ -404,6 +404,8 @@
 <string name="feature_category_contact_details_title">聯繫人詳情頁面</string>
 <string name="feature_category_api_title">API</string>
 <string name="feature_category_new_features_title">新功能</string>
+<string name="feature_category_enabled_title">已啟用功能</string>
+<string name="feature_category_enabled_summary">目前已啟用 %1$d 個功能</string>
 <string name="feature_batch_add_label_name">批量打標籤</string>
 <string name="feature_batch_add_label_description">爲選中的多個好友追加同一個標籤, 可選擇已有標籤或新建, 請求會自動間隔以規避服務器風控</string>
 <string name="feature_batch_delete_chat_history_name">批量刪除聊天記錄</string>

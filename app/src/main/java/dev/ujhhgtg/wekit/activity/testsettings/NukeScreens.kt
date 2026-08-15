@@ -21,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -47,6 +46,7 @@ import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Volunteer_activism
 import dev.ujhhgtg.wekit.activity.settings.FEATURE_CATEGORIES
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.settings.FeatureCategoryState
 import dev.ujhhgtg.wekit.activity.settings.featureCategoryTitleRes
 import dev.ujhhgtg.wekit.activity.settings.LocalComponentActivity
 import dev.ujhhgtg.wekit.activity.settings.NEW_FEATURE_ITEMS
@@ -172,7 +172,6 @@ private fun NukeHomePage(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = LocalComponentActivity.current
-    var searchToggleRevision by remember { mutableIntStateOf(0) }
     // Rows only animate on the first appearance of a search session; rows revealed later by
     // scrolling (second-time appearance) stay static. Reset per blank -> non-blank transition.
     var searchEntranceEnabled by remember(query.isBlank()) { mutableStateOf(true) }
@@ -288,8 +287,6 @@ private fun NukeHomePage(
                 NukeFeatureSearchResults(
                     query = query,
                     featureItems = featureItems,
-                    toggleRevision = searchToggleRevision,
-                    onToggleStateChanged = { searchToggleRevision++ },
                     activity = activity,
                     localizedContext = context,
                     animate = searchEntranceEnabled,
@@ -429,8 +426,6 @@ private fun NukeAccountAvatar(url: String) {
 private fun LazyListScope.NukeFeatureSearchResults(
     query: String,
     featureItems: List<SwitchFeature>,
-    toggleRevision: Int,
-    onToggleStateChanged: () -> Unit,
     activity: androidx.activity.ComponentActivity,
     localizedContext: Context,
     animate: Boolean,
@@ -469,8 +464,6 @@ private fun LazyListScope.NukeFeatureSearchResults(
             ) {
                 NukeFeatureRow(
                     feature = feature,
-                    revision = toggleRevision,
-                    onStateChanged = onToggleStateChanged,
                     activity = activity,
                 )
                 if (index < matchingItems.lastIndex) NukeDivider()
@@ -493,7 +486,6 @@ internal fun NukeFeatureCategoryPage(
             featureItems.filter { categoryId in it.categoryIds }
         }
     }
-    var toggleRevision by remember { mutableIntStateOf(0) }
     val activity = LocalComponentActivity.current
     // Rows only animate on the first appearance of the page; rows revealed later by scrolling
     // stay static. The section title keeps bouncing on every appearance.
@@ -525,8 +517,6 @@ internal fun NukeFeatureCategoryPage(
                 ) {
                     NukeFeatureRow(
                         feature = feature,
-                        revision = toggleRevision,
-                        onStateChanged = { toggleRevision++ },
                         activity = activity,
                     )
                     if (index < items.lastIndex) NukeDivider()
@@ -539,24 +529,24 @@ internal fun NukeFeatureCategoryPage(
 @Composable
 internal fun NukeFeatureRow(
     feature: SwitchFeature,
-    revision: Int,
-    onStateChanged: () -> Unit,
     activity: androidx.activity.ComponentActivity,
 ) {
     val context = LocalContext.current
+    val revision = FeatureCategoryState.revision
     val checked = remember(feature.technicalId, revision) {
         WePrefs.getBoolOrDef(feature.technicalId, feature.defaultEnabled)
     }
     val configurable = feature as? ClickableFeature
 
     DisposableEffect(feature.technicalId) {
-        feature.setToggleCompletionCallback { onStateChanged() }
+        feature.setToggleCompletionCallback { FeatureCategoryState.notifyToggleChanged() }
         onDispose {}
     }
 
     fun toggle(requested: Boolean) {
         if (feature.onBeforeToggle(requested, activity)) {
             feature.applyToggle(requested)
+            FeatureCategoryState.notifyToggleChanged()
         }
     }
 

@@ -448,6 +448,8 @@
     <string name="feature_category_contact_details_title">Contact details</string>
     <string name="feature_category_api_title">API</string>
     <string name="feature_category_new_features_title">New features</string>
+    <string name="feature_category_enabled_title">Enabled features</string>
+    <string name="feature_category_enabled_summary">%1$d features currently enabled</string>
 
     <!-- Feature metadata -->
     <string name="feature_batch_add_label_name">Batch add labels</string>

@@ -16,7 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.pager.HorizontalPager
@@ -89,8 +90,6 @@ import dev.ujhhgtg.wekit.activity.testsettings.NukeSettingsContent
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.features.core.FeaturesProvider
-import dev.ujhhgtg.wekit.features.core.NewFeatures
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
@@ -182,11 +181,13 @@ val FEATURE_CATEGORIES = listOf(
  * it isn't something a feature can declare in its `@Feature(categoryIds = ...)`.
  */
 const val NEW_FEATURES_CATEGORY = "new_features"
+const val ENABLED_FEATURES_CATEGORY = "enabled_features"
 
 @StringRes
 fun featureCategoryTitleRes(categoryId: String): Int =
     when (categoryId) {
         NEW_FEATURES_CATEGORY -> R.string.feature_category_new_features_title
+        ENABLED_FEATURES_CATEGORY -> R.string.feature_category_enabled_title
         FeatureCategoryIds.API -> R.string.feature_category_api_title
         else -> FEATURE_CATEGORIES.first { it.id == categoryId }.titleRes
     }
@@ -198,19 +199,8 @@ fun featureCategoryTitleRes(categoryId: String): Int =
  * Features that belong to no real category — the `API` internals — are dropped: they carry no
  * switch a user would meaningfully flip.
  */
-val NEW_FEATURE_ITEMS: List<BaseFeature> by lazy {
-    val visibleCategories = FEATURE_CATEGORIES.mapTo(mutableSetOf()) { it.id }
-    FeaturesProvider.ALL_HOOK_ITEMS.associateBy { it.technicalId }.values
-        .mapNotNull { item ->
-            NewFeatures.ADDED_AT_BY_ID[item.technicalId]?.let { addedAt -> item to addedAt }
-        }
-        .filter { (item, _) -> item.categoryIds.any { it in visibleCategories } }
-        .sortedWith(
-            compareByDescending<Pair<BaseFeature, Long>> { it.second }
-                .thenBy { it.first.technicalId },
-        )
-        .map { (item, _) -> item }
-}
+val NEW_FEATURE_ITEMS: List<BaseFeature>
+    get() = FeatureCategoryState.newItems
 
 // ---------------------------------------------------------------------------
 //  Root: three-tab pager + floating bottom bar, with category drill-down
@@ -437,7 +427,10 @@ fun FeatureRow(
     val localizedDescription = item.localizedDescription(localizedContext)
 
     DisposableEffect(configKey) {
-        (item as SwitchFeature).setToggleCompletionCallback { onCheckedChange(item.isEnabled) }
+        (item as SwitchFeature).setToggleCompletionCallback {
+            FeatureCategoryState.notifyToggleChanged()
+            onCheckedChange(item.isEnabled)
+        }
         onDispose {}
     }
 
@@ -446,40 +439,42 @@ fun FeatureRow(
         if (item.onBeforeToggle(requested, context)) {
             WePrefs.putBool(configKey, requested)
             item.isEnabled = requested
+            FeatureCategoryState.notifyToggleChanged()
             onCheckedChange(requested)
         }
     }
 
     when (item) {
         is ClickableFeature -> BaseWidget(
+            iconPlaceholder = false,
             title = localizedName,
             description = localizedDescription,
             onClick = {
                 runCatching { item.onClick(context) }
                     .onFailure { WeLogger.e("SettingsActivity", "onClick failed for ${item.technicalPath}", it) }
             },
+            headlineTrailingContent = {
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = MaterialSymbols.Outlined.Settings,
+                    contentDescription = stringResource(R.string.accessibility_configurable),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            },
             trailingContent = { interactionSource ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = MaterialSymbols.Outlined.Settings,
-                        contentDescription = stringResource(R.string.accessibility_configurable),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .padding(end = if (!item.noSwitchWidget) 8.dp else 0.dp)
-                            .size(20.dp),
+                if (!item.noSwitchWidget) {
+                    Switch(
+                        checked = checked,
+                        onCheckedChange = { toggle(it) },
+                        interactionSource = interactionSource,
                     )
-                    if (!item.noSwitchWidget) {
-                        Switch(
-                            checked = checked,
-                            onCheckedChange = { toggle(it) },
-                            interactionSource = interactionSource,
-                        )
-                    }
                 }
             },
         )
 
         is SwitchFeature -> SwitchWidget(
+            iconPlaceholder = false,
             title = localizedName,
             description = localizedDescription,
             checked = checked,

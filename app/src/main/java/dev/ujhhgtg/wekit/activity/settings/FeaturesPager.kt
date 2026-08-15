@@ -13,7 +13,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,24 +40,13 @@ import java.text.Collator
 import java.util.Locale
 
 
-// ---------------------------------------------------------------------------
-//  Shared switch state
-// ---------------------------------------------------------------------------
-
-/**
- * Bumped on every feature toggle. Rows key their MMKV read on it, so the search list and a
- * category screen — which the navigator keeps composed at the same time — can never drift apart,
- * nor away from what MMKV actually holds.
- */
-private var featureToggleRevision by mutableIntStateOf(0)
-
 /**
  * Current switch state of [item], read straight from MMKV using the feature's own
  * [SwitchFeature.defaultEnabled] — the very default `SwitchFeature.startup()` applies.
  */
 @Composable
 private fun featureChecked(item: BaseFeature): Boolean {
-    val revision = featureToggleRevision
+    val revision = FeatureCategoryState.revision
     return remember(item.technicalId, revision) {
         WePrefs.getBoolOrDef(item.technicalId, (item as? SwitchFeature)?.defaultEnabled == true)
     }
@@ -152,7 +140,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                                 FeatureRow(
                                     item = feature,
                                     checked = featureChecked(feature),
-                                    onCheckedChange = { featureToggleRevision++ },
+                                    onCheckedChange = {},
                                 )
                             }
                         }
@@ -246,7 +234,7 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
                         FeatureRow(
                             item = feature,
                             checked = featureChecked(feature),
-                            onCheckedChange = { featureToggleRevision++ },
+                            onCheckedChange = {},
                         )
                         feature.Ui()
                     }
