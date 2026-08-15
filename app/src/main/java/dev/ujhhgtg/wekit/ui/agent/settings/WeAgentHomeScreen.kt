@@ -1,8 +1,14 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -15,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.agent.AgentSettingsRoute
 import dev.ujhhgtg.wekit.agent.data.OverlayMode
@@ -23,14 +31,11 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
-import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 
 /**
  * WeAgent settings home.
@@ -54,10 +59,9 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
     var defaultSystemPromptId by remember { mutableStateOf<String?>(null) }
     var defaultWorkspaceId by remember { mutableStateOf<String?>(null) }
 
-    // These must come from the live DB flows, not a one-shot read: MiuixStackNavigator keeps the whole
-    // stack composed, so this screen never leaves composition and a LaunchedEffect(Unit) would never
-    // re-run. A model/prompt/workspace added on a child screen has to show up in these dropdowns as
-    // soon as the user comes back.
+    // These must come from the live DB flows, not a one-shot read: a model/prompt/workspace added
+    // on a child screen has to show up in these dropdowns as soon as the user comes back, no
+    // matter how the nav host composes covered entries.
     val models by remember { WeAgentRepository.observeModels() }.collectAsState(initial = emptyList())
     val systemPrompts by remember { WeAgentRepository.observeSystemPrompts() }.collectAsState(initial = emptyList())
     val workspaces by remember { WeAgentRepository.observeWorkspaces() }.collectAsState(initial = emptyList())
@@ -76,173 +80,212 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
 
     AgentSettingsScaffold(title = stringResource(R.string.agent_settings_title), onBack = null) {
         // ---------- 界面 ----------
-        item { MiuixSmallTitle(stringResource(R.string.settings_section_interface)) }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
+            SegmentedColumn(title = stringResource(R.string.settings_section_interface)) {
                 if (loaded) {
-                    WindowDropdownPreference(
-                        title = stringResource(R.string.agent_overlay_mode_title),
-                        summary = stringResource(R.string.agent_overlay_mode_summary),
-                        items = OverlayMode.entries.map(overlayModeLabels::getValue),
-                        selectedIndex = OverlayMode.entries.indexOf(overlayMode),
-                        onSelectedIndexChange = {
-                            val mode = OverlayMode.entries[it]
-                            overlayMode = mode
-                            WeAgentOverlayController.setMode(mode)
-                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_OVERLAY_MODE, mode.name) }
-                        },
-                    )
+                    item {
+                        AgentDropdownRow(
+                            title = stringResource(R.string.agent_overlay_mode_title),
+                            items = OverlayMode.entries.map(overlayModeLabels::getValue),
+                            selectedIndex = OverlayMode.entries.indexOf(overlayMode),
+                            onSelectedIndexChange = {
+                                val mode = OverlayMode.entries[it]
+                                overlayMode = mode
+                                WeAgentOverlayController.setMode(mode)
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_OVERLAY_MODE, mode.name) }
+                            },
+                            summary = stringResource(R.string.agent_overlay_mode_summary),
+                        )
+                    }
                 }
             }
         }
 
         // ---------- 模型 ----------
-        item { MiuixSmallTitle(stringResource(R.string.agent_section_models)) }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = stringResource(R.string.agent_model_providers_title),
-                    summary = stringResource(R.string.agent_model_providers_summary),
-                    onClick = { onOpen(AgentSettingsRoute.ModelProviders) },
-                )
+            SegmentedColumn(title = stringResource(R.string.agent_section_models)) {
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_model_providers_title),
+                        description = stringResource(R.string.agent_model_providers_summary),
+                        onClick = { onOpen(AgentSettingsRoute.ModelProviders) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
                 if (loaded) {
                     // 文本在左，短输入框在右
-                    Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.agent_max_requests_per_turn), modifier = Modifier.weight(1f))
-                        TextField(
-                            value = maxRequests,
-                            onValueChange = { v -> maxRequests = v.filter { it.isDigit() }.take(3) },
-                            label = "",
-                            useLabelAsPlaceholder = true,
-                            singleLine = true,
-                            modifier = Modifier.width(96.dp),
+                    item {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.agent_max_requests_per_turn), modifier = Modifier.weight(1f))
+                            OutlinedTextField(
+                                value = maxRequests,
+                                onValueChange = { v -> maxRequests = v.filter { it.isDigit() }.take(3) },
+                                singleLine = true,
+                                modifier = Modifier.width(96.dp),
+                            )
+                        }
+                    }
+                    item {
+                        ModelDropdown(
+                            title = stringResource(R.string.agent_small_model_title),
+                            models = models,
+                            selectedId = smallModelId,
+                            noneLabel = stringResource(R.string.agent_same_as_primary_model),
+                        ) { id ->
+                            smallModelId = id
+                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SMALL_MODEL_ID, id.orEmpty()) }
+                        }
+                    }
+                    item {
+                        AgentDropdownRow(
+                            title = stringResource(R.string.agent_send_while_running_title),
+                            items = listOf(
+                                stringResource(R.string.agent_send_queue_after_turn),
+                                stringResource(R.string.agent_send_steer_next_request),
+                            ),
+                            selectedIndex = if (sendWhileRunning == "QUEUE_AS_STEER") 1 else 0,
+                            onSelectedIndexChange = {
+                                val mode = if (it == 1) "QUEUE_AS_STEER" else "QUEUE_AFTER_TURN"
+                                sendWhileRunning = mode
+                                WeAgentService.sendWhileRunningMode.value =
+                                    if (mode == "QUEUE_AS_STEER") WeAgentService.SendWhileRunningMode.QUEUE_AS_STEER
+                                    else WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SEND_WHILE_RUNNING, mode) }
+                            },
                         )
                     }
-                    ModelDropdown(
-                        title = stringResource(R.string.agent_small_model_title),
-                        models = models,
-                        selectedId = smallModelId,
-                        noneLabel = stringResource(R.string.agent_same_as_primary_model),
-                    ) { id ->
-                        smallModelId = id
-                        scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SMALL_MODEL_ID, id.orEmpty()) }
-                    }
-                    WindowDropdownPreference(
-                        title = stringResource(R.string.agent_send_while_running_title),
-                        items = listOf(
-                            stringResource(R.string.agent_send_queue_after_turn),
-                            stringResource(R.string.agent_send_steer_next_request),
-                        ),
-                        selectedIndex = if (sendWhileRunning == "QUEUE_AS_STEER") 1 else 0,
-                        onSelectedIndexChange = {
-                            val mode = if (it == 1) "QUEUE_AS_STEER" else "QUEUE_AFTER_TURN"
-                            sendWhileRunning = mode
-                            WeAgentService.sendWhileRunningMode.value =
-                                if (mode == "QUEUE_AS_STEER") WeAgentService.SendWhileRunningMode.QUEUE_AS_STEER
-                                else WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN
-                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SEND_WHILE_RUNNING, mode) }
-                        },
-                    )
                 }
             }
         }
 
         // ---------- 工具 ----------
-        item { MiuixSmallTitle(stringResource(R.string.agent_section_tools)) }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = stringResource(R.string.agent_builtin_tools_title),
-                    summary = stringResource(R.string.agent_builtin_tools_summary),
-                    onClick = { onOpen(AgentSettingsRoute.BuiltinTools) },
-                )
-                ArrowPreference(
-                    title = stringResource(R.string.agent_mcp_servers_title),
-                    summary = stringResource(R.string.agent_mcp_servers_summary),
-                    onClick = { onOpen(AgentSettingsRoute.McpServers) },
-                )
-                if (loaded) {
-                    SwitchPreference(
-                        title = stringResource(R.string.agent_dynamic_tools_title),
-                        summary = stringResource(R.string.agent_dynamic_tools_summary),
-                        checked = dynamicTools,
-                        onCheckedChange = {
-                            dynamicTools = it
-                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_TOOL_LOADING_MODE, if (it) "DYNAMIC" else "STATIC") }
-                        },
+            SegmentedColumn(title = stringResource(R.string.agent_section_tools)) {
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_builtin_tools_title),
+                        description = stringResource(R.string.agent_builtin_tools_summary),
+                        onClick = { onOpen(AgentSettingsRoute.BuiltinTools) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     )
                 }
-                ArrowPreference(
-                    title = stringResource(R.string.agent_workspaces_title),
-                    summary = stringResource(R.string.agent_workspaces_summary),
-                    onClick = { onOpen(AgentSettingsRoute.Workspaces) },
-                )
-                ArrowPreference(
-                    title = stringResource(R.string.agent_memory_title),
-                    summary = stringResource(R.string.agent_memory_summary),
-                    onClick = { onOpen(AgentSettingsRoute.Memory) },
-                )
-                ArrowPreference(
-                    title = stringResource(R.string.agent_external_services_title),
-                    summary = stringResource(R.string.agent_external_services_summary),
-                    onClick = { onOpen(AgentSettingsRoute.ExternalServices) },
-                )
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_mcp_servers_title),
+                        description = stringResource(R.string.agent_mcp_servers_summary),
+                        onClick = { onOpen(AgentSettingsRoute.McpServers) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                if (loaded) {
+                    item {
+                        SwitchWidget(
+                            title = stringResource(R.string.agent_dynamic_tools_title),
+                            description = stringResource(R.string.agent_dynamic_tools_summary),
+                            checked = dynamicTools,
+                            onCheckedChange = {
+                                dynamicTools = it
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_TOOL_LOADING_MODE, if (it) "DYNAMIC" else "STATIC") }
+                            },
+                        )
+                    }
+                }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_workspaces_title),
+                        description = stringResource(R.string.agent_workspaces_summary),
+                        onClick = { onOpen(AgentSettingsRoute.Workspaces) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_memory_title),
+                        description = stringResource(R.string.agent_memory_summary),
+                        onClick = { onOpen(AgentSettingsRoute.Memory) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_external_services_title),
+                        description = stringResource(R.string.agent_external_services_summary),
+                        onClick = { onOpen(AgentSettingsRoute.ExternalServices) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
             }
         }
 
         // ---------- 上下文 ----------
-        item { MiuixSmallTitle(stringResource(R.string.agent_section_context)) }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = stringResource(R.string.agent_prompts_title),
-                    summary = stringResource(R.string.agent_prompts_summary),
-                    onClick = { onOpen(AgentSettingsRoute.Prompts) },
-                )
-                ArrowPreference(
-                    title = stringResource(R.string.agent_skills_title),
-                    summary = stringResource(R.string.agent_skills_summary),
-                    onClick = { onOpen(AgentSettingsRoute.Skills) },
-                )
-                ArrowPreference(
-                    title = stringResource(R.string.agent_triggers_title),
-                    summary = stringResource(R.string.agent_triggers_summary),
-                    onClick = { onOpen(AgentSettingsRoute.Triggers) },
-                )
+            SegmentedColumn(title = stringResource(R.string.agent_section_context)) {
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_prompts_title),
+                        description = stringResource(R.string.agent_prompts_summary),
+                        onClick = { onOpen(AgentSettingsRoute.Prompts) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_skills_title),
+                        description = stringResource(R.string.agent_skills_summary),
+                        onClick = { onOpen(AgentSettingsRoute.Skills) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_triggers_title),
+                        description = stringResource(R.string.agent_triggers_summary),
+                        onClick = { onOpen(AgentSettingsRoute.Triggers) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
             }
         }
 
         // ---------- 默认 ----------
         if (loaded) {
-            item { MiuixSmallTitle(stringResource(R.string.agent_section_defaults)) }
             item {
-                Card(Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET)) {
-                    ModelDropdown(
-                        title = stringResource(R.string.agent_default_model_title),
-                        models = models,
-                        selectedId = defaultModelId,
-                        noneLabel = stringResource(R.string.agent_use_first_model),
-                    ) { id ->
-                        defaultModelId = id
-                        scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_MODEL_ID, id.orEmpty()) }
+                SegmentedColumn(
+                    title = stringResource(R.string.agent_section_defaults),
+                    modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                ) {
+                    item {
+                        ModelDropdown(
+                            title = stringResource(R.string.agent_default_model_title),
+                            models = models,
+                            selectedId = defaultModelId,
+                            noneLabel = stringResource(R.string.agent_use_first_model),
+                        ) { id ->
+                            defaultModelId = id
+                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_MODEL_ID, id.orEmpty()) }
+                        }
                     }
-                    GenericDropdown(
-                        title = stringResource(R.string.agent_default_system_prompt_title),
-                        items = systemPrompts.map { it.id to it.name },
-                        selectedId = defaultSystemPromptId,
-                        noneLabel = stringResource(R.string.common_none_parenthesized),
-                    ) { id ->
-                        defaultSystemPromptId = id
-                        scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_SYSTEM_PROMPT_ID, id.orEmpty()) }
+                    item {
+                        GenericDropdown(
+                            title = stringResource(R.string.agent_default_system_prompt_title),
+                            items = systemPrompts.map { it.id to it.name },
+                            selectedId = defaultSystemPromptId,
+                            noneLabel = stringResource(R.string.common_none_parenthesized),
+                        ) { id ->
+                            defaultSystemPromptId = id
+                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_SYSTEM_PROMPT_ID, id.orEmpty()) }
+                        }
                     }
-                    GenericDropdown(
-                        title = stringResource(R.string.agent_default_workspace_title),
-                        items = workspaces.map { it.id to it.name },
-                        selectedId = defaultWorkspaceId,
-                        noneLabel = stringResource(R.string.common_none_parenthesized),
-                    ) { id ->
-                        defaultWorkspaceId = id
-                        scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_WORKSPACE_ID, id.orEmpty()) }
+                    item {
+                        GenericDropdown(
+                            title = stringResource(R.string.agent_default_workspace_title),
+                            items = workspaces.map { it.id to it.name },
+                            selectedId = defaultWorkspaceId,
+                            noneLabel = stringResource(R.string.common_none_parenthesized),
+                        ) { id ->
+                            defaultWorkspaceId = id
+                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_WORKSPACE_ID, id.orEmpty()) }
+                        }
                     }
                 }
             }
@@ -263,6 +306,47 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
         if (clamped != typed) maxRequests = clamped.toString()
         WeAgentSettings.set(WeAgentSettings.KEY_MAX_MODEL_REQUESTS, clamped.toString())
     }
+}
+
+/** Row opening an M3 [AlertDialog] radio list — the agent-settings counterpart of a dropdown preference. */
+@Composable
+internal fun AgentDropdownRow(
+    title: String,
+    items: List<String>,
+    selectedIndex: Int,
+    onSelectedIndexChange: (Int) -> Unit,
+    summary: String? = null,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(title) },
+            text = {
+                Column {
+                    items.forEachIndexed { index, label ->
+                        RadioButtonWidget(
+                            title = label,
+                            selected = index == selectedIndex,
+                            onClick = {
+                                showDialog = false
+                                onSelectedIndexChange(index)
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+        )
+    }
+
+    BaseWidget(
+        title = title,
+        description = summary ?: items[selectedIndex],
+        onClick = { showDialog = true },
+        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+    )
 }
 
 @Composable
@@ -292,7 +376,7 @@ private fun GenericDropdown(
     val ids = buildList { if (noneLabel != null) add(null); items.forEach { add(it.first) } }
     val labels = buildList { if (noneLabel != null) add(noneLabel); items.forEach { add(it.second) } }
     val selectedIndex = ids.indexOf(selectedId).coerceAtLeast(0)
-    WindowDropdownPreference(
+    AgentDropdownRow(
         title = title,
         items = labels,
         selectedIndex = selectedIndex,

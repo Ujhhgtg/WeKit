@@ -8,6 +8,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,6 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
 import dev.ujhhgtg.wekit.R
@@ -30,17 +38,9 @@ import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import java.util.UUID
 
 /** Lists model providers; opens each for editing; adds a new one via dialog (§5.1/§5.2). */
@@ -59,12 +59,15 @@ fun ModelProvidersScreen(
         }
         items(providers.size, key = { providers[it].id }) { i ->
             val p = providers[i]
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = p.name.ifBlank { p.baseUrl },
-                    summary = stringResource(R.string.agent_provider_summary, p.type.label(), p.baseUrl),
-                    onClick = { onOpenProvider(p.id) },
-                )
+            SegmentedColumn {
+                item {
+                    BaseWidget(
+                        title = p.name.ifBlank { p.baseUrl },
+                        description = stringResource(R.string.agent_provider_summary, p.type.label(), p.baseUrl),
+                        onClick = { onOpenProvider(p.id) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
             }
         }
         item {
@@ -120,26 +123,23 @@ private fun AddProviderDialog(
         onDismissRequest = { show.value = false },
     ) {
         Column {
-            TextField(
+            OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = stringResource(R.string.common_name),
-                useLabelAsPlaceholder = true,
+                label = { Text(stringResource(R.string.common_name)) },
             )
             Spacer(Modifier.height(8.dp))
-            TextField(
+            OutlinedTextField(
                 value = baseUrl,
                 onValueChange = { baseUrl = it },
-                label = stringResource(R.string.agent_base_url),
-                useLabelAsPlaceholder = true,
+                label = { Text(stringResource(R.string.agent_base_url)) },
                 singleLine = true,
             )
             Spacer(Modifier.height(8.dp))
-            TextField(
+            OutlinedTextField(
                 value = apiKey,
                 onValueChange = { apiKey = it },
-                label = stringResource(R.string.external_service_api_key),
-                useLabelAsPlaceholder = true,
+                label = { Text(stringResource(R.string.external_service_api_key)) },
                 singleLine = true,
                 visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -156,7 +156,7 @@ private fun AddProviderDialog(
                 },
             )
             Spacer(Modifier.height(8.dp))
-            WindowDropdownPreference(
+            AgentDropdownRow(
                 title = stringResource(R.string.agent_provider_api_type),
                 items = typeLabels,
                 selectedIndex = typeIndex,
@@ -165,21 +165,18 @@ private fun AddProviderDialog(
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
                 TextButton(
-                    text = stringResource(R.string.dialog_cancel),
                     onClick = { show.value = false },
                     modifier = Modifier.weight(1f),
-                )
+                ) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    text = stringResource(R.string.action_add),
                     onClick = {
                         onConfirm(name.ifBlank { selectedTypeLabel }, selectedType, baseUrl, apiKey)
                         show.value = false
                     },
                     enabled = baseUrl.isNotBlank(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f),
-                )
+                ) { Text(stringResource(R.string.action_add)) }
             }
         }
     }

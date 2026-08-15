@@ -12,6 +12,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,6 +38,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
 import dev.ujhhgtg.wekit.R
@@ -43,20 +51,11 @@ import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import java.util.UUID
 
 /** Edits one provider (name/url/key) and manages its models (id + reasoning gear + custom JSON). */
@@ -97,20 +96,33 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
             return@AgentSettingsScaffold
         }
 
-        item { SmallTitle(stringResource(R.string.agent_section_connection)) }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                Column(Modifier.padding(12.dp)) {
-                    TextField(value = name, onValueChange = { name = it }, label = stringResource(R.string.agent_field_name), useLabelAsPlaceholder = true, singleLine = true)
-                    Spacer(Modifier.height(8.dp))
-                    TextField(value = baseUrl, onValueChange = { baseUrl = it }, label = stringResource(R.string.agent_base_url), useLabelAsPlaceholder = true, singleLine = true)
-                    Spacer(Modifier.height(8.dp))
-                    TextField(
+            SegmentedColumn(title = stringResource(R.string.agent_section_connection)) {
+                item {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text(stringResource(R.string.agent_field_name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                item(topPadding = 8.dp) {
+                    OutlinedTextField(
+                        value = baseUrl,
+                        onValueChange = { baseUrl = it },
+                        label = { Text(stringResource(R.string.agent_base_url)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                item(topPadding = 8.dp) {
+                    OutlinedTextField(
                         value = apiKey,
                         onValueChange = { apiKey = it },
-                        label = stringResource(R.string.agent_api_key_label),
-                        useLabelAsPlaceholder = true,
+                        label = { Text(stringResource(R.string.agent_api_key_label)) },
                         singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                         visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = {
@@ -123,16 +135,15 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                             }
                         },
                     )
-                    Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth()) {
+                }
+                item(topPadding = 12.dp) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
                         TextButton(
-                            text = stringResource(R.string.agent_delete_provider),
                             onClick = { scope.launch { WeAgentRepository.deleteModelProvider(p.id); onBack() } },
                             modifier = Modifier.weight(1f),
-                        )
+                        ) { Text(stringResource(R.string.agent_delete_provider)) }
                         Spacer(Modifier.width(12.dp))
                         TextButton(
-                            text = stringResource(R.string.action_save),
                             onClick = {
                                 scope.launch {
                                     val updated = p.copy(name = name, baseUrl = baseUrl, apiKey = apiKey)
@@ -143,28 +154,32 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                                     provider = updated
                                 }
                             },
-                            colors = ButtonDefaults.textButtonColorsPrimary(),
                             modifier = Modifier.weight(1f),
-                        )
+                        ) { Text(stringResource(R.string.action_save)) }
                     }
                 }
             }
         }
 
-        item { SmallTitle(stringResource(R.string.agent_section_models)) }
-        if (models.isEmpty()) item { EmptyHint(stringResource(R.string.agent_models_empty)) }
-        items(models.size, key = { models[it].id }) { i ->
-            val m = models[i]
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = m.displayName.ifBlank { m.modelIdRemote },
-                    summary = "id=${m.modelIdRemote}" +
-                            (m.reasoningEffort?.let { " · effort=$it" } ?: "") +
-                            (m.contextWindow?.let { " · ctx=$it" } ?: "") +
-                            (m.maxTokens?.let { " · max=$it" } ?: "") +
-                            if (m.supportsVision) " · ${stringResource(R.string.agent_model_supports_vision_badge)}" else "",
-                    onClick = { editingModel = m }
-                )
+        item {
+            SegmentedColumn(title = stringResource(R.string.agent_section_models)) {
+                if (models.isEmpty()) {
+                    item { EmptyHint(stringResource(R.string.agent_models_empty)) }
+                }
+                models.forEach { m ->
+                    item(key = m.id) {
+                        BaseWidget(
+                            title = m.displayName.ifBlank { m.modelIdRemote },
+                            description = "id=${m.modelIdRemote}" +
+                                    (m.reasoningEffort?.let { " · effort=$it" } ?: "") +
+                                    (m.contextWindow?.let { " · ctx=$it" } ?: "") +
+                                    (m.maxTokens?.let { " · max=$it" } ?: "") +
+                                    if (m.supportsVision) " · ${stringResource(R.string.agent_model_supports_vision_badge)}" else "",
+                            onClick = { editingModel = m },
+                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        )
+                    }
+                }
             }
         }
         item {
@@ -179,8 +194,6 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
         if (p.type != ModelProviderType.ANTHROPIC_MESSAGES) {
             item {
                 TextButton(
-                    text = stringResource(if (importing) R.string.agent_fetching_models else R.string.agent_auto_import_models),
-                    enabled = !importing,
                     onClick = {
                         importing = true
                         scope.launch {
@@ -202,10 +215,11 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                             )
                         }
                     },
+                    enabled = !importing,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
-                )
+                ) { Text(stringResource(if (importing) R.string.agent_fetching_models else R.string.agent_auto_import_models)) }
             }
         }
     }
@@ -324,15 +338,13 @@ private fun ImportModelsDialog(
             }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
-                TextButton(text = stringResource(R.string.dialog_cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    text = stringResource(R.string.agent_import_selected_models, selected.size),
                     onClick = { onImport(selected.toList()) },
                     enabled = selected.isNotEmpty(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f),
-                )
+                ) { Text(stringResource(R.string.agent_import_selected_models, selected.size)) }
             }
         }
     }
@@ -363,59 +375,79 @@ private fun ModelDialog(
         onDismissRequest = onDismiss,
     ) {
         Column {
-            TextField(value = remoteId, onValueChange = { remoteId = it }, label = stringResource(R.string.agent_model_id_label), useLabelAsPlaceholder = true, singleLine = true)
+            OutlinedTextField(
+                value = remoteId,
+                onValueChange = { remoteId = it },
+                label = { Text(stringResource(R.string.agent_model_id_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(8.dp))
-            TextField(value = display, onValueChange = { display = it }, label = stringResource(R.string.agent_model_display_name_label), useLabelAsPlaceholder = true, singleLine = true)
+            OutlinedTextField(
+                value = display,
+                onValueChange = { display = it },
+                label = { Text(stringResource(R.string.agent_model_display_name_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(8.dp))
-            WindowDropdownPreference(
+            AgentDropdownRow(
                 title = stringResource(R.string.agent_reasoning_effort),
                 items = EFFORT_GEARS.map { effortGearLabel(it) },
                 selectedIndex = effortIndex,
                 onSelectedIndexChange = { effortIndex = it },
             )
             Spacer(Modifier.height(8.dp))
-            TextField(
+            OutlinedTextField(
                 value = contextWindow,
                 onValueChange = { v -> contextWindow = v.filter { it.isDigit() }.take(9) },
-                label = stringResource(R.string.agent_context_window_label),
-                useLabelAsPlaceholder = true,
+                label = { Text(stringResource(R.string.agent_context_window_label)) },
                 singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
-            TextField(
+            OutlinedTextField(
                 value = maxTokens,
                 onValueChange = { v -> maxTokens = v.filter { it.isDigit() }.take(9) },
-                label = stringResource(R.string.agent_max_output_tokens_label),
-                useLabelAsPlaceholder = true,
+                label = { Text(stringResource(R.string.agent_max_output_tokens_label)) },
                 singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
-            TextField(value = customJson, onValueChange = { customJson = it }, label = stringResource(R.string.agent_custom_json_label), useLabelAsPlaceholder = true, maxLines = 4)
-            Spacer(Modifier.height(8.dp))
-            SwitchPreference(
-                title = stringResource(R.string.agent_supports_vision),
-                summary = stringResource(R.string.agent_supports_vision_summary),
-                checked = supportsVision,
-                onCheckedChange = { supportsVision = it },
+            OutlinedTextField(
+                value = customJson,
+                onValueChange = { customJson = it },
+                label = { Text(stringResource(R.string.agent_custom_json_label)) },
+                maxLines = 4,
+                modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(Modifier.height(8.dp))
+            SegmentedColumn {
+                item {
+                    SwitchWidget(
+                        title = stringResource(R.string.agent_supports_vision),
+                        description = stringResource(R.string.agent_supports_vision_summary),
+                        checked = supportsVision,
+                        onCheckedChange = { supportsVision = it },
+                    )
+                }
+            }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
                 if (onDelete != null) {
-                    TextButton(text = stringResource(R.string.action_delete), onClick = onDelete, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onDelete, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_delete)) }
                     Spacer(Modifier.width(8.dp))
                 }
-                TextButton(text = stringResource(R.string.dialog_cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(8.dp))
                 TextButton(
-                    text = stringResource(R.string.action_save),
                     onClick = {
                         val effort = EFFORT_GEARS[effortIndex].takeIf { it != "off" }
                         onSave(remoteId, display, effort, customJson.ifBlank { null }, contextWindow.toIntOrNull(), maxTokens.toIntOrNull(), supportsVision)
                     },
                     enabled = remoteId.isNotBlank(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f),
-                )
+                ) { Text(stringResource(R.string.action_save)) }
             }
         }
     }
