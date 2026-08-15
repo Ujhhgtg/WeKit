@@ -12,11 +12,14 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -94,6 +97,7 @@ import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
+import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarItem
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
@@ -299,9 +303,13 @@ private fun MainPagerScreen(
         val haptic = LocalHapticFeedback.current
 
         FloatingBottomBar(
-            items = TAB_ITEMS,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                )
                 .padding(bottom = barBottomPadding),
             selectedIndex = { pagerState.targetPage },
             // Track the pager's fractional scroll 1:1 during a finger swipe; a tab *tap*
@@ -309,12 +317,9 @@ private fun MainPagerScreen(
             // with the press/glass bulge instead of a flat translate.
             progress = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
             isTracking = { isDragged },
-            onTabClick = { index ->
-                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                scope.launch { pagerState.animateScrollToPage(index) }
-            },
             onSelected = { scope.launch { pagerState.animateScrollToPage(it) } },
             backdrop = backdrop,
+            tabsCount = TAB_ITEMS.size,
             isBlurEnabled = true,
             colors = FloatingBottomBarDefaults.colors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -322,32 +327,40 @@ private fun MainPagerScreen(
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 activeContentColor = MaterialTheme.colorScheme.primary,
             ),
+        ) {
             // Key the fill crossfade to targetPage (same driver as the pill), not
             // settledPage — settledPage only updates when animateScrollToPage fully
             // finishes, so the icon would fill a beat after the pill has arrived.
-            iconContent = { item, index ->
-                Crossfade(
-                    targetState = index == pagerState.targetPage,
-                    animationSpec = tween(200),
-                    label = "navIcon",
-                ) { selected ->
-                    Icon(
-                        imageVector = if (selected) item.filled else item.outlined,
-                        contentDescription = stringResource(item.labelRes),
+            val target = pagerState.targetPage
+            TAB_ITEMS.forEachIndexed { index, item ->
+                FloatingBottomBarItem(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        scope.launch { pagerState.animateScrollToPage(index) }
+                    },
+                    modifier = Modifier.defaultMinSize(minWidth = 76.dp),
+                ) {
+                    Crossfade(
+                        targetState = index == target,
+                        animationSpec = tween(200),
+                        label = "navIcon",
+                    ) { selected ->
+                        Icon(
+                            imageVector = if (selected) item.filled else item.outlined,
+                            contentDescription = stringResource(item.labelRes),
+                        )
+                    }
+                    Text(
+                        text = stringResource(item.labelRes),
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Visible
                     )
                 }
-            },
-            labelContent = { item, _ ->
-                Text(
-                    text = stringResource(item.labelRes),
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Visible
-                )
-            },
-        )
+            }
+        }
     }
 }
 
