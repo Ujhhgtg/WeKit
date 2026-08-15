@@ -41,6 +41,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -495,6 +497,7 @@ private fun LogTabContent(
     onCurrentFileChange: (Path?) -> Unit,
 ) {
     val context = LocalContext.current
+    val pullToRefreshState = rememberPullToRefreshState()
     // Files available for this tab, newest first.
     var files by remember(kind) { mutableStateOf<List<Path>>(emptyList()) }
     var selectedIndex by rememberSaveable(kind) { mutableIntStateOf(0) }
@@ -558,6 +561,18 @@ private fun LogTabContent(
         isRefreshing = isPullRefreshing,
         onRefresh = onRefreshRequested,
         modifier = Modifier.fillMaxSize(),
+        state = pullToRefreshState,
+        indicator = {
+            PullToRefreshDefaults.LoadingIndicator(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = innerPadding.calculateTopPadding()),
+                state = pullToRefreshState,
+                isRefreshing = isPullRefreshing,
+                color = MaterialTheme.colorScheme.primary,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            )
+        },
     ) {
         LazyColumn(
             state = listState,
