@@ -10,6 +10,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,18 +37,11 @@ import dev.ujhhgtg.wekit.agent.trigger.TriggerConditions
 import dev.ujhhgtg.wekit.agent.trigger.TriggerConditionsJson
 import dev.ujhhgtg.wekit.agent.trigger.TriggerScope
 import dev.ujhhgtg.wekit.agent.trigger.TriggerType
-import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
 import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import java.time.Instant
 import java.util.UUID
 
@@ -74,21 +73,32 @@ fun TriggersScreen(onBack: () -> Unit) {
         }
 
         if (global.isNotEmpty()) {
-            item { MiuixSmallTitle(stringResource(R.string.agent_global_triggers)) }
-            items(global.size, key = { global[it].id }) { i ->
-                TriggerCard(
-                    global[i], sessionTitle = null, scope = scope,
-                    onEdit = { editing = global[i]; showEditor = true })
+            item {
+                SegmentedColumn(title = stringResource(R.string.agent_global_triggers)) {
+                    global.forEach { t ->
+                        item(key = t.id) { TriggerSwitchRow(t, sessionTitle = null, scope = scope) }
+                        item(key = "${t.id}_actions") {
+                            TriggerActionRow(t, scope = scope, onEdit = { editing = t; showEditor = true })
+                        }
+                    }
+                }
             }
         }
 
         if (perSession.isNotEmpty()) {
-            item { MiuixSmallTitle(stringResource(R.string.agent_session_triggers)) }
-            items(perSession.size, key = { perSession[it].id }) { i ->
-                val t = perSession[i]
-                TriggerCard(
-                    t, sessionTitle = sessions[t.sessionId]?.title ?: stringResource(R.string.agent_deleted_session), scope = scope,
-                    onEdit = { editing = t; showEditor = true })
+            item {
+                SegmentedColumn(title = stringResource(R.string.agent_session_triggers)) {
+                    perSession.forEach { t ->
+                        item(key = t.id) {
+                            val sessionTitle = sessions[t.sessionId]?.title
+                                ?: stringResource(R.string.agent_deleted_session)
+                            TriggerSwitchRow(t, sessionTitle = sessionTitle, scope = scope)
+                        }
+                        item(key = "${t.id}_actions") {
+                            TriggerActionRow(t, scope = scope, onEdit = { editing = t; showEditor = true })
+                        }
+                    }
+                }
             }
         }
 
@@ -119,30 +129,34 @@ fun TriggersScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun TriggerCard(
+private fun TriggerSwitchRow(
     t: TriggerEntity,
     sessionTitle: String?,
     scope: kotlinx.coroutines.CoroutineScope,
-    onEdit: () -> Unit,
 ) {
     val sessionSummary = sessionTitle?.let { stringResource(R.string.agent_trigger_session_summary, it) }
     val summary = listOfNotNull(typeLabel(t.type), sessionSummary, configSummary(t)).joinToString(" · ")
-    Card(Modifier.padding(bottom = 6.dp)) {
-        SwitchPreference(
-            title = t.name.ifBlank { stringResource(R.string.agent_unnamed_trigger) },
-            summary = summary,
-            checked = t.enabled,
-            onCheckedChange = { on -> scope.launch { WeAgentRepository.setTriggerEnabled(t.id, on) } },
-        )
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-            TextButton(text = stringResource(R.string.action_edit), onClick = onEdit, modifier = Modifier.weight(1f))
-            Spacer(Modifier.width(8.dp))
-            TextButton(
-                text = stringResource(R.string.action_delete),
-                onClick = { scope.launch { WeAgentRepository.deleteTrigger(t.id) } },
-                modifier = Modifier.weight(1f),
-            )
-        }
+    SwitchWidget(
+        title = t.name.ifBlank { stringResource(R.string.agent_unnamed_trigger) },
+        description = summary,
+        checked = t.enabled,
+        onCheckedChange = { on -> scope.launch { WeAgentRepository.setTriggerEnabled(t.id, on) } },
+    )
+}
+
+@Composable
+private fun TriggerActionRow(
+    t: TriggerEntity,
+    scope: kotlinx.coroutines.CoroutineScope,
+    onEdit: () -> Unit,
+) {
+    Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+        TextButton(onClick = onEdit, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_edit)) }
+        Spacer(Modifier.width(8.dp))
+        TextButton(
+            onClick = { scope.launch { WeAgentRepository.deleteTrigger(t.id) } },
+            modifier = Modifier.weight(1f),
+        ) { Text(stringResource(R.string.action_delete)) }
     }
 }
 
@@ -257,10 +271,16 @@ private fun TriggerEditorDialog(
         Column(Modifier
             .heightIn(max = 460.dp)
             .verticalScroll(rememberScrollState())) {
-            TextField(value = name, onValueChange = { name = it }, label = stringResource(R.string.agent_field_name), useLabelAsPlaceholder = true, singleLine = true)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.agent_field_name)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(8.dp))
 
-            WindowDropdownPreference(
+            AgentDropdownRow(
                 title = stringResource(R.string.agent_trigger_type),
                 items = listOf(
                     stringResource(R.string.agent_trigger_type_schedule),
@@ -271,7 +291,7 @@ private fun TriggerEditorDialog(
                 onSelectedIndexChange = { if (creating) typeIndex = it },
             )
 
-            WindowDropdownPreference(
+            AgentDropdownRow(
                 title = stringResource(R.string.agent_trigger_scope),
                 summary = stringResource(
                     if (selectedScope == TriggerScope.SESSION) R.string.agent_trigger_scope_session_summary
@@ -288,7 +308,7 @@ private fun TriggerEditorDialog(
                 if (sessionList.isEmpty()) {
                     Text(stringResource(R.string.agent_no_sessions_to_bind), Modifier.padding(vertical = 8.dp))
                 } else {
-                    WindowDropdownPreference(
+                    AgentDropdownRow(
                         title = stringResource(R.string.agent_bind_to_session),
                         items = sessionList.map { it.title.ifBlank { stringResource(R.string.agent_unnamed_session) } },
                         selectedIndex = boundSessionIndex.coerceIn(0, sessionList.lastIndex),
@@ -299,7 +319,7 @@ private fun TriggerEditorDialog(
 
             when (type) {
                 TriggerType.SCHEDULE -> {
-                    WindowDropdownPreference(
+                    AgentDropdownRow(
                         title = stringResource(R.string.agent_schedule_method),
                         items = listOf(
                             stringResource(R.string.agent_schedule_interval),
@@ -319,12 +339,12 @@ private fun TriggerEditorDialog(
                         }
 
                         ScheduleKind.CRON -> {
-                            TextField(
+                            OutlinedTextField(
                                 value = cronExpr,
                                 onValueChange = { cronExpr = it },
-                                label = stringResource(R.string.agent_cron_field),
-                                useLabelAsPlaceholder = true,
-                                singleLine = true
+                                label = { Text(stringResource(R.string.agent_cron_field)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -336,30 +356,30 @@ private fun TriggerEditorDialog(
 
                 TriggerType.MESSAGE -> {
                     Spacer(Modifier.height(8.dp))
-                    TextField(
+                    OutlinedTextField(
                         value = contentRegex,
                         onValueChange = { contentRegex = it },
-                        label = stringResource(R.string.agent_message_content_regex),
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
+                        label = { Text(stringResource(R.string.agent_message_content_regex)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
-                    TextField(
+                    OutlinedTextField(
                         value = talkerRegex,
                         onValueChange = { talkerRegex = it },
-                        label = stringResource(R.string.agent_talker_regex),
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
+                        label = { Text(stringResource(R.string.agent_talker_regex)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
-                    TextField(
+                    OutlinedTextField(
                         value = msgTypes,
                         onValueChange = { msgTypes = it },
-                        label = stringResource(R.string.agent_message_type_codes),
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
+                        label = { Text(stringResource(R.string.agent_message_type_codes)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    WindowDropdownPreference(
+                    AgentDropdownRow(
                         title = stringResource(R.string.agent_message_direction),
                         items = listOf(
                             stringResource(R.string.agent_direction_received),
@@ -369,9 +389,9 @@ private fun TriggerEditorDialog(
                         selectedIndex = directionIndex,
                         onSelectedIndexChange = { directionIndex = it },
                     )
-                    SwitchPreference(
+                    SwitchWidget(
                         title = stringResource(R.string.agent_filter_own_messages),
-                        summary = stringResource(R.string.agent_filter_own_messages_summary),
+                        description = stringResource(R.string.agent_filter_own_messages_summary),
                         checked = filterOwn,
                         onCheckedChange = { filterOwn = it },
                     )
@@ -390,28 +410,28 @@ private fun TriggerEditorDialog(
                         OpToggle("QUERY", opQuery) { opQuery = it }
                     }
                     Spacer(Modifier.height(8.dp))
-                    TextField(
+                    OutlinedTextField(
                         value = tableRegex,
                         onValueChange = { tableRegex = it },
-                        label = stringResource(R.string.agent_table_regex),
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
+                        label = { Text(stringResource(R.string.agent_table_regex)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
-                    TextField(
+                    OutlinedTextField(
                         value = sqlRegex,
                         onValueChange = { sqlRegex = it },
-                        label = stringResource(R.string.agent_sql_regex),
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
+                        label = { Text(stringResource(R.string.agent_sql_regex)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
-                    TextField(
+                    OutlinedTextField(
                         value = valuesRegex,
                         onValueChange = { valuesRegex = it },
-                        label = stringResource(R.string.agent_values_regex),
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
+                        label = { Text(stringResource(R.string.agent_values_regex)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     BufferFields(
                         debounceSec, maxEvents, maxWaitSec, cooldownSec,
@@ -420,12 +440,12 @@ private fun TriggerEditorDialog(
             }
 
             Spacer(Modifier.height(8.dp))
-            TextField(
+            OutlinedTextField(
                 value = promptTemplate,
                 onValueChange = { promptTemplate = it },
-                label = stringResource(R.string.agent_trigger_prompt),
-                useLabelAsPlaceholder = true,
-                maxLines = 6
+                label = { Text(stringResource(R.string.agent_trigger_prompt)) },
+                maxLines = 6,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
 
@@ -445,16 +465,9 @@ private fun TriggerEditorDialog(
             }
 
             Row(Modifier.fillMaxWidth()) {
-                TextButton(text = stringResource(R.string.dialog_cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    text = stringResource(R.string.action_save),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    modifier = Modifier.weight(1f),
-                    // Disable save when a session-bound trigger has no session to bind to.
-                    enabled = name.isNotBlank() && promptTemplate.isNotBlank() &&
-                            (selectedScope == TriggerScope.GLOBAL || sessionList.isNotEmpty()) &&
-                            intervalOk && sqlOpsOk,
                     onClick = {
                         val built = buildTrigger(
                             existing = existing,
@@ -490,7 +503,13 @@ private fun TriggerEditorDialog(
                         )
                         onSave(built)
                     },
-                )
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.weight(1f),
+                    // Disable save when a session-bound trigger has no session to bind to.
+                    enabled = name.isNotBlank() && promptTemplate.isNotBlank() &&
+                            (selectedScope == TriggerScope.GLOBAL || sessionList.isNotEmpty()) &&
+                            intervalOk && sqlOpsOk,
+                ) { Text(stringResource(R.string.action_save)) }
             }
         }
     }
@@ -498,11 +517,10 @@ private fun TriggerEditorDialog(
 
 @Composable
 private fun NumberField(label: String, value: String, onChange: (String) -> Unit) {
-    TextField(
+    OutlinedTextField(
         value = value,
         onValueChange = { v -> onChange(v.filter { it.isDigit() }.take(7)) },
-        label = label,
-        useLabelAsPlaceholder = true,
+        label = { Text(label) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -530,10 +548,12 @@ private fun BufferFields(
 @Composable
 private fun OpToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     TextButton(
-        text = if (checked) "✓ $label" else label,
         onClick = { onChange(!checked) },
-        colors = if (checked) ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
-    )
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = if (checked) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface
+        ),
+    ) { Text(if (checked) "✓ $label" else label) }
 }
 
 /** Assembles a [TriggerEntity] from the editor fields, preserving id/scope/session for edits. */

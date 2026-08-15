@@ -9,7 +9,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,13 +36,8 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.net.ExternalServiceId
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * External Services settings screen — lets the user configure API keys for network tools:
@@ -111,20 +111,20 @@ private fun ServiceKeyCard(
 ) {
     var showKey by remember { mutableStateOf(false) }
 
-    Card(modifier) {
+    BaseItemContainer(modifier) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(title, style = MiuixTheme.textStyles.title3)
+            Text(title, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(2.dp))
             Text(
                 description,
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value = key,
                 onValueChange = onKeyChange,
-                label = { androidx.compose.material3.Text(stringResource(R.string.external_service_api_key)) },
+                label = { Text(stringResource(R.string.external_service_api_key)) },
                 singleLine = true,
                 visualTransformation = if (showKey) VisualTransformation.None
                 else PasswordVisualTransformation(),
