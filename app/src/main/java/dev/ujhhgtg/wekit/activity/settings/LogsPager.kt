@@ -561,6 +561,7 @@ private fun LogTabContent(
         ) {
             item(key = "picker") {
                 FileSelector(
+                    kind = kind,
                     files = files,
                     selectedIndex = selectedIndex.coerceIn(0, (files.size - 1).coerceAtLeast(0)),
                     onSelected = {
@@ -697,15 +698,20 @@ private fun readLog(context: Context, file: Path): String =
 
 @Composable
 private fun FileSelector(
+    kind: LogKind,
     files: List<Path>,
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (files.isEmpty()) return
-    val labels = remember(files) {
+    fun displayDate(file: Path): String = when (kind) {
+        LogKind.RUN -> formatEpoch(file.getLastModifiedTime().toMillis(), "yyyy/MM/dd")
+        LogKind.CRASH -> formatEpoch(file.getLastModifiedTime().toMillis(), true)
+    }
+    val labels = remember(kind, files) {
         files.map {
-            "${formatEpoch(it.getLastModifiedTime().toMillis(), true)}  ·  " +
+            "${displayDate(it)}  ·  " +
                 formatBytesSize(runCatching { it.fileSize() }.getOrDefault(0))
         }
     }
@@ -714,7 +720,7 @@ private fun FileSelector(
             iconPlaceholder = false,
             title = stringResource(R.string.logs_select_file),
             description = files.getOrNull(selectedIndex)?.let {
-                formatEpoch(it.getLastModifiedTime().toMillis(), true)
+                displayDate(it)
             },
             value = selectedIndex,
             options = labels.mapIndexed { index, label -> DropdownOption(index, label) },
