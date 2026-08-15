@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.activity.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
+import com.composables.icons.materialsymbols.outlined.Check_circle
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Fiber_new
 import com.composables.icons.materialsymbols.outlined.Search
@@ -36,6 +39,7 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import java.text.Collator
 import java.util.Locale
 
@@ -60,6 +64,7 @@ private fun featureChecked(item: BaseFeature): Boolean {
 fun FeaturesPager(onOpenCategory: (String) -> Unit) {
     val context = LocalContext.current
     val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val revision = FeatureCategoryState.revision
     var query by remember { mutableStateOf("") }
     val searching = query.isNotBlank()
 
@@ -73,7 +78,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                 featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
             }
     }
-    val filteredItems = remember(query, resolvedLocale) {
+    val filteredItems = remember(query, resolvedLocale, revision) {
         if (!searching) emptyList()
         else searchableItems.filter {
             it.localizedName(context).contains(query, ignoreCase = true) ||
@@ -133,50 +138,65 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                     }
                 }
             } else {
-                item {
-                    SegmentedColumn(modifier = Modifier.padding(top = 12.dp)) {
-                        filteredItems.forEach { feature ->
-                            item(key = feature.technicalId) {
-                                FeatureRow(
-                                    item = feature,
-                                    checked = featureChecked(feature),
-                                    onCheckedChange = {},
-                                )
-                            }
-                        }
+                item { Spacer(Modifier.height(12.dp)) }
+                lazySegmentedItems(filteredItems, key = { it.technicalId }) { feature ->
+                    Column(Modifier.padding(horizontal = 16.dp)) {
+                        FeatureRow(
+                            item = feature,
+                            checked = featureChecked(feature),
+                            onCheckedChange = {},
+                        )
+                        feature.Ui()
                     }
                 }
             }
         } else {
-            // Its own card, so it reads as separate from the real categories below.
-            if (NEW_FEATURE_ITEMS.isNotEmpty()) {
-                item {
-                    SegmentedColumn(modifier = Modifier.padding(top = 12.dp)) {
-                        item {
-                            BaseWidget(
-                                icon = MaterialSymbols.Outlined.Fiber_new,
-                                title = stringResource(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
-                                description = stringResource(
-                                    R.string.features_new_summary,
-                                    NewFeatures.WINDOW_DAYS,
-                                    NEW_FEATURE_ITEMS.size,
-                                ),
-                                onClick = { onOpenCategory(NEW_FEATURES_CATEGORY) },
-                                trailingContent = {
-                                    Icon(
-                                        imageVector = MaterialSymbols.Outlined.Chevron_right,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                },
-                            )
-                        }
+            item {
+                SegmentedColumn(
+                    modifier = Modifier.padding(top = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                ) {
+                    item(key = NEW_FEATURES_CATEGORY) {
+                        BaseWidget(
+                            icon = MaterialSymbols.Outlined.Fiber_new,
+                            title = stringResource(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
+                            description = stringResource(
+                                R.string.features_new_summary,
+                                NewFeatures.WINDOW_DAYS,
+                                FeatureCategoryState.newItems.size,
+                            ),
+                            onClick = { onOpenCategory(NEW_FEATURES_CATEGORY) },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = MaterialSymbols.Outlined.Chevron_right,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                        )
+                    }
+                    item(key = ENABLED_FEATURES_CATEGORY) {
+                        val enabledCount = FeatureCategoryState.enabledItems().size
+                        BaseWidget(
+                            icon = MaterialSymbols.Outlined.Check_circle,
+                            title = stringResource(featureCategoryTitleRes(ENABLED_FEATURES_CATEGORY)),
+                            description = stringResource(R.string.feature_category_enabled_summary, enabledCount),
+                            onClick = { onOpenCategory(ENABLED_FEATURES_CATEGORY) },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = MaterialSymbols.Outlined.Chevron_right,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                        )
                     }
                 }
             }
 
+            item { Spacer(Modifier.height(8.dp)) }
             item {
-                SegmentedColumn(modifier = Modifier.padding(top = 12.dp)) {
+                SegmentedColumn(contentPadding = PaddingValues(horizontal = 16.dp)) {
                     FEATURE_CATEGORIES.forEach { category ->
                         item(key = category.id) {
                             BaseWidget(
@@ -209,16 +229,20 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
 fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
     val context = LocalContext.current
     val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val revision = FeatureCategoryState.revision
     val featureNameCollator = remember(resolvedLocale) {
         Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
     }
-    val items = remember(categoryId, resolvedLocale) {
-        if (categoryId == NEW_FEATURES_CATEGORY) NEW_FEATURE_ITEMS
-        else FeaturesProvider.ALL_HOOK_ITEMS
-            .filter { categoryId in it.categoryIds }
-            .sortedWith { first, second ->
-                featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
-            }
+    val items = remember(categoryId, resolvedLocale, revision) {
+        when (categoryId) {
+            NEW_FEATURES_CATEGORY -> FeatureCategoryState.newItems
+            ENABLED_FEATURES_CATEGORY -> FeatureCategoryState.enabledItems()
+            else -> FeaturesProvider.ALL_HOOK_ITEMS
+                .filter { categoryId in it.categoryIds }
+                .sortedWith { first, second ->
+                    featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
+                }
+        }
     }
 
     M3ListScaffold(
@@ -227,18 +251,15 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
     ) {
         if (items.isEmpty()) return@M3ListScaffold
 
-        item {
-            SegmentedColumn(modifier = Modifier.padding(top = 12.dp)) {
-                items.forEach { feature ->
-                    item(key = feature.technicalId) {
-                        FeatureRow(
-                            item = feature,
-                            checked = featureChecked(feature),
-                            onCheckedChange = {},
-                        )
-                        feature.Ui()
-                    }
-                }
+        item { Spacer(Modifier.height(12.dp)) }
+        lazySegmentedItems(items, key = { it.technicalId }) { feature ->
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                FeatureRow(
+                    item = feature,
+                    checked = featureChecked(feature),
+                    onCheckedChange = {},
+                )
+                feature.Ui()
             }
         }
 

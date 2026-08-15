@@ -37,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Check_circle
 import com.composables.icons.materialsymbols.outlined.Fiber_new
 import com.composables.icons.materialsymbols.outlined.Info
 import com.composables.icons.materialsymbols.outlined.Settings
@@ -46,6 +47,7 @@ import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Volunteer_activism
 import dev.ujhhgtg.wekit.activity.settings.FEATURE_CATEGORIES
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.settings.ENABLED_FEATURES_CATEGORY
 import dev.ujhhgtg.wekit.activity.settings.FeatureCategoryState
 import dev.ujhhgtg.wekit.activity.settings.featureCategoryTitleRes
 import dev.ujhhgtg.wekit.activity.settings.LocalComponentActivity
@@ -172,6 +174,8 @@ private fun NukeHomePage(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = LocalComponentActivity.current
+    val revision = FeatureCategoryState.revision
+    val enabledItems = remember(revision) { FeatureCategoryState.enabledItems() }
     // Rows only animate on the first appearance of a search session; rows revealed later by
     // scrolling (second-time appearance) stay static. Reset per blank -> non-blank transition.
     var searchEntranceEnabled by remember(query.isBlank()) { mutableStateOf(true) }
@@ -185,6 +189,14 @@ private fun NukeHomePage(
                 imageVector = MaterialSymbols.Outlined.Fiber_new,
                 count = NEW_FEATURE_ITEMS.count { it is SwitchFeature },
                 destination = NukeDestination.Category(NEW_FEATURES_CATEGORY),
+            )
+        )
+        add(
+            NukeRootEntry(
+                title = context.getString(featureCategoryTitleRes(ENABLED_FEATURES_CATEGORY)),
+                imageVector = MaterialSymbols.Outlined.Check_circle,
+                count = enabledItems.size,
+                destination = NukeDestination.Category(ENABLED_FEATURES_CATEGORY),
             )
         )
         FEATURE_CATEGORIES.forEach { category ->
@@ -460,7 +472,9 @@ private fun LazyListScope.NukeFeatureSearchResults(
         }
         itemsIndexed(matchingItems, key = { _, feature -> feature.technicalId }) { index, feature ->
             Column(
-                Modifier.nukeGroupedCardItem(index, matchingItems.size, animate = animate),
+                Modifier
+                    .animateItem()
+                    .nukeGroupedCardItem(index, matchingItems.size, animate = animate),
             ) {
                 NukeFeatureRow(
                     feature = feature,
@@ -479,11 +493,12 @@ internal fun NukeFeatureCategoryPage(
     onBack: (Offset) -> Unit,
 ) {
     val categoryTitle = LocalContext.current.getString(featureCategoryTitleRes(categoryId))
-    val items = remember(categoryId, featureItems) {
-        if (categoryId == NEW_FEATURES_CATEGORY) {
-            NEW_FEATURE_ITEMS.filterIsInstance<SwitchFeature>()
-        } else {
-            featureItems.filter { categoryId in it.categoryIds }
+    val revision = FeatureCategoryState.revision
+    val items = remember(categoryId, featureItems, revision) {
+        when (categoryId) {
+            NEW_FEATURES_CATEGORY -> NEW_FEATURE_ITEMS.filterIsInstance<SwitchFeature>()
+            ENABLED_FEATURES_CATEGORY -> FeatureCategoryState.enabledItems()
+            else -> featureItems.filter { categoryId in it.categoryIds }
         }
     }
     val activity = LocalComponentActivity.current
@@ -513,7 +528,9 @@ internal fun NukeFeatureCategoryPage(
             }
             itemsIndexed(items, key = { _, feature -> feature.technicalId }) { index, feature ->
                 Column(
-                    Modifier.nukeGroupedCardItem(index, items.size, animate = entranceEnabled),
+                    Modifier
+                        .animateItem()
+                        .nukeGroupedCardItem(index, items.size, animate = entranceEnabled),
                 ) {
                     NukeFeatureRow(
                         feature = feature,
@@ -601,7 +618,7 @@ private fun nukeFeatureCategoryGroups(entries: List<NukeRootEntry>): List<List<N
         }
     }
     val categoryGroups = listOf(
-        listOf(NEW_FEATURES_CATEGORY),
+        listOf(NEW_FEATURES_CATEGORY, ENABLED_FEATURES_CATEGORY),
         listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.PAYMENT),
         listOf(FeatureCategoryIds.MOMENTS, FeatureCategoryIds.SYSTEM_PRIVACY, FeatureCategoryIds.VOIP, FeatureCategoryIds.NOTIFICATIONS),
         listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.OFFICIAL_ACCOUNTS, FeatureCategoryIds.MINIAPPS, FeatureCategoryIds.CHANNELS),
