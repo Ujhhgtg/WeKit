@@ -182,6 +182,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         val visibleTabItems = orderedTabItems.filter { it.wechatIndex in enabledTabIndices }
         val visibleWechatIndices = visibleTabItems.map(NavItem::wechatIndex)
         val remapProgrammaticTab = ThreadLocal.withInitial { false }
+        val animateNextPageChange = ThreadLocal.withInitial { false }
         val allowLogicalTabCount = ThreadLocal.withInitial { false }
         val callbackPagerIndex = ThreadLocal<Int?>()
 
@@ -219,10 +220,12 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         result = null
                     } else {
                         remapProgrammaticTab.set(true)
+                        animateNextPageChange.set(true)
                     }
                 }
                 hookAfter(priority = 100) {
                     remapProgrammaticTab.remove()
+                    animateNextPageChange.remove()
                 }
             }
         }
@@ -269,17 +272,22 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     val pagerIndex = visibleWechatIndices.indexOf(logicalIndex)
                     if (pagerIndex >= 0) args[0] = pagerIndex
                     allowLogicalTabCount.set(false)
-                    // The second parameter is the pager's `smoothScroll` flag. WeChat always
-                    // passes false (MainTabUI.TabsAdapter.onTabClick calls
-                    // `setCurrentItem(index, false)`), which is why the content snaps to the new
-                    // tab instantly. Flipping it to true makes WxViewPager animate the same
-                    // horizontal slide a finger swipe produces. Doing this inside the
-                    // `remapProgrammaticTab` guard keeps it scoped to actual tab changes — the
-                    // state-restore and first-layout paths never reach here. Non-adjacent jumps
-                    // sweep past the pages in between, but MainTabUI sets an offscreen page
-                    // limit of 4, so every one of them is alive and renders real content. The
-                    // pager caps the scroll duration at 600ms on its own.
-                    if (animatePageChange) args[1] = true
+                    // The second parameter is the pager's `smoothScroll` flag. Flipping it to
+                    // true makes WxViewPager animate the same horizontal slide a finger swipe
+                    // produces. This is scoped to `onTabClick`-originated changes (actual tab
+                    // taps) only: MainTabUI.a(int) is also driven by programmatic flows that
+                    // fire rapid same-frame tab bounces — e.g. returning from the wallet
+                    // "服务" page starts LauncherUI with FLAG_ACTIVITY_CLEAR_TOP +
+                    // preferred_tab, which makes MainTabUI.f() call a(0) then a(3) back to
+                    // back. Stock WeChat snaps both (smoothScroll=false) so the bounce is
+                    // invisible; animating both round-trips desyncs the pager (content stays
+                    // on the first page while the logical tab says the second). The
+                    // state-restore and first-layout paths never reach here either because
+                    // the `remapProgrammaticTab` guard is only armed by tab interactions.
+                    // Non-adjacent jumps sweep past the pages in between, but MainTabUI sets
+                    // an offscreen page limit of 4, so every one of them is alive and renders
+                    // real content. The pager caps the scroll duration at 600ms on its own.
+                    if (animatePageChange && animateNextPageChange.get() == true) args[1] = true
                 }
             }
         }
