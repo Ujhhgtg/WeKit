@@ -201,7 +201,7 @@
 <string name="features_clear_search">清除搜索</string>
 <string name="features_no_results">未匹配到任何相關功能</string>
 <string name="features_category_empty">目前分類沒有可顯示的功能</string>
-<string name="features_new_summary">最近 %1$d 天新增 %2$d 項</string>
+<string name="features_new_summary">最近 %1$d 天新增 %2$d 個功能</string>
 <string name="home_module_activated">模塊已激活</string>
 <string name="home_device_info_title">裝置資訊</string>
 <string name="home_learn_more_title">瞭解更多</string>

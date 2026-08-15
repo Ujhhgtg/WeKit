@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -26,7 +25,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -103,7 +101,6 @@ private fun StatusCard() {
     val context = LocalContext.current
     val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     val statusTitle = stringResource(R.string.home_module_activated)
-    val loaderName = StartupInfo.loaderService.loaderName
     val hookBridgeName = StartupInfo.hookBridge?.hookBridgeName
         ?: stringResource(R.string.common_not_provided)
 
@@ -125,7 +122,7 @@ private fun StatusCard() {
             },
             supportingContent = {
                 Text(
-                    text = "${BuildConfig.VERSION_NAME} · $loaderName",
+                    text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             },
@@ -157,20 +154,18 @@ private fun StatusCard() {
 @Composable
 private fun StatusTag(label: String, backgroundColor: Color, contentColor: Color) {
     Box(
-        modifier = Modifier.background(
-            color = backgroundColor,
-            shape = RoundedCornerShape(4.dp),
-        )
+        modifier = Modifier
+            .padding(end = 4.dp)
+            .background(
+                color = backgroundColor,
+                shape = RoundedCornerShape(4.dp),
+            )
     ) {
         Text(
             text = label,
-            modifier = Modifier
-                .widthIn(max = 96.dp)
-                .padding(horizontal = 4.dp, vertical = 2.dp),
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmallEmphasized,
             color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }

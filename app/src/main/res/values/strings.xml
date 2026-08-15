@@ -226,7 +226,7 @@
     <string name="features_clear_search">Clear search</string>
     <string name="features_no_results">No matching features</string>
     <string name="features_category_empty">There are no features to show in this category</string>
-    <string name="features_new_summary">%2$d added in the last %1$d days</string>
+    <string name="features_new_summary">%2$d features added in the last %1$d days</string>
     <string name="home_module_activated">Module activated</string>
     <string name="home_device_info_title">Device information</string>
     <string name="home_learn_more_title">Learn more</string>
