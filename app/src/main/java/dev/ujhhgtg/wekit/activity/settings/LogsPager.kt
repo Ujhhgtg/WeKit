@@ -14,6 +14,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -48,6 +50,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -75,12 +78,12 @@ import androidx.lifecycle.lifecycleScope
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete_sweep
 import com.composables.icons.materialsymbols.outlined.Expand_more
+import com.composables.icons.materialsymbols.outlined.Keyboard_double_arrow_down
+import com.composables.icons.materialsymbols.outlined.Keyboard_double_arrow_up
 import com.composables.icons.materialsymbols.outlined.More_vert
 import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Save
 import com.composables.icons.materialsymbols.outlined.Share
-import com.composables.icons.materialsymbols.outlined.Vertical_align_bottom
-import com.composables.icons.materialsymbols.outlined.Vertical_align_top
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -283,8 +286,9 @@ private fun saveLogFile(context: Context, localizedContext: Context, file: Path)
     }
 }
 
-// Bottom padding so scrollable content clears the floating bar (mirrors SettingsActivity's inset).
-private val LOGS_BOTTOM_INSET = 88.dp
+private val LOGS_BOTTOM_BAR_INSET = 88.dp
+private val LOGS_CONTENT_BOTTOM_INSET = 184.dp
+private const val LOG_SCROLL_ANIMATION_THRESHOLD = 500
 
 private val LOG_TABS = listOf(LogKind.RUN, LogKind.CRASH)
 
@@ -305,7 +309,6 @@ fun LogsPager() {
     // One LazyListState per tab, retained across refreshes so scroll position survives a reload.
     val runListState = rememberLazyListState()
     val crashListState = rememberLazyListState()
-    val listState = if (kind == LogKind.RUN) runListState else crashListState
 
     var refreshGeneration by remember { mutableIntStateOf(0) }
     val refreshRequests = remember { mutableStateMapOf<LogKind, LogRefreshRequest>() }
@@ -381,25 +384,6 @@ fun LogsPager() {
                                 onClick = {
                                     menuExpanded = false
                                     requestRefresh(kind, fromPull = false)
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.logs_go_top)) },
-                                leadingIcon = { Icon(MaterialSymbols.Outlined.Vertical_align_top, null) },
-                                onClick = {
-                                    menuExpanded = false
-                                    scope.launch { listState.animateScrollToItem(0) }
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.logs_go_bottom)) },
-                                leadingIcon = { Icon(MaterialSymbols.Outlined.Vertical_align_bottom, null) },
-                                onClick = {
-                                    menuExpanded = false
-                                    scope.launch {
-                                        val end = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-                                        listState.animateScrollToItem(end)
-                                    }
                                 },
                             )
                             DropdownMenuItem(
@@ -629,7 +613,76 @@ private fun LogTabContent(
                 }
             }
 
-            item(key = "bottom-inset") { Spacer(Modifier.height(LOGS_BOTTOM_INSET)) }
+            item(key = "bottom-inset") { Spacer(Modifier.height(LOGS_CONTENT_BOTTOM_INSET)) }
+        }
+
+        LogScrollButtons(
+            listState = listState,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = LOGS_BOTTOM_BAR_INSET),
+        )
+    }
+}
+
+@Composable
+private fun LogScrollButtons(
+    listState: LazyListState,
+    modifier: Modifier = Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    val showScrollToTop by remember {
+        derivedStateOf { listState.canScrollBackward }
+    }
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.End,
+    ) {
+        AnimatedVisibility(
+            visible = showScrollToTop,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            SmallFloatingActionButton(
+                onClick = {
+                    scope.launch {
+                        if (listState.firstVisibleItemIndex > LOG_SCROLL_ANIMATION_THRESHOLD) {
+                            listState.scrollToItem(0)
+                        } else {
+                            listState.animateScrollToItem(0)
+                        }
+                    }
+                },
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(
+                    imageVector = MaterialSymbols.Outlined.Keyboard_double_arrow_up,
+                    contentDescription = stringResource(R.string.logs_go_top),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+
+        SmallFloatingActionButton(
+            onClick = {
+                scope.launch {
+                    val end = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                    if (end - listState.firstVisibleItemIndex > LOG_SCROLL_ANIMATION_THRESHOLD) {
+                        listState.scrollToItem(end)
+                    } else {
+                        listState.animateScrollToItem(end)
+                    }
+                }
+            },
+            modifier = Modifier.size(40.dp),
+        ) {
+            Icon(
+                imageVector = MaterialSymbols.Outlined.Keyboard_double_arrow_down,
+                contentDescription = stringResource(R.string.logs_go_bottom),
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }

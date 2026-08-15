@@ -289,6 +289,16 @@
     <string name="settings_seed_color_title">种子颜色</string>
     <string name="settings_seed_color_summary">点击选择配色的种子颜色</string>
     <string name="settings_palette_style_title">调色板样式</string>
+    <string name="palette_style_tonal_spot">色调点</string>
+    <string name="palette_style_neutral">中性</string>
+    <string name="palette_style_vibrant">鲜艳</string>
+    <string name="palette_style_expressive">表现力</string>
+    <string name="palette_style_rainbow">彩虹</string>
+    <string name="palette_style_fruit_salad">水果沙拉</string>
+    <string name="palette_style_monochrome">单色</string>
+    <string name="palette_style_fidelity">保真</string>
+    <string name="palette_style_content">内容</string>
+    <string name="palette_style_bilingual_format">%1$s (%2$s)</string>
     <string name="settings_color_spec_title">颜色规格</string>
     <string name="settings_color_spec_unsupported">当前调色板样式仅支持 Material 3 (2021)</string>
     <string name="settings_apply_to_wechat_title">同时对微信生效</string>

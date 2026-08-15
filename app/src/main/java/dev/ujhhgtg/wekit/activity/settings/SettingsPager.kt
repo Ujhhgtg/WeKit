@@ -107,6 +107,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.LanguageSelection
+import dev.ujhhgtg.wekit.i18n.SupportedLocale
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -564,7 +565,19 @@ private fun ThemeSection() {
                 description = null,
                 value = ThemeSettings.paletteStyle,
                 options = AppPaletteStyle.entries.map {
-                    DropdownOption(it, paletteStyleLabels.getValue(it))
+                    val localizedName = paletteStyleLabels.getValue(it)
+                    DropdownOption(
+                        it,
+                        if (resolvedLanguage == SupportedLocale.ENGLISH) {
+                            it.displayName
+                        } else {
+                            stringResource(
+                                R.string.palette_style_bilingual_format,
+                                localizedName,
+                                it.displayName,
+                            )
+                        },
+                    )
                 },
                 onValueChange = {
                     ThemeSettings.updatePaletteStyle(it)

@@ -316,15 +316,16 @@
     <string name="settings_seed_color_title">Seed color</string>
     <string name="settings_seed_color_summary">Tap to choose the palette seed color</string>
     <string name="settings_palette_style_title">Palette style</string>
-    <string name="palette_style_tonal_spot" translatable="false">Tonal Spot</string>
-    <string name="palette_style_neutral" translatable="false">Neutral</string>
-    <string name="palette_style_vibrant" translatable="false">Vibrant</string>
-    <string name="palette_style_expressive" translatable="false">Expressive</string>
-    <string name="palette_style_rainbow" translatable="false">Rainbow</string>
-    <string name="palette_style_fruit_salad" translatable="false">Fruit Salad</string>
-    <string name="palette_style_monochrome" translatable="false">Monochrome</string>
-    <string name="palette_style_fidelity" translatable="false">Fidelity</string>
-    <string name="palette_style_content" translatable="false">Content</string>
+    <string name="palette_style_tonal_spot">Tonal Spot</string>
+    <string name="palette_style_neutral">Neutral</string>
+    <string name="palette_style_vibrant">Vibrant</string>
+    <string name="palette_style_expressive">Expressive</string>
+    <string name="palette_style_rainbow">Rainbow</string>
+    <string name="palette_style_fruit_salad">Fruit Salad</string>
+    <string name="palette_style_monochrome">Monochrome</string>
+    <string name="palette_style_fidelity">Fidelity</string>
+    <string name="palette_style_content">Content</string>
+    <string name="palette_style_bilingual_format">%1$s (%2$s)</string>
     <string name="color_spec_material_2021" translatable="false">Material 3 (2021)</string>
     <string name="color_spec_expressive_2025" translatable="false">Expressive (2025)</string>
     <string name="settings_color_spec_title">Color specification</string>
