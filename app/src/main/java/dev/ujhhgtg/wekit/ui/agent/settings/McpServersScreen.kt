@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.McpTransport
 import dev.ujhhgtg.wekit.agent.data.entity.ProviderEntity
@@ -243,7 +243,7 @@ private fun AddMcpDialog(
     var transportIndex by remember(show.value) { mutableIntStateOf(0) }
     val transports = listOf(McpTransport.STREAMABLE_HTTP, McpTransport.SSE)
 
-    WeKitWindowDialog(show = show.value, title = stringResource(R.string.agent_add_mcp_server), onDismissRequest = { show.value = false }) {
+    WeKitBasicDialog(show = show.value, title = stringResource(R.string.agent_add_mcp_server), onDismissRequest = { show.value = false }) {
         Column {
             OutlinedTextField(
                 value = name,

@@ -4,21 +4,15 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
-import top.yukonga.miuix.kmp.theme.ColorSchemeMode
-import top.yukonga.miuix.kmp.theme.LocalContentColor
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.ThemeController
 
 /**
- * Theme for the module's OWN UI (settings page + module dialogs). Wraps content in BOTH a Material 3
- * [MaterialExpressiveTheme] and a miuix [MiuixTheme] driven by [ThemeSettings], so components from
- * either design system share one accent:
+ * Material 3 theme for the module's own UI (settings page + module dialogs), driven by
+ * [ThemeSettings]:
  *
  * - custom color OFF → the selected settings engine's fixed default palette;
  * - custom color ON → the palette style + color spec generated from the user's custom seed
@@ -35,24 +29,6 @@ fun ModuleTheme(
 ) {
     val context = LocalContext.current
 
-    // TODO: currently we don't have any Miuix components injected into WeChat
-    // ---- miuix ----
-    val controller = if (!ThemeSettings.customColor) {
-        ThemeController(
-            colorSchemeMode = if (darkTheme) ColorSchemeMode.Dark else ColorSchemeMode.Light,
-            isDark = darkTheme,
-        )
-    } else {
-        ThemeController(
-            colorSchemeMode = if (darkTheme) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
-            keyColor = Color(SeedResolver.customSeed(context, darkTheme)),
-            colorSpec = ThemeSettings.effectiveColorSpec.miuix,
-            paletteStyle = ThemeSettings.paletteStyle.miuix,
-            isDark = darkTheme,
-        )
-    }
-
-    // ---- Material 3 ----
     val materialScheme = when {
         ThemeSettings.customColor -> {
             SeedResolver.materialScheme(SeedResolver.customSeed(context, darkTheme), darkTheme)
@@ -62,24 +38,17 @@ fun ModuleTheme(
         else -> defaultMaterial3Scheme(darkTheme)
     }
 
-    MiuixTheme(controller = controller) {
-        MaterialExpressiveTheme(
-            colorScheme = materialScheme,
-            motionScheme = MotionScheme.expressive(),
-        ) {
-            CompositionLocalProvider(
-                LocalContentColor provides MiuixTheme.colorScheme.onBackground,
-            ) {
-                content()
-            }
-        }
-    }
+    MaterialExpressiveTheme(
+        colorScheme = materialScheme,
+        motionScheme = MotionScheme.expressive(),
+        content = content,
+    )
 }
 
 /**
  * Material 3 is still the host for existing feature dialogs. When those dialogs are reached from
- * Nuke, use Nuke's fixed pink rather than Miuix's unrelated default blue. This deliberately does
- * not read the hidden custom-palette controls; that remains exclusive to the custom-color branch.
+ * Nuke, use Nuke's fixed pink. This deliberately does not read the hidden custom-palette controls;
+ * that remains exclusive to the custom-color branch.
  */
 private fun defaultNukeMaterialScheme(darkTheme: Boolean): ColorScheme = dynamicColorScheme(
     seedColor = Color(0xFFEC4899),

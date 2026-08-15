@@ -5,11 +5,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +34,7 @@ import dev.ujhhgtg.wekit.agent.trigger.TriggerConditions
 import dev.ujhhgtg.wekit.agent.trigger.TriggerConditionsJson
 import dev.ujhhgtg.wekit.agent.trigger.TriggerScope
 import dev.ujhhgtg.wekit.agent.trigger.TriggerType
-import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import kotlinx.coroutines.flow.map
@@ -263,14 +260,12 @@ private fun TriggerEditorDialog(
     var cooldownSec by remember(existing) { mutableStateOf(((existing?.cooldownMillis ?: 0) / 1000).toString()) }
     var filterOwn by remember(existing) { mutableStateOf(existing?.filterOwnEvents ?: true) }
 
-    WeKitWindowDialog(
+    WeKitBasicDialog(
         show = show,
         title = stringResource(if (creating) R.string.agent_add_trigger else R.string.agent_edit_trigger),
         onDismissRequest = onDismiss,
     ) {
-        Column(Modifier
-            .heightIn(max = 460.dp)
-            .verticalScroll(rememberScrollState())) {
+        Column {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },

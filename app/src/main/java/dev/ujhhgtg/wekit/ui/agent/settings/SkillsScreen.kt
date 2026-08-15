@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.skill.SkillStore
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
@@ -136,7 +136,7 @@ private fun SkillEditorDialog(
     var description by remember(existing) { mutableStateOf(existing?.description.orEmpty()) }
     var body by remember(existing) { mutableStateOf(existing?.body.orEmpty()) }
 
-    WeKitWindowDialog(
+    WeKitBasicDialog(
         show = show,
         title = stringResource(if (existing == null) R.string.agent_add_skill else R.string.agent_edit_skill),
         onDismissRequest = onDismiss,

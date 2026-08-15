@@ -13,7 +13,7 @@ import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver.customSeed
 
 /**
  * Single source of truth for turning [ThemeSettings] into a concrete accent seed and the derived
- * Material 3 / miuix color schemes. Shared by [ModuleTheme], [InjectedUiTheme], and
+ * Material 3 color schemes. Shared by [ModuleTheme], [InjectedUiTheme], and
  * [dev.ujhhgtg.wekit.features.items.beautify.MonetEngine] so the module UI, the WeKit UI injected
  * into WeChat, and the native-view recoloring all agree on the same colors.
  */

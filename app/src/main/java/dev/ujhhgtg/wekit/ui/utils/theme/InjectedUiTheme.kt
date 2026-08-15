@@ -27,41 +27,17 @@ fun InjectedUiTheme(
         val applyCustom = ThemeSettings.applyToWechat && ThemeSettings.customColor
         val seed = SeedResolver.injectedSeed(HostInfo.application, dark)
 
-        // ---- Material 3 ----
         val materialScheme = if (!applyCustom) {
             if (dark) darkScheme else lightScheme
         } else {
             SeedResolver.materialScheme(seed, dark)
         }
 
-        // TODO: currently we don't have any Miuix components injected into WeChat
-        // ---- miuix ----
-//        val controller = if (!applyCustom) {
-//            ThemeController(
-//                colorSchemeMode = if (dark) ColorSchemeMode.Dark else ColorSchemeMode.Light,
-//                isDark = dark,
-//            )
-//        } else {
-//            ThemeController(
-//                colorSchemeMode = if (dark) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
-//                keyColor = Color(seed),
-//                colorSpec = ThemeSettings.effectiveColorSpec.miuix,
-//                paletteStyle = ThemeSettings.paletteStyle.miuix,
-//                isDark = dark,
-//            )
-//        }
-
-//        MiuixTheme(controller = controller) {
         MaterialExpressiveTheme(
             colorScheme = materialScheme,
             motionScheme = MotionScheme.expressive(),
         ) {
-//            CompositionLocalProvider(
-//                LocalContentColor provides MiuixTheme.colorScheme.onBackground,
-//            ) {
             content()
-//            }
         }
-//        }
     }
 }

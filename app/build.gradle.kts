@@ -250,7 +250,6 @@ dependencies {
     implementation(libs.aboutlibraries.core)
     implementation(libs.aboutlibraries.compose.m3)
     implementation(libs.androidx.profileinstaller)
-    implementation(libs.miuix.ui)
     implementation(libs.miuix.blur)
     implementation(libs.miuix.shader)
     implementation(libs.miuix.nav)

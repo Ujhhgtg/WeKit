@@ -7,10 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -42,7 +40,7 @@ import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
@@ -309,30 +307,27 @@ private fun ImportModelsDialog(
         mutableStateListOf<String>().apply { addAll(candidates.filter { it !in existingRemoteIds }) }
     }
 
-    WeKitWindowDialog(show = show, title = stringResource(R.string.agent_import_models_title, candidates.size), onDismissRequest = onDismiss) {
+    WeKitBasicDialog(show = show, title = stringResource(R.string.agent_import_models_title, candidates.size), onDismissRequest = onDismiss) {
         Column {
             if (candidates.isEmpty()) {
                 Text(stringResource(R.string.agent_provider_returned_no_models))
             } else {
-                LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    items(candidates.size, key = { candidates[it] }) { i ->
-                        val id = candidates[i]
-                        val already = id in existingRemoteIds
-                        val checked = already || id in selected
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = !already) { if (id in selected) selected.remove(id) else selected.add(id) }
-                                .padding(vertical = 10.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(if (checked) "☑" else "☐", modifier = Modifier.width(28.dp))
-                            Text(
-                                if (already) stringResource(R.string.agent_model_already_added, id) else id,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                            )
-                        }
+                candidates.forEach { id ->
+                    val already = id in existingRemoteIds
+                    val checked = already || id in selected
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !already) { if (id in selected) selected.remove(id) else selected.add(id) }
+                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(if (checked) "☑" else "☐", modifier = Modifier.width(28.dp))
+                        Text(
+                            if (already) stringResource(R.string.agent_model_already_added, id) else id,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                        )
                     }
                 }
             }
@@ -369,7 +364,7 @@ private fun ModelDialog(
     var supportsVision by remember(existing, show) { mutableStateOf(existing.supportsVision) }
     var effortIndex by remember(existing, show) { mutableIntStateOf(EFFORT_GEARS.indexOf(existing.reasoningEffort ?: "off").coerceAtLeast(0)) }
 
-    WeKitWindowDialog(
+    WeKitBasicDialog(
         show = show,
         title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_model else R.string.agent_edit_model),
         onDismissRequest = onDismiss,

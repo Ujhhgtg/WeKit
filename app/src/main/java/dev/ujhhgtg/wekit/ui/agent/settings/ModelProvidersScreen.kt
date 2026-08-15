@@ -34,7 +34,7 @@ import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
@@ -117,7 +117,7 @@ private fun AddProviderDialog(
     val typeLabels = types.map { it.label() }
     val selectedTypeLabel = typeLabels[typeIndex]
 
-    WeKitWindowDialog(
+    WeKitBasicDialog(
         show = show.value,
         title = stringResource(R.string.agent_add_model_provider),
         onDismissRequest = { show.value = false },

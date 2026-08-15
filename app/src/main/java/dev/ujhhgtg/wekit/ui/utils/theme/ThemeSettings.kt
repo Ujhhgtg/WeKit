@@ -16,8 +16,6 @@ import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.colorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.dynamicWallpaper
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.paletteStyle
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.seedColor
-import top.yukonga.miuix.kmp.theme.ThemeColorSpec
-import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
 
 /** How the Settings UI decides light vs. dark. */
 enum class AppThemeMode(val displayName: String) {
@@ -53,25 +51,22 @@ enum class SettingsUiEngine(val displayName: String) {
 }
 
 /**
- * Palette generation style. [supportsSpec2025] mirrors miuix's own downgrade rule (only these four
- * styles honor Spec2025; the rest fall back to Spec2021 regardless). [miuix] drives the settings
- * MiuixTheme; [materialKolor] drives the Material 3 scheme (both consume the same seed so the two
- * design systems stay in sync).
+ * Palette generation style. Only the four styles represented by [supportsSpec2025] honor Spec2025;
+ * the rest fall back to Spec2021.
  */
 enum class AppPaletteStyle(
     val displayName: String,
-    val miuix: ThemePaletteStyle,
     val materialKolor: PaletteStyle,
 ) {
-    TONAL_SPOT("Tonal Spot", ThemePaletteStyle.TonalSpot, PaletteStyle.TonalSpot),
-    NEUTRAL("Neutral", ThemePaletteStyle.Neutral, PaletteStyle.Neutral),
-    VIBRANT("Vibrant", ThemePaletteStyle.Vibrant, PaletteStyle.Vibrant),
-    EXPRESSIVE("Expressive", ThemePaletteStyle.Expressive, PaletteStyle.Expressive),
-    RAINBOW("Rainbow", ThemePaletteStyle.Rainbow, PaletteStyle.Rainbow),
-    FRUIT_SALAD("Fruit Salad", ThemePaletteStyle.FruitSalad, PaletteStyle.FruitSalad),
-    MONOCHROME("Monochrome", ThemePaletteStyle.Monochrome, PaletteStyle.Monochrome),
-    FIDELITY("Fidelity", ThemePaletteStyle.Fidelity, PaletteStyle.Fidelity),
-    CONTENT("Content", ThemePaletteStyle.Content, PaletteStyle.Content);
+    TONAL_SPOT("Tonal Spot", PaletteStyle.TonalSpot),
+    NEUTRAL("Neutral", PaletteStyle.Neutral),
+    VIBRANT("Vibrant", PaletteStyle.Vibrant),
+    EXPRESSIVE("Expressive", PaletteStyle.Expressive),
+    RAINBOW("Rainbow", PaletteStyle.Rainbow),
+    FRUIT_SALAD("Fruit Salad", PaletteStyle.FruitSalad),
+    MONOCHROME("Monochrome", PaletteStyle.Monochrome),
+    FIDELITY("Fidelity", PaletteStyle.Fidelity),
+    CONTENT("Content", PaletteStyle.Content);
 
     val supportsSpec2025: Boolean
         get() = this == TONAL_SPOT || this == NEUTRAL || this == VIBRANT || this == EXPRESSIVE
@@ -84,11 +79,10 @@ enum class AppPaletteStyle(
 /** Material color specification version. */
 enum class AppColorSpec(
     val displayName: String,
-    val miuix: ThemeColorSpec,
     val materialKolor: ColorSpec.SpecVersion,
 ) {
-    SPEC_2021("Material 3 (2021)", ThemeColorSpec.Spec2021, ColorSpec.SpecVersion.SPEC_2021),
-    SPEC_2025("Expressive (2025)", ThemeColorSpec.Spec2025, ColorSpec.SpecVersion.SPEC_2025);
+    SPEC_2021("Material 3 (2021)", ColorSpec.SpecVersion.SPEC_2021),
+    SPEC_2025("Expressive (2025)", ColorSpec.SpecVersion.SPEC_2025);
 
     companion object {
         fun fromName(value: String?) = entries.find { it.name == value } ?: SPEC_2025
@@ -114,7 +108,7 @@ object ThemeSettings {
         private set
     var themeMode by mutableStateOf(AppThemeMode.fromName(WePrefs.getString(Preferences.THEME_MODE)))
         private set
-    /** Haptic feedback for the Nuke component engine; ignored by the Miuix branch. */
+    /** Haptic feedback for the Nuke component engine; ignored by Material 3. */
     var nukeHaptics by mutableStateOf(
         WePrefs.getBoolOrDef(Preferences.THEME_NUKE_HAPTICS, true)
     )

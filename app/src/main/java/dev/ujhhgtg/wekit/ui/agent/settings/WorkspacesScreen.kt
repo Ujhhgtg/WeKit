@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity
 import dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore
@@ -131,7 +131,7 @@ private fun EditWorkspaceDialog(
     // is being edited and [initialName] is blank. Unkeyed state would leave the field empty when the
     // user later taps a workspace to rename it.
     var name by remember(initialName, show) { mutableStateOf(initialName) }
-    WeKitWindowDialog(show = show, title = stringResource(R.string.agent_edit_workspace), onDismissRequest = onDismiss) {
+    WeKitBasicDialog(show = show, title = stringResource(R.string.agent_edit_workspace), onDismissRequest = onDismiss) {
         Column {
             OutlinedTextField(
                 value = name,
@@ -162,7 +162,7 @@ private fun AddWorkspaceDialog(
     onConfirm: (String) -> Unit,
 ) {
     var name by remember(show.value) { mutableStateOf("") }
-    WeKitWindowDialog(show = show.value, title = stringResource(R.string.agent_add_workspace), onDismissRequest = { show.value = false }) {
+    WeKitBasicDialog(show = show.value, title = stringResource(R.string.agent_add_workspace), onDismissRequest = { show.value = false }) {
         Column {
             OutlinedTextField(
                 value = name,

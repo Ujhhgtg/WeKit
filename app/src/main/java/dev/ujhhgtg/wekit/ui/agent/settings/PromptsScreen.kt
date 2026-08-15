@@ -30,7 +30,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PresetPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
-import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -258,7 +258,7 @@ private fun TwoFieldEditor(
     // freeze those blanks and 保存 would then wipe the prompt's name/regex with an empty string.
     var f1 by remember(field1, show) { mutableStateOf(field1) }
     var f2 by remember(field2, show) { mutableStateOf(field2) }
-    WeKitWindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
+    WeKitBasicDialog(show = show, title = title, onDismissRequest = onDismiss) {
         Column {
             OutlinedTextField(
                 value = f1,
