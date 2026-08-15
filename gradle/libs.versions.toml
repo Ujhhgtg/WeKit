@@ -29,7 +29,7 @@ aboutlibraries = "15.0.4"
 kotlinpoet = "2.3.0"
 biometric = "1.2.0-alpha05"
 browser = "1.10.0"
-miuix = "0.9.3"
+miuix = "0.9.4-rc01"
 materialkolor = "5.0.0"
 markwon = "4.6.2"
 annotation = "1.10.0"
@@ -81,6 +81,7 @@ miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.re
 miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuix" }
 miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur-android", version.ref = "miuix" }
 miuix-shader = { module = "top.yukonga.miuix.kmp:miuix-shader-android", version.ref = "miuix" }
+miuix-nav = { module = "top.yukonga.miuix.kmp:miuix-nav-android", version.ref = "miuix" }
 materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
 coil = { module = "io.coil-kt.coil3:coil", version.ref = "coil" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }

@@ -255,6 +255,7 @@ dependencies {
     implementation(libs.miuix.preference)
     implementation(libs.miuix.blur)
     implementation(libs.miuix.shader)
+    implementation(libs.miuix.nav)
     implementation(libs.materialkolor)
     implementation(libs.coil)
     implementation(libs.coil.compose)
