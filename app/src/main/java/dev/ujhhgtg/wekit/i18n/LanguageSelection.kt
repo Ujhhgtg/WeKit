@@ -11,6 +11,7 @@ enum class LanguageSelection(
     ENGLISH("en", R.string.language_english),
     SIMPLIFIED_CHINESE("zh-Hans", R.string.language_simplified_chinese),
     TRADITIONAL_CHINESE("zh-Hant", R.string.language_traditional_chinese),
+    MEOW_CHINESE("zh-CA", R.string.language_meow_chinese),
     ;
 
     companion object {

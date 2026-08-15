@@ -12,6 +12,7 @@
     <string name="language_english" translatable="false">English</string>
     <string name="language_simplified_chinese" translatable="false">简体中文</string>
     <string name="language_traditional_chinese" translatable="false">繁體中文</string>
+    <string name="language_meow_chinese" translatable="false">喵体中文</string>
 
     <!-- Shared module UI -->
     <string name="dialog_cancel">Cancel</string>
