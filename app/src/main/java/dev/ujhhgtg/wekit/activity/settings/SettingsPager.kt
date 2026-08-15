@@ -5,8 +5,6 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -93,8 +91,9 @@ import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
-import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
@@ -430,59 +429,6 @@ private fun AvatarPlaceholder() {
     }
 }
 
-/** A row opening an M3 dialog with radio choices, bound to an enum's entries. */
-@Composable
-private fun <T> EnumDropdown(
-    title: String,
-    entries: List<T>,
-    selected: T,
-    labelOf: (T) -> String,
-    onSelected: (T) -> Unit,
-    summary: String? = null,
-    enabled: Boolean = true,
-    icon: ImageVector? = null,
-) {
-    var showDialog by remember { mutableStateOf(false) }
-
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text(title) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    entries.forEach { entry ->
-                        RadioButtonWidget(
-                            title = labelOf(entry),
-                            selected = entry == selected,
-                            enabled = enabled,
-                            onClick = {
-                                showDialog = false
-                                onSelected(entry)
-                            },
-                        )
-                    }
-                }
-            },
-            confirmButton = {},
-        )
-    }
-
-    BaseWidget(
-        icon = icon,
-        title = title,
-        description = summary ?: labelOf(selected),
-        enabled = enabled,
-        onClick = if (enabled) {
-            { showDialog = true }
-        } else null,
-        trailingContent = if (enabled) {
-            { Icon(imageVector = MaterialSymbols.Outlined.Chevron_right, contentDescription = null) }
-        } else {
-            {}
-        },
-    )
-}
-
 @Composable
 private fun ThemeSection() {
     val context = LocalContext.current
@@ -530,48 +476,38 @@ private fun ThemeSection() {
 
     SegmentedColumn(title = stringResource(R.string.settings_section_interface)) {
         item {
-            EnumDropdown(
+            DropDownMenuWidget(
                 title = stringResource(R.string.settings_language_title),
-                entries = LanguageSelection.entries,
-                selected = selectedLanguage,
-                labelOf = languageLabels::getValue,
-                onSelected = WeKitLocaleController::updateSelection,
-                summary = languageSummary,
+                description = languageSummary,
+                value = selectedLanguage,
+                options = languageLabels.map { DropdownOption(it.key, it.value) },
+                onValueChange = WeKitLocaleController::updateSelection,
                 icon = MaterialSymbols.Outlined.Language,
             )
         }
 
-        // UI engine picker — radio pair instead of a dropdown.
         item {
-            RadioButtonWidget(
-                title = SettingsUiEngine.MATERIAL3.displayName,
-                selected = ThemeSettings.uiEngine == SettingsUiEngine.MATERIAL3,
-                onClick = {
-                    if (ThemeSettings.uiEngine != SettingsUiEngine.MATERIAL3) {
-                        ThemeSettings.updateUiEngine(SettingsUiEngine.MATERIAL3)
-                    }
+            DropDownMenuWidget(
+                title = stringResource(R.string.settings_ui_engine_title),
+                description = null,
+                value = ThemeSettings.uiEngine,
+                options = SettingsUiEngine.entries.map {
+                    DropdownOption(it, it.displayName)
                 },
-            )
-        }
-        item {
-            RadioButtonWidget(
-                title = SettingsUiEngine.NUKE.displayName,
-                selected = ThemeSettings.uiEngine == SettingsUiEngine.NUKE,
-                onClick = {
-                    if (ThemeSettings.uiEngine != SettingsUiEngine.NUKE) {
-                        ThemeSettings.updateUiEngine(SettingsUiEngine.NUKE)
-                    }
-                },
+                onValueChange = ThemeSettings::updateUiEngine,
+                icon = MaterialSymbols.Outlined.Style,
             )
         }
 
         item {
-            EnumDropdown(
+            DropDownMenuWidget(
                 title = stringResource(R.string.settings_theme_mode_title),
-                entries = AppThemeMode.entries,
-                selected = ThemeSettings.themeMode,
-                labelOf = themeModeLabels::getValue,
-                onSelected = { ThemeSettings.updateThemeMode(it) },
+                description = null,
+                value = ThemeSettings.themeMode,
+                options = AppThemeMode.entries.map {
+                    DropdownOption(it, themeModeLabels.getValue(it))
+                },
+                onValueChange = ThemeSettings::updateThemeMode,
                 icon = MaterialSymbols.Outlined.Brightness_medium,
             )
         }
@@ -617,12 +553,14 @@ private fun ThemeSection() {
             }
         }
         item(animatedVisibility = customColor) {
-            EnumDropdown(
+            DropDownMenuWidget(
                 title = stringResource(R.string.settings_palette_style_title),
-                entries = AppPaletteStyle.entries,
-                selected = ThemeSettings.paletteStyle,
-                labelOf = paletteStyleLabels::getValue,
-                onSelected = {
+                description = null,
+                value = ThemeSettings.paletteStyle,
+                options = AppPaletteStyle.entries.map {
+                    DropdownOption(it, paletteStyleLabels.getValue(it))
+                },
+                onValueChange = {
                     ThemeSettings.updatePaletteStyle(it)
                     // Keep the stored spec valid for the new style.
                     if (!it.supportsSpec2025 && ThemeSettings.colorSpec == AppColorSpec.SPEC_2025) {
@@ -634,16 +572,17 @@ private fun ThemeSection() {
         }
         val spec2025Supported = ThemeSettings.paletteStyle.supportsSpec2025
         item(animatedVisibility = customColor) {
-            EnumDropdown(
+            DropDownMenuWidget(
                 title = stringResource(R.string.settings_color_spec_title),
-                entries = if (spec2025Supported) AppColorSpec.entries else listOf(AppColorSpec.SPEC_2021),
-                selected = ThemeSettings.effectiveColorSpec,
-                labelOf = colorSpecLabels::getValue,
-                onSelected = { ThemeSettings.updateColorSpec(it) },
-                enabled = spec2025Supported,
-                summary = if (!spec2025Supported) {
+                description = if (!spec2025Supported) {
                     stringResource(R.string.settings_color_spec_unsupported)
                 } else null,
+                value = ThemeSettings.effectiveColorSpec,
+                options = (if (spec2025Supported) AppColorSpec.entries else listOf(AppColorSpec.SPEC_2021)).map {
+                    DropdownOption(it, colorSpecLabels.getValue(it))
+                },
+                onValueChange = ThemeSettings::updateColorSpec,
+                enabled = spec2025Supported,
                 icon = MaterialSymbols.Outlined.Contrast,
             )
         }
