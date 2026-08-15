@@ -475,6 +475,24 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         withContext(Dispatchers.Main) { currentWorkspaceId.value = workspaceId }
     }
 
+    // --- live-selection cleanup after settings deletions (called by WeAgentRepository post-commit) ---
+
+    /** Clears the foreground model binding if it references one of the deleted models. */
+    fun onModelsDeleted(ids: Set<String>) {
+        val current = currentModelId.value ?: return
+        if (current in ids) currentModelId.value = null
+    }
+
+    /** Clears the foreground system-prompt binding if it references the deleted prompt. */
+    fun onSystemPromptDeleted(id: String) {
+        if (currentSystemPromptId.value == id) currentSystemPromptId.value = null
+    }
+
+    /** Clears the foreground workspace binding if it references the deleted workspace. */
+    fun onWorkspaceDeleted(id: String) {
+        if (currentWorkspaceId.value == id) currentWorkspaceId.value = null
+    }
+
     /** Toggles the global memory-enabled setting (also flips fs-tool preview visibility). */
     fun setMemoryEnabled(enabled: Boolean) = scope.launch {
         WeAgentSettings.set(WeAgentSettings.KEY_MEMORY_ENABLED, enabled.toString())

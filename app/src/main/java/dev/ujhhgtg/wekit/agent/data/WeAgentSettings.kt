@@ -39,6 +39,40 @@ object WeAgentSettings {
         cache[key] = value
     }
 
+    /** Deletes the row for [key] and drops it from the in-memory cache together. */
+    suspend fun clear(key: String) {
+        db.settingDao().delete(key)
+        cache.remove(key)
+    }
+
+    /**
+     * Drops [key] from the in-memory cache after its row was already deleted inside a caller's
+     * Room transaction (the DB write goes through [SettingDao.delete] there, not through [clear]).
+     */
+    fun clearCached(key: String) {
+        cache.remove(key)
+    }
+
+    /**
+     * Setting keys holding a model id present in [modelIds] — the defaults that must be deleted
+     * when those models disappear. Read outside any transaction; the caller deletes the returned
+     * rows inside its own Room transaction and calls [clearCached] afterwards.
+     */
+    suspend fun modelDefaultKeysFor(modelIds: Set<String>): List<String> =
+        listOf(KEY_DEFAULT_MODEL_ID, KEY_SMALL_MODEL_ID).filter { key ->
+            val v = get(key); v != null && v in modelIds
+        }
+
+    suspend fun systemPromptDefaultKeysFor(promptIds: Set<String>): List<String> =
+        listOf(KEY_DEFAULT_SYSTEM_PROMPT_ID).filter { key ->
+            val v = get(key); v != null && v in promptIds
+        }
+
+    suspend fun workspaceDefaultKeysFor(workspaceIds: Set<String>): List<String> =
+        listOf(KEY_DEFAULT_WORKSPACE_ID).filter { key ->
+            val v = get(key); v != null && v in workspaceIds
+        }
+
     suspend fun toolLoadingMode(): ToolLoadingMode =
         when (get(KEY_TOOL_LOADING_MODE)) {
             "DYNAMIC" -> ToolLoadingMode.DYNAMIC

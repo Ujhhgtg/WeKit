@@ -229,7 +229,7 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
         onDismiss = { importCandidates = null },
         onImport = { picked ->
             scope.launch {
-                val added = WeAgentRepository.importModels(providerId, picked)
+                val (added) = WeAgentRepository.importModels(providerId, picked)
                 showToast(currentAgentLocalizedContext(context).getString(R.string.agent_models_imported, added))
             }
             importCandidates = null

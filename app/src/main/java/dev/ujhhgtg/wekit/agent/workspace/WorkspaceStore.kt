@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore.cacheDir
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
+import java.util.UUID
 
 /**
  * Owns the real directories backing workspaces and memory (§7, §8), all under
@@ -72,6 +73,47 @@ object WorkspaceStore {
             dst.mkdirs(); return true
         }
         return runCatching { src.renameTo(dst) }.getOrDefault(false)
+    }
+
+    /**
+     * A workspace directory staged for deletion by [stageWorkspaceDeletion]: [stagedDir] is the
+     * renamed `.deleted-<uuid>` tombstone (null when the directory was already absent, which
+     * stages as success). Passed to [restoreWorkspaceDeletion] / [finalizeWorkspaceDeletion].
+     */
+    data class StagedWorkspaceDeletion(val originalDir: File, val stagedDir: File?)
+
+    /**
+     * Moves the workspace's real directory out of the way (unique `.deleted-<uuid>` sibling) so
+     * the DB row can be deleted transactionally while the files remain recoverable. A missing
+     * directory stages as success with a null tombstone.
+     */
+    fun stageWorkspaceDeletion(name: String): StagedWorkspaceDeletion {
+        val original = File(workspacesRoot, name.trim())
+        if (!original.exists()) return StagedWorkspaceDeletion(original, null)
+        val staged = File(workspacesRoot, ".deleted-${UUID.randomUUID()}")
+        check(runCatching { original.renameTo(staged) }.getOrDefault(false)) {
+            "failed to stage workspace directory ${original.path}"
+        }
+        return StagedWorkspaceDeletion(original, staged)
+    }
+
+    /** Best-effort rollback of [stageWorkspaceDeletion] after a failed DB transaction. */
+    fun restoreWorkspaceDeletion(staged: StagedWorkspaceDeletion) {
+        val tomb = staged.stagedDir ?: return
+        runCatching { tomb.renameTo(staged.originalDir) }
+            .onFailure { WeLogger.e(TAG, "failed to restore staged workspace directory ${tomb.path}", it) }
+    }
+
+    /**
+     * Permanently removes the staged tombstone. A leftover tombstone is logged loudly but not
+     * re-raised: the DB row is already gone, so the files are orphaned garbage, not live data.
+     */
+    fun finalizeWorkspaceDeletion(staged: StagedWorkspaceDeletion) {
+        val tomb = staged.stagedDir ?: return
+        val deleted = runCatching { tomb.deleteRecursively() }.getOrDefault(false)
+        if (!deleted || tomb.exists()) {
+            WeLogger.e(TAG, "failed to delete staged workspace tombstone ${tomb.path}; clean it up manually")
+        }
     }
 
     /** Ensures `memory/MEMORY.md` exists with the seed index header, returning the file. */

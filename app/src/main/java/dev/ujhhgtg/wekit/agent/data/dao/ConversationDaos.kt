@@ -44,6 +44,15 @@ interface SessionDao {
 
     @Query("DELETE FROM sessions WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("UPDATE sessions SET modelId = NULL WHERE modelId IN (:modelIds)")
+    suspend fun clearModelBindings(modelIds: List<String>)
+
+    @Query("UPDATE sessions SET systemPromptId = NULL WHERE systemPromptId = :promptId")
+    suspend fun clearSystemPromptBindings(promptId: String)
+
+    @Query("UPDATE sessions SET workspaceId = NULL WHERE workspaceId = :workspaceId")
+    suspend fun clearWorkspaceBindings(workspaceId: String)
 }
 
 @Dao
@@ -109,13 +118,13 @@ interface ToolCallDao {
 
 @Dao
 interface ProviderDao {
-    @Query("SELECT * FROM providers")
+    @Query("SELECT * FROM providers ORDER BY name COLLATE NOCASE, id")
     fun observeAll(): Flow<List<ProviderEntity>>
 
-    @Query("SELECT * FROM providers")
+    @Query("SELECT * FROM providers ORDER BY name COLLATE NOCASE, id")
     suspend fun getAll(): List<ProviderEntity>
 
-    @Query("SELECT * FROM providers WHERE enabled = 1")
+    @Query("SELECT * FROM providers WHERE enabled = 1 ORDER BY name COLLATE NOCASE, id")
     suspend fun getEnabled(): List<ProviderEntity>
 
     @Query("SELECT * FROM providers WHERE id = :id")
@@ -130,13 +139,13 @@ interface ProviderDao {
 
 @Dao
 interface ToolPermissionDao {
-    @Query("SELECT * FROM tool_permissions")
+    @Query("SELECT * FROM tool_permissions ORDER BY providerId, toolName COLLATE NOCASE")
     fun observeAll(): Flow<List<ToolPermissionEntity>>
 
-    @Query("SELECT * FROM tool_permissions")
+    @Query("SELECT * FROM tool_permissions ORDER BY providerId, toolName COLLATE NOCASE")
     suspend fun getAll(): List<ToolPermissionEntity>
 
-    @Query("SELECT * FROM tool_permissions WHERE providerId = :providerId")
+    @Query("SELECT * FROM tool_permissions WHERE providerId = :providerId ORDER BY toolName COLLATE NOCASE")
     suspend fun getForProvider(providerId: String): List<ToolPermissionEntity>
 
     @Query("SELECT mode FROM tool_permissions WHERE providerId = :providerId AND toolName = :toolName")
