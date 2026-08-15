@@ -77,8 +77,6 @@ androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime
 composablehorizons-material-symbols-outlined = { module = "com.composables:icons-material-symbols-outlined-cmp", version.ref = "composablehorizons-symbols" }
 composablehorizons-material-symbols-filled = { module = "com.composables:icons-material-symbols-outlined-filled-cmp", version.ref = "composablehorizons-symbols" }
 miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui-android", version.ref = "miuix" }
-miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.ref = "miuix" }
-miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuix" }
 miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur-android", version.ref = "miuix" }
 miuix-shader = { module = "top.yukonga.miuix.kmp:miuix-shader-android", version.ref = "miuix" }
 miuix-nav = { module = "top.yukonga.miuix.kmp:miuix-nav-android", version.ref = "miuix" }

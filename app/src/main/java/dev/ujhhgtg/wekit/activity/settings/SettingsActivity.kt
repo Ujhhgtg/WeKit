@@ -104,10 +104,7 @@ import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
 import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
-import dev.ujhhgtg.wekit.ui.content.miuixAppBarBlur
-import dev.ujhhgtg.wekit.ui.content.miuixAppBarColor
 import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
-import dev.ujhhgtg.wekit.ui.content.rememberMiuixBlurBackdrop
 import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
 import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
@@ -116,9 +113,6 @@ import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
@@ -126,8 +120,6 @@ import top.yukonga.miuix.kmp.nav.core.NavKey
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import top.yukonga.miuix.kmp.nav.transition.NavTransitions
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 val LocalComponentActivity = staticCompositionLocalOf<ComponentActivity> { error("not provided") }
 
@@ -386,8 +378,7 @@ private val TAB_ITEMS = listOf(
 val CONTENT_BOTTOM_INSET = 88.dp
 
 // ---------------------------------------------------------------------------
-//  Shared scaffolds: M3 (Material 3 Expressive) and legacy miuix.
-//  The miuix one stays until FeaturesPager/SettingsPager migrate (Task 7+).
+//  Shared scaffold (Material 3 Expressive)
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -421,43 +412,6 @@ fun M3ListScaffold(
                 .fillMaxSize()
                 .then(barBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
             contentPadding = innerPadding,
-            content = content,
-        )
-    }
-}
-
-@Composable
-fun MiuixListScaffold(
-    title: String,
-    navigationIcon: @Composable (() -> Unit)? = null,
-    content: LazyListScope.() -> Unit,
-) {
-    val scrollBehavior = MiuixScrollBehavior()
-    // Match KernelSU / InstallerX's miuix app bar blur path: textureBlur uses a fixed pixel
-    // radius, avoiding the oversized dp->px blur that made section titles smear into blocks.
-    val barBackdrop = rememberMiuixBlurBackdrop()
-    MiuixScaffold(
-        topBar = {
-            MiuixTopAppBar(
-                modifier = Modifier.miuixAppBarBlur(barBackdrop),
-                color = barBackdrop.miuixAppBarColor(),
-                title = title,
-                scrollBehavior = scrollBehavior,
-                navigationIcon = { navigationIcon?.invoke() },
-            )
-        },
-        popupHost = {},
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxHeight()
-                .then(barBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier)
-                .scrollEndHaptic()
-                .overScrollVertical()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .padding(horizontal = 12.dp),
-            contentPadding = innerPadding,
-            overscrollEffect = null,
             content = content,
         )
     }
