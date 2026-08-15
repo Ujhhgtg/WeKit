@@ -17,14 +17,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -96,7 +94,7 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
-import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarItem
+import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarMode
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.rememberViewBackdrop
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
@@ -355,11 +353,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             // half-way crossing during a finger swipe. Drives the discrete spring so a tap
             // still bulges + slides the pill instead of teleporting.
             val targetPageIndexState = mutableIntStateOf(initialPagerIndex)
-            // True only while the pager is being moved by a finger (SCROLL_STATE_DRAGGING),
-            // through to the follow-on settle. A tab tap smooth-scrolls (SETTLING) without
-            // ever passing through DRAGGING, so it stays false and takes the spring path.
-            val isSwipingState = mutableStateOf(false)
-            var pageDidDrag = false
 
             tabsAdapter.reflekt()
                 .firstMethod { name = "onPageScrolled" }
@@ -379,31 +372,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         ?: visibleWechatIndices.indexOf(args[0] as Int).coerceAtLeast(0)
                 }
 
-            tabsAdapter.reflekt()
-                .firstMethod { name = "onPageScrollStateChanged" }
-                .hookBefore {
-                    when (args[0] as Int) {
-                        1 -> { // DRAGGING: finger is moving the pager
-                            pageDidDrag = true
-                            isSwipingState.value = true
-                        }
-
-                        2 -> { // SETTLING: keep tracking only if this settle came from a drag
-                            isSwipingState.value = pageDidDrag
-                        }
-
-                        else -> { // IDLE
-                            isSwipingState.value = false
-                            pageDidDrag = false
-                        }
-                    }
-                }
-
             val useFloating = useFloating
             val useBackdrop = useBackdrop
             val showFinderBadge = showFinderBadge
             val hideLabels = hideLabels
-            val blurRadius = blurRadius
             val barScale = barScalePercent.coerceIn(MIN_BAR_SCALE, MAX_BAR_SCALE) / 100f
 
             val composeView = ComposeView(activity).apply {
@@ -549,56 +521,30 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
                                 CompositionLocalProvider(LocalDensity provides scaledDensity) {
                                     FloatingBottomBar(
+                                        items = visibleTabItems,
                                         modifier = bottomCenter
-                                            .clickable(
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null,
-                                                onClick = {},
-                                            )
                                             .padding(
                                                 bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues()
                                                     .calculateBottomPadding()
                                             ),
-                                        // Spring target: on a tap this is the tapped tab, so the
-                                        // pill bulges and slides across. During a swipe the gate
-                                        // below hands position control to `progress` instead.
                                         selectedIndex = { targetIndex },
-                                        // Drive the indicator from the pager's live fractional
-                                        // scroll position so the pill tracks the content 1:1 in
-                                        // both directions, like the non-floating bar's crossfade.
-                                        progress = { selectedIndex + scrollOffsetState.floatValue },
-                                        isTracking = { isSwipingState.value },
                                         onSelected = { navigateToTab(it) },
-                                        // In glass mode the pill covers the selected tab and eats
-                                        // the tap before the item's onClick can run, so tapping /
-                                        // double-tapping the current tab (e.g. Home) would do
-                                        // nothing. Route that tap through the same haptic + tab
-                                        // handler the items use, restoring double-tap-to-next-unread.
-                                        onTabReselected = { index ->
-                                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                            onTabClicked(index)
-                                        },
-                                        // Long-pressing the "发现" tab while it is already selected:
-                                        // the pill sits on top and eats the event, so the item's
-                                        // onLongPress modifier never fires — forward it here instead.
-                                        onTabReselectedLongPress = { index ->
-                                            if (visibleTabItems[index].wechatIndex == 2) openImproveSnsTimeline()
-                                        },
                                         // Sample WeChat's real content (native ViewPager) into the
                                         // glass. rememberLayerBackdrop would only capture Compose
                                         // pixels, of which there are none behind this overlay bar.
                                         backdrop = rememberViewBackdrop(viewPager),
-                                        tabsCount = visibleTabItems.size,
-                                        isBlurEnabled = useBackdrop,
-                                        blurRadius = blurRadius.dp,
+                                        mode = if (useBackdrop) {
+                                            FloatingBottomBarMode.LiquidGlass
+                                        } else {
+                                            FloatingBottomBarMode.None
+                                        },
                                         colors = FloatingBottomBarDefaults.colors(
                                             containerColor = backgroundColor,
                                             indicatorColor = activeColor,
                                             contentColor = inactiveColor,
                                             activeContentColor = activeColor
-                                        )
-                                    ) {
-                                        visibleTabItems.forEachIndexed { index, item ->
+                                        ),
+                                        iconContent = { item, index ->
                                             val label = stringResource(item.labelRes)
                                             // Key the fill crossfade to the target page (the same
                                             // driver as the pill), not the settled page: target
@@ -609,69 +555,61 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             // decision is made instead of a beat after the pill.
                                             val isSelected = index == targetIndex
 
-                                            FloatingBottomBarItem(
-                                                onClick = {
-                                                    view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                                    onTabClicked(index)
-                                                },
-                                                modifier = Modifier
-                                                    .then(if (item.wechatIndex == 2) Modifier.onLongPress(openImproveSnsTimeline) else Modifier)
-                                                    .defaultMinSize(minWidth = 76.dp)
-                                            ) {
-                                                BadgedBox(
-                                                    badge = {
-                                                        if (index == 0 && unreadCount > 0) {
+                                            BadgedBox(
+                                                badge = {
+                                                    if (index == 0 && unreadCount > 0) {
+                                                        Badge(containerColor = Color(0xFFFF3B30)) {
+                                                            Text(
+                                                                if (unreadCount <= 99) unreadCount.toString() else stringResource(R.string.badge_count_overflow),
+                                                                color = Color.White, fontSize = 10.sp
+                                                            )
+                                                        }
+                                                    } else if (item.wechatIndex == 1 && contactUnreadCount > 0) {
+                                                        Badge(containerColor = Color(0xFFFF3B30)) {
+                                                            Text(
+                                                                if (contactUnreadCount <= 99) contactUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
+                                                                color = Color.White, fontSize = 10.sp
+                                                            )
+                                                        }
+                                                    } else if (item.wechatIndex == 2 && showFinderBadge) {
+                                                        if (finderUnreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
                                                                 Text(
-                                                                    if (unreadCount <= 99) unreadCount.toString() else stringResource(R.string.badge_count_overflow),
+                                                                    if (finderUnreadCount <= 99) finderUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
                                                             }
-                                                        } else if (item.wechatIndex == 1 && contactUnreadCount > 0) {
-                                                            Badge(containerColor = Color(0xFFFF3B30)) {
-                                                                Text(
-                                                                    if (contactUnreadCount <= 99) contactUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
-                                                                    color = Color.White, fontSize = 10.sp
-                                                                )
-                                                            }
-                                                        } else if (item.wechatIndex == 2 && showFinderBadge) {
-                                                            if (finderUnreadCount > 0) {
-                                                                Badge(containerColor = Color(0xFFFF3B30)) {
-                                                                    Text(
-                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
-                                                                        color = Color.White, fontSize = 10.sp
-                                                                    )
-                                                                }
-                                                            } else if (showFinderDot) {
-                                                                Badge(containerColor = Color(0xFFFF3B30))
-                                                            }
+                                                        } else if (showFinderDot) {
+                                                            Badge(containerColor = Color(0xFFFF3B30))
                                                         }
                                                     }
-                                                ) {
-                                                    Crossfade(
-                                                        targetState = isSelected,
-                                                        animationSpec = tween(200),
-                                                        label = "navIconFloating"
-                                                    ) { selected ->
-                                                        Icon(
-                                                            imageVector = if (selected) item.filled else item.outlined,
-                                                            contentDescription = label
-                                                        )
-                                                    }
                                                 }
-                                                if (!hideLabels) {
-                                                    Text(
-                                                        text = label,
-                                                        fontSize = 11.sp,
-                                                        lineHeight = 14.sp,
-                                                        maxLines = 1,
-                                                        softWrap = false,
-                                                        overflow = TextOverflow.Visible
+                                            ) {
+                                                Crossfade(
+                                                    targetState = isSelected,
+                                                    animationSpec = tween(200),
+                                                    label = "navIconFloating"
+                                                ) { selected ->
+                                                    Icon(
+                                                        imageVector = if (selected) item.filled else item.outlined,
+                                                        contentDescription = label
                                                     )
                                                 }
                                             }
-                                        }
-                                    }
+                                        },
+                                        labelContent = { item, _ ->
+                                            if (!hideLabels) {
+                                                Text(
+                                                    text = stringResource(item.labelRes),
+                                                    fontSize = 11.sp,
+                                                    lineHeight = 14.sp,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    overflow = TextOverflow.Visible
+                                                )
+                                            }
+                                        },
+                                    )
                                 }
                             }
                         }
