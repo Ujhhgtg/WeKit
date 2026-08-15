@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+
 package dev.ujhhgtg.wekit.activity.settings
 
 import android.os.Bundle
@@ -15,7 +17,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
@@ -25,17 +26,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -44,10 +53,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,8 +86,8 @@ import com.composables.icons.materialsymbols.outlinedfilled.Article
 import com.composables.icons.materialsymbols.outlinedfilled.Home
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Tune
-import dev.ujhhgtg.wekit.activity.testsettings.NukeSettingsContent
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.testsettings.NukeSettingsContent
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -92,34 +100,38 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarItem
-import dev.ujhhgtg.wekit.ui.content.MiuixStackNavigator
+import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
+import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.miuixAppBarBlur
 import dev.ujhhgtg.wekit.ui.content.miuixAppBarColor
+import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
 import dev.ujhhgtg.wekit.ui.content.rememberMiuixBlurBackdrop
+import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
+import dev.ujhhgtg.wekit.ui.navigation.Navigator
+import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.Switch
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.nav.core.NavDisplay
+import top.yukonga.miuix.kmp.nav.core.NavKey
+import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
+import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
+import top.yukonga.miuix.kmp.nav.transition.NavTransitions
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import androidx.compose.material3.Icon as M3Icon
-import androidx.compose.material3.Text as M3Text
 
 val LocalComponentActivity = staticCompositionLocalOf<ComponentActivity> { error("not provided") }
 
@@ -218,42 +230,46 @@ val NEW_FEATURE_ITEMS: List<BaseFeature> by lazy {
 // ---------------------------------------------------------------------------
 
 /** Navigation targets for the Settings activity's stack. */
-private sealed interface SettingsNavTarget {
-    data object Main : SettingsNavTarget
-    data class Category(val id: String) : SettingsNavTarget
-    data object License : SettingsNavTarget
+sealed interface SettingsRoute : NavKey {
+    data object Main : SettingsRoute
+    data class Category(val id: String) : SettingsRoute
+    data object License : SettingsRoute
 }
 
 @Composable
 private fun SettingsRoot(onFinish: () -> Unit) {
-    val stack = remember { mutableStateListOf<SettingsNavTarget>(SettingsNavTarget.Main) }
+    val backStack = rememberNavBackStack<SettingsRoute>(SettingsRoute.Main)
+    val navigator = remember(backStack) { Navigator(backStack) }
     val pagerState = rememberPagerState(pageCount = { TAB_ITEMS.size })
     val scope = rememberCoroutineScope()
 
-    MiuixStackNavigator(stack = stack, onExitRoot = onFinish) { screen, push, pop ->
-        when (screen) {
-            SettingsNavTarget.Main -> MainPagerScreen(
-                pagerState = pagerState,
-                onOpenCategory = { push(SettingsNavTarget.Category(it)) },
-                onOpenLicense = { push(SettingsNavTarget.License) },
-            )
-
-            is SettingsNavTarget.Category -> CategoryDetailScreen(
-                categoryId = screen.id,
-                onBack = pop,
-            )
-
-            SettingsNavTarget.License -> LicenseScreen(
-                onBack = pop,
-            )
+    CompositionLocalProvider(LocalNavigator provides navigator) {
+        NavDisplay(
+            backStack = backStack,
+            onBack = {
+                if (navigator.backStackSize() <= 1) onFinish() else navigator.pop()
+            },
+            transition = NavTransitions.MiuixDefault,
+            effects = rememberM3NavEffects(),
+        ) {
+            entry<SettingsRoute.Main> {
+                MainPagerScreen(
+                    pagerState = pagerState,
+                    onOpenCategory = { navigator.push(SettingsRoute.Category(it)) },
+                    onOpenLicense = { navigator.push(SettingsRoute.License) },
+                )
+            }
+            entry<SettingsRoute.Category>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
+                CategoryDetailScreen(categoryId = key.id, onBack = { navigator.pop() })
+            }
+            entry<SettingsRoute.License>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+                LicenseScreen(onBack = { navigator.pop() })
+            }
         }
     }
 
-    // Back unwinds one level at a time: sub-screens first (handled by the navigator's own
-    // predictive-back pop), then the home tab, then finish. Enabled only at the stack root so
-    // this handler never shadows the navigator's — it is registered later, so it would
-    // otherwise win and collapse the stack and the tab in a single press.
-    BackHandler(enabled = stack.size == 1 && pagerState.currentPage != 0) {
+    // Back at the stack root returns the pager to the home tab; further back finishes.
+    BackHandler(enabled = navigator.backStackSize() == 1 && pagerState.currentPage != 0) {
         scope.launch { pagerState.animateScrollToPage(0) }
     }
 }
@@ -272,7 +288,7 @@ private fun MainPagerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MiuixTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background),
     ) {
         Box(
             modifier = Modifier
@@ -315,10 +331,10 @@ private fun MainPagerScreen(
             tabsCount = TAB_ITEMS.size,
             isBlurEnabled = true,
             colors = FloatingBottomBarDefaults.colors(
-                containerColor = MiuixTheme.colorScheme.surfaceContainer,
-                indicatorColor = MiuixTheme.colorScheme.primary,
-                contentColor = MiuixTheme.colorScheme.onSurfaceSecondary,
-                activeContentColor = MiuixTheme.colorScheme.primary,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                indicatorColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                activeContentColor = MaterialTheme.colorScheme.primary,
             ),
         ) {
             // Key the fill crossfade to targetPage (same driver as the pill), not
@@ -338,12 +354,12 @@ private fun MainPagerScreen(
                         animationSpec = tween(200),
                         label = "navIcon",
                     ) { selected ->
-                        M3Icon(
+                        Icon(
                             imageVector = if (selected) item.filled else item.outlined,
                             contentDescription = stringResource(item.labelRes),
                         )
                     }
-                    M3Text(
+                    Text(
                         text = stringResource(item.labelRes),
                         fontSize = 11.sp,
                         lineHeight = 14.sp,
@@ -374,8 +390,45 @@ private val TAB_ITEMS = listOf(
 val CONTENT_BOTTOM_INSET = 88.dp
 
 // ---------------------------------------------------------------------------
-//  Shared scaffold: miuix Scaffold + collapsing TopAppBar + scrollable column
+//  Shared scaffolds: M3 (Material 3 Expressive) and legacy miuix.
+//  The miuix one stays until FeaturesPager/SettingsPager migrate (Task 7+).
 // ---------------------------------------------------------------------------
+
+@Composable
+fun M3ListScaffold(
+    title: String,
+    navigationIcon: @Composable (() -> Unit)? = null,
+    content: LazyListScope.() -> Unit,
+) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val barBackdrop = rememberMaterial3BlurBackdrop()
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        topBar = {
+            LargeFlexibleTopAppBar(
+                modifier = Modifier.m3AppBarBlur(barBackdrop),
+                title = { Text(title) },
+                navigationIcon = { navigationIcon?.invoke() },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = barBackdrop.m3AppBarColor(),
+                    scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                ),
+            )
+        },
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(barBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
+            contentPadding = innerPadding,
+            content = content,
+        )
+    }
+}
 
 @Composable
 fun MiuixListScaffold(
@@ -387,9 +440,9 @@ fun MiuixListScaffold(
     // Match KernelSU / InstallerX's miuix app bar blur path: textureBlur uses a fixed pixel
     // radius, avoiding the oversized dp->px blur that made section titles smear into blocks.
     val barBackdrop = rememberMiuixBlurBackdrop()
-    Scaffold(
+    MiuixScaffold(
         topBar = {
-            TopAppBar(
+            MiuixTopAppBar(
                 modifier = Modifier.miuixAppBarBlur(barBackdrop),
                 color = barBackdrop.miuixAppBarColor(),
                 title = title,
@@ -442,7 +495,7 @@ fun Modifier.groupedCardItem(index: Int, count: Int): Modifier {
 }
 
 // ---------------------------------------------------------------------------
-//  Shared feature row (miuix) — used by category detail and search
+//  Shared feature row (Material 3) — used by category detail and search
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -472,44 +525,37 @@ fun FeatureRow(
     }
 
     when (item) {
-        is ClickableFeature -> BasicComponent(
+        is ClickableFeature -> BaseWidget(
+            title = localizedName,
+            description = localizedDescription,
             onClick = {
                 runCatching { item.onClick(context) }
                     .onFailure { WeLogger.e("SettingsActivity", "onClick failed for ${item.technicalPath}", it) }
             },
-            endActions = {
-                if (!item.noSwitchWidget) {
-                    Switch(checked = checked, onCheckedChange = { toggle(it) })
+            trailingContent = { interactionSource ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = MaterialSymbols.Outlined.Settings,
+                        contentDescription = stringResource(R.string.accessibility_configurable),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .padding(end = if (!item.noSwitchWidget) 8.dp else 0.dp)
+                            .size(20.dp),
+                    )
+                    if (!item.noSwitchWidget) {
+                        Switch(
+                            checked = checked,
+                            onCheckedChange = { toggle(it) },
+                            interactionSource = interactionSource,
+                        )
+                    }
                 }
             },
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = localizedName,
-                    fontSize = MiuixTheme.textStyles.headline1.fontSize,
-                    fontWeight = FontWeight.Medium,
-                    color = BasicComponentDefaults.titleColor().color,
-                )
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    imageVector = MaterialSymbols.Outlined.Settings,
-                    contentDescription = stringResource(R.string.accessibility_configurable),
-                    modifier = Modifier
-                        .padding(end = if (!item.noSwitchWidget) 8.dp else 0.dp)
-                        .size(20.dp),
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            }
-            Text(
-                text = localizedDescription,
-                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                color = BasicComponentDefaults.summaryColor().color,
-            )
-        }
+        )
 
-        is SwitchFeature -> SwitchPreference(
+        is SwitchFeature -> SwitchWidget(
             title = localizedName,
-            summary = localizedDescription,
+            description = localizedDescription,
             checked = checked,
             onCheckedChange = { toggle(it) },
         )
