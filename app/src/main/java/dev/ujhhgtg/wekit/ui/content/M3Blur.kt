@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Shape
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
@@ -46,3 +47,7 @@ fun Modifier.m3AppBarBlur(
         ),
     )
 }
+
+/** Records the modified content into [backdrop] so an app-bar blur layer can sample it. */
+fun Modifier.m3BackdropLayer(backdrop: LayerBackdrop?): Modifier =
+    if (backdrop != null) layerBackdrop(backdrop) else this

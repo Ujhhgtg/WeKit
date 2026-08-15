@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package dev.ujhhgtg.wekit.activity.settings
 
 import android.content.Context
@@ -27,8 +29,25 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -63,9 +83,13 @@ import com.composables.icons.materialsymbols.outlined.Vertical_align_bottom
 import com.composables.icons.materialsymbols.outlined.Vertical_align_top
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.ui.content.miuixAppBarBlur
-import dev.ujhhgtg.wekit.ui.content.miuixAppBarColor
-import dev.ujhhgtg.wekit.ui.content.rememberMiuixBlurBackdrop
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
+import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
+import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
+import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -75,27 +99,6 @@ import dev.ujhhgtg.wekit.utils.formatEpoch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.PullToRefresh
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.TabRow
-import top.yukonga.miuix.kmp.basic.TabRowDefaults
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import java.nio.file.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.getLastModifiedTime
@@ -301,125 +304,133 @@ fun LogsPager() {
     // The file currently selected in the visible tab, hoisted so the toolbar can share/save it.
     var currentFile by remember { mutableStateOf<Path?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
 
-    val scrollBehavior = MiuixScrollBehavior()
-    val barBackdrop = rememberMiuixBlurBackdrop()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val barBackdrop = rememberMaterial3BlurBackdrop()
 
     Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
-            TopAppBar(
-                modifier = Modifier.miuixAppBarBlur(barBackdrop),
-                color = barBackdrop.miuixAppBarColor(),
-                title = stringResource(R.string.nav_logs),
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    IconButton(onClick = {
-                        currentFile?.let { shareLogFile(context, localizedContext, it) }
-                            ?: scope.launch {
-                                showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_share))
-                            }
-                    }) {
-                        Icon(
-                            imageVector = MaterialSymbols.Outlined.Share,
-                            contentDescription = stringResource(R.string.logs_share),
-                            tint = MiuixTheme.colorScheme.onBackground,
-                        )
-                    }
-                    IconButton(onClick = {
-                        currentFile?.let { saveLogFile(context, localizedContext, it) }
-                            ?: scope.launch {
-                                showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_save))
-                            }
-                    }) {
-                        Icon(
-                            imageVector = MaterialSymbols.Outlined.Save,
-                            contentDescription = stringResource(R.string.logs_save),
-                            tint = MiuixTheme.colorScheme.onBackground,
-                        )
-                    }
-                    // Native miuix overflow menu (ListPopup), matching the Settings-page dropdown style.
-                    val refreshLabel = stringResource(R.string.logs_refresh)
-                    val goTopLabel = stringResource(R.string.logs_go_top)
-                    val goBottomLabel = stringResource(R.string.logs_go_bottom)
-                    val clearLabel = stringResource(R.string.logs_clear)
-                    val menuEntry = remember(listState, refreshLabel, goTopLabel, goBottomLabel, clearLabel) {
-                        DropdownEntry(
-                            items = listOf(
-                                DropdownItem(
-                                    text = refreshLabel,
-                                    icon = { m -> Icon(MaterialSymbols.Outlined.Refresh, null, m) },
-                                    onClick = { refreshKey++ },
-                                ),
-                                DropdownItem(
-                                    text = goTopLabel,
-                                    icon = { m -> Icon(MaterialSymbols.Outlined.Vertical_align_top, null, m) },
-                                    onClick = { scope.launch { listState.animateScrollToItem(0) } },
-                                ),
-                                DropdownItem(
-                                    text = goBottomLabel,
-                                    icon = { m -> Icon(MaterialSymbols.Outlined.Vertical_align_bottom, null, m) },
-                                    onClick = {
-                                        scope.launch {
-                                            val end = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-                                            listState.animateScrollToItem(end)
-                                        }
-                                    },
-                                ),
-                                DropdownItem(
-                                    text = clearLabel,
-                                    icon = { m -> Icon(MaterialSymbols.Outlined.Delete_sweep, null, m) },
-                                    onClick = {
-                                        scope.launch {
-                                            withContext(Dispatchers.IO) {
-                                                when (kind) {
-                                                    LogKind.RUN -> WeLogger.allLogFiles
-                                                        .forEach { runCatching { it.toFile().delete() } }
+            // The blur layer spans the app bar and the tab row beneath it, mirroring the old
+            // miuix TopAppBar bottomContent arrangement.
+            Column(modifier = Modifier.m3AppBarBlur(barBackdrop)) {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.nav_logs)) },
+                    scrollBehavior = scrollBehavior,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = barBackdrop.m3AppBarColor(),
+                        scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                    ),
+                    actions = {
+                        IconButton(onClick = {
+                            currentFile?.let { shareLogFile(context, localizedContext, it) }
+                                ?: scope.launch {
+                                    showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_share))
+                                }
+                        }) {
+                            Icon(
+                                imageVector = MaterialSymbols.Outlined.Share,
+                                contentDescription = stringResource(R.string.logs_share),
+                            )
+                        }
+                        IconButton(onClick = {
+                            currentFile?.let { saveLogFile(context, localizedContext, it) }
+                                ?: scope.launch {
+                                    showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_save))
+                                }
+                        }) {
+                            Icon(
+                                imageVector = MaterialSymbols.Outlined.Save,
+                                contentDescription = stringResource(R.string.logs_save),
+                            )
+                        }
+                        // Overflow menu anchored to the icon, matching the Settings-page dropdown style.
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                imageVector = MaterialSymbols.Outlined.More_vert,
+                                contentDescription = stringResource(R.string.accessibility_overflow_menu),
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.logs_refresh)) },
+                                leadingIcon = { Icon(MaterialSymbols.Outlined.Refresh, null) },
+                                onClick = { menuExpanded = false; refreshKey++ },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.logs_go_top)) },
+                                leadingIcon = { Icon(MaterialSymbols.Outlined.Vertical_align_top, null) },
+                                onClick = {
+                                    menuExpanded = false
+                                    scope.launch { listState.animateScrollToItem(0) }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.logs_go_bottom)) },
+                                leadingIcon = { Icon(MaterialSymbols.Outlined.Vertical_align_bottom, null) },
+                                onClick = {
+                                    menuExpanded = false
+                                    scope.launch {
+                                        val end = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                                        listState.animateScrollToItem(end)
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.logs_clear)) },
+                                leadingIcon = { Icon(MaterialSymbols.Outlined.Delete_sweep, null) },
+                                onClick = {
+                                    menuExpanded = false
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            when (kind) {
+                                                LogKind.RUN -> WeLogger.allLogFiles
+                                                    .forEach { runCatching { it.toFile().delete() } }
 
-                                                    LogKind.CRASH -> CrashLogsManager.deleteAllCrashLogs()
-                                                }
+                                                LogKind.CRASH -> CrashLogsManager.deleteAllCrashLogs()
                                             }
-                                            refreshKey++
                                         }
-                                    },
-                                ),
-                            ),
+                                        refreshKey++
+                                    }
+                                },
+                            )
+                        }
+                    },
+                )
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                ) {
+                    LOG_TABS.forEachIndexed { index, tabKind ->
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = {
+                                Text(
+                                    stringResource(
+                                        if (tabKind == LogKind.RUN) R.string.logs_tab_runtime
+                                        else R.string.logs_tab_crash
+                                    )
+                                )
+                            },
                         )
                     }
-                    WindowIconDropdownMenu(entry = menuEntry) {
-                        Icon(
-                            imageVector = MaterialSymbols.Outlined.More_vert,
-                            contentDescription = stringResource(R.string.accessibility_overflow_menu),
-                            tint = MiuixTheme.colorScheme.onBackground,
-                        )
-                    }
-                },
-                bottomContent = {
-                    Column(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .padding(bottom = 8.dp),
-                    ) {
-                        TabRow(
-                            tabs = listOf(
-                                stringResource(R.string.logs_tab_runtime),
-                                stringResource(R.string.logs_tab_crash),
-                            ),
-                            selectedTabIndex = selectedTab,
-                            onTabSelected = { selectedTab = it },
-                            colors = TabRowDefaults.tabRowColors(backgroundColor = Color.Transparent),
-                        )
-                    }
-                },
-            )
+                }
+            }
         },
-        popupHost = {},
     ) { innerPadding ->
         Crossfade(targetState = kind, animationSpec = tween(200), label = "logKind") { k ->
             LogTabContent(
                 kind = k,
                 listState = if (k == LogKind.RUN) runListState else crashListState,
-                barBackdrop = barBackdrop,
-                scrollBehavior = scrollBehavior,
+                backdropLayer = Modifier.m3BackdropLayer(barBackdrop),
                 innerPadding = innerPadding,
                 refreshKey = refreshKey,
                 isRefreshing = isRefreshing,
@@ -435,8 +446,7 @@ fun LogsPager() {
 private fun LogTabContent(
     kind: LogKind,
     listState: LazyListState,
-    barBackdrop: LayerBackdrop?,
-    scrollBehavior: ScrollBehavior,
+    backdropLayer: Modifier,
     innerPadding: PaddingValues,
     refreshKey: Int,
     isRefreshing: Boolean,
@@ -494,27 +504,19 @@ private fun LogTabContent(
         onRefreshingChange(false)
     }
 
-    val pullState = rememberPullToRefreshState()
-    PullToRefresh(
+    PullToRefreshBox(
         // Show the refresh indicator both for user pulls and while a file is being read/parsed,
         // so opening or switching to a large log surfaces the same loading affordance.
         isRefreshing = isRefreshing || loading,
         onRefresh = { onRefreshingChange(true); onRefreshRequested() },
-        pullToRefreshState = pullState,
-        contentPadding = innerPadding,
-        topAppBarScrollBehavior = scrollBehavior,
         modifier = Modifier.fillMaxSize(),
     ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier
+            modifier = backdropLayer
                 .fillMaxSize()
-                .then(barBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier)
-                .scrollEndHaptic()
-                .overScrollVertical()
                 .padding(horizontal = 12.dp),
             contentPadding = innerPadding,
-            overscrollEffect = null,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item(key = "picker") {
@@ -577,15 +579,53 @@ private fun FileSelector(
     val labels = remember(files) {
         files.map { "${it.name}  ·  ${formatBytesSize(runCatching { it.fileSize() }.getOrDefault(0))}" }
     }
-    Card(modifier = modifier.fillMaxWidth()) {
-        WindowDropdownPreference(
-            title = stringResource(R.string.logs_select_file),
-            summary = files.getOrNull(selectedIndex)?.let {
-                formatEpoch(it.getLastModifiedTime().toMillis(), true)
+    var showDialog by remember { mutableStateOf(false) }
+    SegmentedColumn(modifier = modifier.fillMaxWidth()) {
+        item {
+            BaseWidget(
+                title = stringResource(R.string.logs_select_file),
+                description = files.getOrNull(selectedIndex)?.let {
+                    formatEpoch(it.getLastModifiedTime().toMillis(), true)
+                },
+                onClick = { showDialog = true },
+                trailingContent = {
+                    Icon(
+                        imageVector = MaterialSymbols.Outlined.Expand_more,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+            )
+        }
+    }
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(stringResource(R.string.logs_select_file)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        labels.forEachIndexed { index, label ->
+                            item(key = label) {
+                                BaseWidget(
+                                    title = label,
+                                    titleStyle = MaterialTheme.typography.bodyMedium,
+                                    selected = index == selectedIndex,
+                                    onClick = {
+                                        showDialog = false
+                                        onSelected(index)
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
             },
-            items = labels,
-            selectedIndex = selectedIndex,
-            onSelectedIndexChange = onSelected,
+            confirmButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text(stringResource(R.string.dialog_close))
+                }
+            },
         )
     }
 }
@@ -607,7 +647,7 @@ private fun RunLogCard(entry: RunLogEntry) {
         label = "chevron",
     )
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    BaseItemContainer(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 entry.level?.let { level ->
@@ -627,13 +667,13 @@ private fun RunLogCard(entry: RunLogEntry) {
                             text = it,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = MiuixTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.primary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
                     entry.time?.let {
-                        Text(it, fontSize = 11.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                        Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 if (isLong) {
@@ -646,7 +686,7 @@ private fun RunLogCard(entry: RunLogEntry) {
                             contentDescription = stringResource(
                                 if (expanded) R.string.logs_collapse else R.string.logs_expand
                             ),
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(20.dp)
                                 .rotate(chevronRotation),
@@ -662,7 +702,7 @@ private fun RunLogCard(entry: RunLogEntry) {
                             text = if (isLong) head else entry.message,
                             fontFamily = FontFamily.Monospace,
                             fontSize = 12.sp,
-                            color = MiuixTheme.colorScheme.onSurface,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         if (isLong) {
                             AnimatedVisibility(
@@ -674,7 +714,7 @@ private fun RunLogCard(entry: RunLogEntry) {
                                     text = rest,
                                     fontFamily = FontFamily.Monospace,
                                     fontSize = 12.sp,
-                                    color = MiuixTheme.colorScheme.onSurface,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
                         }
@@ -687,14 +727,14 @@ private fun RunLogCard(entry: RunLogEntry) {
 
 @Composable
 private fun CrashSectionCard(section: CrashSection) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    BaseItemContainer(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             if (section.title.isNotEmpty()) {
                 Text(
                     text = section.title,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MiuixTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -703,7 +743,7 @@ private fun CrashSectionCard(section: CrashSection) {
                     text = section.body,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
-                    color = MiuixTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
         }
@@ -718,7 +758,7 @@ private fun LogsEmpty(text: String) {
             .padding(top = 64.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = text, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+        Text(text = text, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
