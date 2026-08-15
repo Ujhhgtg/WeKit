@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.agent.data
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.load
 import dev.ujhhgtg.wekit.agent.data.entity.SettingEntity
 import dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode
-import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -13,15 +12,12 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object WeAgentSettings {
 
-    private const val TAG = "WeAgentSettings"
     private val db get() = WeAgentDatabase.instance
     private val cache = ConcurrentHashMap<String, String>()
 
     // Keys
-    const val KEY_MAX_MODEL_REQUESTS = "max_model_requests"          // §2.1 loop cap
     const val KEY_TOOL_LOADING_MODE = "tool_loading_mode"            // §3.3 STATIC | DYNAMIC
     const val KEY_SMALL_MODEL_ID = "small_model_id"                  // §5.4 ("" = same as main)
-    const val KEY_WORKSPACE_ENABLED = "workspace_enabled"           // §7
     const val KEY_MEMORY_ENABLED = "memory_enabled"                 // §8
     const val KEY_DEFAULT_MODEL_ID = "default_model_id"             // new-session default
     const val KEY_DEFAULT_SYSTEM_PROMPT_ID = "default_system_prompt_id" // new-session default binding
@@ -32,17 +28,8 @@ object WeAgentSettings {
     /** Superseded by [KEY_OVERLAY_MODE]; still read once for migration of existing installs. */
     const val KEY_OVERLAY_FOREGROUND_ONLY = "overlay_foreground_only"
 
-    // Defaults
-    const val DEFAULT_MAX_MODEL_REQUESTS = 50
-
     suspend fun load() {
-        runCatching {
-            cache.clear()
-            db.settingDao().let { dao ->
-                // observeAll is a Flow; we just need a one-shot read for warmup.
-                dao.getValue(KEY_MAX_MODEL_REQUESTS) // touch to ensure DB is open
-            }
-        }.onFailure { WeLogger.e(TAG, "load failed", it) }
+        cache.clear()
     }
 
     private suspend fun get(key: String): String? = cache[key] ?: db.settingDao().getValue(key)?.also { cache[key] = it }
@@ -51,9 +38,6 @@ object WeAgentSettings {
         db.settingDao().upsert(SettingEntity(key, value))
         cache[key] = value
     }
-
-    suspend fun maxModelRequests(): Int =
-        get(KEY_MAX_MODEL_REQUESTS)?.toIntOrNull() ?: DEFAULT_MAX_MODEL_REQUESTS
 
     suspend fun toolLoadingMode(): ToolLoadingMode =
         when (get(KEY_TOOL_LOADING_MODE)) {
@@ -64,7 +48,6 @@ object WeAgentSettings {
     /** Small model id for smart-approval & title generation; blank means "same as main model" (§5.4). */
     suspend fun smallModelId(): String? = get(KEY_SMALL_MODEL_ID)?.takeIf { it.isNotBlank() }
 
-    suspend fun workspaceEnabled(): Boolean = get(KEY_WORKSPACE_ENABLED)?.toBoolean() ?: false
     suspend fun memoryEnabled(): Boolean = get(KEY_MEMORY_ENABLED)?.toBoolean() ?: false
 
     suspend fun defaultModelId(): String? = get(KEY_DEFAULT_MODEL_ID)?.takeIf { it.isNotBlank() }

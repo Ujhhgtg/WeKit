@@ -37,7 +37,6 @@ class TurnConfig(
     /** Globally-enabled conditional prompts (regex-matched against each reply). */
     val conditionalPrompts: List<ConditionalPromptEntity>,
     val toolLoadingMode: ToolLoadingMode,
-    val maxModelRequests: Int,
     /** Per-model max output tokens, or null to omit the field (provider default). */
     val maxTokens: Int? = null,
     /**
@@ -60,8 +59,8 @@ class TurnConfig(
 /**
  * The Agent Loop (§2). Given the prior conversation and a new user message, it repeatedly calls the
  * model, executes any tool calls it returns (gated by [ApprovalGateway] and persisted via
- * [historySink]), feeds results back, and loops until the model returns no tool call, an error
- * occurs, or the per-turn request cap is hit.
+ * [historySink]), feeds results back, and loops until the model returns no tool call or an error
+ * occurs.
  *
  * The loop is transport-agnostic: it works in provider-neutral [LlmMessage] space and delegates
  * wire translation to the [LlmClient]. It emits [AgentEvent]s for the UI as a cold [Flow]; cancel
@@ -115,15 +114,6 @@ class AgentSessionEngine(
 
             while (true) {
                 currentCoroutineContext().ensureActive()
-
-                // The request cap is checked BEFORE the steer-hook fires: the hook consumes the
-                // queued message atomically (and the UI has already cleared the input bar), so
-                // fetching it above the cap check silently swallowed the user's text — never sent,
-                // never persisted.
-                if (requestIndex >= config.maxModelRequests) {
-                    send(AgentEvent.MaxRequestsReached(config.maxModelRequests))
-                    return@channelFlow
-                }
 
                 // Steer-hook: inject a transient user message from the queued-mechanism before the
                 // next API request (not persisted — purely ephemeral steering input).
@@ -188,7 +178,7 @@ class AgentSessionEngine(
                     val reminders = promptComposer.matchConditionalPrompts(
                         config.conditionalPrompts, assistant.content.orEmpty()
                     )
-                    if (reminders.isNotEmpty() && requestIndex < config.maxModelRequests) {
+                    if (reminders.isNotEmpty()) {
                         reminders.forEach { messages += LlmMessage(role = LlmRole.USER, content = it) }
                         continue
                     }
@@ -251,7 +241,7 @@ class AgentSessionEngine(
      * Context economy: screenshots staged by `ui-screenshot` are appended to the working message list
      * and would otherwise be re-sent on **every** later request of the same turn. In the intended
      * screenshot → tap → screenshot loop that grows quadratically — by round 10 the body also carries
-     * the 9 stale screenshots, each a few hundred KB of base64, and `maxModelRequests` defaults to 50.
+     * the 9 stale screenshots, each a few hundred KB of base64.
      *
      * So only the most recent image message keeps its payload; earlier ones are replaced by a short
      * note. Text (tool results, narration) is never touched — only the image payloads are dropped.

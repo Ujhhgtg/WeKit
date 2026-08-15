@@ -15,10 +15,10 @@ import kotlinx.serialization.json.JsonObject
  *  - `builtin-fs`          — workspace/memory file tools + `load_skill`
  *
  * All are always available and pinned/undeletable in settings. Within `builtin-fs`, the file tools
- * ([FS_TOOL_NAMES]) are hidden from the model unless a workspace or memory is enabled;
- * `load_skill` stays visible regardless (skills are their own dynamic-discovery mechanism). That
- * gating — and the vision gating of [VISION_TOOL_NAMES] — is applied per turn by [ToolRegistry] from
- * the turn's [ToolVisibility], not here, so concurrent sessions can't clobber each other.
+ * ([FS_TOOL_NAMES]) are hidden from the model unless the turn resolves a workspace or memory is
+ * enabled; `load_skill` stays visible regardless (skills are their own dynamic-discovery mechanism).
+ * That gating — and the vision gating of [VISION_TOOL_NAMES] — is applied per turn by [ToolRegistry]
+ * from the turn's [ToolVisibility], not here, so concurrent sessions can't clobber each other.
  */
 class BuiltinToolProvider(
     override val id: String,
@@ -96,10 +96,10 @@ class BuiltinToolProvider(
         )
 
         /**
-         * File-tool names within `builtin-fs`, hidden from the model unless a workspace or memory is
-         * enabled. Kept as a name set so gating never touches permission seeding (rows are still
-         * seeded; the tools are simply not advertised while disabled). `load_skill` is NOT here — it
-         * is always visible.
+         * File-tool names within `builtin-fs`, hidden from the model unless the turn resolves a
+         * workspace or memory is enabled. Kept as a name set so gating never touches permission
+         * seeding (rows are still seeded; the tools are simply not advertised while disabled).
+         * `load_skill` is NOT here — it is always visible.
          */
         val FS_TOOL_NAMES = setOf(
             "read_file", "list_dir", "search_files",
@@ -107,10 +107,10 @@ class BuiltinToolProvider(
         )
 
         /**
-         * Set by WeAgentService (and the memory settings screen) from settings: true when workspace
-         * OR memory is enabled. Genuinely global — every writer derives the same value from the same
-         * setting — so it only supplies the default in [ToolVisibility.fromGlobals]; a running turn
-         * uses the value snapshotted into its own [ToolVisibility].
+         * Preview visibility of the fs file tools OUTSIDE a resolved turn (settings previews,
+         * defaults). Reflects the global memory setting only. A running turn never reads this:
+         * WeAgentService resolves fs visibility per turn (the session's effective workspace + the
+         * memory setting) and snapshots it into the turn's own [ToolVisibility].
          */
         @Volatile
         var fsToolsVisible: Boolean = false

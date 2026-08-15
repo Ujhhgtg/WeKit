@@ -58,7 +58,7 @@ fun MemoryScreen(onBack: () -> Unit) {
                             enabled = on
                             scope.launch {
                                 WeAgentSettings.set(WeAgentSettings.KEY_MEMORY_ENABLED, on.toString())
-                                BuiltinToolProvider.fsToolsVisible = on || WeAgentSettings.workspaceEnabled()
+                                BuiltinToolProvider.fsToolsVisible = on
                             }
                         },
                     )

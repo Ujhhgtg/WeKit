@@ -1,15 +1,12 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,10 +16,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
@@ -55,7 +50,6 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
     var dynamicTools by remember { mutableStateOf(false) }
     var overlayMode by remember { mutableStateOf(OverlayMode.ALWAYS) }
     var sendWhileRunning by remember { mutableStateOf("QUEUE_AFTER_TURN") }
-    var maxRequests by remember { mutableStateOf(WeAgentSettings.DEFAULT_MAX_MODEL_REQUESTS.toString()) }
     var smallModelId by remember { mutableStateOf<String?>(null) }
     var defaultModelId by remember { mutableStateOf<String?>(null) }
     var defaultSystemPromptId by remember { mutableStateOf<String?>(null) }
@@ -72,7 +66,6 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
         dynamicTools = WeAgentSettings.toolLoadingMode() == dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode.DYNAMIC
         overlayMode = WeAgentSettings.overlayMode()
         sendWhileRunning = WeAgentSettings.sendWhileRunningMode().name
-        maxRequests = WeAgentSettings.maxModelRequests().toString()
         smallModelId = WeAgentSettings.smallModelId()
         defaultModelId = WeAgentSettings.defaultModelId()
         defaultSystemPromptId = WeAgentSettings.defaultSystemPromptId()
@@ -115,18 +108,6 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                     )
                 }
                 if (loaded) {
-                    // 文本在左，短输入框在右
-                    item {
-                        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.agent_max_requests_per_turn), modifier = Modifier.weight(1f))
-                            OutlinedTextField(
-                                value = maxRequests,
-                                onValueChange = { v -> maxRequests = v.filter { it.isDigit() }.take(3) },
-                                singleLine = true,
-                                modifier = Modifier.width(96.dp),
-                            )
-                        }
-                    }
                     item {
                         ModelDropdown(
                             title = stringResource(R.string.agent_small_model_title),
@@ -292,21 +273,6 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                 }
             }
         }
-    }
-
-    // Persist the (validated) request cap as it changes — but only AFTER the initial load has
-    // populated the field. Otherwise this effect fires on first composition with the default
-    // ("50") and clobbers the stored value before LaunchedEffect(Unit) can read it back, so the
-    // setting never appears to persist across screen opens.
-    LaunchedEffect(maxRequests, loaded) {
-        if (!loaded) return@LaunchedEffect
-        // Blank means "still typing" — don't store anything yet.
-        val typed = maxRequests.toIntOrNull() ?: return@LaunchedEffect
-        val clamped = typed.coerceIn(1, 100)
-        // Write the clamp back into the field as well, otherwise the UI would keep showing the raw
-        // input (e.g. "500" or "0") while a different value is actually stored.
-        if (clamped != typed) maxRequests = clamped.toString()
-        WeAgentSettings.set(WeAgentSettings.KEY_MAX_MODEL_REQUESTS, clamped.toString())
     }
 }
 

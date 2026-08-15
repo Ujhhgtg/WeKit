@@ -227,8 +227,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         WeAgentDatabase.instance
         WeAgentRepository.seedAndLoad()
         WeAgentSettings.load()
-        BuiltinToolProvider.fsToolsVisible =
-            WeAgentSettings.workspaceEnabled() || WeAgentSettings.memoryEnabled()
+        BuiltinToolProvider.fsToolsVisible = WeAgentSettings.memoryEnabled()
 
         // Bring up MCP providers and keep the registry's MCP set in sync.
         McpClientManager.onProvidersChanged = {
@@ -476,10 +475,10 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         withContext(Dispatchers.Main) { currentWorkspaceId.value = workspaceId }
     }
 
-    /** Toggles the global memory-enabled setting (also flips fs-tool visibility). */
+    /** Toggles the global memory-enabled setting (also flips fs-tool preview visibility). */
     fun setMemoryEnabled(enabled: Boolean) = scope.launch {
         WeAgentSettings.set(WeAgentSettings.KEY_MEMORY_ENABLED, enabled.toString())
-        BuiltinToolProvider.fsToolsVisible = enabled || WeAgentSettings.workspaceEnabled()
+        BuiltinToolProvider.fsToolsVisible = enabled
         withContext(Dispatchers.Main) { memoryEnabled.value = enabled }
     }
 
@@ -651,7 +650,6 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         val sanitized = WeAgentRepository.sanitizeSessionHistory(sessionId)
         if (sanitized && sessionId == currentSessionId.value) reloadMessages(sessionId)
         val priorHistory = WeAgentRepository.loadHistory(sessionId)
-        val engine = buildEngine(sessionId, session.createdAt)
         // workspaceId semantics: null = "默认" (resolve to the settings default so changing it applies
         // to existing sessions too), "" = "无" (explicitly no workspace), any other value = that workspace.
         val effectiveWorkspaceId = when (val ws = session.workspaceId) {
@@ -659,10 +657,13 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             "" -> null
             else -> ws
         }
-        val vfs = WorkspaceStore.buildVfs(
-            workspaceName = effectiveWorkspaceId?.let { WeAgentRepository.getWorkspaceName(it) },
-            memoryEnabled = WeAgentSettings.memoryEnabled(),
-        )
+        // Workspace enablement is per turn: enabled only when this session actually resolves to a
+        // workspace. The engine's prompt, the VFS, and the fs-tool gate all see the same resolved name.
+        val workspaceName = effectiveWorkspaceId?.let { WeAgentRepository.getWorkspaceName(it) }
+        val workspaceEnabled = workspaceName != null
+        val memoryEnabled = WeAgentSettings.memoryEnabled()
+        val engine = buildEngine(sessionId, session.createdAt, workspaceEnabled)
+        val vfs = WorkspaceStore.buildVfs(workspaceName = workspaceName, memoryEnabled = memoryEnabled)
 
         if (sessionId == currentSessionId.value) ballState.value = BallState.RUNNING
         val job = scope.launch {
@@ -681,8 +682,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                             perTurnPrompts = config.perTurnPrompts,
                             conditionalPrompts = config.conditionalPrompts,
                             toolLoadingMode = config.toolLoadingMode,
-                            maxModelRequests = config.maxModelRequests,
-                            toolVisibility = config.toolVisibility,
+                            toolVisibility = config.toolVisibility.copy(fsTools = workspaceEnabled || memoryEnabled),
                             onFetchSteerMessage = onFetchSteer,
                         ), priorHistory, userText
                     )
@@ -765,7 +765,6 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             }
 
             is AgentEvent.TurnCompleted -> if (foreground) refreshBallStateForForeground()
-            is AgentEvent.MaxRequestsReached -> if (foreground) appendSystemNote("已达到最大调用次数（${ev.cap}）。")
             is AgentEvent.TurnFailed -> {
                 if (foreground) {
                     appendSystemNote("出错：${ev.error.message ?: ev.error.javaClass.simpleName}")
@@ -779,10 +778,14 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     // Engine assembly
     // -----------------------------------------------------------------------------------------
 
-    private suspend fun buildEngine(sessionId: String, promptAnchorTime: java.time.Instant): AgentSessionEngine {
+    private suspend fun buildEngine(
+        sessionId: String,
+        promptAnchorTime: java.time.Instant,
+        workspaceEnabled: Boolean,
+    ): AgentSessionEngine {
         val composer = PromptComposer(
             toolLoadingMode = WeAgentSettings.toolLoadingMode(),
-            workspaceEnabled = WeAgentSettings.workspaceEnabled(),
+            workspaceEnabled = workspaceEnabled,
             memoryEnabled = WeAgentSettings.memoryEnabled(),
             memoryIndexContent = if (WeAgentSettings.memoryEnabled()) WorkspaceStore.readMemoryIndex() else null,
             skillCatalog = dev.ujhhgtg.wekit.agent.skill.SkillStore.enabledSkills().map { it.name to it.description },
@@ -858,9 +861,11 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         // tool list is rebuilt on every request, so a global would let whichever session resolved last
         // decide the vision gate for all of them — stripping ui-screenshot mid-turn from a vision
         // session, or advertising it to a non-vision model whose provider then 400s on the images.
+        // fsTools here is a placeholder: launchTurn overrides it per turn with the session's resolved
+        // workspace + the memory setting (workspace enablement is per turn, not global).
         val toolVisibility = dev.ujhhgtg.wekit.agent.tool.ToolVisibility(
             visionTools = model.supportsVision,
-            fsTools = WeAgentSettings.workspaceEnabled() || WeAgentSettings.memoryEnabled(),
+            fsTools = false,
         )
         return TurnConfig(
             client = client,
@@ -872,7 +877,6 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             perTurnPrompts = perTurn,
             conditionalPrompts = conditionals,
             toolLoadingMode = WeAgentSettings.toolLoadingMode(),
-            maxModelRequests = WeAgentSettings.maxModelRequests(),
             toolVisibility = toolVisibility,
         )
     }
