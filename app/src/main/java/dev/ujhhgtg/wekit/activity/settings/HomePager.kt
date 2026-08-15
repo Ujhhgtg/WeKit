@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.activity.settings
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -41,6 +40,7 @@ import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.android.baseActivity
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
 
@@ -85,7 +85,7 @@ private fun StatusCard() {
             if (StartupInfo.loaderService is ZygiskLoaderService) {
                 showNoRootManager = !openRootManager(context)
             } else {
-                openLsposedManager(context as Activity)
+                openLsposedManager(context.baseActivity!!)
             }
         },
     ) {
