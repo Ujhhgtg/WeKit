@@ -14,7 +14,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,6 +38,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
@@ -110,6 +110,12 @@ private const val LOGS_TAG = "SettingsActivity"
 
 /** Which log kind a page is showing. */
 private enum class LogKind { RUN, CRASH }
+
+private data class LogRefreshRequest(
+    val generation: Int,
+    val kind: LogKind,
+    val fromPull: Boolean,
+)
 
 // ---------------------------------------------------------------------------
 //  Parsed models
@@ -299,15 +305,21 @@ fun LogsPager() {
     val crashListState = rememberLazyListState()
     val listState = if (kind == LogKind.RUN) runListState else crashListState
 
-    // Bumping this key forces the visible tab to re-list its files and re-read the selection.
-    var refreshKey by remember { mutableIntStateOf(0) }
+    var refreshGeneration by remember { mutableIntStateOf(0) }
+    var refreshRequest by remember { mutableStateOf<LogRefreshRequest?>(null) }
+    var activePullRequest by remember { mutableStateOf<LogRefreshRequest?>(null) }
     // The file currently selected in the visible tab, hoisted so the toolbar can share/save it.
     var currentFile by remember { mutableStateOf<Path?>(null) }
-    var isRefreshing by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val barBackdrop = rememberMaterial3BlurBackdrop()
+
+    fun requestRefresh(targetKind: LogKind, fromPull: Boolean) {
+        val request = LogRefreshRequest(++refreshGeneration, targetKind, fromPull)
+        refreshRequest = request
+        if (fromPull) activePullRequest = request
+    }
 
     Scaffold(
         modifier = Modifier
@@ -362,7 +374,10 @@ fun LogsPager() {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.logs_refresh)) },
                                 leadingIcon = { Icon(MaterialSymbols.Outlined.Refresh, null) },
-                                onClick = { menuExpanded = false; refreshKey++ },
+                                onClick = {
+                                    menuExpanded = false
+                                    requestRefresh(kind, fromPull = false)
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.logs_go_top)) },
@@ -397,30 +412,36 @@ fun LogsPager() {
                                                 LogKind.CRASH -> CrashLogsManager.deleteAllCrashLogs()
                                             }
                                         }
-                                        refreshKey++
+                                        requestRefresh(kind, fromPull = false)
                                     }
                                 },
                             )
                         }
                     },
                 )
-                TabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = Color.Transparent,
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 8.dp),
                 ) {
-                    LOG_TABS.forEachIndexed { index, tabKind ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = {
-                                Text(
-                                    stringResource(
-                                        if (tabKind == LogKind.RUN) R.string.logs_tab_runtime
-                                        else R.string.logs_tab_crash
+                    TabRow(
+                        selectedTabIndex = selectedTab,
+                        containerColor = Color.Transparent,
+                    ) {
+                        LOG_TABS.forEachIndexed { index, tabKind ->
+                            Tab(
+                                selected = selectedTab == index,
+                                onClick = { selectedTab = index },
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            if (tabKind == LogKind.RUN) R.string.logs_tab_runtime
+                                            else R.string.logs_tab_crash
+                                        )
                                     )
-                                )
-                            },
-                        )
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -432,10 +453,13 @@ fun LogsPager() {
                 listState = if (k == LogKind.RUN) runListState else crashListState,
                 backdropLayer = Modifier.m3BackdropLayer(barBackdrop),
                 innerPadding = innerPadding,
-                refreshKey = refreshKey,
-                isRefreshing = isRefreshing,
-                onRefreshingChange = { isRefreshing = it },
-                onRefreshRequested = { refreshKey++ },
+                refreshRequest = refreshRequest?.takeIf { it.kind == k },
+                isPullRefreshing = activePullRequest == refreshRequest &&
+                    refreshRequest?.kind == k && refreshRequest?.fromPull == true,
+                onRefreshRequested = { requestRefresh(k, fromPull = true) },
+                onRefreshFinished = { completedRequest ->
+                    if (activePullRequest == completedRequest) activePullRequest = null
+                },
                 onCurrentFileChange = { if (k == kind) currentFile = it },
             )
         }
@@ -448,10 +472,10 @@ private fun LogTabContent(
     listState: LazyListState,
     backdropLayer: Modifier,
     innerPadding: PaddingValues,
-    refreshKey: Int,
-    isRefreshing: Boolean,
-    onRefreshingChange: (Boolean) -> Unit,
+    refreshRequest: LogRefreshRequest?,
+    isPullRefreshing: Boolean,
     onRefreshRequested: () -> Unit,
+    onRefreshFinished: (LogRefreshRequest) -> Unit,
     onCurrentFileChange: (Path?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -462,53 +486,53 @@ private fun LogTabContent(
     var runEntries by remember(kind) { mutableStateOf<List<RunLogEntry>>(emptyList()) }
     var crashSections by remember(kind) { mutableStateOf<List<CrashSection>>(emptyList()) }
     var loading by remember(kind) { mutableStateOf(true) }
-    // Whether the file listing has completed at least once; keeps the spinner up on first open
-    // until we actually know whether there are files (the selected file is null until then).
+    // Whether the file listing has completed at least once, avoiding a transient empty state.
     var listed by remember(kind) { mutableStateOf(false) }
+    var fileReadGeneration by remember(kind) { mutableIntStateOf(0) }
+    var handledRefreshGeneration by remember(kind) { mutableIntStateOf(0) }
 
-    // (Re)list files whenever the tab is shown or a refresh is requested.
-    LaunchedEffect(kind, refreshKey) {
-        val result = withContext(Dispatchers.IO) {
-            when (kind) {
-                LogKind.RUN -> WeLogger.allLogFiles
-                LogKind.CRASH -> CrashLogsManager.allCrashLogs
-            }
-        }
-        files = result
-        if (selectedIndex >= result.size) selectedIndex = 0
-        listed = true
-    }
-
-    val selectedFile = files.getOrNull(selectedIndex)
-    LaunchedEffect(selectedFile) { onCurrentFileChange(selectedFile) }
-
-    // Read + parse the selected file off the main thread. refreshKey re-reads the same file;
-    // `listed` gates the empty case so the spinner doesn't flash off before listing finishes.
-    LaunchedEffect(selectedFile, refreshKey, listed) {
+    // One cancellation-keyed lifecycle owns listing, selection normalization, reading, and parsing.
+    LaunchedEffect(kind, refreshRequest?.generation, fileReadGeneration) {
+        val request = refreshRequest
+        val shouldRelist = !listed ||
+            (request != null && request.generation != handledRefreshGeneration)
         loading = true
-        if (selectedFile == null) {
-            runEntries = emptyList(); crashSections = emptyList()
-            // Only settle to "not loading" once listing is done and there is genuinely no file.
-            if (listed) {
-                loading = false
-                onRefreshingChange(false)
+        try {
+            if (shouldRelist) {
+                val result = withContext(Dispatchers.IO) {
+                    when (kind) {
+                        LogKind.RUN -> WeLogger.allLogFiles
+                        LogKind.CRASH -> CrashLogsManager.allCrashLogs
+                    }
+                }
+                files = result
+                val normalizedIndex = if (result.isEmpty()) 0 else selectedIndex.coerceIn(result.indices)
+                if (selectedIndex != normalizedIndex) selectedIndex = normalizedIndex
+                listed = true
+                request?.let { handledRefreshGeneration = it.generation }
             }
-            return@LaunchedEffect
+
+            val selectedFile = files.getOrNull(selectedIndex)
+            onCurrentFileChange(selectedFile)
+            if (selectedFile == null) {
+                runEntries = emptyList()
+                crashSections = emptyList()
+            } else {
+                val text = withContext(Dispatchers.IO) { readLog(context, selectedFile) }
+                when (kind) {
+                    LogKind.RUN -> runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
+                    LogKind.CRASH -> crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }
+                }
+            }
+        } finally {
+            loading = false
+            request?.let(onRefreshFinished)
         }
-        val text = withContext(Dispatchers.IO) { readLog(context, selectedFile) }
-        when (kind) {
-            LogKind.RUN -> runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
-            LogKind.CRASH -> crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }
-        }
-        loading = false
-        onRefreshingChange(false)
     }
 
     PullToRefreshBox(
-        // Show the refresh indicator both for user pulls and while a file is being read/parsed,
-        // so opening or switching to a large log surfaces the same loading affordance.
-        isRefreshing = isRefreshing || loading,
-        onRefresh = { onRefreshingChange(true); onRefreshRequested() },
+        isRefreshing = isPullRefreshing,
+        onRefresh = onRefreshRequested,
         modifier = Modifier.fillMaxSize(),
     ) {
         LazyColumn(
@@ -517,14 +541,16 @@ private fun LogTabContent(
                 .fillMaxSize()
                 .padding(horizontal = 12.dp),
             contentPadding = innerPadding,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item(key = "picker") {
                 FileSelector(
                     files = files,
                     selectedIndex = selectedIndex.coerceIn(0, (files.size - 1).coerceAtLeast(0)),
-                    onSelected = { selectedIndex = it },
-                    modifier = Modifier.padding(top = 12.dp),
+                    onSelected = {
+                        selectedIndex = it
+                        fileReadGeneration++
+                    },
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
 
@@ -535,23 +561,38 @@ private fun LogTabContent(
                         LogsEmpty(
                             stringResource(
                                 if (kind == LogKind.RUN) R.string.logs_no_runtime else R.string.logs_no_crash
-                            )
+                            ),
+                            modifier = Modifier.padding(top = 8.dp),
                         )
                     }
                 }
             } else when (kind) {
                 LogKind.RUN -> {
                     if (runEntries.isEmpty() && !loading) {
-                        item(key = "empty-run") { LogsEmpty(stringResource(R.string.logs_file_empty)) }
+                        item(key = "empty-run") {
+                            LogsEmpty(stringResource(R.string.logs_file_empty), Modifier.padding(top = 8.dp))
+                        }
                     }
-                    items(runEntries.size, key = { "run-$it" }) { i -> RunLogCard(runEntries[i]) }
+                    items(runEntries.size, key = { "run-$it" }) { i ->
+                        RunLogCard(
+                            runEntries[i],
+                            Modifier.padding(top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap),
+                        )
+                    }
                 }
 
                 LogKind.CRASH -> {
                     if (crashSections.isEmpty() && !loading) {
-                        item(key = "empty-crash") { LogsEmpty(stringResource(R.string.logs_file_empty)) }
+                        item(key = "empty-crash") {
+                            LogsEmpty(stringResource(R.string.logs_file_empty), Modifier.padding(top = 8.dp))
+                        }
                     }
-                    items(crashSections.size, key = { "crash-$it" }) { i -> CrashSectionCard(crashSections[i]) }
+                    items(crashSections.size, key = { "crash-$it" }) { i ->
+                        CrashSectionCard(
+                            crashSections[i],
+                            Modifier.padding(top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap),
+                        )
+                    }
                 }
             }
 
@@ -580,24 +621,21 @@ private fun FileSelector(
         files.map { "${it.name}  ·  ${formatBytesSize(runCatching { it.fileSize() }.getOrDefault(0))}" }
     }
     var showDialog by remember { mutableStateOf(false) }
-    SegmentedColumn(modifier = modifier.fillMaxWidth()) {
-        item {
-            BaseWidget(
-                title = stringResource(R.string.logs_select_file),
-                description = files.getOrNull(selectedIndex)?.let {
-                    formatEpoch(it.getLastModifiedTime().toMillis(), true)
-                },
-                onClick = { showDialog = true },
-                trailingContent = {
-                    Icon(
-                        imageVector = MaterialSymbols.Outlined.Expand_more,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
+    BaseWidget(
+        modifier = modifier.fillMaxWidth(),
+        title = stringResource(R.string.logs_select_file),
+        description = files.getOrNull(selectedIndex)?.let {
+            formatEpoch(it.getLastModifiedTime().toMillis(), true)
+        },
+        onClick = { showDialog = true },
+        trailingContent = {
+            Icon(
+                imageVector = MaterialSymbols.Outlined.Expand_more,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
+        },
+    )
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -634,7 +672,7 @@ private fun FileSelector(
 private const val RUN_LOG_COLLAPSE_LINES = 5
 
 @Composable
-private fun RunLogCard(entry: RunLogEntry) {
+private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
     // Split once; if the message runs past the threshold, show a 5-line preview + expand toggle.
     val lines = remember(entry.message) { entry.message.split("\n") }
     val isLong = lines.size > RUN_LOG_COLLAPSE_LINES
@@ -647,8 +685,8 @@ private fun RunLogCard(entry: RunLogEntry) {
         label = "chevron",
     )
 
-    BaseItemContainer(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
+    BaseItemContainer(modifier = modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 entry.level?.let { level ->
                     Box(
@@ -726,9 +764,9 @@ private fun RunLogCard(entry: RunLogEntry) {
 }
 
 @Composable
-private fun CrashSectionCard(section: CrashSection) {
-    BaseItemContainer(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp)) {
+private fun CrashSectionCard(section: CrashSection, modifier: Modifier = Modifier) {
+    BaseItemContainer(modifier = modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
             if (section.title.isNotEmpty()) {
                 Text(
                     text = section.title,
@@ -751,9 +789,9 @@ private fun CrashSectionCard(section: CrashSection) {
 }
 
 @Composable
-private fun LogsEmpty(text: String) {
+private fun LogsEmpty(text: String, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = 64.dp),
         contentAlignment = Alignment.Center,
