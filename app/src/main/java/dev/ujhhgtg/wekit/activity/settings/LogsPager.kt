@@ -28,11 +28,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,16 +37,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -85,11 +81,11 @@ import com.composables.icons.materialsymbols.outlined.Save
 import com.composables.icons.materialsymbols.outlined.Share
 import com.composables.icons.materialsymbols.outlined.Vertical_align_bottom
 import com.composables.icons.materialsymbols.outlined.Vertical_align_top
-import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
-import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
-import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
 import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
 import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
@@ -514,9 +510,7 @@ private fun LogTabContent(
 
     // One cancellation-keyed lifecycle owns listing, selection normalization, reading, and parsing.
     LaunchedEffect(kind, refreshRequest?.generation, fileReadGeneration) {
-        val request = refreshRequest
-        val shouldRelist = !listed ||
-            (request != null && request.generation != handledRefreshGeneration)
+        val shouldRelist = !listed || refreshRequest != null && refreshRequest.generation != handledRefreshGeneration
         var completedSuccessfully = false
         loading = true
         try {
@@ -531,7 +525,7 @@ private fun LogTabContent(
                 val normalizedIndex = if (result.isEmpty()) 0 else selectedIndex.coerceIn(result.indices)
                 if (selectedIndex != normalizedIndex) selectedIndex = normalizedIndex
                 listed = true
-                request?.let { handledRefreshGeneration = it.generation }
+                refreshRequest?.let { handledRefreshGeneration = it.generation }
             }
 
             val selectedFile = files.getOrNull(selectedIndex)
@@ -552,7 +546,7 @@ private fun LogTabContent(
         } finally {
             if (currentOperationToken === operationToken) {
                 loading = false
-                if (completedSuccessfully) request?.let(onRefreshFinished)
+                if (completedSuccessfully) refreshRequest?.let(onRefreshFinished)
             }
         }
     }
@@ -657,52 +651,21 @@ private fun FileSelector(
 ) {
     if (files.isEmpty()) return
     val labels = remember(files) {
-        files.map { "${it.name}  ·  ${formatBytesSize(runCatching { it.fileSize() }.getOrDefault(0))}" }
+        files.map {
+            "${formatEpoch(it.getLastModifiedTime().toMillis(), true)}  ·  " +
+                formatBytesSize(runCatching { it.fileSize() }.getOrDefault(0))
+        }
     }
-    var showDialog by remember { mutableStateOf(false) }
-    BaseWidget(
-        modifier = modifier.fillMaxWidth(),
-        title = stringResource(R.string.logs_select_file),
-        description = files.getOrNull(selectedIndex)?.let {
-            formatEpoch(it.getLastModifiedTime().toMillis(), true)
-        },
-        onClick = { showDialog = true },
-        trailingContent = {
-            Icon(
-                imageVector = MaterialSymbols.Outlined.Expand_more,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-    )
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text(stringResource(R.string.logs_select_file)) },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                        labels.forEachIndexed { index, label ->
-                            item(key = label) {
-                                BaseWidget(
-                                    title = label,
-                                    titleStyle = MaterialTheme.typography.bodyMedium,
-                                    selected = index == selectedIndex,
-                                    onClick = {
-                                        showDialog = false
-                                        onSelected(index)
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
+    Box(modifier.fillMaxWidth()) {
+        DropDownMenuWidget(
+            iconPlaceholder = false,
+            title = stringResource(R.string.logs_select_file),
+            description = files.getOrNull(selectedIndex)?.let {
+                formatEpoch(it.getLastModifiedTime().toMillis(), true)
             },
-            confirmButton = {
-                TextButton(onClick = { showDialog = false }) {
-                    Text(stringResource(R.string.dialog_close))
-                }
-            },
+            value = selectedIndex,
+            options = labels.mapIndexed { index, label -> DropdownOption(index, label) },
+            onValueChange = onSelected,
         )
     }
 }
@@ -728,7 +691,7 @@ private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
     )
 
     BaseItemContainer(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 entry.level?.let { level ->
                     Box(
@@ -819,7 +782,7 @@ private fun CrashSectionCard(section: CrashSection, modifier: Modifier = Modifie
     )
 
     BaseItemContainer(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(14.dp)) {
             if (section.title.isNotEmpty() || isLong) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (section.title.isNotEmpty()) {
