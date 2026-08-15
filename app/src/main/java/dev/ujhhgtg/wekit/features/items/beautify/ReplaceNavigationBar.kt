@@ -328,7 +328,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
             var lastHomeTapUptime = 0L
             val onTabClicked = { index: Int ->
-                if (index == 0 && bottomTabClickListener != null &&
+                val isHome = visibleTabItems[index].wechatIndex == 0
+                if (isHome && bottomTabClickListener != null &&
                     SystemClock.uptimeMillis() - lastHomeTapUptime <= DOUBLE_TAP_WINDOW_MS
                 ) {
                     // Second tap on the Chat tab within the double-tap window: drive WeChat's
@@ -339,7 +340,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     lastHomeTapUptime = SystemClock.uptimeMillis()
                 } else {
                     navigateToTab(index)
-                    lastHomeTapUptime = if (index == 0) SystemClock.uptimeMillis() else 0L
+                    lastHomeTapUptime = if (isHome) SystemClock.uptimeMillis() else 0L
                 }
             }
 
@@ -544,6 +545,21 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             contentColor = inactiveColor,
                                             activeContentColor = activeColor
                                         ),
+                                        onSelectedTabTap = { index ->
+                                            if (visibleTabItems[index].wechatIndex == 0) {
+                                                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                                onTabClicked(index)
+                                            }
+                                        },
+                                        onTabLongPress = { index ->
+                                            if (visibleTabItems[index].wechatIndex == 2) {
+                                                openImproveSnsTimeline()
+                                                true
+                                            } else {
+                                                false
+                                            }
+                                        },
+                                        liquidGlassBlurRadius = blurRadius.dp,
                                         iconContent = { item, index ->
                                             val label = stringResource(item.labelRes)
                                             // Key the fill crossfade to the target page (the same

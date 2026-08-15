@@ -62,6 +62,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceIn
@@ -203,13 +204,19 @@ fun <T> FloatingBottomBar(
     colors: FloatingBottomBarColors = FloatingBottomBarDefaults.colors(),
     iconContent: @Composable (item: T, index: Int) -> Unit,
     labelContent: @Composable (item: T, index: Int) -> Unit,
+    onSelectedTabTap: ((index: Int) -> Unit)? = null,
+    onTabLongPress: ((index: Int) -> Boolean)? = null,
+    liquidGlassBlurRadius: Dp = 4.dp,
 ) {
     val isInDark = isSystemInDarkTheme()
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
+    val isGlassTransparent = isLiquidGlassMode && liquidGlassBlurRadius <= 0.dp
     val containerColor =
-        if (isLiquidGlassMode) colors.containerColor.copy(0.4f) else colors.containerColor
+        if (isGlassTransparent) Color.Transparent
+        else if (isLiquidGlassMode) colors.containerColor.copy(0.4f)
+        else colors.containerColor
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -236,6 +243,9 @@ fun <T> FloatingBottomBar(
     var currentIndex by remember { mutableIntStateOf(selectedIndex()) }
     val selectedIndexUpdated by rememberUpdatedState(selectedIndex)
     val onSelectedUpdated by rememberUpdatedState(onSelected)
+    val onSelectedTabTapUpdated by rememberUpdatedState(onSelectedTabTap)
+    val onTabLongPressUpdated by rememberUpdatedState(onTabLongPress)
+    val gestureIndices = remember { IntArray(2) }
 
     fun indexAt(positionX: Float): Int {
         if (tabWidthPx == 0f) return currentIndex
@@ -258,7 +268,9 @@ fun <T> FloatingBottomBar(
                 position.x in 0f..totalWidthPx
             },
             onDragStarted = { position ->
-                updateValue(indexAt(position.x).toFloat())
+                gestureIndices[0] = currentIndex
+                gestureIndices[1] = indexAt(position.x)
+                updateValue(gestureIndices[1].toFloat())
             },
             onDragStopped = {
                 val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
@@ -272,7 +284,8 @@ fun <T> FloatingBottomBar(
                 }
             },
             onDragCancelled = {
-                updateValue(currentIndex.toFloat())
+                currentIndex = gestureIndices[0]
+                updateValue(gestureIndices[0].toFloat())
                 animationScope.launch {
                     offsetAnimation.animateTo(0f, spring(1f, 300f, 0.5f))
                 }
@@ -287,6 +300,14 @@ fun <T> FloatingBottomBar(
                         offsetAnimation.snapTo(offsetAnimation.value + dragAmount.x)
                     }
                 }
+            },
+            onTap = {
+                if (gestureIndices[1] == gestureIndices[0]) {
+                    onSelectedTabTapUpdated?.invoke(gestureIndices[1])
+                }
+            },
+            onLongPress = {
+                onTabLongPressUpdated?.invoke(gestureIndices[1]) == true
             }
         )
     }
@@ -412,12 +433,14 @@ fun <T> FloatingBottomBar(
                                 backdrop = backdrop,
                                 shape = { pillShape },
                                 effects = {
-                                    vibrancy()
-                                    blur(4.dp.toPx(), 4.dp.toPx())
-                                    lens(
-                                        refractionHeight = 24.dp.toPx(),
-                                        refractionAmount = 24.dp.toPx(),
-                                    )
+                                    if (!isGlassTransparent) {
+                                        vibrancy()
+                                        blur(liquidGlassBlurRadius.toPx(), liquidGlassBlurRadius.toPx())
+                                        lens(
+                                            refractionHeight = 24.dp.toPx(),
+                                            refractionAmount = 24.dp.toPx(),
+                                        )
+                                    }
                                 },
                                 highlight = { baseHighlight.copy(alpha = 0.75f) },
                                 layerBlock = {
@@ -475,12 +498,14 @@ fun <T> FloatingBottomBar(
                             backdrop = backdrop,
                             shape = { pillShape },
                             effects = {
-                                vibrancy()
-                                blur(4.dp.toPx(), 4.dp.toPx())
-                                lens(
-                                    refractionHeight = 24.dp.toPx(),
-                                    refractionAmount = 24.dp.toPx(),
-                                )
+                                if (!isGlassTransparent) {
+                                    vibrancy()
+                                    blur(liquidGlassBlurRadius.toPx(), liquidGlassBlurRadius.toPx())
+                                    lens(
+                                        refractionHeight = 24.dp.toPx(),
+                                        refractionAmount = 24.dp.toPx(),
+                                    )
+                                }
                             },
                             onDrawSurface = { drawRect(containerColor) },
                         )
@@ -508,13 +533,15 @@ fun <T> FloatingBottomBar(
                             backdrop = combinedBackdrop,
                             shape = { pillShape },
                             effects = {
-                                val progress = dampedDragAnimation.pressProgress
-                                lens(
-                                    refractionHeight = 10.dp.toPx() * progress,
-                                    refractionAmount = 14.dp.toPx() * progress,
-                                    depthEffect = true,
-                                    chromaticAberration = 0.5f,
-                                )
+                                if (!isGlassTransparent) {
+                                    val progress = dampedDragAnimation.pressProgress
+                                    lens(
+                                        refractionHeight = 10.dp.toPx() * progress,
+                                        refractionAmount = 14.dp.toPx() * progress,
+                                        depthEffect = true,
+                                        chromaticAberration = 0.5f,
+                                    )
+                                }
                             },
                             highlight = { pillHighlight.copy(alpha = dampedDragAnimation.pressProgress) },
                             layerBlock = {
