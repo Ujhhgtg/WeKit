@@ -72,18 +72,24 @@ object WeAgentSettings {
     suspend fun defaultWorkspaceId(): String? = get(KEY_DEFAULT_WORKSPACE_ID)?.takeIf { it.isNotBlank() }
 
     /**
-     * When the floating ball should be attached. Falls back to the legacy boolean key so existing
-     * installs keep their choice; unset on both means [OverlayMode.ALWAYS] (the old default).
+     * When the floating ball should be attached. An explicit [KEY_OVERLAY_MODE] value is
+     * authoritative. When none exists yet, the mode is migrated once from the legacy feature
+     * preference ([legacyFeatureEnabled]): enabled installs keep their old behavior
+     * ([KEY_OVERLAY_FOREGROUND_ONLY] → [OverlayMode.FOREGROUND_ONLY], else [OverlayMode.ALWAYS]),
+     * disabled/absent installs become [OverlayMode.DISABLED] — and the result is persisted.
      */
-    suspend fun overlayMode(): OverlayMode {
+    suspend fun overlayMode(legacyFeatureEnabled: Boolean? = null): OverlayMode {
         get(KEY_OVERLAY_MODE)?.let { stored ->
-            OverlayMode.entries.firstOrNull { it.name == stored }?.let { return it }
+            return OverlayMode.entries.firstOrNull { it.name == stored } ?: OverlayMode.DISABLED
         }
-        return if (get(KEY_OVERLAY_FOREGROUND_ONLY)?.toBoolean() == true) {
-            OverlayMode.FOREGROUND_ONLY
-        } else {
-            OverlayMode.ALWAYS
+        val migrated = when {
+            legacyFeatureEnabled == true && get(KEY_OVERLAY_FOREGROUND_ONLY)?.toBoolean() == true ->
+                OverlayMode.FOREGROUND_ONLY
+            legacyFeatureEnabled == true -> OverlayMode.ALWAYS
+            else -> OverlayMode.DISABLED
         }
+        set(KEY_OVERLAY_MODE, migrated.name)
+        return migrated
     }
 
     /** Reads the send-while-running mode, defaulting to QUEUE_AFTER_TURN. */

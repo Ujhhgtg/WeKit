@@ -68,7 +68,7 @@ object WeAgentOverlayController {
 
     /** Which visibility rule the ball follows (§ 界面 setting). */
     @Volatile
-    private var mode = OverlayMode.ALWAYS
+    private var mode = OverlayMode.DISABLED
 
     fun canDrawOverlays(): Boolean = Settings.canDrawOverlays(HostInfo.application)
 

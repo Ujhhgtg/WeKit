@@ -46,6 +46,7 @@ import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiSessions
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -57,8 +58,8 @@ import kotlinx.coroutines.withContext
 /**
  * The WeAgent brain: a process-level singleton coordinating persistence, the tool registry, the
  * model layer, and the [AgentSessionEngine], while exposing Compose snapshot state for the overlay
- * UI. Lives in WeChat's main process; initialized once when the [dev.ujhhgtg.wekit] WeAgent feature
- * is enabled.
+ * UI. Lives in WeChat's main process; initialized lazily (and exactly once) on first
+ * [WeAgentService.init] call — the WeAgent feature is always enabled.
  *
  * The overlay UI is intentionally thin (per project decision): it renders [uiSessions]/[uiMessages]/
  * [ballState]/[pendingApproval] and calls [sendMessage]/[newSession]/[switchSession]/… — all heavy
@@ -195,8 +196,18 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         val deferred: CompletableDeferred<ManualApprovalResult>,
     )
 
-    @Volatile
-    private var initialized = false
+    /**
+     * One supervised initialization job, created lazily and started at most once. Subsequent
+     * [init] calls return the same job, so every entry point (feature startup, settings Activity,
+     * chat toolbar) shares a single initialization.
+     */
+    private val initializationJob: Job by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        scope.launch(start = CoroutineStart.LAZY) {
+            runCatching { initialize() }.onFailure { WeLogger.e(TAG, "init failed", it) }
+        }
+    }
+
+    fun init(): Job = initializationJob.also(Job::start)
 
     /**
      * Running turns keyed by sessionId. Multiple sessions can run concurrently (a foreground chat and
@@ -211,101 +222,95 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     // Lifecycle
     // -----------------------------------------------------------------------------------------
 
-    fun init() {
-        if (initialized) return
-        initialized = true
-        scope.launch {
-            runCatching {
-                // Warm the DB, seed permissions, load settings.
-                WeAgentDatabase.instance
-                WeAgentRepository.seedAndLoad()
-                WeAgentSettings.load()
-                BuiltinToolProvider.fsToolsVisible =
-                    WeAgentSettings.workspaceEnabled() || WeAgentSettings.memoryEnabled()
+    private suspend fun initialize() {
+        // Warm the DB, seed permissions, load settings.
+        WeAgentDatabase.instance
+        WeAgentRepository.seedAndLoad()
+        WeAgentSettings.load()
+        BuiltinToolProvider.fsToolsVisible =
+            WeAgentSettings.workspaceEnabled() || WeAgentSettings.memoryEnabled()
 
-                // Bring up MCP providers and keep the registry's MCP set in sync.
-                McpClientManager.onProvidersChanged = {
-                    registry.setMcpProviders(McpClientManager.connectedProviders())
-                }
-                McpClientManager.sync()
-
-                // Observe sessions for the drawer.
-                launch {
-                    WeAgentRepository.observeSessions().collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            uiSessions.clear()
-                            uiSessions.addAll(rows.map { SessionRow(it.id, it.title, it.favorite) })
-                        }
-                    }
-                }
-                // Observe models + providers for the panel quick-switch menu. The label is
-                // "<providerName>:<displayName|modelId>" (§ item 1), so we combine both flows.
-                launch {
-                    kotlinx.coroutines.flow.combine(
-                        WeAgentRepository.observeModels(),
-                        WeAgentRepository.observeModelProviders(),
-                    ) { models, providers ->
-                        val providerName = providers.associate { it.id to it.name }
-                        models.map { m ->
-                            val model = m.displayName.ifBlank { m.modelIdRemote }
-                            val prefix = providerName[m.providerId]?.takeIf { it.isNotBlank() }
-                            ModelOption(m.id, if (prefix != null) "$prefix:$model" else model, m.contextWindow)
-                        }
-                    }.collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            availableModels.clear()
-                            availableModels.addAll(rows)
-                        }
-                    }
-                }
-                launch {
-                    WeAgentRepository.observeSystemPrompts().collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            availableSystemPrompts.clear()
-                            availableSystemPrompts.addAll(rows.map { SystemPromptOption(it.id, it.name) })
-                        }
-                    }
-                }
-                launch {
-                    WeAgentRepository.observePresetPrompts().collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            availablePresets.clear()
-                            availablePresets.addAll(rows.map { PresetOption(it.id, it.title, it.content) })
-                        }
-                    }
-                }
-                launch {
-                    WeAgentRepository.observeWorkspaces().collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            availableWorkspaces.clear()
-                            availableWorkspaces.addAll(rows.map { WorkspaceOption(it.id, it.name) })
-                        }
-                    }
-                }
-                withContext(Dispatchers.Main) {
-                    memoryEnabled.value = WeAgentSettings.memoryEnabled()
-                    sendWhileRunningMode.value = WeAgentSettings.sendWhileRunningMode()
-                }
-
-                // Observe external service keys and keep API-key-gated tool visibility in sync.
-                // Exa / Brave tools are only advertised to the model when the corresponding key
-                // is present, so they never produce a "key not configured" error mid-turn.
-                launch {
-                    WeAgentRepository.observeExternalServices().collectLatest { services ->
-                        val keys = services.associateBy { it.serviceId }
-                        BuiltinToolProvider.exaKeyPresent =
-                            !keys[ExternalServiceId.EXA]?.apiKey.isNullOrBlank()
-                        BuiltinToolProvider.braveKeyPresent =
-                            !keys[ExternalServiceId.BRAVE]?.apiKey.isNullOrBlank()
-                    }
-                }
-
-                // Start the trigger runtime (schedule + message/SQL event triggers).
-                triggerManager.start()
-
-                WeLogger.i(TAG, "WeAgentService initialized")
-            }.onFailure { WeLogger.e(TAG, "init failed", it) }
+        // Bring up MCP providers and keep the registry's MCP set in sync.
+        McpClientManager.onProvidersChanged = {
+            registry.setMcpProviders(McpClientManager.connectedProviders())
         }
+        McpClientManager.sync()
+
+        // Observe sessions for the drawer.
+        scope.launch {
+            WeAgentRepository.observeSessions().collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    uiSessions.clear()
+                    uiSessions.addAll(rows.map { SessionRow(it.id, it.title, it.favorite) })
+                }
+            }
+        }
+        // Observe models + providers for the panel quick-switch menu. The label is
+        // "<providerName>:<displayName|modelId>" (§ item 1), so we combine both flows.
+        scope.launch {
+            kotlinx.coroutines.flow.combine(
+                WeAgentRepository.observeModels(),
+                WeAgentRepository.observeModelProviders(),
+            ) { models, providers ->
+                val providerName = providers.associate { it.id to it.name }
+                models.map { m ->
+                    val model = m.displayName.ifBlank { m.modelIdRemote }
+                    val prefix = providerName[m.providerId]?.takeIf { it.isNotBlank() }
+                    ModelOption(m.id, if (prefix != null) "$prefix:$model" else model, m.contextWindow)
+                }
+            }.collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    availableModels.clear()
+                    availableModels.addAll(rows)
+                }
+            }
+        }
+        scope.launch {
+            WeAgentRepository.observeSystemPrompts().collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    availableSystemPrompts.clear()
+                    availableSystemPrompts.addAll(rows.map { SystemPromptOption(it.id, it.name) })
+                }
+            }
+        }
+        scope.launch {
+            WeAgentRepository.observePresetPrompts().collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    availablePresets.clear()
+                    availablePresets.addAll(rows.map { PresetOption(it.id, it.title, it.content) })
+                }
+            }
+        }
+        scope.launch {
+            WeAgentRepository.observeWorkspaces().collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    availableWorkspaces.clear()
+                    availableWorkspaces.addAll(rows.map { WorkspaceOption(it.id, it.name) })
+                }
+            }
+        }
+        withContext(Dispatchers.Main) {
+            memoryEnabled.value = WeAgentSettings.memoryEnabled()
+            sendWhileRunningMode.value = WeAgentSettings.sendWhileRunningMode()
+        }
+
+        // Observe external service keys and keep API-key-gated tool visibility in sync.
+        // Exa / Brave tools are only advertised to the model when the corresponding key
+        // is present, so they never produce a "key not configured" error mid-turn.
+        scope.launch {
+            WeAgentRepository.observeExternalServices().collectLatest { services ->
+                val keys = services.associateBy { it.serviceId }
+                BuiltinToolProvider.exaKeyPresent =
+                    !keys[ExternalServiceId.EXA]?.apiKey.isNullOrBlank()
+                BuiltinToolProvider.braveKeyPresent =
+                    !keys[ExternalServiceId.BRAVE]?.apiKey.isNullOrBlank()
+            }
+        }
+
+        // Start the trigger runtime (schedule + message/SQL event triggers).
+        triggerManager.start()
+
+        WeLogger.i(TAG, "WeAgentService initialized")
     }
 
     // -----------------------------------------------------------------------------------------
