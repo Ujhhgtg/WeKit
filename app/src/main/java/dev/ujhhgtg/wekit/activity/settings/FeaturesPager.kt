@@ -249,17 +249,31 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
         title = stringResource(featureCategoryTitleRes(categoryId)),
         navigationIcon = { ExpressiveBackButton(onClick = onBack) },
     ) {
-        if (items.isEmpty()) return@M3ListScaffold
-
-        item { Spacer(Modifier.height(12.dp)) }
-        lazySegmentedItems(items, key = { it.technicalId }) { feature ->
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                FeatureRow(
-                    item = feature,
-                    checked = featureChecked(feature),
-                    onCheckedChange = {},
-                )
-                feature.Ui()
+        if (items.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 48.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.features_category_empty),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        } else {
+            item { Spacer(Modifier.height(12.dp)) }
+            lazySegmentedItems(items, key = { it.technicalId }) { feature ->
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    FeatureRow(
+                        item = feature,
+                        checked = featureChecked(feature),
+                        onCheckedChange = {},
+                    )
+                    feature.Ui()
+                }
             }
         }
 
