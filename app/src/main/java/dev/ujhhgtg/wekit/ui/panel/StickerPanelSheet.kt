@@ -2987,7 +2987,7 @@ private fun TelegramBatchImportProgressOverlay(
 ) {
     val itemProgress = progress.itemProgress
     val itemFraction = itemProgress?.let { it.completed.toFloat() / it.total.coerceAtLeast(1) } ?: 0f
-    val overallProgress = ((progress.packIndex - 1) + itemFraction) / progress.packTotal.coerceAtLeast(1)
+    val overallProgress = (progress.packIndex - 1 + itemFraction) / progress.packTotal.coerceAtLeast(1)
     PanelFullOverlay(onDismiss = {}, allowImplicitDismiss = false) {
         Text(stringResource(R.string.sticker_telegram_batch_progress_title), style = MaterialTheme.typography.titleMedium)
         LinearProgressIndicator(
