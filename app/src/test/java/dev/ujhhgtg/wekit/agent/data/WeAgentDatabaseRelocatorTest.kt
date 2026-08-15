@@ -60,13 +60,14 @@ class WeAgentDatabaseRelocatorTest {
     @Test
     fun `fresh install uses private destination without recovery`() {
         val source = root.resolve("external/weagent.db").toFile()
-        val destination = root.resolve("private/weagent.db").toFile()
+        val destination = root.resolve("private/nested/deep/weagent.db").toFile()
         var recoveryInvoked = false
         val prepared = WeAgentDatabaseRelocator(source, destination) { recoveryInvoked = true }.prepare()
         assertEquals(destination, prepared.file)
         assertFalse(prepared.externalFallback)
         assertFalse(prepared.migratedNow)
         assertFalse(recoveryInvoked)
+        assertTrue(prepared.file.parentFile!!.isDirectory)
     }
 
     @Test

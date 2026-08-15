@@ -34,6 +34,7 @@ internal class WeAgentDatabaseRelocator(
         if (!source.isFile) {
             // Fresh install: no external copy to migrate and recoverSource() would throw
             // on the missing file, so go straight to a brand-new private database.
+            destination.parentFile!!.mkdirs()
             return PreparedDatabaseLocation(destination, migratedNow = false, externalFallback = false)
         }
         return try {
