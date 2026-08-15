@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.activity.settings
 
+import android.app.Activity
 import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +34,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Check_circle
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.activity.OpenLsposedManagerContract
+import dev.ujhhgtg.wekit.activity.openLsposedManager
 import dev.ujhhgtg.wekit.activity.openRootManager
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
@@ -68,7 +68,6 @@ fun HomePager() {
 @Composable
 private fun StatusCard() {
     val context = LocalContext.current
-    val openLsposedManager = rememberLauncherForActivityResult(OpenLsposedManagerContract()) {}
     var showNoRootManager by remember { mutableStateOf(false) }
     val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     val statusTitle = stringResource(R.string.home_module_activated)
@@ -86,7 +85,7 @@ private fun StatusCard() {
             if (StartupInfo.loaderService is ZygiskLoaderService) {
                 showNoRootManager = !openRootManager(context)
             } else {
-                openLsposedManager.launch(Unit)
+                openLsposedManager(context as Activity)
             }
         },
     ) {

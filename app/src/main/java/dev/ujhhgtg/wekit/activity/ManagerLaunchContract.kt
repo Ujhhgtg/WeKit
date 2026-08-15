@@ -3,9 +3,10 @@ package dev.ujhhgtg.wekit.activity
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import androidx.activity.result.contract.ActivityResultContract
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.utils.WeLogger
+
+private const val REQUEST_OPEN_LSPOSED_MANAGER = 0x574B
 
 object ManagerLaunchContract {
     const val ACTION_OPEN_LSPOSED_MANAGER =
@@ -23,13 +24,13 @@ object ManagerLaunchContract {
     )
 }
 
-class OpenLsposedManagerContract : ActivityResultContract<Unit, Unit>() {
-    override fun createIntent(context: Context, input: Unit): Intent = Intent().apply {
+@Suppress("DEPRECATION")
+fun openLsposedManager(activity: Activity) {
+    val intent = Intent().apply {
         setClassName(PackageNames.MODULE, "${PackageNames.MODULE}.activity.MainActivity")
         action = ManagerLaunchContract.ACTION_OPEN_LSPOSED_MANAGER
     }
-
-    override fun parseResult(resultCode: Int, intent: Intent?) = Unit
+    activity.startActivityForResult(intent, REQUEST_OPEN_LSPOSED_MANAGER)
 }
 
 @Suppress("DEPRECATION")
