@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -100,8 +102,7 @@ fun HomePager() {
 @Composable
 private fun StatusCard() {
     val context = LocalContext.current
-    // SettingsActivity is hosted in the injected process, so reaching this screen means WeKit is active.
-    val isActive = true
+    val isActive = StartupInfo.isInitialized
     val containerColor = if (isActive) {
         MaterialTheme.colorScheme.secondaryContainer
     } else {
@@ -115,7 +116,11 @@ private fun StatusCard() {
     val statusTitle = stringResource(
         if (isActive) R.string.home_module_activated else R.string.module_app_activation_inactive
     )
-    val loaderName = StartupInfo.loaderService.loaderName
+    val loaderName = if (isActive) {
+        StartupInfo.loaderService.loaderName
+    } else {
+        stringResource(R.string.common_not_provided)
+    }
     val hookBridgeName = StartupInfo.hookBridge?.hookBridgeName
         ?: stringResource(R.string.common_not_provided)
 
@@ -180,15 +185,24 @@ private fun StatusTag(label: String, backgroundColor: Color, contentColor: Color
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            modifier = Modifier
+                .widthIn(max = 96.dp)
+                .padding(horizontal = 4.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmallEmphasized,
             color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
 @Composable
 private fun DeviceInformation() {
+    val loaderName = if (StartupInfo.isInitialized) {
+        StartupInfo.loaderService.loaderName
+    } else {
+        stringResource(R.string.common_not_provided)
+    }
     SegmentedColumn(title = stringResource(R.string.home_device_info_title)) {
         item {
             BaseWidget(
@@ -239,7 +253,7 @@ private fun DeviceInformation() {
                 title = stringResource(R.string.home_loading_environment),
                 description = stringResource(
                     R.string.home_loading_environment_value,
-                    StartupInfo.loaderService.loaderName,
+                    loaderName,
                     StartupInfo.hookBridge?.hookBridgeName ?: stringResource(R.string.common_not_provided),
                 ),
             )
