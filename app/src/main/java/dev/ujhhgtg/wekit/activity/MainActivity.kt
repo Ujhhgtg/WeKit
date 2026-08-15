@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.activity
 
 import android.content.ComponentName
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -22,6 +23,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -70,6 +72,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleAppTheme
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.androidUserId
 import dev.ujhhgtg.wekit.utils.android.getEnabled
 import dev.ujhhgtg.wekit.utils.android.setEnabled
@@ -99,6 +102,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (intent?.action == ManagerLaunchContract.ACTION_OPEN_LSPOSED_MANAGER) {
+            handleOpenLsposedManager()
+            return
+        }
 
         if (intent?.action == TelegramDatabaseImportContract.ACTION_PICK_ROOT_STICKER_SETS) {
             if (!PackageNames.isWeChat(callingPackage.orEmpty())) {
@@ -173,6 +181,124 @@ class MainActivity : ComponentActivity() {
             WeKitLocaleController.resolvedLocale,
             LocaleResourceMode.ModuleApp,
         ).getString(resourceId, *formatArgs)
+
+    private fun handleOpenLsposedManager() {
+        if (!PackageNames.isWeChat(callingPackage.orEmpty())) {
+            setResult(
+                RESULT_CANCELED,
+                Intent().putExtra(
+                    ManagerLaunchContract.EXTRA_ERROR,
+                    localizedString(R.string.manager_launch_invalid_caller),
+                ),
+            )
+            finish()
+            return
+        }
+
+        Shell.getShell()
+        if (Shell.isAppGrantedRoot() != true) {
+            showManagerLaunchError(R.string.manager_launch_root_required)
+            return
+        }
+
+        setContent {
+            ModuleAppTheme {
+                ManagerLaunchContent(
+                    title = stringResource(R.string.manager_launch_opening_title),
+                    message = null,
+                    showProgress = true,
+                    onClose = ::finish,
+                )
+            }
+        }
+
+        val secretCodeAction = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            "android.telephony.action.SECRET_CODE"
+        } else {
+            "android.provider.Telephony.SECRET_CODE"
+        }
+        Shell.cmd(
+            "am start -c org.matrix.vector.manager.LAUNCH_MANAGER " +
+                "com.android.shell/.BugreportWarningActivity",
+        ).submit { vectorResult ->
+            Shell.cmd(
+                "am broadcast -a $secretCodeAction " +
+                    "-d android_secret_code://5776733 android",
+            ).submit { lsposedResult ->
+                if (vectorResult.isSuccess || lsposedResult.isSuccess) {
+                    runOnUiThread {
+                        setResult(RESULT_OK)
+                        finish()
+                    }
+                } else {
+                    val details = (vectorResult.out + vectorResult.err +
+                        lsposedResult.out + lsposedResult.err)
+                        .joinToString("\n")
+                    WeLogger.e("MainActivity", "manager launch commands failed: $details")
+                    runOnUiThread {
+                        showManagerLaunchError(R.string.manager_launch_failed_message)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showManagerLaunchError(@StringRes message: Int) {
+        setContent {
+            ModuleAppTheme {
+                ManagerLaunchContent(
+                    title = stringResource(R.string.manager_launch_failed_title),
+                    message = stringResource(message),
+                    showProgress = false,
+                    onClose = ::finish,
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun ManagerLaunchContent(
+        title: String,
+        message: String?,
+        showProgress: Boolean,
+        onClose: () -> Unit,
+    ) {
+        Scaffold { contentPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                if (showProgress) {
+                    CircularProgressIndicator()
+                } else {
+                    Icon(
+                        imageVector = MaterialSymbols.OutlinedFilled.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                if (message != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(onClick = onClose) {
+                        Text(stringResource(R.string.dialog_close))
+                    }
+                }
+            }
+        }
+    }
 
     private data class ActivationState(
         val isActivated: Boolean,

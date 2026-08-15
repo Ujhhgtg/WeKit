@@ -1,9 +1,7 @@
 package dev.ujhhgtg.wekit.activity.settings
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -19,65 +18,35 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Check_circle
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.OpenLsposedManagerContract
+import dev.ujhhgtg.wekit.activity.openRootManager
+import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.Intent
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
 
 // ---------------------------------------------------------------------------
 //  Page 0 — Home
 // ---------------------------------------------------------------------------
-
-/**
- * Opens the LSPosed manager from within a hooked process, replicating the two-pronged shell
- * routine LSPosed itself documents:
- *  1. Start `com.android.shell/.BugreportWarningActivity` with the manager's
- *     `LAUNCH_MANAGER` category — LSPosed's hook on the shell app intercepts this and swaps in
- *     the manager UI.
- *  2. Broadcast the `*#*#5776733#*#*` SECRET_CODE (action differs on API >= 29) as a fallback
- *     for setups where the activity trick is unavailable.
- */
-private fun openLsposedManager(context: Context) {
-    val managerPackage = "org.lsposed.manager"
-    val injectedPackage = "com.android.shell"
-
-    runCatching {
-        context.startActivity(
-            Intent {
-                component = ComponentName(injectedPackage, "$injectedPackage.BugreportWarningActivity")
-                addCategory("$managerPackage.LAUNCH_MANAGER")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        )
-    }.onFailure { WeLogger.e("SettingsActivity", "failed to launch LSPosed manager activity", it) }
-
-    runCatching {
-        val action = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            "android.telephony.action.SECRET_CODE"
-        } else {
-            "android.provider.Telephony.SECRET_CODE"
-        }
-        context.sendBroadcast(
-            Intent(action, "android_secret_code://5776733".toUri()).setPackage("android")
-        )
-    }.onFailure { WeLogger.e("SettingsActivity", "failed to broadcast LSPosed secret code", it) }
-}
 
 @Composable
 fun HomePager() {
@@ -99,6 +68,8 @@ fun HomePager() {
 @Composable
 private fun StatusCard() {
     val context = LocalContext.current
+    val openLsposedManager = rememberLauncherForActivityResult(OpenLsposedManagerContract()) {}
+    var showNoRootManager by remember { mutableStateOf(false) }
     val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     val statusTitle = stringResource(R.string.home_module_activated)
     val hookBridgeName = StartupInfo.hookBridge?.hookBridgeName
@@ -111,7 +82,13 @@ private fun StatusCard() {
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = contentColor,
         shape = MaterialTheme.shapes.large,
-        onClick = { openLsposedManager(context) },
+        onClick = {
+            if (StartupInfo.loaderService is ZygiskLoaderService) {
+                showNoRootManager = !openRootManager(context)
+            } else {
+                openLsposedManager.launch(Unit)
+            }
+        },
     ) {
         ListItem(
             leadingContent = {
@@ -145,6 +122,19 @@ private fun StatusCard() {
                     text = statusTitle,
                     style = MaterialTheme.typography.titleMediumEmphasized,
                 )
+            },
+        )
+    }
+
+    if (showNoRootManager) {
+        AlertDialog(
+            onDismissRequest = { showNoRootManager = false },
+            title = { Text(stringResource(R.string.manager_launch_failed_title)) },
+            text = { Text(stringResource(R.string.manager_launch_no_root_manager)) },
+            confirmButton = {
+                TextButton(onClick = { showNoRootManager = false }) {
+                    Text(stringResource(R.string.dialog_confirm))
+                }
             },
         )
     }

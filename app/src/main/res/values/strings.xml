@@ -21,6 +21,12 @@
     <string name="brand_github" translatable="false">GitHub</string>
     <string name="brand_telegram" translatable="false">Telegram</string>
     <string name="module_app_sticker_import_invalid_caller">This action can only be started from the WeKit panel inside WeChat.</string>
+    <string name="manager_launch_opening_title">Opening framework manager…</string>
+    <string name="manager_launch_failed_title">Unable to open manager</string>
+    <string name="manager_launch_invalid_caller">This action can only be started from the WeKit panel inside WeChat.</string>
+    <string name="manager_launch_root_required">Root access is required to open the LSPosed or Vector manager.</string>
+    <string name="manager_launch_failed_message">Both supported manager launch methods failed.</string>
+    <string name="manager_launch_no_root_manager">No supported Root manager was found.</string>
     <string name="module_app_activation_active">Activated</string>
     <string name="module_app_activation_inactive">Not activated</string>
     <string name="module_app_activation_framework_details">%1$s %2$s (%3$d), API %4$d</string>

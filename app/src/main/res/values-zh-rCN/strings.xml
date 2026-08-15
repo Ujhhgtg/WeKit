@@ -14,6 +14,12 @@
     <string name="dialog_close">关闭</string>
     <string name="accessibility_overflow_menu">更多选项</string>
     <string name="module_app_sticker_import_invalid_caller">只允许从微信内的 WeKit 面板启动此操作</string>
+    <string name="manager_launch_opening_title">正在打开框架管理器…</string>
+    <string name="manager_launch_failed_title">无法打开管理器</string>
+    <string name="manager_launch_invalid_caller">只允许从微信内的 WeKit 面板启动此操作</string>
+    <string name="manager_launch_root_required">打开 LSPosed 或 Vector 管理器需要 Root 权限</string>
+    <string name="manager_launch_failed_message">两种受支持的管理器启动方式均执行失败</string>
+    <string name="manager_launch_no_root_manager">未找到受支持的 Root 管理器</string>
     <string name="module_app_activation_active">已激活</string>
     <string name="module_app_activation_inactive">未激活</string>
     <string name="module_app_activation_framework_details">%1$s %2$s (%3$d), API %4$d</string>
