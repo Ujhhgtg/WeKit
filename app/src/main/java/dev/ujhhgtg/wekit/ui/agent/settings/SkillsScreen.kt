@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,17 +27,12 @@ import dev.ujhhgtg.wekit.agent.skill.SkillStore
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 /**
  * Skills management (§ Skills): add/edit/delete skills and toggle each on/off globally. Skills are
@@ -60,26 +59,29 @@ fun SkillsScreen(onBack: () -> Unit) {
         if (skills.isEmpty()) item { EmptyHint(stringResource(R.string.agent_skills_empty)) }
         items(skills.size, key = { skills[it].name }) { i ->
             val s = skills[i]
-            Card(Modifier.padding(bottom = 6.dp)) {
-                SwitchPreference(
-                    title = s.name,
-                    summary = s.description.ifBlank { stringResource(R.string.agent_no_description) },
-                    checked = s.enabled,
-                    onCheckedChange = { on ->
-                        scope.launch {
-                            withContext(Dispatchers.IO) { SkillStore.setEnabled(s.name, on) }
-                            reloadTick++
-                        }
-                    },
-                )
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    TextButton(text = stringResource(R.string.action_edit), onClick = { editing = s; showEditor = true }, modifier = Modifier.weight(1f))
-                    Spacer(Modifier.width(8.dp))
-                    TextButton(
-                        text = stringResource(R.string.action_delete),
-                        onClick = { scope.launch { withContext(Dispatchers.IO) { SkillStore.delete(s.name) }; reloadTick++ } },
-                        modifier = Modifier.weight(1f),
+            SegmentedColumn {
+                item {
+                    SwitchWidget(
+                        title = s.name,
+                        description = s.description.ifBlank { stringResource(R.string.agent_no_description) },
+                        checked = s.enabled,
+                        onCheckedChange = { on ->
+                            scope.launch {
+                                withContext(Dispatchers.IO) { SkillStore.setEnabled(s.name, on) }
+                                reloadTick++
+                            }
+                        },
                     )
+                }
+                item {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                        TextButton(onClick = { editing = s; showEditor = true }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_edit)) }
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(
+                            onClick = { scope.launch { withContext(Dispatchers.IO) { SkillStore.delete(s.name) }; reloadTick++ } },
+                            modifier = Modifier.weight(1f),
+                        ) { Text(stringResource(R.string.action_delete)) }
+                    }
                 }
             }
         }
@@ -140,28 +142,38 @@ private fun SkillEditorDialog(
         onDismissRequest = onDismiss,
     ) {
         Column {
-            TextField(value = name, onValueChange = { name = it }, label = stringResource(R.string.agent_skill_name_label), useLabelAsPlaceholder = true, singleLine = true)
-            Spacer(Modifier.height(8.dp))
-            TextField(
-                value = description,
-                onValueChange = { description = it },
-                label = stringResource(R.string.agent_skill_description_label),
-                useLabelAsPlaceholder = true,
-                maxLines = 3
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.agent_skill_name_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
-            TextField(value = body, onValueChange = { body = it }, label = stringResource(R.string.agent_skill_body_label), useLabelAsPlaceholder = true, maxLines = 12)
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text(stringResource(R.string.agent_skill_description_label)) },
+                maxLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = body,
+                onValueChange = { body = it },
+                label = { Text(stringResource(R.string.agent_skill_body_label)) },
+                maxLines = 12,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
-                TextButton(text = stringResource(R.string.dialog_cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    text = stringResource(R.string.action_save),
                     onClick = { onSave(name, description, body) },
                     enabled = name.isNotBlank() && body.isNotBlank(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f),
-                )
+                ) { Text(stringResource(R.string.action_save)) }
             }
         }
     }

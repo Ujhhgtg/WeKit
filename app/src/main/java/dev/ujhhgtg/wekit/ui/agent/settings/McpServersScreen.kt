@@ -7,6 +7,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
@@ -20,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
@@ -29,15 +37,9 @@ import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
 import dev.ujhhgtg.wekit.agent.mcp.McpProviderStatus
 import dev.ujhhgtg.wekit.agent.mcp.McpToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import java.util.UUID
 
 /**
@@ -73,23 +75,26 @@ fun McpServersScreen(onBack: () -> Unit, onOpenServer: (serverId: String) -> Uni
         items(servers.size, key = { servers[it].id }) { i ->
             val s = servers[i]
             val status = rememberMcpStatus(liveProviders.firstOrNull { it.id == s.id })
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = s.name.ifBlank { s.endpointUrl ?: s.id },
-                    summary = status.lastError?.let {
-                        stringResource(
-                            R.string.agent_mcp_server_summary_error,
+            SegmentedColumn {
+                item {
+                    BaseWidget(
+                        title = s.name.ifBlank { s.endpointUrl ?: s.id },
+                        description = status.lastError?.let {
+                            stringResource(
+                                R.string.agent_mcp_server_summary_error,
+                                s.transport?.name ?: "?",
+                                mcpStateLabel(status.state),
+                                it,
+                            )
+                        } ?: stringResource(
+                            R.string.agent_mcp_server_summary,
                             s.transport?.name ?: "?",
                             mcpStateLabel(status.state),
-                            it,
-                        )
-                    } ?: stringResource(
-                        R.string.agent_mcp_server_summary,
-                        s.transport?.name ?: "?",
-                        mcpStateLabel(status.state),
-                    ),
-                    onClick = { onOpenServer(s.id) },
-                )
+                        ),
+                        onClick = { onOpenServer(s.id) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
             }
         }
         item {
@@ -137,44 +142,53 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
 
     AgentSettingsScaffold(title = server?.name ?: stringResource(R.string.agent_mcp_servers_title), onBack = onBack) {
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = stringResource(R.string.agent_connection_status),
-                    summary = stringResource(
-                        R.string.agent_connection_summary,
-                        status.lastError?.let {
-                            stringResource(R.string.agent_mcp_status_error, mcpStateLabel(status.state), it)
-                        } ?: mcpStateLabel(status.state),
-                    ),
-                    onClick = { scope.launch { McpClientManager.refreshTools(serverId) } },
-                )
-                server?.let {
-                    ArrowPreference(
-                        title = stringResource(R.string.agent_address),
-                        summary = stringResource(
-                            R.string.agent_mcp_address_summary,
-                            it.transport?.name ?: "?",
-                            it.endpointUrl.orEmpty(),
+            SegmentedColumn {
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_connection_status),
+                        description = stringResource(
+                            R.string.agent_connection_summary,
+                            status.lastError?.let {
+                                stringResource(R.string.agent_mcp_status_error, mcpStateLabel(status.state), it)
+                            } ?: mcpStateLabel(status.state),
                         ),
-                        onClick = {},
+                        onClick = { scope.launch { McpClientManager.refreshTools(serverId) } },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     )
                 }
-                TextButton(
-                    text = stringResource(R.string.agent_delete_server),
-                    onClick = { scope.launch { WeAgentRepository.deleteMcpProvider(serverId) }; onBack() },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                )
+                server?.let { srv ->
+                    item {
+                        BaseWidget(
+                            title = stringResource(R.string.agent_address),
+                            description = stringResource(
+                                R.string.agent_mcp_address_summary,
+                                srv.transport?.name ?: "?",
+                                srv.endpointUrl.orEmpty(),
+                            ),
+                            onClick = {},
+                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        )
+                    }
+                }
+                item(topPadding = 12.dp) {
+                    TextButton(
+                        onClick = { scope.launch { WeAgentRepository.deleteMcpProvider(serverId) }; onBack() },
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                    ) { Text(stringResource(R.string.agent_delete_server)) }
+                }
             }
         }
 
-        item { top.yukonga.miuix.kmp.basic.SmallTitle(stringResource(R.string.agent_tool_permissions_title)) }
-        if (tools.isEmpty()) item { EmptyHint(stringResource(R.string.agent_mcp_tools_empty)) }
-        items(tools.size, key = { "${serverId}_${tools[it].name}" }) { i ->
-            val t = tools[i]
-            val mode = permMap[serverId to t.name] ?: t.factoryDefaultMode
-            Card(Modifier.padding(bottom = 6.dp)) {
-                McpToolModeDropdown(t.name, mode) { newMode ->
-                    scope.launch { WeAgentRepository.setToolMode(serverId, t.name, newMode) }
+        item {
+            SegmentedColumn(title = stringResource(R.string.agent_tool_permissions_title)) {
+                if (tools.isEmpty()) item { EmptyHint(stringResource(R.string.agent_mcp_tools_empty)) }
+                tools.forEach { t ->
+                    item(key = "${serverId}_${t.name}") {
+                        val mode = permMap[serverId to t.name] ?: t.factoryDefaultMode
+                        McpToolModeDropdown(t.name, mode) { newMode ->
+                            scope.launch { WeAgentRepository.setToolMode(serverId, t.name, newMode) }
+                        }
+                    }
                 }
             }
         }
@@ -210,7 +224,7 @@ private fun mcpStateLabel(state: dev.ujhhgtg.wekit.agent.mcp.McpConnectionState)
 
 @Composable
 private fun McpToolModeDropdown(name: String, mode: dev.ujhhgtg.wekit.agent.tool.ToolMode, onChange: (dev.ujhhgtg.wekit.agent.tool.ToolMode) -> Unit) {
-    WindowDropdownPreference(
+    AgentDropdownRow(
         title = name,
         items = MCP_MODE_ORDER.map { it.mcpLabel() },
         selectedIndex = MCP_MODE_ORDER.indexOf(mode).coerceAtLeast(0),
@@ -231,35 +245,45 @@ private fun AddMcpDialog(
 
     WeKitWindowDialog(show = show.value, title = stringResource(R.string.agent_add_mcp_server), onDismissRequest = { show.value = false }) {
         Column {
-            TextField(value = name, onValueChange = { name = it }, label = stringResource(R.string.agent_field_name), useLabelAsPlaceholder = true, singleLine = true)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.agent_field_name)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(8.dp))
-            TextField(value = url, onValueChange = { url = it }, label = stringResource(R.string.agent_server_url), useLabelAsPlaceholder = true, singleLine = true)
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = { Text(stringResource(R.string.agent_server_url)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(8.dp))
-            WindowDropdownPreference(
+            AgentDropdownRow(
                 title = stringResource(R.string.agent_transport),
                 items = listOf("Streamable HTTP", "SSE"),
                 selectedIndex = transportIndex,
                 onSelectedIndexChange = { transportIndex = it },
             )
             Spacer(Modifier.height(8.dp))
-            TextField(
+            OutlinedTextField(
                 value = headers,
                 onValueChange = { headers = it },
-                label = stringResource(R.string.agent_custom_headers_json),
-                useLabelAsPlaceholder = true,
-                maxLines = 3
+                label = { Text(stringResource(R.string.agent_custom_headers_json)) },
+                maxLines = 3,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
-                TextButton(text = stringResource(R.string.dialog_cancel), onClick = { show.value = false }, modifier = Modifier.weight(1f))
+                TextButton(onClick = { show.value = false }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    text = stringResource(R.string.action_add),
                     onClick = { onConfirm(name, transports[transportIndex], url, headers); show.value = false },
                     enabled = url.isNotBlank(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f),
-                )
+                ) { Text(stringResource(R.string.action_add)) }
             }
         }
     }

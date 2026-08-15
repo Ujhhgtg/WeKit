@@ -1,6 +1,9 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -11,19 +14,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * Memory (§8): a global on/off switch plus a read-only view of the parsed MEMORY.md index. No CRUD
@@ -46,19 +48,21 @@ fun MemoryScreen(onBack: () -> Unit) {
 
     AgentSettingsScaffold(title = stringResource(R.string.agent_memory_title), onBack = onBack) {
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                SwitchPreference(
-                    title = stringResource(R.string.agent_memory_enable_title),
-                    summary = stringResource(R.string.agent_memory_enable_summary),
-                    checked = enabled,
-                    onCheckedChange = { on ->
-                        enabled = on
-                        scope.launch {
-                            WeAgentSettings.set(WeAgentSettings.KEY_MEMORY_ENABLED, on.toString())
-                            BuiltinToolProvider.fsToolsVisible = on || WeAgentSettings.workspaceEnabled()
-                        }
-                    },
-                )
+            SegmentedColumn {
+                item {
+                    SwitchWidget(
+                        title = stringResource(R.string.agent_memory_enable_title),
+                        description = stringResource(R.string.agent_memory_enable_summary),
+                        checked = enabled,
+                        onCheckedChange = { on ->
+                            enabled = on
+                            scope.launch {
+                                WeAgentSettings.set(WeAgentSettings.KEY_MEMORY_ENABLED, on.toString())
+                                BuiltinToolProvider.fsToolsVisible = on || WeAgentSettings.workspaceEnabled()
+                            }
+                        },
+                    )
+                }
             }
         }
 
@@ -66,24 +70,42 @@ fun MemoryScreen(onBack: () -> Unit) {
             item { EmptyHint(stringResource(R.string.common_loading)) }; return@AgentSettingsScaffold
         }
 
-        item { SmallTitle(stringResource(R.string.agent_memory_index_title)) }
         val idx = index
         when {
             idx == null || idx.parseFailed -> item {
-                Card(Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET)) {
-                    Text(
-                        stringResource(R.string.agent_memory_index_parse_failed),
-                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                        modifier = Modifier.padding(12.dp),
-                    )
+                SegmentedColumn(
+                    modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                    title = stringResource(R.string.agent_memory_index_title),
+                ) {
+                    item {
+                        Text(
+                            stringResource(R.string.agent_memory_index_parse_failed),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
                 }
             }
 
-            idx.entries.isEmpty() -> item { EmptyHint(stringResource(R.string.agent_memory_index_empty)) }
+            idx.entries.isEmpty() -> item {
+                SegmentedColumn(title = stringResource(R.string.agent_memory_index_title)) {
+                    item { EmptyHint(stringResource(R.string.agent_memory_index_empty)) }
+                }
+            }
             else -> item {
-                Card(Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET)) {
+                SegmentedColumn(
+                    modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                    title = stringResource(R.string.agent_memory_index_title),
+                ) {
                     idx.entries.forEach { e ->
-                        ArrowPreference(title = e.title, summary = e.description, onClick = {})
+                        item {
+                            BaseWidget(
+                                title = e.title,
+                                description = e.description,
+                                onClick = {},
+                                trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            )
+                        }
                     }
                 }
             }

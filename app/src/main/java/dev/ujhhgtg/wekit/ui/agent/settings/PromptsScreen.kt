@@ -7,6 +7,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -17,6 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
@@ -24,14 +31,10 @@ import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PresetPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
 import dev.ujhhgtg.wekit.ui.content.WeKitWindowDialog
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 import java.util.UUID
 
 /**
@@ -58,62 +61,79 @@ fun PromptsScreen(onBack: () -> Unit) {
 
     AgentSettingsScaffold(title = stringResource(R.string.agent_prompts_title), onBack = onBack) {
         // -------- 系统提示词 --------
-        item { SmallTitle(stringResource(R.string.agent_system_prompts)) }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                if (systemPrompts.isEmpty()) EmptyHint(stringResource(R.string.agent_system_prompts_empty))
+            SegmentedColumn(title = stringResource(R.string.agent_system_prompts)) {
+                if (systemPrompts.isEmpty()) item { EmptyHint(stringResource(R.string.agent_system_prompts_empty)) }
                 systemPrompts.forEach { sp ->
-                    ArrowPreference(title = sp.name, summary = sp.content.take(48), onClick = { editSystem = sp })
+                    item {
+                        BaseWidget(
+                            title = sp.name,
+                            description = sp.content.take(48),
+                            onClick = { editSystem = sp },
+                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        )
+                    }
                 }
-                AddRow(stringResource(R.string.agent_add_system_prompt)) { editSystem = SystemPromptEntity("", "", "") }
+                item(topPadding = 8.dp) { AddRow(stringResource(R.string.agent_add_system_prompt)) { editSystem = SystemPromptEntity("", "", "") } }
             }
         }
 
         // -------- 每轮提示词 --------
-        item { SmallTitle(stringResource(R.string.agent_per_turn_prompts)) }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                if (perTurn.isEmpty()) EmptyHint(stringResource(R.string.agent_per_turn_prompts_empty))
+            SegmentedColumn(title = stringResource(R.string.agent_per_turn_prompts)) {
+                if (perTurn.isEmpty()) item { EmptyHint(stringResource(R.string.agent_per_turn_prompts_empty)) }
                 perTurn.forEach { p ->
-                    SwitchPreference(
-                        title = p.title.ifBlank { p.content.take(24) },
-                        summary = p.content.take(48),
-                        checked = p.enabled,
-                        onCheckedChange = { on -> scope.launch { WeAgentRepository.upsertPerTurnPrompt(p.copy(enabled = on)) } },
-                    )
-                    TextButton(text = stringResource(R.string.action_edit), onClick = { editPerTurn = p }, modifier = Modifier.padding(horizontal = 12.dp))
+                    item {
+                        SwitchWidget(
+                            title = p.title.ifBlank { p.content.take(24) },
+                            description = p.content.take(48),
+                            checked = p.enabled,
+                            onCheckedChange = { on -> scope.launch { WeAgentRepository.upsertPerTurnPrompt(p.copy(enabled = on)) } },
+                        )
+                    }
+                    item { TextButton(onClick = { editPerTurn = p }, modifier = Modifier.padding(horizontal = 12.dp)) { Text(stringResource(R.string.action_edit)) } }
                 }
-                AddRow(stringResource(R.string.agent_add_per_turn_prompt)) { editPerTurn = PerTurnPromptEntity("", "", "", true) }
+                item(topPadding = 8.dp) { AddRow(stringResource(R.string.agent_add_per_turn_prompt)) { editPerTurn = PerTurnPromptEntity("", "", "", true) } }
             }
         }
 
         // -------- 条件提示词 --------
-        item { SmallTitle(stringResource(R.string.agent_conditional_prompts)) }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                if (conditionals.isEmpty()) EmptyHint(stringResource(R.string.agent_conditional_prompts_empty))
+            SegmentedColumn(title = stringResource(R.string.agent_conditional_prompts)) {
+                if (conditionals.isEmpty()) item { EmptyHint(stringResource(R.string.agent_conditional_prompts_empty)) }
                 conditionals.forEach { c ->
-                    SwitchPreference(
-                        title = "/${c.regex}/",
-                        summary = c.content.take(48),
-                        checked = c.enabled,
-                        onCheckedChange = { on -> scope.launch { WeAgentRepository.upsertConditionalPrompt(c.copy(enabled = on)) } },
-                    )
-                    TextButton(text = stringResource(R.string.action_edit), onClick = { editConditional = c }, modifier = Modifier.padding(horizontal = 12.dp))
+                    item {
+                        SwitchWidget(
+                            title = "/${c.regex}/",
+                            description = c.content.take(48),
+                            checked = c.enabled,
+                            onCheckedChange = { on -> scope.launch { WeAgentRepository.upsertConditionalPrompt(c.copy(enabled = on)) } },
+                        )
+                    }
+                    item { TextButton(onClick = { editConditional = c }, modifier = Modifier.padding(horizontal = 12.dp)) { Text(stringResource(R.string.action_edit)) } }
                 }
-                AddRow(stringResource(R.string.agent_add_conditional_prompt)) { editConditional = ConditionalPromptEntity("", "", "", true) }
+                item(topPadding = 8.dp) { AddRow(stringResource(R.string.agent_add_conditional_prompt)) { editConditional = ConditionalPromptEntity("", "", "", true) } }
             }
         }
 
         // -------- 预设提示词 --------
-        item { SmallTitle(stringResource(R.string.agent_preset_prompts)) }
         item {
-            Card(Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET)) {
-                if (presets.isEmpty()) EmptyHint(stringResource(R.string.agent_preset_prompts_empty))
+            SegmentedColumn(
+                modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                title = stringResource(R.string.agent_preset_prompts),
+            ) {
+                if (presets.isEmpty()) item { EmptyHint(stringResource(R.string.agent_preset_prompts_empty)) }
                 presets.forEach { p ->
-                    ArrowPreference(title = p.title, summary = p.content.take(48), onClick = { editPreset = p })
+                    item {
+                        BaseWidget(
+                            title = p.title,
+                            description = p.content.take(48),
+                            onClick = { editPreset = p },
+                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        )
+                    }
                 }
-                AddRow(stringResource(R.string.agent_add_preset_prompt)) { editPreset = PresetPromptEntity("", "", "") }
+                item(topPadding = 8.dp) { AddRow(stringResource(R.string.agent_add_preset_prompt)) { editPreset = PresetPromptEntity("", "", "") } }
             }
         }
     }
@@ -213,7 +233,7 @@ fun PromptsScreen(onBack: () -> Unit) {
 
 @Composable
 private fun AddRow(label: String, onClick: () -> Unit) {
-    TextButton(text = label, onClick = onClick, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+    TextButton(onClick = onClick, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) { Text(label) }
 }
 
 /**
@@ -240,24 +260,34 @@ private fun TwoFieldEditor(
     var f2 by remember(field2, show) { mutableStateOf(field2) }
     WeKitWindowDialog(show = show, title = title, onDismissRequest = onDismiss) {
         Column {
-            TextField(value = f1, onValueChange = { f1 = it }, label = field1Label, useLabelAsPlaceholder = true, singleLine = true)
+            OutlinedTextField(
+                value = f1,
+                onValueChange = { f1 = it },
+                label = { Text(field1Label) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(8.dp))
-            TextField(value = f2, onValueChange = { f2 = it }, label = field2Label, useLabelAsPlaceholder = true, maxLines = field2MaxLines)
+            OutlinedTextField(
+                value = f2,
+                onValueChange = { f2 = it },
+                label = { Text(field2Label) },
+                maxLines = field2MaxLines,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
                 if (onDelete != null) {
-                    TextButton(text = stringResource(R.string.action_delete), onClick = onDelete, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onDelete, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_delete)) }
                     Spacer(Modifier.width(8.dp))
                 }
-                TextButton(text = stringResource(R.string.dialog_cancel), onClick = onDismiss, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(8.dp))
                 TextButton(
-                    text = stringResource(R.string.action_save),
                     onClick = { onSave(f1, f2) },
                     enabled = f2.isNotBlank(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f),
-                )
+                ) { Text(stringResource(R.string.action_save)) }
             }
         }
     }
