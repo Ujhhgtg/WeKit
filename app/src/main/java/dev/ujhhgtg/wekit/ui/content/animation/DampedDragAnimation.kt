@@ -122,6 +122,8 @@ class DampedDragAnimation(
                 }
             }
         ) { change, dragAmount ->
+            if (longPressConsumed) return@inspectDragGestures
+
             val position = change.position
             val previousPosition = change.previousPosition
 
