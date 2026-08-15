@@ -150,8 +150,9 @@ abstract class WeAgentDatabase : RoomDatabase() {
             WeAgentDatabase::class.java,
             dbFile.toString()
         )
-            // WAL uses mmap'd -shm/-wal sidecars that misbehave on FUSE-emulated
-            // external storage (moduleData lives on /sdcard); TRUNCATE is safe there.
+            // TRUNCATE is only used for the external-fallback path: WAL uses mmap'd
+            // -shm/-wal sidecars that misbehave on FUSE-emulated external storage
+            // (moduleData lives on /sdcard). Private storage always uses WAL.
             .setJournalMode(journalMode)
             .addMigrations(MIGRATION_11_12)
             // Destructive fallback is scoped to the pre-release schemas (1–8) only, which no
