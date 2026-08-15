@@ -196,6 +196,7 @@ pub fn check_repository(root: &Path) -> Result<()> {
         if (name == "values-zh" || name.starts_with("values-zh-"))
             && name != "values-zh-rCN"
             && name != "values-zh-rTW"
+            && name != "values-zh-rCA"
         {
             errors.push(format!("unexpected Chinese resource directory: {name}"));
         }
@@ -224,6 +225,7 @@ pub fn check_repository(root: &Path) -> Result<()> {
     for (locale, relative_path) in [
         ("zh-rCN", "values-zh-rCN/strings.xml"),
         ("zh-rTW", "values-zh-rTW/strings.xml"),
+        ("zh-rCA", "values-zh-rCA/strings.xml"),
     ] {
         let target_path = res.join(relative_path);
         let target_xml = match read_catalog(&target_path) {
@@ -619,6 +621,7 @@ mod tests {
             "values-zh-rTW",
             r#"<resources><string name="hello">你好</resources>"#,
         );
+        write_catalog(&root, "values-zh-rCA", r#"<resources/>"#);
         let error = check_repository(&root).unwrap_err().to_string();
         assert!(error.contains("values-zh-rCN/strings.xml"), "{error}");
         assert!(error.contains("zh-rCN"), "{error}");
@@ -657,6 +660,7 @@ mod tests {
             r#"<resources><string name="hello">你好</string></resources>"#,
         );
         write_catalog(&root, "values-zh-rTW", r#"<resources/>"#);
+        write_catalog(&root, "values-zh-rCA", r#"<resources/>"#);
         check_repository(&root).unwrap();
 
         write_catalog(&root, "values-zh-rHK", r#"<resources/>"#);
@@ -678,6 +682,7 @@ mod tests {
         );
         write_catalog(&root, "values-zh-rCN", r#"<resources/>"#);
         write_catalog(&root, "values-zh-rTW", r#"<resources/>"#);
+        write_catalog(&root, "values-zh-rCA", r#"<resources/>"#);
         write_catalog(&root, "values-zh", r#"<resources/>"#);
         let error = check_repository(&root).unwrap_err().to_string();
         assert!(
@@ -697,6 +702,7 @@ mod tests {
         );
         write_catalog(&root, "values-zh-rCN", r#"<resources/>"#);
         write_catalog(&root, "values-zh-rTW", r#"<resources/>"#);
+        write_catalog(&root, "values-zh-rCA", r#"<resources/>"#);
 
         let error = check_repository(&root).unwrap_err().to_string();
         assert!(error.contains("values/strings.xml"), "{error}");
