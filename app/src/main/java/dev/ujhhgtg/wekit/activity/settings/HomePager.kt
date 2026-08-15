@@ -4,12 +4,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -19,17 +17,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Check_circle
@@ -38,16 +38,12 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.Intent
 import dev.ujhhgtg.wekit.utils.formatEpoch
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 
 // ---------------------------------------------------------------------------
@@ -96,7 +92,7 @@ fun HomePager(onOpenFeatures: () -> Unit) {
     }
     val totalCount = remember { FeaturesProvider.ALL_HOOK_ITEMS.size }
 
-    MiuixListScaffold(title = stringResource(R.string.app_name)) {
+    M3ListScaffold(title = stringResource(R.string.app_name)) {
         item {
             Column(
                 modifier = Modifier.padding(top = 12.dp),
@@ -116,7 +112,6 @@ fun HomePager(onOpenFeatures: () -> Unit) {
 
 @Composable
 private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> Unit) {
-    val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
     Row(
         modifier = Modifier
@@ -130,15 +125,10 @@ private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> 
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight(),
-            colors = CardDefaults.defaultColors(
-                color = when {
-                    MiuixTheme.isDynamicColor -> MiuixTheme.colorScheme.secondaryContainer
-                    isDark -> Color(0xFF1A3825)
-                    else -> Color(0xFFDFFAE4)
-                }
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ),
-            showIndication = true,
-            pressFeedbackType = PressFeedbackType.Tilt,
             onClick = { openLsposedManager(context) },
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
@@ -151,11 +141,7 @@ private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> 
                     Icon(
                         modifier = Modifier.size(170.dp),
                         imageVector = MaterialSymbols.Outlined.Check_circle,
-                        tint = if (MiuixTheme.isDynamicColor) {
-                            MiuixTheme.colorScheme.primary.copy(alpha = 0.8f)
-                        } else {
-                            Color(0xFF36D167)
-                        },
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                         contentDescription = null,
                     )
                 }
@@ -166,11 +152,13 @@ private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> 
                 ) {
                     Text(
                         text = stringResource(R.string.home_module_activated),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleLarge,
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(text = BuildConfig.VERSION_NAME, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = BuildConfig.VERSION_NAME,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
         }
@@ -203,23 +191,26 @@ private fun StatusRow(enabledCount: Int, totalCount: Int, onOpenFeatures: () -> 
 private fun CountCard(modifier: Modifier, label: String, value: String, onClick: () -> Unit) {
     Card(
         modifier = modifier,
-        insideMargin = PaddingValues(16.dp),
-        showIndication = true,
-        pressFeedbackType = PressFeedbackType.Tilt,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceBright,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
         onClick = onClick
     ) {
-        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
             Text(
                 text = label,
-                fontWeight = FontWeight.Medium,
-                fontSize = 15.sp,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = value,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MiuixTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.headlineMedium,
             )
         }
     }
@@ -227,38 +218,42 @@ private fun CountCard(modifier: Modifier, label: String, value: String, onClick:
 
 @Composable
 private fun SystemInfoCard() {
-    Card {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            InfoText(
-                stringResource(R.string.home_wechat_version),
-                stringResource(R.string.home_version_value, HostInfo.versionName, HostInfo.versionCode),
-            )
-            InfoText(
-                stringResource(R.string.home_module_version),
-                stringResource(R.string.home_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
-            )
-            InfoText(stringResource(R.string.home_build_time), formatEpoch(BuildConfig.BUILD_TIMESTAMP, true))
-            InfoText(
-                stringResource(R.string.home_device_model),
-                stringResource(R.string.home_device_model_value, Build.MANUFACTURER, Build.MODEL),
-            )
-            InfoText(
-                stringResource(R.string.home_android_version),
-                stringResource(R.string.home_android_version_value, Build.VERSION.RELEASE, Build.VERSION.SDK_INT),
-            )
-            InfoText(
-                title = stringResource(R.string.home_loading_environment),
-                content = stringResource(
-                    R.string.home_loading_environment_value,
-                    StartupInfo.loaderService.loaderName,
-                    StartupInfo.hookBridge?.hookBridgeName ?: stringResource(R.string.common_not_provided),
-                ),
-                bottomPadding = 0.dp,
-            )
+    SegmentedColumn {
+        item {
+            BaseItemContainer {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    InfoText(
+                        stringResource(R.string.home_wechat_version),
+                        stringResource(R.string.home_version_value, HostInfo.versionName, HostInfo.versionCode),
+                    )
+                    InfoText(
+                        stringResource(R.string.home_module_version),
+                        stringResource(R.string.home_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                    )
+                    InfoText(stringResource(R.string.home_build_time), formatEpoch(BuildConfig.BUILD_TIMESTAMP, true))
+                    InfoText(
+                        stringResource(R.string.home_device_model),
+                        stringResource(R.string.home_device_model_value, Build.MANUFACTURER, Build.MODEL),
+                    )
+                    InfoText(
+                        stringResource(R.string.home_android_version),
+                        stringResource(R.string.home_android_version_value, Build.VERSION.RELEASE, Build.VERSION.SDK_INT),
+                    )
+                    InfoText(
+                        title = stringResource(R.string.home_loading_environment),
+                        content = stringResource(
+                            R.string.home_loading_environment_value,
+                            StartupInfo.loaderService.loaderName,
+                            StartupInfo.hookBridge?.hookBridgeName ?: stringResource(R.string.common_not_provided),
+                        ),
+                        bottomPadding = 0.dp,
+                    )
+                }
+            }
         }
     }
 }
@@ -267,14 +262,12 @@ private fun SystemInfoCard() {
 private fun InfoText(title: String, content: String, bottomPadding: Dp = 24.dp) {
     Text(
         text = title,
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Medium,
-        color = MiuixTheme.colorScheme.onSurface,
+        style = MaterialTheme.typography.bodyLarge,
     )
     Text(
         text = content,
-        fontSize = 14.sp,
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 2.dp, bottom = bottomPadding),
     )
 }
