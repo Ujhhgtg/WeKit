@@ -196,7 +196,7 @@ class ReadReceiptsConfigurationTest {
     fun `round trips legacy endpoint strings verbatim`() {
         val configuration = ReadReceiptsConfiguration(
             mode = ReadReceiptsServerMode.BUILT_IN,
-            thirdPartyUrl = "http://inactive.example/legacy/",
+            thirdPartyUrl = "ftp://inactive.example/legacy/",
             hostname = "HTTPS://例子.测试/路径/",
         )
 

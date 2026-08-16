@@ -1136,49 +1136,6 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
-    fun `connection transaction distinguishes completed success failure and superseded effects`() {
-        listOf(
-            OriginRequestTerminal.Completed(Result.success(Unit)),
-            OriginRequestTerminal.Completed(Result.failure<Unit>(IllegalStateException("failed"))),
-            OriginRequestTerminal.Superseded,
-        ).forEachIndexed { index, terminal ->
-            val ownershipReleases = AtomicInteger()
-            val saves = AtomicInteger()
-            val rollbacks = AtomicInteger()
-            val starts = AtomicInteger()
-            val stops = AtomicInteger()
-            val tokenClears = AtomicInteger()
-            val owner = ConnectionTransactionOwner(ownershipReleases::incrementAndGet)
-
-            owner.finish(
-                terminal = terminal,
-                onCompletedSuccess = {
-                    saves.incrementAndGet()
-                    tokenClears.incrementAndGet()
-                },
-                onCompletedFailure = {
-                    rollbacks.incrementAndGet()
-                    stops.incrementAndGet()
-                },
-                onSuperseded = {},
-            )
-            owner.finish(
-                terminal = terminal,
-                onCompletedSuccess = { starts.incrementAndGet() },
-                onCompletedFailure = { starts.incrementAndGet() },
-                onSuperseded = { starts.incrementAndGet() },
-            )
-
-            assertEquals(1, ownershipReleases.get(), "terminal $index ownership")
-            assertEquals(if (index == 0) 1 else 0, saves.get(), "terminal $index save")
-            assertEquals(if (index == 1) 1 else 0, rollbacks.get(), "terminal $index rollback")
-            assertEquals(0, starts.get(), "terminal $index start")
-            assertEquals(if (index == 1) 1 else 0, stops.get(), "terminal $index stop")
-            assertEquals(if (index == 0) 1 else 0, tokenClears.get(), "terminal $index token")
-        }
-    }
-
-    @Test
     fun `coalesced stop revalidates remaining owners after current callback reenters`() {
         val callbacks = CoalescedOriginCallbacks<Unit>()
         val originGeneration = AtomicLong(70)
@@ -1247,43 +1204,6 @@ class ReadReceiptsTunnelCoordinationTest {
     }
 
     @Test
-    fun `newer connection owner survives old release and clears only its own success token`() {
-        val activeChanges = mutableListOf<Boolean>()
-        val ownership = ConnectionTransactionOwnership(activeChanges::add)
-        val tokenClears = AtomicInteger()
-        val oldOwner = ownership.acquire()
-        val currentOwner = ownership.acquire()
-
-        oldOwner.finish(
-            terminal = OriginRequestTerminal.Superseded,
-            onCompletedSuccess = { tokenClears.incrementAndGet() },
-            onCompletedFailure = {},
-            onSuperseded = {},
-        )
-        assertEquals(listOf(true), activeChanges)
-
-        currentOwner.finish(
-            terminal = OriginRequestTerminal.Completed(
-                Result.failure<Unit>(IllegalStateException("failed")),
-            ),
-            onCompletedSuccess = { tokenClears.incrementAndGet() },
-            onCompletedFailure = {},
-            onSuperseded = {},
-        )
-        assertEquals(listOf(true, false), activeChanges)
-        assertEquals(0, tokenClears.get())
-
-        ownership.acquire().finish(
-            terminal = OriginRequestTerminal.Completed(Result.success(Unit)),
-            onCompletedSuccess = { tokenClears.incrementAndGet() },
-            onCompletedFailure = {},
-            onSuperseded = {},
-        )
-        assertEquals(listOf(true, false, true, false), activeChanges)
-        assertEquals(1, tokenClears.get())
-    }
-
-    @Test
     fun `new configuration transaction prevents delayed browser authority from replacing it`() {
         val ownership = ConfigurationTransactionOwnership()
         val persistedModes = mutableListOf<ReadReceiptsTunnelMode>()
@@ -1315,39 +1235,6 @@ class ReadReceiptsTunnelCoordinationTest {
         assertFalse(pendingBrowser.isCurrent())
         assertFalse(pendingBrowser.runIfCurrent(staleWrites::incrementAndGet))
         assertEquals(0, staleWrites.get())
-    }
-
-    @Test
-    fun `superseded notification rejection restore only releases the old UI transaction`() {
-        val ownershipReleases = AtomicInteger()
-        val saves = AtomicInteger()
-        val rollbacks = AtomicInteger()
-        val starts = AtomicInteger()
-        val stops = AtomicInteger()
-        val tokenClears = AtomicInteger()
-        val owner = ConnectionTransactionOwner(ownershipReleases::incrementAndGet)
-
-        finishNotificationRejectionRestore(
-            stopTerminal = OriginRequestTerminal.Superseded,
-            originalFailure = IllegalStateException("notifications rejected"),
-            savePrevious = saves::incrementAndGet,
-            restartPrevious = starts::incrementAndGet,
-            onFinished = { terminal ->
-                owner.finish(
-                    terminal = terminal,
-                    onCompletedSuccess = { tokenClears.incrementAndGet() },
-                    onCompletedFailure = { rollbacks.incrementAndGet(); stops.incrementAndGet() },
-                    onSuperseded = {},
-                )
-            },
-        )
-
-        assertEquals(1, ownershipReleases.get())
-        assertEquals(0, saves.get())
-        assertEquals(0, rollbacks.get())
-        assertEquals(0, starts.get())
-        assertEquals(0, stops.get())
-        assertEquals(0, tokenClears.get())
     }
 
     @Test

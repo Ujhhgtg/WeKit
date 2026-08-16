@@ -35,6 +35,18 @@ class ReadReceiptRecordTest {
     }
 
     @Test
+    fun `accepts and canonicalizes http third party endpoints`() {
+        assertEquals(
+            "http://receipts.example/api",
+            normalizeThirdPartyReadReceiptEndpoint("http://receipts.example/api/"),
+        )
+        assertEquals(
+            "http://receipts.example",
+            normalizeThirdPartyReadReceiptEndpoint("HTTP://receipts.example"),
+        )
+    }
+
+    @Test
     fun `rejects oversized raw endpoint hidden by trailing slashes`() {
         val endpoint = "https://receipts.example" + "/".repeat(2048)
 
@@ -95,7 +107,7 @@ class ReadReceiptRecordTest {
         for (
             endpoint in listOf(
                 "http://",
-                "http://receipts.example",
+                "ftp://receipts.example",
                 "https:///path",
                 "https://?query",
                 "https://user:password@receipts.example",

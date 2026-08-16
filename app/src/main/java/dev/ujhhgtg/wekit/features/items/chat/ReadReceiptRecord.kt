@@ -21,9 +21,9 @@ internal fun normalizeThirdPartyReadReceiptEndpoint(value: String): String? {
         return null
     }
     val schemeSeparator = trimmed.indexOf("://")
-    if (schemeSeparator < 0 || !trimmed.substring(0, schemeSeparator).equals("https", true)) {
-        return null
-    }
+    if (schemeSeparator < 0) return null
+    val scheme = trimmed.substring(0, schemeSeparator).lowercase()
+    if (scheme != "http" && scheme != "https") return null
     val authorityStart = schemeSeparator + 3
     val authorityEnd = trimmed.indexOfAny(charArrayOf('/', '?', '#'), authorityStart)
         .takeIf { it >= 0 } ?: trimmed.length
@@ -31,7 +31,7 @@ internal fun normalizeThirdPartyReadReceiptEndpoint(value: String): String? {
     if (rawAuthority.isEmpty() || '@' in rawAuthority) return null
     val url = trimmed.toHttpUrlOrNull() ?: return null
     if (
-        url.scheme != "https" || url.username.isNotEmpty() || url.password.isNotEmpty() ||
+        url.username.isNotEmpty() || url.password.isNotEmpty() ||
         url.query != null || url.fragment != null
     ) {
         return null

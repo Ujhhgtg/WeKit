@@ -25,6 +25,11 @@ data class ReadReceiptsConfiguration(
     val selectedTunnelName: String = "",
 )
 
+/** Resolves the persisted tunnel-mode name, falling back to QUICK for unknown values. */
+internal fun ReadReceiptsConfiguration.tunnelMode(): ReadReceiptsTunnelMode =
+    ReadReceiptsTunnelMode.entries.firstOrNull { it.name == tunnelMode }
+        ?: ReadReceiptsTunnelMode.QUICK
+
 internal enum class ReadReceiptsConfigurationSaveAction {
     COMMIT,
     STOP_THEN_COMMIT,
@@ -76,9 +81,7 @@ private fun builtInRuntimeIdentity(
     configuration: ReadReceiptsConfiguration,
 ): BuiltInRuntimeIdentity? {
     if (configuration.mode != ReadReceiptsServerMode.BUILT_IN) return null
-    val mode = ReadReceiptsTunnelMode.entries.firstOrNull {
-        it.name == configuration.tunnelMode
-    } ?: ReadReceiptsTunnelMode.QUICK
+    val mode = configuration.tunnelMode()
     val canonicalHostname = when (mode) {
         ReadReceiptsTunnelMode.QUICK -> null
         ReadReceiptsTunnelMode.TOKEN,

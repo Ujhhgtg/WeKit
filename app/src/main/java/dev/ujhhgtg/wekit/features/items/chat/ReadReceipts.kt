@@ -9,35 +9,8 @@ import android.view.View
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
@@ -50,18 +23,10 @@ import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.features.items.chat.ReadReceipts.originLifecycleMutex
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
-import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
-import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CoroutineScope
@@ -116,12 +81,12 @@ internal fun readReceiptNetworkFailureCategory(failure: Throwable): String = whe
     else -> "response"
 }
 
-private class ReadReceiptsLocalFailure(
+internal class ReadReceiptsLocalFailure(
     @StringRes val messageRes: Int,
     vararg val formatArgs: Any,
 ) : IllegalStateException()
 
-private sealed interface ReadReceiptRuntimeError {
+internal sealed interface ReadReceiptRuntimeError {
     fun message(context: Context): String
 
     class Resource(
@@ -145,7 +110,7 @@ private sealed interface ReadReceiptRuntimeError {
     }
 }
 
-private sealed interface ReadReceiptsUiText {
+internal sealed interface ReadReceiptsUiText {
     @Composable
     fun resolve(): String
 
@@ -179,97 +144,7 @@ private sealed interface ReadReceiptsUiText {
     }
 }
 
-private val ReadReceiptsRuntimeState.labelRes: Int
-    @StringRes get() = when (this) {
-        ReadReceiptsRuntimeState.STOPPED -> R.string.read_receipts_state_stopped
-        ReadReceiptsRuntimeState.STARTING -> R.string.read_receipts_state_starting
-        ReadReceiptsRuntimeState.RUNNING -> R.string.read_receipts_state_running
-        ReadReceiptsRuntimeState.STOPPING -> R.string.read_receipts_state_stopping
-        ReadReceiptsRuntimeState.FAILED -> R.string.read_receipts_state_failed
-    }
 
-private val ReadReceiptsTunnelState.labelRes: Int
-    @StringRes get() = when (this) {
-        ReadReceiptsTunnelState.STOPPED -> R.string.read_receipts_state_stopped
-        ReadReceiptsTunnelState.STARTING -> R.string.read_receipts_state_starting
-        ReadReceiptsTunnelState.CONNECTED -> R.string.read_receipts_tunnel_state_connected
-        ReadReceiptsTunnelState.RECONNECTING -> R.string.read_receipts_tunnel_state_reconnecting
-        ReadReceiptsTunnelState.NEEDS_USER_ACTION -> R.string.read_receipts_state_needs_user_action
-        ReadReceiptsTunnelState.FAILED -> R.string.read_receipts_state_failed
-        ReadReceiptsTunnelState.STOPPING -> R.string.read_receipts_state_stopping
-    }
-
-private val ReadReceiptsTunnelState.browserLoginLabelRes: Int
-    @StringRes get() = when (this) {
-        ReadReceiptsTunnelState.STOPPED -> R.string.read_receipts_browser_login_state_signed_out
-        ReadReceiptsTunnelState.STARTING -> R.string.read_receipts_browser_login_state_waiting
-        ReadReceiptsTunnelState.CONNECTED -> R.string.read_receipts_browser_login_state_authorized
-        ReadReceiptsTunnelState.FAILED -> R.string.read_receipts_browser_login_state_failed
-        ReadReceiptsTunnelState.RECONNECTING -> R.string.read_receipts_browser_login_state_restoring
-        ReadReceiptsTunnelState.NEEDS_USER_ACTION -> R.string.read_receipts_state_needs_user_action
-        ReadReceiptsTunnelState.STOPPING -> R.string.read_receipts_browser_login_state_cancelling
-    }
-
-/** Runs one connection owner's terminal policy exactly once. */
-internal class ConnectionTransactionOwner(
-    private val releaseOwnership: () -> Unit,
-    private val finishOwnership: (() -> Boolean)? = null,
-) {
-    private var finished = false
-
-    fun <T> finish(
-        terminal: OriginRequestTerminal<T>,
-        onCompletedSuccess: (T) -> Unit,
-        onCompletedFailure: (Throwable) -> Unit,
-        onSuperseded: () -> Unit,
-    ): Boolean {
-        synchronized(this) {
-            if (finished) return false
-            finished = true
-        }
-        val wasCurrent = finishOwnership?.invoke() ?: run {
-            releaseOwnership()
-            true
-        }
-        val effectiveTerminal = if (wasCurrent) terminal else OriginRequestTerminal.Superseded
-        when (effectiveTerminal) {
-            is OriginRequestTerminal.Completed -> effectiveTerminal.result.fold(
-                onSuccess = onCompletedSuccess,
-                onFailure = onCompletedFailure,
-            )
-
-            OriginRequestTerminal.Superseded -> onSuperseded()
-        }
-        return true
-    }
-}
-
-/** Keeps connection UI ownership bound to the latest transaction. */
-internal class ConnectionTransactionOwnership(
-    private val onActiveChanged: (Boolean) -> Unit,
-) {
-    private var nextOwnerId = 0L
-    private var currentOwnerId: Long? = null
-
-    @Synchronized
-    fun acquire(): ConnectionTransactionOwner {
-        val ownerId = ++nextOwnerId
-        if (currentOwnerId == null) onActiveChanged(true)
-        currentOwnerId = ownerId
-        return ConnectionTransactionOwner(
-            releaseOwnership = {},
-            finishOwnership = { releaseIfCurrent(ownerId) },
-        )
-    }
-
-    @Synchronized
-    private fun releaseIfCurrent(ownerId: Long): Boolean {
-        if (currentOwnerId != ownerId) return false
-        currentOwnerId = null
-        onActiveChanged(false)
-        return true
-    }
-}
 
 /** Owns configuration persistence across delayed connection and metadata continuations. */
 internal class ConfigurationTransactionOwnership {
@@ -319,24 +194,6 @@ internal class ConfigurationTransactionOwner(
         ownership.finishIfCurrent(ownerId, action)
 }
 
-/** Restores a notification-rejected current transaction, or only propagates replacement. */
-internal fun finishNotificationRejectionRestore(
-    stopTerminal: OriginRequestTerminal<Unit>,
-    originalFailure: Throwable,
-    savePrevious: () -> Unit,
-    restartPrevious: () -> Unit,
-    onFinished: (OriginRequestTerminal<Unit>) -> Unit,
-) {
-    when (stopTerminal) {
-        is OriginRequestTerminal.Completed -> {
-            savePrevious()
-            restartPrevious()
-            onFinished(OriginRequestTerminal.Completed(Result.failure(originalFailure)))
-        }
-
-        OriginRequestTerminal.Superseded -> onFinished(OriginRequestTerminal.Superseded)
-    }
-}
 
 internal fun finishBuiltInStackStop(
     tunnelResult: Result<Unit>,
@@ -458,7 +315,13 @@ object ReadReceipts : ClickableFeature(),
     )
 
     @Volatile
-    private var runtimeError: ReadReceiptRuntimeError? = null
+    internal var runtimeError: ReadReceiptRuntimeError? = null
+
+    internal fun originStatus(): ReadReceiptsStatus = originController.snapshot()
+
+    internal fun originActive(): Boolean = originController.status().let {
+        it != ReadReceiptsRuntimeState.STOPPED && it != ReadReceiptsRuntimeState.FAILED
+    }
 
     private val originController = NativeReadReceiptsServerController()
     private val originScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -467,7 +330,6 @@ object ReadReceipts : ClickableFeature(),
     private val originRequestBoundary = OriginRequestBoundary()
     private val builtInStopCallbacks = CoalescedOriginCallbacks<Unit>()
     private val configurationTransactionOwnership = ConfigurationTransactionOwnership()
-    private val settingsDialogGeneration = AtomicLong()
 
     private data class OriginRequest(
         val generation: Long,
@@ -475,7 +337,7 @@ object ReadReceipts : ClickableFeature(),
         val forceRestart: Boolean,
     )
 
-    private fun configuration(): ReadReceiptsConfiguration {
+    internal fun configuration(): ReadReceiptsConfiguration {
         loadedConfiguration?.let { return it }
         return synchronized(configurationLock) {
             loadedConfiguration?.let { return@synchronized it }
@@ -495,7 +357,7 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    private fun saveConfiguration(value: ReadReceiptsConfiguration) {
+    internal fun saveConfiguration(value: ReadReceiptsConfiguration) {
         configurationTransactionOwnership.supersede()
         persistConfiguration(value)
     }
@@ -797,7 +659,7 @@ object ReadReceipts : ClickableFeature(),
     private fun requestedBuiltInPort(value: ReadReceiptsConfiguration = configuration()): Int =
         if (value.automaticPort) 0 else value.builtInPort
 
-    private fun normalizedHttpsEndpoint(value: String): String? {
+    private fun normalizedEndpoint(value: String): String? {
         return normalizeThirdPartyReadReceiptEndpoint(value)
     }
 
@@ -808,7 +670,7 @@ object ReadReceipts : ClickableFeature(),
         val configuration = configuration()
         return when (configuration.mode) {
             ReadReceiptsServerMode.THIRD_PARTY -> {
-                val endpoint = normalizedHttpsEndpoint(configuration.thirdPartyUrl)
+                val endpoint = normalizedEndpoint(configuration.thirdPartyUrl)
                     ?: return null to ReadReceiptRuntimeError.Resource(
                         R.string.chat_read_receipts_server_missing,
                     )
@@ -855,16 +717,25 @@ object ReadReceipts : ClickableFeature(),
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-    private fun tunnelMode(configuration: ReadReceiptsConfiguration): ReadReceiptsTunnelMode =
-        ReadReceiptsTunnelMode.entries.firstOrNull { it.name == configuration.tunnelMode }
-            ?: ReadReceiptsTunnelMode.QUICK
-
+    /** Starts the fixed/automatic origin before handing its actual port to one tunnel candidate. */
     private fun startBuiltInStack(
         configuration: ReadReceiptsConfiguration,
         token: String? = null,
         onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
     ) {
-        val mode = tunnelMode(configuration)
+        if (configuration.mode != ReadReceiptsServerMode.BUILT_IN) {
+            onFinished?.invoke(
+                OriginRequestTerminal.Completed(
+                    Result.failure(
+                        ReadReceiptsLocalFailure(
+                            R.string.read_receipts_built_in_mode_required,
+                        ),
+                    ),
+                ),
+            )
+            return
+        }
+        val mode = configuration.tunnelMode()
         startBuiltInCandidate(
             configuration = configuration,
             startTunnel = { port, complete ->
@@ -886,7 +757,7 @@ object ReadReceipts : ClickableFeature(),
         startTunnel: (Int, (OriginRequestTerminal<Unit>) -> Unit) -> Unit,
         onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
     ) {
-        val mode = tunnelMode(configuration)
+        val mode = configuration.tunnelMode()
         if (
             mode in setOf(
                 ReadReceiptsTunnelMode.TOKEN,
@@ -969,7 +840,7 @@ object ReadReceipts : ClickableFeature(),
         return metadata
     }
 
-    private fun authoritativeBrowserConfiguration(
+    internal fun authoritativeBrowserConfiguration(
         base: ReadReceiptsConfiguration,
         expectedTunnelId: String? = null,
         expectedHostname: String? = null,
@@ -985,7 +856,7 @@ object ReadReceipts : ClickableFeature(),
     /** Lifecycle-only persistence for an already-selected Browser configuration. */
     private fun reconcileActiveBrowserConfiguration(): ReadReceiptsConfiguration? {
         val current = configuration()
-        if (tunnelMode(current) != ReadReceiptsTunnelMode.BROWSER_LOGIN) return null
+        if (current.tunnelMode() != ReadReceiptsTunnelMode.BROWSER_LOGIN) return null
 
         val reconciled = authoritativeBrowserConfiguration(current) ?: return null
         if (reconciled != current) saveConfiguration(reconciled)
@@ -1109,7 +980,7 @@ object ReadReceipts : ClickableFeature(),
     ) {
         val owner = configurationTransactionOwnership.acquire()
         val previous = configuration()
-        val candidateMode = tunnelMode(candidate)
+        val candidateMode = candidate.tunnelMode()
         val canonicalCandidate = if (
             candidateMode in setOf(
                 ReadReceiptsTunnelMode.TOKEN,
@@ -1298,7 +1169,37 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    private fun applyAndStartBuiltInStack(
+    internal fun applyAndStartBuiltInStack(
+        candidate: ReadReceiptsConfiguration,
+        token: String?,
+        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
+    ) {
+        if (candidate.mode != ReadReceiptsServerMode.BUILT_IN) {
+            onFinished(
+                OriginRequestTerminal.Completed(
+                    Result.failure(
+                        ReadReceiptsLocalFailure(R.string.read_receipts_built_in_mode_required),
+                    ),
+                ),
+            )
+            return
+        }
+        if (candidate.tunnelMode() == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
+            onFinished(
+                OriginRequestTerminal.Completed(
+                    Result.failure(
+                        ReadReceiptsLocalFailure(
+                            R.string.read_receipts_select_browser_tunnel_first,
+                        ),
+                    ),
+                ),
+            )
+            return
+        }
+        applyAndStartVerifiedBuiltInStack(candidate, token, onFinished)
+    }
+
+    private fun applyAndStartVerifiedBuiltInStack(
         candidate: ReadReceiptsConfiguration,
         token: String?,
         onFinished: (OriginRequestTerminal<Unit>) -> Unit,
@@ -1344,11 +1245,30 @@ object ReadReceipts : ClickableFeature(),
         onFinished = onFinished,
     )
 
+    internal fun reconnectAuthoritativeBrowserStack(
+        base: ReadReceiptsConfiguration,
+        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
+    ) {
+        val candidate = authoritativeBrowserConfiguration(base) ?: run {
+            onFinished(
+                OriginRequestTerminal.Completed(
+                    Result.failure(
+                        ReadReceiptsLocalFailure(
+                            R.string.read_receipts_authoritative_config_pending,
+                        ),
+                    ),
+                ),
+            )
+            return
+        }
+        applyAndStartVerifiedBuiltInStack(candidate, null, onFinished)
+    }
+
     private suspend fun awaitTunnelCandidateVerification(
         owner: ConfigurationTransactionOwner,
         candidate: ReadReceiptsConfiguration,
     ): OriginRequestTerminal<Unit> {
-        val expectedEndpoint = when (tunnelMode(candidate)) {
+        val expectedEndpoint = when (candidate.tunnelMode()) {
             ReadReceiptsTunnelMode.QUICK -> null
             ReadReceiptsTunnelMode.TOKEN,
             ReadReceiptsTunnelMode.BROWSER_LOGIN,
@@ -1415,7 +1335,7 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    private fun applyAndSelectBrowserStack(
+    internal fun applyAndSelectBrowserStack(
         candidate: ReadReceiptsConfiguration,
         onCommitPending: () -> Unit,
         onFinished: (OriginRequestTerminal<Unit>) -> Unit,
@@ -1427,7 +1347,7 @@ object ReadReceipts : ClickableFeature(),
         onFinished = onFinished,
     )
 
-    private fun applyConfigurationAfterStoppingStack(
+    internal fun applyConfigurationAfterStoppingStack(
         candidate: ReadReceiptsConfiguration,
         onFinished: (OriginRequestTerminal<Unit>) -> Unit,
     ) {
@@ -1459,7 +1379,7 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    private fun stopBuiltInStack(
+    internal fun stopBuiltInStack(
         onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
     ) {
         if (!builtInStopCallbacks.register(onFinished)) return
@@ -1481,6 +1401,19 @@ object ReadReceipts : ClickableFeature(),
                     }
                 }
             }
+        }
+    }
+
+    internal fun disconnectBuiltInStack(
+        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
+    ) {
+        val owner = configurationTransactionOwnership.acquire()
+        stopBuiltInStack { terminal ->
+            if (!owner.finishIfCurrent()) {
+                onFinished(OriginRequestTerminal.Superseded)
+                return@stopBuiltInStack
+            }
+            onFinished(terminal)
         }
     }
 
@@ -2214,22 +2147,14 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    // ── Settings dialog ─────────────────────────────────────────────────────────
+    // Settings activity support
 
-    private fun testThirdPartyEndpoint(
-        context: ComponentActivity,
+    internal fun testThirdPartyEndpoint(
         value: String,
         scope: CoroutineScope,
-        isCurrentDialog: () -> Boolean,
+        onResult: (Result<Unit>) -> Unit,
     ): Job? {
-        val endpoint = normalizedHttpsEndpoint(value)
-        if (endpoint == null) {
-            showToast(
-                context,
-                context.localizedChatString(R.string.read_receipts_invalid_third_party_https),
-            )
-            return null
-        }
+        val endpoint = normalizedEndpoint(value) ?: return null
         return scope.launch {
             val request = Request.Builder()
                 .url("$endpoint/count?wxId=wekit-health-check&id=${"0".repeat(64)}")
@@ -2242,1501 +2167,18 @@ object ReadReceipts : ClickableFeature(),
             }
             currentCoroutineContext().ensureActive()
             withContext(Dispatchers.Main.immediate) {
-                if (!isCurrentDialog()) return@withContext
+                onResult(result)
                 result.exceptionOrNull()?.let {
                     WeLogger.w(
                         TAG,
                         "server connection failed (${readReceiptNetworkFailureCategory(it)})",
                     )
                 }
-                showToast(
-                    context,
-                    result.fold(
-                        onSuccess = {
-                            context.localizedChatString(
-                                R.string.read_receipts_server_connection_succeeded,
-                            )
-                        },
-                        onFailure = {
-                            context.localizedChatString(
-                                R.string.read_receipts_server_connection_failed,
-                            )
-                        },
-                    ),
-                )
             }
         }
     }
 
     override fun onClick(context: ComponentActivity) {
-        val dialogGeneration = settingsDialogGeneration.incrementAndGet()
-        showComposeDialog(context) {
-            val initialConfiguration = remember { configuration() }
-            val dialogScope = rememberCoroutineScope()
-            var serverTestJob by remember { mutableStateOf<Job?>(null) }
-            DisposableEffect(dialogGeneration) {
-                onDispose {
-                    serverTestJob?.cancel()
-                    settingsDialogGeneration.compareAndSet(
-                        dialogGeneration,
-                        dialogGeneration + 1,
-                    )
-                }
-            }
-            var modeInput by remember { mutableStateOf(initialConfiguration.mode) }
-            var serverInput by remember { mutableStateOf(initialConfiguration.thirdPartyUrl) }
-            var prefixInput by remember { mutableStateOf(initialConfiguration.prefix) }
-            var intervalInput by remember {
-                mutableStateOf(initialConfiguration.pollIntervalSecs.toString())
-            }
-            var automaticPortInput by remember {
-                mutableStateOf(initialConfiguration.automaticPort)
-            }
-            var builtInPortInput by remember {
-                mutableStateOf(initialConfiguration.builtInPort.toString())
-            }
-            var automaticLifecycleInput by remember {
-                mutableStateOf(initialConfiguration.automaticLifecycle)
-            }
-            var tunnelModeInput by remember {
-                mutableStateOf(tunnelMode(initialConfiguration))
-            }
-            var hostnameInput by remember { mutableStateOf(initialConfiguration.hostname) }
-            var tokenInput by remember { mutableStateOf("") }
-            var revealToken by remember { mutableStateOf(false) }
-            var connectionTransactionActive by remember { mutableStateOf(false) }
-            val connectionTransactionOwnership = remember {
-                ConnectionTransactionOwnership { connectionTransactionActive = it }
-            }
-            var originStatus by remember { mutableStateOf(originController.snapshot()) }
-            var tunnelStatus by remember { mutableStateOf(ReadReceiptsTunnelController.status) }
-            var committedCredentialMetadata by remember {
-                mutableStateOf(ReadReceiptsTunnelController.committedCredentialMetadata)
-            }
-            var browserLoginState by remember {
-                mutableStateOf(ReadReceiptsTunnelController.browserLoginState)
-            }
-            var browserAccountId by remember {
-                mutableStateOf(ReadReceiptsTunnelController.browserAccountId)
-            }
-            var browserTunnels by remember {
-                mutableStateOf(ReadReceiptsTunnelController.browserExistingTunnels)
-            }
-            var selectedBrowserTunnelId by remember {
-                mutableStateOf(initialConfiguration.selectedTunnelId)
-            }
-            var selectedConfiguredHostname by remember { mutableStateOf<String?>(null) }
-            var manualBrowserHostname by remember {
-                mutableStateOf(initialConfiguration.hostname)
-            }
-            var browserOperationActive by remember { mutableStateOf(false) }
-            var browserActionError by remember { mutableStateOf<ReadReceiptsUiText?>(null) }
-            var browserCommitPending by remember { mutableStateOf(false) }
-            var hydratedBrowserAuthority by remember {
-                mutableStateOf<CommittedBrowserTunnelMetadata?>(null)
-            }
-
-            LaunchedEffect(Unit) {
-                ReadReceiptsTunnelController.refresh()
-                while (true) {
-                    originStatus = withContext(Dispatchers.IO) { originController.snapshot() }
-                    tunnelStatus = ReadReceiptsTunnelController.status
-                    committedCredentialMetadata =
-                        ReadReceiptsTunnelController.committedCredentialMetadata
-                    browserLoginState = ReadReceiptsTunnelController.browserLoginState
-                    browserAccountId = ReadReceiptsTunnelController.browserAccountId
-                    browserTunnels = ReadReceiptsTunnelController.browserExistingTunnels
-                    val authority = when (val decision =
-                        ReadReceiptsTunnelController.browserMetadataRebindDecision
-                    ) {
-                        BrowserMetadataRebindDecision.Keep -> null
-                        is BrowserMetadataRebindDecision.Replace -> decision.metadata
-                    }
-                    if (
-                        tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN &&
-                        authority != null && authority != hydratedBrowserAuthority
-                    ) {
-                        automaticPortInput = false
-                        builtInPortInput = authority.fixedOriginPort.toString()
-                        hostnameInput = authority.canonicalHostname
-                        manualBrowserHostname = authority.canonicalHostname
-                        selectedBrowserTunnelId = authority.tunnelId
-                        selectedConfiguredHostname = browserTunnels
-                            .firstOrNull { it.id == authority.tunnelId }
-                            ?.hostnames
-                            ?.firstOrNull { "https://$it" == authority.canonicalHostname }
-                            ?.let { "https://$it" }
-                        hydratedBrowserAuthority = authority
-                    }
-                    delay(500.milliseconds)
-                }
-            }
-
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_read_receipts_name)) },
-                text = {
-                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                if (modeInput != ReadReceiptsServerMode.THIRD_PARTY) {
-                                    configurationTransactionOwnership.supersede()
-                                }
-                                modeInput = ReadReceiptsServerMode.THIRD_PARTY
-                            },
-                            trailingContent = {
-                                RadioButton(
-                                    selected = modeInput == ReadReceiptsServerMode.THIRD_PARTY,
-                                    onClick = null,
-                                )
-                            },
-                            supportingContent = {
-                                Text(stringResource(R.string.read_receipts_third_party_description))
-                            },
-                            content = {
-                                Text(stringResource(R.string.read_receipts_third_party_server))
-                            },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                if (modeInput != ReadReceiptsServerMode.BUILT_IN) {
-                                    configurationTransactionOwnership.supersede()
-                                }
-                                modeInput = ReadReceiptsServerMode.BUILT_IN
-                            },
-                            trailingContent = {
-                                RadioButton(
-                                    selected = modeInput == ReadReceiptsServerMode.BUILT_IN,
-                                    onClick = null,
-                                )
-                            },
-                            supportingContent = {
-                                Text(stringResource(R.string.read_receipts_built_in_description))
-                            },
-                            content = {
-                                Text(stringResource(R.string.read_receipts_built_in_server))
-                            },
-                        )
-
-                        when (modeInput) {
-                            ReadReceiptsServerMode.THIRD_PARTY -> {
-                                TextField(
-                                    value = serverInput,
-                                    onValueChange = { serverInput = it },
-                                    label = {
-                                        Text(stringResource(R.string.read_receipts_https_server_url))
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                Button(
-                                    onClick = {
-                                        serverTestJob?.cancel()
-                                        serverTestJob = testThirdPartyEndpoint(
-                                            context = context,
-                                            value = serverInput,
-                                            scope = featureScope ?: dialogScope,
-                                            isCurrentDialog = {
-                                                settingsDialogGeneration.get() == dialogGeneration
-                                            },
-                                        )
-                                    },
-                                ) { Text(stringResource(R.string.read_receipts_test_connection)) }
-                            }
-
-                            ReadReceiptsServerMode.BUILT_IN -> {
-                                ListItem(
-                                    modifier = Modifier.clickable {
-                                        automaticLifecycleInput = !automaticLifecycleInput
-                                    },
-                                    trailingContent = {
-                                        Switch(
-                                            checked = automaticLifecycleInput,
-                                            onCheckedChange = null,
-                                        )
-                                    },
-                                    supportingContent = {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_automatic_lifecycle_description,
-                                            ),
-                                        )
-                                    },
-                                    content = {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_automatic_lifecycle,
-                                            ),
-                                        )
-                                    },
-                                )
-
-                                ListItem(
-                                    modifier = Modifier.clickable {
-                                        if (tunnelModeInput != ReadReceiptsTunnelMode.QUICK) {
-                                            configurationTransactionOwnership.supersede()
-                                        }
-                                        tunnelModeInput = ReadReceiptsTunnelMode.QUICK
-                                    },
-                                    trailingContent = {
-                                        RadioButton(
-                                            selected = tunnelModeInput == ReadReceiptsTunnelMode.QUICK,
-                                            onClick = null,
-                                        )
-                                    },
-                                    supportingContent = {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_quick_tunnel_description,
-                                            ),
-                                        )
-                                    },
-                                    content = {
-                                        Text(stringResource(R.string.read_receipts_quick_tunnel))
-                                    },
-                                )
-                                ListItem(
-                                    modifier = Modifier.clickable {
-                                        if (tunnelModeInput != ReadReceiptsTunnelMode.TOKEN) {
-                                            configurationTransactionOwnership.supersede()
-                                        }
-                                        tunnelModeInput = ReadReceiptsTunnelMode.TOKEN
-                                    },
-                                    trailingContent = {
-                                        RadioButton(
-                                            selected = tunnelModeInput == ReadReceiptsTunnelMode.TOKEN,
-                                            onClick = null,
-                                        )
-                                    },
-                                    supportingContent = {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_tunnel_token_description,
-                                            ),
-                                        )
-                                    },
-                                    content = {
-                                        Text(stringResource(R.string.read_receipts_tunnel_token))
-                                    },
-                                )
-                                ListItem(
-                                    modifier = Modifier.clickable {
-                                        if (
-                                            tunnelModeInput !=
-                                            ReadReceiptsTunnelMode.BROWSER_LOGIN
-                                        ) {
-                                            configurationTransactionOwnership.supersede()
-                                        }
-                                        tunnelModeInput = ReadReceiptsTunnelMode.BROWSER_LOGIN
-                                        automaticPortInput = false
-                                    },
-                                    trailingContent = {
-                                        RadioButton(
-                                            selected = tunnelModeInput ==
-                                                ReadReceiptsTunnelMode.BROWSER_LOGIN,
-                                            onClick = null,
-                                        )
-                                    },
-                                    supportingContent = {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_browser_login_description,
-                                            ),
-                                        )
-                                    },
-                                    content = {
-                                        Text(stringResource(R.string.read_receipts_browser_login))
-                                    },
-                                )
-
-                                ListItem(
-                                    modifier = Modifier.clickable(
-                                        enabled = tunnelModeInput !=
-                                            ReadReceiptsTunnelMode.BROWSER_LOGIN,
-                                    ) {
-                                        automaticPortInput = !automaticPortInput
-                                    },
-                                    trailingContent = {
-                                        Switch(
-                                            checked = automaticPortInput,
-                                            onCheckedChange = null,
-                                            enabled = tunnelModeInput !=
-                                                ReadReceiptsTunnelMode.BROWSER_LOGIN,
-                                        )
-                                    },
-                                    supportingContent = {
-                                        Text(
-                                            stringResource(
-                                                if (
-                                                tunnelModeInput ==
-                                                ReadReceiptsTunnelMode.BROWSER_LOGIN
-                                                ) {
-                                                    R.string.read_receipts_browser_fixed_port_description
-                                                } else {
-                                                    R.string.read_receipts_automatic_port_description
-                                                },
-                                            ),
-                                        )
-                                    },
-                                    content = {
-                                        Text(stringResource(R.string.read_receipts_automatic_port))
-                                    },
-                                )
-
-                                if (
-                                    tunnelModeInput in setOf(
-                                        ReadReceiptsTunnelMode.TOKEN,
-                                        ReadReceiptsTunnelMode.BROWSER_LOGIN,
-                                    ) &&
-                                    automaticPortInput
-                                ) {
-                                    Text(stringResource(R.string.read_receipts_fixed_port_warning))
-                                }
-
-                                if (!automaticPortInput) {
-                                    TextField(
-                                        value = builtInPortInput,
-                                        onValueChange = {
-                                            builtInPortInput = it.filter(Char::isDigit)
-                                        },
-                                        label = {
-                                            Text(stringResource(R.string.read_receipts_loopback_port))
-                                        },
-                                        keyboardOptions = KeyboardOptions(
-                                            keyboardType = KeyboardType.Number,
-                                        ),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                }
-
-                                if (tunnelModeInput == ReadReceiptsTunnelMode.TOKEN) {
-                                    val tokenCredentialSaved =
-                                        committedCredentialMetadata?.source ==
-                                            TunnelCredentialSource.TOKEN
-                                    TextField(
-                                        value = tokenInput,
-                                        onValueChange = { tokenInput = it },
-                                        label = {
-                                            Text(
-                                                stringResource(
-                                                    if (tokenCredentialSaved) {
-                                                        R.string.read_receipts_tunnel_token_saved
-                                                    } else {
-                                                        R.string.read_receipts_tunnel_token
-                                                    },
-                                                ),
-                                            )
-                                        },
-                                        visualTransformation = if (revealToken) {
-                                            VisualTransformation.None
-                                        } else {
-                                            PasswordVisualTransformation()
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        TextButton(onClick = { revealToken = !revealToken }) {
-                                            Text(
-                                                stringResource(
-                                                    if (revealToken) {
-                                                        R.string.read_receipts_hide_token
-                                                    } else {
-                                                        R.string.read_receipts_show_token
-                                                    },
-                                                ),
-                                            )
-                                        }
-                                        if (tokenCredentialSaved) {
-                                            TextButton(
-                                                onClick = {
-                                                    tokenInput = ""
-                                                    ReadReceiptsTunnelController.deleteCredential()
-                                                },
-                                            ) {
-                                                Text(
-                                                    stringResource(
-                                                        R.string.read_receipts_delete_saved_token,
-                                                    ),
-                                                )
-                                            }
-                                        }
-                                    }
-                                    TextField(
-                                        value = hostnameInput,
-                                        onValueChange = { hostnameInput = it },
-                                        label = {
-                                            Text(stringResource(R.string.read_receipts_public_hostname))
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                    Text(stringResource(R.string.read_receipts_cloudflare_ownership))
-                                }
-
-                                if (tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
-                                    val loginStateText = stringResource(
-                                        browserLoginState.state.browserLoginLabelRes,
-                                    )
-                                    Text(
-                                        stringResource(
-                                            R.string.read_receipts_cloudflare_login_status,
-                                            loginStateText,
-                                        ),
-                                    )
-                                    if (ReadReceiptsTunnelController.browserLoginRestartRequired) {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_browser_login_session_lost,
-                                            ),
-                                        )
-                                    }
-                                    if (browserAccountId.isNotEmpty()) {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_account_id,
-                                                browserAccountId,
-                                            ),
-                                        )
-                                    }
-                                    browserLoginState.error?.let { error ->
-                                        val errorCode = ReadReceiptsTunnelErrorCode.entries
-                                            .firstOrNull { it.name == error }
-                                            ?: ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_login_error,
-                                                stringResource(errorCode.messageRes),
-                                            ),
-                                        )
-                                    }
-                                    browserActionError?.let { error ->
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_operation_error,
-                                                error.resolve(),
-                                            ),
-                                        )
-                                    }
-                                    if (browserCommitPending) {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_browser_commit_pending,
-                                            ),
-                                        )
-                                    }
-
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Button(
-                                            enabled = !browserOperationActive &&
-                                                !connectionTransactionActive,
-                                            onClick = {
-                                                browserOperationActive = true
-                                                browserActionError = null
-                                                dialogScope.launch {
-                                                    runCatching {
-                                                        ReadReceiptsTunnelController
-                                                            .beginBrowserLogin()
-                                                    }.fold(
-                                                        onSuccess = { browserLoginState = it },
-                                                        onFailure = {
-                                                            browserActionError =
-                                                                ReadReceiptsUiText.from(
-                                                                    it,
-                                                                    R.string.read_receipts_browser_login_start_failed,
-                                                                )
-                                                        },
-                                                    )
-                                                    browserOperationActive = false
-                                                }
-                                            },
-                                        ) {
-                                            Text(
-                                                stringResource(
-                                                    if (
-                                                        browserLoginState.state ==
-                                                        ReadReceiptsTunnelState.FAILED ||
-                                                        ReadReceiptsTunnelController
-                                                            .browserLoginRestartRequired
-                                                    ) {
-                                                        R.string.read_receipts_retry_login
-                                                    } else {
-                                                        R.string.read_receipts_login
-                                                    },
-                                                ),
-                                            )
-                                        }
-                                        Button(
-                                            enabled = browserLoginState.state ==
-                                                ReadReceiptsTunnelState.CONNECTED &&
-                                                !browserOperationActive &&
-                                                !connectionTransactionActive,
-                                            onClick = {
-                                                browserOperationActive = true
-                                                browserActionError = null
-                                                dialogScope.launch {
-                                                    runCatching {
-                                                        ReadReceiptsTunnelController
-                                                            .listExistingTunnels()
-                                                    }.fold(
-                                                        onSuccess = { browserTunnels = it },
-                                                        onFailure = {
-                                                            browserActionError =
-                                                                ReadReceiptsUiText.from(
-                                                                    it,
-                                                                    R.string.read_receipts_tunnel_list_refresh_failed,
-                                                                )
-                                                        },
-                                                    )
-                                                    browserOperationActive = false
-                                                }
-                                            },
-                                        ) { Text(stringResource(R.string.read_receipts_refresh)) }
-                                    }
-
-                                    val authorizationUrl = browserLoginState.authorizationUrl
-                                    if (authorizationUrl != null) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            modifier = Modifier.fillMaxWidth(),
-                                        ) {
-                                            Button(
-                                                onClick = {
-                                                    runCatching {
-                                                        context.startActivity(
-                                                            Intent(
-                                                                Intent.ACTION_VIEW,
-                                                                authorizationUrl.toUri(),
-                                                            ),
-                                                        )
-                                                    }.onFailure {
-                                                        browserActionError = ReadReceiptsUiText.Resource(
-                                                            R.string.read_receipts_authorization_open_failed,
-                                                        )
-                                                    }
-                                                },
-                                            ) {
-                                                Text(
-                                                    stringResource(
-                                                        R.string.read_receipts_open_authorization_page,
-                                                    ),
-                                                )
-                                            }
-                                            TextButton(
-                                                onClick = {
-                                                    copyToClipboard(
-                                                        context,
-                                                        context.localizedChatString(
-                                                            R.string.clipboard_label_link,
-                                                        ),
-                                                        authorizationUrl,
-                                                    )
-                                                    showToast(
-                                                        context,
-                                                        context.localizedChatString(
-                                                            R.string.read_receipts_authorization_link_copied,
-                                                        ),
-                                                    )
-                                                },
-                                            ) {
-                                                Text(
-                                                    stringResource(
-                                                        R.string.read_receipts_copy_authorization_link,
-                                                    ),
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        TextButton(
-                                            enabled = browserLoginState.state ==
-                                                ReadReceiptsTunnelState.STARTING &&
-                                                !browserOperationActive &&
-                                                !connectionTransactionActive,
-                                            onClick = {
-                                                browserOperationActive = true
-                                                browserActionError = null
-                                                dialogScope.launch {
-                                                    ReadReceiptsTunnelController
-                                                        .cancelBrowserLogin()
-                                                        .onFailure {
-                                                            browserActionError =
-                                                                ReadReceiptsUiText.from(
-                                                                    it,
-                                                                    R.string.read_receipts_cancel_login_failed,
-                                                                )
-                                                        }
-                                                    browserOperationActive = false
-                                                }
-                                            },
-                                        ) {
-                                            Text(
-                                                stringResource(
-                                                    R.string.read_receipts_cancel_login,
-                                                ),
-                                            )
-                                        }
-                                        TextButton(
-                                            enabled = browserLoginState.state ==
-                                                ReadReceiptsTunnelState.CONNECTED &&
-                                                !browserOperationActive &&
-                                                !connectionTransactionActive,
-                                            onClick = {
-                                                browserOperationActive = true
-                                                browserActionError = null
-                                                dialogScope.launch {
-                                                    ReadReceiptsTunnelController
-                                                        .logoutBrowserLogin()
-                                                        .onFailure {
-                                                            browserActionError =
-                                                                ReadReceiptsUiText.from(
-                                                                    it,
-                                                                    R.string.read_receipts_logout_failed,
-                                                                )
-                                                        }
-                                                    browserOperationActive = false
-                                                }
-                                            },
-                                        ) {
-                                            Text(stringResource(R.string.read_receipts_logout))
-                                        }
-                                    }
-
-                                    if (
-                                        browserLoginState.state ==
-                                        ReadReceiptsTunnelState.CONNECTED &&
-                                        browserTunnels.isEmpty()
-                                    ) {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_tunnel_list_empty,
-                                            ),
-                                        )
-                                    }
-                                    LazyColumn(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .heightIn(max = 320.dp),
-                                    ) {
-                                        items(browserTunnels, key = ExistingTunnel::id) { tunnel ->
-                                            ListItem(
-                                                modifier = Modifier.clickable {
-                                                    selectedBrowserTunnelId = tunnel.id
-                                                    selectedConfiguredHostname = tunnel.hostnames
-                                                        .firstOrNull()
-                                                        ?.let { "https://$it" }
-                                                },
-                                                trailingContent = {
-                                                    RadioButton(
-                                                        selected =
-                                                            selectedBrowserTunnelId == tunnel.id,
-                                                        onClick = null,
-                                                    )
-                                                },
-                                                supportingContent = {
-                                                    Text(
-                                                        stringResource(
-                                                            R.string.read_receipts_tunnel_id,
-                                                            tunnel.id,
-                                                        ),
-                                                    )
-                                                },
-                                                content = { Text(tunnel.name) },
-                                            )
-                                        }
-                                    }
-
-                                    val selectedTunnel = browserTunnels.firstOrNull {
-                                        it.id == selectedBrowserTunnelId
-                                    }
-                                    if (selectedTunnel != null) {
-                                        Text(
-                                            stringResource(R.string.read_receipts_public_hostname),
-                                        )
-                                        LazyColumn(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .heightIn(max = 240.dp),
-                                        ) {
-                                            items(selectedTunnel.hostnames, key = { it }) { hostname ->
-                                                val root = "https://$hostname"
-                                                ListItem(
-                                                    modifier = Modifier.clickable {
-                                                        selectedConfiguredHostname = root
-                                                    },
-                                                    trailingContent = {
-                                                        RadioButton(
-                                                            selected =
-                                                                selectedConfiguredHostname == root,
-                                                            onClick = null,
-                                                        )
-                                                    },
-                                                    content = { Text(hostname) },
-                                                )
-                                            }
-                                        }
-                                        ListItem(
-                                            modifier = Modifier.clickable {
-                                                selectedConfiguredHostname = null
-                                            },
-                                            trailingContent = {
-                                                RadioButton(
-                                                    selected = selectedConfiguredHostname == null,
-                                                    onClick = null,
-                                                )
-                                            },
-                                            supportingContent = {
-                                                Text(
-                                                    stringResource(
-                                                        R.string.read_receipts_manual_hostname_description,
-                                                    ),
-                                                )
-                                            },
-                                            content = {
-                                                Text(
-                                                    stringResource(
-                                                        R.string.read_receipts_manual_hostname,
-                                                    ),
-                                                )
-                                            },
-                                        )
-                                        TextField(
-                                            value = manualBrowserHostname,
-                                            onValueChange = {
-                                                manualBrowserHostname = it
-                                                selectedConfiguredHostname = null
-                                            },
-                                            label = {
-                                                Text(
-                                                    stringResource(
-                                                        R.string.read_receipts_public_hostname,
-                                                    ),
-                                                )
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                        )
-                                        Button(
-                                            enabled = browserLoginState.state ==
-                                                ReadReceiptsTunnelState.CONNECTED &&
-                                                !browserOperationActive &&
-                                                !connectionTransactionActive,
-                                            onClick = {
-                                                val port = builtInPortInput.toIntOrNull()
-                                                    ?.takeIf { it in 1..65535 }
-                                                    ?: run {
-                                                        browserActionError =
-                                                            ReadReceiptsUiText.Resource(
-                                                                R.string.read_receipts_invalid_loopback_port,
-                                                            )
-                                                        return@Button
-                                                    }
-                                                val hostname =
-                                                    selectedConfiguredHostname
-                                                        ?: manualBrowserHostname
-                                                val canonicalHostname =
-                                                    ReadReceiptsTunnelService
-                                                        .canonicalPublicRoot(hostname)
-                                                        ?: run {
-                                                            browserActionError =
-                                                                ReadReceiptsUiText.Resource(
-                                                                    R.string.read_receipts_invalid_public_hostname,
-                                                                )
-                                                            return@Button
-                                                        }
-                                                val candidate = configuration().copy(
-                                                    mode = ReadReceiptsServerMode.BUILT_IN,
-                                                    automaticPort = false,
-                                                    builtInPort = port,
-                                                    tunnelMode =
-                                                        ReadReceiptsTunnelMode.BROWSER_LOGIN.name,
-                                                    hostname = canonicalHostname,
-                                                    selectedAccountId = browserAccountId,
-                                                    selectedAccountName = "",
-                                                    selectedTunnelId = selectedTunnel.id,
-                                                    selectedTunnelName = selectedTunnel.name,
-                                                )
-                                                browserActionError = null
-                                                browserCommitPending = false
-                                                val transactionOwner =
-                                                    connectionTransactionOwnership.acquire()
-                                                applyAndSelectBrowserStack(
-                                                    candidate = candidate,
-                                                    onCommitPending = {
-                                                        browserCommitPending = true
-                                                    },
-                                                ) { terminal ->
-                                                    transactionOwner.finish(
-                                                        terminal = terminal,
-                                                        onCompletedSuccess = {
-                                                            browserCommitPending = false
-                                                            originStatus =
-                                                                originController.snapshot()
-                                                            val reconciled = configuration()
-                                                            hostnameInput = reconciled.hostname
-                                                            manualBrowserHostname =
-                                                                reconciled.hostname
-                                                            selectedBrowserTunnelId =
-                                                                reconciled.selectedTunnelId
-                                                            showToast(
-                                                                context,
-                                                                context.localizedChatString(
-                                                                    R.string.read_receipts_browser_tunnel_connected,
-                                                                ),
-                                                            )
-                                                        },
-                                                        onCompletedFailure = { error ->
-                                                            browserCommitPending = false
-                                                            originStatus =
-                                                                originController.snapshot()
-                                                            val actionError = ReadReceiptsUiText.from(
-                                                                error,
-                                                                R.string.read_receipts_browser_tunnel_connection_failed,
-                                                            )
-                                                            browserActionError = actionError
-                                                            showToast(
-                                                                context,
-                                                                context.localizedChatString(
-                                                                    R.string.read_receipts_connection_failed,
-                                                                    actionError.resolve(context),
-                                                                ),
-                                                            )
-                                                        },
-                                                        onSuperseded = {
-                                                            browserCommitPending = false
-                                                            originStatus =
-                                                                originController.snapshot()
-                                                            browserActionError =
-                                                                ReadReceiptsUiText.Resource(
-                                                                    R.string.read_receipts_connection_superseded,
-                                                                )
-                                                        },
-                                                    )
-                                                }
-                                            },
-                                        ) {
-                                            Text(
-                                                stringResource(
-                                                    R.string.read_receipts_select_and_verify,
-                                                ),
-                                            )
-                                        }
-                                    }
-                                }
-
-                                val stateText = stringResource(originStatus.state.labelRes)
-                                Text(
-                                    stringResource(
-                                        R.string.read_receipts_built_in_status,
-                                        stateText,
-                                    ),
-                                )
-                                Text(
-                                    stringResource(
-                                        R.string.read_receipts_local_address,
-                                        if (
-                                            originStatus.state == ReadReceiptsRuntimeState.RUNNING &&
-                                            originStatus.port != null
-                                        ) {
-                                            "http://127.0.0.1:${originStatus.port}"
-                                        } else {
-                                            stringResource(R.string.read_receipts_not_ready)
-                                        },
-                                    ),
-                                )
-                                val database = NativeReadReceiptsServerController.databaseFile()
-                                Text(
-                                    stringResource(
-                                        R.string.read_receipts_database_path,
-                                        database.absolutePath,
-                                    ),
-                                )
-                                Text(
-                                    stringResource(
-                                        R.string.read_receipts_database_size,
-                                        if (database.isFile) database.length() else 0L,
-                                    ),
-                                )
-                                if (originStatus.error != null) {
-                                    Text(
-                                        stringResource(
-                                            R.string.read_receipts_error_prefix,
-                                            stringResource(
-                                                R.string.read_receipts_built_in_server_error,
-                                            ),
-                                        ),
-                                    )
-                                }
-                                val tunnelStateText = stringResource(tunnelStatus.state.labelRes)
-                                Text(
-                                    stringResource(
-                                        R.string.read_receipts_public_tunnel_status,
-                                        tunnelStateText,
-                                    ),
-                                )
-                                tunnelStatus.errorCode?.let { errorCode ->
-                                    Text(
-                                        stringResource(
-                                            R.string.read_receipts_tunnel_error,
-                                            stringResource(errorCode.messageRes),
-                                        ),
-                                    )
-                                }
-                                if (tunnelStatus.needsNotificationSettings) {
-                                    Button(
-                                        onClick = {
-                                            ReadReceiptsTunnelController.openNotificationSettings(context)
-                                                .onFailure {
-                                                    showToast(
-                                                        context,
-                                                        context.localizedChatString(
-                                                            R.string.read_receipts_notification_settings_failed,
-                                                        ),
-                                                    )
-                                                }
-                                        },
-                                    ) {
-                                        Text(
-                                            stringResource(
-                                                R.string.read_receipts_open_notification_settings,
-                                            ),
-                                        )
-                                    }
-                                }
-                                val verifiedUrl = tunnelStatus.publicUrl
-                                    ?.takeIf { tunnelStatus.state == ReadReceiptsTunnelState.CONNECTED }
-                                if (verifiedUrl != null) {
-                                    Text(
-                                        stringResource(
-                                            R.string.read_receipts_verified_public_url,
-                                            verifiedUrl,
-                                        ),
-                                    )
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Button(onClick = {
-                                            copyToClipboard(
-                                                context,
-                                                context.localizedChatString(
-                                                    R.string.clipboard_label_link,
-                                                ),
-                                                verifiedUrl,
-                                            )
-                                            showToast(
-                                                context,
-                                                context.localizedChatString(
-                                                    R.string.read_receipts_public_url_copied,
-                                                ),
-                                            )
-                                        }) {
-                                            Text(stringResource(R.string.read_receipts_copy_url))
-                                        }
-                                        Button(onClick = {
-                                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "text/plain"
-                                                putExtra(Intent.EXTRA_TEXT, verifiedUrl)
-                                            }
-                                            context.startActivity(
-                                                Intent.createChooser(
-                                                    intent,
-                                                    context.localizedChatString(
-                                                        R.string.read_receipts_share_public_url,
-                                                    ),
-                                                ),
-                                            )
-                                        }) {
-                                            Text(stringResource(R.string.read_receipts_share_url))
-                                        }
-                                    }
-                                }
-
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    if (tunnelModeInput != ReadReceiptsTunnelMode.BROWSER_LOGIN) {
-                                        Button(
-                                            enabled = tunnelStatus.state in setOf(
-                                                ReadReceiptsTunnelState.STOPPED,
-                                                ReadReceiptsTunnelState.FAILED,
-                                                ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                                            ) && !connectionTransactionActive,
-                                            onClick = {
-                                            val port = if (automaticPortInput) {
-                                                initialConfiguration.builtInPort
-                                            } else {
-                                                builtInPortInput.toIntOrNull()
-                                                    ?.takeIf { it in 1..65535 }
-                                                    ?: run {
-                                                        showToast(
-                                                            context,
-                                                            context.localizedChatString(
-                                                                R.string.read_receipts_invalid_loopback_port,
-                                                            ),
-                                                        )
-                                                        return@Button
-                                                    }
-                                            }
-                                            if (
-                                                tunnelModeInput == ReadReceiptsTunnelMode.TOKEN &&
-                                                automaticPortInput
-                                            ) {
-                                                showToast(
-                                                    context,
-                                                    context.localizedChatString(
-                                                        R.string.read_receipts_token_requires_fixed_port,
-                                                    ),
-                                                )
-                                                return@Button
-                                            }
-                                            val canonicalHostname = if (
-                                                tunnelModeInput == ReadReceiptsTunnelMode.TOKEN
-                                            ) {
-                                                ReadReceiptsTunnelService.canonicalPublicRoot(hostnameInput)
-                                                    ?: run {
-                                                        showToast(
-                                                            context,
-                                                            context.localizedChatString(
-                                                                R.string.read_receipts_invalid_public_hostname,
-                                                            ),
-                                                        )
-                                                        return@Button
-                                                    }
-                                            } else {
-                                                hostnameInput
-                                            }
-                                            val candidate = configuration().copy(
-                                                mode = ReadReceiptsServerMode.BUILT_IN,
-                                                automaticPort = automaticPortInput,
-                                                builtInPort = port,
-                                                tunnelMode = tunnelModeInput.name,
-                                                hostname = canonicalHostname,
-                                            )
-                                            val transactionOwner =
-                                                connectionTransactionOwnership.acquire()
-                                            applyAndStartBuiltInStack(
-                                                candidate,
-                                                tokenInput.takeIf(String::isNotBlank),
-                                            ) { terminal ->
-                                                transactionOwner.finish(
-                                                    terminal = terminal,
-                                                    onCompletedSuccess = {
-                                                        tokenInput = ""
-                                                        originStatus = originController.snapshot()
-                                                        showToast(
-                                                            context,
-                                                            context.localizedChatString(
-                                                                R.string.read_receipts_tunnel_start_submitted,
-                                                            ),
-                                                        )
-                                                    },
-                                                    onCompletedFailure = { error ->
-                                                        originStatus = originController.snapshot()
-                                                        showToast(
-                                                            context,
-                                                            context.localizedChatString(
-                                                                R.string.read_receipts_connection_failed,
-                                                                ReadReceiptsUiText.from(
-                                                                    error,
-                                                                    R.string.read_receipts_unknown_error,
-                                                                ).resolve(context),
-                                                            ),
-                                                        )
-                                                    },
-                                                    onSuperseded = {
-                                                        originStatus = originController.snapshot()
-                                                        showToast(
-                                                            context,
-                                                            context.localizedChatString(
-                                                                R.string.read_receipts_connection_superseded,
-                                                            ),
-                                                        )
-                                                    },
-                                                )
-                                            }
-                                            },
-                                        ) {
-                                            Text(
-                                                stringResource(
-                                                    R.string.read_receipts_verify_and_connect,
-                                                ),
-                                            )
-                                        }
-                                    } else {
-                                        Button(
-                                            enabled = tunnelStatus.state in setOf(
-                                                ReadReceiptsTunnelState.STOPPED,
-                                                ReadReceiptsTunnelState.FAILED,
-                                                ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                                            ) && !connectionTransactionActive,
-                                            onClick = {
-                                                val authoritative =
-                                                    authoritativeBrowserConfiguration(configuration())
-                                                        ?: run {
-                                                            browserActionError =
-                                                                ReadReceiptsUiText.Resource(
-                                                                    R.string.read_receipts_authoritative_config_pending,
-                                                                )
-                                                            return@Button
-                                                        }
-                                                browserActionError = null
-                                                val transactionOwner =
-                                                    connectionTransactionOwnership.acquire()
-                                                applyAndStartBuiltInStack(
-                                                    candidate = authoritative,
-                                                    token = null,
-                                                ) { terminal ->
-                                                    transactionOwner.finish(
-                                                        terminal = terminal,
-                                                        onCompletedSuccess = {
-                                                            originStatus =
-                                                                originController.snapshot()
-                                                            showToast(
-                                                                context,
-                                                                context.localizedChatString(
-                                                                    R.string.read_receipts_browser_reconnect_submitted,
-                                                                ),
-                                                            )
-                                                        },
-                                                        onCompletedFailure = { error ->
-                                                            originStatus =
-                                                                originController.snapshot()
-                                                            val actionError = ReadReceiptsUiText.from(
-                                                                error,
-                                                                R.string.read_receipts_browser_reconnect_failed,
-                                                            )
-                                                            browserActionError = actionError
-                                                            showToast(
-                                                                context,
-                                                                context.localizedChatString(
-                                                                    R.string.read_receipts_reconnect_failed,
-                                                                    actionError.resolve(context),
-                                                                ),
-                                                            )
-                                                        },
-                                                        onSuperseded = {
-                                                            originStatus =
-                                                                originController.snapshot()
-                                                            browserActionError =
-                                                                ReadReceiptsUiText.Resource(
-                                                                    R.string.read_receipts_reconnect_superseded,
-                                                                )
-                                                        },
-                                                    )
-                                                }
-                                            },
-                                        ) {
-                                            Text(
-                                                stringResource(
-                                                    R.string.read_receipts_reconnect_saved,
-                                                ),
-                                            )
-                                        }
-                                    }
-                                    Button(
-                                        enabled = !connectionTransactionActive && (
-                                            tunnelStatus.state !in setOf(
-                                                ReadReceiptsTunnelState.STOPPED,
-                                                ReadReceiptsTunnelState.STOPPING,
-                                            ) || originStatus.state !in setOf(
-                                                ReadReceiptsRuntimeState.STOPPED,
-                                                ReadReceiptsRuntimeState.STOPPING,
-                                            )
-                                        ),
-                                        onClick = {
-                                            stopBuiltInStack { terminal ->
-                                                when (terminal) {
-                                                    is OriginRequestTerminal.Completed -> {
-                                                        originStatus = originController.snapshot()
-                                                        showToast(
-                                                            context,
-                                                            terminal.result.fold(
-                                                                onSuccess = {
-                                                                    context.localizedChatString(
-                                                                        R.string.read_receipts_stack_stopped,
-                                                                    )
-                                                                },
-                                                                onFailure = { error ->
-                                                                    ReadReceiptsUiText.from(
-                                                                        error,
-                                                                        R.string.read_receipts_disconnect_failed,
-                                                                    ).resolve(context)
-                                                                },
-                                                            ),
-                                                        )
-                                                    }
-
-                                                    OriginRequestTerminal.Superseded -> {
-                                                        originStatus = originController.snapshot()
-                                                        showToast(
-                                                            context,
-                                                            context.localizedChatString(
-                                                                R.string.read_receipts_disconnect_superseded,
-                                                            ),
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        },
-                                    ) { Text(stringResource(R.string.read_receipts_disconnect)) }
-                                }
-                            }
-                        }
-
-                        TextField(
-                            value = prefixInput,
-                            onValueChange = { prefixInput = it },
-                            label = {
-                                Text(stringResource(R.string.chat_read_receipts_prefix))
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        TextField(
-                            value = intervalInput,
-                            onValueChange = { intervalInput = it.filter { ch -> ch.isDigit() } },
-                            label = {
-                                Text(stringResource(R.string.chat_read_receipts_poll_interval))
-                            },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        runtimeError?.let { error ->
-                            Text(
-                                context.localizedChatString(
-                                    R.string.read_receipts_recent_error,
-                                    error.message(context),
-                                ),
-                            )
-                        }
-                    }
-                },
-                dismissButton = {
-                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                },
-                confirmButton = {
-                    Button(
-                        enabled = !connectionTransactionActive,
-                        onClick = {
-                        val normalizedThirdParty = if (
-                            modeInput == ReadReceiptsServerMode.THIRD_PARTY
-                        ) {
-                            normalizedHttpsEndpoint(serverInput) ?: run {
-                                showToast(
-                                    context,
-                                    context.localizedChatString(
-                                        R.string.read_receipts_invalid_third_party_https,
-                                    ),
-                                )
-                                return@Button
-                            }
-                        } else {
-                            initialConfiguration.thirdPartyUrl
-                        }
-
-                        val interval = intervalInput.toIntOrNull()
-                        if (interval == null || interval <= 0) {
-                            showToast(
-                                context,
-                                context.localizedChatString(
-                                    R.string.chat_read_receipts_invalid_interval,
-                                ),
-                            )
-                            return@Button
-                        }
-
-                        val configuredPort = if (
-                            modeInput != ReadReceiptsServerMode.BUILT_IN || automaticPortInput
-                        ) {
-                            initialConfiguration.builtInPort
-                        } else {
-                            builtInPortInput.toIntOrNull()?.takeIf { it in 1..65535 } ?: run {
-                                showToast(
-                                    context,
-                                    context.localizedChatString(
-                                        R.string.read_receipts_invalid_loopback_port,
-                                    ),
-                                )
-                                return@Button
-                            }
-                        }
-                        if (
-                            modeInput == ReadReceiptsServerMode.BUILT_IN &&
-                            tunnelModeInput in setOf(
-                                ReadReceiptsTunnelMode.TOKEN,
-                                ReadReceiptsTunnelMode.BROWSER_LOGIN,
-                            ) &&
-                            automaticPortInput
-                        ) {
-                            showToast(
-                                context,
-                                context.localizedChatString(
-                                    R.string.read_receipts_tunnel_mode_requires_fixed_port,
-                                ),
-                            )
-                            return@Button
-                        }
-                        var normalizedHostname = if (
-                            modeInput == ReadReceiptsServerMode.BUILT_IN &&
-                            tunnelModeInput in setOf(
-                                ReadReceiptsTunnelMode.TOKEN,
-                                ReadReceiptsTunnelMode.BROWSER_LOGIN,
-                            )
-                        ) {
-                            val input = if (
-                                tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN
-                            ) {
-                                selectedConfiguredHostname ?: manualBrowserHostname
-                            } else {
-                                hostnameInput
-                            }
-                            ReadReceiptsTunnelService.canonicalPublicRoot(input) ?: run {
-                                showToast(
-                                    context,
-                                    context.localizedChatString(
-                                        R.string.read_receipts_invalid_public_hostname,
-                                    ),
-                                )
-                                return@Button
-                            }
-                        } else {
-                            hostnameInput
-                        }
-
-                        val oldConfiguration = configuration()
-                        val originWasActive = originController.status() in setOf(
-                            ReadReceiptsRuntimeState.STARTING,
-                            ReadReceiptsRuntimeState.RUNNING,
-                            ReadReceiptsRuntimeState.STOPPING,
-                        )
-
-                        val authoritativeBrowser = if (
-                            modeInput == ReadReceiptsServerMode.BUILT_IN &&
-                            tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN
-                        ) {
-                            authoritativeBrowserConfiguration(
-                                base = oldConfiguration,
-                                expectedTunnelId = selectedBrowserTunnelId,
-                                expectedHostname = normalizedHostname,
-                                expectedPort = configuredPort,
-                            ) ?: run {
-                                showToast(
-                                    context,
-                                    context.localizedChatString(
-                                        R.string.read_receipts_select_browser_tunnel_first,
-                                    ),
-                                )
-                                return@Button
-                            }
-                        } else {
-                            oldConfiguration
-                        }
-                        if (tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
-                            normalizedHostname = authoritativeBrowser.hostname
-                        }
-                        val candidate = authoritativeBrowser.copy(
-                            mode = modeInput,
-                            thirdPartyUrl = normalizedThirdParty,
-                            prefix = prefixInput,
-                            pollIntervalSecs = interval,
-                            automaticPort = if (
-                                tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN
-                            ) false else automaticPortInput,
-                            builtInPort = if (
-                                tunnelModeInput == ReadReceiptsTunnelMode.BROWSER_LOGIN
-                            ) authoritativeBrowser.builtInPort else configuredPort,
-                            automaticLifecycle = automaticLifecycleInput,
-                            tunnelMode = tunnelModeInput.name,
-                            hostname = normalizedHostname,
-                        )
-
-                        fun finishSuccessfulSave() {
-                            if (prefixInput.isEmpty()) {
-                                showToast(
-                                    context,
-                                    context.localizedChatString(
-                                        R.string.chat_read_receipts_empty_prefix_warning,
-                                    ),
-                                )
-                            }
-                            onDismiss()
-                        }
-
-                        fun runRuntimeSave(
-                            start: ((OriginRequestTerminal<Unit>) -> Unit) -> Unit,
-                        ) {
-                            val transactionOwner = connectionTransactionOwnership.acquire()
-                            start { terminal ->
-                                transactionOwner.finish(
-                                    terminal = terminal,
-                                    onCompletedSuccess = { finishSuccessfulSave() },
-                                    onCompletedFailure = { error ->
-                                        originStatus = originController.snapshot()
-                                        showToast(
-                                            context,
-                                            context.localizedChatString(
-                                                R.string.read_receipts_save_failed,
-                                                ReadReceiptsUiText.from(
-                                                    error,
-                                                    R.string.read_receipts_unknown_error,
-                                                ).resolve(context),
-                                            ),
-                                        )
-                                    },
-                                    onSuperseded = {
-                                        originStatus = originController.snapshot()
-                                        showToast(
-                                            context,
-                                            context.localizedChatString(
-                                                R.string.read_receipts_save_superseded,
-                                            ),
-                                        )
-                                    },
-                                )
-                            }
-                        }
-
-                        when (
-                            readReceiptsConfigurationSaveAction(
-                                previous = oldConfiguration,
-                                candidate = candidate,
-                                originWasActive = originWasActive,
-                                featureActive = isActive,
-                            )
-                        ) {
-                            ReadReceiptsConfigurationSaveAction.COMMIT -> {
-                                saveConfiguration(candidate)
-                                finishSuccessfulSave()
-                            }
-
-                            ReadReceiptsConfigurationSaveAction.STOP_THEN_COMMIT -> {
-                                runRuntimeSave { complete ->
-                                    applyConfigurationAfterStoppingStack(candidate, complete)
-                                }
-                            }
-
-                            ReadReceiptsConfigurationSaveAction.TRANSACTIONAL_START,
-                            ReadReceiptsConfigurationSaveAction.TRANSACTIONAL_REPLACE,
-                            -> {
-                                runRuntimeSave { complete ->
-                                    applyAndStartBuiltInStack(
-                                        candidate,
-                                        token = null,
-                                        onFinished = complete,
-                                    )
-                                }
-                            }
-                        }
-                        },
-                    ) { Text(stringResource(R.string.dialog_confirm)) }
-                })
-        }
+        context.startActivity(Intent(context, ReadReceiptsSettingsActivity::class.java))
     }
 }
