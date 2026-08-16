@@ -8,10 +8,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -202,7 +203,8 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
                                 val result = ModelProviderManager.listRemoteModels(p)
                                 importing = false
                                 result.fold(
-                                    onSuccess = { importCandidates = it },
+                                    // distinct(): duplicate ids would produce duplicate LazyColumn keys in the import picker
+                                    onSuccess = { importCandidates = it.distinct() },
                                     onFailure = {
                                         showToast(
                                             currentAgentLocalizedContext(context).getString(
@@ -518,25 +520,22 @@ private fun ImportModelsDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
-                candidates.forEach { id ->
-                    val already = id in existingRemoteIds
-                    val checked = id in selected
-                    // The whole row toggles; the checkbox is a pure indicator with no semantics of its own.
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { if (id in selected) selected.remove(id) else selected.add(id) },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(
-                            checked = checked,
-                            onCheckedChange = null,
-                            modifier = Modifier.clearAndSetSemantics { },
-                        )
-                        Text(
-                            if (already) stringResource(R.string.agent_model_already_added, id) else id,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
+                LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                    lazySegmentedItems(candidates, key = { it }) { id ->
+                        val already = id in existingRemoteIds
+                        val checked = id in selected
+                        // The whole row toggles; the checkbox is a pure indicator with no semantics of its own.
+                        BaseWidget(
+                            iconPlaceholder = false,
+                            title = if (already) stringResource(R.string.agent_model_already_added, id) else id,
+                            onClick = { if (id in selected) selected.remove(id) else selected.add(id) },
+                            trailingContent = {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = null,
+                                    modifier = Modifier.clearAndSetSemantics { },
+                                )
+                            },
                         )
                     }
                 }
