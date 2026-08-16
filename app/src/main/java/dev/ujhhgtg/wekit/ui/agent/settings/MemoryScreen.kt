@@ -47,9 +47,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * Memory (§8): a prominent master switch plus a read-only view of the parsed MEMORY.md index. No
- * CRUD here — memory files are managed by the agent itself. Turning memory off hides the index and
- * pops back, so this screen only ever shows the index while memory is committed on. If the index
- * fails to parse, a warning clarifies it is only a display issue.
+ * CRUD here — memory files are managed by the agent itself. Entering while memory is off stays on
+ * the page and shows the index area hidden behind an informational note; only an in-page disable
+ * pops back. If the index fails to parse, a warning clarifies it is only a display issue.
  */
 @Composable
 fun MemoryScreen(onBack: () -> Unit) {
@@ -64,15 +64,24 @@ fun MemoryScreen(onBack: () -> Unit) {
         loaded = true
     }
 
-    // Pop on the committed state, not the click: this observes WeAgentService.memoryEnabled after
-    // setMemoryEnabled has actually landed, and hides the index below the moment it reads false.
-    LaunchedEffect(memoryEnabled) { if (!memoryEnabled) onBack() }
+    // InstallerX pattern: pop only on an in-page disable, on the committed state rather than the
+    // click (WeAgentService.memoryEnabled updates only after persistence). Entering with memory
+    // already off never sets the flag, so the page stays; flipping back on cancels the pop.
+    var exitAfterDisable by remember { mutableStateOf(false) }
+
+    LaunchedEffect(memoryEnabled) {
+        if (memoryEnabled) exitAfterDisable = false
+        else if (exitAfterDisable) onBack()
+    }
 
     AgentSettingsScaffold(title = stringResource(R.string.agent_memory_title), onBack = onBack) {
         item {
             MemoryMasterSwitchBar(
                 checked = memoryEnabled,
-                onCheckedChange = { WeAgentService.setMemoryEnabled(it) },
+                onCheckedChange = {
+                    exitAfterDisable = !it
+                    WeAgentService.setMemoryEnabled(it)
+                },
             )
         }
 
@@ -85,7 +94,18 @@ fun MemoryScreen(onBack: () -> Unit) {
             return@AgentSettingsScaffold
         }
 
-        if (!memoryEnabled) return@AgentSettingsScaffold
+        if (!memoryEnabled) {
+            item {
+                Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        stringResource(R.string.agent_memory_disabled_summary),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+            return@AgentSettingsScaffold
+        }
 
         val idx = index
         when {
