@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +42,8 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -53,6 +56,8 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -493,7 +498,10 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = onClear) {
-                        Text("×")
+                        Icon(
+                            MaterialSymbols.Outlined.Close,
+                            contentDescription = stringResource(R.string.action_close),
+                        )
                     }
                 }
             }
@@ -620,7 +628,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                 }
             },
             confirmButton = {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
             }
         )
     }
@@ -664,11 +672,17 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             title = { Text(stringResource(R.string.system_feature_flags_set_override)) },
             text = {
                 Column {
-                    TextField(
+                    DropDownMenuWidget(
+                        title = stringResource(R.string.system_feature_flags_type),
+                        description = null,
                         value = type,
+                        options = listOf(
+                            DropdownOption("i", "Int"),
+                            DropdownOption("f", "Float"),
+                            DropdownOption("l", "Long"),
+                            DropdownOption("s", "String"),
+                        ),
                         onValueChange = { type = it },
-                        singleLine = true,
-                        label = { Text(stringResource(R.string.system_feature_flags_type)) }
                     )
                     Spacer(Modifier.height(8.dp))
                     TextField(

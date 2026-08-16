@@ -5,10 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Parcelable
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
@@ -21,9 +18,10 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.OsmLocationPicker
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
@@ -103,23 +101,27 @@ object FakeLocation : ClickableFeature(), IResolveDex {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.system_fake_location_select)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                onDismiss()
-                                launchWechatLocationPicker()
-                            },
-                            supportingContent = { Text(stringResource(R.string.system_fake_location_wechat_summary)) },
-                            content = { Text(stringResource(R.string.system_fake_location_wechat)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                onDismiss()
-                                showOsmLocationPicker(context)
-                            },
-                            supportingContent = { Text(stringResource(R.string.system_fake_location_osm_summary)) },
-                            content = { Text(stringResource(R.string.system_fake_location_osm)) },
-                        )
+                    SegmentedColumn {
+                        item {
+                            BaseWidget(
+                                title = stringResource(R.string.system_fake_location_wechat),
+                                description = stringResource(R.string.system_fake_location_wechat_summary),
+                                onClick = {
+                                    onDismiss()
+                                    launchWechatLocationPicker()
+                                },
+                            )
+                        }
+                        item {
+                            BaseWidget(
+                                title = stringResource(R.string.system_fake_location_osm),
+                                description = stringResource(R.string.system_fake_location_osm_summary),
+                                onClick = {
+                                    onDismiss()
+                                    showOsmLocationPicker(context)
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = {

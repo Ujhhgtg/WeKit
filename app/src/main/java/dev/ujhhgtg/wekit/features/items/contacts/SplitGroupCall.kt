@@ -3,21 +3,24 @@ package dev.ujhhgtg.wekit.features.items.contacts
 import android.app.Activity
 import android.content.Context
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
@@ -362,6 +365,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         return "${rawId}${cjkChars}@chatroom"
     }
 
+    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     private fun showSplitCallDialog(context: Activity, wxId: String) {
         showComposeDialog(context) {
             var repeatCount by remember { mutableStateOf("1") }
@@ -391,18 +395,25 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                             singleLine = true,
                             modifier = UiModifier.fillMaxWidth(),
                         )
-                        availableModes.forEach { option ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = UiModifier
-                                    .fillMaxWidth()
-                                    .clickable { mode = option },
-                            ) {
-                                RadioButton(
-                                    selected = mode == option,
-                                    onClick = { mode = option },
-                                )
-                                Text(stringResource(option.labelRes))
+                        Row(
+                            modifier = UiModifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+                        ) {
+                            availableModes.forEachIndexed { index, option ->
+                                ToggleButton(
+                                    checked = mode == option,
+                                    onCheckedChange = { mode = option },
+                                    shapes = when (index) {
+                                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                        availableModes.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                    },
+                                    modifier = UiModifier
+                                        .weight(1f)
+                                        .semantics { role = Role.RadioButton },
+                                ) {
+                                    Text(stringResource(option.labelRes), maxLines = 1)
+                                }
                             }
                         }
                     }

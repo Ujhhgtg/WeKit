@@ -1,14 +1,10 @@
 package dev.ujhhgtg.wekit.features.items.contacts
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
@@ -41,6 +37,8 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -293,9 +291,17 @@ object DetectDeletedFriends : ClickableFeature() {
                                 ),
                             )
                             LazyColumn {
-                                items(abnormalFriends) { friend ->
-                                    ListItem(
-                                        modifier = Modifier.clickable {
+                                lazySegmentedItems(abnormalFriends, key = WeContact::wxId) { friend ->
+                                    BaseWidget(
+                                        title = friend.displayName,
+                                        description = listOf(
+                                            stringResource(R.string.contacts_detect_status_abnormal),
+                                            stringResource(R.string.contacts_detect_nickname, friend.nickname),
+                                            stringResource(R.string.contacts_detect_remark, friend.remarkName),
+                                            stringResource(R.string.contacts_wechat_id_value, friend.wxId),
+                                            stringResource(R.string.contacts_detect_wechat_number, friend.customWxId),
+                                        ).joinToString("\n"),
+                                        onClick = {
                                             WeApi.openContact(context, friend.wxId, WeApi.OpenContactDestination.HOMEPAGE)
                                         },
                                         trailingContent = {
@@ -312,16 +318,6 @@ object DetectDeletedFriends : ClickableFeature() {
                                                 )
                                             }
                                         },
-                                        supportingContent = {
-                                            Column {
-                                                Text(stringResource(R.string.contacts_detect_status_abnormal))
-                                                Text(stringResource(R.string.contacts_detect_nickname, friend.nickname))
-                                                Text(stringResource(R.string.contacts_detect_remark, friend.remarkName))
-                                                Text(stringResource(R.string.contacts_wechat_id_value, friend.wxId))
-                                                Text(stringResource(R.string.contacts_detect_wechat_number, friend.customWxId))
-                                            }
-                                        },
-                                        content = { Text(friend.displayName) },
                                     )
                                 }
                             }
@@ -369,39 +365,25 @@ object DetectDeletedFriends : ClickableFeature() {
                                     LinearWavyProgressIndicator()
                                 } else {
                                     LazyColumn {
-                                        // always offer creating a fresh, timestamped label
-                                        item {
-                                            ListItem(
-                                                modifier = Modifier.clickable {
+                                        val choices = listOf(selectPhase.suggestedLabelName to true) +
+                                            labels.map { it.labelName to false }
+                                        lazySegmentedItems(
+                                            choices,
+                                            key = { (labelName, suggested) -> "$suggested:$labelName" },
+                                        ) { (labelName, suggested) ->
+                                            BaseWidget(
+                                                icon = MaterialSymbols.Outlined.Add.takeIf { suggested },
+                                                title = labelName,
+                                                description = stringResource(R.string.contacts_detect_new_label)
+                                                    .takeIf { suggested },
+                                                onClick = {
                                                     phase = DialogPhase.Marking(
                                                         friends = selectPhase.friends,
-                                                        labelName = selectPhase.suggestedLabelName,
+                                                        labelName = labelName,
                                                         completed = mutableIntStateOf(0),
                                                         total = selectPhase.friends.size
                                                     )
                                                 },
-                                                leadingContent = {
-                                                    Icon(
-                                                        MaterialSymbols.Outlined.Add,
-                                                        contentDescription = stringResource(R.string.contacts_detect_new_label),
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                },
-                                                supportingContent = { Text(stringResource(R.string.contacts_detect_new_label)) },
-                                                content = { Text(selectPhase.suggestedLabelName) },
-                                            )
-                                        }
-                                        items(labels) { label ->
-                                            ListItem(
-                                                modifier = Modifier.clickable {
-                                                    phase = DialogPhase.Marking(
-                                                        friends = selectPhase.friends,
-                                                        labelName = label.labelName,
-                                                        completed = mutableIntStateOf(0),
-                                                        total = selectPhase.friends.size
-                                                    )
-                                                },
-                                                content = { Text(label.labelName) },
                                             )
                                         }
                                     }

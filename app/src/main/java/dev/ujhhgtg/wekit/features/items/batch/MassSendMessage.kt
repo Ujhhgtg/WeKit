@@ -2,20 +2,24 @@ package dev.ujhhgtg.wekit.features.items.batch
 
 import android.content.Context
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -83,6 +87,7 @@ object MassSendMessage : ClickableFeature() {
         }
     }
 
+    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     @Composable
     private fun MassSendMessageDialog(
         context: Context,
@@ -96,18 +101,25 @@ object MassSendMessage : ClickableFeature() {
             title = { Text(stringResource(R.string.feature_mass_send_message_name)) },
             text = {
                 DefaultColumn {
-                    SendMode.entries.forEach { option ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { mode = option }
-                        ) {
-                            RadioButton(
-                                selected = mode == option,
-                                onClick = { mode = option }
-                            )
-                            Text(stringResource(option.displayNameRes))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+                    ) {
+                        SendMode.entries.forEachIndexed { index, option ->
+                            ToggleButton(
+                                checked = mode == option,
+                                onCheckedChange = { mode = option },
+                                shapes = when (index) {
+                                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                    SendMode.entries.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .semantics { role = Role.RadioButton },
+                            ) {
+                                Text(stringResource(option.displayNameRes), maxLines = 1)
+                            }
                         }
                     }
                     Text(stringResource(mode.hintRes))

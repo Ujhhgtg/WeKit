@@ -2305,7 +2305,7 @@ object ApiServer : ClickableFeature() {
                 confirmButton = {
                     Button(onClick = {
                         val serverPort = serverPortInput.toIntOrNull()
-                        if (serverPort == null || serverPort < 1024 || serverPort > 65536) {
+                        if (serverPort == null || serverPort !in 1024..65535) {
                             showToast(localizedSystemString(R.string.system_api_server_invalid_port))
                             return@Button
                         }

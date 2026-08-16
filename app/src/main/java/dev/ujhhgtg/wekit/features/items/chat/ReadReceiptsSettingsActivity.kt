@@ -1086,13 +1086,10 @@ private fun BrowserTunnelScreen(
         item {
             SegmentedColumn(title = stringResource(R.string.read_receipts_section_port)) {
                 item {
-                    SwitchWidget(
+                    BaseWidget(
                         iconPlaceholder = false,
                         title = stringResource(R.string.read_receipts_automatic_port),
                         description = stringResource(R.string.read_receipts_browser_fixed_port_description),
-                        enabled = false,
-                        checked = false,
-                        onCheckedChange = {},
                     )
                 }
                 item {

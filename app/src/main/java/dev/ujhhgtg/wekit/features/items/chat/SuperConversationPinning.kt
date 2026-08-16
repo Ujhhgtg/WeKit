@@ -130,7 +130,7 @@ object SuperConversationPinning : SwitchFeature(),
                             value = priority.toFloat(),
                             onValueChange = { priority = it.toInt() },
                             valueRange = 0f..10f,
-                            steps = 11
+                            steps = 9
                         )
                         Text(stringResource(R.string.chat_pinning_priority_description))
                     }
