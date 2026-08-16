@@ -1,17 +1,16 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.utils.Modifiers
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
@@ -20,9 +19,9 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -110,37 +109,38 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
             var mode by remember { mutableIntStateOf(selectedMode) }
 
             AlertDialogContent(
-                title = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_title)) },
+                title = { Text(stringResource(R.string.moments_upload_original_title)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                mode = MODE_CONVERT
-                            },
-                            trailingContent = { RadioButton(mode == MODE_CONVERT, null) },
-                            supportingContent = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_convert_summary)) },
-                            content = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_convert)) },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                mode = MODE_COPY
-                            },
-                            trailingContent = { RadioButton(mode == MODE_COPY, null) },
-                            supportingContent = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_copy_summary)) },
-                            content = { Text(stringResource(dev.ujhhgtg.wekit.R.string.moments_upload_original_copy)) },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item(key = MODE_CONVERT) {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.moments_upload_original_convert),
+                                description = stringResource(R.string.moments_upload_original_convert_summary),
+                                selected = mode == MODE_CONVERT,
+                                onClick = {
+                                    mode = MODE_CONVERT
+                                    selectedMode = MODE_CONVERT
+                                },
+                            )
+                        }
+                        item(key = MODE_COPY) {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.moments_upload_original_copy),
+                                description = stringResource(R.string.moments_upload_original_copy_summary),
+                                selected = mode == MODE_COPY,
+                                onClick = {
+                                    mode = MODE_COPY
+                                    selectedMode = MODE_COPY
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text(stringResource(dev.ujhhgtg.wekit.R.string.dialog_cancel)) }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
-                confirmButton = {
-                    Button(onClick = {
-                        selectedMode = mode
-                        onDismiss()
-                    }) { Text(stringResource(dev.ujhhgtg.wekit.R.string.dialog_confirm)) }
-                }
             )
         }
     }

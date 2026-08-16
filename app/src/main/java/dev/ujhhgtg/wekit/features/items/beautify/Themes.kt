@@ -38,13 +38,10 @@ import android.widget.RelativeLayout
 import android.widget.Space
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.content.withStyledAttributes
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.scale
@@ -82,9 +80,10 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.Themes.THEMES_PATH
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -2972,30 +2971,21 @@ object Themes : ClickableFeature(), IResolveDex {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.beautify_theme_title)) },
                 text = {
-                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        Text(
-                            text = stringResource(R.string.beautify_theme_directory, THEMES_PATH),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = stringResource(R.string.beautify_theme_instructions),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        themes.forEach { theme ->
-                            ListItem(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { selectedId = theme.id },
-                                trailingContent = {
-                                    RadioButton(
-                                        selected = selectedId == theme.id,
-                                        onClick = { selectedId = theme.id }
-                                    )
-                                },
-                                content = { Text(theme.name) },
-                                supportingContent = {
-                                    Text(
-                                        buildString {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item(key = "info") {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.beautify_theme_directory, THEMES_PATH),
+                                    description = stringResource(R.string.beautify_theme_instructions),
+                                )
+                            }
+                            themes.forEach { theme ->
+                                item(key = theme.id) {
+                                    RadioButtonWidget(
+                                        iconPlaceholder = false,
+                                        title = theme.name,
+                                        description = buildString {
                                             append(localizedContext.getString(R.string.beautify_theme_author, theme.author))
                                             if (theme.version.isNotBlank()) {
                                                 append(localizedContext.getString(R.string.beautify_theme_version, theme.version))
@@ -3004,27 +2994,24 @@ object Themes : ClickableFeature(), IResolveDex {
                                                 append("\n")
                                                 append(theme.description)
                                             }
-                                        }
+                                        },
+                                        selected = selectedId == theme.id,
+                                        onClick = {
+                                            selectedId = theme.id
+                                            if (theme.id != currentThemeId) {
+                                                currentThemeId = theme.id
+                                                showToast(localizedContext.getString(R.string.beautify_theme_saved))
+                                            }
+                                        },
                                     )
                                 }
-                            )
+                            }
                         }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
-                confirmButton = {
-                    Button(onClick = {
-                        if (selectedId != currentThemeId) {
-                            currentThemeId = selectedId
-                            showToast(localizedContext.getString(R.string.beautify_theme_saved))
-                        }
-                        onDismiss()
-                    }) {
-                        Text(stringResource(R.string.action_save))
-                    }
-                }
             )
         }
     }
