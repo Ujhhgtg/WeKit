@@ -2228,6 +2228,7 @@
     <string name="chat_floating_footer_panel_above">Show menus above the input bar</string>
     <string name="chat_floating_footer_panel_above_summary">Expand emoji and tool menus upward while keeping the input bar in place; turn this off to retain WeChat’s layout</string>
     <string name="chat_floating_bottom_gap">Bottom spacing: %1$d dp</string>
+    <string name="chat_floating_bottom_gap_label">Bottom spacing</string>
     <string name="chat_real_name_bruteforce_title">Discover group member’s real-name initial</string>
     <string name="chat_real_name_bruteforce_first_char">Initial: %1$s</string>
     <string name="chat_real_name_bruteforce_tap">Tap to start</string>

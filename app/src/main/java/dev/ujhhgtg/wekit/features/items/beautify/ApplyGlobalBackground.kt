@@ -13,17 +13,14 @@ import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,8 +45,12 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -204,90 +205,98 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
     private fun overlayFromActivity(activity: Activity): ImageView? =
         findOverlay(activity.window?.decorView as? ViewGroup ?: return null)
 
-    private const val MIN = 0.01f
-    private const val MAX = 0.80f
-    private val MINIMAX = MIN..MAX
-    private fun Float.miniMaxed() = this.coerceIn(MINIMAX)
+    private const val MIN_OPACITY_PERCENT = 1
+    private const val MAX_OPACITY_PERCENT = 80
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var hasImage by remember { mutableStateOf(backgroundUri != null) }
-            var opacityInput by remember { mutableFloatStateOf(opacity) }
+            var opacityPercent by remember {
+                mutableIntStateOf(
+                    (opacity * 100f).roundToInt().coerceIn(MIN_OPACITY_PERCENT, MAX_OPACITY_PERCENT)
+                )
+            }
             var transparentStatusBarInput by remember { mutableStateOf(transparentStatusBar) }
             val localizedContext = LocalContext.current
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.beautify_global_background_title)) },
                 text = {
-                    DefaultColumn {
-                        Text(
-                            text = if (hasImage) {
-                                stringResource(R.string.beautify_global_background_set)
-                            } else {
-                                stringResource(R.string.beautify_global_background_not_set)
-                            },
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(onClick = {
-                                opacity = opacityInput.miniMaxed()
-                                transparentStatusBar = transparentStatusBarInput
-                                onDismiss()
-                                selectBackgroundImage(context)
-                            }) {
-                                Text(stringResource(R.string.action_select_image))
-                            }
-                            TextButton(
-                                enabled = hasImage,
-                                onClick = {
-                                    backgroundUri = null
-                                    hasImage = false
-                                    showToast(localizedContext.getString(R.string.beautify_global_background_cleared))
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            BaseWidget(
+                                iconPlaceholder = false,
+                                title = if (hasImage) {
+                                    stringResource(R.string.beautify_global_background_set)
+                                } else {
+                                    stringResource(R.string.beautify_global_background_not_set)
+                                },
+                            )
+                        }
+                        item {
+                            BaseItemContainer {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            onDismiss()
+                                            selectBackgroundImage(context)
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Text(stringResource(R.string.action_select_image))
+                                    }
+                                    TextButton(
+                                        enabled = hasImage,
+                                        onClick = {
+                                            backgroundUri = null
+                                            hasImage = false
+                                            showToast(localizedContext.getString(R.string.beautify_global_background_cleared))
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Text(stringResource(R.string.action_clear_image))
+                                    }
                                 }
-                            ) {
-                                Text(stringResource(R.string.action_clear_image))
                             }
                         }
-                        Text(
-                            text = stringResource(R.string.opacity_percent, (opacityInput * 100f).roundToInt()),
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Slider(
-                            value = opacityInput,
-                            onValueChange = { opacityInput = it.miniMaxed() },
-                            valueRange = MINIMAX
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                transparentStatusBarInput = !transparentStatusBarInput
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = transparentStatusBarInput,
-                                    onCheckedChange = null
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.opacity_percent, opacityPercent),
+                                    value = opacityPercent,
+                                    startInt = MIN_OPACITY_PERCENT,
+                                    endInt = MAX_OPACITY_PERCENT,
+                                    stepSize = 1,
+                                    valueSuffix = "%",
+                                    onValueChange = {
+                                        opacityPercent = it
+                                        opacity = it / 100f
+                                    },
                                 )
-                            },
-                            supportingContent = { Text(stringResource(R.string.beautify_global_background_status_bar_summary)) },
-                            content = { Text(stringResource(R.string.beautify_global_background_status_bar)) },
-                        )
+                            }
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_global_background_status_bar),
+                                description = stringResource(R.string.beautify_global_background_status_bar_summary),
+                                checked = transparentStatusBarInput,
+                                onCheckedChange = {
+                                    transparentStatusBarInput = it
+                                    transparentStatusBar = it
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
-                confirmButton = {
-                    Button(onClick = {
-                        opacity = opacityInput.miniMaxed()
-                        transparentStatusBar = transparentStatusBarInput
-                        showToast(localizedContext.getString(R.string.saved_restart_wechat))
-                        onDismiss()
-                    }) {
-                        Text(stringResource(R.string.action_save))
-                    }
-                }
             )
         }
     }

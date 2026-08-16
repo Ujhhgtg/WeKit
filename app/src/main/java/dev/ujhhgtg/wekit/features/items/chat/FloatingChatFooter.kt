@@ -16,15 +16,25 @@ import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.tencent.mm.pluginsdk.ui.chat.AppPanel
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooterBottom
@@ -42,10 +52,10 @@ import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.movePanelAbove
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.offscreenHeight
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.allViews
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -913,94 +923,120 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var cornerInput by remember { mutableFloatStateOf(cornerRadiusDp.toFloat()) }
-            var sideInput by remember { mutableFloatStateOf(sideMarginDp.toFloat()) }
-            var gapInput by remember { mutableFloatStateOf(bottomGapDp.toFloat()) }
-            var elevInput by remember { mutableFloatStateOf(elevationDp.toFloat()) }
-            var panelAboveInput by remember { mutableStateOf(movePanelAbove) }
+            var corner by remember { mutableIntStateOf(cornerRadiusDp) }
+            var side by remember { mutableIntStateOf(sideMarginDp) }
+            var gap by remember { mutableIntStateOf(bottomGapDp) }
+            var elev by remember { mutableIntStateOf(elevationDp) }
+            var panelAbove by remember { mutableStateOf(movePanelAbove) }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.chat_floating_footer_title)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            content = { Text(stringResource(R.string.chat_floating_footer_panel_above)) },
-                            supportingContent = {
-                                Text(stringResource(R.string.chat_floating_footer_panel_above_summary))
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = panelAboveInput,
-                                    onCheckedChange = { panelAboveInput = it }
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_floating_footer_panel_above),
+                                description = stringResource(R.string.chat_floating_footer_panel_above_summary),
+                                checked = panelAbove,
+                                onCheckedChange = {
+                                    panelAbove = it
+                                    movePanelAbove = it
+                                },
+                            )
+                        }
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.chat_floating_corner_radius_label),
+                            ) {
+                                FooterSliderRow(
+                                    value = corner,
+                                    start = MIN_CORNER_RADIUS,
+                                    end = MAX_CORNER_RADIUS,
+                                    onValueChange = {
+                                        corner = it
+                                        cornerRadiusDp = it
+                                    },
                                 )
                             }
-                        )
-                        ListItem(
-                            content = {
-                                Text(stringResource(R.string.chat_floating_corner_radius, cornerInput.roundToInt()))
-                            },
-                            supportingContent = {
-                                Slider(
-                                    value = cornerInput,
-                                    onValueChange = { cornerInput = it },
-                                    valueRange = MIN_CORNER_RADIUS.toFloat()..MAX_CORNER_RADIUS.toFloat(),
-                                    steps = MAX_CORNER_RADIUS - MIN_CORNER_RADIUS - 1
+                        }
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.chat_floating_side_margin_label),
+                            ) {
+                                FooterSliderRow(
+                                    value = side,
+                                    start = MIN_SIDE_MARGIN,
+                                    end = MAX_SIDE_MARGIN,
+                                    onValueChange = {
+                                        side = it
+                                        sideMarginDp = it
+                                    },
                                 )
                             }
-                        )
-                        ListItem(
-                            content = {
-                                Text(stringResource(R.string.chat_floating_side_margin, sideInput.roundToInt()))
-                            },
-                            supportingContent = {
-                                Slider(
-                                    value = sideInput,
-                                    onValueChange = { sideInput = it },
-                                    valueRange = MIN_SIDE_MARGIN.toFloat()..MAX_SIDE_MARGIN.toFloat(),
-                                    steps = MAX_SIDE_MARGIN - MIN_SIDE_MARGIN - 1
+                        }
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.chat_floating_bottom_gap_label),
+                            ) {
+                                FooterSliderRow(
+                                    value = gap,
+                                    start = MIN_BOTTOM_GAP,
+                                    end = MAX_BOTTOM_GAP,
+                                    onValueChange = {
+                                        gap = it
+                                        bottomGapDp = it
+                                    },
                                 )
                             }
-                        )
-                        ListItem(
-                            content = {
-                                Text(stringResource(R.string.chat_floating_bottom_gap, gapInput.roundToInt()))
-                            },
-                            supportingContent = {
-                                Slider(
-                                    value = gapInput,
-                                    onValueChange = { gapInput = it },
-                                    valueRange = MIN_BOTTOM_GAP.toFloat()..MAX_BOTTOM_GAP.toFloat(),
-                                    steps = MAX_BOTTOM_GAP - MIN_BOTTOM_GAP - 1
+                        }
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.chat_floating_elevation_label),
+                            ) {
+                                FooterSliderRow(
+                                    value = elev,
+                                    start = MIN_ELEVATION,
+                                    end = MAX_ELEVATION,
+                                    onValueChange = {
+                                        elev = it
+                                        elevationDp = it
+                                    },
                                 )
                             }
-                        )
-                        ListItem(
-                            content = {
-                                Text(stringResource(R.string.chat_floating_elevation, elevInput.roundToInt()))
-                            },
-                            supportingContent = {
-                                Slider(
-                                    value = elevInput,
-                                    onValueChange = { elevInput = it },
-                                    valueRange = MIN_ELEVATION.toFloat()..MAX_ELEVATION.toFloat(),
-                                    steps = MAX_ELEVATION - MIN_ELEVATION - 1
-                                )
-                            }
-                        )
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
-                confirmButton = {
-                    Button(onClick = {
-                        movePanelAbove = panelAboveInput
-                        cornerRadiusDp = cornerInput.roundToInt()
-                        sideMarginDp = sideInput.roundToInt()
-                        bottomGapDp = gapInput.roundToInt()
-                        elevationDp = elevInput.roundToInt()
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
+    }
+}
+
+/** Slider + trailing "N dp" value, laid out like IntNumberPickerWidget's slider row. */
+@Composable
+private fun FooterSliderRow(
+    value: Int,
+    start: Int,
+    end: Int,
+    onValueChange: (Int) -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(start = 56.dp, end = 36.dp)
+    ) {
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.roundToInt()) },
+            valueRange = start.toFloat()..end.toFloat(),
+            steps = end - start - 1,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = "$value dp",
+            textAlign = TextAlign.End,
+            modifier = Modifier.defaultMinSize(minWidth = 36.dp)
+        )
     }
 }

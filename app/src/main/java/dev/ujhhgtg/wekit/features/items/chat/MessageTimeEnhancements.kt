@@ -12,18 +12,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,9 +49,11 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.WeColorField
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
@@ -334,110 +336,137 @@ object MessageTimeEnhancements : ClickableFeature(),
             AlertDialogContent(
                 title = { Text(stringResource(R.string.chat_message_time_title)) },
                 text = {
-                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        TextField(
-                            value = displayFormatInput,
-                            onValueChange = { displayFormatInput = it },
-                            label = { Text(stringResource(R.string.chat_message_time_display_template)) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .onFocusChanged { isFocused = it.isFocused }
-                        )
-
-                        Text(stringResource(R.string.chat_message_time_insert_placeholder))
-
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            val placeholders = listOf(
-                                $$"$time",
-                                $$"$relativeTime",
-                                $$"$type",
-                                $$"$msgId",
-                                $$"$msgSvrId",
-                                $$"$mentionedUsers",
-                                READ_RECEIPTS_PLACEHOLDER,
-                            )
-                            placeholders.forEach { ph ->
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                                        .clickable { insertPlaceholder(ph) }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_message_time_display_template),
                                 ) {
-                                    Text(
-                                        text = ph,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    Column {
+                                        OutlinedTextField(
+                                            value = displayFormatInput,
+                                            onValueChange = { displayFormatInput = it },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp)
+                                                .onFocusChanged { isFocused = it.isFocused }
+                                        )
+
+                                        Text(
+                                            stringResource(R.string.chat_message_time_insert_placeholder),
+                                            modifier = Modifier
+                                                .padding(start = 16.dp, top = 8.dp)
+                                        )
+
+                                        FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(start = 16.dp, end = 16.dp, top = 4.dp)
+                                        ) {
+                                            val placeholders = listOf(
+                                                $$"$time",
+                                                $$"$relativeTime",
+                                                $$"$type",
+                                                $$"$msgId",
+                                                $$"$msgSvrId",
+                                                $$"$mentionedUsers",
+                                                READ_RECEIPTS_PLACEHOLDER,
+                                            )
+                                            placeholders.forEach { ph ->
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                                                        .clickable { insertPlaceholder(ph) }
+                                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = ph,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_message_time_format),
+                                ) {
+                                    OutlinedTextField(
+                                        value = timeFormatInput,
+                                        onValueChange = { timeFormatInput = it },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
                                     )
                                 }
                             }
-                        }
-
-                        TextField(
-                            value = timeFormatInput,
-                            onValueChange = { timeFormatInput = it },
-                            label = { Text(stringResource(R.string.chat_message_time_format)) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        TextField(
-                            value = textSizeInputRaw,
-                            onValueChange = { textSizeInputRaw = it.filter { c -> c.isDigit() } },
-                            label = { Text(stringResource(R.string.chat_message_time_font_size)) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        WeColorField(
-                            value = textColorLightInput,
-                            onValueChange = { textColorLightInput = it },
-                            label = stringResource(R.string.chat_message_time_color_light),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        WeColorField(
-                            value = textColorDarkInput,
-                            onValueChange = { textColorDarkInput = it },
-                            label = stringResource(R.string.chat_message_time_color_dark),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                isAlwaysCenteredInput = !isAlwaysCenteredInput
-                            },
-                            trailingContent = {
-                                Switch(
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_message_time_font_size),
+                                ) {
+                                    OutlinedTextField(
+                                        value = textSizeInputRaw,
+                                        onValueChange = { textSizeInputRaw = it.filter { c -> c.isDigit() } },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                    )
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_message_time_color_light),
+                                ) {
+                                    WeColorField(
+                                        value = textColorLightInput,
+                                        onValueChange = { textColorLightInput = it },
+                                        label = stringResource(R.string.color_picker_hex_value),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                    )
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_message_time_color_dark),
+                                ) {
+                                    WeColorField(
+                                        value = textColorDarkInput,
+                                        onValueChange = { textColorDarkInput = it },
+                                        label = stringResource(R.string.color_picker_hex_value),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                    )
+                                }
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_message_time_center),
+                                    description = stringResource(R.string.chat_message_time_center_summary),
                                     checked = isAlwaysCenteredInput,
-                                    onCheckedChange = null
+                                    onCheckedChange = { isAlwaysCenteredInput = it },
                                 )
-                            },
-                            supportingContent = {
-                                Text(stringResource(R.string.chat_message_time_center_summary))
-                            },
-                            content = { Text(stringResource(R.string.chat_message_time_center)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                isAlwaysVisibleInput = !isAlwaysVisibleInput
-                            },
-                            trailingContent = {
-                                Switch(
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_message_time_always_show),
+                                    description = stringResource(R.string.chat_message_time_always_show_summary),
                                     checked = isAlwaysVisibleInput,
-                                    onCheckedChange = null
+                                    onCheckedChange = { isAlwaysVisibleInput = it },
                                 )
-                            },
-                            supportingContent = {
-                                Text(stringResource(R.string.chat_message_time_always_show_summary))
-                            },
-                            content = { Text(stringResource(R.string.chat_message_time_always_show)) },
-                        )
+                            }
+                        }
                     }
                 },
                 confirmButton = {

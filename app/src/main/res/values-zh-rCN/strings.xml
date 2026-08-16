@@ -2120,6 +2120,7 @@
     <string name="chat_floating_footer_panel_above">菜单显示在输入框上方</string>
     <string name="chat_floating_footer_panel_above_summary">表情与工具菜单从输入框上沿向上展开，输入框位置不动；关闭则维持微信原样</string>
     <string name="chat_floating_bottom_gap">底部间距：%1$d dp</string>
+    <string name="chat_floating_bottom_gap_label">底部间距</string>
     <string name="chat_real_name_bruteforce_title">爆破群成员实名首字</string>
     <string name="chat_real_name_bruteforce_first_char">首字：%1$s</string>
     <string name="chat_real_name_bruteforce_tap">点击爆破</string>

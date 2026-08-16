@@ -9,19 +9,22 @@ import android.text.style.ReplacementSpan
 import android.view.View
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
@@ -35,9 +38,11 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.WeColorField
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.collections.LruCache
@@ -114,48 +119,98 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_display_group_member_roles_name)) },
                 text = {
-                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        ListItem(
-                            modifier = Modifier.clickable { showMem = !showMem },
-                            trailingContent = { Switch(showMem, null) },
-                            content = { Text(stringResource(R.string.chat_group_role_show_member)) },
-                        )
-                        WeColorField(
-                            label = stringResource(R.string.chat_group_role_owner_background),
-                            value = ob,
-                            onValueChange = { ob = it })
-                        WeColorField(
-                            label = stringResource(R.string.chat_group_role_owner_foreground),
-                            value = of,
-                            onValueChange = { of = it })
-                        WeColorField(
-                            label = stringResource(R.string.chat_group_role_admin_background),
-                            value = ab,
-                            onValueChange = { ab = it })
-                        WeColorField(
-                            label = stringResource(R.string.chat_group_role_admin_foreground),
-                            value = af,
-                            onValueChange = { af = it })
-                        WeColorField(
-                            label = stringResource(R.string.chat_group_role_member_background),
-                            value = mb,
-                            onValueChange = { mb = it })
-                        WeColorField(
-                            label = stringResource(R.string.chat_group_role_member_foreground),
-                            value = mf,
-                            onValueChange = { mf = it })
-                        TextField(
-                            label = { Text(stringResource(R.string.chat_group_role_owner_text)) },
-                            value = ot,
-                            onValueChange = { ot = it })
-                        TextField(
-                            label = { Text(stringResource(R.string.chat_group_role_admin_text)) },
-                            value = at,
-                            onValueChange = { at = it })
-                        TextField(
-                            label = { Text(stringResource(R.string.chat_group_role_member_text)) },
-                            value = mt,
-                            onValueChange = { mt = it })
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_group_role_show_member),
+                                    checked = showMem,
+                                    onCheckedChange = { showMem = it },
+                                )
+                            }
+                        }
+
+                        SegmentedColumn(
+                            title = stringResource(R.string.chat_group_role_owner),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_group_role_owner_background),
+                                ) {
+                                    InlineColorField(value = ob, onValueChange = { ob = it })
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_group_role_owner_foreground),
+                                ) {
+                                    InlineColorField(value = of, onValueChange = { of = it })
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_group_role_owner_text),
+                                ) {
+                                    InlineRoleTextField(value = ot, onValueChange = { ot = it })
+                                }
+                            }
+                        }
+
+                        SegmentedColumn(
+                            title = stringResource(R.string.chat_group_role_admin),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_group_role_admin_background),
+                                ) {
+                                    InlineColorField(value = ab, onValueChange = { ab = it })
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_group_role_admin_foreground),
+                                ) {
+                                    InlineColorField(value = af, onValueChange = { af = it })
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_group_role_admin_text),
+                                ) {
+                                    InlineRoleTextField(value = at, onValueChange = { at = it })
+                                }
+                            }
+                        }
+
+                        SegmentedColumn(
+                            title = stringResource(R.string.chat_group_role_member),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_group_role_member_background),
+                                ) {
+                                    InlineColorField(value = mb, onValueChange = { mb = it })
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_group_role_member_foreground),
+                                ) {
+                                    InlineColorField(value = mf, onValueChange = { mf = it })
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_group_role_member_text),
+                                ) {
+                                    InlineRoleTextField(value = mt, onValueChange = { mt = it })
+                                }
+                            }
+                        }
                     }
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
@@ -263,6 +318,32 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
 
         textView.text = sb
     }
+}
+
+/** Inline color field filling a [BaseSupportingWidget] supporting slot. */
+@Composable
+private fun InlineColorField(value: String, onValueChange: (String) -> Unit) {
+    WeColorField(
+        value = value,
+        onValueChange = onValueChange,
+        label = stringResource(R.string.color_picker_hex_value),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+    )
+}
+
+/** Single-line inline text field filling a [BaseSupportingWidget] supporting slot. */
+@Composable
+private fun InlineRoleTextField(value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+    )
 }
 
 private class RoundedBackgroundSpan(
