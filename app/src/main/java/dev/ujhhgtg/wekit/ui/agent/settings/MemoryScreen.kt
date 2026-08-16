@@ -5,7 +5,6 @@ package dev.ujhhgtg.wekit.ui.agent.settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,8 +12,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -175,21 +174,12 @@ private fun MemoryMasterSwitchBar(checked: Boolean, onCheckedChange: (Boolean) -
             .padding(horizontal = 24.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.agent_memory_title),
-                style = MaterialTheme.typography.titleLarge,
-                color = contentColor,
-            )
-            Text(
-                text = stringResource(
-                    if (checked) R.string.agent_memory_enabled_summary
-                    else R.string.agent_memory_disabled_summary
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = contentColor,
-            )
-        }
+        Text(
+            modifier = Modifier.weight(1f),
+            text = stringResource(R.string.agent_memory_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = contentColor,
+        )
         Spacer(Modifier.width(16.dp))
         Switch(
             checked = checked,
