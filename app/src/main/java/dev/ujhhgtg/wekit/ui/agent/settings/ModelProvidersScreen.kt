@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -18,7 +18,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -30,6 +29,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
@@ -39,6 +39,8 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -55,13 +57,21 @@ fun ModelProvidersScreen(
 
     AgentSettingsScaffold(title = stringResource(R.string.agent_model_providers_title), onBack = onBack) {
         if (providers.isEmpty()) {
-            item { EmptyHint(stringResource(R.string.agent_model_providers_empty)) }
+            item {
+                AgentEmptyState(
+                    title = stringResource(R.string.agent_empty_providers_title),
+                    message = stringResource(R.string.agent_empty_providers_message),
+                    actionLabel = stringResource(R.string.agent_add_provider),
+                    onAction = { showAdd.value = true },
+                )
+            }
         }
         items(providers.size, key = { providers[it].id }) { i ->
             val p = providers[i]
             SegmentedColumn {
                 item {
                     BaseWidget(
+                        iconPlaceholder = false,
                         title = p.name.ifBlank { p.baseUrl },
                         description = stringResource(R.string.agent_provider_summary, p.type.label(), p.baseUrl),
                         onClick = { onOpenProvider(p.id) },
@@ -71,12 +81,13 @@ fun ModelProvidersScreen(
             }
         }
         item {
-            Button(
-                onClick = { showAdd.value = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
-            ) { Text(stringResource(R.string.agent_add_provider)) }
+            AgentActionRow {
+                AgentListActionButton(
+                    label = stringResource(R.string.agent_add_provider),
+                    icon = MaterialSymbols.Outlined.Add,
+                    onClick = { showAdd.value = true },
+                )
+            }
         }
     }
 
@@ -103,7 +114,7 @@ private fun AddProviderDialog(
     var name by remember(show.value) { mutableStateOf("") }
     var baseUrl by remember(show.value) { mutableStateOf("https://api.openai.com/v1") }
     var apiKey by remember(show.value) { mutableStateOf("") }
-    var typeIndex by remember(show.value) { mutableIntStateOf(0) }
+    var type by remember(show.value) { mutableStateOf(ModelProviderType.OPENAI_CHAT_COMPLETION) }
     // API keys are stored in the clear, so at least don't render them in the clear.
     var showApiKey by remember(show.value) { mutableStateOf(false) }
     val types = listOf(
@@ -113,9 +124,7 @@ private fun AddProviderDialog(
         ModelProviderType.GEMINI_GENERATE_CONTENT,
         ModelProviderType.GEMINI_INTERACTIONS
     )
-    val selectedType = types[typeIndex]
-    val typeLabels = types.map { it.label() }
-    val selectedTypeLabel = typeLabels[typeIndex]
+    val selectedTypeLabel = type.label()
 
     WeKitBasicDialog(
         show = show.value,
@@ -156,26 +165,25 @@ private fun AddProviderDialog(
                 },
             )
             Spacer(Modifier.height(8.dp))
-            AgentDropdownRow(
+            DropDownMenuWidget(
+                icon = null,
+                iconPlaceholder = false,
                 title = stringResource(R.string.agent_provider_api_type),
-                items = typeLabels,
-                selectedIndex = typeIndex,
-                onSelectedIndexChange = { typeIndex = it },
+                description = null,
+                value = type,
+                options = types.map { DropdownOption(it, it.label()) },
+                onValueChange = { type = it },
             )
             Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth()) {
-                TextButton(
-                    onClick = { show.value = false },
-                    modifier = Modifier.weight(1f),
-                ) { Text(stringResource(R.string.dialog_cancel)) }
-                Spacer(Modifier.width(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = { show.value = false }) { Text(stringResource(R.string.dialog_cancel)) }
+                Spacer(Modifier.width(8.dp))
                 TextButton(
                     onClick = {
-                        onConfirm(name.ifBlank { selectedTypeLabel }, selectedType, baseUrl, apiKey)
+                        onConfirm(name.ifBlank { selectedTypeLabel }, type, baseUrl, apiKey)
                         show.value = false
                     },
                     enabled = baseUrl.isNotBlank(),
-                    modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.action_add)) }
             }
         }
