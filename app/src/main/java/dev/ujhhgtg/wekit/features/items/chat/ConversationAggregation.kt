@@ -1522,6 +1522,7 @@ object ConversationAggregation : ClickableFeature(),
     private fun showCreateFolderDialog(context: Context, onFolderCreated: () -> Unit) {
         showComposeDialog(context) {
             FolderEditorDialog(
+                context = context,
                 title = stringResource(R.string.chat_aggregation_create_folder),
                 folder = null,
                 onDismiss = onDismiss,
@@ -1543,6 +1544,7 @@ object ConversationAggregation : ClickableFeature(),
     ) {
         showComposeDialog(context) {
             FolderEditorDialog(
+                context = context,
                 title = stringResource(R.string.chat_aggregation_edit_folder),
                 folder = folder,
                 onDismiss = onDismiss,
@@ -1608,6 +1610,7 @@ object ConversationAggregation : ClickableFeature(),
 
     @Composable
     private fun FolderEditorDialog(
+        context: Context,
         title: String,
         folder: ChatFolder?,
         onDismiss: () -> Unit,
@@ -1721,13 +1724,13 @@ object ConversationAggregation : ClickableFeature(),
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                val context = LocalContext.current
+                                val localizedContext = LocalContext.current
                                 Button(
                                     modifier = Modifier.weight(1f),
                                     onClick = {
                                         showComposeDialog(context) {
                                             ContactsSelector(
-                                                title = context.getString(R.string.chat_aggregation_choose_conversations),
+                                                title = localizedContext.getString(R.string.chat_aggregation_choose_conversations),
                                                 contacts = remember { WeDatabaseApi.getContacts() },
                                                 initialSelectedWxIds = members,
                                                 onDismiss = this.onDismiss,
