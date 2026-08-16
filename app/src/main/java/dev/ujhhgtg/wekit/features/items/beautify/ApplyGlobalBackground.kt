@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -221,11 +222,12 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
             }
             var transparentStatusBarInput by remember { mutableStateOf(transparentStatusBar) }
             var restartRequired by remember { mutableStateOf(false) }
+            val currentRestartRequired by rememberUpdatedState(restartRequired)
             val localizedContext = LocalContext.current
 
             DisposableEffect(Unit) {
                 onDispose {
-                    if (restartRequired) {
+                    if (currentRestartRequired) {
                         showToast(localizedContext.getString(R.string.saved_restart_wechat))
                     }
                 }
