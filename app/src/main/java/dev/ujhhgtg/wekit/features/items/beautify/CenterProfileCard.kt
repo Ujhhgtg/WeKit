@@ -141,6 +141,11 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
             var signatureTopMargin by remember {
                 mutableIntStateOf(signatureTopMarginPref.coerceIn(MIN_LAYOUT_DP, MAX_LAYOUT_DP))
             }
+            var avatarTopMarginChanged by remember { mutableStateOf(false) }
+            var avatarSizeChanged by remember { mutableStateOf(false) }
+            var nameTopMarginChanged by remember { mutableStateOf(false) }
+            var aliasTopMarginChanged by remember { mutableStateOf(false) }
+            var signatureTopMarginChanged by remember { mutableStateOf(false) }
             var lightBg by remember { mutableStateOf(lightBgPref) }
             var darkBg by remember { mutableStateOf(darkBgPref) }
             var showName by remember { mutableStateOf(showNamePref) }
@@ -228,7 +233,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                                         endInt = MAX_LAYOUT_DP,
                                         stepSize = 1,
                                         valueSuffix = "dp",
-                                        onValueChange = { avatarTopMargin = it },
+                                        onValueChange = {
+                                            avatarTopMargin = it
+                                            avatarTopMarginChanged = true
+                                        },
                                     )
                                 }
                             }
@@ -241,7 +249,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                                         endInt = MAX_LAYOUT_DP,
                                         stepSize = 1,
                                         valueSuffix = "dp",
-                                        onValueChange = { avatarSize = it },
+                                        onValueChange = {
+                                            avatarSize = it
+                                            avatarSizeChanged = true
+                                        },
                                     )
                                 }
                             }
@@ -254,7 +265,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                                         endInt = MAX_LAYOUT_DP,
                                         stepSize = 1,
                                         valueSuffix = "dp",
-                                        onValueChange = { nameTopMargin = it },
+                                        onValueChange = {
+                                            nameTopMargin = it
+                                            nameTopMarginChanged = true
+                                        },
                                     )
                                 }
                             }
@@ -267,7 +281,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                                         endInt = MAX_LAYOUT_DP,
                                         stepSize = 1,
                                         valueSuffix = "dp",
-                                        onValueChange = { aliasTopMargin = it },
+                                        onValueChange = {
+                                            aliasTopMargin = it
+                                            aliasTopMarginChanged = true
+                                        },
                                     )
                                 }
                             }
@@ -280,7 +297,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                                         endInt = MAX_LAYOUT_DP,
                                         stepSize = 1,
                                         valueSuffix = "dp",
-                                        onValueChange = { signatureTopMargin = it },
+                                        onValueChange = {
+                                            signatureTopMargin = it
+                                            signatureTopMarginChanged = true
+                                        },
                                     )
                                 }
                             }
@@ -326,11 +346,11 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                 },
                 confirmButton = {
                     Button(onClick = {
-                        avatarTopMarginPref = avatarTopMargin
-                        avatarSizePref = avatarSize.coerceAtLeast(1)
-                        nameTopMarginPref = nameTopMargin
-                        aliasTopMarginPref = aliasTopMargin
-                        signatureTopMarginPref = signatureTopMargin
+                        if (avatarTopMarginChanged) avatarTopMarginPref = avatarTopMargin
+                        if (avatarSizeChanged) avatarSizePref = avatarSize.coerceAtLeast(1)
+                        if (nameTopMarginChanged) nameTopMarginPref = nameTopMargin
+                        if (aliasTopMarginChanged) aliasTopMarginPref = aliasTopMargin
+                        if (signatureTopMarginChanged) signatureTopMarginPref = signatureTopMargin
                         lightBgPref = lightBg.takeIfValidColor(DEFAULT_LIGHT_BG)
                         darkBgPref = darkBg.takeIfValidColor(DEFAULT_DARK_BG)
                         showNamePref = showName

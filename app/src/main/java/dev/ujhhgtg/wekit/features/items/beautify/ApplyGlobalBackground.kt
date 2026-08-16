@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -210,6 +211,8 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            val originalOpacity = remember { opacity }
+            val originalTransparentStatusBar = remember { transparentStatusBar }
             var hasImage by remember { mutableStateOf(backgroundUri != null) }
             var opacityPercent by remember {
                 mutableIntStateOf(
@@ -217,7 +220,16 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                 )
             }
             var transparentStatusBarInput by remember { mutableStateOf(transparentStatusBar) }
+            var restartRequired by remember { mutableStateOf(false) }
             val localizedContext = LocalContext.current
+
+            DisposableEffect(Unit) {
+                onDispose {
+                    if (restartRequired) {
+                        showToast(localizedContext.getString(R.string.saved_restart_wechat))
+                    }
+                }
+            }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.beautify_global_background_title)) },
@@ -275,7 +287,11 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                                     valueSuffix = "%",
                                     onValueChange = {
                                         opacityPercent = it
-                                        opacity = it / 100f
+                                        val newOpacity = it / 100f
+                                        opacity = newOpacity
+                                        restartRequired =
+                                            newOpacity != originalOpacity ||
+                                                    transparentStatusBarInput != originalTransparentStatusBar
                                     },
                                 )
                             }
@@ -289,6 +305,8 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                                 onCheckedChange = {
                                     transparentStatusBarInput = it
                                     transparentStatusBar = it
+                                    restartRequired =
+                                        opacity != originalOpacity || it != originalTransparentStatusBar
                                 },
                             )
                         }
