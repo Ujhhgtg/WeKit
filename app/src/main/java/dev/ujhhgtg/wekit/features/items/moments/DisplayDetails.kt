@@ -7,11 +7,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,7 +19,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.view.isVisible
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Edit
 import com.tencent.mm.plugin.sns.ui.SnsUserUI
 import com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI
 import com.tencent.mm.ui.widget.imageview.WeImageView
@@ -37,8 +39,10 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import dev.ujhhgtg.wekit.ui.utils.rootView
@@ -49,6 +53,9 @@ import dev.ujhhgtg.wekit.utils.formatEpoch
 import java.util.Collections
 import java.util.Locale
 import java.util.WeakHashMap
+
+/** Which value row currently has its edit view swapped in. */
+private enum class EditField { TEXT, TIME }
 
 @Feature(
     id = "底部详细信息",
@@ -108,55 +115,116 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var textFormatInput by remember { mutableStateOf(textFormat) }
-            var timeFormatInput by remember { mutableStateOf(timeFormat) }
-            var hideGroupIconInput by remember { mutableStateOf(hideGroupIcon) }
+            var textFormatValue by remember { mutableStateOf(textFormat) }
+            var timeFormatValue by remember { mutableStateOf(timeFormat) }
+            var hideIcon by remember { mutableStateOf(hideGroupIcon) }
+            var editing by remember { mutableStateOf<EditField?>(null) }
+            var draft by remember { mutableStateOf("") }
             val localizedContext = LocalContext.current
 
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.moments_display_details_title)) },
-                text = {
-                    DefaultColumn {
-                        Text(stringResource(R.string.moments_display_details_placeholders, PH_ORIGINAL, PH_TIME, PH_TYPE, PH_SNS_ID, PH_USER_NAME))
-                        OutlinedTextField(
-                            value = textFormatInput,
-                            onValueChange = { textFormatInput = it },
-                            label = { Text(stringResource(R.string.moments_display_details_text_format)) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = timeFormatInput,
-                            onValueChange = { timeFormatInput = it },
-                            label = { Text(stringResource(R.string.moments_display_details_time_format)) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { hideGroupIconInput = !hideGroupIconInput },
-                            trailingContent = {
-                                Switch(
-                                    checked = hideGroupIconInput,
-                                    onCheckedChange = null
-                                )
-                            },
-                            content = { Text(stringResource(R.string.moments_display_details_hide_visibility_icon)) },
-                        )
+            fun commitField(field: EditField, value: String) {
+                when (field) {
+                    EditField.TEXT -> {
+                        textFormatValue = value
+                        textFormat = value.ifBlank { DEFAULT_TEXT_FORMAT }
                     }
-                },
-                dismissButton = {
-                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        textFormat = textFormatInput.ifBlank { DEFAULT_TEXT_FORMAT }
-                        timeFormat = timeFormatInput.ifBlank { DEFAULT_TIME_FORMAT }
-                        hideGroupIcon = hideGroupIconInput
-                        showToast(localizedContext.getString(R.string.moments_display_details_saved))
-                        onDismiss()
-                    }) {
-                        Text(stringResource(R.string.action_save))
+                    EditField.TIME -> {
+                        timeFormatValue = value
+                        timeFormat = value.ifBlank { DEFAULT_TIME_FORMAT }
                     }
                 }
-            )
+                showToast(localizedContext.getString(R.string.moments_display_details_saved))
+            }
+
+            val editingField = editing
+            if (editingField == null) {
+                AlertDialogContent(
+                    title = { Text(stringResource(R.string.moments_display_details_title)) },
+                    text = {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.moments_display_details_title),
+                                    description = stringResource(
+                                        R.string.moments_display_details_placeholders,
+                                        PH_ORIGINAL, PH_TIME, PH_TYPE, PH_SNS_ID, PH_USER_NAME,
+                                    ),
+                                )
+                            }
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.moments_display_details_text_format),
+                                    description = textFormatValue,
+                                    onClick = {
+                                        draft = textFormatValue
+                                        editing = EditField.TEXT
+                                    },
+                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
+                                )
+                            }
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.moments_display_details_time_format),
+                                    description = timeFormatValue,
+                                    onClick = {
+                                        draft = timeFormatValue
+                                        editing = EditField.TIME
+                                    },
+                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
+                                )
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.moments_display_details_hide_visibility_icon),
+                                    checked = hideIcon,
+                                    onCheckedChange = {
+                                        hideIcon = it
+                                        hideGroupIcon = it
+                                    },
+                                )
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                    },
+                )
+            } else {
+                AlertDialogContent(
+                    title = {
+                        Text(
+                            stringResource(
+                                if (editingField == EditField.TEXT) {
+                                    R.string.moments_display_details_text_format
+                                } else {
+                                    R.string.moments_display_details_time_format
+                                }
+                            )
+                        )
+                    },
+                    text = {
+                        OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            commitField(editingField, draft)
+                            editing = null
+                        }) { Text(stringResource(R.string.dialog_confirm)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { editing = null }) { Text(stringResource(R.string.dialog_cancel)) }
+                    },
+                )
+            }
         }
     }
 
