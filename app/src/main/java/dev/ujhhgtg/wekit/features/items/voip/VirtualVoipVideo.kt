@@ -16,23 +16,21 @@ import android.view.Surface
 import androidx.activity.ComponentActivity
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
@@ -46,7 +44,11 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -275,171 +277,191 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var currentType by remember { mutableStateOf(sourceType) }
-            var urlText by remember { mutableStateOf(streamUrl) }
 
             // 确保如果当前保存的配置是 auto 却切换到了 stream 模式时，降级显示为 portrait
             var orientationText by remember {
                 mutableStateOf(if (currentType == "stream" && streamOrientation == "auto") "portrait" else streamOrientation)
             }
             var fileExists by remember { mutableStateOf(VIDEO_PATH.toFile().exists()) }
+            var urlValue by remember { mutableStateOf(streamUrl) }
+            var editing by remember { mutableStateOf(false) }
+            var draft by remember { mutableStateOf("") }
 
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.voip_virtual_video_title)) },
-                text = {
-                    DefaultColumn {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = currentType == "file",
-                                onClick = {
-                                    currentType = "file"
-                                    sourceType = "file"
-                                    // 恢复为保存的全局文件方向配置
-                                    orientationText = streamOrientation
+            if (!editing) {
+                AlertDialogContent(
+                    title = { Text(stringResource(R.string.voip_virtual_video_title)) },
+                    text = {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item(key = "source_file") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.voip_virtual_video_local_file),
+                                    selected = currentType == "file",
+                                    onClick = {
+                                        currentType = "file"
+                                        sourceType = "file"
+                                        // 恢复为保存的全局文件方向配置
+                                        orientationText = streamOrientation
+                                    },
+                                )
+                            }
+                            item(key = "source_stream") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.voip_virtual_video_stream),
+                                    selected = currentType == "stream",
+                                    onClick = {
+                                        currentType = "stream"
+                                        sourceType = "stream"
+                                        // 网络流不支持自动，若当前为 auto 则强制修正为 portrait
+                                        if (orientationText == "auto") {
+                                            orientationText = "portrait"
+                                            streamOrientation = "portrait"
+                                        }
+                                    },
+                                )
+                            }
+                            item(key = "select_video", animatedVisibility = currentType == "file") {
+                                BaseItemContainer {
+                                    Button(
+                                        onClick = {
+                                            TransparentActivity.launch(context) {
+                                                val selMediaLauncher = registerForActivityResult(
+                                                    ActivityResultContracts.PickVisualMedia()
+                                                ) { uri ->
+                                                    finish()
+                                                    if (uri == null) return@registerForActivityResult
+
+                                                    contentResolver.openInputStream(uri)?.use { input ->
+                                                        VIDEO_PATH.toFile().outputStream().use { output ->
+                                                            input.copyTo(output)
+                                                        }
+                                                    } ?: run {
+                                                        WeLogger.e(TAG, "failed to open input stream")
+                                                        showToast(
+                                                            context,
+                                                            localizedVoipString(R.string.voip_virtual_video_open_failed),
+                                                        )
+                                                        return@registerForActivityResult
+                                                    }
+
+                                                    fileExists = true
+                                                    showToast(
+                                                        context,
+                                                        localizedVoipString(R.string.voip_virtual_video_imported),
+                                                    )
+                                                }
+
+                                                selMediaLauncher.launch(
+                                                    PickVisualMediaRequest(
+                                                        ActivityResultContracts.PickVisualMedia.VideoOnly
+                                                    )
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    ) {
+                                        Text(stringResource(R.string.voip_virtual_video_select))
+                                    }
                                 }
-                            )
-                            Text(stringResource(R.string.voip_virtual_video_local_file), modifier = Modifier.clickable {
-                                currentType = "file"
-                                sourceType = "file"
-                                orientationText = streamOrientation
-                            })
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            RadioButton(
-                                selected = currentType == "stream",
-                                onClick = {
-                                    currentType = "stream"
-                                    sourceType = "stream"
-                                    // 网络流不支持自动，若当前为 auto 则强制修正为 portrait
-                                    if (orientationText == "auto") {
+                            }
+                            item(key = "file_status", animatedVisibility = currentType == "file") {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(
+                                        if (fileExists) {
+                                            R.string.voip_virtual_video_ready
+                                        } else {
+                                            R.string.voip_virtual_video_missing
+                                        }
+                                    ),
+                                    description = stringResource(R.string.voip_virtual_video_path, VIDEO_PATH),
+                                )
+                            }
+                            item(key = "stream_url", animatedVisibility = currentType == "stream") {
+                                val urlLabel = stringResource(R.string.voip_virtual_video_url)
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = urlLabel,
+                                    description = urlValue.ifBlank { urlLabel },
+                                    onClick = {
+                                        draft = urlValue
+                                        editing = true
+                                    },
+                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
+                                )
+                            }
+                            item(key = "orientation_header") {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.voip_virtual_video_orientation),
+                                )
+                            }
+                            // 网络流不支持自动方向，auto 选项仅在本地文件模式下提供
+                            item(key = "orientation_auto", animatedVisibility = currentType == "file") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.voip_virtual_video_orientation_auto),
+                                    selected = orientationText == "auto",
+                                    onClick = {
+                                        orientationText = "auto"
+                                        streamOrientation = "auto"
+                                    },
+                                )
+                            }
+                            item(key = "orientation_portrait") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.voip_virtual_video_orientation_portrait),
+                                    selected = orientationText == "portrait",
+                                    onClick = {
                                         orientationText = "portrait"
                                         streamOrientation = "portrait"
-                                    }
-                                }
-                            )
-                            Text(stringResource(R.string.voip_virtual_video_stream), modifier = Modifier.clickable {
-                                currentType = "stream"
-                                sourceType = "stream"
-                                if (orientationText == "auto") {
-                                    orientationText = "portrait"
-                                    streamOrientation = "portrait"
-                                }
-                            })
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        if (currentType == "file") {
-                            Button(
-                                onClick = {
-                                    TransparentActivity.launch(context) {
-                                        val selMediaLauncher = registerForActivityResult(
-                                            ActivityResultContracts.PickVisualMedia()
-                                        ) { uri ->
-                                            finish()
-                                            if (uri == null) return@registerForActivityResult
-
-                                            contentResolver.openInputStream(uri)?.use { input ->
-                                                VIDEO_PATH.toFile().outputStream().use { output ->
-                                                    input.copyTo(output)
-                                                }
-                                            } ?: run {
-                                                WeLogger.e(TAG, "failed to open input stream")
-                                                showToast(
-                                                    context,
-                                                    localizedVoipString(R.string.voip_virtual_video_open_failed),
-                                                )
-                                                return@registerForActivityResult
-                                            }
-
-                                            fileExists = true
-                                            showToast(
-                                                context,
-                                                localizedVoipString(R.string.voip_virtual_video_imported),
-                                            )
-                                        }
-
-                                        selMediaLauncher.launch(
-                                            PickVisualMediaRequest(
-                                                ActivityResultContracts.PickVisualMedia.VideoOnly
-                                            )
-                                        )
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(stringResource(R.string.voip_virtual_video_select))
+                                    },
+                                )
                             }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = stringResource(
-                                    if (fileExists) {
-                                        R.string.voip_virtual_video_ready
-                                    } else {
-                                        R.string.voip_virtual_video_missing
-                                    }
+                            item(key = "orientation_landscape") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.voip_virtual_video_orientation_landscape),
+                                    selected = orientationText == "landscape",
+                                    onClick = {
+                                        orientationText = "landscape"
+                                        streamOrientation = "landscape"
+                                    },
                                 )
-                            )
-                            Text(stringResource(R.string.voip_virtual_video_path, VIDEO_PATH))
-                        } else {
-                            OutlinedTextField(
-                                value = urlText,
-                                onValueChange = {
-                                    urlText = it
-                                    streamUrl = it
-                                },
-                                label = { Text(stringResource(R.string.voip_virtual_video_url)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Text(stringResource(R.string.voip_virtual_video_orientation))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (currentType == "file") {
-                                RadioButton(
-                                    selected = orientationText == "auto",
-                                    onClick = { orientationText = "auto"; streamOrientation = "auto" }
-                                )
-                                Text(
-                                    stringResource(R.string.voip_virtual_video_orientation_auto),
-                                    modifier = Modifier.clickable { orientationText = "auto"; streamOrientation = "auto" },
-                                )
-
-                                Spacer(modifier = Modifier.width(16.dp))
                             }
-
-                            RadioButton(
-                                selected = orientationText == "portrait",
-                                onClick = { orientationText = "portrait"; streamOrientation = "portrait" }
-                            )
-                            Text(
-                                stringResource(R.string.voip_virtual_video_orientation_portrait),
-                                modifier = Modifier.clickable { orientationText = "portrait"; streamOrientation = "portrait" },
-                            )
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            RadioButton(
-                                selected = orientationText == "landscape",
-                                onClick = { orientationText = "landscape"; streamOrientation = "landscape" }
-                            )
-                            Text(
-                                stringResource(R.string.voip_virtual_video_orientation_landscape),
-                                modifier = Modifier.clickable { orientationText = "landscape"; streamOrientation = "landscape" },
-                            )
                         }
-                    }
-                },
-                confirmButton = {
-                    Button(onClick = onDismiss) { Text(stringResource(R.string.dialog_confirm)) }
-                }
-            )
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                    },
+                )
+            } else {
+                AlertDialogContent(
+                    title = { Text(stringResource(R.string.voip_virtual_video_url)) },
+                    text = {
+                        OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            urlValue = draft
+                            streamUrl = draft
+                            editing = false
+                        }) { Text(stringResource(R.string.dialog_confirm)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { editing = false }) { Text(stringResource(R.string.dialog_cancel)) }
+                    },
+                )
+            }
         }
     }
 
