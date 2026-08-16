@@ -50,6 +50,8 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
 
     var exaKey by remember { mutableStateOf("") }
     var braveKey by remember { mutableStateOf("") }
+    var exaSaving by remember { mutableStateOf(false) }
+    var braveSaving by remember { mutableStateOf(false) }
     // Track whether each field has been loaded; show nothing until ready to avoid flicker.
     var loaded by remember { mutableStateOf(false) }
 
@@ -70,11 +72,20 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.external_service_exa_name),
                 description = stringResource(R.string.external_service_exa_description),
                 key = exaKey,
+                saving = exaSaving,
                 onKeyChange = { exaKey = it },
+                onClear = {
+                    scope.launch {
+                        WeAgentRepository.setExternalServiceKey(ExternalServiceId.EXA, null)
+                        BuiltinToolProvider.exaKeyPresent = false
+                    }
+                },
                 onSave = {
+                    exaSaving = true
                     scope.launch {
                         WeAgentRepository.setExternalServiceKey(ExternalServiceId.EXA, exaKey)
                         BuiltinToolProvider.exaKeyPresent = exaKey.isNotBlank()
+                        exaSaving = false
                     }
                 },
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
@@ -86,11 +97,20 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.external_service_brave_name),
                 description = stringResource(R.string.external_service_brave_description),
                 key = braveKey,
+                saving = braveSaving,
                 onKeyChange = { braveKey = it },
+                onClear = {
+                    scope.launch {
+                        WeAgentRepository.setExternalServiceKey(ExternalServiceId.BRAVE, null)
+                        BuiltinToolProvider.braveKeyPresent = false
+                    }
+                },
                 onSave = {
+                    braveSaving = true
                     scope.launch {
                         WeAgentRepository.setExternalServiceKey(ExternalServiceId.BRAVE, braveKey)
                         BuiltinToolProvider.braveKeyPresent = braveKey.isNotBlank()
+                        braveSaving = false
                     }
                 },
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
@@ -105,7 +125,9 @@ private fun ServiceKeyCard(
     title: String,
     description: String,
     key: String,
+    saving: Boolean,
     onKeyChange: (String) -> Unit,
+    onClear: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -151,15 +173,17 @@ private fun ServiceKeyCard(
                 if (key.isNotBlank()) {
                     Button(
                         onClick = {
+                            onClear()
                             onKeyChange("")
-                            onSave()
                         },
+                        enabled = !saving,
                         modifier = Modifier.width(80.dp),
                     ) { Text(stringResource(R.string.action_clear)) }
                     Spacer(Modifier.width(8.dp))
                 }
                 Button(
                     onClick = onSave,
+                    enabled = !saving,
                     modifier = Modifier.width(80.dp),
                 ) { Text(stringResource(R.string.action_save)) }
             }

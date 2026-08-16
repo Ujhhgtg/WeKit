@@ -1,10 +1,6 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,7 +46,6 @@ import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
-import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import kotlinx.coroutines.launch
@@ -351,44 +346,3 @@ private fun WeAgentService.SendWhileRunningMode.labelRes(): String = stringResou
     WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN -> R.string.agent_send_queue_after_turn
     WeAgentService.SendWhileRunningMode.QUEUE_AS_STEER -> R.string.agent_send_steer_next_request
 })
-
-/** Row opening an M3 [AlertDialog] radio list — the agent-settings counterpart of a dropdown preference. */
-@Composable
-internal fun AgentDropdownRow(
-    title: String,
-    items: List<String>,
-    selectedIndex: Int,
-    onSelectedIndexChange: (Int) -> Unit,
-    summary: String? = null,
-) {
-    var showDialog by remember { mutableStateOf(false) }
-
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text(title) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    items.forEachIndexed { index, label ->
-                        RadioButtonWidget(
-                            title = label,
-                            selected = index == selectedIndex,
-                            onClick = {
-                                showDialog = false
-                                onSelectedIndexChange(index)
-                            },
-                        )
-                    }
-                }
-            },
-            confirmButton = {},
-        )
-    }
-
-    BaseWidget(
-        title = title,
-        description = summary ?: items[selectedIndex],
-        onClick = { showDialog = true },
-        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-    )
-}

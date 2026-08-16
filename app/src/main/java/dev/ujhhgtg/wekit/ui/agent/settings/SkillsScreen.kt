@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,6 +7,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -17,18 +18,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Add
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.skill.SkillStore
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
-import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,46 +59,41 @@ fun SkillsScreen(onBack: () -> Unit) {
     var showEditor by remember { mutableStateOf(false) }
 
     AgentSettingsScaffold(title = stringResource(R.string.agent_skills_title), onBack = onBack) {
-        if (skills.isEmpty()) item { EmptyHint(stringResource(R.string.agent_skills_empty)) }
-        items(skills.size, key = { skills[it].name }) { i ->
-            val s = skills[i]
-            SegmentedColumn {
-                item {
-                    SwitchWidget(
-                        title = s.name,
-                        description = s.description.ifBlank { stringResource(R.string.agent_no_description) },
-                        checked = s.enabled,
-                        onCheckedChange = { on ->
-                            scope.launch {
-                                withContext(Dispatchers.IO) { SkillStore.setEnabled(s.name, on) }
-                                reloadTick++
-                            }
-                        },
-                    )
-                }
-                item {
-                    Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                        TextButton(onClick = { editing = s; showEditor = true }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_edit)) }
-                        Spacer(Modifier.width(8.dp))
-                        TextButton(
-                            onClick = { scope.launch { withContext(Dispatchers.IO) { SkillStore.delete(s.name) }; reloadTick++ } },
-                            modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(R.string.action_delete)) }
+        if (skills.isEmpty()) {
+            item {
+                AgentEmptyState(
+                    title = stringResource(R.string.agent_empty_skills_title),
+                    message = stringResource(R.string.agent_empty_skills_message),
+                    actionLabel = stringResource(R.string.agent_add_skill),
+                    onAction = { editing = null; showEditor = true },
+                )
+            }
+        } else {
+            items(skills.size, key = { skills[it].name }) { i ->
+                val s = skills[i]
+                SegmentedColumn {
+                    item {
+                        BaseWidget(
+                            title = s.name,
+                            description = s.description.ifBlank { stringResource(R.string.agent_no_description) },
+                            onClick = { editing = s; showEditor = true },
+                        )
                     }
                 }
             }
-        }
-        item {
-            Button(
-                onClick = { editing = null; showEditor = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
-            ) { Text(stringResource(R.string.agent_add_skill)) }
+            item {
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.agent_add_skill),
+                        icon = MaterialSymbols.Outlined.Add,
+                        onClick = { editing = null; showEditor = true },
+                    )
+                }
+            }
         }
     }
 
-    SkillEditorDialog(
+    SkillEditorSheet(
         show = showEditor,
         existing = editing,
         // Clear [editing] too: the editor's field state is keyed on it, so leaving it set would keep
@@ -122,59 +120,94 @@ fun SkillsScreen(onBack: () -> Unit) {
                 }
             }
         },
+        onDelete = { name ->
+            scope.launch {
+                withContext(Dispatchers.IO) { SkillStore.delete(name) }
+                reloadTick++
+                showEditor = false
+                editing = null
+            }
+        },
     )
 }
 
 @Composable
-private fun SkillEditorDialog(
+private fun SkillEditorSheet(
     show: Boolean,
     existing: SkillStore.Skill?,
     onDismiss: () -> Unit,
     onSave: (name: String, description: String, body: String) -> Unit,
+    onDelete: (name: String) -> Unit,
 ) {
-    var name by remember(existing) { mutableStateOf(existing?.name.orEmpty()) }
-    var description by remember(existing) { mutableStateOf(existing?.description.orEmpty()) }
-    var body by remember(existing) { mutableStateOf(existing?.body.orEmpty()) }
+    var name by remember(existing, show) { mutableStateOf(existing?.name.orEmpty()) }
+    var description by remember(existing, show) { mutableStateOf(existing?.description.orEmpty()) }
+    var body by remember(existing, show) { mutableStateOf(existing?.body.orEmpty()) }
+    var showDeleteConfirm by remember(existing) { mutableStateOf(false) }
 
-    WeKitBasicDialog(
+    AgentEditorSheet(
         show = show,
         title = stringResource(if (existing == null) R.string.agent_add_skill else R.string.agent_edit_skill),
-        onDismissRequest = onDismiss,
-    ) {
-        Column {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(R.string.agent_skill_name_label)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text(stringResource(R.string.agent_skill_description_label)) },
-                maxLines = 3,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = body,
-                onValueChange = { body = it },
-                label = { Text(stringResource(R.string.agent_skill_body_label)) },
-                maxLines = 12,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth()) {
-                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.dialog_cancel)) }
-                Spacer(Modifier.width(12.dp))
-                TextButton(
+        onDismiss = onDismiss,
+        bottomBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (existing != null) {
+                    TextButton(
+                        onClick = { showDeleteConfirm = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text(stringResource(R.string.action_delete)) }
+                }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                Spacer(Modifier.width(8.dp))
+                Button(
                     onClick = { onSave(name, description, body) },
                     enabled = name.isNotBlank() && body.isNotBlank(),
-                    modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.action_save)) }
             }
-        }
+        },
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text(stringResource(R.string.agent_skill_name_label)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = description,
+            onValueChange = { description = it },
+            label = { Text(stringResource(R.string.agent_skill_description_label)) },
+            maxLines = 3,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = body,
+            onValueChange = { body = it },
+            label = { Text(stringResource(R.string.agent_skill_body_label)) },
+            maxLines = 12,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(16.dp))
     }
+
+    AgentConfirmDialog(
+        show = showDeleteConfirm,
+        title = stringResource(R.string.action_delete),
+        message = stringResource(R.string.agent_delete_skill_confirm),
+        confirmLabel = stringResource(R.string.action_delete),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            showDeleteConfirm = false
+            onDelete(existing!!.name)
+        },
+        onDismiss = { showDeleteConfirm = false },
+    )
 }
