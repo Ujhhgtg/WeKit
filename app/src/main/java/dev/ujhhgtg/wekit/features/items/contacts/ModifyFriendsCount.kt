@@ -8,12 +8,11 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -21,8 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -30,9 +27,8 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -73,81 +69,61 @@ object ModifyFriendsCount : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var hide by remember { mutableStateOf(count == HIDE) }
-            var displayCount by remember { mutableIntStateOf(if (count == HIDE) 0 else count) }
-            var editing by remember { mutableStateOf(false) }
-            var draft by remember { mutableStateOf("") }
+            var displayCount by remember { mutableStateOf(if (count == HIDE) "0" else count.toString()) }
 
-            fun commitCount(value: Int) {
-                displayCount = value
+            fun commitCount(value: String) {
                 if (!hide) {
-                    count = value
-                    WeLogger.i(TAG, "friend count display set to $value")
+                    count = value.toIntOrNull() ?: 0
+                    WeLogger.i(TAG, "friend count display set to $count")
                 }
             }
 
-            if (!editing) {
-                AlertDialogContent(
-                    title = { Text(stringResource(R.string.feature_modify_friends_count_name)) },
-                    text = {
-                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                            item {
-                                SwitchWidget(
-                                    iconPlaceholder = false,
-                                    title = stringResource(R.string.contacts_modify_count_hide),
-                                    checked = hide,
-                                    onCheckedChange = {
-                                        hide = it
-                                        if (it) {
-                                            count = HIDE
-                                            WeLogger.i(TAG, "friend count display set to hidden")
-                                        } else {
-                                            commitCount(displayCount)
-                                        }
+            AlertDialogContent(
+                title = { Text(stringResource(R.string.feature_modify_friends_count_name)) },
+                text = {
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.contacts_modify_count_hide),
+                                checked = hide,
+                                onCheckedChange = {
+                                    hide = it
+                                    if (it) {
+                                        count = HIDE
+                                        WeLogger.i(TAG, "friend count display set to hidden")
+                                    } else {
+                                        commitCount(displayCount)
+                                    }
+                                },
+                            )
+                        }
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.contacts_modify_count_display),
+                                enabled = !hide,
+                            ) {
+                                OutlinedTextField(
+                                    value = displayCount,
+                                    onValueChange = {
+                                        displayCount = it.filter(Char::isDigit).take(7)
+                                        commitCount(displayCount)
                                     },
-                                )
-                            }
-                            item {
-                                BaseWidget(
-                                    iconPlaceholder = false,
-                                    title = stringResource(R.string.contacts_modify_count_display),
-                                    description = displayCount.toString(),
                                     enabled = !hide,
-                                    onClick = {
-                                        draft = displayCount.toString()
-                                        editing = true
-                                    },
-                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
                                 )
                             }
                         }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
-                    },
-                )
-            } else {
-                AlertDialogContent(
-                    title = { Text(stringResource(R.string.contacts_modify_count_display)) },
-                    text = {
-                        OutlinedTextField(
-                            value = draft,
-                            onValueChange = { draft = it.filter(Char::isDigit).take(7) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    },
-                    confirmButton = {
-                        Button(onClick = {
-                            commitCount(draft.toIntOrNull() ?: 0)
-                            editing = false
-                        }) { Text(stringResource(R.string.dialog_confirm)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { editing = false }) { Text(stringResource(R.string.dialog_cancel)) }
-                    },
-                )
-            }
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
+            )
         }
     }
 }

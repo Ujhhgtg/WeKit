@@ -19,7 +19,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -29,8 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
@@ -46,6 +43,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -284,11 +282,8 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
             }
             var fileExists by remember { mutableStateOf(VIDEO_PATH.toFile().exists()) }
             var urlValue by remember { mutableStateOf(streamUrl) }
-            var editing by remember { mutableStateOf(false) }
-            var draft by remember { mutableStateOf("") }
 
-            if (!editing) {
-                AlertDialogContent(
+            AlertDialogContent(
                     title = { Text(stringResource(R.string.voip_virtual_video_title)) },
                     text = {
                         SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
@@ -381,17 +376,21 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                 )
                             }
                             item(key = "stream_url", animatedVisibility = currentType == "stream") {
-                                val urlLabel = stringResource(R.string.voip_virtual_video_url)
-                                BaseWidget(
-                                    iconPlaceholder = false,
-                                    title = urlLabel,
-                                    description = urlValue.ifBlank { urlLabel },
-                                    onClick = {
-                                        draft = urlValue
-                                        editing = true
-                                    },
-                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
-                                )
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.voip_virtual_video_url),
+                                ) {
+                                    OutlinedTextField(
+                                        value = urlValue,
+                                        onValueChange = {
+                                            urlValue = it
+                                            streamUrl = it
+                                        },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                    )
+                                }
                             }
                             item(key = "orientation_header") {
                                 BaseWidget(
@@ -438,30 +437,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                     dismissButton = {
                         TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                     },
-                )
-            } else {
-                AlertDialogContent(
-                    title = { Text(stringResource(R.string.voip_virtual_video_url)) },
-                    text = {
-                        OutlinedTextField(
-                            value = draft,
-                            onValueChange = { draft = it },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    },
-                    confirmButton = {
-                        Button(onClick = {
-                            urlValue = draft
-                            streamUrl = draft
-                            editing = false
-                        }) { Text(stringResource(R.string.dialog_confirm)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { editing = false }) { Text(stringResource(R.string.dialog_cancel)) }
-                    },
-                )
-            }
+            )
         }
     }
 

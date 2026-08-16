@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -13,8 +13,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -26,18 +24,14 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
-
-/** Which value row currently has its edit view swapped in. */
-private enum class EditField { PATTERN, TIME_FORMAT }
 
 @Feature(
     id = "防撤回",
@@ -122,12 +116,8 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
             var recallOutgoingInput by remember { mutableStateOf(recallOutgoing) }
             var patternValue by remember { mutableStateOf(pattern) }
             var timeFormatValue by remember { mutableStateOf(timeFormat) }
-            var editing by remember { mutableStateOf<EditField?>(null) }
-            var draft by remember { mutableStateOf("") }
 
-            val editingField = editing
-            if (editingField == null) {
-                AlertDialogContent(
+            AlertDialogContent(
                     title = { Text(stringResource(R.string.feature_anti_message_recall_name)) },
                     text = {
                         SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
@@ -144,82 +134,46 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                                 )
                             }
                             item {
-                                BaseWidget(
-                                    iconPlaceholder = false,
+                                BaseSupportingWidget(
                                     title = stringResource(R.string.chat_anti_recall_pattern),
-                                    description = patternValue,
-                                    onClick = {
-                                        draft = patternValue
-                                        editing = EditField.PATTERN
-                                    },
-                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
-                                )
+                                    description = stringResource(R.string.chat_anti_recall_placeholders),
+                                ) {
+                                    OutlinedTextField(
+                                        value = patternValue,
+                                        onValueChange = {
+                                            patternValue = it
+                                            pattern = it
+                                        },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                    )
+                                }
                             }
                             item {
-                                BaseWidget(
-                                    iconPlaceholder = false,
+                                BaseSupportingWidget(
                                     title = stringResource(R.string.chat_anti_recall_time_format),
-                                    description = timeFormatValue,
-                                    onClick = {
-                                        draft = timeFormatValue
-                                        editing = EditField.TIME_FORMAT
-                                    },
-                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
-                                )
+                                ) {
+                                    OutlinedTextField(
+                                        value = timeFormatValue,
+                                        onValueChange = {
+                                            timeFormatValue = it
+                                            timeFormat = it
+                                        },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                    )
+                                }
                             }
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                     },
-                )
-            } else {
-                AlertDialogContent(
-                    title = {
-                        Text(
-                            stringResource(
-                                if (editingField == EditField.PATTERN) {
-                                    R.string.chat_anti_recall_pattern
-                                } else {
-                                    R.string.chat_anti_recall_time_format
-                                }
-                            )
-                        )
-                    },
-                    text = {
-                        OutlinedTextField(
-                            value = draft,
-                            onValueChange = { draft = it },
-                            singleLine = true,
-                            supportingText = if (editingField == EditField.PATTERN) {
-                                { Text(stringResource(R.string.chat_anti_recall_placeholders)) }
-                            } else {
-                                null
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    },
-                    confirmButton = {
-                        Button({
-                            when (editingField) {
-                                EditField.PATTERN -> {
-                                    patternValue = draft
-                                    pattern = draft
-                                }
-
-                                EditField.TIME_FORMAT -> {
-                                    timeFormatValue = draft
-                                    timeFormat = draft
-                                }
-                            }
-                            editing = null
-                        }) { Text(stringResource(R.string.dialog_confirm)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { editing = null }) { Text(stringResource(R.string.dialog_cancel)) }
-                    },
-                )
-            }
+            )
         }
     }
 }
