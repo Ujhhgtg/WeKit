@@ -1241,6 +1241,9 @@ private fun HomeSidePanelHitokotoSettings(
     panelState: HomeSidePanelState,
 ) {
     var draft by remember(state.hitokotoSettings) { mutableStateOf(state.hitokotoSettings) }
+    val lengthUpperBound = remember(state.hitokotoSettings) {
+        maxOf(500, state.hitokotoSettings.minLength ?: 0, state.hitokotoSettings.maxLength ?: 0)
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1278,8 +1281,12 @@ private fun HomeSidePanelHitokotoSettings(
                         title = stringResource(R.string.home_side_panel_min_length),
                         value = draft.minLength ?: 0,
                         startInt = 0,
-                        endInt = 500,
+                        endInt = lengthUpperBound,
                         stepSize = 1,
+                        subduedValue = draft.minLength == null,
+                        onValueClick = {
+                            draft = draft.copy(minLength = if (draft.minLength == null) 0 else null)
+                        },
                         onValueChange = { draft = draft.copy(minLength = it) },
                     )
                 }
@@ -1290,8 +1297,12 @@ private fun HomeSidePanelHitokotoSettings(
                         title = stringResource(R.string.home_side_panel_max_length),
                         value = draft.maxLength ?: 0,
                         startInt = 0,
-                        endInt = 500,
+                        endInt = lengthUpperBound,
                         stepSize = 1,
+                        subduedValue = draft.maxLength == null,
+                        onValueClick = {
+                            draft = draft.copy(maxLength = if (draft.maxLength == null) 0 else null)
+                        },
                         onValueChange = { draft = draft.copy(maxLength = it) },
                     )
                 }
