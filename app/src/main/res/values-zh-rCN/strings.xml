@@ -133,14 +133,12 @@
     <string name="accessibility_back">返回</string>
     <string name="agent_settings_title">WeAgent 设置</string>
     <string name="agent_overlay_mode_title">悬浮窗模式</string>
-    <string name="agent_overlay_mode_summary">悬浮球何时显示（禁用后仍可从聊天工具栏唤起）</string>
     <string name="agent_overlay_mode_disabled">禁用</string>
     <string name="agent_overlay_mode_foreground_only">仅在微信前台时显示</string>
     <string name="agent_overlay_mode_always">始终显示</string>
     <string name="agent_section_models">模型</string>
     <string name="agent_model_providers_title">模型提供方</string>
     <string name="agent_model_providers_summary">配置 OpenAI / Anthropic / Gemini 服务器、API Key、模型</string>
-    <string name="agent_max_requests_per_turn">每轮请求上限</string>
     <string name="agent_small_model_title">审批 / 标题小模型</string>
     <string name="agent_same_as_primary_model">（与主模型相同）</string>
     <string name="agent_send_while_running_title">运行中发送行为</string>
@@ -191,7 +189,6 @@
     <string name="agent_tool_mode_disabled">禁用</string>
     <string name="action_add">添加</string>
     <string name="common_name">名称</string>
-    <string name="agent_model_providers_empty">还没有模型提供方，点击下方按钮添加。</string>
     <string name="agent_provider_summary">%1$s · %2$s</string>
     <string name="agent_add_provider">添加提供方</string>
     <string name="agent_add_model_provider">添加模型提供方</string>
@@ -942,7 +939,6 @@
     <string name="agent_field_name">名称</string>
     <string name="action_edit">编辑</string>
     <string name="action_delete">删除</string>
-    <string name="agent_mcp_servers_empty">还没有 MCP 服务器。</string>
     <string name="agent_mcp_server_summary">%1$s · %2$s</string>
     <string name="agent_mcp_server_summary_error">%1$s · %2$s · %3$s</string>
     <string name="agent_add_server">添加服务器</string>
@@ -965,13 +961,11 @@
     <string name="agent_provider_fallback_title">提供方</string>
     <string name="agent_section_connection">连接</string>
     <string name="agent_delete_provider">删除提供方</string>
-    <string name="agent_models_empty">还没有模型。</string>
     <string name="agent_model_supports_vision_badge">视觉</string>
     <string name="agent_add_model">添加模型</string>
     <string name="agent_fetching_models">获取模型列表中…</string>
     <string name="agent_auto_import_models">自动导入模型</string>
     <string name="agent_fetch_models_failed">获取失败：%1$s</string>
-    <string name="agent_models_imported">已导入 %1$d 个模型</string>
     <string name="agent_import_models_title">导入模型（%1$d）</string>
     <string name="agent_provider_returned_no_models">该提供方未返回任何模型。</string>
     <string name="agent_model_already_added">%1$s（已添加）</string>
@@ -1015,7 +1009,6 @@
     <string name="agent_injected_content">注入内容</string>
     <string name="agent_title_label">标题</string>
     <string name="agent_preset_content">预设内容</string>
-    <string name="agent_skills_empty">还没有技能。技能是针对特定任务的操作手册，LLM 会按需加载。</string>
     <string name="agent_no_description">（无简介）</string>
     <string name="agent_add_skill">添加技能</string>
     <string name="agent_edit_skill">编辑技能</string>
@@ -1023,14 +1016,12 @@
     <string name="agent_skill_name_label">技能名称（同时作为目录名）</string>
     <string name="agent_skill_description_label">简介（决定 LLM 何时加载此技能）</string>
     <string name="agent_skill_body_label">技能正文（SKILL.md 指令内容）</string>
-    <string name="agent_workspaces_empty">还没有工作区。会话可绑定一个工作区以启用文件读写。</string>
     <string name="agent_workspace_path_summary">/workspace/ → %1$s</string>
     <string name="agent_add_workspace">添加工作区</string>
     <string name="agent_workspace_rename_failed">重命名失败：目标名称已存在或无效</string>
     <string name="agent_edit_workspace">编辑工作区</string>
     <string name="agent_workspace_edit_name_label">工作区名称（会重命名真实文件夹）</string>
     <string name="agent_workspace_add_name_label">工作区名称（同时作为目录名）</string>
-    <string name="agent_triggers_empty">还没有触发器。触发器可在定时、收到新消息或检测到数据库操作时自动唤起 AI 运行一轮。全局触发器每次触发都会新建会话。</string>
     <string name="agent_global_triggers">全局触发器</string>
     <string name="agent_session_triggers">会话触发器</string>
     <string name="agent_deleted_session">（会话已删除）</string>
@@ -3258,8 +3249,6 @@
     <string name="telegram_retry">重试</string>
     <string name="telegram_current_account">当前账户</string>
 
-    <string name="agent_empty_action_add">添加</string>
-    <string name="agent_delete_confirm_title">确认删除</string>
     <string name="agent_delete_provider_confirm">删除该提供方及其所有模型？此操作无法撤销。</string>
     <string name="agent_delete_model_confirm">删除该模型？此操作无法撤销。</string>
     <string name="agent_delete_server_confirm">删除该服务器及其工具配置？此操作无法撤销。</string>
@@ -3276,14 +3265,11 @@
     <string name="agent_memory_enabled_summary">AI 可读写持久记忆</string>
     <string name="agent_empty_providers_title">暂无提供方</string>
     <string name="agent_empty_providers_message">添加一个模型提供方以配置 API 与模型。</string>
-    <string name="agent_empty_models_title">暂无模型</string>
     <string name="agent_empty_models_message">为此提供方添加模型，或从其 API 获取并导入。</string>
     <string name="agent_empty_mcp_title">暂无 MCP 服务器</string>
     <string name="agent_empty_mcp_message">添加 Streamable HTTP 或 SSE 服务器以扩展可用工具。</string>
     <string name="agent_empty_mcp_tools_title">暂无可用工具</string>
     <string name="agent_empty_mcp_tools_message">未连接或服务器未返回工具。</string>
-    <string name="agent_empty_prompts_title">暂无提示词</string>
-    <string name="agent_empty_prompts_message">添加系统、每轮、条件或预设提示词。</string>
     <string name="agent_empty_prompts_system">暂无系统提示词。</string>
     <string name="agent_empty_prompts_per_turn">暂无每轮提示词。</string>
     <string name="agent_empty_prompts_conditional">暂无条件提示词。</string>

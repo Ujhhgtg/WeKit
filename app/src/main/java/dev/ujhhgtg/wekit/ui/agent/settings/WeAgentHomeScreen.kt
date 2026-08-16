@@ -134,7 +134,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                             iconPlaceholder = false,
                             title = stringResource(R.string.agent_small_model_title),
                             description = null,
-                            value = smallModelId,
+                            value = staleToNull(smallModelId, models!!.map { it.id }),
                             options = listOf(DropdownOption<String?>(null, stringResource(R.string.agent_same_as_primary_model))) +
                                 models!!.map { DropdownOption<String?>(it.id, it.displayName.ifBlank { it.modelIdRemote }) },
                             onValueChange = { id ->
@@ -287,7 +287,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                             iconPlaceholder = false,
                             title = stringResource(R.string.agent_default_model_title),
                             description = null,
-                            value = defaultModelId,
+                            value = staleToNull(defaultModelId, models!!.map { it.id }),
                             options = listOf(DropdownOption<String?>(null, stringResource(R.string.agent_use_first_model))) +
                                 models!!.map { DropdownOption<String?>(it.id, it.displayName.ifBlank { it.modelIdRemote }) },
                             onValueChange = { id ->
@@ -302,7 +302,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                             iconPlaceholder = false,
                             title = stringResource(R.string.agent_default_system_prompt_title),
                             description = null,
-                            value = defaultSystemPromptId,
+                            value = staleToNull(defaultSystemPromptId, systemPrompts!!.map { it.id }),
                             options = listOf(DropdownOption<String?>(null, stringResource(R.string.common_none_parenthesized))) +
                                 systemPrompts!!.map { DropdownOption<String?>(it.id, it.name) },
                             onValueChange = { id ->
@@ -317,7 +317,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                             iconPlaceholder = false,
                             title = stringResource(R.string.agent_default_workspace_title),
                             description = null,
-                            value = defaultWorkspaceId,
+                            value = staleToNull(defaultWorkspaceId, workspaces!!.map { it.id }),
                             options = listOf(DropdownOption<String?>(null, stringResource(R.string.common_none_parenthesized))) +
                                 workspaces!!.map { DropdownOption<String?>(it.id, it.name) },
                             onValueChange = { id ->
@@ -331,6 +331,13 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
         }
     }
 }
+
+/**
+ * Maps an id whose entity no longer exists in the live list (e.g. deleted on a child screen
+ * while it was still the persisted default) to null so the dropdown renders its no-selection
+ * option instead of failing to find the value in [DropDownMenuWidget]'s option list.
+ */
+private fun <T> staleToNull(v: T?, list: List<T>): T? = if (v != null && v !in list) null else v
 
 /** Localized picker label for [OverlayMode]; declaration order is the picker order. */
 @Composable

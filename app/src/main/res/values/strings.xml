@@ -147,14 +147,12 @@
     <string name="accessibility_back">Back</string>
     <string name="agent_settings_title">WeAgent Settings</string>
     <string name="agent_overlay_mode_title">Floating overlay mode</string>
-    <string name="agent_overlay_mode_summary">Choose when the floating button appears. When disabled, it can still be opened from the chat toolbar.</string>
     <string name="agent_overlay_mode_disabled">Disabled</string>
     <string name="agent_overlay_mode_foreground_only">Only while WeChat is in the foreground</string>
     <string name="agent_overlay_mode_always">Always</string>
     <string name="agent_section_models">Models</string>
     <string name="agent_model_providers_title">Model providers</string>
     <string name="agent_model_providers_summary">Configure OpenAI, Anthropic, and Gemini servers, API keys, and models</string>
-    <string name="agent_max_requests_per_turn">Request limit per turn</string>
     <string name="agent_small_model_title">Small model for approvals and titles</string>
     <string name="agent_same_as_primary_model">(Same as primary model)</string>
     <string name="agent_send_while_running_title">Messages sent while running</string>
@@ -208,7 +206,6 @@
     <string name="agent_tool_mode_disabled">Disabled</string>
     <string name="action_add">Add</string>
     <string name="common_name">Name</string>
-    <string name="agent_model_providers_empty">No model providers yet. Tap the button below to add one.</string>
     <string name="agent_provider_summary">%1$s · %2$s</string>
     <string name="agent_add_provider">Add provider</string>
     <string name="agent_add_model_provider">Add model provider</string>
@@ -975,7 +972,6 @@
     <string name="agent_api_key_label" translatable="false">API Key</string>
     <string name="action_edit">Edit</string>
     <string name="action_delete">Delete</string>
-    <string name="agent_mcp_servers_empty">No MCP servers yet.</string>
     <string name="agent_mcp_server_summary">%1$s · %2$s</string>
     <string name="agent_mcp_server_summary_error">%1$s · %2$s · %3$s</string>
     <string name="agent_add_server">Add server</string>
@@ -998,13 +994,11 @@
     <string name="agent_provider_fallback_title">Provider</string>
     <string name="agent_section_connection">Connection</string>
     <string name="agent_delete_provider">Delete provider</string>
-    <string name="agent_models_empty">No models yet.</string>
     <string name="agent_model_supports_vision_badge">Vision</string>
     <string name="agent_add_model">Add model</string>
     <string name="agent_fetching_models">Fetching model list…</string>
     <string name="agent_auto_import_models">Import models automatically</string>
     <string name="agent_fetch_models_failed">Failed to fetch models: %1$s</string>
-    <string name="agent_models_imported">Imported %1$d models</string>
     <string name="agent_import_models_title">Import models (%1$d)</string>
     <string name="agent_provider_returned_no_models">This provider returned no models.</string>
     <string name="agent_model_already_added">%1$s (already added)</string>
@@ -1048,7 +1042,6 @@
     <string name="agent_injected_content">Injected content</string>
     <string name="agent_title_label">Title</string>
     <string name="agent_preset_content">Preset content</string>
-    <string name="agent_skills_empty">No skills yet. Skills are task-specific playbooks that the LLM loads when needed.</string>
     <string name="agent_no_description">No description</string>
     <string name="agent_add_skill">Add skill</string>
     <string name="agent_edit_skill">Edit skill</string>
@@ -1056,14 +1049,12 @@
     <string name="agent_skill_name_label">Skill name (also used as the directory name)</string>
     <string name="agent_skill_description_label">Description (determines when the LLM loads this skill)</string>
     <string name="agent_skill_body_label">Skill body (instructions in SKILL.md)</string>
-    <string name="agent_workspaces_empty">No workspaces yet. A session can bind a workspace to enable file access.</string>
     <string name="agent_workspace_path_summary">/workspace/ → %1$s</string>
     <string name="agent_add_workspace">Add workspace</string>
     <string name="agent_workspace_rename_failed">Rename failed: the target name already exists or is invalid</string>
     <string name="agent_edit_workspace">Edit workspace</string>
     <string name="agent_workspace_edit_name_label">Workspace name (renames the actual folder)</string>
     <string name="agent_workspace_add_name_label">Workspace name (also used as the directory name)</string>
-    <string name="agent_triggers_empty">No triggers yet. Triggers can automatically invoke the AI for one turn on a schedule, when a new message arrives, or when a database operation is detected. A global trigger creates a new session each time it fires.</string>
     <string name="agent_global_triggers">Global triggers</string>
     <string name="agent_session_triggers">Session triggers</string>
     <string name="agent_deleted_session">(Session deleted)</string>
@@ -3481,8 +3472,6 @@
     <string name="telegram_retry">Retry</string>
     <string name="telegram_current_account">Current account</string>
 
-    <string name="agent_empty_action_add">Add</string>
-    <string name="agent_delete_confirm_title">Confirm deletion</string>
     <string name="agent_delete_provider_confirm">Delete this provider and all of its models? This action cannot be undone.</string>
     <string name="agent_delete_model_confirm">Delete this model? This action cannot be undone.</string>
     <string name="agent_delete_server_confirm">Delete this server and its tool configuration? This action cannot be undone.</string>
@@ -3499,14 +3488,11 @@
     <string name="agent_memory_enabled_summary">The AI can read and write persistent memory</string>
     <string name="agent_empty_providers_title">No providers yet</string>
     <string name="agent_empty_providers_message">Add a model provider to configure APIs and models.</string>
-    <string name="agent_empty_models_title">No models yet</string>
     <string name="agent_empty_models_message">Add a model for this provider, or fetch and import from its API.</string>
     <string name="agent_empty_mcp_title">No MCP servers yet</string>
     <string name="agent_empty_mcp_message">Add a Streamable HTTP or SSE server to extend the available tools.</string>
     <string name="agent_empty_mcp_tools_title">No tools available</string>
     <string name="agent_empty_mcp_tools_message">Not connected, or the server returned no tools.</string>
-    <string name="agent_empty_prompts_title">No prompts yet</string>
-    <string name="agent_empty_prompts_message">Add a system, per-turn, conditional, or preset prompt.</string>
     <string name="agent_empty_prompts_system">No system prompts yet.</string>
     <string name="agent_empty_prompts_per_turn">No per-turn prompts yet.</string>
     <string name="agent_empty_prompts_conditional">No conditional prompts yet.</string>
