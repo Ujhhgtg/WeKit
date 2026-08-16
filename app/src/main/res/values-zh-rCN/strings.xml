@@ -945,8 +945,6 @@
     <string name="agent_connection_status">连接状态</string>
     <string name="agent_connection_summary">%1$s · 点击刷新工具</string>
     <string name="agent_mcp_status_error">%1$s · %2$s</string>
-    <string name="agent_address">地址</string>
-    <string name="agent_mcp_address_summary">%1$s · %2$s</string>
     <string name="agent_delete_server">删除此服务器</string>
     <string name="agent_tool_permissions_title">工具权限</string>
     <string name="agent_mcp_tools_empty">未连接或无工具。连接后可在此设置每个工具的权限。</string>
@@ -1593,412 +1591,418 @@
     <string name="voice_panel_voice_examples">语音示例</string>
     <string name="voice_setting_pack_layout">本地及共享语音包一级界面</string>
     <plurals name="panel_concurrency_summary">
-        <item quantity="one">同时运行 %1$d 个任务 · 点击修改</item>
         <item quantity="other">同时运行 %1$d 个任务 · 点击修改</item>
     </plurals>
     <plurals name="sticker_count">
-        <item quantity="one">%1$d 个表情</item>
         <item quantity="other">%1$d 个表情</item>
     </plurals>
     <plurals name="sticker_panel_delete_selected_message">
-        <item quantity="one">从本地表情包中删除选中的 %1$d 个表情？</item>
         <item quantity="other">从本地表情包中删除选中的 %1$d 个表情？</item>
     </plurals>
     <plurals name="sticker_panel_upload_pack_message">
-        <item quantity="one">将“%1$s”中的 %2$d 个表情上传到 FunBox？</item>
         <item quantity="other">将“%1$s”中的 %2$d 个表情上传到 FunBox？</item>
     </plurals>
     <plurals name="sticker_sent_count">
-        <item quantity="one">已发送 %1$d 次</item>
         <item quantity="other">已发送 %1$d 次</item>
     </plurals>
     <plurals name="voice_count">
-        <item quantity="one">%1$d 条语音</item>
         <item quantity="other">%1$d 条语音</item>
     </plurals>
     <plurals name="voice_sent_count">
-        <item quantity="one">已发送 %1$d 次</item>
         <item quantity="other">已发送 %1$d 次</item>
     </plurals>
     <plurals name="voice_panel_delete_selected_message">
-        <item quantity="one">从本地语音包中删除选中的 %1$d 条语音？</item>
         <item quantity="other">从本地语音包中删除选中的 %1$d 条语音？</item>
     </plurals>
-<!-- 简体中文资源：较小的直属聊天功能文件。 -->
-<string name="chat_batch_revoke_menu">撤回</string>
-<plurals name="chat_batch_revoke_result">
-    <item quantity="other">已撤回 %1$d/%2$d 条消息</item>
-</plurals>
-<string name="chat_abnormal_sticker_blocked">检测到异常大小贴纸表情，已拦截</string>
-<string name="chat_action_download">下载</string>
-<string name="chat_action_save_locally">存本地</string>
-<string name="chat_file_download_preparing">正在缓存并下载…</string>
-<string name="chat_file_download_failed">文件下载失败！查看日志以了解错误详情</string>
-<string name="chat_file_download_success">已将文件下载到 %1$s</string>
-<string name="chat_image_download_failed">图片下载失败！查看日志以了解错误详情</string>
-<string name="chat_image_download_success">已将图片下载到 %1$s</string>
-<string name="chat_repeat_menu">复读</string>
-<string name="chat_repeat_failed">复读失败！</string>
-<plurals name="chat_stickers_saved_locally">
-    <item quantity="other">已保存 %1$d/%2$d 条贴纸到本地</item>
-</plurals>
-<string name="chat_sticker_saved_to">已将贴纸保存到 %1$s</string>
-<string name="chat_sticker_save_failed">贴纸保存失败！查看日志以了解错误详情</string>
-<plurals name="chat_voices_saved_locally">
-    <item quantity="other">已保存 %1$d/%2$d 条语音到本地</item>
-</plurals>
-<string name="chat_voice_saved_to">已将语音保存到 %1$s</string>
-<string name="chat_voice_save_failed">语音保存失败！查看日志以了解错误详情</string>
-<string name="chat_add_folder_open_config">添加后打开配置对话框</string>
-<string name="chat_add_folder_open_config_description">将对话加入文件夹后，自动打开该文件夹的编辑对话框</string>
-<string name="chat_add_folder_menu">加入文件夹</string>
-<string name="chat_add_folder_enable_grouping_first">请先启用「对话归拢」！</string>
-<string name="chat_add_folder_none_available">暂无文件夹，请先在「对话归拢」中新建一个</string>
-<string name="chat_add_folder_automatic_unavailable">「%1$s」为自动归拢文件夹，无法手动添加对话</string>
-<string name="chat_add_folder_manual_unavailable">「%1$s」无法手动添加对话</string>
-<string name="chat_add_folder_success">已加入「%1$s」</string>
-<string name="chat_add_folder_automatic_summary">自动归拢，不可手动添加</string>
-<string name="chat_add_folder_manual_summary">手动文件夹</string>
-<string name="chat_anti_recall_outgoing">防撤回自己的消息</string>
-<string name="chat_anti_recall_outgoing_description">是否对自己发出的消息也生效（这个功能现在是坏的，别用）</string>
-<string name="chat_anti_recall_pattern">提示格式</string>
-<string name="chat_anti_recall_placeholders" formatted="false">可使用占位符 $sender、$sendTime、$recallTime、$content</string>
-<string name="chat_anti_recall_time_format">时间格式</string>
-<string name="chat_placeholder_content">占位符文本内容</string>
-<string name="chat_placeholder_insert_hint">点击插入占位符：</string>
-<string name="chat_fake_voice_duration_millis">语音时长（毫秒）</string>
-<string name="chat_fake_voice_duration_invalid">时长格式不正确！</string>
-<string name="chat_hide_avatar_incoming">隐藏私聊对方头像</string>
-<string name="chat_hide_avatar_incoming_description">仅在私聊中隐藏对方的用户头像</string>
-<string name="chat_hide_avatar_outgoing">隐藏发送消息头像</string>
-<string name="chat_hide_avatar_outgoing_description">隐藏自己发出的消息的用户头像</string>
-<string name="chat_half_screen_album_height">高度占比：%1$d%%</string>
-<string name="chat_modify_text_menu">修改内容</string>
-<string name="chat_modify_text_title">修改消息显示</string>
-<string name="chat_modify_text_content">显示内容</string>
-<string name="chat_quote_jump_message_list">消息列表引用直达</string>
-<string name="chat_quote_jump_message_list_description">点击聊天消息中的被引用消息时，直接跳转到原消息</string>
-<string name="chat_quote_jump_input_box">输入框引用直达</string>
-<string name="chat_quote_jump_input_box_description">点击输入框底部的被引用消息时，直接跳转到原消息</string>
-<string name="chat_remove_menu_items_label">要移除的菜单项名称（以逗号分割）：</string>
-<string name="chat_pinning_set_priority">设置优先级</string>
-<string name="chat_pinning_priority_value">置顶优先级：%1$d</string>
-<string name="chat_pinning_priority_description">优先级越高，在同一置顶状态内越靠前。0 为微信默认排序。</string>
-<string name="chat_voice_playback_keep_progress">切换后继承播放进度</string>
-<string name="chat_voice_playback_keep_progress_description">自动切换继续生效，切换后从原进度继续播放</string>
-<string name="chat_voice_playback_disable_switch">完全禁用自动切换</string>
-<string name="chat_voice_playback_disable_switch_description">贴近/离开耳朵均不自动切换听筒与扬声器</string>
-<string name="chat_message_animation_bounce">弹跳入场</string>
-<string name="chat_message_animation_bounce_description">消息缩放弹跳进入屏幕</string>
-<string name="chat_message_animation_slide">平移滑入</string>
-<string name="chat_message_animation_slide_description">消息水平平移滑入，自己发出的从右侧、收到的从左侧</string>
-<string name="chat_message_animation_drop">重力掉落</string>
-<string name="chat_message_animation_drop_description">消息从上方掉落进入</string>
-<string name="chat_message_animation_history">历史消息全跳动</string>
-<string name="chat_message_animation_history_description">进入聊天界面时历史消息也逐条播放入场动画</string>
-<string name="chat_auto_cache_files_whitelist_description">仅对选中联系人缓存文件</string>
-<string name="chat_auto_cache_files_blacklist_description">对选中联系人跳过缓存文件</string>
-<string name="chat_auto_cache_images_whitelist_description">仅对选中联系人缓存图片</string>
-<string name="chat_auto_cache_images_blacklist_description">对选中联系人跳过缓存图片</string>
-<string name="chat_auto_cache_whitelist_selected">黑名单 [→ 白名单 ←]</string>
-<string name="chat_auto_cache_blacklist_selected">[→ 黑名单 ←] 白名单</string>
-<string name="chat_auto_cache_select_whitelist">选择白名单</string>
-<string name="chat_auto_cache_select_blacklist">选择黑名单</string>
-<plurals name="chat_auto_cache_contacts_saved">
-    <item quantity="other">已保存 %1$d 个联系人，重启微信以使更改生效</item>
-</plurals>
-<string name="chat_auto_cache_select_contacts_hint">点击选择联系人</string>
-<string name="chat_auto_cache_configure_whitelist">配置白名单</string>
-<string name="chat_auto_cache_configure_blacklist">配置黑名单</string>
-<string name="chat_member_inviter_title">查看进群邀请者</string>
-<string name="chat_contact_tap_to_view">点击查看</string>
-<string name="chat_member_inviter_querying">正在查询…</string>
-<string name="chat_member_inviter_no_record">无邀请者记录（可能是群主/前群主/早期成员）</string>
-<string name="chat_member_inviter_self_joined">该成员为扫码/自行进群</string>
-<string name="chat_member_inviter_result">邀请者：%1$s</string>
-<string name="chat_color_foreground">前景色</string>
-<string name="chat_real_name_fetch_title">获取实名尾字</string>
-<string name="chat_real_name_value">实名：%1$s</string>
-<string name="chat_contact_tap_to_fetch">点击获取</string>
-<string name="chat_real_name_fetching">正在获取…</string>
-<string name="chat_real_name_not_found">获取失败：可能被删除/被拉黑/对方账号异常！</string>
-<string name="chat_real_name_fetch_failed">获取失败：%1$s！</string>
-<string name="chat_group_role_owner">群主</string>
-<string name="chat_group_role_admin">管理员</string>
-<string name="chat_group_role_member">成员</string>
-<string name="chat_group_role_show_member">显示「成员」标签</string>
-<string name="chat_group_role_owner_background">群主 | 背景色</string>
-<string name="chat_group_role_owner_foreground">群主 | 前景色</string>
-<string name="chat_group_role_admin_background">管理员 | 背景色</string>
-<string name="chat_group_role_admin_foreground">管理员 | 前景色</string>
-<string name="chat_group_role_member_background">成员 | 背景色</string>
-<string name="chat_group_role_member_foreground">成员 | 前景色</string>
-<string name="chat_group_role_owner_text">群主 | 文本</string>
-<string name="chat_group_role_admin_text">管理员 | 文本</string>
-<string name="chat_group_role_member_text">成员 | 文本</string>
-<string name="chat_forward_favorite_voice_confirm">确定发送以下文件？\n%1$s</string>
-<string name="chat_path_copied">已复制</string>
-<string name="chat_copy_path">复制路径</string>
-<string name="chat_sent">已发送</string>
-<plurals name="chat_forwarded_to_recipients">
-    <item quantity="other">已转发到 %1$d 个对象</item>
-</plurals>
-<plurals name="chat_forwarded_partial_recipients">
-    <item quantity="other">已转发 %1$d/%2$d 个对象</item>
-</plurals>
-<string name="chat_forward_menu">转发</string>
-<string name="chat_forward_select_recipients">选择转发对象</string>
-<string name="chat_forward_select_at_least_one">请选择至少一个联系人</string>
-<plurals name="chat_forwarding_messages">
-    <item quantity="other">正在转发 %1$d 条消息到 %2$d 个对象…</item>
-</plurals>
-<plurals name="chat_forwarded_partial_messages">
-    <item quantity="other">已转发 %1$d/%2$d 条（部分失败）</item>
-</plurals>
-<string name="chat_forward_untested_type_warning">警告：该消息类型未经过测试，将回退为卡片消息发送，可能失败！</string>
-<string name="chat_redirect_path_exists">当前目录已存在。</string>
-<string name="chat_redirect_path_not_directory">当前路径已存在但不是文件夹，下载时会回退到默认目录。</string>
-<string name="chat_redirect_path_will_create">当前目录不存在，下载时会自动尝试创建。</string>
-<string name="chat_redirect_save_directory">保存目录</string>
-<string name="chat_redirect_actual_directory">实际目录：%1$s</string>
-<string name="chat_redirect_default_directory_hint">留空使用默认目录：%1$s</string>
-<string name="chat_redirect_default_restored">已恢复默认路径</string>
-<string name="chat_redirect_restore_default">恢复默认</string>
-<string name="chat_redirect_saved">已保存，后续新下载文件会使用该目录</string>
-<string name="chat_read_receipts_server_missing">错误：已读追踪未设置服务器！</string>
-<string name="chat_read_receipts_sent">已发送附带已读追踪的消息</string>
-<string name="chat_read_receipts_count">已读 %1$d 人</string>
-<string name="chat_read_receipts_server">服务器</string>
-<string name="chat_read_receipts_prefix">触发前缀</string>
-<string name="chat_read_receipts_poll_interval">轮询间隔（秒）</string>
-<string name="chat_read_receipts_server_missing_short">错误：未设置服务器！</string>
-<string name="chat_read_receipts_empty_prefix_warning">警告：「触发前缀」为空，所有文本消息将启用已读追踪！</string>
-<string name="chat_read_receipts_invalid_interval">错误：轮询间隔格式不正确！</string>
-<string name="read_receipts_error_prefix">错误：%1$s</string>
-<string name="read_receipts_sender_or_content_too_large">发送者标识或消息内容过长</string>
-<string name="read_receipts_registration_request_too_large">已读追踪注册请求过大</string>
-<string name="read_receipts_registration_failed">已读追踪注册失败</string>
-<string name="read_receipts_registration_http_failed">已读追踪注册失败：HTTP %1$d</string>
-<string name="read_receipts_send_failed">消息发送失败</string>
-<string name="read_receipts_recent_error">最近错误：%1$s</string>
-<string name="read_receipts_third_party_server">第三方服务器</string>
-<string name="read_receipts_third_party_description">使用自行部署的 HTTPS 服务</string>
-<string name="read_receipts_built_in_server">内置服务器</string>
-<string name="read_receipts_built_in_description">在微信进程中运行仅限回环访问的服务器</string>
-<string name="read_receipts_https_server_url">HTTPS 服务器地址</string>
-<string name="read_receipts_test_connection">测试连接</string>
-<string name="read_receipts_invalid_third_party_https">错误：第三方服务器必须是有效的 HTTPS 地址</string>
-<string name="read_receipts_server_connection_succeeded">服务器连接成功</string>
-<string name="read_receipts_server_connection_failed">服务器连接失败</string>
-<string name="read_receipts_automatic_lifecycle">自动管理服务器和隧道</string>
-<string name="read_receipts_automatic_lifecycle_description">功能启用时准备内置服务器；前台隧道仍需一次可见点击</string>
-<string name="read_receipts_quick_tunnel">Quick Tunnel</string>
-<string name="read_receipts_quick_tunnel_description">临时 trycloudflare.com 地址，仅适合测试</string>
-<string name="read_receipts_tunnel_token">Tunnel token</string>
-<string name="read_receipts_tunnel_token_saved">Tunnel token（已保存）</string>
-<string name="read_receipts_tunnel_token_description">使用控制台已配置的远程管理隧道</string>
-<string name="read_receipts_browser_login">Browser Login</string>
-<string name="read_receipts_browser_login_description">登录 Cloudflare 并选择已有 Tunnel；不会修改隧道、DNS 或 ingress</string>
-<string name="read_receipts_automatic_port">自动选择端口</string>
-<string name="read_receipts_automatic_port_description">由系统选择空闲的回环端口</string>
-<string name="read_receipts_browser_fixed_port_description">Browser Login 必须使用与已配置 ingress 一致的固定端口</string>
-<string name="read_receipts_fixed_port_warning">此模式需要固定端口，控制台 Public Hostname 的服务地址必须指向同一 127.0.0.1 端口</string>
-<string name="read_receipts_loopback_port">回环端口</string>
-<string name="read_receipts_show_token">显示</string>
-<string name="read_receipts_hide_token">隐藏</string>
-<string name="read_receipts_delete_saved_token">删除已保存 token</string>
-<string name="read_receipts_public_hostname">HTTPS 公网主机名</string>
-<string name="read_receipts_cloudflare_ownership">WeKit 不会创建或修改隧道、DNS、主机名或 ingress</string>
-<string name="read_receipts_state_stopped">已停止</string>
-<string name="read_receipts_state_starting">启动中</string>
-<string name="read_receipts_state_running">运行中</string>
-<string name="read_receipts_state_stopping">停止中</string>
-<string name="read_receipts_state_failed">失败</string>
-<string name="read_receipts_state_needs_user_action">需要用户操作</string>
-<string name="read_receipts_tunnel_state_connected">已连接并通过公网健康检查</string>
-<string name="read_receipts_tunnel_state_reconnecting">连接或健康检查恢复中</string>
-<string name="read_receipts_browser_login_state_signed_out">未登录</string>
-<string name="read_receipts_browser_login_state_waiting">等待浏览器授权</string>
-<string name="read_receipts_browser_login_state_authorized">已授权</string>
-<string name="read_receipts_browser_login_state_failed">登录失效，需要重试</string>
-<string name="read_receipts_browser_login_state_restoring">状态恢复中</string>
-<string name="read_receipts_browser_login_state_cancelling">正在取消</string>
-<string name="read_receipts_cloudflare_login_status">Cloudflare 登录状态：%1$s</string>
-<string name="read_receipts_browser_login_session_lost">登录会话已丢失，请重新登录</string>
-<string name="read_receipts_account_id">Account ID：%1$s</string>
-<string name="read_receipts_login_error">登录错误：%1$s</string>
-<string name="read_receipts_operation_error">操作错误：%1$s</string>
-<string name="read_receipts_browser_commit_pending">服务已提交并验证 Tunnel，正在等待权威配置同步；同步完成前不会报告成功</string>
-<string name="read_receipts_browser_login_start_failed">无法启动浏览器登录</string>
-<string name="read_receipts_login">登录</string>
-<string name="read_receipts_retry_login">重试登录</string>
-<string name="read_receipts_tunnel_list_refresh_failed">无法刷新 Tunnel 列表</string>
-<string name="read_receipts_refresh">刷新</string>
-<string name="read_receipts_authorization_open_failed">无法打开浏览器，请复制授权链接后手动打开</string>
-<string name="read_receipts_open_authorization_page">打开授权页面</string>
-<string name="read_receipts_authorization_link_copied">授权链接已复制</string>
-<string name="read_receipts_copy_authorization_link">复制授权链接</string>
-<string name="read_receipts_cancel_login_failed">无法取消登录</string>
-<string name="read_receipts_cancel_login">取消登录</string>
-<string name="read_receipts_logout_failed">无法退出登录</string>
-<string name="read_receipts_logout">退出登录</string>
-<string name="read_receipts_tunnel_list_empty">尚未加载 Tunnel；点击“刷新”读取当前账号的已有 Tunnel</string>
-<string name="read_receipts_tunnel_id">Tunnel ID：%1$s</string>
-<string name="read_receipts_manual_hostname">手动输入主机名</string>
-<string name="read_receipts_manual_hostname_description">用于本地配置 Tunnel，或选择未出现在远程 ingress 中的主机名</string>
-<string name="read_receipts_invalid_loopback_port">错误：回环端口必须在 1 到 65535 之间</string>
-<string name="read_receipts_invalid_public_hostname">错误：请输入根路径 HTTPS 主机名</string>
-<string name="read_receipts_browser_tunnel_connected">Browser Tunnel 已验证并连接</string>
-<string name="read_receipts_browser_tunnel_connection_failed">Browser Tunnel 连接失败</string>
-<string name="read_receipts_connection_failed">连接失败：%1$s</string>
-<string name="read_receipts_connection_superseded">连接请求已被新请求取代</string>
-<string name="read_receipts_select_and_verify">选择并验证连接</string>
-<string name="read_receipts_built_in_status">内置服务器状态：%1$s</string>
-<string name="read_receipts_local_address">本地地址：%1$s</string>
-<string name="read_receipts_not_ready">尚未就绪</string>
-<string name="read_receipts_database_path">数据库：%1$s</string>
-<string name="read_receipts_database_size">数据库大小：%1$d 字节</string>
-<string name="read_receipts_built_in_server_error">内置服务器运行失败</string>
-<string name="read_receipts_public_tunnel_status">公网隧道：%1$s</string>
-<string name="read_receipts_tunnel_error">隧道错误：%1$s</string>
-<string name="read_receipts_notification_settings_failed">无法打开 WeKit 通知设置</string>
-<string name="read_receipts_open_notification_settings">打开 WeKit 通知设置</string>
-<string name="read_receipts_error_visible_settings_required">请打开已读追踪设置并点击“连接”，以启动前台隧道</string>
-<string name="read_receipts_error_notifications_disabled">WeKit 通知已关闭，请在系统设置中允许通知后重试</string>
-<string name="read_receipts_error_token_required">请输入 Cloudflare Tunnel token</string>
-<string name="read_receipts_error_token_invalid">保存或输入的 Tunnel token 无效，请重新输入</string>
-<string name="read_receipts_error_browser_credential_invalid">请重新完成 Cloudflare 浏览器登录并选择 Tunnel</string>
-<string name="read_receipts_error_credential_save_failed">隧道已验证，但无法安全保存凭据</string>
-<string name="read_receipts_error_start_handoff_timeout">隧道服务未能及时接管启动请求</string>
-<string name="read_receipts_error_stop_timeout">隧道未能及时停止；将继续停止内置服务器</string>
-<string name="read_receipts_error_service_unavailable">WeKit 隧道服务不可用，请返回可见设置界面后重试</string>
-<string name="read_receipts_error_health_check_failed">隧道健康检查失败，请检查内置服务器、公网主机名和 ingress 配置</string>
-<string name="read_receipts_error_unexpected_failure">Cloudflare Tunnel 操作意外失败</string>
-<string name="read_receipts_tunnel_notification_channel">已读追踪公网隧道</string>
-<string name="read_receipts_tunnel_notification_title">WeKit 已读追踪隧道</string>
-<string name="read_receipts_tunnel_notification_stop">停止</string>
-<string name="read_receipts_verified_public_url">已验证公网地址：%1$s</string>
-<string name="read_receipts_public_url_copied">公网地址已复制</string>
-<string name="read_receipts_copy_url">复制地址</string>
-<string name="read_receipts_share_public_url">分享公网地址</string>
-<string name="read_receipts_share_url">分享地址</string>
-<string name="read_receipts_token_requires_fixed_port">错误：Token 模式必须关闭自动端口</string>
-<string name="read_receipts_tunnel_start_submitted">隧道启动请求已提交</string>
-<string name="read_receipts_verify_and_connect">验证并连接</string>
-<string name="read_receipts_authoritative_config_pending">尚未取得已保存 Browser Tunnel 的权威配置，请稍后重试</string>
-<string name="read_receipts_browser_reconnect_submitted">已使用保存的 Browser Tunnel 发起重连</string>
-<string name="read_receipts_browser_reconnect_failed">Browser Tunnel 重连失败</string>
-<string name="read_receipts_reconnect_failed">重连失败：%1$s</string>
-<string name="read_receipts_reconnect_superseded">重连请求已被新请求取代</string>
-<string name="read_receipts_reconnect_saved">使用已保存配置重连</string>
-<string name="read_receipts_stack_stopped">隧道与内置服务器已停止</string>
-<string name="read_receipts_disconnect_superseded">断开请求已被新请求取代</string>
-<string name="read_receipts_disconnect">断开</string>
-<string name="read_receipts_tunnel_mode_requires_fixed_port">错误：当前隧道模式必须使用固定回环端口</string>
-<string name="read_receipts_select_browser_tunnel_first">错误：请先选择并验证一个 Browser Tunnel</string>
-<string name="read_receipts_save_failed">保存失败：%1$s</string>
-<string name="read_receipts_save_superseded">保存请求已被新请求取代</string>
-<string name="read_receipts_built_in_not_running">内置服务器未运行</string>
-<string name="read_receipts_public_health_check_pending">Cloudflare Tunnel 公网健康检查尚未通过</string>
-<string name="read_receipts_configuration_rollback_failed">候选配置失败，且无法恢复此前服务</string>
-<string name="read_receipts_token_fixed_port_route_required">Token 模式必须使用固定回环端口，并在 Cloudflare 控制台将路由指向该端口</string>
-<string name="read_receipts_browser_fixed_port_route_required">Browser Login 模式必须使用固定回环端口，并在 Cloudflare 控制台将路由指向该端口</string>
-<string name="read_receipts_managed_tunnel_requires_hostname">Token 与 Browser Login 模式需要根路径 HTTPS 主机名</string>
-<string name="read_receipts_invalid_cloudflare_tunnel">请选择有效的 Cloudflare Tunnel</string>
-<string name="read_receipts_candidate_verification_failed">隧道候选配置验证失败</string>
-<string name="read_receipts_candidate_verification_timed_out">隧道候选配置验证超时</string>
-<string name="read_receipts_origin_stop_timed_out">内置服务器未能及时停止</string>
-<string name="read_receipts_origin_stop_before_apply_timed_out">内置服务器未能及时停止，配置尚未应用</string>
-<string name="read_receipts_origin_port_switch_failed">内置服务器未能切换到指定端口</string>
-<string name="read_receipts_origin_start_timed_out">内置服务器未能及时完成启动</string>
-<string name="read_receipts_unknown_error">未知错误</string>
-<string name="read_receipts_disconnect_failed">断开失败</string>
-<string name="chat_emoji_game_scissors">剪刀</string><string name="chat_emoji_game_rock">石头</string><string name="chat_emoji_game_paper">布</string>
-<string name="chat_emoji_game_no_sensor">暂无传感器数据，正使用随机数！</string>
-<string name="chat_emoji_game_motion_fallback">加速度过高，正使用随机数！</string>
-<string name="chat_emoji_game_dice_result">骰子：%1$s</string><string name="chat_emoji_game_morra_result">猜拳：%1$s</string>
-<string name="chat_emoji_game_stealth">隐蔽模式</string><string name="chat_emoji_game_stealth_description">根据设备陀螺仪状态选择发送内容</string>
-<string name="chat_emoji_game_invalid_input">输入格式错误！</string><string name="chat_send_failed">发送失败</string>
-<string name="chat_emoji_game_select_dice">选择骰子点数</string><string name="chat_emoji_game_select_morra">选择猜拳结果</string>
-<string name="chat_emoji_game_send_mode">发送模式：</string><string name="chat_emoji_game_single">单次</string><string name="chat_emoji_game_multiple">多次</string>
-<string name="chat_emoji_game_dice_input">输入 1~6</string><string name="chat_emoji_game_morra_input">输入 1：剪刀 2：石头 3：布</string>
-<string name="chat_emoji_game_random">随机</string><string name="chat_emoji_game_send">发送</string><string name="chat_emoji_game_send_index_failed">第 %1$d 次发送失败</string>
-<plurals name="chat_emoji_game_sent_count"><item quantity="other">已发送 %1$d 次</item></plurals>
-<string name="chat_markdown_render_engine">解析与渲染引擎</string><string name="chat_markdown_native">微信原生</string><string name="chat_markdown_native_description">使用微信 OpenClaw 路径执行原生 Markdown 渲染</string>
-<string name="chat_markdown_html">markdown-rs + Html</string><string name="chat_markdown_html_description">使用 Rust crate 解析并转换为 HTML，再使用 android.text.Html 渲染</string>
-<string name="chat_markdown_markwon">Markwon</string><string name="chat_markdown_markwon_description">使用 Markwon Java 库直接渲染 Markdown</string>
-<string name="chat_markdown_general_settings">通用引擎设定</string><string name="chat_markdown_disable_text_sizing">禁止改变字体大小</string><string name="chat_markdown_disable_text_sizing_description">不对 Headers、Subheaders 等组件改变字体大小</string>
-<string name="chat_markdown_html_settings">markdown-rs + Html 引擎设定</string><string name="chat_markdown_compact_html">使用紧凑 HTML 渲染</string><string name="chat_markdown_compact_html_description">使用一个而非两个换行来分段</string>
-<string name="chat_save_to_panel_menu">保存到面板</string><string name="chat_save_to_panel_select_sticker_pack">选择表情包</string><string name="chat_save_to_panel_new_sticker_pack">新建表情包</string>
-<plurals name="chat_save_to_panel_sticker_count"><item quantity="other">%1$d 张表情</item></plurals>
-<string name="chat_save_to_panel_select_voice_pack">选择语音包</string><string name="chat_save_to_panel_new_voice_pack">新建语音包</string><plurals name="chat_save_to_panel_voice_count"><item quantity="other">%1$d 条语音</item></plurals>
-<string name="chat_save_to_panel_sticker_success">已保存贴纸到「%1$s」</string><string name="chat_save_to_panel_voice_success">已保存语音到「%1$s」</string>
-<plurals name="chat_save_to_panel_messages_result"><item quantity="other">已保存 %1$d/%2$d 条消息到面板</item></plurals>
-<plurals name="chat_save_to_panel_stickers_result"><item quantity="other">已保存 %1$d/%2$d 张贴纸到「%3$s」</item></plurals>
-<plurals name="chat_save_to_panel_voices_result"><item quantity="other">已保存 %1$d/%2$d 条语音到「%3$s」</item></plurals>
-<string name="chat_swipe_action_edit">编辑</string><string name="chat_swipe_secondary">启用次要操作</string><string name="chat_swipe_secondary_description">启用后，在支持的消息上可调用次要操作以%1$s</string>
-<string name="chat_swipe_use_edit">使用「编辑」而非「复读」作为次要操作</string><string name="chat_swipe_edit_description">启用后，次要划动操作变为「编辑」（仅文字消息）；关闭时为「复读」</string>
-<string name="chat_swipe_swap">对调左右划</string><string name="chat_swipe_swap_description">启用后，左划%1$s，右划引用</string>
-<string name="chat_swipe_conversation_config">左划菜单配置</string><string name="chat_swipe_conversation_pin_description">在「隐藏」左侧显示置顶快捷按钮</string><string name="chat_swipe_conversation_pin_toggle">置顶 / 取消置顶</string>
-<string name="chat_swipe_conversation_mute_description">在「隐藏」左侧显示免打扰快捷按钮</string><string name="chat_swipe_conversation_mute_toggle">免打扰 / 取消免打扰</string>
-<string name="chat_conversation_pin">置顶</string><string name="chat_conversation_unpin">取消置顶</string><string name="chat_conversation_mute">免打扰</string><string name="chat_conversation_unmute">取消免打扰</string><string name="chat_conversation_hide">隐藏</string>
-<string name="chat_conversation_delete_title">删除对话</string><string name="chat_conversation_delete_message">确定删除该对话？此操作将同时删除所有消息记录</string><string name="chat_conversation_deleted">已删除</string><string name="chat_conversation_hidden">已隐藏</string>
-<string name="chat_conversation_pinned">已置顶</string><string name="chat_conversation_unpinned">已取消置顶</string><string name="chat_conversation_muted">已开启免打扰</string><string name="chat_conversation_unmuted">已关闭免打扰</string>
-<string name="chat_sticker_manager_select_all">全选</string><string name="chat_sticker_manager_select_none">全不选</string><string name="chat_sticker_manager_invert">反选</string><string name="chat_sticker_manager_export">导出</string><string name="chat_sticker_manager_exporting">正在导出…</string>
-<plurals name="chat_sticker_manager_exported"><item quantity="other">已保存 %1$d 张贴纸到 %2$s</item></plurals>
-<!-- 聊天输入栏菜单与 API 核心简体中文资源。 -->
-<string name="mention_members_settings_title">@所有人设置</string>
-<string name="mention_members_stealth_label">隐蔽@所有人</string>
-<string name="mention_members_stealth_description">开启时点击直接隐蔽发送@所有人消息（不显示成员选择弹窗且消息不附带@昵称前缀）；关闭时弹出成员选择弹窗并在消息头部附带@昵称文本</string>
-<string name="mention_members_action_label">@所有人（长按配置）</string>
-<string name="mention_members_group_only">只能在群组里使用！</string>
-<string name="mention_members_sent_unseen">已发送（自己无法看到该消息）</string>
-<string name="mention_members_stealth_message">你隐蔽@了所有人</string>
-<string name="mention_members_empty_group">群成员列表为空！</string>
-<string name="mention_members_select_one">请选择至少一个好友！</string>
-<plurals name="mention_members_message_count">
-    <item quantity="other">你@了 %1$d 个人</item>
-</plurals>
-<string name="send_card_message_input_empty">输入内容为空！</string>
-<string name="send_card_message_failed">发送卡片消息失败，请检查格式</string>
-<string name="message_type_moments">朋友圈</string>
-<string name="message_type_text">文本</string>
-<string name="message_type_image">图片</string>
-<string name="message_type_voice">语音</string>
-<string name="message_type_friend_verify">好友验证</string>
-<string name="message_type_contact_recommend">名片推荐</string>
-<string name="message_type_card">名片</string>
-<string name="message_type_video">视频</string>
-<string name="message_type_sticker">表情</string>
-<string name="message_type_location">位置</string>
-<string name="message_type_app">应用消息</string>
-<string name="message_type_voip">音视频通话</string>
-<string name="message_type_status">状态</string>
-<string name="message_type_voip_notify">通话通知</string>
-<string name="message_type_voip_invite">通话邀请</string>
-<string name="message_type_micro_video">小视频</string>
-<string name="message_type_system_notice">系统通知</string>
-<string name="message_type_system">系统消息</string>
-<string name="message_type_system_location">系统位置</string>
-<string name="message_type_sogou_emoji">搜狗表情</string>
-<string name="message_type_link">链接</string>
-<string name="message_type_recall">撤回消息</string>
-<string name="message_type_service">服务消息</string>
-<string name="message_type_transfer">转账</string>
-<string name="message_type_red_packet">红包</string>
-<string name="message_type_special_red_packet">裂变红包</string>
-<string name="message_type_account_video">视频号视频</string>
-<string name="message_type_red_packet_cover">红包封面</string>
-<string name="message_type_video_account">视频号</string>
-<string name="message_type_video_account_card">视频号名片</string>
-<string name="message_type_group_note">群笔记</string>
-<string name="message_type_quote">引用消息</string>
-<string name="message_type_pat">拍一拍</string>
-<string name="message_type_video_account_live">视频号直播</string>
-<string name="message_type_product">商品链接</string>
-<string name="message_type_unknown">未知类型</string>
-<string name="message_type_music">音乐链接</string>
-<string name="message_type_file">文件</string>
+    <!-- 简体中文资源：较小的直属聊天功能文件。 -->
+    <string name="chat_batch_revoke_menu">撤回</string>
+    <plurals name="chat_batch_revoke_result">
+        <item quantity="other">已撤回 %1$d/%2$d 条消息</item>
+    </plurals>
+    <string name="chat_abnormal_sticker_blocked">检测到异常大小贴纸表情，已拦截</string>
+    <string name="chat_action_download">下载</string>
+    <string name="chat_action_save_locally">存本地</string>
+    <string name="chat_file_download_preparing">正在缓存并下载…</string>
+    <string name="chat_file_download_failed">文件下载失败！查看日志以了解错误详情</string>
+    <string name="chat_file_download_success">已将文件下载到 %1$s</string>
+    <string name="chat_image_download_failed">图片下载失败！查看日志以了解错误详情</string>
+    <string name="chat_image_download_success">已将图片下载到 %1$s</string>
+    <string name="chat_repeat_menu">复读</string>
+    <string name="chat_repeat_failed">复读失败！</string>
+    <plurals name="chat_stickers_saved_locally">
+        <item quantity="other">已保存 %1$d/%2$d 条贴纸到本地</item>
+    </plurals>
+    <string name="chat_sticker_saved_to">已将贴纸保存到 %1$s</string>
+    <string name="chat_sticker_save_failed">贴纸保存失败！查看日志以了解错误详情</string>
+    <plurals name="chat_voices_saved_locally">
+        <item quantity="other">已保存 %1$d/%2$d 条语音到本地</item>
+    </plurals>
+    <string name="chat_voice_saved_to">已将语音保存到 %1$s</string>
+    <string name="chat_voice_save_failed">语音保存失败！查看日志以了解错误详情</string>
+    <string name="chat_add_folder_open_config">添加后打开配置对话框</string>
+    <string name="chat_add_folder_open_config_description">将对话加入文件夹后，自动打开该文件夹的编辑对话框</string>
+    <string name="chat_add_folder_menu">加入文件夹</string>
+    <string name="chat_add_folder_enable_grouping_first">请先启用「对话归拢」！</string>
+    <string name="chat_add_folder_none_available">暂无文件夹，请先在「对话归拢」中新建一个</string>
+    <string name="chat_add_folder_automatic_unavailable">「%1$s」为自动归拢文件夹，无法手动添加对话</string>
+    <string name="chat_add_folder_manual_unavailable">「%1$s」无法手动添加对话</string>
+    <string name="chat_add_folder_success">已加入「%1$s」</string>
+    <string name="chat_add_folder_automatic_summary">自动归拢，不可手动添加</string>
+    <string name="chat_add_folder_manual_summary">手动文件夹</string>
+    <string name="chat_anti_recall_outgoing">防撤回自己的消息</string>
+    <string name="chat_anti_recall_outgoing_description">是否对自己发出的消息也生效（这个功能现在是坏的，别用）</string>
+    <string name="chat_anti_recall_pattern">提示格式</string>
+    <string name="chat_anti_recall_placeholders" formatted="false">可使用占位符 $sender、$sendTime、$recallTime、$content</string>
+    <string name="chat_anti_recall_time_format">时间格式</string>
+    <string name="chat_placeholder_content">占位符文本内容</string>
+    <string name="chat_placeholder_insert_hint">点击插入占位符：</string>
+    <string name="chat_fake_voice_duration_millis">语音时长（毫秒）</string>
+    <string name="chat_fake_voice_duration_invalid">时长格式不正确！</string>
+    <string name="chat_hide_avatar_incoming">隐藏私聊对方头像</string>
+    <string name="chat_hide_avatar_incoming_description">仅在私聊中隐藏对方的用户头像</string>
+    <string name="chat_hide_avatar_outgoing">隐藏发送消息头像</string>
+    <string name="chat_hide_avatar_outgoing_description">隐藏自己发出的消息的用户头像</string>
+    <string name="chat_half_screen_album_height">高度占比：%1$d%%</string>
+    <string name="chat_modify_text_menu">修改内容</string>
+    <string name="chat_modify_text_title">修改消息显示</string>
+    <string name="chat_modify_text_content">显示内容</string>
+    <string name="chat_quote_jump_message_list">消息列表引用直达</string>
+    <string name="chat_quote_jump_message_list_description">点击聊天消息中的被引用消息时，直接跳转到原消息</string>
+    <string name="chat_quote_jump_input_box">输入框引用直达</string>
+    <string name="chat_quote_jump_input_box_description">点击输入框底部的被引用消息时，直接跳转到原消息</string>
+    <string name="chat_remove_menu_items_label">要移除的菜单项名称（以逗号分割）：</string>
+    <string name="chat_pinning_set_priority">设置优先级</string>
+    <string name="chat_pinning_priority_value">置顶优先级：%1$d</string>
+    <string name="chat_pinning_priority_description">优先级越高，在同一置顶状态内越靠前。0 为微信默认排序。</string>
+    <string name="chat_voice_playback_keep_progress">切换后继承播放进度</string>
+    <string name="chat_voice_playback_keep_progress_description">自动切换继续生效，切换后从原进度继续播放</string>
+    <string name="chat_voice_playback_disable_switch">完全禁用自动切换</string>
+    <string name="chat_voice_playback_disable_switch_description">贴近/离开耳朵均不自动切换听筒与扬声器</string>
+    <string name="chat_message_animation_bounce">弹跳入场</string>
+    <string name="chat_message_animation_bounce_description">消息缩放弹跳进入屏幕</string>
+    <string name="chat_message_animation_slide">平移滑入</string>
+    <string name="chat_message_animation_slide_description">消息水平平移滑入，自己发出的从右侧、收到的从左侧</string>
+    <string name="chat_message_animation_drop">重力掉落</string>
+    <string name="chat_message_animation_drop_description">消息从上方掉落进入</string>
+    <string name="chat_message_animation_history">历史消息全跳动</string>
+    <string name="chat_message_animation_history_description">进入聊天界面时历史消息也逐条播放入场动画</string>
+    <string name="chat_auto_cache_files_whitelist_description">仅对选中联系人缓存文件</string>
+    <string name="chat_auto_cache_files_blacklist_description">对选中联系人跳过缓存文件</string>
+    <string name="chat_auto_cache_images_whitelist_description">仅对选中联系人缓存图片</string>
+    <string name="chat_auto_cache_images_blacklist_description">对选中联系人跳过缓存图片</string>
+    <string name="chat_auto_cache_whitelist_selected">黑名单 [→ 白名单 ←]</string>
+    <string name="chat_auto_cache_blacklist_selected">[→ 黑名单 ←] 白名单</string>
+    <string name="chat_auto_cache_select_whitelist">选择白名单</string>
+    <string name="chat_auto_cache_select_blacklist">选择黑名单</string>
+    <plurals name="chat_auto_cache_contacts_saved">
+        <item quantity="other">已保存 %1$d 个联系人，重启微信以使更改生效</item>
+    </plurals>
+    <string name="chat_auto_cache_select_contacts_hint">点击选择联系人</string>
+    <string name="chat_auto_cache_configure_whitelist">配置白名单</string>
+    <string name="chat_auto_cache_configure_blacklist">配置黑名单</string>
+    <string name="chat_member_inviter_title">查看进群邀请者</string>
+    <string name="chat_contact_tap_to_view">点击查看</string>
+    <string name="chat_member_inviter_querying">正在查询…</string>
+    <string name="chat_member_inviter_no_record">无邀请者记录（可能是群主/前群主/早期成员）</string>
+    <string name="chat_member_inviter_self_joined">该成员为扫码/自行进群</string>
+    <string name="chat_member_inviter_result">邀请者：%1$s</string>
+    <string name="chat_color_foreground">前景色</string>
+    <string name="chat_real_name_fetch_title">获取实名尾字</string>
+    <string name="chat_real_name_value">实名：%1$s</string>
+    <string name="chat_contact_tap_to_fetch">点击获取</string>
+    <string name="chat_real_name_fetching">正在获取…</string>
+    <string name="chat_real_name_not_found">获取失败：可能被删除/被拉黑/对方账号异常！</string>
+    <string name="chat_real_name_fetch_failed">获取失败：%1$s！</string>
+    <string name="chat_group_role_owner">群主</string>
+    <string name="chat_group_role_admin">管理员</string>
+    <string name="chat_group_role_member">成员</string>
+    <string name="chat_group_role_show_member">显示「成员」标签</string>
+    <string name="chat_group_role_owner_background">群主 | 背景色</string>
+    <string name="chat_group_role_owner_foreground">群主 | 前景色</string>
+    <string name="chat_group_role_admin_background">管理员 | 背景色</string>
+    <string name="chat_group_role_admin_foreground">管理员 | 前景色</string>
+    <string name="chat_group_role_member_background">成员 | 背景色</string>
+    <string name="chat_group_role_member_foreground">成员 | 前景色</string>
+    <string name="chat_group_role_owner_text">群主 | 文本</string>
+    <string name="chat_group_role_admin_text">管理员 | 文本</string>
+    <string name="chat_group_role_member_text">成员 | 文本</string>
+    <string name="chat_forward_favorite_voice_confirm">确定发送以下文件？\n%1$s</string>
+    <string name="chat_path_copied">已复制</string>
+    <string name="chat_copy_path">复制路径</string>
+    <string name="chat_sent">已发送</string>
+    <plurals name="chat_forwarded_to_recipients">
+        <item quantity="other">已转发到 %1$d 个对象</item>
+    </plurals>
+    <plurals name="chat_forwarded_partial_recipients">
+        <item quantity="other">已转发 %1$d/%2$d 个对象</item>
+    </plurals>
+    <string name="chat_forward_menu">转发</string>
+    <string name="chat_forward_select_recipients">选择转发对象</string>
+    <string name="chat_forward_select_at_least_one">请选择至少一个联系人</string>
+    <plurals name="chat_forwarding_messages">
+        <item quantity="other">正在转发 %1$d 条消息到 %2$d 个对象…</item>
+    </plurals>
+    <plurals name="chat_forwarded_partial_messages">
+        <item quantity="other">已转发 %1$d/%2$d 条（部分失败）</item>
+    </plurals>
+    <string name="chat_forward_untested_type_warning">警告：该消息类型未经过测试，将回退为卡片消息发送，可能失败！</string>
+    <string name="chat_redirect_path_exists">当前目录已存在。</string>
+    <string name="chat_redirect_path_not_directory">当前路径已存在但不是文件夹，下载时会回退到默认目录。</string>
+    <string name="chat_redirect_path_will_create">当前目录不存在，下载时会自动尝试创建。</string>
+    <string name="chat_redirect_save_directory">保存目录</string>
+    <string name="chat_redirect_actual_directory">实际目录：%1$s</string>
+    <string name="chat_redirect_default_directory_hint">留空使用默认目录：%1$s</string>
+    <string name="chat_redirect_default_restored">已恢复默认路径</string>
+    <string name="chat_redirect_restore_default">恢复默认</string>
+    <string name="chat_redirect_saved">已保存，后续新下载文件会使用该目录</string>
+    <string name="chat_read_receipts_server_missing">错误：已读追踪未设置服务器！</string>
+    <string name="chat_read_receipts_sent">已发送附带已读追踪的消息</string>
+    <string name="chat_read_receipts_count">已读 %1$d 人</string>
+    <string name="chat_read_receipts_server">服务器</string>
+    <string name="chat_read_receipts_prefix">触发前缀</string>
+    <string name="chat_read_receipts_poll_interval">轮询间隔（秒）</string>
+    <string name="chat_read_receipts_server_missing_short">错误：未设置服务器！</string>
+    <string name="chat_read_receipts_empty_prefix_warning">警告：「触发前缀」为空，所有文本消息将启用已读追踪！</string>
+    <string name="read_receipts_error_prefix">错误：%1$s</string>
+    <string name="read_receipts_sender_or_content_too_large">发送者标识或消息内容过长</string>
+    <string name="read_receipts_registration_request_too_large">已读追踪注册请求过大</string>
+    <string name="read_receipts_registration_failed">已读追踪注册失败</string>
+    <string name="read_receipts_registration_http_failed">已读追踪注册失败：HTTP %1$d</string>
+    <string name="read_receipts_send_failed">消息发送失败</string>
+    <string name="read_receipts_third_party_server">第三方服务器</string>
+    <string name="read_receipts_third_party_description">使用自行部署的 HTTP(S) 服务</string>
+    <string name="read_receipts_built_in_server">内置服务器</string>
+    <string name="read_receipts_server_url">HTTP(S) 服务器地址</string>
+    <string name="read_receipts_test_connection">测试连接</string>
+    <string name="read_receipts_invalid_third_party_url">错误：第三方服务器必须是有效的 HTTP(S) 地址</string>
+    <string name="read_receipts_server_connection_succeeded">服务器连接成功</string>
+    <string name="read_receipts_server_connection_failed">服务器连接失败</string>
+    <string name="read_receipts_automatic_lifecycle">自动管理服务器和隧道</string>
+    <string name="read_receipts_automatic_lifecycle_description">功能启用时准备内置服务器；前台隧道仍需一次可见点击</string>
+    <string name="read_receipts_quick_tunnel">Quick Tunnel</string>
+    <string name="read_receipts_quick_tunnel_description">临时 trycloudflare.com 地址，仅适合测试</string>
+    <string name="read_receipts_tunnel_token">Tunnel token</string>
+    <string name="read_receipts_tunnel_token_saved">Tunnel token（已保存）</string>
+    <string name="read_receipts_tunnel_token_description">使用控制台已配置的远程管理隧道</string>
+    <string name="read_receipts_browser_login">Browser Login</string>
+    <string name="read_receipts_browser_login_description">登录 Cloudflare 并选择已有 Tunnel；不会修改隧道、DNS 或 ingress</string>
+    <string name="read_receipts_automatic_port">自动选择端口</string>
+    <string name="read_receipts_automatic_port_description">由系统选择空闲的回环端口</string>
+    <string name="read_receipts_browser_fixed_port_description">Browser Login 必须使用与已配置 ingress 一致的固定端口</string>
+    <string name="read_receipts_fixed_port_warning">此模式需要固定端口，控制台 Public Hostname 的服务地址必须指向同一 127.0.0.1 端口</string>
+    <string name="read_receipts_loopback_port">回环端口</string>
+    <string name="read_receipts_delete_saved_token">删除已保存 token</string>
+    <string name="read_receipts_public_hostname">HTTPS 公网主机名</string>
+    <string name="read_receipts_state_stopped">已停止</string>
+    <string name="read_receipts_state_starting">启动中</string>
+    <string name="read_receipts_state_running">运行中</string>
+    <string name="read_receipts_state_stopping">停止中</string>
+    <string name="read_receipts_state_failed">失败</string>
+    <string name="read_receipts_state_needs_user_action">需要用户操作</string>
+    <string name="read_receipts_tunnel_state_connected">已连接并通过公网健康检查</string>
+    <string name="read_receipts_tunnel_state_reconnecting">连接或健康检查恢复中</string>
+    <string name="read_receipts_browser_login_state_signed_out">未登录</string>
+    <string name="read_receipts_browser_login_state_waiting">等待浏览器授权</string>
+    <string name="read_receipts_browser_login_state_authorized">已授权</string>
+    <string name="read_receipts_browser_login_state_failed">登录失效，需要重试</string>
+    <string name="read_receipts_browser_login_state_restoring">状态恢复中</string>
+    <string name="read_receipts_browser_login_state_cancelling">正在取消</string>
+    <string name="read_receipts_browser_login_session_lost">登录会话已丢失，请重新登录</string>
+    <string name="read_receipts_account_id">Account ID：%1$s</string>
+    <string name="read_receipts_login_error">登录错误：%1$s</string>
+    <string name="read_receipts_browser_commit_pending">服务已提交并验证 Tunnel，正在等待权威配置同步；同步完成前不会报告成功</string>
+    <string name="read_receipts_browser_login_start_failed">无法启动浏览器登录</string>
+    <string name="read_receipts_login">登录</string>
+    <string name="read_receipts_tunnel_list_refresh_failed">无法刷新 Tunnel 列表</string>
+    <string name="read_receipts_refresh">刷新</string>
+    <string name="read_receipts_authorization_open_failed">无法打开浏览器，请复制授权链接后手动打开</string>
+    <string name="read_receipts_open_authorization_page">打开授权页面</string>
+    <string name="read_receipts_authorization_link_copied">授权链接已复制</string>
+    <string name="read_receipts_copy_authorization_link">复制授权链接</string>
+    <string name="read_receipts_cancel_login">取消登录</string>
+    <string name="read_receipts_logout">退出登录</string>
+    <string name="read_receipts_tunnel_list_empty">尚未加载 Tunnel；点击“刷新”读取当前账号的已有 Tunnel</string>
+    <string name="read_receipts_tunnel_id">Tunnel ID：%1$s</string>
+    <string name="read_receipts_manual_hostname">手动输入主机名</string>
+    <string name="read_receipts_manual_hostname_description">用于本地配置 Tunnel，或选择未出现在远程 ingress 中的主机名</string>
+    <string name="read_receipts_invalid_loopback_port">错误：回环端口必须在 1 到 65535 之间</string>
+    <string name="read_receipts_invalid_public_hostname">错误：请输入根路径 HTTPS 主机名</string>
+    <string name="read_receipts_browser_tunnel_connected">Browser Tunnel 已验证并连接</string>
+    <string name="read_receipts_connection_superseded">连接请求已被新请求取代</string>
+    <string name="read_receipts_select_and_verify">选择并验证连接</string>
+    <string name="read_receipts_local_address">本地地址：%1$s</string>
+    <string name="read_receipts_not_ready">尚未就绪</string>
+    <string name="read_receipts_database_path">数据库：%1$s</string>
+    <string name="read_receipts_database_size">数据库大小：%1$d 字节</string>
+    <string name="read_receipts_built_in_server_error">内置服务器运行失败</string>
+    <string name="read_receipts_tunnel_error">隧道错误：%1$s</string>
+    <string name="read_receipts_notification_settings_failed">无法打开 WeKit 通知设置</string>
+    <string name="read_receipts_open_notification_settings">打开 WeKit 通知设置</string>
+    <string name="read_receipts_error_visible_settings_required">请打开已读追踪设置并点击“连接”，以启动前台隧道</string>
+    <string name="read_receipts_error_notifications_disabled">WeKit 通知已关闭，请在系统设置中允许通知后重试</string>
+    <string name="read_receipts_error_token_required">请输入 Cloudflare Tunnel token</string>
+    <string name="read_receipts_error_token_invalid">保存或输入的 Tunnel token 无效，请重新输入</string>
+    <string name="read_receipts_error_browser_credential_invalid">请重新完成 Cloudflare 浏览器登录并选择 Tunnel</string>
+    <string name="read_receipts_error_credential_save_failed">隧道已验证，但无法安全保存凭据</string>
+    <string name="read_receipts_error_start_handoff_timeout">隧道服务未能及时接管启动请求</string>
+    <string name="read_receipts_error_stop_timeout">隧道未能及时停止；将继续停止内置服务器</string>
+    <string name="read_receipts_error_service_unavailable">WeKit 隧道服务不可用，请返回可见设置界面后重试</string>
+    <string name="read_receipts_error_health_check_failed">隧道健康检查失败，请检查内置服务器、公网主机名和 ingress 配置</string>
+    <string name="read_receipts_error_unexpected_failure">Cloudflare Tunnel 操作意外失败</string>
+    <string name="read_receipts_tunnel_notification_channel">已读追踪公网隧道</string>
+    <string name="read_receipts_tunnel_notification_title">WeKit 已读追踪隧道</string>
+    <string name="read_receipts_tunnel_notification_stop">停止</string>
+    <string name="read_receipts_verified_public_url">已验证公网地址：%1$s</string>
+    <string name="read_receipts_public_url_copied">公网地址已复制</string>
+    <string name="read_receipts_share_public_url">分享公网地址</string>
+    <string name="read_receipts_share_url">分享地址</string>
+    <string name="read_receipts_verify_and_connect">验证并连接</string>
+    <string name="read_receipts_authoritative_config_pending">尚未取得已保存 Browser Tunnel 的权威配置，请稍后重试</string>
+    <string name="read_receipts_reconnect_saved">使用已保存配置重连</string>
+    <string name="read_receipts_stack_stopped">隧道与内置服务器已停止</string>
+    <string name="read_receipts_disconnect">断开</string>
+    <string name="read_receipts_tunnel_mode_requires_fixed_port">错误：当前隧道模式必须使用固定回环端口</string>
+    <string name="read_receipts_select_browser_tunnel_first">错误：请先选择并验证一个 Browser Tunnel</string>
+    <string name="read_receipts_built_in_not_running">内置服务器未运行</string>
+    <string name="read_receipts_built_in_mode_required">请先选择内置服务器，再启动 Tunnel</string>
+    <string name="read_receipts_public_health_check_pending">Cloudflare Tunnel 公网健康检查尚未通过</string>
+    <string name="read_receipts_configuration_rollback_failed">候选配置失败，且无法恢复此前服务</string>
+    <string name="read_receipts_token_fixed_port_route_required">Token 模式必须使用固定回环端口，并在 Cloudflare 控制台将路由指向该端口</string>
+    <string name="read_receipts_browser_fixed_port_route_required">Browser Login 模式必须使用固定回环端口，并在 Cloudflare 控制台将路由指向该端口</string>
+    <string name="read_receipts_managed_tunnel_requires_hostname">Token 与 Browser Login 模式需要根路径 HTTPS 主机名</string>
+    <string name="read_receipts_invalid_cloudflare_tunnel">请选择有效的 Cloudflare Tunnel</string>
+    <string name="read_receipts_candidate_verification_failed">隧道候选配置验证失败</string>
+    <string name="read_receipts_candidate_verification_timed_out">隧道候选配置验证超时</string>
+    <string name="read_receipts_origin_stop_timed_out">内置服务器未能及时停止</string>
+    <string name="read_receipts_origin_stop_before_apply_timed_out">内置服务器未能及时停止，配置尚未应用</string>
+    <string name="read_receipts_origin_port_switch_failed">内置服务器未能切换到指定端口</string>
+    <string name="read_receipts_origin_start_timed_out">内置服务器未能及时完成启动</string>
+    <string name="read_receipts_unknown_error">未知错误</string>
+    <string name="read_receipts_section_runtime">运行状态</string>
+    <string name="read_receipts_section_connection">连接</string>
+    <string name="read_receipts_section_credential">凭据</string>
+    <string name="read_receipts_section_account">Cloudflare 账号</string>
+    <string name="read_receipts_section_tunnels">可用 Tunnel</string>
+    <string name="read_receipts_section_hostname">公网主机名</string>
+    <string name="read_receipts_section_port">回环端口</string>
+    <string name="read_receipts_public_tunnel">公网隧道</string>
+    <string name="read_receipts_copy_or_share_url">点击复制，或使用分享按钮</string>
+    <string name="read_receipts_settings_saved">设置已保存</string>
+    <string name="read_receipts_save_in_progress">正在保存设置…</string>
+    <string name="read_receipts_connection_test_pending">正在测试服务器连接…</string>
+    <string name="read_receipts_connect_in_progress">正在连接并验证公网地址…</string>
+    <string name="read_receipts_disconnect_in_progress">正在断开隧道并停止内置服务器…</string>
+    <string name="read_receipts_reconnect_in_progress">正在使用权威保存配置重连…</string>
+    <string name="read_receipts_connection_succeeded_persistent">连接并验证成功</string>
+    <string name="read_receipts_reconnect">重新连接</string>
+    <string name="read_receipts_no_saved_token">没有已保存的 Tunnel token</string>
+    <string name="read_receipts_token_saved_state_description">无需再次输入即可使用已保存的 token</string>
+    <string name="read_receipts_token_replace_description">验证成功后，输入的 token 将替换已保存 token</string>
+    <string name="read_receipts_replace_saved_token">输入替换 token</string>
+    <string name="read_receipts_enter_token">输入 Tunnel token</string>
+    <string name="read_receipts_credential_delete_pending">正在断开连接，然后删除已保存凭据…</string>
+    <string name="read_receipts_saved_token_deleted">已删除保存的 Tunnel token</string>
+    <string name="read_receipts_delete_token_confirm_title">删除已保存 token？</string>
+    <string name="read_receipts_delete_token_confirm_message">将断开当前连接，并永久删除已保存的 Tunnel token。</string>
+    <string name="read_receipts_cloudflare_login">Cloudflare 浏览器登录</string>
+    <string name="read_receipts_authoritative_metadata">权威 Tunnel 元数据</string>
+    <string name="read_receipts_restart_login">重新开始登录</string>
+    <string name="read_receipts_login_in_progress">正在启动浏览器登录…</string>
+    <string name="read_receipts_authorization_required">请打开授权页面完成登录</string>
+    <string name="read_receipts_refresh_in_progress">正在刷新 Tunnel 列表…</string>
+    <string name="read_receipts_tunnel_list_refreshed">Tunnel 列表已刷新</string>
+    <string name="read_receipts_refresh_tunnels">刷新 Tunnel</string>
+    <string name="read_receipts_cancel_in_progress">正在取消浏览器登录…</string>
+    <string name="read_receipts_logout_in_progress">正在退出 Cloudflare 登录…</string>
+    <string name="read_receipts_logout_confirm_title">退出 Cloudflare 登录？</string>
+    <string name="read_receipts_logout_confirm_message">将清除 Browser Login 会话，但不会修改所选 Tunnel 或 DNS 配置。</string>
+    <string name="read_receipts_operation_completed">操作已完成</string>
+    <string name="chat_emoji_game_scissors">剪刀</string><string name="chat_emoji_game_rock">石头</string><string name="chat_emoji_game_paper">布</string>
+    <string name="chat_emoji_game_no_sensor">暂无传感器数据，正使用随机数！</string>
+    <string name="chat_emoji_game_motion_fallback">加速度过高，正使用随机数！</string>
+    <string name="chat_emoji_game_dice_result">骰子：%1$s</string><string name="chat_emoji_game_morra_result">猜拳：%1$s</string>
+    <string name="chat_emoji_game_stealth">隐蔽模式</string><string name="chat_emoji_game_stealth_description">根据设备陀螺仪状态选择发送内容</string>
+    <string name="chat_emoji_game_invalid_input">输入格式错误！</string><string name="chat_send_failed">发送失败</string>
+    <string name="chat_emoji_game_select_dice">选择骰子点数</string><string name="chat_emoji_game_select_morra">选择猜拳结果</string>
+    <string name="chat_emoji_game_send_mode">发送模式：</string><string name="chat_emoji_game_single">单次</string><string name="chat_emoji_game_multiple">多次</string>
+    <string name="chat_emoji_game_dice_input">输入 1~6</string><string name="chat_emoji_game_morra_input">输入 1：剪刀 2：石头 3：布</string>
+    <string name="chat_emoji_game_random">随机</string><string name="chat_emoji_game_send">发送</string><string name="chat_emoji_game_send_index_failed">第 %1$d 次发送失败</string>
+    <plurals name="chat_emoji_game_sent_count"><item quantity="other">已发送 %1$d 次</item></plurals>
+    <string name="chat_markdown_render_engine">解析与渲染引擎</string><string name="chat_markdown_native">微信原生</string><string name="chat_markdown_native_description">使用微信 OpenClaw 路径执行原生 Markdown 渲染</string>
+    <string name="chat_markdown_html">markdown-rs + Html</string><string name="chat_markdown_html_description">使用 Rust crate 解析并转换为 HTML，再使用 android.text.Html 渲染</string>
+    <string name="chat_markdown_markwon">Markwon</string><string name="chat_markdown_markwon_description">使用 Markwon Java 库直接渲染 Markdown</string>
+    <string name="chat_markdown_general_settings">通用引擎设定</string><string name="chat_markdown_disable_text_sizing">禁止改变字体大小</string><string name="chat_markdown_disable_text_sizing_description">不对 Headers、Subheaders 等组件改变字体大小</string>
+    <string name="chat_markdown_html_settings">markdown-rs + Html 引擎设定</string><string name="chat_markdown_compact_html">使用紧凑 HTML 渲染</string><string name="chat_markdown_compact_html_description">使用一个而非两个换行来分段</string>
+    <string name="chat_save_to_panel_menu">保存到面板</string><string name="chat_save_to_panel_select_sticker_pack">选择表情包</string><string name="chat_save_to_panel_new_sticker_pack">新建表情包</string>
+    <plurals name="chat_save_to_panel_sticker_count"><item quantity="other">%1$d 张表情</item></plurals>
+    <string name="chat_save_to_panel_select_voice_pack">选择语音包</string><string name="chat_save_to_panel_new_voice_pack">新建语音包</string><plurals name="chat_save_to_panel_voice_count"><item quantity="other">%1$d 条语音</item></plurals>
+    <string name="chat_save_to_panel_sticker_success">已保存贴纸到「%1$s」</string><string name="chat_save_to_panel_voice_success">已保存语音到「%1$s」</string>
+    <plurals name="chat_save_to_panel_messages_result"><item quantity="other">已保存 %1$d/%2$d 条消息到面板</item></plurals>
+    <plurals name="chat_save_to_panel_stickers_result"><item quantity="other">已保存 %1$d/%2$d 张贴纸到「%3$s」</item></plurals>
+    <plurals name="chat_save_to_panel_voices_result"><item quantity="other">已保存 %1$d/%2$d 条语音到「%3$s」</item></plurals>
+    <string name="chat_swipe_action_edit">编辑</string><string name="chat_swipe_secondary">启用次要操作</string><string name="chat_swipe_secondary_description">启用后，在支持的消息上可调用次要操作以%1$s</string>
+    <string name="chat_swipe_use_edit">使用「编辑」而非「复读」作为次要操作</string><string name="chat_swipe_edit_description">启用后，次要划动操作变为「编辑」（仅文字消息）；关闭时为「复读」</string>
+    <string name="chat_swipe_swap">对调左右划</string><string name="chat_swipe_swap_description">启用后，左划%1$s，右划引用</string>
+    <string name="chat_swipe_conversation_config">左划菜单配置</string><string name="chat_swipe_conversation_pin_description">在「隐藏」左侧显示置顶快捷按钮</string><string name="chat_swipe_conversation_pin_toggle">置顶 / 取消置顶</string>
+    <string name="chat_swipe_conversation_mute_description">在「隐藏」左侧显示免打扰快捷按钮</string><string name="chat_swipe_conversation_mute_toggle">免打扰 / 取消免打扰</string>
+    <string name="chat_conversation_pin">置顶</string><string name="chat_conversation_unpin">取消置顶</string><string name="chat_conversation_mute">免打扰</string><string name="chat_conversation_unmute">取消免打扰</string><string name="chat_conversation_hide">隐藏</string>
+    <string name="chat_conversation_delete_title">删除对话</string><string name="chat_conversation_delete_message">确定删除该对话？此操作将同时删除所有消息记录</string><string name="chat_conversation_deleted">已删除</string><string name="chat_conversation_hidden">已隐藏</string>
+    <string name="chat_conversation_pinned">已置顶</string><string name="chat_conversation_unpinned">已取消置顶</string><string name="chat_conversation_muted">已开启免打扰</string><string name="chat_conversation_unmuted">已关闭免打扰</string>
+    <string name="chat_sticker_manager_select_all">全选</string><string name="chat_sticker_manager_select_none">全不选</string><string name="chat_sticker_manager_invert">反选</string><string name="chat_sticker_manager_export">导出</string><string name="chat_sticker_manager_exporting">正在导出…</string>
+    <plurals name="chat_sticker_manager_exported"><item quantity="other">已保存 %1$d 张贴纸到 %2$s</item></plurals>
+    <!-- 聊天输入栏菜单与 API 核心简体中文资源。 -->
+    <string name="mention_members_settings_title">@所有人设置</string>
+    <string name="mention_members_stealth_label">隐蔽@所有人</string>
+    <string name="mention_members_stealth_description">开启时点击直接隐蔽发送@所有人消息（不显示成员选择弹窗且消息不附带@昵称前缀）；关闭时弹出成员选择弹窗并在消息头部附带@昵称文本</string>
+    <string name="mention_members_action_label">@所有人（长按配置）</string>
+    <string name="mention_members_group_only">只能在群组里使用！</string>
+    <string name="mention_members_sent_unseen">已发送（自己无法看到该消息）</string>
+    <string name="mention_members_stealth_message">你隐蔽@了所有人</string>
+    <string name="mention_members_empty_group">群成员列表为空！</string>
+    <string name="mention_members_select_one">请选择至少一个好友！</string>
+    <plurals name="mention_members_message_count">
+        <item quantity="other">你@了 %1$d 个人</item>
+    </plurals>
+    <string name="send_card_message_input_empty">输入内容为空！</string>
+    <string name="send_card_message_failed">发送卡片消息失败，请检查格式</string>
+    <string name="message_type_moments">朋友圈</string>
+    <string name="message_type_text">文本</string>
+    <string name="message_type_image">图片</string>
+    <string name="message_type_voice">语音</string>
+    <string name="message_type_friend_verify">好友验证</string>
+    <string name="message_type_contact_recommend">名片推荐</string>
+    <string name="message_type_card">名片</string>
+    <string name="message_type_video">视频</string>
+    <string name="message_type_sticker">表情</string>
+    <string name="message_type_location">位置</string>
+    <string name="message_type_app">应用消息</string>
+    <string name="message_type_voip">音视频通话</string>
+    <string name="message_type_status">状态</string>
+    <string name="message_type_voip_notify">通话通知</string>
+    <string name="message_type_voip_invite">通话邀请</string>
+    <string name="message_type_micro_video">小视频</string>
+    <string name="message_type_system_notice">系统通知</string>
+    <string name="message_type_system">系统消息</string>
+    <string name="message_type_system_location">系统位置</string>
+    <string name="message_type_sogou_emoji">搜狗表情</string>
+    <string name="message_type_link">链接</string>
+    <string name="message_type_recall">撤回消息</string>
+    <string name="message_type_service">服务消息</string>
+    <string name="message_type_transfer">转账</string>
+    <string name="message_type_red_packet">红包</string>
+    <string name="message_type_special_red_packet">裂变红包</string>
+    <string name="message_type_account_video">视频号视频</string>
+    <string name="message_type_red_packet_cover">红包封面</string>
+    <string name="message_type_video_account">视频号</string>
+    <string name="message_type_video_account_card">视频号名片</string>
+    <string name="message_type_group_note">群笔记</string>
+    <string name="message_type_quote">引用消息</string>
+    <string name="message_type_pat">拍一拍</string>
+    <string name="message_type_video_account_live">视频号直播</string>
+    <string name="message_type_product">商品链接</string>
+    <string name="message_type_unknown">未知类型</string>
+    <string name="message_type_music">音乐链接</string>
+    <string name="message_type_file">文件</string>
     <string name="chat_auto_reply_title">聊天自动回复</string>
     <string name="chat_auto_reply_global_settings">全局设置</string>
     <string name="chat_auto_reply_global_settings_summary">配置默认自动回复任务与操作</string>
