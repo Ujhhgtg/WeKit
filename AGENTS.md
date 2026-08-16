@@ -218,8 +218,8 @@ Prefer these over raw Compose controls:
   "Memory" row: `onClick` (main area, e.g. opens the detail screen) + `onSelect` (the
   radio itself) + `trailingDivider`.
 - String or number input → `TextFieldDialogWidget`: a standard clickable row showing the
-  current value that edits it in a dialog with cancel/confirm. **Never place a bare
-  `TextField`/`OutlinedTextField` directly in a settings list** ("floating" input).
+  current value that edits it in a dialog with cancel/confirm. Or for draft & save semantics, place a bare
+  `TextField`/`OutlinedTextField` directly in a `BaseSupportingWidget`.
 - Value with a natural range and step (counts, seconds, delays) → `IntNumberPickerWidget`
   (slider row with drag tooltip), wrapped in a `BaseItemContainer` inside the group.
   Ports, hostnames, tokens, URLs and other free-form identifiers have no slider

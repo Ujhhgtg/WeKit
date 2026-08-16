@@ -1,18 +1,13 @@
 package dev.ujhhgtg.wekit.features.items.payment
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
@@ -23,9 +18,8 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
-import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.json.JSONArray
@@ -163,46 +157,32 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_modify_transfer_wallet_balance_display_name)) },
                 text = {
-                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                        item {
-                            BaseSupportingWidget(
-                                title = stringResource(R.string.payment_wallet_balance_optional),
-                            ) {
-                                OutlinedTextField(
-                                    value = cftInput,
-                                    onValueChange = { cftInput = it },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                )
-                            }
-                        }
-                        item {
-                            BaseSupportingWidget(
-                                title = stringResource(R.string.payment_wealth_balance_optional),
-                            ) {
-                                OutlinedTextField(
-                                    value = lqtInput,
-                                    onValueChange = { lqtInput = it },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                )
-                            }
-                        }
+                    DefaultColumn {
+                        TextField(
+                            value = cftInput,
+                            onValueChange = { cftInput = it },
+                            label = { Text(stringResource(R.string.payment_wallet_balance_optional)) })
+                        TextField(
+                            value = lqtInput,
+                            onValueChange = { lqtInput = it },
+                            label = { Text(stringResource(R.string.payment_wealth_balance_optional)) })
                     }
                 },
                 confirmButton = {
                     Button(onClick = {
-                        if (cftInput.isNotBlank()) WePrefs.putString(KEY_CFT_BALANCE, cftInput)
-                        else WePrefs.remove(KEY_CFT_BALANCE)
+                        if (!cftInput.isBlank())
+                            WePrefs.putString(KEY_CFT_BALANCE, cftInput)
+                        else
+                            WePrefs.remove(KEY_CFT_BALANCE)
 
-                        if (lqtInput.isNotBlank()) WePrefs.putString(KEY_LQT_BALANCE, lqtInput)
-                        else WePrefs.remove(KEY_LQT_BALANCE)
+                        if (!lqtInput.isBlank())
+                            WePrefs.putString(KEY_LQT_BALANCE, lqtInput)
+                        else
+                            WePrefs.remove(KEY_LQT_BALANCE)
                         onDismiss()
-                    }) { Text(stringResource(R.string.action_save)) }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
