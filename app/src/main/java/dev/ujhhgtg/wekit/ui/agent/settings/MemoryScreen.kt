@@ -1,74 +1,91 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Chevron_right
+import com.composables.icons.materialsymbols.outlined.Check
+import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
-import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
-import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Memory (§8): a global on/off switch plus a read-only view of the parsed MEMORY.md index. No CRUD
- * here — memory files are managed by the agent itself. If the index fails to parse, a warning is
- * shown that clarifies it is only a display issue and does not affect the agent.
+ * Memory (§8): a prominent master switch plus a read-only view of the parsed MEMORY.md index. No
+ * CRUD here — memory files are managed by the agent itself. Turning memory off hides the index and
+ * pops back, so this screen only ever shows the index while memory is committed on. If the index
+ * fails to parse, a warning clarifies it is only a display issue.
  */
 @Composable
 fun MemoryScreen(onBack: () -> Unit) {
-    val scope = rememberCoroutineScope()
-    var enabled by remember { mutableStateOf(false) }
-    var loaded by remember { mutableStateOf(false) }
+    val memoryEnabled by WeAgentService.memoryEnabled
+
     // null while loading; ParseResult afterwards.
     var index by remember { mutableStateOf<MemoryIndex?>(null) }
+    var loaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        enabled = WeAgentSettings.memoryEnabled()
         index = withContext(Dispatchers.IO) { parseMemoryIndex() }
         loaded = true
     }
 
+    // Pop on the committed state, not the click: this observes WeAgentService.memoryEnabled after
+    // setMemoryEnabled has actually landed, and hides the index below the moment it reads false.
+    LaunchedEffect(memoryEnabled) { if (!memoryEnabled) onBack() }
+
     AgentSettingsScaffold(title = stringResource(R.string.agent_memory_title), onBack = onBack) {
         item {
-            SegmentedColumn {
-                item {
-                    SwitchWidget(
-                        title = stringResource(R.string.agent_memory_enable_title),
-                        description = stringResource(R.string.agent_memory_enable_summary),
-                        checked = enabled,
-                        onCheckedChange = { on ->
-                            enabled = on
-                            scope.launch {
-                                WeAgentSettings.set(WeAgentSettings.KEY_MEMORY_ENABLED, on.toString())
-                                BuiltinToolProvider.fsToolsVisible = on
-                            }
-                        },
-                    )
-                }
-            }
+            MemoryMasterSwitchBar(
+                checked = memoryEnabled,
+                onCheckedChange = { WeAgentService.setMemoryEnabled(it) },
+            )
         }
 
         if (!loaded) {
-            item { EmptyHint(stringResource(R.string.common_loading)) }; return@AgentSettingsScaffold
+            item {
+                Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            return@AgentSettingsScaffold
         }
+
+        if (!memoryEnabled) return@AgentSettingsScaffold
 
         val idx = index
         when {
@@ -88,10 +105,12 @@ fun MemoryScreen(onBack: () -> Unit) {
             }
 
             idx.entries.isEmpty() -> item {
-                SegmentedColumn(title = stringResource(R.string.agent_memory_index_title)) {
-                    item { EmptyHint(stringResource(R.string.agent_memory_index_empty)) }
-                }
+                AgentEmptyState(
+                    title = stringResource(R.string.agent_memory_index_empty),
+                    modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                )
             }
+
             else -> item {
                 SegmentedColumn(
                     modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
@@ -99,17 +118,74 @@ fun MemoryScreen(onBack: () -> Unit) {
                 ) {
                     idx.entries.forEach { e ->
                         item {
-                            BaseWidget(
-                                title = e.title,
-                                description = e.description,
-                                onClick = {},
-                                trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                            )
+                            BaseWidget(title = e.title, description = e.description)
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/** InstallerX-style prominent master switch: the whole row toggles, the container color follows the state. */
+@Composable
+private fun MemoryMasterSwitchBar(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val containerColor by animateColorAsState(
+        targetValue = if (checked) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        label = "MemoryMasterSwitchBarContainer",
+    )
+    val contentColor = if (checked) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .heightIn(min = 72.dp)
+            .clip(RoundedCornerShape(35.dp))
+            .background(containerColor)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.agent_memory_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = contentColor,
+            )
+            Text(
+                text = stringResource(
+                    if (checked) R.string.agent_memory_enabled_summary
+                    else R.string.agent_memory_disabled_summary
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor,
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            thumbContent = {
+                Icon(
+                    imageVector = if (checked) MaterialSymbols.Outlined.Check else MaterialSymbols.Outlined.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(SwitchDefaults.IconSize),
+                )
+            },
+            colors = SwitchDefaults.colors(
+                checkedIconColor = MaterialTheme.colorScheme.primary,
+                uncheckedIconColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            ),
+        )
     }
 }
 
