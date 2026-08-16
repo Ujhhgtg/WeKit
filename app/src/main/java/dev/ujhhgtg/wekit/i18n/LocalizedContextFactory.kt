@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.os.LocaleList
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.ui.utils.CommonContextWrapper
+import dev.ujhhgtg.wekit.ui.utils.resolveWindowContext
 
 enum class LocaleResourceMode {
     InjectedHost,
@@ -22,9 +23,10 @@ object LocalizedContextFactory {
         }
         val configured = base.createConfigurationContext(configuration)
         return when (mode) {
-            LocaleResourceMode.InjectedHost -> CommonContextWrapper(configured).also {
-                ResourcesInjector.injectModuleRes(it.resources)
-            }
+            LocaleResourceMode.InjectedHost ->
+                CommonContextWrapper(configured, windowContext = base.resolveWindowContext()).also {
+                    ResourcesInjector.injectModuleRes(it.resources)
+                }
             LocaleResourceMode.ModuleApp -> configured
         }
     }
