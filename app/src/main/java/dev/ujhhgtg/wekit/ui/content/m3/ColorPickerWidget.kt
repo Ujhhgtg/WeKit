@@ -14,8 +14,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.WeColorPickerDialog
 import dev.ujhhgtg.wekit.ui.content.checkerboard
 import dev.ujhhgtg.wekit.ui.content.formatArgbHex
@@ -32,11 +36,12 @@ fun ColorPickerWidget(
     enabled: Boolean = true,
 ) {
     val context = LocalContext.current
-    val color = value.toColorInt()
+    val color = runCatching { value.toColorInt() }.getOrNull()
+    val pickerLabel = stringResource(R.string.color_picker_title)
     val showPicker = {
         showComposeDialog(context) {
             WeColorPickerDialog(
-                initial = color,
+                initial = color ?: 0xFF000000.toInt(),
                 onDismiss = onDismiss,
                 onConfirm = { picked ->
                     onValueChange(formatArgbHex(picked))
@@ -62,8 +67,9 @@ fun ColorPickerWidget(
                     .size(32.dp)
                     .clip(CircleShape)
                     .checkerboard(4.dp)
-                    .background(Color(color))
+                    .background(color?.let(::Color) ?: Color.Transparent)
                     .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    .semantics { contentDescription = pickerLabel }
             )
         },
     )

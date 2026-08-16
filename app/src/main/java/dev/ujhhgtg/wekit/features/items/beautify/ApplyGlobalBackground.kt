@@ -259,7 +259,10 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                                             showToast(localizedContext.getString(R.string.beautify_global_background_cleared))
                                         },
                                     ) {
-                                        Icon(MaterialSymbols.Outlined.Delete, null)
+                                        Icon(
+                                            MaterialSymbols.Outlined.Delete,
+                                            contentDescription = stringResource(R.string.action_clear_image),
+                                        )
                                     }
                                 },
                             )
