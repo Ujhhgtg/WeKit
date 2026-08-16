@@ -1706,6 +1706,7 @@
     <string name="chat_hide_avatar_outgoing">Hide avatars on sent messages</string>
     <string name="chat_hide_avatar_outgoing_description">Hide your avatar on messages you send</string>
     <string name="chat_half_screen_album_height">Height: %1$d%%</string>
+    <string name="chat_half_screen_album_height_label">Window height</string>
     <string name="chat_modify_text_menu">Modify content</string>
     <string name="chat_modify_text_title">Modify message display</string>
     <string name="chat_modify_text_content">Displayed content</string>
@@ -2218,6 +2219,11 @@
     <string name="chat_floating_top_gap">Top spacing: %1$d dp</string>
     <string name="chat_floating_card_gap">Spacing below cards: %1$d dp</string>
     <string name="chat_floating_elevation">Shadow strength: %1$d dp</string>
+    <string name="chat_floating_corner_radius_label">Corner radius</string>
+    <string name="chat_floating_side_margin_label">Side margin</string>
+    <string name="chat_floating_top_gap_label">Top spacing</string>
+    <string name="chat_floating_card_gap_label">Spacing below cards</string>
+    <string name="chat_floating_elevation_label">Shadow strength</string>
     <string name="chat_floating_footer_title">Floating input bar</string>
     <string name="chat_floating_footer_panel_above">Show menus above the input bar</string>
     <string name="chat_floating_footer_panel_above_summary">Expand emoji and tool menus upward while keeping the input bar in place; turn this off to retain WeChat’s layout</string>
@@ -3065,6 +3071,7 @@
     <string name="automation_keyword_mode_contains">Contains</string>
     <string name="automation_keyword_mode_exact">Equals</string>
     <string name="automation_keyword_mode_regex">Regex</string>
+    <string name="automation_keyword_mode_label">Match mode</string>
     <string name="automation_ignore_case">Ignore case</string>
     <string name="automation_new_keyword">New keyword</string>
     <string name="automation_regex_invalid">Invalid regular expression</string>

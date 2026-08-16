@@ -1,15 +1,14 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -22,8 +21,8 @@ import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MO
 import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MODE_INHERIT_PROGRESS
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.reflection.bool
 
@@ -151,38 +150,36 @@ object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var modeInput by remember { mutableIntStateOf(playbackMode) }
+            var mode by remember { mutableIntStateOf(playbackMode) }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_voice_message_playback_optimization_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                modeInput = MODE_INHERIT_PROGRESS
-                                playbackMode = MODE_INHERIT_PROGRESS
-                            },
-                            trailingContent = {
-                                RadioButton(
-                                    selected = modeInput == MODE_INHERIT_PROGRESS,
-                                    onClick = null
-                                )
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_voice_playback_keep_progress_description)) },
-                            content = { Text(stringResource(R.string.chat_voice_playback_keep_progress)) },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                modeInput = MODE_DISABLE
-                                playbackMode = MODE_DISABLE
-                            },
-                            trailingContent = {
-                                RadioButton(selected = modeInput == MODE_DISABLE, onClick = null)
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_voice_playback_disable_switch_description)) },
-                            content = { Text(stringResource(R.string.chat_voice_playback_disable_switch)) },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_voice_playback_keep_progress),
+                                description = stringResource(R.string.chat_voice_playback_keep_progress_description),
+                                selected = mode == MODE_INHERIT_PROGRESS,
+                                onClick = {
+                                    mode = MODE_INHERIT_PROGRESS
+                                    playbackMode = MODE_INHERIT_PROGRESS
+                                },
+                            )
+                        }
+                        item {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_voice_playback_disable_switch),
+                                description = stringResource(R.string.chat_voice_playback_disable_switch_description),
+                                selected = mode == MODE_DISABLE,
+                                onClick = {
+                                    mode = MODE_DISABLE
+                                    playbackMode = MODE_DISABLE
+                                },
+                            )
+                        }
                     }
                 })
         }

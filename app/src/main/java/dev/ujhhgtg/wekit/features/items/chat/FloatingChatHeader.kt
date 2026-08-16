@@ -23,13 +23,18 @@ import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
@@ -42,10 +47,11 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.allViews
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
@@ -1430,105 +1436,108 @@ object FloatingChatHeader : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var cornerInput by remember { mutableFloatStateOf(cornerRadiusDp.toFloat()) }
-            var sideInput by remember { mutableFloatStateOf(sideMarginDp.toFloat()) }
-            var gapInput by remember { mutableFloatStateOf(topGapDp.toFloat()) }
-            var extraGapInput by remember { mutableFloatStateOf(extraGapDp.toFloat()) }
-            var elevInput by remember { mutableFloatStateOf(elevationDp.toFloat()) }
+            var corner by remember { mutableIntStateOf(cornerRadiusDp) }
+            var side by remember { mutableIntStateOf(sideMarginDp) }
+            var topGap by remember { mutableIntStateOf(topGapDp) }
+            var extraGap by remember { mutableIntStateOf(extraGapDp) }
+            var elevation by remember { mutableIntStateOf(elevationDp) }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.chat_floating_header_title)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            content = { Text(stringResource(R.string.chat_floating_header_restart_hint)) },
-                            supportingContent = {
-                                Text(stringResource(R.string.chat_floating_header_summary))
-                            }
-                        )
-                        ListItem(
-                            content = {
-                                Text(stringResource(R.string.chat_floating_corner_radius, cornerInput.roundToInt()))
-                            },
-                            supportingContent = {
-                                Slider(
-                                    value = cornerInput,
-                                    onValueChange = { cornerInput = it },
-                                    valueRange = MIN_CORNER_RADIUS.toFloat()..MAX_CORNER_RADIUS.toFloat(),
-                                    steps = MAX_CORNER_RADIUS - MIN_CORNER_RADIUS - 1
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_floating_header_restart_hint),
+                                    description = stringResource(R.string.chat_floating_header_summary),
                                 )
                             }
-                        )
-                        ListItem(
-                            content = {
-                                Text(stringResource(R.string.chat_floating_side_margin, sideInput.roundToInt()))
-                            },
-                            supportingContent = {
-                                Slider(
-                                    value = sideInput,
-                                    onValueChange = { sideInput = it },
-                                    valueRange = MIN_SIDE_MARGIN.toFloat()..MAX_SIDE_MARGIN.toFloat(),
-                                    steps = MAX_SIDE_MARGIN - MIN_SIDE_MARGIN - 1
-                                )
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.chat_floating_corner_radius_label),
+                                        value = corner,
+                                        startInt = MIN_CORNER_RADIUS,
+                                        endInt = MAX_CORNER_RADIUS,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            corner = it
+                                            cornerRadiusDp = it
+                                        },
+                                    )
+                                }
                             }
-                        )
-                        ListItem(
-                            content = {
-                                Text(stringResource(R.string.chat_floating_top_gap, gapInput.roundToInt()))
-                            },
-                            supportingContent = {
-                                Slider(
-                                    value = gapInput,
-                                    onValueChange = { gapInput = it },
-                                    valueRange = MIN_TOP_GAP.toFloat()..MAX_TOP_GAP.toFloat(),
-                                    steps = MAX_TOP_GAP - MIN_TOP_GAP - 1
-                                )
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.chat_floating_side_margin_label),
+                                        value = side,
+                                        startInt = MIN_SIDE_MARGIN,
+                                        endInt = MAX_SIDE_MARGIN,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            side = it
+                                            sideMarginDp = it
+                                        },
+                                    )
+                                }
                             }
-                        )
-                        ListItem(
-                            content = {
-                                Text(
-                                    stringResource(
-                                        R.string.chat_floating_card_gap,
-                                        extraGapInput.roundToInt(),
-                                    ),
-                                )
-                            },
-                            supportingContent = {
-                                Slider(
-                                    value = extraGapInput,
-                                    onValueChange = { extraGapInput = it },
-                                    valueRange = MIN_EXTRA_GAP.toFloat()..MAX_EXTRA_GAP.toFloat(),
-                                    steps = MAX_EXTRA_GAP - MIN_EXTRA_GAP - 1
-                                )
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.chat_floating_top_gap_label),
+                                        value = topGap,
+                                        startInt = MIN_TOP_GAP,
+                                        endInt = MAX_TOP_GAP,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            topGap = it
+                                            topGapDp = it
+                                        },
+                                    )
+                                }
                             }
-                        )
-                        ListItem(
-                            content = {
-                                Text(stringResource(R.string.chat_floating_elevation, elevInput.roundToInt()))
-                            },
-                            supportingContent = {
-                                Slider(
-                                    value = elevInput,
-                                    onValueChange = { elevInput = it },
-                                    valueRange = MIN_ELEVATION.toFloat()..MAX_ELEVATION.toFloat(),
-                                    steps = MAX_ELEVATION - MIN_ELEVATION - 1
-                                )
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.chat_floating_card_gap_label),
+                                        value = extraGap,
+                                        startInt = MIN_EXTRA_GAP,
+                                        endInt = MAX_EXTRA_GAP,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            extraGap = it
+                                            extraGapDp = it
+                                        },
+                                    )
+                                }
                             }
-                        )
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.chat_floating_elevation_label),
+                                        value = elevation,
+                                        startInt = MIN_ELEVATION,
+                                        endInt = MAX_ELEVATION,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            elevation = it
+                                            elevationDp = it
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
-                confirmButton = {
-                    Button(onClick = {
-                        cornerRadiusDp = cornerInput.roundToInt()
-                        sideMarginDp = sideInput.roundToInt()
-                        topGapDp = gapInput.roundToInt()
-                        extraGapDp = extraGapInput.roundToInt()
-                        elevationDp = elevInput.roundToInt()
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }

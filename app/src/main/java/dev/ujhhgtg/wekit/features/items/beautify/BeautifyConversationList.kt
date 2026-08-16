@@ -8,17 +8,14 @@ import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
 import android.view.View
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.reflected.ReflectedField
@@ -29,9 +26,10 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -127,81 +125,75 @@ object BeautifyConversationList : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var draftPreset by remember { mutableStateOf(selectedPreset) }
-            var draftHighlightUnread by remember { mutableStateOf(highlightUnreadEnabled) }
-            var draftHideDividers by remember { mutableStateOf(hideDividersEnabled) }
+            var preset by remember { mutableStateOf(selectedPreset) }
+            var highlightUnread by remember { mutableStateOf(highlightUnreadEnabled) }
+            var hideDividers by remember { mutableStateOf(hideDividersEnabled) }
+
+            fun applyChanges(highlight: Boolean, dividers: Boolean) {
+                highlightUnreadEnabled = highlight
+                hideDividersEnabled = dividers
+                updateDividerRequest()
+                WeConversationListViewApi.refresh()
+            }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.beautify_conversation_list_title)) },
                 text = {
-                    DefaultColumn {
-                        ConversationListPreset.entries.forEach { preset ->
-                            val label = when (preset) {
-                                ConversationListPreset.NO_LAYOUT -> stringResource(R.string.beautify_conversation_no_layout)
-                                ConversationListPreset.COMFORT_CARD -> stringResource(R.string.beautify_conversation_comfort_card)
-                                ConversationListPreset.PINNED_GROUPED_CARD -> stringResource(R.string.beautify_conversation_pinned_grouped)
-                                ConversationListPreset.COMPACT_ROUNDED -> stringResource(R.string.beautify_conversation_compact_rounded)
-                                ConversationListPreset.MINIMAL_LIST -> stringResource(R.string.beautify_conversation_minimal)
-                            }
-                            ListItem(
-                                modifier = Modifier.clickable {
-                                    draftPreset = preset
-                                    if (preset == ConversationListPreset.NO_LAYOUT) {
-                                        draftHighlightUnread = false
-                                    }
-                                },
-                                headlineContent = { Text(label) },
-                                trailingContent = {
-                                    RadioButton(
-                                        selected = draftPreset == preset,
-                                        onClick = {
-                                            draftPreset = preset
-                                            if (preset == ConversationListPreset.NO_LAYOUT) {
-                                                draftHighlightUnread = false
-                                            }
-                                        },
-                                    )
-                                },
-                            )
-                        }
-                        if (draftPreset != ConversationListPreset.NO_LAYOUT) {
-                            ListItem(
-                                modifier = Modifier.clickable { draftHighlightUnread = !draftHighlightUnread },
-                                headlineContent = { Text(stringResource(R.string.beautify_conversation_highlight_unread)) },
-                                trailingContent = {
-                                    Switch(
-                                        checked = draftHighlightUnread,
-                                        onCheckedChange = { draftHighlightUnread = it },
-                                    )
-                                },
-                            )
-                        }
-                        ListItem(
-                            modifier = Modifier.clickable { draftHideDividers = !draftHideDividers },
-                            headlineContent = { Text(stringResource(R.string.beautify_conversation_hide_dividers)) },
-                            trailingContent = {
-                                Switch(
-                                    checked = draftHideDividers,
-                                    onCheckedChange = { draftHideDividers = it },
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        ConversationListPreset.entries.forEach { entry ->
+                            item(key = entry.name) {
+                                val label = when (entry) {
+                                    ConversationListPreset.NO_LAYOUT -> stringResource(R.string.beautify_conversation_no_layout)
+                                    ConversationListPreset.COMFORT_CARD -> stringResource(R.string.beautify_conversation_comfort_card)
+                                    ConversationListPreset.PINNED_GROUPED_CARD -> stringResource(R.string.beautify_conversation_pinned_grouped)
+                                    ConversationListPreset.COMPACT_ROUNDED -> stringResource(R.string.beautify_conversation_compact_rounded)
+                                    ConversationListPreset.MINIMAL_LIST -> stringResource(R.string.beautify_conversation_minimal)
+                                }
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = label,
+                                    selected = preset == entry,
+                                    onClick = {
+                                        preset = entry
+                                        if (entry == ConversationListPreset.NO_LAYOUT) highlightUnread = false
+                                        presetName = entry.name
+                                        applyChanges(
+                                            highlight = entry != ConversationListPreset.NO_LAYOUT && highlightUnread,
+                                            dividers = hideDividers,
+                                        )
+                                    },
                                 )
-                            },
-                        )
+                            }
+                        }
+                        item(
+                            key = "highlight_unread",
+                            animatedVisibility = preset != ConversationListPreset.NO_LAYOUT,
+                        ) {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_conversation_highlight_unread),
+                                checked = highlightUnread,
+                                onCheckedChange = {
+                                    highlightUnread = it
+                                    applyChanges(highlight = it, dividers = hideDividers)
+                                },
+                            )
+                        }
+                        item(key = "hide_dividers") {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_conversation_hide_dividers),
+                                checked = hideDividers,
+                                onCheckedChange = {
+                                    hideDividers = it
+                                    applyChanges(highlight = highlightUnread, dividers = it)
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        presetName = draftPreset.name
-                        highlightUnreadEnabled = draftPreset != ConversationListPreset.NO_LAYOUT && draftHighlightUnread
-                        hideDividersEnabled = draftHideDividers
-                        updateDividerRequest()
-                        WeConversationListViewApi.refresh()
-                        onDismiss()
-                    }) {
-                        Text(stringResource(R.string.dialog_confirm))
-                    }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
             )
         }

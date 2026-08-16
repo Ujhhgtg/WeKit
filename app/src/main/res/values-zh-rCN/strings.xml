@@ -1662,6 +1662,7 @@
     <string name="chat_hide_avatar_outgoing">隐藏发送消息头像</string>
     <string name="chat_hide_avatar_outgoing_description">隐藏自己发出的消息的用户头像</string>
     <string name="chat_half_screen_album_height">高度占比：%1$d%%</string>
+    <string name="chat_half_screen_album_height_label">高度占比</string>
     <string name="chat_modify_text_menu">修改内容</string>
     <string name="chat_modify_text_title">修改消息显示</string>
     <string name="chat_modify_text_content">显示内容</string>
@@ -2110,6 +2111,11 @@
     <string name="chat_floating_top_gap">顶部间距：%1$d dp</string>
     <string name="chat_floating_card_gap">下方卡片间距：%1$d dp</string>
     <string name="chat_floating_elevation">阴影强度：%1$d dp</string>
+    <string name="chat_floating_corner_radius_label">圆角半径</string>
+    <string name="chat_floating_side_margin_label">侧边距</string>
+    <string name="chat_floating_top_gap_label">顶部间距</string>
+    <string name="chat_floating_card_gap_label">下方卡片间距</string>
+    <string name="chat_floating_elevation_label">阴影强度</string>
     <string name="chat_floating_footer_title">悬浮输入框</string>
     <string name="chat_floating_footer_panel_above">菜单显示在输入框上方</string>
     <string name="chat_floating_footer_panel_above_summary">表情与工具菜单从输入框上沿向上展开，输入框位置不动；关闭则维持微信原样</string>
@@ -2954,6 +2960,7 @@
     <string name="automation_keyword_mode_contains">包含</string>
     <string name="automation_keyword_mode_exact">相等</string>
     <string name="automation_keyword_mode_regex">Regex</string>
+    <string name="automation_keyword_mode_label">匹配方式</string>
     <string name="automation_ignore_case">忽略大小写</string>
     <string name="automation_new_keyword">新关键词</string>
     <string name="automation_regex_invalid">正则表达式格式不正确</string>

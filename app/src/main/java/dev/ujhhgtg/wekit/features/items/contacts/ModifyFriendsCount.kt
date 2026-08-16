@@ -6,22 +6,23 @@ import android.content.ContextWrapper
 import android.view.View
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -30,8 +31,10 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
@@ -69,45 +72,82 @@ object ModifyFriendsCount : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var draft by remember { mutableStateOf(if (count == HIDE) 0 else count) }
             var hide by remember { mutableStateOf(count == HIDE) }
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_modify_friends_count_name)) },
-                text = {
-                    DefaultColumn {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(stringResource(R.string.contacts_modify_count_hide), modifier = Modifier.weight(1f))
-                            Switch(checked = hide, onCheckedChange = { hide = it })
+            var displayCount by remember { mutableIntStateOf(if (count == HIDE) 0 else count) }
+            var editing by remember { mutableStateOf(false) }
+            var draft by remember { mutableStateOf("") }
+
+            fun commitCount(value: Int) {
+                displayCount = value
+                if (!hide) {
+                    count = value
+                    WeLogger.i(TAG, "friend count display set to $value")
+                }
+            }
+
+            if (!editing) {
+                AlertDialogContent(
+                    title = { Text(stringResource(R.string.feature_modify_friends_count_name)) },
+                    text = {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.contacts_modify_count_hide),
+                                    checked = hide,
+                                    onCheckedChange = {
+                                        hide = it
+                                        if (it) {
+                                            count = HIDE
+                                            WeLogger.i(TAG, "friend count display set to hidden")
+                                        } else {
+                                            commitCount(displayCount)
+                                        }
+                                    },
+                                )
+                            }
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.contacts_modify_count_display),
+                                    description = displayCount.toString(),
+                                    enabled = !hide,
+                                    onClick = {
+                                        draft = displayCount.toString()
+                                        editing = true
+                                    },
+                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
+                                )
+                            }
                         }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                    },
+                )
+            } else {
+                AlertDialogContent(
+                    title = { Text(stringResource(R.string.contacts_modify_count_display)) },
+                    text = {
                         OutlinedTextField(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            value = draft.toString(),
-                            enabled = !hide,
-                            onValueChange = { input ->
-                                draft = input.filter(Char::isDigit).take(7).toIntOrNull() ?: 0
-                            },
-                            label = { Text(stringResource(R.string.contacts_modify_count_display)) },
+                            value = draft,
+                            onValueChange = { draft = it.filter(Char::isDigit).take(7) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                    }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        count = if (hide) HIDE else draft
-                        WeLogger.i(TAG, "friend count display set to ${if (hide) "hidden" else count}")
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
-            )
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            commitCount(draft.toIntOrNull() ?: 0)
+                            editing = false
+                        }) { Text(stringResource(R.string.dialog_confirm)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { editing = false }) { Text(stringResource(R.string.dialog_cancel)) }
+                    },
+                )
+            }
         }
     }
 }

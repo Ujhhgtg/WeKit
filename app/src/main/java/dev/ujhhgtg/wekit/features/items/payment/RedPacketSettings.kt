@@ -1,16 +1,12 @@
 package dev.ujhhgtg.wekit.features.items.payment
 
 import android.content.Context
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,20 +18,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
-import dev.ujhhgtg.wekit.features.items.AutomationKeywordControls
 import dev.ujhhgtg.wekit.features.items.AutomationContactSettingsSelector
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordRule
-import dev.ujhhgtg.wekit.features.items.AutomationRuleHeader
-import dev.ujhhgtg.wekit.features.items.AutomationScrollableColumn
-import dev.ujhhgtg.wekit.features.items.AutomationSettingsError
-import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeControls
 import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.items.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.items.automationKeywordSummary
@@ -43,8 +33,9 @@ import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -188,17 +179,21 @@ internal object RedPacketSettings {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_auto_open_red_packets_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { showGlobalDialog(context) },
-                            content = { Text(stringResource(R.string.automation_global_settings)) },
-                            supportingContent = { Text(stringResource(R.string.payment_red_packet_global_summary)) }
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { showContactSelector(context) },
-                            content = { Text(stringResource(R.string.automation_contact_settings)) },
-                            supportingContent = { Text(stringResource(R.string.automation_contact_settings_summary)) }
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.automation_global_settings),
+                                description = stringResource(R.string.payment_red_packet_global_summary),
+                                onClick = { showGlobalDialog(context) },
+                            )
+                        }
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.automation_contact_settings),
+                                description = stringResource(R.string.automation_contact_settings_summary),
+                                onClick = { showContactSelector(context) },
+                            )
+                        }
                     }
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
@@ -210,7 +205,14 @@ internal object RedPacketSettings {
         showComposeDialog(context) {
             val localizedContext = LocalContext.current
             var draft by remember { mutableStateOf(globalRules()) }
+            var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val validationError = validate(localizedContext, draft)
+
+            val editMode = editText
+            if (editMode != null) {
+                PaymentTextEditDialog(editMode, onClose = { editText = null })
+                return@showComposeDialog
+            }
 
             AlertDialogContent(
                 modifier = Modifier
@@ -225,7 +227,8 @@ internal object RedPacketSettings {
                         onActivate = {},
                         onReset = {},
                         onChange = { _, updated -> draft = updated },
-                        validationError = validationError
+                        validationError = validationError,
+                        onEditText = { editText = it },
                     )
                 },
                 confirmButton = {
@@ -308,59 +311,55 @@ internal object RedPacketSettings {
             AlertDialogContent(
                 title = { Text(groupName) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                showOverrideDialog(
-                                    context = context,
-                                    title = PaymentUiText.Resource(R.string.automation_group_global_settings),
-                                    parentLabelRes = R.string.automation_global_settings,
-                                    parent = globalRules(),
-                                    initial = contactOverrides(groupId),
-                                    onSave = {
-                                        setContactOverrides(groupId, it)
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.automation_group_global_settings),
+                                description = if (groupOverrideCount == 0) {
+                                    stringResource(R.string.automation_follow_global)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.automation_overrides,
+                                        groupOverrideCount,
+                                        groupOverrideCount,
+                                    )
+                                },
+                                onClick = {
+                                    showOverrideDialog(
+                                        context = context,
+                                        title = PaymentUiText.Resource(R.string.automation_group_global_settings),
+                                        parentLabelRes = R.string.automation_global_settings,
+                                        parent = globalRules(),
+                                        initial = contactOverrides(groupId),
+                                        onSave = {
+                                            setContactOverrides(groupId, it)
+                                            revision++
+                                            onUpdated()
+                                        }
+                                    )
+                                },
+                            )
+                        }
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.automation_group_member_settings),
+                                description = if (memberCount == 0) {
+                                    stringResource(R.string.automation_all_members_follow_group)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.automation_configured_members,
+                                        memberCount,
+                                        memberCount,
+                                    )
+                                },
+                                onClick = {
+                                    showGroupMemberSelector(context, groupId) {
                                         revision++
                                         onUpdated()
                                     }
-                                )
-                            },
-                            content = { Text(stringResource(R.string.automation_group_global_settings)) },
-                            supportingContent = {
-                                Text(
-                                    if (groupOverrideCount == 0) {
-                                        stringResource(R.string.automation_follow_global)
-                                    } else {
-                                        pluralStringResource(
-                                            R.plurals.automation_overrides,
-                                            groupOverrideCount,
-                                            groupOverrideCount,
-                                        )
-                                    }
-                                )
-                            }
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                showGroupMemberSelector(context, groupId) {
-                                    revision++
-                                    onUpdated()
-                                }
-                            },
-                            content = { Text(stringResource(R.string.automation_group_member_settings)) },
-                            supportingContent = {
-                                Text(
-                                    if (memberCount == 0) {
-                                        stringResource(R.string.automation_all_members_follow_group)
-                                    } else {
-                                        pluralStringResource(
-                                            R.plurals.automation_configured_members,
-                                            memberCount,
-                                            memberCount,
-                                        )
-                                    }
-                                )
-                            }
-                        )
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
@@ -428,8 +427,15 @@ internal object RedPacketSettings {
         showComposeDialog(context) {
             val localizedContext = LocalContext.current
             var draft by remember { mutableStateOf(initial) }
+            var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val effective = parent.apply(draft)
             val validationError = validate(localizedContext, effective, draft.keys())
+
+            val editMode = editText
+            if (editMode != null) {
+                PaymentTextEditDialog(editMode, onClose = { editText = null })
+                return@showComposeDialog
+            }
 
             AlertDialogContent(
                 modifier = Modifier
@@ -444,7 +450,8 @@ internal object RedPacketSettings {
                         onActivate = { key -> draft = draft.withRule(key, effective) },
                         onReset = { key -> draft = draft.withoutRule(key) },
                         onChange = { key, updated -> draft = draft.withRule(key, updated) },
-                        validationError = validationError
+                        validationError = validationError,
+                        onEditText = { editText = it },
                     )
                 },
                 confirmButton = {
@@ -470,318 +477,287 @@ internal object RedPacketSettings {
         onActivate: (RuleKey) -> Unit,
         onReset: (RuleKey) -> Unit,
         onChange: (RuleKey, RuleSet) -> Unit,
-        validationError: String?
+        validationError: String?,
+        onEditText: (PaymentTextEditMode) -> Unit
     ) {
         val isGlobalEditor = overriddenKeys == null
 
-        AutomationScrollableColumn {
-            RuleHeader(
-                title = stringResource(R.string.payment_red_packet_default_grab),
-                summary = if (isGlobalEditor && rules.grab.enabled) {
-                    stringResource(R.string.payment_red_packet_default_all)
-                } else if (isGlobalEditor) {
-                    stringResource(R.string.payment_red_packet_default_none)
-                } else if (rules.grab.enabled) {
-                    stringResource(R.string.payment_red_packet_grab_scope)
-                } else {
-                    stringResource(R.string.payment_red_packet_skip_scope)
-                },
-                enabled = rules.grab.enabled,
-                key = RuleKey.GRAB,
-                overriddenKeys = overriddenKeys,
-                parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = { onChange(RuleKey.GRAB, rules.copy(grab = rules.grab.copy(enabled = it))) }
-            )
+        fun overridden(key: RuleKey): Boolean? = overriddenKeys?.let { key in it }
+        fun editable(key: RuleKey): Boolean = overriddenKeys == null || key in overriddenKeys
 
-            RuleHeader(
-                title = stringResource(R.string.payment_red_packet_grab_self),
-                summary = stringResource(
-                    if (rules.grabSelf.enabled) {
-                        R.string.payment_red_packet_grab_self_enabled
-                    } else {
-                        R.string.payment_red_packet_grab_self_disabled
-                    }
-                ),
-                enabled = rules.grabSelf.enabled,
-                key = RuleKey.GRAB_SELF,
-                overriddenKeys = overriddenKeys,
-                parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
-                    onChange(RuleKey.GRAB_SELF, rules.copy(grabSelf = rules.grabSelf.copy(enabled = it)))
-                }
-            )
-
-            val receiveModeEditable = overriddenKeys == null || RuleKey.RECEIVE_MODE in overriddenKeys
-            RuleHeader(
-                title = stringResource(R.string.payment_red_packet_receive_mode),
-                summary = if (rules.receiveMode == ReceiveMode.NETWORK) {
-                    stringResource(R.string.payment_red_packet_network_default)
-                } else {
-                    stringResource(R.string.payment_red_packet_manual_click)
-                },
-                enabled = true,
-                switchEnabled = false,
-                key = RuleKey.RECEIVE_MODE,
-                overriddenKeys = overriddenKeys,
-                parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {},
-            )
-            if (receiveModeEditable) {
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                ) {
-                    ReceiveMode.entries.forEachIndexed { index, mode ->
-                        SegmentedButton(
-                            selected = rules.receiveMode == mode,
-                            onClick = { onChange(RuleKey.RECEIVE_MODE, rules.copy(receiveMode = mode)) },
-                            shape = SegmentedButtonDefaults.itemShape(index, ReceiveMode.entries.size),
-                        ) {
-                            Text(
-                                stringResource(
-                                    if (mode == ReceiveMode.NETWORK) {
-                                        R.string.payment_red_packet_network
-                                    } else {
-                                        R.string.payment_red_packet_manual_click
-                                    }
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            val timeEditable = overriddenKeys == null || RuleKey.TIME_RANGE in overriddenKeys
-            RuleHeader(
-                title = stringResource(R.string.payment_red_packet_time_range),
-                summary = if (rules.timeRange.enabled) {
-                    "${formatAutomationMinute(rules.timeRange.startMinute)} - ${formatAutomationMinute(rules.timeRange.endMinute)}"
-                } else {
-                    stringResource(R.string.payment_red_packet_time_unrestricted)
-                },
-                enabled = rules.timeRange.enabled,
-                key = RuleKey.TIME_RANGE,
-                overriddenKeys = overriddenKeys,
-                parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
-                    onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = rules.timeRange.copy(enabled = it)))
-                }
-            )
-            if (rules.timeRange.enabled) {
-                AutomationTimeRangeControls(
-                    rule = rules.timeRange,
-                    editable = timeEditable,
-                    onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) }
-                )
-            }
-
-            val keywordEditable = overriddenKeys == null || RuleKey.KEYWORD in overriddenKeys
-            RuleHeader(
-                title = stringResource(R.string.payment_red_packet_keywords),
-                summary = automationKeywordSummary(
-                    rules.keyword,
-                    stringResource(R.string.payment_red_packet_keywords_unrestricted),
-                ),
-                enabled = rules.keyword.enabled,
-                key = RuleKey.KEYWORD,
-                overriddenKeys = overriddenKeys,
-                parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
-                    onChange(RuleKey.KEYWORD, rules.copy(keyword = rules.keyword.copy(enabled = it)))
-                }
-            )
-            if (rules.keyword.enabled) {
-                AutomationKeywordControls(
-                    rule = rules.keyword,
-                    editable = keywordEditable,
-                    modes = RED_PACKET_KEYWORD_MODES,
-                    onChange = { onChange(RuleKey.KEYWORD, rules.copy(keyword = it)) }
-                )
-            }
-
-            val skipKeywordEditable = overriddenKeys == null || RuleKey.SKIP_KEYWORD in overriddenKeys
-            RuleHeader(
-                title = stringResource(R.string.payment_red_packet_skip_keywords),
-                summary = automationKeywordSummary(
-                    rules.skipKeyword,
-                    stringResource(R.string.payment_red_packet_skip_keywords_unrestricted),
-                ),
-                enabled = rules.skipKeyword.enabled,
-                key = RuleKey.SKIP_KEYWORD,
-                overriddenKeys = overriddenKeys,
-                parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
-                    onChange(
-                        RuleKey.SKIP_KEYWORD,
-                        rules.copy(skipKeyword = rules.skipKeyword.copy(enabled = it)),
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                item(key = "grab") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_red_packet_default_grab),
+                        summary = if (isGlobalEditor && rules.grab.enabled) {
+                            stringResource(R.string.payment_red_packet_default_all)
+                        } else if (isGlobalEditor) {
+                            stringResource(R.string.payment_red_packet_default_none)
+                        } else if (rules.grab.enabled) {
+                            stringResource(R.string.payment_red_packet_grab_scope)
+                        } else {
+                            stringResource(R.string.payment_red_packet_skip_scope)
+                        },
+                        checked = rules.grab.enabled,
+                        overridden = overridden(RuleKey.GRAB),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.GRAB) },
+                        onReset = { onReset(RuleKey.GRAB) },
+                        onCheckedChange = {
+                            onChange(RuleKey.GRAB, rules.copy(grab = rules.grab.copy(enabled = it)))
+                        },
                     )
-                },
-            )
-            if (rules.skipKeyword.enabled) {
-                AutomationKeywordControls(
+                }
+
+                item(key = "grab_self") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_red_packet_grab_self),
+                        summary = stringResource(
+                            if (rules.grabSelf.enabled) {
+                                R.string.payment_red_packet_grab_self_enabled
+                            } else {
+                                R.string.payment_red_packet_grab_self_disabled
+                            }
+                        ),
+                        checked = rules.grabSelf.enabled,
+                        overridden = overridden(RuleKey.GRAB_SELF),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.GRAB_SELF) },
+                        onReset = { onReset(RuleKey.GRAB_SELF) },
+                        onCheckedChange = {
+                            onChange(RuleKey.GRAB_SELF, rules.copy(grabSelf = rules.grabSelf.copy(enabled = it)))
+                        },
+                    )
+                }
+
+                item(key = "receive_mode") {
+                    PaymentModeRuleRow(
+                        title = stringResource(R.string.payment_red_packet_receive_mode),
+                        summary = if (rules.receiveMode == ReceiveMode.NETWORK) {
+                            stringResource(R.string.payment_red_packet_network_default)
+                        } else {
+                            stringResource(R.string.payment_red_packet_manual_click)
+                        },
+                        overridden = overridden(RuleKey.RECEIVE_MODE),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.RECEIVE_MODE) },
+                        onReset = { onReset(RuleKey.RECEIVE_MODE) },
+                    )
+                }
+                ReceiveMode.entries.forEach { mode ->
+                    item(key = "receive_mode_${mode.name}") {
+                        RadioButtonWidget(
+                            iconPlaceholder = false,
+                            title = stringResource(
+                                if (mode == ReceiveMode.NETWORK) {
+                                    R.string.payment_red_packet_network
+                                } else {
+                                    R.string.payment_red_packet_manual_click
+                                }
+                            ),
+                            selected = rules.receiveMode == mode,
+                            enabled = editable(RuleKey.RECEIVE_MODE),
+                            onClick = { onChange(RuleKey.RECEIVE_MODE, rules.copy(receiveMode = mode)) },
+                        )
+                    }
+                }
+
+                item(key = "time_range") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_red_packet_time_range),
+                        summary = if (rules.timeRange.enabled) {
+                            "${formatAutomationMinute(rules.timeRange.startMinute)} - ${formatAutomationMinute(rules.timeRange.endMinute)}"
+                        } else {
+                            stringResource(R.string.payment_red_packet_time_unrestricted)
+                        },
+                        checked = rules.timeRange.enabled,
+                        overridden = overridden(RuleKey.TIME_RANGE),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.TIME_RANGE) },
+                        onReset = { onReset(RuleKey.TIME_RANGE) },
+                        onCheckedChange = {
+                            onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = rules.timeRange.copy(enabled = it)))
+                        },
+                    )
+                }
+                timeRangeItems(
+                    rule = rules.timeRange,
+                    editable = editable(RuleKey.TIME_RANGE),
+                    visible = rules.timeRange.enabled,
+                    onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) },
+                )
+
+                item(key = "keyword") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_red_packet_keywords),
+                        summary = automationKeywordSummary(
+                            rules.keyword,
+                            stringResource(R.string.payment_red_packet_keywords_unrestricted),
+                        ),
+                        checked = rules.keyword.enabled,
+                        overridden = overridden(RuleKey.KEYWORD),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.KEYWORD) },
+                        onReset = { onReset(RuleKey.KEYWORD) },
+                        onCheckedChange = {
+                            onChange(RuleKey.KEYWORD, rules.copy(keyword = rules.keyword.copy(enabled = it)))
+                        },
+                    )
+                }
+                keywordItems(
+                    keyPrefix = "keyword",
+                    rule = rules.keyword,
+                    editable = editable(RuleKey.KEYWORD),
+                    visible = rules.keyword.enabled,
+                    modes = RED_PACKET_KEYWORD_MODES,
+                    onChange = { onChange(RuleKey.KEYWORD, rules.copy(keyword = it)) },
+                    onEditText = onEditText,
+                )
+
+                item(key = "skip_keyword") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_red_packet_skip_keywords),
+                        summary = automationKeywordSummary(
+                            rules.skipKeyword,
+                            stringResource(R.string.payment_red_packet_skip_keywords_unrestricted),
+                        ),
+                        checked = rules.skipKeyword.enabled,
+                        overridden = overridden(RuleKey.SKIP_KEYWORD),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.SKIP_KEYWORD) },
+                        onReset = { onReset(RuleKey.SKIP_KEYWORD) },
+                        onCheckedChange = {
+                            onChange(
+                                RuleKey.SKIP_KEYWORD,
+                                rules.copy(skipKeyword = rules.skipKeyword.copy(enabled = it)),
+                            )
+                        },
+                    )
+                }
+                keywordItems(
+                    keyPrefix = "skip_keyword",
                     rule = rules.skipKeyword,
-                    editable = skipKeywordEditable,
+                    editable = editable(RuleKey.SKIP_KEYWORD),
+                    visible = rules.skipKeyword.enabled,
                     modes = RED_PACKET_KEYWORD_MODES,
                     onChange = { onChange(RuleKey.SKIP_KEYWORD, rules.copy(skipKeyword = it)) },
+                    onEditText = onEditText,
                 )
-            }
 
-            val delayEditable = overriddenKeys == null || RuleKey.DELAY in overriddenKeys
-            RuleHeader(
-                title = stringResource(R.string.payment_red_packet_delay),
-                summary = if (rules.delay.enabled) {
-                    stringResource(
-                        R.string.automation_delay_summary,
-                        rules.delay.baseMs.ifBlank { "0" },
-                        rules.delay.randomRangeMs.ifBlank { "0" },
-                    )
-                } else {
-                    stringResource(R.string.payment_red_packet_immediate)
-                },
-                enabled = rules.delay.enabled,
-                key = RuleKey.DELAY,
-                overriddenKeys = overriddenKeys,
-                parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
-                    onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(enabled = it)))
-                }
-            )
-            if (rules.delay.enabled) {
-                OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = rules.delay.baseMs,
-                    enabled = delayEditable,
-                    onValueChange = {
-                        val value = it.filter(Char::isDigit).take(MAX_DELAY_DIGITS)
-                        onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(baseMs = value)))
-                    },
-                    label = { Text(stringResource(R.string.automation_base_delay_ms)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = rules.delay.randomRangeMs,
-                    enabled = delayEditable,
-                    onValueChange = {
-                        val value = it.filter(Char::isDigit).take(MAX_DELAY_DIGITS)
-                        onChange(
-                            RuleKey.DELAY,
-                            rules.copy(delay = rules.delay.copy(randomRangeMs = value))
-                        )
-                    },
-                    label = { Text(stringResource(R.string.automation_random_delay_ms)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-            }
-
-            RuleHeader(
-                title = stringResource(R.string.payment_red_packet_notification),
-                summary = stringResource(
-                    if (rules.notification.enabled) {
-                        R.string.payment_red_packet_notification_enabled
-                    } else {
-                        R.string.automation_notification_disabled
-                    }
-                ),
-                enabled = rules.notification.enabled,
-                key = RuleKey.NOTIFICATION,
-                overriddenKeys = overriddenKeys,
-                parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
-                    onChange(
-                        RuleKey.NOTIFICATION,
-                        rules.copy(notification = rules.notification.copy(enabled = it))
+                item(key = "delay") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_red_packet_delay),
+                        summary = if (rules.delay.enabled) {
+                            stringResource(
+                                R.string.automation_delay_summary,
+                                rules.delay.baseMs.ifBlank { "0" },
+                                rules.delay.randomRangeMs.ifBlank { "0" },
+                            )
+                        } else {
+                            stringResource(R.string.payment_red_packet_immediate)
+                        },
+                        checked = rules.delay.enabled,
+                        overridden = overridden(RuleKey.DELAY),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.DELAY) },
+                        onReset = { onReset(RuleKey.DELAY) },
+                        onCheckedChange = {
+                            onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(enabled = it)))
+                        },
                     )
                 }
-            )
-
-            val replyEditable = overriddenKeys == null || RuleKey.AUTO_REPLY in overriddenKeys
-            RuleHeader(
-                title = stringResource(R.string.payment_red_packet_auto_reply),
-                summary = stringResource(
-                    if (rules.autoReply.enabled) {
-                        R.string.automation_auto_reply_enabled
-                    } else {
-                        R.string.automation_auto_reply_disabled
-                    }
-                ),
-                enabled = rules.autoReply.enabled,
-                key = RuleKey.AUTO_REPLY,
-                overriddenKeys = overriddenKeys,
-                parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
-                    onChange(RuleKey.AUTO_REPLY, rules.copy(autoReply = rules.autoReply.copy(enabled = it)))
-                }
-            )
-            if (rules.autoReply.enabled) {
-                OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = rules.autoReply.text,
-                    enabled = replyEditable,
-                    onValueChange = {
-                        onChange(RuleKey.AUTO_REPLY, rules.copy(autoReply = rules.autoReply.copy(text = it)))
+                delayItems(
+                    baseMs = rules.delay.baseMs,
+                    randomRangeMs = rules.delay.randomRangeMs,
+                    editable = editable(RuleKey.DELAY),
+                    visible = rules.delay.enabled,
+                    maxDigits = MAX_DELAY_DIGITS,
+                    onBaseChange = {
+                        onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(baseMs = it)))
                     },
-                    label = { Text(stringResource(R.string.automation_reply_content)) },
-                    supportingText = { Text(stringResource(R.string.payment_red_packet_amount_placeholder)) },
-                    singleLine = true
+                    onRandomRangeChange = {
+                        onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(randomRangeMs = it)))
+                    },
+                    onEditText = onEditText,
                 )
-            }
 
-            AutomationSettingsError(validationError)
+                item(key = "notification") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_red_packet_notification),
+                        summary = stringResource(
+                            if (rules.notification.enabled) {
+                                R.string.payment_red_packet_notification_enabled
+                            } else {
+                                R.string.automation_notification_disabled
+                            }
+                        ),
+                        checked = rules.notification.enabled,
+                        overridden = overridden(RuleKey.NOTIFICATION),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.NOTIFICATION) },
+                        onReset = { onReset(RuleKey.NOTIFICATION) },
+                        onCheckedChange = {
+                            onChange(
+                                RuleKey.NOTIFICATION,
+                                rules.copy(notification = rules.notification.copy(enabled = it)),
+                            )
+                        },
+                    )
+                }
+
+                item(key = "auto_reply") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_red_packet_auto_reply),
+                        summary = stringResource(
+                            if (rules.autoReply.enabled) {
+                                R.string.automation_auto_reply_enabled
+                            } else {
+                                R.string.automation_auto_reply_disabled
+                            }
+                        ),
+                        checked = rules.autoReply.enabled,
+                        overridden = overridden(RuleKey.AUTO_REPLY),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.AUTO_REPLY) },
+                        onReset = { onReset(RuleKey.AUTO_REPLY) },
+                        onCheckedChange = {
+                            onChange(RuleKey.AUTO_REPLY, rules.copy(autoReply = rules.autoReply.copy(enabled = it)))
+                        },
+                    )
+                }
+                item(key = "auto_reply_text", animatedVisibility = rules.autoReply.enabled) {
+                    val replyTitle = stringResource(R.string.automation_reply_content)
+                    val amountPlaceholder = stringResource(R.string.payment_red_packet_amount_placeholder)
+                    PaymentValueRow(
+                        title = replyTitle,
+                        value = rules.autoReply.text,
+                        enabled = editable(RuleKey.AUTO_REPLY),
+                        valueHint = amountPlaceholder,
+                        onClick = {
+                            onEditText(
+                                PaymentTextEditMode(
+                                    title = replyTitle,
+                                    initial = rules.autoReply.text,
+                                    supportingText = amountPlaceholder,
+                                    onCommit = {
+                                        onChange(RuleKey.AUTO_REPLY, rules.copy(autoReply = rules.autoReply.copy(text = it)))
+                                    },
+                                )
+                            )
+                        },
+                    )
+                }
+
+                if (validationError != null) {
+                    item(key = "validation_error") { PaymentErrorRow(validationError) }
+                }
+            }
         }
-    }
-
-    @Composable
-    private fun RuleHeader(
-        title: String,
-        summary: String,
-        enabled: Boolean,
-        switchEnabled: Boolean = true,
-        key: RuleKey,
-        overriddenKeys: Set<RuleKey>?,
-        parentLabel: String,
-        onActivate: (RuleKey) -> Unit,
-        onReset: (RuleKey) -> Unit,
-        onEnabledChange: (Boolean) -> Unit
-    ) {
-        AutomationRuleHeader(
-            title = title,
-            summary = summary,
-            enabled = enabled,
-            isOverridden = overriddenKeys?.let { key in it },
-            parentLabel = parentLabel,
-            onActivate = { onActivate(key) },
-            onReset = { onReset(key) },
-            onEnabledChange = onEnabledChange,
-            switchEnabled = switchEnabled,
-        )
     }
 
     private fun RuleSet.apply(overrides: RuleOverrides?): RuleSet {
