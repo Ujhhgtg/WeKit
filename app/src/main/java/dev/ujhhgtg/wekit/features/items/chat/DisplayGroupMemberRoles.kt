@@ -47,7 +47,6 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -178,34 +177,28 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
                 title = { Text(stringResource(R.string.feature_display_group_member_roles_name)) },
                 text = {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                            item {
-                                BaseItemContainer {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp),
-                                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
-                                            ButtonGroupDefaults.ConnectedSpaceBetween
-                                        ),
-                                    ) {
-                                        roleLabels.forEachIndexed { index, label ->
-                                            ToggleButton(
-                                                checked = selectedRole == index,
-                                                onCheckedChange = { selectedRole = index },
-                                                shapes = when (index) {
-                                                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                                    roleLabels.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                                                },
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .semantics { role = Role.RadioButton },
-                                            ) {
-                                                Text(label, maxLines = 1)
-                                            }
-                                        }
-                                    }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                                ButtonGroupDefaults.ConnectedSpaceBetween
+                            ),
+                        ) {
+                            roleLabels.forEachIndexed { index, label ->
+                                ToggleButton(
+                                    checked = selectedRole == index,
+                                    onCheckedChange = { selectedRole = index },
+                                    shapes = when (index) {
+                                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                        roleLabels.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .semantics { role = Role.RadioButton },
+                                ) {
+                                    Text(label, maxLines = 1)
                                 }
                             }
                         }

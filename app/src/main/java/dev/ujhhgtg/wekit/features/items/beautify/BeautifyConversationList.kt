@@ -27,7 +27,8 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
@@ -140,30 +141,34 @@ object BeautifyConversationList : ClickableFeature() {
                 title = { Text(stringResource(R.string.beautify_conversation_list_title)) },
                 text = {
                     SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                        ConversationListPreset.entries.forEach { entry ->
-                            item(key = entry.name) {
-                                val label = when (entry) {
-                                    ConversationListPreset.NO_LAYOUT -> stringResource(R.string.beautify_conversation_no_layout)
-                                    ConversationListPreset.COMFORT_CARD -> stringResource(R.string.beautify_conversation_comfort_card)
-                                    ConversationListPreset.PINNED_GROUPED_CARD -> stringResource(R.string.beautify_conversation_pinned_grouped)
-                                    ConversationListPreset.COMPACT_ROUNDED -> stringResource(R.string.beautify_conversation_compact_rounded)
-                                    ConversationListPreset.MINIMAL_LIST -> stringResource(R.string.beautify_conversation_minimal)
-                                }
-                                RadioButtonWidget(
-                                    iconPlaceholder = false,
-                                    title = label,
-                                    selected = preset == entry,
-                                    onClick = {
-                                        preset = entry
-                                        if (entry == ConversationListPreset.NO_LAYOUT) highlightUnread = false
-                                        presetName = entry.name
-                                        applyChanges(
-                                            highlight = entry != ConversationListPreset.NO_LAYOUT && highlightUnread,
-                                            dividers = hideDividers,
-                                        )
-                                    },
-                                )
-                            }
+                        item(key = "preset") {
+                            DropDownMenuWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_conversation_preset),
+                                description = null,
+                                value = preset,
+                                options = ConversationListPreset.entries.map { entry ->
+                                    DropdownOption(
+                                        entry,
+                                        when (entry) {
+                                            ConversationListPreset.NO_LAYOUT -> stringResource(R.string.beautify_conversation_no_layout)
+                                            ConversationListPreset.COMFORT_CARD -> stringResource(R.string.beautify_conversation_comfort_card)
+                                            ConversationListPreset.PINNED_GROUPED_CARD -> stringResource(R.string.beautify_conversation_pinned_grouped)
+                                            ConversationListPreset.COMPACT_ROUNDED -> stringResource(R.string.beautify_conversation_compact_rounded)
+                                            ConversationListPreset.MINIMAL_LIST -> stringResource(R.string.beautify_conversation_minimal)
+                                        },
+                                    )
+                                },
+                                onValueChange = { entry ->
+                                    preset = entry
+                                    if (entry == ConversationListPreset.NO_LAYOUT) highlightUnread = false
+                                    presetName = entry.name
+                                    applyChanges(
+                                        highlight = entry != ConversationListPreset.NO_LAYOUT && highlightUnread,
+                                        dividers = hideDividers,
+                                    )
+                                },
+                            )
                         }
                         item(
                             key = "highlight_unread",

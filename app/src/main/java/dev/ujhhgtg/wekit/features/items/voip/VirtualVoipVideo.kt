@@ -17,24 +17,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
@@ -49,9 +37,9 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
-import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -295,27 +283,27 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                     text = {
                         SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
                             item(key = "source") {
-                                BaseItemContainer {
-                                    ConnectedSelection(
-                                        options = listOf(
-                                            "file" to stringResource(R.string.voip_virtual_video_local_file),
-                                            "stream" to stringResource(R.string.voip_virtual_video_stream),
-                                        ),
-                                        selected = currentType,
-                                        onSelected = {
-                                            currentType = it
-                                            sourceType = it
-                                            if (it == "file") {
-                                                // 恢复为保存的全局文件方向配置
-                                                orientationText = streamOrientation
-                                            } else if (orientationText == "auto") {
-                                                // 网络流不支持自动，若当前为 auto 则强制修正为 portrait
-                                                orientationText = "portrait"
-                                                streamOrientation = "portrait"
-                                            }
-                                        },
-                                    )
-                                }
+                                DropDownMenuWidget(
+                                    title = stringResource(R.string.voip_virtual_video_source),
+                                    description = null,
+                                    value = currentType,
+                                    options = listOf(
+                                        DropdownOption("file", stringResource(R.string.voip_virtual_video_local_file)),
+                                        DropdownOption("stream", stringResource(R.string.voip_virtual_video_stream)),
+                                    ),
+                                    onValueChange = {
+                                        currentType = it
+                                        sourceType = it
+                                        if (it == "file") {
+                                            // 恢复为保存的全局文件方向配置
+                                            orientationText = streamOrientation
+                                        } else if (orientationText == "auto") {
+                                            // 网络流不支持自动，若当前为 auto 则强制修正为 portrait
+                                            orientationText = "portrait"
+                                            streamOrientation = "portrait"
+                                        }
+                                    },
+                                )
                             }
                             item(key = "select_video", animatedVisibility = currentType == "file") {
                                 BaseWidget(
@@ -378,25 +366,23 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                 )
                             }
                             item(key = "orientation") {
-                                BaseSupportingWidget(
+                                DropDownMenuWidget(
                                     title = stringResource(R.string.voip_virtual_video_orientation),
-                                ) {
-                                    ConnectedSelection(
-                                        options = buildList {
-                                            // 网络流不支持自动方向，auto 选项仅在本地文件模式下提供
-                                            if (currentType == "file") {
-                                                add("auto" to stringResource(R.string.voip_virtual_video_orientation_auto))
-                                            }
-                                            add("portrait" to stringResource(R.string.voip_virtual_video_orientation_portrait))
-                                            add("landscape" to stringResource(R.string.voip_virtual_video_orientation_landscape))
-                                        },
-                                        selected = orientationText,
-                                        onSelected = {
-                                            orientationText = it
-                                            streamOrientation = it
-                                        },
-                                    )
-                                }
+                                    description = null,
+                                    value = orientationText,
+                                    options = buildList {
+                                        // 网络流不支持自动方向，auto 选项仅在本地文件模式下提供
+                                        if (currentType == "file") {
+                                            add(DropdownOption("auto", stringResource(R.string.voip_virtual_video_orientation_auto)))
+                                        }
+                                        add(DropdownOption("portrait", stringResource(R.string.voip_virtual_video_orientation_portrait)))
+                                        add(DropdownOption("landscape", stringResource(R.string.voip_virtual_video_orientation_landscape)))
+                                    },
+                                    onValueChange = {
+                                        orientationText = it
+                                        streamOrientation = it
+                                    },
+                                )
                             }
                         }
                     },
@@ -404,40 +390,6 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                         TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                     },
             )
-        }
-    }
-
-    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-    @Composable
-    private fun ConnectedSelection(
-        options: List<Pair<String, String>>,
-        selected: String,
-        onSelected: (String) -> Unit,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
-                ButtonGroupDefaults.ConnectedSpaceBetween
-            ),
-        ) {
-            options.forEachIndexed { index, (value, label) ->
-                ToggleButton(
-                    checked = selected == value,
-                    onCheckedChange = { onSelected(value) },
-                    shapes = when (index) {
-                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                        options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics { role = Role.RadioButton },
-                ) {
-                    Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
         }
     }
 
