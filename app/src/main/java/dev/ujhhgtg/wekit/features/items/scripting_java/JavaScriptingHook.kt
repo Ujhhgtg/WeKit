@@ -2,13 +2,9 @@ package dev.ujhhgtg.wekit.features.items.scripting_java
 
 import android.content.ContentValues
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +28,8 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
@@ -171,65 +169,35 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                                 .fillMaxWidth()
                                 .heightIn(max = 480.dp),
                         ) {
-                            items(entries, key = { it.dir.name }) { entry ->
+                            lazySegmentedItems(entries, key = { it.dir.name }) { entry ->
                                 var enabled by remember(entry.dir) { mutableStateOf(entry.enabled) }
-                                fun toggle() {
-                                    val newState = !enabled
-                                    if (setScriptEnabled(entry.dir, newState)) {
-                                        enabled = newState
-                                    }
-                                }
+                                val statusText = stringResource(
+                                    if (enabled) R.string.java_script_status_enabled
+                                    else R.string.java_script_status_disabled
+                                )
+                                val versionText =
+                                    entry.info.version?.let { stringResource(R.string.java_script_version, it) }
+                                val authorText =
+                                    entry.info.author?.let { stringResource(R.string.java_script_author, it) }
 
-                                ListItem(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { toggle() },
-                                    content = {
-                                        Text(
-                                            if (entry.info.name == "unnamed") {
-                                                stringResource(R.string.java_script_unnamed)
-                                            } else {
-                                                entry.info.name
-                                            }
-                                        )
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = if (entry.info.name == "unnamed") {
+                                        stringResource(R.string.java_script_unnamed)
+                                    } else {
+                                        entry.info.name
                                     },
-                                    supportingContent = {
-                                        Text(
-                                            buildList {
-                                                add(entry.dir.name)
-                                                add(
-                                                    stringResource(
-                                                        if (enabled) {
-                                                            R.string.java_script_status_enabled
-                                                        } else {
-                                                            R.string.java_script_status_disabled
-                                                        }
-                                                    )
-                                                )
-                                                entry.info.version?.let {
-                                                    add(
-                                                        stringResource(
-                                                            R.string.java_script_version,
-                                                            it,
-                                                        )
-                                                    )
-                                                }
-                                                entry.info.author?.let {
-                                                    add(
-                                                        stringResource(
-                                                            R.string.java_script_author,
-                                                            it,
-                                                        )
-                                                    )
-                                                }
-                                            }.joinToString(" · ")
-                                        )
-                                    },
-                                    trailingContent = {
-                                        Switch(
-                                            checked = enabled,
-                                            onCheckedChange = null,
-                                        )
+                                    description = buildList {
+                                        add(entry.dir.name)
+                                        add(statusText)
+                                        versionText?.let { add(it) }
+                                        authorText?.let { add(it) }
+                                    }.joinToString(" · "),
+                                    checked = enabled,
+                                    onCheckedChange = { newState ->
+                                        if (setScriptEnabled(entry.dir, newState)) {
+                                            enabled = newState
+                                        }
                                     },
                                 )
                             }

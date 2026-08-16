@@ -17,12 +17,10 @@ import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.view.View
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,8 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import androidx.core.graphics.withTranslation
 import com.tencent.mm.ui.widget.MMNeat7extView
@@ -48,6 +45,9 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
@@ -459,88 +459,91 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_markdown_rendering_name)) },
                 text = {
-                    Column {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         var renderMode by remember { mutableStateOf(selectedRenderMode) }
 
-                        Text(
-                            stringResource(R.string.chat_markdown_render_engine),
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        ListItem(
-                            modifier = if (nativeRendererAvailable) {
-                                Modifier.clickable {
-                                    renderMode = RenderMode.NATIVE
-                                    setRenderMode(renderMode)
-                                }
-                            } else {
-                                Modifier
-                            },
-                            trailingContent = {
-                                RadioButton(
+                        SegmentedColumn(
+                            title = stringResource(R.string.chat_markdown_render_engine),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item(key = "native") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_native),
+                                    description = stringResource(R.string.chat_markdown_native_description),
                                     selected = renderMode == RenderMode.NATIVE,
-                                    onClick = null,
-                                    enabled = nativeRendererAvailable
+                                    enabled = nativeRendererAvailable,
+                                    onClick = {
+                                        renderMode = RenderMode.NATIVE
+                                        setRenderMode(renderMode)
+                                    },
                                 )
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_markdown_native_description)) },
-                            content = { Text(stringResource(R.string.chat_markdown_native)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                renderMode = RenderMode.HTML
-                                setRenderMode(renderMode)
-                            },
-                            trailingContent = { RadioButton(renderMode == RenderMode.HTML, null) },
-                            supportingContent = { Text(stringResource(R.string.chat_markdown_html_description)) },
-                            content = { Text(stringResource(R.string.chat_markdown_html)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                renderMode = RenderMode.MARKWON
-                                setRenderMode(renderMode)
-                            },
-                            trailingContent = { RadioButton(renderMode == RenderMode.MARKWON, null) },
-                            supportingContent = { Text(stringResource(R.string.chat_markdown_markwon_description)) },
-                            content = { Text(stringResource(R.string.chat_markdown_markwon)) },
-                        )
+                            }
+                            item(key = "html") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_html),
+                                    description = stringResource(R.string.chat_markdown_html_description),
+                                    selected = renderMode == RenderMode.HTML,
+                                    onClick = {
+                                        renderMode = RenderMode.HTML
+                                        setRenderMode(renderMode)
+                                    },
+                                )
+                            }
+                            item(key = "markwon") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_markwon),
+                                    description = stringResource(R.string.chat_markdown_markwon_description),
+                                    selected = renderMode == RenderMode.MARKWON,
+                                    onClick = {
+                                        renderMode = RenderMode.MARKWON
+                                        setRenderMode(renderMode)
+                                    },
+                                )
+                            }
+                        }
 
                         var noTextSizing by
                         remember { mutableStateOf(WePrefs.getBoolOrFalse(KEY_NO_TEXT_SIZING)) }
-                        Text(
-                            stringResource(R.string.chat_markdown_general_settings),
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                noTextSizing = !noTextSizing
-                                WePrefs.putBool(KEY_NO_TEXT_SIZING, noTextSizing)
-                            },
-                            trailingContent = { Switch(noTextSizing, null) },
-                            supportingContent = { Text(stringResource(R.string.chat_markdown_disable_text_sizing_description)) },
-                            content = { Text(stringResource(R.string.chat_markdown_disable_text_sizing)) },
-                        )
+                        SegmentedColumn(
+                            title = stringResource(R.string.chat_markdown_general_settings),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item(key = "no_text_sizing") {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_disable_text_sizing),
+                                    description = stringResource(R.string.chat_markdown_disable_text_sizing_description),
+                                    checked = noTextSizing,
+                                    onCheckedChange = {
+                                        noTextSizing = it
+                                        WePrefs.putBool(KEY_NO_TEXT_SIZING, it)
+                                    },
+                                )
+                            }
+                        }
 
                         var compactHtml by
                         remember { mutableStateOf(WePrefs.getBoolOrFalse(KEY_COMPACT_HTML)) }
-                        Text(
-                            stringResource(R.string.chat_markdown_html_settings),
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                compactHtml = !compactHtml
-                                WePrefs.putBool(KEY_COMPACT_HTML, compactHtml)
-                            },
-                            trailingContent = { Switch(compactHtml, null) },
-                            supportingContent = { Text(stringResource(R.string.chat_markdown_compact_html_description)) },
-                            content = { Text(stringResource(R.string.chat_markdown_compact_html)) },
-                        )
+                        SegmentedColumn(
+                            title = stringResource(R.string.chat_markdown_html_settings),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item(key = "compact_html") {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_compact_html),
+                                    description = stringResource(R.string.chat_markdown_compact_html_description),
+                                    checked = compactHtml,
+                                    onCheckedChange = {
+                                        compactHtml = it
+                                        WePrefs.putBool(KEY_COMPACT_HTML, it)
+                                    },
+                                )
+                            }
+                        }
                     }
                 },
                 confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }

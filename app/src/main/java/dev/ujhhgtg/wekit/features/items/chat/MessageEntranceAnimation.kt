@@ -2,17 +2,15 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.view.View
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
@@ -26,8 +24,9 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.WeakHashMap
 
@@ -331,54 +330,55 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_message_entrance_animation_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                styleInput = STYLE_BOUNCE
-                                entranceStyle = STYLE_BOUNCE
-                            },
-                            trailingContent = {
-                                RadioButton(selected = styleInput == STYLE_BOUNCE, onClick = null)
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_message_animation_bounce_description)) },
-                            content = { Text(stringResource(R.string.chat_message_animation_bounce)) },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                styleInput = STYLE_SLIDE
-                                entranceStyle = STYLE_SLIDE
-                            },
-                            trailingContent = {
-                                RadioButton(selected = styleInput == STYLE_SLIDE, onClick = null)
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_message_animation_slide_description)) },
-                            content = { Text(stringResource(R.string.chat_message_animation_slide)) },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                styleInput = STYLE_DROP
-                                entranceStyle = STYLE_DROP
-                            },
-                            trailingContent = {
-                                RadioButton(selected = styleInput == STYLE_DROP, onClick = null)
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_message_animation_drop_description)) },
-                            content = { Text(stringResource(R.string.chat_message_animation_drop)) },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                bounceAllInput = !bounceAllInput
-                                bounceAllOnEnter = bounceAllInput
-                            },
-                            trailingContent = {
-                                Switch(checked = bounceAllInput, onCheckedChange = null)
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_message_animation_history_description)) },
-                            content = { Text(stringResource(R.string.chat_message_animation_history)) },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item(key = "bounce") {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_message_animation_bounce),
+                                description = stringResource(R.string.chat_message_animation_bounce_description),
+                                selected = styleInput == STYLE_BOUNCE,
+                                onClick = {
+                                    styleInput = STYLE_BOUNCE
+                                    entranceStyle = STYLE_BOUNCE
+                                },
+                            )
+                        }
+                        item(key = "slide") {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_message_animation_slide),
+                                description = stringResource(R.string.chat_message_animation_slide_description),
+                                selected = styleInput == STYLE_SLIDE,
+                                onClick = {
+                                    styleInput = STYLE_SLIDE
+                                    entranceStyle = STYLE_SLIDE
+                                },
+                            )
+                        }
+                        item(key = "drop") {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_message_animation_drop),
+                                description = stringResource(R.string.chat_message_animation_drop_description),
+                                selected = styleInput == STYLE_DROP,
+                                onClick = {
+                                    styleInput = STYLE_DROP
+                                    entranceStyle = STYLE_DROP
+                                },
+                            )
+                        }
+                        item(key = "bounce_all") {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_message_animation_history),
+                                description = stringResource(R.string.chat_message_animation_history_description),
+                                checked = bounceAllInput,
+                                onCheckedChange = {
+                                    bounceAllInput = it
+                                    bounceAllOnEnter = it
+                                },
+                            )
+                        }
                     }
                 })
         }

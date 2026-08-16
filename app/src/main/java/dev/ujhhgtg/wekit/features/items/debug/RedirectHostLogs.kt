@@ -1,16 +1,15 @@
 package dev.ujhhgtg.wekit.features.items.debug
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.tencent.mars.xlog.Log
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
@@ -21,8 +20,9 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.getBoolOrFalse
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
@@ -113,61 +113,94 @@ object RedirectHostLogs : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            var v by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}v")) }
+            var d by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}d")) }
+            var i by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}i")) }
+            var w by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}w")) }
+            var e by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}e")) }
+            var dirty by remember { mutableStateOf(false) }
+
+            // 日志级别开关在 onEnable 时决定挂钩哪些方法, 立即写偏好不会刷新已装的 hook;
+            // 对话框关闭时统一重启
+            DisposableEffect(Unit) {
+                onDispose {
+                    if (dirty && isActive) {
+                        disable()
+                        enable()
+                    }
+                }
+            }
+
             AlertDialogContent(
                 title = { Text(stringResource(R.string.debug_redirect_host_logs_title)) },
                 text = {
-                    var v by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}v")) }
-                    var d by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}d")) }
-                    var i by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}i")) }
-                    var w by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}w")) }
-                    var e by remember { mutableStateOf(getBoolOrFalse("${KEY_PREFIX}e")) }
-
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                v = !v
-                                WePrefs.putBool("${KEY_PREFIX}v", v)
-                            },
-                            trailingContent = { Switch(v, null) },
-                            content = { Text(stringResource(R.string.debug_log_level_verbose)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                d = !d
-                                WePrefs.putBool("${KEY_PREFIX}d", d)
-                            },
-                            trailingContent = { Switch(d, null) },
-                            content = { Text(stringResource(R.string.debug_log_level_debug)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                i = !i
-                                WePrefs.putBool("${KEY_PREFIX}i", i)
-                            },
-                            trailingContent = { Switch(i, null) },
-                            content = { Text(stringResource(R.string.debug_log_level_info)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                w = !w
-                                WePrefs.putBool("${KEY_PREFIX}w", w)
-                            },
-                            trailingContent = { Switch(w, null) },
-                            content = { Text(stringResource(R.string.debug_log_level_warning)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                e = !e
-                                WePrefs.putBool("${KEY_PREFIX}e", e)
-                            },
-                            trailingContent = { Switch(e, null) },
-                            content = { Text(stringResource(R.string.debug_log_level_error)) },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.debug_log_level_verbose),
+                                checked = v,
+                                onCheckedChange = {
+                                    v = it
+                                    WePrefs.putBool("${KEY_PREFIX}v", it)
+                                    dirty = true
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.debug_log_level_debug),
+                                checked = d,
+                                onCheckedChange = {
+                                    d = it
+                                    WePrefs.putBool("${KEY_PREFIX}d", it)
+                                    dirty = true
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.debug_log_level_info),
+                                checked = i,
+                                onCheckedChange = {
+                                    i = it
+                                    WePrefs.putBool("${KEY_PREFIX}i", it)
+                                    dirty = true
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.debug_log_level_warning),
+                                checked = w,
+                                onCheckedChange = {
+                                    w = it
+                                    WePrefs.putBool("${KEY_PREFIX}w", it)
+                                    dirty = true
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.debug_log_level_error),
+                                checked = e,
+                                onCheckedChange = {
+                                    e = it
+                                    WePrefs.putBool("${KEY_PREFIX}e", it)
+                                    dirty = true
+                                },
+                            )
+                        }
                     }
                 },
-                confirmButton = {
-                    Button(onDismiss) { Text(stringResource(R.string.dialog_confirm)) }
-                })
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
+            )
         }
     }
 }

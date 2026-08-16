@@ -1,18 +1,20 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -25,12 +27,17 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
+
+/** Which value row currently has its edit view swapped in. */
+private enum class EditField { PATTERN, TIME_FORMAT }
 
 @Feature(
     id = "防撤回",
@@ -113,46 +120,106 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var recallOutgoingInput by remember { mutableStateOf(recallOutgoing) }
-            var patternInput by remember { mutableStateOf(pattern) }
-            var timeFormatInput by remember { mutableStateOf(timeFormat) }
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_anti_message_recall_name)) },
-                text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { recallOutgoingInput = !recallOutgoingInput },
-                            trailingContent = {
-                                Switch(checked = recallOutgoingInput, onCheckedChange = null)
+            var patternValue by remember { mutableStateOf(pattern) }
+            var timeFormatValue by remember { mutableStateOf(timeFormat) }
+            var editing by remember { mutableStateOf<EditField?>(null) }
+            var draft by remember { mutableStateOf("") }
+
+            val editingField = editing
+            if (editingField == null) {
+                AlertDialogContent(
+                    title = { Text(stringResource(R.string.feature_anti_message_recall_name)) },
+                    text = {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_anti_recall_outgoing),
+                                    description = stringResource(R.string.chat_anti_recall_outgoing_description),
+                                    checked = recallOutgoingInput,
+                                    onCheckedChange = {
+                                        recallOutgoingInput = it
+                                        recallOutgoing = it
+                                    },
+                                )
+                            }
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_anti_recall_pattern),
+                                    description = patternValue,
+                                    onClick = {
+                                        draft = patternValue
+                                        editing = EditField.PATTERN
+                                    },
+                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
+                                )
+                            }
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_anti_recall_time_format),
+                                    description = timeFormatValue,
+                                    onClick = {
+                                        draft = timeFormatValue
+                                        editing = EditField.TIME_FORMAT
+                                    },
+                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
+                                )
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                    },
+                )
+            } else {
+                AlertDialogContent(
+                    title = {
+                        Text(
+                            stringResource(
+                                if (editingField == EditField.PATTERN) {
+                                    R.string.chat_anti_recall_pattern
+                                } else {
+                                    R.string.chat_anti_recall_time_format
+                                }
+                            )
+                        )
+                    },
+                    text = {
+                        OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it },
+                            singleLine = true,
+                            supportingText = if (editingField == EditField.PATTERN) {
+                                { Text(stringResource(R.string.chat_anti_recall_placeholders)) }
+                            } else {
+                                null
                             },
-                            supportingContent = { Text(stringResource(R.string.chat_anti_recall_outgoing_description)) },
-                            content = { Text(stringResource(R.string.chat_anti_recall_outgoing)) },
+                            modifier = Modifier.fillMaxWidth(),
                         )
+                    },
+                    confirmButton = {
+                        Button({
+                            when (editingField) {
+                                EditField.PATTERN -> {
+                                    patternValue = draft
+                                    pattern = draft
+                                }
 
-                        TextField(
-                            label = { Text(stringResource(R.string.chat_anti_recall_pattern)) },
-                            supportingText = { Text(stringResource(R.string.chat_anti_recall_placeholders)) },
-                            value = patternInput,
-                            onValueChange = { patternInput = it },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        TextField(
-                            value = timeFormatInput,
-                            onValueChange = { timeFormatInput = it },
-                            label = { Text(stringResource(R.string.chat_anti_recall_time_format)) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
-                confirmButton = {
-                    Button({
-                        recallOutgoing = recallOutgoingInput
-                        pattern = patternInput
-                        timeFormat = timeFormatInput
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                })
+                                EditField.TIME_FORMAT -> {
+                                    timeFormatValue = draft
+                                    timeFormat = draft
+                                }
+                            }
+                            editing = null
+                        }) { Text(stringResource(R.string.dialog_confirm)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { editing = null }) { Text(stringResource(R.string.dialog_cancel)) }
+                    },
+                )
+            }
         }
     }
 }
