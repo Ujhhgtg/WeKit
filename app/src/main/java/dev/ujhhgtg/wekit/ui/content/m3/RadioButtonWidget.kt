@@ -9,6 +9,8 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.role
@@ -16,7 +18,25 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 
-// A dedicated widget for radio button settings items
+/**
+ * A setting widget with a [RadioButton] trailing content.
+ *
+ * @param title The primary text displayed in the widget.
+ * @param modifier The [Modifier] to be applied to the widget.
+ * @param description Optional supporting text displayed below the title.
+ * @param descriptionStyle The [TextStyle] applied to the [description].
+ * @param icon The [ImageVector] to be displayed at the start of the widget.
+ * @param iconPlaceholder If true, maintains a consistent leading space even when [icon] is null.
+ * @param selected Whether this option is currently selected.
+ * @param enabled Whether the widget is enabled and interactive.
+ * @param trailingDivider Whether to display a vertical divider before the radio button,
+ * visually separating the main and trailing click areas.
+ * @param onClick Optional callback for the main/left area. When omitted, the main area
+ * selects the option for backwards compatibility.
+ * @param onSelect Callback invoked when the option is selected via the radio button.
+ * When omitted, selection falls back to [onClick]; provide both to give the main area a
+ * separate action such as opening a detail screen.
+ */
 @Composable
 fun RadioButtonWidget(
     title: String,
@@ -27,8 +47,14 @@ fun RadioButtonWidget(
     iconPlaceholder: Boolean = true,
     selected: Boolean = false,
     enabled: Boolean = true,
-    onClick: () -> Unit
+    trailingDivider: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    onSelect: (() -> Unit)? = null,
 ) {
+    val haptic = LocalHapticFeedback.current
+    val selectAction = onSelect ?: onClick
+    val separateClickAreas = (onClick != null && onSelect != null) || trailingDivider
+
     BaseWidget(
         // Merge semantics and define role/state for screen readers
         modifier = modifier.semantics(mergeDescendants = true) {
@@ -42,13 +68,21 @@ fun RadioButtonWidget(
         descriptionStyle = descriptionStyle,
         selected = selected,
         enabled = enabled,
-        onClick = onClick
+        onClick = onClick ?: selectAction,
+        trailingDivider = trailingDivider,
     ) { interactionSource -> // Receive the shared interactionSource
         RadioButton(
             selected = selected,
-            // The click event is already handled by BaseWidget's ListItem,
-            // passing null here avoids double-triggering ripples
-            onClick = null,
+            // The row click is handled by BaseWidget's ListItem unless the trailing area
+            // acts independently; passing null avoids double-triggering ripples
+            onClick = if (separateClickAreas) {
+                {
+                    haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                    selectAction?.invoke()
+                }
+            } else {
+                null
+            },
             // Clear child semantics to avoid double reading by TalkBack
             modifier = Modifier.clearAndSetSemantics {},
             enabled = enabled,
