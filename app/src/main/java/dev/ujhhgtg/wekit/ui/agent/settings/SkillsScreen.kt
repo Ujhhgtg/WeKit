@@ -30,8 +30,8 @@ import dev.ujhhgtg.wekit.agent.skill.SkillStore
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -73,10 +73,18 @@ fun SkillsScreen(onBack: () -> Unit) {
                 val s = skills[i]
                 SegmentedColumn {
                     item {
-                        BaseWidget(
+                        SwitchWidget(
                             title = s.name,
                             description = s.description.ifBlank { stringResource(R.string.agent_no_description) },
+                            checked = s.enabled,
+                            onCheckedChange = { on ->
+                                scope.launch {
+                                    withContext(Dispatchers.IO) { SkillStore.setEnabled(s.name, on) }
+                                    reloadTick++
+                                }
+                            },
                             onClick = { editing = s; showEditor = true },
+                            trailingDivider = true,
                         )
                     }
                 }

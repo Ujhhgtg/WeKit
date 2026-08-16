@@ -75,17 +75,25 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                 saving = exaSaving,
                 onKeyChange = { exaKey = it },
                 onClear = {
+                    exaSaving = true
                     scope.launch {
-                        WeAgentRepository.setExternalServiceKey(ExternalServiceId.EXA, null)
-                        BuiltinToolProvider.exaKeyPresent = false
+                        try {
+                            WeAgentRepository.setExternalServiceKey(ExternalServiceId.EXA, null)
+                            BuiltinToolProvider.exaKeyPresent = false
+                        } finally {
+                            exaSaving = false
+                        }
                     }
                 },
                 onSave = {
                     exaSaving = true
                     scope.launch {
-                        WeAgentRepository.setExternalServiceKey(ExternalServiceId.EXA, exaKey)
-                        BuiltinToolProvider.exaKeyPresent = exaKey.isNotBlank()
-                        exaSaving = false
+                        try {
+                            WeAgentRepository.setExternalServiceKey(ExternalServiceId.EXA, exaKey)
+                            BuiltinToolProvider.exaKeyPresent = exaKey.isNotBlank()
+                        } finally {
+                            exaSaving = false
+                        }
                     }
                 },
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
@@ -100,17 +108,25 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                 saving = braveSaving,
                 onKeyChange = { braveKey = it },
                 onClear = {
+                    braveSaving = true
                     scope.launch {
-                        WeAgentRepository.setExternalServiceKey(ExternalServiceId.BRAVE, null)
-                        BuiltinToolProvider.braveKeyPresent = false
+                        try {
+                            WeAgentRepository.setExternalServiceKey(ExternalServiceId.BRAVE, null)
+                            BuiltinToolProvider.braveKeyPresent = false
+                        } finally {
+                            braveSaving = false
+                        }
                     }
                 },
                 onSave = {
                     braveSaving = true
                     scope.launch {
-                        WeAgentRepository.setExternalServiceKey(ExternalServiceId.BRAVE, braveKey)
-                        BuiltinToolProvider.braveKeyPresent = braveKey.isNotBlank()
-                        braveSaving = false
+                        try {
+                            WeAgentRepository.setExternalServiceKey(ExternalServiceId.BRAVE, braveKey)
+                            BuiltinToolProvider.braveKeyPresent = braveKey.isNotBlank()
+                        } finally {
+                            braveSaving = false
+                        }
                     }
                 },
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
