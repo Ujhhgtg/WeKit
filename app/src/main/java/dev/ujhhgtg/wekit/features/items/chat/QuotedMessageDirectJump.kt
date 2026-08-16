@@ -1,15 +1,14 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -21,9 +20,9 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 
@@ -155,29 +154,29 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_quoted_message_direct_jump_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                messageList = !messageList
-                                messageListDirectJump = messageList
-                            },
-                            trailingContent = {
-                                Switch(checked = messageList, onCheckedChange = null)
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_quote_jump_message_list_description)) },
-                            content = { Text(stringResource(R.string.chat_quote_jump_message_list)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                inputBox = !inputBox
-                                inputBoxDirectJump = inputBox
-                            },
-                            trailingContent = {
-                                Switch(checked = inputBox, onCheckedChange = null)
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_quote_jump_input_box_description)) },
-                            content = { Text(stringResource(R.string.chat_quote_jump_input_box)) },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                title = stringResource(R.string.chat_quote_jump_message_list),
+                                description = stringResource(R.string.chat_quote_jump_message_list_description),
+                                checked = messageList,
+                                onCheckedChange = {
+                                    messageList = it
+                                    messageListDirectJump = it
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                title = stringResource(R.string.chat_quote_jump_input_box),
+                                description = stringResource(R.string.chat_quote_jump_input_box_description),
+                                checked = inputBox,
+                                onCheckedChange = {
+                                    inputBox = it
+                                    inputBoxDirectJump = it
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = {

@@ -1718,6 +1718,7 @@
     <string name="chat_group_role_admin">管理员</string>
     <string name="chat_group_role_member">成员</string>
     <string name="chat_group_role_show_member">显示「成员」标签</string>
+    <string name="chat_group_role_show_label">显示标签</string>
     <string name="chat_group_role_owner_background">群主 | 背景色</string>
     <string name="chat_group_role_owner_foreground">群主 | 前景色</string>
     <string name="chat_group_role_admin_background">管理员 | 背景色</string>

@@ -41,8 +41,8 @@ import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.WeColorField
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -384,32 +384,18 @@ object MessageTimeEnhancements : ClickableFeature(),
                                 }
                             }
                             item {
-                                BaseSupportingWidget(
+                                ColorPickerWidget(
                                     title = stringResource(R.string.chat_message_time_color_light),
-                                ) {
-                                    WeColorField(
-                                        value = textColorLightInput,
-                                        onValueChange = { textColorLightInput = it },
-                                        label = stringResource(R.string.color_picker_hex_value),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                    )
-                                }
+                                    value = textColorLightInput,
+                                    onValueChange = { textColorLightInput = it },
+                                )
                             }
                             item {
-                                BaseSupportingWidget(
+                                ColorPickerWidget(
                                     title = stringResource(R.string.chat_message_time_color_dark),
-                                ) {
-                                    WeColorField(
-                                        value = textColorDarkInput,
-                                        onValueChange = { textColorDarkInput = it },
-                                        label = stringResource(R.string.color_picker_hex_value),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                    )
-                                }
+                                    value = textColorDarkInput,
+                                    onValueChange = { textColorDarkInput = it },
+                                )
                             }
                             item {
                                 SwitchWidget(

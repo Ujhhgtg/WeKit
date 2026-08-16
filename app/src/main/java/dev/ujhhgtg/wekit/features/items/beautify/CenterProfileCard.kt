@@ -46,9 +46,9 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.WeColorField
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -311,32 +311,18 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             contentPadding = PaddingValues(0.dp),
                         ) {
                             item {
-                                BaseSupportingWidget(
+                                ColorPickerWidget(
                                     title = stringResource(R.string.beautify_profile_card_light_background),
-                                ) {
-                                    WeColorField(
-                                        value = lightBg,
-                                        onValueChange = { lightBg = it },
-                                        label = stringResource(R.string.color_picker_hex_value),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp),
-                                    )
-                                }
+                                    value = lightBg,
+                                    onValueChange = { lightBg = it },
+                                )
                             }
                             item {
-                                BaseSupportingWidget(
+                                ColorPickerWidget(
                                     title = stringResource(R.string.beautify_profile_card_dark_background),
-                                ) {
-                                    WeColorField(
-                                        value = darkBg,
-                                        onValueChange = { darkBg = it },
-                                        label = stringResource(R.string.color_picker_hex_value),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp),
-                                    )
-                                }
+                                    value = darkBg,
+                                    onValueChange = { darkBg = it },
+                                )
                             }
                         }
                     }

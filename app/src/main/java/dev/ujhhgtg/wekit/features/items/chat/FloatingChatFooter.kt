@@ -17,23 +17,13 @@ import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tencent.mm.pluginsdk.ui.chat.AppPanel
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
@@ -53,7 +43,8 @@ import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.offscreenHeight
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.allViews
@@ -62,7 +53,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.constructor
 import java.util.WeakHashMap
-import kotlin.math.roundToInt
 
 @Feature(
     id = "悬浮输入框",
@@ -946,13 +936,14 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             )
                         }
                         item {
-                            BaseSupportingWidget(
-                                title = stringResource(R.string.chat_floating_corner_radius_label),
-                            ) {
-                                FooterSliderRow(
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_floating_corner_radius_label),
                                     value = corner,
-                                    start = MIN_CORNER_RADIUS,
-                                    end = MAX_CORNER_RADIUS,
+                                    startInt = MIN_CORNER_RADIUS,
+                                    endInt = MAX_CORNER_RADIUS,
+                                    stepSize = 1,
+                                    valueSuffix = "dp",
                                     onValueChange = {
                                         corner = it
                                         cornerRadiusDp = it
@@ -961,13 +952,14 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         }
                         item {
-                            BaseSupportingWidget(
-                                title = stringResource(R.string.chat_floating_side_margin_label),
-                            ) {
-                                FooterSliderRow(
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_floating_side_margin_label),
                                     value = side,
-                                    start = MIN_SIDE_MARGIN,
-                                    end = MAX_SIDE_MARGIN,
+                                    startInt = MIN_SIDE_MARGIN,
+                                    endInt = MAX_SIDE_MARGIN,
+                                    stepSize = 1,
+                                    valueSuffix = "dp",
                                     onValueChange = {
                                         side = it
                                         sideMarginDp = it
@@ -976,13 +968,14 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         }
                         item {
-                            BaseSupportingWidget(
-                                title = stringResource(R.string.chat_floating_bottom_gap_label),
-                            ) {
-                                FooterSliderRow(
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_floating_bottom_gap_label),
                                     value = gap,
-                                    start = MIN_BOTTOM_GAP,
-                                    end = MAX_BOTTOM_GAP,
+                                    startInt = MIN_BOTTOM_GAP,
+                                    endInt = MAX_BOTTOM_GAP,
+                                    stepSize = 1,
+                                    valueSuffix = "dp",
                                     onValueChange = {
                                         gap = it
                                         bottomGapDp = it
@@ -991,13 +984,14 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             }
                         }
                         item {
-                            BaseSupportingWidget(
-                                title = stringResource(R.string.chat_floating_elevation_label),
-                            ) {
-                                FooterSliderRow(
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_floating_elevation_label),
                                     value = elev,
-                                    start = MIN_ELEVATION,
-                                    end = MAX_ELEVATION,
+                                    startInt = MIN_ELEVATION,
+                                    endInt = MAX_ELEVATION,
+                                    stepSize = 1,
+                                    valueSuffix = "dp",
                                     onValueChange = {
                                         elev = it
                                         elevationDp = it
@@ -1010,33 +1004,5 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
-    }
-}
-
-/** Slider + trailing "N dp" value, laid out like IntNumberPickerWidget's slider row. */
-@Composable
-private fun FooterSliderRow(
-    value: Int,
-    start: Int,
-    end: Int,
-    onValueChange: (Int) -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(start = 56.dp, end = 36.dp)
-    ) {
-        Slider(
-            value = value.toFloat(),
-            onValueChange = { onValueChange(it.roundToInt()) },
-            valueRange = start.toFloat()..end.toFloat(),
-            steps = end - start - 1,
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = "$value dp",
-            textAlign = TextAlign.End,
-            modifier = Modifier.defaultMinSize(minWidth = 36.dp)
-        )
     }
 }

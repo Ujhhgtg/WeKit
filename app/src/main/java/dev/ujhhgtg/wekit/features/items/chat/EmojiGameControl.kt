@@ -11,7 +11,6 @@ import android.view.ContextThemeWrapper
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,10 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +47,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -289,16 +287,14 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 text = {
                     var stealthInput by remember { mutableStateOf(stealthMode) }
 
-                    ListItem(
-                        modifier = Modifier.clickable {
-                            stealthInput = !stealthInput
-                            stealthMode = stealthInput
+                    SwitchWidget(
+                        title = stringResource(R.string.chat_emoji_game_stealth),
+                        description = stringResource(R.string.chat_emoji_game_stealth_description),
+                        checked = stealthInput,
+                        onCheckedChange = {
+                            stealthInput = it
+                            stealthMode = it
                         },
-                        trailingContent = {
-                            Switch(checked = stealthInput, onCheckedChange = null)
-                        },
-                        supportingContent = { Text(stringResource(R.string.chat_emoji_game_stealth_description)) },
-                        content = { Text(stringResource(R.string.chat_emoji_game_stealth)) },
                     )
                 },
                 dismissButton = {

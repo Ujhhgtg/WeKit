@@ -1,14 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.chat_input_bar_menu
 
 import android.content.Context
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -29,10 +26,9 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.runOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -54,24 +50,18 @@ object MentionMembers : SwitchFeature() {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.mention_members_settings_title)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                stealthState = !stealthState
-                                stealthMentionAll = stealthState
-                            },
-                            content = { Text(stringResource(R.string.mention_members_stealth_label)) },
-                            supportingContent = {
-                                Text(stringResource(R.string.mention_members_stealth_description))
-                            },
-                            trailingContent = {
-                                Switch(checked = stealthState, onCheckedChange = null)
-                            }
-                        )
-                    }
+                    SwitchWidget(
+                        title = stringResource(R.string.mention_members_stealth_label),
+                        description = stringResource(R.string.mention_members_stealth_description),
+                        checked = stealthState,
+                        onCheckedChange = {
+                            stealthState = it
+                            stealthMentionAll = it
+                        },
+                    )
                 },
-                confirmButton = {
-                    Button(onDismiss) { Text(stringResource(R.string.dialog_confirm)) }
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 }
             )
         }

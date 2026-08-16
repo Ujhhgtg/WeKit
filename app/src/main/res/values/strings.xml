@@ -1763,6 +1763,7 @@
     <string name="chat_group_role_admin">Admin</string>
     <string name="chat_group_role_member">Member</string>
     <string name="chat_group_role_show_member">Show the “Member” badge</string>
+    <string name="chat_group_role_show_label">Show label</string>
     <string name="chat_group_role_owner_background">Owner | Background color</string>
     <string name="chat_group_role_owner_foreground">Owner | Foreground color</string>
     <string name="chat_group_role_admin_background">Admin | Background color</string>

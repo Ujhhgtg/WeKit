@@ -13,11 +13,9 @@ import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -26,11 +24,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Opacity
 import androidx.core.view.isVisible
 import androidx.core.view.postDelayed
@@ -48,7 +46,6 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -241,44 +238,31 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                     SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
                         item {
                             BaseWidget(
-                                iconPlaceholder = false,
-                                title = if (hasImage) {
-                                    stringResource(R.string.beautify_global_background_set)
-                                } else {
-                                    stringResource(R.string.beautify_global_background_not_set)
-                                },
-                            )
-                        }
-                        item {
-                            BaseItemContainer {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            onDismiss()
-                                            selectBackgroundImage(context)
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                    ) {
-                                        Text(stringResource(R.string.action_select_image))
+                                title = stringResource(R.string.action_select_image),
+                                description = stringResource(
+                                    if (hasImage) {
+                                        R.string.beautify_global_background_set
+                                    } else {
+                                        R.string.beautify_global_background_not_set
                                     }
-                                    TextButton(
+                                ),
+                                onClick = {
+                                    onDismiss()
+                                    selectBackgroundImage(context)
+                                },
+                                trailingContent = {
+                                    IconButton(
                                         enabled = hasImage,
                                         onClick = {
                                             backgroundUri = null
                                             hasImage = false
                                             showToast(localizedContext.getString(R.string.beautify_global_background_cleared))
                                         },
-                                        modifier = Modifier.weight(1f),
                                     ) {
-                                        Text(stringResource(R.string.action_clear_image))
+                                        Icon(MaterialSymbols.Outlined.Delete, null)
                                     }
-                                }
-                            }
+                                },
+                            )
                         }
                         item {
                             BaseItemContainer {

@@ -1710,6 +1710,7 @@
     <string name="chat_group_role_admin">管理員</string>
     <string name="chat_group_role_member">成員</string>
     <string name="chat_group_role_show_member">顯示「成員」標籤</string>
+    <string name="chat_group_role_show_label">顯示標籤</string>
     <string name="chat_group_role_owner_background">羣主 | 背景色</string>
     <string name="chat_group_role_owner_foreground">羣主 | 前景色</string>
     <string name="chat_group_role_admin_background">管理員 | 背景色</string>

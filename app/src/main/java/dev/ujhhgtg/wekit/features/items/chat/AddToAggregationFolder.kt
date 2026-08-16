@@ -10,9 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,8 +28,8 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.FolderChoice
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.FolderAddIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -60,22 +58,17 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_add_to_aggregation_folder_name)) },
                 text = {
-                    ListItem(
-                        modifier = Modifier.clickable { showConfigInput = !showConfigInput },
-                        trailingContent = {
-                            Switch(checked = showConfigInput, onCheckedChange = null)
+                    SwitchWidget(
+                        title = stringResource(R.string.chat_add_folder_open_config),
+                        description = stringResource(R.string.chat_add_folder_open_config_description),
+                        checked = showConfigInput,
+                        onCheckedChange = {
+                            showConfigInput = it
+                            showConfigDialog = it
                         },
-                        supportingContent = { Text(stringResource(R.string.chat_add_folder_open_config_description)) },
-                        content = { Text(stringResource(R.string.chat_add_folder_open_config)) },
                     )
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
-                confirmButton = {
-                    Button({
-                        showConfigDialog = showConfigInput
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }
