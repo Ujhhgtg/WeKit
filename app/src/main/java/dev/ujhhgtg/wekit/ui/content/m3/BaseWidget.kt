@@ -81,7 +81,7 @@ fun BaseWidget(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     iconColor: Color? = null,
-    iconPlaceholder: Boolean = true,
+    iconPlaceholder: Boolean = false,
     title: String,
     titleStyle: TextStyle = MaterialTheme.typography.titleMedium,
     description: String? = null,

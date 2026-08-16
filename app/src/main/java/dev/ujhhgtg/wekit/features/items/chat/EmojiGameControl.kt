@@ -300,7 +300,11 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         supportingContent = { Text(stringResource(R.string.chat_emoji_game_stealth_description)) },
                         content = { Text(stringResource(R.string.chat_emoji_game_stealth)) },
                     )
-                })
+                },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
+            )
         }
     }
 

@@ -2,15 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.content.ContentValues
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -18,12 +10,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -39,6 +28,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.time.LocalDate
@@ -167,19 +157,6 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
             var textInput by remember { mutableStateOf(TextFieldValue(text)) }
             var isFocused by remember { mutableStateOf(false) }
 
-            val insertPlaceholder = { placeholder: String ->
-                val selection = textInput.selection
-                val textVal = textInput.text
-                if (isFocused) {
-                    val newText = textVal.substring(0, selection.start) + placeholder + textVal.substring(selection.end)
-                    val newSelection = TextRange(selection.start + placeholder.length)
-                    textInput = TextFieldValue(newText, newSelection)
-                } else {
-                    val newText = textVal + placeholder
-                    textInput = TextFieldValue(newText, TextRange(newText.length))
-                }
-            }
-
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_custom_chat_input_bar_placeholder_text_name)) },
                 text = {
@@ -196,29 +173,12 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
 
                         Text(stringResource(R.string.chat_placeholder_insert_hint))
 
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            PLACEHOLDERS.forEach { ph ->
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                                        .clickable { insertPlaceholder(ph) }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = ph,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-                        }
+                        PlaceholderChips(
+                            placeholders = PLACEHOLDERS,
+                            value = textInput,
+                            isFieldFocused = isFocused,
+                            onValueChange = { textInput = it },
+                        )
                     }
                 },
                 dismissButton = {

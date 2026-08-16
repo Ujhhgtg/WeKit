@@ -808,8 +808,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     BaseItemContainer {
                                         val radius = blurRadiusInput.roundToInt()
                                         IntNumberPickerWidget(
-                                            title = if (radius <= 0) stringResource(R.string.nav_blur_radius_off)
-                                                else stringResource(R.string.nav_blur_radius, radius),
+                                            title = stringResource(R.string.nav_blur_radius),
                                             value = radius,
                                             startInt = MIN_BLUR_RADIUS,
                                             endInt = MAX_BLUR_RADIUS,
@@ -832,7 +831,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.nav_bar_scale, barScaleInput.roundToInt()),
+                                        title = stringResource(R.string.nav_bar_scale),
                                         value = barScaleInput.roundToInt(),
                                         startInt = MIN_BAR_SCALE,
                                         endInt = MAX_BAR_SCALE,

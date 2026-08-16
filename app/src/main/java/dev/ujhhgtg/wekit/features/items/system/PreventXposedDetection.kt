@@ -48,7 +48,7 @@ object PreventXposedDetection : SwitchFeature(), IResolveDex {
                     text = {
                         Text(stringResource(R.string.system_prevent_xposed_google_play_warning))
                     },
-                    confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } })
+                    confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } })
             }
             return false
         }

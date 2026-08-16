@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.OutlinedTextField
@@ -17,7 +18,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.core.view.isVisible
 import com.tencent.mm.plugin.sns.ui.SnsUserUI
@@ -37,7 +40,7 @@ import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
-import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -108,38 +111,46 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var textFormatValue by remember { mutableStateOf(textFormat) }
+            var textFormatValue by remember { mutableStateOf(TextFieldValue(textFormat)) }
             var timeFormatValue by remember { mutableStateOf(timeFormat) }
             var hideIcon by remember { mutableStateOf(hideGroupIcon) }
+            var isTextFormatFocused by remember { mutableStateOf(false) }
             AlertDialogContent(
                 title = { Text(stringResource(R.string.moments_display_details_title)) },
                 text = {
                     SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
                         item {
-                            BaseWidget(
-                                iconPlaceholder = false,
-                                title = stringResource(R.string.moments_display_details_title),
-                                description = stringResource(
-                                    R.string.moments_display_details_placeholders,
-                                    PH_ORIGINAL, PH_TIME, PH_TYPE, PH_SNS_ID, PH_USER_NAME,
-                                ),
-                            )
-                        }
-                        item {
                             BaseSupportingWidget(
                                 title = stringResource(R.string.moments_display_details_text_format),
                             ) {
-                                OutlinedTextField(
-                                    value = textFormatValue,
-                                    onValueChange = {
-                                        textFormatValue = it
-                                        textFormat = it.ifBlank { DEFAULT_TEXT_FORMAT }
-                                    },
-                                    singleLine = true,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                )
+                                Column {
+                                    OutlinedTextField(
+                                        value = textFormatValue,
+                                        onValueChange = {
+                                            textFormatValue = it
+                                            textFormat = it.text.ifBlank { DEFAULT_TEXT_FORMAT }
+                                        },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .onFocusChanged { isTextFormatFocused = it.isFocused },
+                                    )
+                                    Text(
+                                        stringResource(R.string.moments_custom_details_insert_placeholder),
+                                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                                    )
+                                    PlaceholderChips(
+                                        placeholders = listOf(PH_ORIGINAL, PH_TIME, PH_TYPE, PH_SNS_ID, PH_USER_NAME),
+                                        value = textFormatValue,
+                                        isFieldFocused = isTextFormatFocused,
+                                        onValueChange = {
+                                            textFormatValue = it
+                                            textFormat = it.text.ifBlank { DEFAULT_TEXT_FORMAT }
+                                        },
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                    )
+                                }
                             }
                         }
                         item {

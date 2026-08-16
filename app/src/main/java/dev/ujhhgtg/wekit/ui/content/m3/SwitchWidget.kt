@@ -40,7 +40,7 @@ import com.composables.icons.materialsymbols.outlined.Close
 fun SwitchWidget(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
-    iconPlaceholder: Boolean = true,
+    iconPlaceholder: Boolean = false,
     title: String,
     description: String? = null,
     enabled: Boolean = true,

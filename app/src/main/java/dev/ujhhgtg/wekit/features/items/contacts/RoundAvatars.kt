@@ -109,9 +109,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
                         item {
                             BaseItemContainer {
                                 IntNumberPickerWidget(
-                                    title = stringResource(
-                                        R.string.contacts_round_avatar_radius, percent / 100f
-                                    ),
+                                    title = stringResource(R.string.contacts_round_avatar_radius),
                                     value = percent,
                                     startInt = 10,
                                     endInt = 50,

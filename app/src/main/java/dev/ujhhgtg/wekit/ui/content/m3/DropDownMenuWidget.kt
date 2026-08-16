@@ -24,7 +24,7 @@ data class DropdownOption<T>(val value: T, val label: String)
 @Composable
 fun <T> DropDownMenuWidget(
     icon: ImageVector? = null,
-    iconPlaceholder: Boolean = true,
+    iconPlaceholder: Boolean = false,
     title: String,
     description: String?,
     value: T,

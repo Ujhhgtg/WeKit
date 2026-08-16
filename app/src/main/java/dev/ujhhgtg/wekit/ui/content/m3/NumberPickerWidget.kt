@@ -44,6 +44,7 @@ import kotlin.math.roundToInt
 @Composable
 fun IntNumberPickerWidget(
     icon: ImageVector? = null,
+    iconPlaceholder: Boolean = false,
     title: String,
     description: String? = null,
     enabled: Boolean = true,
@@ -74,7 +75,7 @@ fun IntNumberPickerWidget(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -84,7 +85,7 @@ fun IntNumberPickerWidget(
                     imageVector = icon,
                     contentDescription = null,
                 )
-            } else {
+            } else if (iconPlaceholder) {
                 Spacer(modifier = Modifier.size(24.dp))
             }
 
@@ -106,7 +107,10 @@ fun IntNumberPickerWidget(
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 56.dp, end = 36.dp)
+            modifier = Modifier.padding(
+                start = if (icon != null || iconPlaceholder) 56.dp else 16.dp,
+                end = 36.dp,
+            )
         ) {
             Slider(
                 value = value.toFloat(),

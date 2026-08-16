@@ -1083,9 +1083,9 @@
     <string name="nav_use_liquid_glass">啓用液態玻璃效果</string>
     <string name="nav_requires_floating_bar">需啓用“使用懸浮底欄”</string>
     <string name="nav_blur_radius_off">模糊半徑：關閉（完全透明）</string>
-    <string name="nav_blur_radius">模糊半徑：%1$d</string>
+    <string name="nav_blur_radius">模糊半徑</string>
     <string name="nav_hide_labels">隱藏標籤文本</string>
-    <string name="nav_bar_scale">底欄縮放：%1$d%%</string>
+    <string name="nav_bar_scale">底欄縮放</string>
     <string name="nav_show_discover_badge">顯示“發現”標籤角標</string>
     <string name="nav_discover_badge_summary">包含朋友圈新通知數量等</string>
     <string name="nav_display_and_order">顯示與順序</string>
@@ -2493,7 +2493,7 @@
     <string name="contacts_open_settings">好友設置</string>
     <string name="contacts_open_chat">對話</string>
     <string name="contacts_open_moments">朋友圈</string>
-    <string name="contacts_round_avatar_radius">圓角弧度：%1$.2f</string>
+    <string name="contacts_round_avatar_radius">圓角弧度</string>
     <string name="contacts_nickname_max_characters">最大字符數</string>
     <string name="contacts_invalid_number">數字格式不正確！</string>
     <string name="contacts_get_failed">獲取失敗</string>
@@ -2606,7 +2606,7 @@
     <string name="dark_mode">暗色模式</string>
     <string name="imported">已導入</string>
     <string name="not_imported">未導入</string>
-    <string name="opacity_percent">透明度：%1$d%%</string>
+    <string name="opacity_percent">透明度</string>
     <string name="saved_restart_wechat">已保存，重啓微信生效</string>
     <string name="beautify_dialog_blur_title">對話框窗口級背景模糊</string>
     <string name="beautify_dialog_blur_unsupported_hint">如果本對話框背景沒有模糊，說明系統 Android 版本過低（SDK &lt; 31）或未在開發者選項中啓用</string>

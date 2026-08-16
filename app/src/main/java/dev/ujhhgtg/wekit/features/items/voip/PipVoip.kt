@@ -986,7 +986,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
                             stringResource(R.string.voip_pip_zygisk_unavailable)
                         )
                     },
-                    confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } })
+                    confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } })
             }
             return false
         }

@@ -38,6 +38,7 @@ fun BaseSupportingWidget(
     title: String,
     modifier: Modifier = Modifier,
     description: String? = null,
+    iconPlaceholder: Boolean = false,
     onClick: (() -> Unit)? = null,
     enabled: Boolean = true,
     supportingContent: @Composable () -> Unit
@@ -54,7 +55,7 @@ fun BaseSupportingWidget(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.size(24.dp))
+                if (iconPlaceholder) Spacer(modifier = Modifier.size(24.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(

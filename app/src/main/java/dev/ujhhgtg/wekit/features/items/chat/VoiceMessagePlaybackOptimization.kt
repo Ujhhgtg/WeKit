@@ -21,6 +21,7 @@ import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MO
 import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MODE_INHERIT_PROGRESS
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -181,7 +182,11 @@ object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
                             )
                         }
                     }
-                })
+                },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
+            )
         }
     }
 }

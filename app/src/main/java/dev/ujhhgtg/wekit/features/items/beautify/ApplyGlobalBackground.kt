@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Opacity
 import androidx.core.view.isVisible
 import androidx.core.view.postDelayed
 import coil3.load
@@ -281,7 +283,8 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                         item {
                             BaseItemContainer {
                                 IntNumberPickerWidget(
-                                    title = stringResource(R.string.opacity_percent, opacityPercent),
+                                    icon = MaterialSymbols.Outlined.Opacity,
+                                    title = stringResource(R.string.opacity_percent),
                                     value = opacityPercent,
                                     startInt = MIN_OPACITY_PERCENT,
                                     endInt = MAX_OPACITY_PERCENT,

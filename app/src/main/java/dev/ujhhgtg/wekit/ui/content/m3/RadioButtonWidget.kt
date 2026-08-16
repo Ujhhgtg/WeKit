@@ -44,7 +44,7 @@ fun RadioButtonWidget(
     description: String? = null,
     descriptionStyle: TextStyle = MaterialTheme.typography.bodyMedium,
     icon: ImageVector? = null,
-    iconPlaceholder: Boolean = true,
+    iconPlaceholder: Boolean = false,
     selected: Boolean = false,
     enabled: Boolean = true,
     trailingDivider: Boolean = false,

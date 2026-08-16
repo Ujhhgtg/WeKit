@@ -8,20 +8,13 @@ import android.view.View
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -29,11 +22,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -52,6 +43,7 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.WeColorField
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -319,20 +311,6 @@ object MessageTimeEnhancements : ClickableFeature(),
             var textColorDarkInput by remember { mutableStateOf(textColorDark) }
             var isFocused by remember { mutableStateOf(false) }
 
-            val insertPlaceholder = { placeholder: String ->
-                val selection = displayFormatInput.selection
-                val text = displayFormatInput.text
-                if (isFocused) {
-                    val newText = text.substring(0, selection.start) + placeholder + text.substring(selection.end)
-                    val newSelection = TextRange(selection.start + placeholder.length)
-                    displayFormatInput = TextFieldValue(newText, newSelection)
-                } else {
-                    val newText = text + placeholder
-                    val newSelection = TextRange(newText.length)
-                    displayFormatInput = TextFieldValue(newText, newSelection)
-                }
-            }
-
             AlertDialogContent(
                 title = { Text(stringResource(R.string.chat_message_time_title)) },
                 text = {
@@ -358,38 +336,23 @@ object MessageTimeEnhancements : ClickableFeature(),
                                                 .padding(start = 16.dp, top = 8.dp)
                                         )
 
-                                        FlowRow(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        val placeholders = listOf(
+                                            $$"$time",
+                                            $$"$relativeTime",
+                                            $$"$type",
+                                            $$"$msgId",
+                                            $$"$msgSvrId",
+                                            $$"$mentionedUsers",
+                                            READ_RECEIPTS_PLACEHOLDER,
+                                        )
+                                        PlaceholderChips(
+                                            placeholders = placeholders,
+                                            value = displayFormatInput,
+                                            isFieldFocused = isFocused,
+                                            onValueChange = { displayFormatInput = it },
                                             modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(start = 16.dp, end = 16.dp, top = 4.dp)
-                                        ) {
-                                            val placeholders = listOf(
-                                                $$"$time",
-                                                $$"$relativeTime",
-                                                $$"$type",
-                                                $$"$msgId",
-                                                $$"$msgSvrId",
-                                                $$"$mentionedUsers",
-                                                READ_RECEIPTS_PLACEHOLDER,
-                                            )
-                                            placeholders.forEach { ph ->
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                                                        .clickable { insertPlaceholder(ph) }
-                                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = ph,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                    )
-                                                }
-                                            }
-                                        }
+                                                .padding(horizontal = 16.dp),
+                                        )
                                     }
                                 }
                             }
