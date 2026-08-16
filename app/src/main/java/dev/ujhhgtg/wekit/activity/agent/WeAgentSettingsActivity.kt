@@ -16,6 +16,7 @@ import dev.ujhhgtg.wekit.ui.agent.settings.ExternalServicesScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.McpServerDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.McpServersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.MemoryScreen
+import dev.ujhhgtg.wekit.ui.agent.settings.ModelDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelProviderDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelProvidersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.PromptsScreen
@@ -78,6 +79,8 @@ sealed interface AgentSettingsRoute : NavKey {
     @Serializable
     data class ModelProviderDetail(val providerId: String) : AgentSettingsRoute
     @Serializable
+    data class ModelDetail(val providerId: String, val modelId: String) : AgentSettingsRoute
+    @Serializable
     data object BuiltinTools : AgentSettingsRoute
     @Serializable
     data class BuiltinToolPermissions(val providerId: String) : AgentSettingsRoute
@@ -123,7 +126,14 @@ private fun WeAgentSettingsRoot(onFinish: () -> Unit) {
                 )
             }
             entry<AgentSettingsRoute.ModelProviderDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
-                ModelProviderDetailScreen(providerId = key.providerId, onBack = { navigator.pop() })
+                ModelProviderDetailScreen(
+                    providerId = key.providerId,
+                    onOpenModel = { navigator.push(AgentSettingsRoute.ModelDetail(key.providerId, it)) },
+                    onBack = { navigator.pop() },
+                )
+            }
+            entry<AgentSettingsRoute.ModelDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
+                ModelDetailScreen(providerId = key.providerId, modelId = key.modelId, onBack = { navigator.pop() })
             }
             entry<AgentSettingsRoute.BuiltinTools>(swipeDismiss = NavSwipeDirection.LeftToRight) {
                 BuiltinProvidersScreen(

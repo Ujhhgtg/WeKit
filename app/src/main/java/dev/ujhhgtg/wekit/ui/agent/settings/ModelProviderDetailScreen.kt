@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
 import android.content.Context
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,16 +11,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,15 +35,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Cloud_download
-import com.composables.icons.materialsymbols.outlined.Visibility
-import com.composables.icons.materialsymbols.outlined.Visibility_off
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
@@ -63,43 +55,46 @@ import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-/** Edits one provider (name/url/key) and manages its models (id + reasoning gear + custom JSON). */
+/** Edits one provider (name/url/key) with instant-apply rows and manages its models. */
 @Composable
-fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
+fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var provider by remember { mutableStateOf<ModelProviderEntity?>(null) }
     var showDeleteProviderConfirm by remember { mutableStateOf(false) }
 
-    // Connection fields are hoisted to screen scope so both "保存" and "自动导入模型" read the live,
-    // possibly-unsaved values. The API key field holds the key exactly as stored — there is no
-    // encryption anywhere in the pipeline, so nothing has to be encoded/decoded around it.
-    var name by remember { mutableStateOf("") }
-    var baseUrl by remember { mutableStateOf("") }
-    var apiKey by remember { mutableStateOf("") }
     LaunchedEffect(providerId) {
-        val fresh = WeAgentRepository.getModelProvider(providerId)
-        provider = fresh
-        if (fresh != null) {
-            name = fresh.name; baseUrl = fresh.baseUrl; apiKey = fresh.apiKey
-        }
+        provider = WeAgentRepository.getModelProvider(providerId)
     }
 
     val models by WeAgentRepository.observeModelsForProvider(providerId).collectAsState(initial = emptyList())
-    // null = closed; empty-id ModelEntity = adding; existing = editing.
-    var editingModel by remember { mutableStateOf<ModelEntity?>(null) }
-    // Auto-import state: fetched ids to pick from, plus loading/error.
+    // Auto-import state: fetched ids to pick from, plus loading.
     var importCandidates by remember { mutableStateOf<List<String>?>(null) }
     var importing by remember { mutableStateOf(false) }
-    // API keys are stored in the clear, so at least don't render them in the clear.
-    var showApiKey by remember { mutableStateOf(false) }
 
     val p = provider
+
+    /**
+     * Every confirmed row edit is persisted immediately — there is no draft state and no save
+     * button. The API key is stored exactly as typed (no encryption anywhere in the pipeline).
+     */
+    fun commitProvider(transform: (ModelProviderEntity) -> ModelProviderEntity) {
+        val current = provider ?: return
+        scope.launch {
+            val updated = transform(current)
+            WeAgentRepository.upsertModelProvider(updated)
+            ModelProviderManager.invalidate(current.id)
+            // Keep the local copy in sync so the scaffold title reflects a rename
+            // (LaunchedEffect(providerId) only runs once, on first composition).
+            provider = updated
+        }
+    }
 
     AgentSettingsScaffold(title = p?.name ?: stringResource(R.string.agent_provider_fallback_title), onBack = onBack) {
         if (p == null) {
@@ -117,41 +112,36 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
         item {
             SegmentedColumn(title = stringResource(R.string.agent_section_connection)) {
                 item {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text(stringResource(R.string.agent_field_name)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_field_name),
+                        value = p.name,
+                        onValueChange = { value -> commitProvider { it.copy(name = value) } },
+                        dialogTitle = stringResource(R.string.agent_field_name),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
                     )
                 }
-                item(topPadding = 8.dp) {
-                    OutlinedTextField(
-                        value = baseUrl,
-                        onValueChange = { baseUrl = it },
-                        label = { Text(stringResource(R.string.agent_base_url)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_base_url),
+                        value = p.baseUrl,
+                        onValueChange = { value -> commitProvider { it.copy(baseUrl = value) } },
+                        dialogTitle = stringResource(R.string.agent_base_url),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        keyboardType = KeyboardType.Uri,
                     )
                 }
-                item(topPadding = 8.dp) {
-                    OutlinedTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        label = { Text(stringResource(R.string.agent_api_key_label)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        trailingIcon = {
-                            IconButton(onClick = { showApiKey = !showApiKey }) {
-                                Icon(
-                                    imageVector = if (showApiKey) MaterialSymbols.Outlined.Visibility_off
-                                    else MaterialSymbols.Outlined.Visibility,
-                                    contentDescription = stringResource(if (showApiKey) R.string.accessibility_hide else R.string.accessibility_show),
-                                )
-                            }
-                        },
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_api_key_label),
+                        value = p.apiKey,
+                        onValueChange = { value -> commitProvider { it.copy(apiKey = value) } },
+                        dialogTitle = stringResource(R.string.agent_api_key_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        keyboardType = KeyboardType.Password,
+                        password = true,
                     )
                 }
             }
@@ -162,19 +152,6 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                     onClick = { showDeleteProviderConfirm = true },
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) { Text(stringResource(R.string.action_delete)) }
-                Button(
-                    onClick = {
-                        scope.launch {
-                            val updated = p.copy(name = name, baseUrl = baseUrl, apiKey = apiKey)
-                            WeAgentRepository.upsertModelProvider(updated)
-                            ModelProviderManager.invalidate(p.id)
-                            // Keep the local copy in sync so the scaffold title reflects a rename
-                            // (LaunchedEffect(providerId) only runs once, on first composition).
-                            provider = updated
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                ) { Text(stringResource(R.string.action_save)) }
             }
         }
 
@@ -199,7 +176,7 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                                 (m.contextWindow?.let { " · ctx=$it" } ?: "") +
                                 (m.maxTokens?.let { " · max=$it" } ?: "") +
                                 if (m.supportsVision) " · ${stringResource(R.string.agent_model_supports_vision_badge)}" else "",
-                        onClick = { editingModel = m },
+                        onClick = { onOpenModel(m.id) },
                         trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     )
                 }
@@ -211,7 +188,7 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                     label = stringResource(R.string.agent_add_model),
                     icon = MaterialSymbols.Outlined.Add,
                     enabled = !importing,
-                    onClick = { editingModel = ModelEntity("", providerId, "", null, null, "", null) },
+                    onClick = { onOpenModel("") },
                 )
                 // Auto-import is only meaningful for the OpenAI-style /models endpoint.
                 if (p.type != ModelProviderType.ANTHROPIC_MESSAGES) {
@@ -222,10 +199,7 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
                         onClick = {
                             importing = true
                             scope.launch {
-                                // Use the live (possibly unsaved) connection fields, per project decision.
-                                val result = ModelProviderManager.listRemoteModels(
-                                    p.copy(name = name, baseUrl = baseUrl, apiKey = apiKey)
-                                )
+                                val result = ModelProviderManager.listRemoteModels(p)
                                 importing = false
                                 result.fold(
                                     onSuccess = { importCandidates = it },
@@ -286,43 +260,195 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
             importCandidates = null
         },
     )
+}
 
-    ModelEditorSheet(
-        show = editingModel != null,
-        existing = editingModel ?: ModelEntity("", providerId, "", null, null, "", null),
-        onDismiss = { editingModel = null },
-        onDelete = editingModel?.id?.takeIf { it.isNotEmpty() }?.let { id ->
-            {
-                scope.launch {
-                    try {
-                        WeAgentRepository.deleteModel(id)
-                        editingModel = null
-                    } catch (e: Exception) {
-                        showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
-                    }
+/**
+ * Per-model settings, edited with instant-apply rows. A blank [modelId] starts a new model: the
+ * entity is created on the first committed edit, and every row except the model id stays disabled
+ * until one is set.
+ */
+@Composable
+fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    // Blank modelId = adding; otherwise null until the entity loads.
+    var model by remember { mutableStateOf<ModelEntity?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(modelId) {
+        model = if (modelId.isBlank()) {
+            ModelEntity("", providerId, "", null, null, "", null)
+        } else {
+            WeAgentRepository.getModel(modelId)
+        }
+    }
+
+    /** Persists one field immediately; the first edit of a new model assigns its id. */
+    fun commitModel(transform: (ModelEntity) -> ModelEntity) {
+        val current = model ?: return
+        scope.launch {
+            val updated = transform(current).copy(
+                id = current.id.ifEmpty { UUID.randomUUID().toString() },
+                providerId = providerId,
+            )
+            WeAgentRepository.upsertModel(updated)
+            model = updated
+        }
+    }
+
+    val m = model
+
+    AgentSettingsScaffold(
+        title = stringResource(if (modelId.isBlank()) R.string.agent_add_model else R.string.agent_edit_model),
+        onBack = onBack,
+    ) {
+        if (m == null) {
+            item {
+                Box(
+                    Modifier.fillParentMaxWidth().padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(Modifier.size(28.dp))
                 }
             }
-        },
-        onSave = { remoteId, display, effort, customJson, contextWindow, maxTokens, supportsVision ->
-            editingModel?.let { m ->
-                scope.launch {
-                    WeAgentRepository.upsertModel(
-                        m.copy(
-                            id = m.id.ifEmpty { UUID.randomUUID().toString() },
-                            providerId = providerId,
-                            modelIdRemote = remoteId,
-                            reasoningEffort = effort,
-                            customJsonOverride = customJson,
-                            displayName = display.ifBlank { remoteId },
-                            contextWindow = contextWindow,
-                            maxTokens = maxTokens,
-                            supportsVision = supportsVision,
-                        )
+            return@AgentSettingsScaffold
+        }
+
+        // Other fields describe a concrete remote model, so they wait for a non-blank model id.
+        val ready = m.modelIdRemote.isNotBlank()
+
+        item {
+            SegmentedColumn {
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_model_id_label),
+                        value = m.modelIdRemote,
+                        onValueChange = { value ->
+                            commitModel { raw ->
+                                val next = raw.copy(modelIdRemote = value)
+                                if (next.displayName.isBlank() || next.displayName == next.modelIdRemote) {
+                                    next.copy(displayName = value)
+                                } else {
+                                    next
+                                }
+                            }
+                        },
+                        dialogTitle = stringResource(R.string.agent_model_id_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                    )
+                }
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_model_display_name_label),
+                        value = m.displayName,
+                        onValueChange = { value -> commitModel { it.copy(displayName = value) } },
+                        dialogTitle = stringResource(R.string.agent_model_display_name_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = ready,
+                    )
+                }
+                item {
+                    DropDownMenuWidget(
+                        icon = null,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_reasoning_effort),
+                        description = null,
+                        value = m.reasoningEffort ?: "off",
+                        options = EFFORT_GEARS.map { DropdownOption(it, effortGearLabel(it)) },
+                        enabled = ready,
+                        onValueChange = { value ->
+                            commitModel { it.copy(reasoningEffort = value.takeIf { it != "off" }) }
+                        },
+                    )
+                }
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_context_window_label),
+                        value = m.contextWindow?.toString().orEmpty(),
+                        onValueChange = { value ->
+                            commitModel { it.copy(contextWindow = value.filter(Char::isDigit).take(9).toIntOrNull()) }
+                        },
+                        dialogTitle = stringResource(R.string.agent_context_window_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = ready,
+                        keyboardType = KeyboardType.Number,
+                        filter = { it.filter(Char::isDigit).take(9) },
+                    )
+                }
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_max_output_tokens_label),
+                        value = m.maxTokens?.toString().orEmpty(),
+                        onValueChange = { value ->
+                            commitModel { it.copy(maxTokens = value.filter(Char::isDigit).take(9).toIntOrNull()) }
+                        },
+                        dialogTitle = stringResource(R.string.agent_max_output_tokens_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = ready,
+                        keyboardType = KeyboardType.Number,
+                        filter = { it.filter(Char::isDigit).take(9) },
+                    )
+                }
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_custom_json_label),
+                        value = m.customJsonOverride.orEmpty(),
+                        onValueChange = { value -> commitModel { it.copy(customJsonOverride = value.ifBlank { null }) } },
+                        dialogTitle = stringResource(R.string.agent_custom_json_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = ready,
+                        singleLine = false,
+                    )
+                }
+                item {
+                    SwitchWidget(
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_supports_vision),
+                        description = stringResource(R.string.agent_supports_vision_summary),
+                        enabled = ready,
+                        checked = m.supportsVision,
+                        onCheckedChange = { value -> commitModel { it.copy(supportsVision = value) } },
                     )
                 }
             }
-            editingModel = null
+        }
+
+        if (m.id.isNotBlank()) {
+            item {
+                AgentActionRow {
+                    OutlinedButton(
+                        onClick = { showDeleteConfirm = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text(stringResource(R.string.action_delete)) }
+                }
+            }
+        }
+    }
+
+    AgentConfirmDialog(
+        show = showDeleteConfirm,
+        title = stringResource(R.string.action_delete),
+        message = stringResource(R.string.agent_delete_model_confirm),
+        confirmLabel = stringResource(R.string.action_delete),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            showDeleteConfirm = false
+            scope.launch {
+                try {
+                    model?.id?.takeIf { it.isNotBlank() }?.let { WeAgentRepository.deleteModel(it) }
+                    onBack()
+                } catch (e: Exception) {
+                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                }
+            }
         },
+        onDismiss = { showDeleteConfirm = false },
     )
 }
 
@@ -426,125 +552,4 @@ private fun ImportModelsDialog(
             }
         }
     }
-}
-
-@Composable
-private fun ModelEditorSheet(
-    show: Boolean,
-    existing: ModelEntity,
-    onDismiss: () -> Unit,
-    onDelete: (() -> Unit)?,
-    onSave: (remoteId: String, display: String, effort: String?, customJson: String?, contextWindow: Int?, maxTokens: Int?, supportsVision: Boolean) -> Unit,
-) {
-    // Every field is keyed on [existing] (and [show]): the sheet is composed unconditionally, with a
-    // blank placeholder entity while nothing is being edited, so unkeyed state would capture those
-    // blanks and 保存 would then overwrite the stored model's whole config with them.
-    var remoteId by remember(existing, show) { mutableStateOf(existing.modelIdRemote) }
-    var display by remember(existing, show) { mutableStateOf(existing.displayName) }
-    var customJson by remember(existing, show) { mutableStateOf(existing.customJsonOverride.orEmpty()) }
-    var contextWindow by remember(existing, show) { mutableStateOf(existing.contextWindow?.toString().orEmpty()) }
-    var maxTokens by remember(existing, show) { mutableStateOf(existing.maxTokens?.toString().orEmpty()) }
-    var supportsVision by remember(existing, show) { mutableStateOf(existing.supportsVision) }
-    var effort by remember(existing, show) { mutableStateOf(existing.reasoningEffort ?: "off") }
-    var showDeleteConfirm by remember(existing) { mutableStateOf(false) }
-
-    AgentEditorSheet(
-        show = show,
-        title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_model else R.string.agent_edit_model),
-        onDismiss = onDismiss,
-        bottomBar = {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (onDelete != null) {
-                    TextButton(
-                        onClick = { showDeleteConfirm = true },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text(stringResource(R.string.action_delete)) }
-                }
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        onSave(
-                            remoteId, display, effort.takeIf { it != "off" }, customJson.ifBlank { null },
-                            contextWindow.toIntOrNull(), maxTokens.toIntOrNull(), supportsVision,
-                        )
-                    },
-                    enabled = remoteId.isNotBlank(),
-                ) { Text(stringResource(R.string.action_save)) }
-            }
-        },
-    ) {
-        OutlinedTextField(
-            value = remoteId,
-            onValueChange = { remoteId = it },
-            label = { Text(stringResource(R.string.agent_model_id_label)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = display,
-            onValueChange = { display = it },
-            label = { Text(stringResource(R.string.agent_model_display_name_label)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-        DropDownMenuWidget(
-            icon = null,
-            iconPlaceholder = false,
-            title = stringResource(R.string.agent_reasoning_effort),
-            description = null,
-            value = effort,
-            options = EFFORT_GEARS.map { DropdownOption(it, effortGearLabel(it)) },
-            onValueChange = { effort = it },
-        )
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = contextWindow,
-            onValueChange = { v -> contextWindow = v.filter { it.isDigit() }.take(9) },
-            label = { Text(stringResource(R.string.agent_context_window_label)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = maxTokens,
-            onValueChange = { v -> maxTokens = v.filter { it.isDigit() }.take(9) },
-            label = { Text(stringResource(R.string.agent_max_output_tokens_label)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = customJson,
-            onValueChange = { customJson = it },
-            label = { Text(stringResource(R.string.agent_custom_json_label)) },
-            maxLines = 4,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-        SwitchWidget(
-            title = stringResource(R.string.agent_supports_vision),
-            description = stringResource(R.string.agent_supports_vision_summary),
-            checked = supportsVision,
-            onCheckedChange = { supportsVision = it },
-            iconPlaceholder = false,
-        )
-    }
-
-    AgentConfirmDialog(
-        show = showDeleteConfirm,
-        title = stringResource(R.string.action_delete),
-        message = stringResource(R.string.agent_delete_model_confirm),
-        confirmLabel = stringResource(R.string.action_delete),
-        dismissLabel = stringResource(R.string.dialog_cancel),
-        destructive = true,
-        onConfirm = {
-            showDeleteConfirm = false
-            onDelete?.invoke()
-        },
-        onDismiss = { showDeleteConfirm = false },
-    )
 }

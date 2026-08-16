@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
@@ -50,6 +51,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.launch
@@ -166,7 +168,71 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val status = rememberMcpStatus(liveProviders.firstOrNull { it.id == serverId })
     val tools = status.tools
 
+    /** Connection-parameter edits rebuild the live client; a rename is display-only. */
+    fun commitServer(rebuild: Boolean, transform: (ProviderEntity) -> ProviderEntity) {
+        val current = server ?: return
+        scope.launch {
+            WeAgentRepository.upsertMcpProvider(transform(current))
+            if (rebuild) McpClientManager.reload(serverId)
+        }
+    }
+
     AgentSettingsScaffold(title = server?.name ?: stringResource(R.string.agent_mcp_servers_title), onBack = onBack) {
+        server?.let { srv ->
+            item {
+                SegmentedColumn(title = stringResource(R.string.agent_section_connection)) {
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_field_name),
+                            value = srv.name,
+                            onValueChange = { value -> commitServer(rebuild = false) { it.copy(name = value) } },
+                            dialogTitle = stringResource(R.string.agent_field_name),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_server_url),
+                            value = srv.endpointUrl.orEmpty(),
+                            onValueChange = { value -> commitServer(rebuild = true) { it.copy(endpointUrl = value) } },
+                            dialogTitle = stringResource(R.string.agent_server_url),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                            keyboardType = KeyboardType.Uri,
+                        )
+                    }
+                    item {
+                        DropDownMenuWidget(
+                            icon = null,
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_transport),
+                            description = null,
+                            value = srv.transport ?: McpTransport.STREAMABLE_HTTP,
+                            options = listOf(
+                                DropdownOption(McpTransport.STREAMABLE_HTTP, "Streamable HTTP"),
+                                DropdownOption(McpTransport.SSE, "SSE"),
+                            ),
+                            onValueChange = { value -> commitServer(rebuild = true) { it.copy(transport = value) } },
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_custom_headers_json),
+                            value = srv.headersJson.orEmpty(),
+                            onValueChange = { value ->
+                                commitServer(rebuild = true) { it.copy(headersJson = value.ifBlank { null }) }
+                            },
+                            dialogTitle = stringResource(R.string.agent_custom_headers_json),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                            singleLine = false,
+                        )
+                    }
+                }
+            }
+        }
+
         item {
             SegmentedColumn {
                 item {
@@ -181,18 +247,6 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                         onClick = { scope.launch { McpClientManager.refreshTools(serverId) } },
                         trailingContent = { Icon(MaterialSymbols.Outlined.Refresh, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     )
-                }
-                server?.let { srv ->
-                    item {
-                        BaseWidget(
-                            title = stringResource(R.string.agent_address),
-                            description = stringResource(
-                                R.string.agent_mcp_address_summary,
-                                srv.transport?.name ?: "?",
-                                srv.endpointUrl.orEmpty(),
-                            ),
-                        )
-                    }
                 }
             }
         }
