@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -71,13 +72,6 @@ object ModifyFriendsCount : ClickableFeature() {
             var hide by remember { mutableStateOf(count == HIDE) }
             var displayCount by remember { mutableStateOf(if (count == HIDE) "0" else count.toString()) }
 
-            fun commitCount(value: String) {
-                if (!hide) {
-                    count = value.toIntOrNull() ?: 0
-                    WeLogger.i(TAG, "friend count display set to $count")
-                }
-            }
-
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_modify_friends_count_name)) },
                 text = {
@@ -87,15 +81,7 @@ object ModifyFriendsCount : ClickableFeature() {
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.contacts_modify_count_hide),
                                 checked = hide,
-                                onCheckedChange = {
-                                    hide = it
-                                    if (it) {
-                                        count = HIDE
-                                        WeLogger.i(TAG, "friend count display set to hidden")
-                                    } else {
-                                        commitCount(displayCount)
-                                    }
-                                },
+                                onCheckedChange = { hide = it },
                             )
                         }
                         item {
@@ -107,7 +93,6 @@ object ModifyFriendsCount : ClickableFeature() {
                                     value = displayCount,
                                     onValueChange = {
                                         displayCount = it.filter(Char::isDigit).take(7)
-                                        commitCount(displayCount)
                                     },
                                     enabled = !hide,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -120,8 +105,15 @@ object ModifyFriendsCount : ClickableFeature() {
                         }
                     }
                 },
+                confirmButton = {
+                    Button(onClick = {
+                        count = if (hide) HIDE else displayCount.toIntOrNull() ?: 0
+                        WeLogger.i(TAG, "friend count display set to ${if (hide) "hidden" else count}")
+                        onDismiss()
+                    }) { Text(stringResource(R.string.action_save)) }
+                },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
             )
         }

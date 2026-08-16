@@ -21,6 +21,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -73,10 +74,7 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
                             ) {
                                 OutlinedTextField(
                                     value = balanceInput,
-                                    onValueChange = {
-                                        balanceInput = it
-                                        balance = it.takeIf(String::isNotBlank)
-                                    },
+                                    onValueChange = { balanceInput = it },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 16.dp),
@@ -85,7 +83,13 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
+                confirmButton = {
+                    Button(onClick = {
+                        balance = balanceInput.takeIf(String::isNotBlank)
+                        onDismiss()
+                    }) { Text(stringResource(R.string.action_save)) }
+                },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             )
         }
     }

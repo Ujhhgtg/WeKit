@@ -15,7 +15,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +22,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -62,10 +63,6 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
-import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
-import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
-import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -1651,60 +1648,63 @@ object ConversationAggregation : ClickableFeature(),
             title = { Text(title) },
             text = {
                 DefaultColumn {
-                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                        item {
-                            BaseSupportingWidget(
-                                title = stringResource(R.string.chat_aggregation_folder_name),
-                            ) {
-                                OutlinedTextField(
-                                    value = name,
-                                    onValueChange = { name = it },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                    singleLine = true,
-                                )
-                            }
-                        }
-                        item {
-                            DropDownMenuWidget(
-                                iconPlaceholder = false,
-                                title = stringResource(R.string.chat_aggregation_mode),
-                                description = null,
-                                value = type,
-                                options = FolderType.entries.map { option ->
-                                    DropdownOption(option, folderTypeLabel(option))
-                                },
-                                onValueChange = { type = it },
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.chat_aggregation_folder_name)) },
+                        singleLine = true
+                    )
+
+                    var typeExpanded by remember { mutableStateOf(false) }
+                    Column {
+                        Text(
+                            stringResource(R.string.chat_aggregation_mode),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { typeExpanded = true }
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = folderTypeLabel(type),
+                                style = MaterialTheme.typography.bodyLarge
                             )
                         }
-                        item(animatedVisibility = type == FolderType.SQL) {
-                            BaseSupportingWidget(
-                                title = stringResource(R.string.chat_aggregation_select_fields),
-                            ) {
-                                OutlinedTextField(
-                                    value = selectFields,
-                                    onValueChange = { selectFields = it },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                    singleLine = true,
-                                )
-                            }
-                        }
-                        item(animatedVisibility = type == FolderType.SQL) {
-                            BaseSupportingWidget(
-                                title = stringResource(R.string.chat_aggregation_where_clause),
-                            ) {
-                                OutlinedTextField(
-                                    value = whereClause,
-                                    onValueChange = { whereClause = it },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                    maxLines = 4,
-                                )
-                            }
+                        DropdownMenu(
+                            expanded = typeExpanded,
+                            onDismissRequest = { typeExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.chat_aggregation_mode_manual)) },
+                                onClick = {
+                                    type = FolderType.MANUAL
+                                    typeExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.chat_aggregation_mode_all_groups)) },
+                                onClick = {
+                                    type = FolderType.PRESET_GROUPS
+                                    typeExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.chat_aggregation_mode_all_officials)) },
+                                onClick = {
+                                    type = FolderType.PRESET_OFFICIALS
+                                    typeExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.chat_aggregation_mode_sql)) },
+                                onClick = {
+                                    type = FolderType.SQL
+                                    typeExpanded = false
+                                }
+                            )
                         }
                     }
 
@@ -1845,6 +1845,21 @@ object ConversationAggregation : ClickableFeature(),
                         }
 
                         FolderType.SQL -> {
+                            OutlinedTextField(
+                                value = selectFields,
+                                onValueChange = { selectFields = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.chat_aggregation_select_fields)) },
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = whereClause,
+                                onValueChange = { whereClause = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.chat_aggregation_where_clause)) },
+                                singleLine = false,
+                                maxLines = 4
+                            )
                             Text(
                                 text = pluralStringResource(
                                     R.plurals.chat_aggregation_current_match_count,

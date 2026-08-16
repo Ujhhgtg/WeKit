@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
@@ -132,10 +133,7 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                                     title = stringResource(R.string.chat_anti_recall_outgoing),
                                     description = stringResource(R.string.chat_anti_recall_outgoing_description),
                                     checked = recallOutgoingInput,
-                                    onCheckedChange = {
-                                        recallOutgoingInput = it
-                                        recallOutgoing = it
-                                    },
+                                    onCheckedChange = { recallOutgoingInput = it },
                                 )
                             }
                             item {
@@ -145,10 +143,7 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                                     Column {
                                         OutlinedTextField(
                                             value = patternValue,
-                                            onValueChange = {
-                                                patternValue = it
-                                                pattern = it.text
-                                            },
+                                            onValueChange = { patternValue = it },
                                             singleLine = true,
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -168,10 +163,7 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                                             ),
                                             value = patternValue,
                                             isFieldFocused = isPatternFocused,
-                                            onValueChange = {
-                                                patternValue = it
-                                                pattern = it.text
-                                            },
+                                            onValueChange = { patternValue = it },
                                             modifier = Modifier.padding(horizontal = 16.dp),
                                         )
                                     }
@@ -183,10 +175,7 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                                 ) {
                                     OutlinedTextField(
                                         value = timeFormatValue,
-                                        onValueChange = {
-                                            timeFormatValue = it
-                                            timeFormat = it
-                                        },
+                                        onValueChange = { timeFormatValue = it },
                                         singleLine = true,
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -196,8 +185,16 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
                             }
                         }
                     },
+                    confirmButton = {
+                        Button(onClick = {
+                            recallOutgoing = recallOutgoingInput
+                            pattern = patternValue.text
+                            timeFormat = timeFormatValue
+                            onDismiss()
+                        }) { Text(stringResource(R.string.action_save)) }
+                    },
                     dismissButton = {
-                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                     },
             )
         }

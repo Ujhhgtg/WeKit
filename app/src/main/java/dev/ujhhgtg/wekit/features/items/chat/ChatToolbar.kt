@@ -30,9 +30,14 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.DropdownMenuGroup
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenuPopup
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import androidx.compose.material3.Switch
@@ -56,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Account_box
 import com.composables.icons.materialsymbols.outlined.Add
+import com.composables.icons.materialsymbols.outlined.Arrow_drop_down
 import com.composables.icons.materialsymbols.outlined.Attach_file
 import com.composables.icons.materialsymbols.outlined.Attach_money
 import com.composables.icons.materialsymbols.outlined.Camera
@@ -94,9 +100,6 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
-import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
-import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
@@ -540,7 +543,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         }
     }
 
-    @OptIn(ExperimentalFoundationApi::class)
+    @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val currentOrder = remember {
@@ -550,23 +553,45 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             var currentDisplayMode by remember {
                 mutableStateOf(ToolbarDisplayMode.fromPreference(displayModeValue))
             }
+            var displayModeMenuExpanded by remember { mutableStateOf(false) }
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
                 title = { Text(stringResource(R.string.feature_chat_toolbar_name)) },
                 text = {
                     DefaultColumn {
-                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                            item {
-                                DropDownMenuWidget(
-                                    iconPlaceholder = false,
-                                    title = stringResource(R.string.chat_toolbar_display_style),
-                                    description = null,
-                                    value = currentDisplayMode,
-                                    options = ToolbarDisplayMode.entries.map { mode ->
-                                        DropdownOption(mode, stringResource(mode.labelRes))
-                                    },
-                                    onValueChange = { currentDisplayMode = it },
-                                )
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            ListItem(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { displayModeMenuExpanded = true },
+                                content = { Text(stringResource(R.string.chat_toolbar_display_style)) },
+                                supportingContent = { Text(stringResource(currentDisplayMode.labelRes)) },
+                                trailingContent = {
+                                    Icon(
+                                        MaterialSymbols.Outlined.Arrow_drop_down,
+                                        contentDescription = stringResource(R.string.chat_toolbar_select_display_style_description),
+                                    )
+                                },
+                            )
+                            Box(Modifier.align(Alignment.CenterStart)) {
+                                DropdownMenuPopup(
+                                    expanded = displayModeMenuExpanded,
+                                    onDismissRequest = { displayModeMenuExpanded = false },
+                                ) {
+                                    DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
+                                        ToolbarDisplayMode.entries.forEachIndexed { index, mode ->
+                                            DropdownMenuItem(
+                                                selected = mode == currentDisplayMode,
+                                                onClick = {
+                                                    currentDisplayMode = mode
+                                                    displayModeMenuExpanded = false
+                                                },
+                                                text = { Text(stringResource(mode.labelRes)) },
+                                                shapes = MenuDefaults.itemShape(index, ToolbarDisplayMode.entries.size),
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                         Column {

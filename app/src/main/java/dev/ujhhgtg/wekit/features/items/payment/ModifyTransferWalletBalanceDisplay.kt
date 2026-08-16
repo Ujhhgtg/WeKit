@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -169,14 +170,7 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                             ) {
                                 OutlinedTextField(
                                     value = cftInput,
-                                    onValueChange = {
-                                        cftInput = it
-                                        if (it.isNotBlank()) {
-                                            WePrefs.putString(KEY_CFT_BALANCE, it)
-                                        } else {
-                                            WePrefs.remove(KEY_CFT_BALANCE)
-                                        }
-                                    },
+                                    onValueChange = { cftInput = it },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 16.dp),
@@ -189,14 +183,7 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                             ) {
                                 OutlinedTextField(
                                     value = lqtInput,
-                                    onValueChange = {
-                                        lqtInput = it
-                                        if (it.isNotBlank()) {
-                                            WePrefs.putString(KEY_LQT_BALANCE, it)
-                                        } else {
-                                            WePrefs.remove(KEY_LQT_BALANCE)
-                                        }
-                                    },
+                                    onValueChange = { lqtInput = it },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 16.dp),
@@ -205,7 +192,17 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                         }
                     }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) } },
+                confirmButton = {
+                    Button(onClick = {
+                        if (cftInput.isNotBlank()) WePrefs.putString(KEY_CFT_BALANCE, cftInput)
+                        else WePrefs.remove(KEY_CFT_BALANCE)
+
+                        if (lqtInput.isNotBlank()) WePrefs.putString(KEY_LQT_BALANCE, lqtInput)
+                        else WePrefs.remove(KEY_LQT_BALANCE)
+                        onDismiss()
+                    }) { Text(stringResource(R.string.action_save)) }
+                },
+                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             )
         }
     }
