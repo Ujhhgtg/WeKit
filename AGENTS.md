@@ -55,7 +55,9 @@
 - DEX analysis via DexKit with `IResolveDex` interface; method resolve body MD5-hashed for cache (
   `GenerateMethodHashesTask`)
 - DEX-resolved targets DSL: `val methodTarget by dexMethod()` `val classTarget by dexClass()` delegate → `methodTarget.hookBefore { ... }`, `val method: Method = methodTarget.method`, `val clazz = classTarget.clazz`
-- UI: Jetpack Compose + Material 3, dialogs written using `showComposeDialog` and `AlertDialogContent`
+- UI: Jetpack Compose + Material 3, dialogs written using `showComposeDialog` and
+  `AlertDialogContent`; settings screens follow the Material 3 UI Standards section below
+  (`ui/content/m3/` widget family, InstallerX-Revived design)
 - Config: MMKV via `WePrefs`
 - Logging: via `WeLogger`
 
@@ -187,6 +189,55 @@
   safe casts, `args.getOrNull(0)`, `?:`, `?.someFun()` or similar guards for values that should always be present/non-null/etc.
   Code that is correct does not need the defense; code that is wrong must throw loudly and get caught by either `HookUtils`' or code's own exception catcher, and these
   guards only swallow the exception and hide the real error. Defenses and guards that are reasonable should still exist.
+
+## Material 3 UI Standards
+
+Design reference: `~/coding/InstallerX-Revived` — when unsure how a settings page should
+look or behave, read its `app/src/main/java/com/rosan/installer/ui/page/main/widget/setting/`.
+WeKit's ported widget family lives in `app/src/main/java/dev/ujhhgtg/wekit/ui/content/m3/`.
+
+### Layout
+
+- Settings screens are a `LazyColumn` of `SegmentedColumn` groups (inset rounded cards,
+  one group per concern, short `title` above each group). Do not hand-roll card layouts
+  or use flat lists with dividers.
+- Use the shared scaffolds — `M3ListScaffold` (`activity/settings/SettingsActivity.kt`)
+  or `AgentSettingsScaffold` (`ui/agent/settings/AgentSettingsCommon.kt`): collapsing
+  `LargeFlexibleTopAppBar` + blur + back button. Do not build per-screen scaffolds.
+- Multi-screen settings follow the miuix-nav `NavDisplay` pattern of
+  `WeAgentSettingsActivity` / `ReadReceiptsSettingsActivity` (sealed `@Serializable`
+  routes, predictive-back drill-down).
+
+### Widget choice
+
+Prefer these over raw Compose controls:
+
+- Plain / status / navigation row → `BaseWidget` (chevron or action in `trailingContent`).
+- Boolean setting → `SwitchWidget`.
+- Exclusive choice → `RadioButtonWidget`; supports dual click areas like the WeAgent
+  "Memory" row: `onClick` (main area, e.g. opens the detail screen) + `onSelect` (the
+  radio itself) + `trailingDivider`.
+- String or number input → `TextFieldDialogWidget`: a standard clickable row showing the
+  current value that edits it in a dialog with cancel/confirm. **Never place a bare
+  `TextField`/`OutlinedTextField` directly in a settings list** ("floating" input).
+- Value with a natural range and step (counts, seconds, delays) → `IntNumberPickerWidget`
+  (slider row with drag tooltip), wrapped in a `BaseItemContainer` inside the group.
+  Ports, hostnames, tokens, URLs and other free-form identifiers have no slider
+  semantics — use the dialog row instead.
+- Compact choice from a fixed set → `DropDownMenuWidget`.
+
+### Interaction semantics
+
+- Prefer **instant apply**: toggles, radios, sliders and dialog confirmations commit on
+  change. Avoid "draft state + Save button" page designs — a text row's dialog
+  cancel/confirm is its only draft lifecycle. Genuinely transactional flows (connect /
+  verify / disconnect) may keep explicit action buttons; those are actions, not saves.
+- Buttons that belong together share ONE row (`Modifier.weight(1f)` each, ~12dp gap) —
+  not one button per line. Pair an action with its opposite (connect/disconnect,
+  save/delete); destructive actions use the error color and a confirm dialog.
+- While an operation is in flight, disable the affected rows and show an inline
+  progress/feedback line; never leave conflicting controls tappable.
+- Blank values show a hint in the row description; the row itself stays clickable.
 
 ## Naming Conventions
 
