@@ -513,6 +513,7 @@ private fun ModelEditorSheet(
             description = stringResource(R.string.agent_supports_vision_summary),
             checked = supportsVision,
             onCheckedChange = { supportsVision = it },
+            iconPlaceholder = false,
         )
     }
 
