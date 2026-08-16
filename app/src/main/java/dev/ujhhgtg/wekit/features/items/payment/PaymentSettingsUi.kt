@@ -40,6 +40,7 @@ import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.WeTimeOfDayField
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
@@ -271,6 +272,7 @@ internal fun SegmentedColumnScope.keywordItems(
     modes: List<AutomationKeywordMode>,
     onChange: (AutomationKeywordRule) -> Unit,
     onEditText: (PaymentTextEditMode) -> Unit,
+    inlineTextFields: Boolean = false,
 ) {
     item(key = "${keyPrefix}_mode", animatedVisibility = visible) {
         DropDownMenuWidget(
@@ -306,21 +308,36 @@ internal fun SegmentedColumnScope.keywordItems(
     if (rule.mode == AutomationKeywordMode.REGEX) {
         item(key = "${keyPrefix}_regex", animatedVisibility = visible) {
             val regexTitle = stringResource(R.string.automation_keyword_mode_regex)
-            PaymentValueRow(
-                title = regexTitle,
-                value = rule.regex,
-                enabled = editable,
-                valueHint = stringResource(R.string.automation_regex_empty_summary),
-                onClick = {
-                    onEditText(
-                        PaymentTextEditMode(
-                            title = regexTitle,
-                            initial = rule.regex,
-                            onCommit = { onChange(rule.copy(regex = it)) },
-                        )
+            if (inlineTextFields) {
+                BaseSupportingWidget(
+                    title = regexTitle,
+                    description = stringResource(R.string.automation_regex_empty_summary),
+                ) {
+                    OutlinedTextField(
+                        value = rule.regex,
+                        enabled = editable,
+                        onValueChange = { onChange(rule.copy(regex = it)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     )
-                },
-            )
+                }
+            } else {
+                PaymentValueRow(
+                    title = regexTitle,
+                    value = rule.regex,
+                    enabled = editable,
+                    valueHint = stringResource(R.string.automation_regex_empty_summary),
+                    onClick = {
+                        onEditText(
+                            PaymentTextEditMode(
+                                title = regexTitle,
+                                initial = rule.regex,
+                                onCommit = { onChange(rule.copy(regex = it)) },
+                            )
+                        )
+                    },
+                )
+            }
         }
         return
     }
@@ -340,26 +357,53 @@ internal fun SegmentedColumnScope.keywordItems(
     }
     item(key = "${keyPrefix}_add", animatedVisibility = visible) {
         val addTitle = stringResource(R.string.automation_new_keyword)
-        PaymentValueRow(
-            title = addTitle,
-            value = "",
-            enabled = editable,
-            onClick = {
-                onEditText(
-                    PaymentTextEditMode(
-                        title = addTitle,
-                        initial = "",
-                        onCommit = { input ->
-                            val keyword = input.trim()
-                            if (keyword.isNotEmpty() && keyword !in rule.strings) {
-                                onChange(rule.copy(strings = rule.strings + keyword))
-                            }
-                        },
-                    )
+        if (inlineTextFields) {
+            var pendingKeyword by remember { mutableStateOf("") }
+            BaseSupportingWidget(title = addTitle) {
+                OutlinedTextField(
+                    value = pendingKeyword,
+                    enabled = editable,
+                    onValueChange = { pendingKeyword = it },
+                    trailingIcon = {
+                        IconButton(
+                            enabled = editable && pendingKeyword.trim().isNotEmpty(),
+                            onClick = {
+                                val keyword = pendingKeyword.trim()
+                                if (keyword !in rule.strings) {
+                                    onChange(rule.copy(strings = rule.strings + keyword))
+                                }
+                                pendingKeyword = ""
+                            },
+                        ) {
+                            Icon(MaterialSymbols.Outlined.Add, null)
+                        }
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 )
-            },
-            trailingIcon = MaterialSymbols.Outlined.Add,
-        )
+            }
+        } else {
+            PaymentValueRow(
+                title = addTitle,
+                value = "",
+                enabled = editable,
+                onClick = {
+                    onEditText(
+                        PaymentTextEditMode(
+                            title = addTitle,
+                            initial = "",
+                            onCommit = { input ->
+                                val keyword = input.trim()
+                                if (keyword.isNotEmpty() && keyword !in rule.strings) {
+                                    onChange(rule.copy(strings = rule.strings + keyword))
+                                }
+                            },
+                        )
+                    )
+                },
+                trailingIcon = MaterialSymbols.Outlined.Add,
+            )
+        }
     }
 }
 

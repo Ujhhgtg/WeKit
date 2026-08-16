@@ -8,20 +8,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,22 +46,26 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
 import dev.ujhhgtg.wekit.features.items.AutomationContactSettingsSelector
-import dev.ujhhgtg.wekit.features.items.AutomationKeywordControls
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordRule
-import dev.ujhhgtg.wekit.features.items.AutomationRuleHeader
-import dev.ujhhgtg.wekit.features.items.AutomationScrollableColumn
-import dev.ujhhgtg.wekit.features.items.AutomationSettingsError
-import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeControls
 import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.items.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.features.items.payment.PaymentErrorRow
+import dev.ujhhgtg.wekit.features.items.payment.PaymentNavigationRow
+import dev.ujhhgtg.wekit.features.items.payment.PaymentRuleRow
+import dev.ujhhgtg.wekit.features.items.payment.keywordItems
+import dev.ujhhgtg.wekit.features.items.payment.timeRangeItems
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -156,21 +159,21 @@ internal object AutoReplySettings {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.chat_auto_reply_title)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { showGlobalDialog(context) },
-                            content = { Text(stringResource(R.string.chat_auto_reply_global_settings)) },
-                            supportingContent = {
-                                Text(stringResource(R.string.chat_auto_reply_global_settings_summary))
-                            },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { showContactSelector(context) },
-                            content = { Text(stringResource(R.string.chat_auto_reply_contact_settings)) },
-                            supportingContent = {
-                                Text(stringResource(R.string.chat_auto_reply_contact_settings_summary))
-                            },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.chat_auto_reply_global_settings),
+                                description = stringResource(R.string.chat_auto_reply_global_settings_summary),
+                                onClick = { showGlobalDialog(context) },
+                            )
+                        }
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.chat_auto_reply_contact_settings),
+                                description = stringResource(R.string.chat_auto_reply_contact_settings_summary),
+                                onClick = { showContactSelector(context) },
+                            )
+                        }
                     }
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
@@ -297,59 +300,55 @@ internal object AutoReplySettings {
             AlertDialogContent(
                 title = { Text(groupName) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                showOverrideDialog(
-                                    context = context,
-                                    title = groupGlobalSettings,
-                                    parentLabel = globalSettings,
-                                    parent = globalRules(),
-                                    initial = contactOverrides(groupId),
-                                    onSave = {
-                                        setContactOverrides(groupId, it)
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.chat_auto_reply_group_global_settings),
+                                description = if (groupOverrideCount == 0) {
+                                    stringResource(R.string.chat_auto_reply_follows_global)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.chat_auto_reply_overridden_count,
+                                        groupOverrideCount,
+                                        groupOverrideCount,
+                                    )
+                                },
+                                onClick = {
+                                    showOverrideDialog(
+                                        context = context,
+                                        title = groupGlobalSettings,
+                                        parentLabel = globalSettings,
+                                        parent = globalRules(),
+                                        initial = contactOverrides(groupId),
+                                        onSave = {
+                                            setContactOverrides(groupId, it)
+                                            revision++
+                                            onUpdated()
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.chat_auto_reply_group_member_settings),
+                                description = if (memberCount == 0) {
+                                    stringResource(R.string.chat_auto_reply_all_members_follow_group)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.chat_auto_reply_configured_member_count,
+                                        memberCount,
+                                        memberCount,
+                                    )
+                                },
+                                onClick = {
+                                    showGroupMemberSelector(context, groupId) {
                                         revision++
                                         onUpdated()
-                                    },
-                                )
-                            },
-                            content = { Text(stringResource(R.string.chat_auto_reply_group_global_settings)) },
-                            supportingContent = {
-                                Text(
-                                    if (groupOverrideCount == 0) {
-                                        stringResource(R.string.chat_auto_reply_follows_global)
-                                    } else {
-                                        pluralStringResource(
-                                            R.plurals.chat_auto_reply_overridden_count,
-                                            groupOverrideCount,
-                                            groupOverrideCount,
-                                        )
-                                    },
-                                )
-                            },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                showGroupMemberSelector(context, groupId) {
-                                    revision++
-                                    onUpdated()
-                                }
-                            },
-                            content = { Text(stringResource(R.string.chat_auto_reply_group_member_settings)) },
-                            supportingContent = {
-                                Text(
-                                    if (memberCount == 0) {
-                                        stringResource(R.string.chat_auto_reply_all_members_follow_group)
-                                    } else {
-                                        pluralStringResource(
-                                            R.plurals.chat_auto_reply_configured_member_count,
-                                            memberCount,
-                                            memberCount,
-                                        )
-                                    },
-                                )
-                            },
-                        )
+                                    }
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
@@ -514,72 +513,70 @@ internal object AutoReplySettings {
         onAddTask: () -> Unit,
         validationError: String?,
     ) {
-        val isGlobalEditor = overriddenKeys == null
+        fun overridden(key: RuleKey): Boolean? = overriddenKeys?.let { key in it }
+        fun editable(key: RuleKey): Boolean = overriddenKeys == null || key in overriddenKeys
 
-        AutomationScrollableColumn {
-            RuleHeader(
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item(key = "enabled") { PaymentRuleRow(
                 title = stringResource(R.string.chat_auto_reply_enabled_title),
                 summary = if (rules.enabled.enabled) {
                     stringResource(R.string.chat_auto_reply_enabled_summary)
                 } else {
                     stringResource(R.string.chat_auto_reply_disabled_summary)
                 },
-                enabled = rules.enabled.enabled,
-                key = RuleKey.ENABLED,
-                overriddenKeys = overriddenKeys,
+                checked = rules.enabled.enabled,
+                overridden = overridden(RuleKey.ENABLED),
                 parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
+                onActivate = { onActivate(RuleKey.ENABLED) },
+                onReset = { onReset(RuleKey.ENABLED) },
+                onCheckedChange = {
                     onChange(RuleKey.ENABLED, rules.copy(enabled = rules.enabled.copy(enabled = it)))
                 },
-            )
+            ) }
 
-            val timeEditable = overriddenKeys == null || RuleKey.TIME_RANGE in overriddenKeys
-            RuleHeader(
+            item(key = "time_range") { PaymentRuleRow(
                 title = stringResource(R.string.chat_auto_reply_time_range_title),
                 summary = if (rules.timeRange.enabled) {
                     "${formatAutomationMinute(rules.timeRange.startMinute)} - ${formatAutomationMinute(rules.timeRange.endMinute)}"
                 } else {
                     stringResource(R.string.chat_auto_reply_time_unrestricted)
                 },
-                enabled = rules.timeRange.enabled,
-                key = RuleKey.TIME_RANGE,
-                overriddenKeys = overriddenKeys,
+                checked = rules.timeRange.enabled,
+                overridden = overridden(RuleKey.TIME_RANGE),
                 parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
+                onActivate = { onActivate(RuleKey.TIME_RANGE) },
+                onReset = { onReset(RuleKey.TIME_RANGE) },
+                onCheckedChange = {
                     onChange(
                         RuleKey.TIME_RANGE,
                         rules.copy(timeRange = rules.timeRange.copy(enabled = it)),
                     )
                 },
+            ) }
+            timeRangeItems(
+                rule = rules.timeRange,
+                editable = editable(RuleKey.TIME_RANGE),
+                visible = rules.timeRange.enabled,
+                onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) },
             )
-            if (rules.timeRange.enabled) {
-                AutomationTimeRangeControls(
-                    rule = rules.timeRange,
-                    editable = timeEditable,
-                    onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) },
+
+            item(key = "tasks_header") {
+                BaseWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.chat_auto_reply_tasks_title),
+                    description = if (rules.tasks.isEmpty()) {
+                        stringResource(R.string.chat_auto_reply_no_tasks)
+                    } else {
+                        pluralStringResource(
+                            R.plurals.chat_auto_reply_task_count_summary,
+                            rules.tasks.size,
+                            rules.tasks.size,
+                        )
+                    },
                 )
             }
-
-            ListItem(
-                content = { Text(stringResource(R.string.chat_auto_reply_tasks_title)) },
-                supportingContent = {
-                    Text(
-                        if (rules.tasks.isEmpty()) {
-                            stringResource(R.string.chat_auto_reply_no_tasks)
-                        } else {
-                            pluralStringResource(
-                                R.plurals.chat_auto_reply_task_count_summary,
-                                rules.tasks.size,
-                                rules.tasks.size,
-                            )
-                        }
-                    )
-                },
-            )
+            }
             if (rules.tasks.isNotEmpty()) {
                 ReorderableList(
                     items = rules.tasks,
@@ -644,13 +641,18 @@ internal object AutoReplySettings {
                     }
                 }
             }
-            ListItem(
-                modifier = Modifier.clickable(onClick = onAddTask),
-                content = { Text(stringResource(R.string.chat_auto_reply_add_task)) },
-                supportingContent = { Text(stringResource(R.string.chat_auto_reply_add_task_summary)) },
-            )
-
-            AutomationSettingsError(validationError)
+            SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                item(key = "add_task") {
+                    PaymentNavigationRow(
+                        title = stringResource(R.string.chat_auto_reply_add_task),
+                        description = stringResource(R.string.chat_auto_reply_add_task_summary),
+                        onClick = onAddTask,
+                    )
+                }
+                validationError?.let { error ->
+                    item(key = "validation_error") { PaymentErrorRow(error) }
+                }
+            }
         }
     }
 
@@ -660,143 +662,140 @@ internal object AutoReplySettings {
         onChange: (AutoReplyTask) -> Unit,
         validationError: String?,
     ) {
-        AutomationScrollableColumn {
-            OutlinedTextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                value = task.name,
-                onValueChange = { onChange(task.copy(name = it)) },
-                label = { Text(stringResource(R.string.chat_auto_reply_task_name)) },
-                singleLine = true,
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(R.string.chat_auto_reply_enable_task), modifier = Modifier.weight(1f))
-                Switch(
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item(key = "name") {
+                BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_task_name)) {
+                    InlineTaskTextField(value = task.name, onValueChange = { onChange(task.copy(name = it)) })
+                }
+            }
+            item(key = "enabled") {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.chat_auto_reply_enable_task),
                     checked = task.enabled,
                     onCheckedChange = { onChange(task.copy(enabled = it)) },
                 )
             }
-            AutomationKeywordControls(
+            keywordItems(
+                keyPrefix = "task_keyword",
                 rule = task.keyword,
                 editable = true,
+                visible = true,
+                modes = AutomationKeywordMode.entries,
                 onChange = { onChange(task.copy(keyword = it)) },
+                onEditText = {},
+                inlineTextFields = true,
             )
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-            ) {
-                AutoReplyType.entries.forEachIndexed { index, type ->
-                    SegmentedButton(
-                        selected = task.reply.type == type,
-                        onClick = { onChange(task.copy(reply = task.reply.copy(type = type))) },
-                        shape = SegmentedButtonDefaults.itemShape(index, AutoReplyType.entries.size),
-                    ) {
-                        Text(
-                            when (type) {
-                                AutoReplyType.TEXT -> stringResource(R.string.chat_auto_reply_type_text)
-                                AutoReplyType.IMAGE -> stringResource(R.string.chat_auto_reply_type_image)
-                                AutoReplyType.VIDEO -> stringResource(R.string.chat_auto_reply_type_video)
-                                AutoReplyType.VOICE -> stringResource(R.string.chat_auto_reply_type_voice)
-                            }
+            item(key = "reply_type") {
+                DropDownMenuWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.chat_auto_reply_task_settings),
+                    description = null,
+                    value = task.reply.type,
+                    options = AutoReplyType.entries.map { type ->
+                        DropdownOption(type, stringResource(type.labelRes))
+                    },
+                    onValueChange = { onChange(task.copy(reply = task.reply.copy(type = it))) },
+                )
+            }
+            when (task.reply.type) {
+                AutoReplyType.TEXT -> item(key = "reply_text") {
+                    BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_reply_content)) {
+                        InlineTaskTextField(
+                            value = task.reply.text,
+                            onValueChange = { onChange(task.copy(reply = task.reply.copy(text = it))) },
                         )
                     }
                 }
-            }
-            when (task.reply.type) {
-                AutoReplyType.TEXT -> OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = task.reply.text,
-                    onValueChange = { onChange(task.copy(reply = task.reply.copy(text = it))) },
-                    label = { Text(stringResource(R.string.chat_auto_reply_reply_content)) },
-                    singleLine = true,
-                )
 
-                AutoReplyType.IMAGE -> AssetPathField(
+                AutoReplyType.IMAGE -> item(key = "image_path") { AssetPathField(
                     type = AutoReplyType.IMAGE,
                     path = task.reply.path,
                     onChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
-                )
+                ) }
 
-                AutoReplyType.VIDEO -> AssetPathField(
+                AutoReplyType.VIDEO -> item(key = "video_path") { AssetPathField(
                     type = AutoReplyType.VIDEO,
                     path = task.reply.path,
                     onChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
-                )
+                ) }
 
                 AutoReplyType.VOICE -> {
-                    AssetPathField(
+                    item(key = "voice_path") { AssetPathField(
                         type = AutoReplyType.VOICE,
                         path = task.reply.path,
                         onChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
-                    )
-                    OutlinedTextField(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        value = task.reply.voiceDurationMs,
-                        onValueChange = {
-                            onChange(
-                                task.copy(
-                                    reply = task.reply.copy(
-                                        voiceDurationMs = it.filter(Char::isDigit).take(5),
-                                    ),
-                                ),
+                    ) }
+                    item(key = "voice_duration") {
+                        BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_voice_duration_ms)) {
+                            InlineTaskTextField(
+                                value = task.reply.voiceDurationMs,
+                                keyboardType = KeyboardType.Number,
+                                onValueChange = {
+                                    onChange(task.copy(reply = task.reply.copy(voiceDurationMs = it.filter(Char::isDigit).take(5))))
+                                },
                             )
-                        },
-                        label = { Text(stringResource(R.string.chat_auto_reply_voice_duration_ms)) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
+                        }
+                    }
+                }
+            }
+            item(key = "delay") {
+                BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_delay_ms)) {
+                    InlineTaskTextField(
+                        value = task.delayMs,
+                        keyboardType = KeyboardType.Number,
+                        onValueChange = { onChange(task.copy(delayMs = it.filter(Char::isDigit).take(5))) },
                     )
                 }
             }
-            OutlinedTextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                value = task.delayMs,
-                onValueChange = { onChange(task.copy(delayMs = it.filter(Char::isDigit).take(5))) },
-                label = { Text(stringResource(R.string.chat_auto_reply_delay_ms)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                value = task.cooldownMs,
-                onValueChange = { onChange(task.copy(cooldownMs = it.filter(Char::isDigit).take(7))) },
-                label = { Text(stringResource(R.string.chat_auto_reply_cooldown_ms)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(R.string.chat_auto_reply_stop_after_match),
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(
+            item(key = "cooldown") {
+                BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_cooldown_ms)) {
+                    InlineTaskTextField(
+                        value = task.cooldownMs,
+                        keyboardType = KeyboardType.Number,
+                        onValueChange = { onChange(task.copy(cooldownMs = it.filter(Char::isDigit).take(7))) },
+                    )
+                }
+            }
+            item(key = "stop_after_match") {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.chat_auto_reply_stop_after_match),
                     checked = task.stopAfterMatch,
                     onCheckedChange = { onChange(task.copy(stopAfterMatch = it)) },
                 )
             }
 
-            AutomationSettingsError(validationError)
+            validationError?.let { error ->
+                item(key = "validation_error") { PaymentErrorRow(error) }
+            }
+            }
         }
     }
+
+    @Composable
+    private fun InlineTaskTextField(
+        value: String,
+        keyboardType: KeyboardType = KeyboardType.Text,
+        onValueChange: (String) -> Unit,
+    ) {
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            value = value,
+            onValueChange = onValueChange,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            singleLine = true,
+        )
+    }
+
+    private val AutoReplyType.labelRes: Int
+        get() = when (this) {
+            AutoReplyType.TEXT -> R.string.chat_auto_reply_type_text
+            AutoReplyType.IMAGE -> R.string.chat_auto_reply_type_image
+            AutoReplyType.VIDEO -> R.string.chat_auto_reply_type_video
+            AutoReplyType.VOICE -> R.string.chat_auto_reply_type_voice
+        }
 
     @Composable
     private fun AssetPathField(
@@ -805,51 +804,52 @@ internal object AutoReplySettings {
         onChange: (String) -> Unit,
     ) {
         val context = LocalContext.current
-        OutlinedTextField(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            value = path,
-            onValueChange = onChange,
-            label = {
-                Text(
-                    when (type) {
-                        AutoReplyType.IMAGE -> stringResource(R.string.chat_auto_reply_image_path)
-                        AutoReplyType.VIDEO -> stringResource(R.string.chat_auto_reply_video_path)
-                        AutoReplyType.VOICE -> stringResource(R.string.chat_auto_reply_voice_path)
-                        AutoReplyType.TEXT -> ""
-                    }
-                )
-            },
-            trailingIcon = {
-                IconButton(
-                    onClick = {
-                        importAsset(
-                            context = context,
-                            mimeTypes = when (type) {
-                                AutoReplyType.IMAGE -> arrayOf("image/*")
-                                AutoReplyType.VIDEO -> arrayOf("video/*")
-                                AutoReplyType.VOICE -> arrayOf("audio/*")
-                                AutoReplyType.TEXT -> return@IconButton
-                            },
-                            typePrefix = when (type) {
-                                AutoReplyType.IMAGE -> "image"
-                                AutoReplyType.VIDEO -> "video"
-                                AutoReplyType.VOICE -> "voice"
-                                AutoReplyType.TEXT -> ""
-                            },
-                            onImported = onChange,
-                        )
-                    },
-                ) {
-                    Icon(
-                        MaterialSymbols.Outlined.Download,
-                        contentDescription = stringResource(R.string.chat_auto_reply_import),
-                    )
-                }
-            },
-            singleLine = true,
+        val title = stringResource(
+            when (type) {
+                AutoReplyType.IMAGE -> R.string.chat_auto_reply_image_path
+                AutoReplyType.VIDEO -> R.string.chat_auto_reply_video_path
+                AutoReplyType.VOICE -> R.string.chat_auto_reply_voice_path
+                AutoReplyType.TEXT -> R.string.chat_auto_reply_reply_content
+            }
         )
+        BaseSupportingWidget(title = title) {
+            OutlinedTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                value = path,
+                onValueChange = onChange,
+                label = { Text(title) },
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            importAsset(
+                                context = context,
+                                mimeTypes = when (type) {
+                                    AutoReplyType.IMAGE -> arrayOf("image/*")
+                                    AutoReplyType.VIDEO -> arrayOf("video/*")
+                                    AutoReplyType.VOICE -> arrayOf("audio/*")
+                                    AutoReplyType.TEXT -> return@IconButton
+                                },
+                                typePrefix = when (type) {
+                                    AutoReplyType.IMAGE -> "image"
+                                    AutoReplyType.VIDEO -> "video"
+                                    AutoReplyType.VOICE -> "voice"
+                                    AutoReplyType.TEXT -> ""
+                                },
+                                onImported = onChange,
+                            )
+                        },
+                    ) {
+                        Icon(
+                            MaterialSymbols.Outlined.Download,
+                            contentDescription = stringResource(R.string.chat_auto_reply_import),
+                        )
+                    }
+                },
+                singleLine = true,
+            )
+        }
     }
 
     /**
@@ -905,30 +905,6 @@ internal object AutoReplySettings {
         mimeType?.startsWith("video/") == true -> "mp4"
         mimeType?.startsWith("audio/") == true -> "m4a"
         else -> "bin"
-    }
-
-    @Composable
-    private fun RuleHeader(
-        title: String,
-        summary: String,
-        enabled: Boolean,
-        key: RuleKey,
-        overriddenKeys: Set<RuleKey>?,
-        parentLabel: String,
-        onActivate: (RuleKey) -> Unit,
-        onReset: (RuleKey) -> Unit,
-        onEnabledChange: (Boolean) -> Unit,
-    ) {
-        AutomationRuleHeader(
-            title = title,
-            summary = summary,
-            enabled = enabled,
-            isOverridden = overriddenKeys?.let { key in it },
-            parentLabel = parentLabel,
-            onActivate = { onActivate(key) },
-            onReset = { onReset(key) },
-            onEnabledChange = onEnabledChange,
-        )
     }
 
     private fun AutoReplyRuleSet.apply(overrides: AutoReplyRuleOverrides?): AutoReplyRuleSet {
