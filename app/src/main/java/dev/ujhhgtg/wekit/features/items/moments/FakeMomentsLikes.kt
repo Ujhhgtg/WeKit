@@ -137,6 +137,7 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
                                             BaseItemContainer {
                                                 IntNumberPickerWidget(
                                                     title = stringResource(R.string.moments_fake_likes_random_count),
+                                                    enabled = contacts.isNotEmpty(),
                                                     value = countInput,
                                                     startInt = 1,
                                                     endInt = contacts.size.coerceAtLeast(1),
@@ -147,18 +148,21 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
                                         }
                                     }
                                     Spacer(Modifier.width(8.dp))
-                                    Button(onClick = {
-                                        val count = countInput
-                                        if (count == 0) {
-                                            fakeLikeWxIds.remove(snsId)
-                                            showToast(localizedContext.getString(R.string.moments_fake_likes_cleared))
-                                        } else {
-                                            val selected = contacts.shuffled().take(count).map { it.wxId }.toSet()
-                                            fakeLikeWxIds[snsId] = selected
-                                            showToast(localizedMomentsQuantity(R.plurals.moments_fake_likes_random_set_count, selected.size, selected.size))
+                                    Button(
+                                        enabled = contacts.isNotEmpty(),
+                                        onClick = {
+                                            val count = countInput
+                                            if (count == 0) {
+                                                fakeLikeWxIds.remove(snsId)
+                                                showToast(localizedContext.getString(R.string.moments_fake_likes_cleared))
+                                            } else {
+                                                val selected = contacts.shuffled().take(count).map { it.wxId }.toSet()
+                                                fakeLikeWxIds[snsId] = selected
+                                                showToast(localizedMomentsQuantity(R.plurals.moments_fake_likes_random_set_count, selected.size, selected.size))
+                                            }
+                                            onDismiss()
                                         }
-                                        onDismiss()
-                                    }) { Text(stringResource(R.string.dialog_confirm)) }
+                                    ) { Text(stringResource(R.string.dialog_confirm)) }
                                 }
                             }
                         },

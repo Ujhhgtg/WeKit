@@ -58,6 +58,7 @@ internal class PaymentTextEditMode(
     val keyboardType: KeyboardType = KeyboardType.Text,
     val filter: (String) -> String = { it },
     val supportingText: String? = null,
+    val validator: ((String) -> String?)? = null,
     val onCommit: (String) -> Unit,
 )
 
@@ -67,6 +68,7 @@ internal fun PaymentTextEditDialog(
     onClose: () -> Unit,
 ) {
     var draft by remember(mode) { mutableStateOf(mode.initial) }
+    val validationError = mode.validator?.invoke(draft)
 
     AlertDialogContent(
         title = { Text(mode.title) },
@@ -75,13 +77,17 @@ internal fun PaymentTextEditDialog(
                 value = draft,
                 onValueChange = { draft = mode.filter(it) },
                 keyboardOptions = KeyboardOptions(keyboardType = mode.keyboardType),
-                supportingText = mode.supportingText?.let { text -> { Text(text) } },
+                supportingText = (validationError ?: mode.supportingText)?.let { text -> { Text(text) } },
+                isError = validationError != null,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
-            Button(onClick = { mode.onCommit(draft); onClose() }) {
+            Button(
+                enabled = validationError == null,
+                onClick = { mode.onCommit(draft); onClose() },
+            ) {
                 Text(stringResource(R.string.dialog_confirm))
             }
         },
@@ -308,6 +314,8 @@ internal fun SegmentedColumnScope.keywordItems(
     if (rule.mode == AutomationKeywordMode.REGEX) {
         item(key = "${keyPrefix}_regex", animatedVisibility = visible) {
             val regexTitle = stringResource(R.string.automation_keyword_mode_regex)
+            val invalidRegexMessage = stringResource(R.string.automation_regex_invalid)
+            val regexError = invalidRegexMessage.takeIf { runCatching { Regex(rule.regex) }.isFailure }
             if (inlineTextFields) {
                 BaseSupportingWidget(
                     title = regexTitle,
@@ -317,6 +325,8 @@ internal fun SegmentedColumnScope.keywordItems(
                         value = rule.regex,
                         enabled = editable,
                         onValueChange = { onChange(rule.copy(regex = it)) },
+                        supportingText = regexError?.let { error -> { Text(error) } },
+                        isError = regexError != null,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     )
@@ -332,6 +342,9 @@ internal fun SegmentedColumnScope.keywordItems(
                             PaymentTextEditMode(
                                 title = regexTitle,
                                 initial = rule.regex,
+                                validator = { input ->
+                                    invalidRegexMessage.takeIf { runCatching { Regex(input) }.isFailure }
+                                },
                                 onCommit = { onChange(rule.copy(regex = it)) },
                             )
                         )
