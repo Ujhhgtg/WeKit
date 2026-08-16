@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.ui.agent.settings
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -37,9 +36,6 @@ import dev.ujhhgtg.wekit.activity.agent.AgentSettingsRoute
 import dev.ujhhgtg.wekit.agent.data.OverlayMode
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
-import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
-import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
-import dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity
 import dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
@@ -73,11 +69,11 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
     // Null until the flow's first emission: the selector rows below must not compose against a
     // not-yet-loaded option list, since a persisted non-null id would not match any option.
     val models by remember { WeAgentRepository.observeModels() }
-        .collectAsState<List<ModelEntity>, List<ModelEntity>?>(initial = null)
+        .collectAsState(initial = null)
     val systemPrompts by remember { WeAgentRepository.observeSystemPrompts() }
-        .collectAsState<List<SystemPromptEntity>, List<SystemPromptEntity>?>(initial = null)
+        .collectAsState(initial = null)
     val workspaces by remember { WeAgentRepository.observeWorkspaces() }
-        .collectAsState<List<WorkspaceEntity>, List<WorkspaceEntity>?>(initial = null)
+        .collectAsState(initial = null)
 
     LaunchedEffect(Unit) {
         dynamicTools = WeAgentSettings.toolLoadingMode() == ToolLoadingMode.DYNAMIC
@@ -129,14 +125,14 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                 }
                 if (loaded && models != null) {
                     item {
-                        DropDownMenuWidget<String?>(
+                        DropDownMenuWidget(
                             icon = MaterialSymbols.Outlined.Bolt,
                             iconPlaceholder = false,
                             title = stringResource(R.string.agent_small_model_title),
                             description = null,
                             value = staleToNull(smallModelId, models!!.map { it.id }),
                             options = listOf(DropdownOption<String?>(null, stringResource(R.string.agent_same_as_primary_model))) +
-                                models!!.map { DropdownOption<String?>(it.id, it.displayName.ifBlank { it.modelIdRemote }) },
+                                models!!.map { DropdownOption(it.id, it.displayName.ifBlank { it.modelIdRemote }) },
                             onValueChange = { id ->
                                 smallModelId = id
                                 scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SMALL_MODEL_ID, id.orEmpty()) }
@@ -282,14 +278,14 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                     modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
                 ) {
                     item {
-                        DropDownMenuWidget<String?>(
+                        DropDownMenuWidget(
                             icon = MaterialSymbols.Outlined.Smart_toy,
                             iconPlaceholder = false,
                             title = stringResource(R.string.agent_default_model_title),
                             description = null,
                             value = staleToNull(defaultModelId, models!!.map { it.id }),
                             options = listOf(DropdownOption<String?>(null, stringResource(R.string.agent_use_first_model))) +
-                                models!!.map { DropdownOption<String?>(it.id, it.displayName.ifBlank { it.modelIdRemote }) },
+                                models!!.map { DropdownOption(it.id, it.displayName.ifBlank { it.modelIdRemote }) },
                             onValueChange = { id ->
                                 defaultModelId = id
                                 scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_MODEL_ID, id.orEmpty()) }
@@ -297,14 +293,14 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                         )
                     }
                     item {
-                        DropDownMenuWidget<String?>(
+                        DropDownMenuWidget(
                             icon = MaterialSymbols.Outlined.Notes,
                             iconPlaceholder = false,
                             title = stringResource(R.string.agent_default_system_prompt_title),
                             description = null,
                             value = staleToNull(defaultSystemPromptId, systemPrompts!!.map { it.id }),
                             options = listOf(DropdownOption<String?>(null, stringResource(R.string.common_none_parenthesized))) +
-                                systemPrompts!!.map { DropdownOption<String?>(it.id, it.name) },
+                                systemPrompts!!.map { DropdownOption(it.id, it.name) },
                             onValueChange = { id ->
                                 defaultSystemPromptId = id
                                 scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_SYSTEM_PROMPT_ID, id.orEmpty()) }
@@ -312,14 +308,14 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                         )
                     }
                     item {
-                        DropDownMenuWidget<String?>(
+                        DropDownMenuWidget(
                             icon = MaterialSymbols.Outlined.Folder_open,
                             iconPlaceholder = false,
                             title = stringResource(R.string.agent_default_workspace_title),
                             description = null,
                             value = staleToNull(defaultWorkspaceId, workspaces!!.map { it.id }),
                             options = listOf(DropdownOption<String?>(null, stringResource(R.string.common_none_parenthesized))) +
-                                workspaces!!.map { DropdownOption<String?>(it.id, it.name) },
+                                workspaces!!.map { DropdownOption(it.id, it.name) },
                             onValueChange = { id ->
                                 defaultWorkspaceId = id
                                 scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_WORKSPACE_ID, id.orEmpty()) }
