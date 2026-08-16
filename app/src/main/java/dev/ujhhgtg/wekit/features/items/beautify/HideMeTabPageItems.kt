@@ -5,16 +5,14 @@ import android.view.ViewGroup
 import android.widget.ListView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.view.isGone
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.R
@@ -24,9 +22,9 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.Collections
@@ -91,65 +89,57 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.beautify_me_page_title)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { hideMomentsInput = !hideMomentsInput },
-                            trailingContent = {
-                                Switch(
-                                    checked = hideMomentsInput,
-                                    onCheckedChange = null
-                                )
-                            },
-                            content = { Text(stringResource(R.string.beautify_me_page_hide_moments)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { hideFinderInput = !hideFinderInput },
-                            leadingContent = null,
-                            trailingContent = {
-                                Switch(
-                                    checked = hideFinderInput,
-                                    onCheckedChange = null
-                                )
-                            },
-                            supportingContent = { Text(stringResource(R.string.beautify_me_page_hide_works_summary)) },
-                            content = { Text(stringResource(R.string.beautify_me_page_hide_works)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { hideCardsInput = !hideCardsInput },
-                            trailingContent = {
-                                Switch(
-                                    checked = hideCardsInput,
-                                    onCheckedChange = null
-                                )
-                            },
-                            supportingContent = { Text(stringResource(R.string.beautify_me_page_hide_cards_summary)) },
-                            content = { Text(stringResource(R.string.beautify_me_page_hide_cards)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { hideEmojiInput = !hideEmojiInput },
-                            trailingContent = {
-                                Switch(
-                                    checked = hideEmojiInput,
-                                    onCheckedChange = null
-                                )
-                            },
-                            content = { Text(stringResource(R.string.beautify_me_page_hide_stickers)) },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_me_page_hide_moments),
+                                checked = hideMomentsInput,
+                                onCheckedChange = {
+                                    hideMomentsInput = it
+                                    hideMoments = it
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_me_page_hide_works),
+                                description = stringResource(R.string.beautify_me_page_hide_works_summary),
+                                checked = hideFinderInput,
+                                onCheckedChange = {
+                                    hideFinderInput = it
+                                    hideFinder = it
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_me_page_hide_cards),
+                                description = stringResource(R.string.beautify_me_page_hide_cards_summary),
+                                checked = hideCardsInput,
+                                onCheckedChange = {
+                                    hideCardsInput = it
+                                    hideCards = it
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_me_page_hide_stickers),
+                                checked = hideEmojiInput,
+                                onCheckedChange = {
+                                    hideEmojiInput = it
+                                    hideEmoji = it
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        hideMoments = hideMomentsInput
-                        hideFinder = hideFinderInput
-                        hideCards = hideCardsInput
-                        hideEmoji = hideEmojiInput
-                        onDismiss()
-                    }) {
-                        Text(stringResource(R.string.action_save))
-                    }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
             )
         }
