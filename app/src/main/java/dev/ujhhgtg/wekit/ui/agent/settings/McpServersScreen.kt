@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,9 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -17,28 +19,39 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
+import com.composables.icons.materialsymbols.outlined.Refresh
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.McpTransport
 import dev.ujhhgtg.wekit.agent.data.entity.ProviderEntity
 import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
+import dev.ujhhgtg.wekit.agent.mcp.McpConnectionState
 import dev.ujhhgtg.wekit.agent.mcp.McpProviderStatus
 import dev.ujhhgtg.wekit.agent.mcp.McpToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
+import dev.ujhhgtg.wekit.agent.tool.ToolMode
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
+import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -71,39 +84,50 @@ fun McpServersScreen(onBack: () -> Unit, onOpenServer: (serverId: String) -> Uni
     val showAdd = remember { mutableStateOf(false) }
 
     AgentSettingsScaffold(title = stringResource(R.string.agent_mcp_servers_title), onBack = onBack) {
-        if (servers.isEmpty()) item { EmptyHint(stringResource(R.string.agent_mcp_servers_empty)) }
-        items(servers.size, key = { servers[it].id }) { i ->
-            val s = servers[i]
-            val status = rememberMcpStatus(liveProviders.firstOrNull { it.id == s.id })
-            SegmentedColumn {
-                item {
-                    BaseWidget(
-                        title = s.name.ifBlank { s.endpointUrl ?: s.id },
-                        description = status.lastError?.let {
-                            stringResource(
-                                R.string.agent_mcp_server_summary_error,
+        if (servers.isEmpty()) {
+            item {
+                AgentEmptyState(
+                    title = stringResource(R.string.agent_empty_mcp_title),
+                    message = stringResource(R.string.agent_empty_mcp_message),
+                    actionLabel = stringResource(R.string.agent_add_server),
+                    onAction = { showAdd.value = true },
+                )
+            }
+        } else {
+            items(servers.size, key = { servers[it].id }) { i ->
+                val s = servers[i]
+                val status = rememberMcpStatus(liveProviders.firstOrNull { it.id == s.id })
+                SegmentedColumn {
+                    item {
+                        BaseWidget(
+                            title = s.name.ifBlank { s.endpointUrl ?: s.id },
+                            description = status.lastError?.let {
+                                stringResource(
+                                    R.string.agent_mcp_server_summary_error,
+                                    s.transport?.name ?: "?",
+                                    mcpStateLabel(status.state),
+                                    it,
+                                )
+                            } ?: stringResource(
+                                R.string.agent_mcp_server_summary,
                                 s.transport?.name ?: "?",
                                 mcpStateLabel(status.state),
-                                it,
-                            )
-                        } ?: stringResource(
-                            R.string.agent_mcp_server_summary,
-                            s.transport?.name ?: "?",
-                            mcpStateLabel(status.state),
-                        ),
-                        onClick = { onOpenServer(s.id) },
-                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            ),
+                            onClick = { onOpenServer(s.id) },
+                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        )
+                    }
+                }
+            }
+            item {
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.agent_add_server),
+                        icon = MaterialSymbols.Outlined.Add,
+                        onClick = { showAdd.value = true },
                     )
                 }
             }
-        }
-        item {
-            Button(
-                onClick = { showAdd.value = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
-            ) { Text(stringResource(R.string.agent_add_server)) }
         }
     }
 
@@ -133,6 +157,8 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val allProviders by WeAgentRepository.observeProviders().collectAsState(initial = emptyList())
     val server = allProviders.firstOrNull { it.id == serverId }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val perms by WeAgentRepository.observeToolPermissions().collectAsState(initial = emptyList())
     val permMap = perms.associate { it.providerId to it.toolName to it.mode }
 
@@ -153,7 +179,7 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                             } ?: mcpStateLabel(status.state),
                         ),
                         onClick = { scope.launch { McpClientManager.refreshTools(serverId) } },
-                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Refresh, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     )
                 }
                 server?.let { srv ->
@@ -165,72 +191,97 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                                 srv.transport?.name ?: "?",
                                 srv.endpointUrl.orEmpty(),
                             ),
-                            onClick = {},
-                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                         )
                     }
-                }
-                item(topPadding = 12.dp) {
-                    TextButton(
-                        onClick = { scope.launch { WeAgentRepository.deleteMcpProvider(serverId) }; onBack() },
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                    ) { Text(stringResource(R.string.agent_delete_server)) }
                 }
             }
         }
 
         item {
-            SegmentedColumn(title = stringResource(R.string.agent_tool_permissions_title)) {
-                if (tools.isEmpty()) item { EmptyHint(stringResource(R.string.agent_mcp_tools_empty)) }
-                tools.forEach { t ->
-                    item(key = "${serverId}_${t.name}") {
-                        val mode = permMap[serverId to t.name] ?: t.factoryDefaultMode
-                        McpToolModeDropdown(t.name, mode) { newMode ->
+            AgentActionRow {
+                OutlinedButton(
+                    onClick = { showDeleteConfirm = true },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.action_delete)) }
+            }
+        }
+
+        if (tools.isEmpty()) {
+            item {
+                AgentEmptyState(
+                    title = stringResource(R.string.agent_empty_mcp_tools_title),
+                    message = stringResource(R.string.agent_empty_mcp_tools_message),
+                )
+            }
+        } else {
+            item { McpSectionTitle(stringResource(R.string.agent_tool_permissions_title)) }
+            lazySegmentedItems(tools, key = { "${serverId}_${it.name}" }) { t ->
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    DropDownMenuWidget(
+                        icon = null,
+                        iconPlaceholder = false,
+                        title = t.name,
+                        description = null,
+                        value = permMap[serverId to t.name] ?: t.factoryDefaultMode,
+                        options = MODE_ORDER.map { DropdownOption(it, it.toolModeLabel()) },
+                        onValueChange = { newMode ->
                             scope.launch { WeAgentRepository.setToolMode(serverId, t.name, newMode) }
-                        }
-                    }
+                        },
+                    )
                 }
             }
         }
     }
-}
 
-private val MCP_MODE_ORDER = listOf(
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.ENABLED,
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.MANUAL_APPROVAL,
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.SMART_APPROVAL,
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.DISABLED,
-)
-
-@Composable
-private fun dev.ujhhgtg.wekit.agent.tool.ToolMode.mcpLabel(): String = stringResource(
-    when (this) {
-        dev.ujhhgtg.wekit.agent.tool.ToolMode.ENABLED -> R.string.agent_tool_mode_enabled
-        dev.ujhhgtg.wekit.agent.tool.ToolMode.MANUAL_APPROVAL -> R.string.agent_tool_mode_manual_approval
-        dev.ujhhgtg.wekit.agent.tool.ToolMode.SMART_APPROVAL -> R.string.agent_tool_mode_smart_approval
-        dev.ujhhgtg.wekit.agent.tool.ToolMode.DISABLED -> R.string.agent_tool_mode_disabled
-    }
-)
-
-@Composable
-private fun mcpStateLabel(state: dev.ujhhgtg.wekit.agent.mcp.McpConnectionState): String = stringResource(
-    when (state) {
-        dev.ujhhgtg.wekit.agent.mcp.McpConnectionState.DISCONNECTED -> R.string.agent_mcp_state_disconnected
-        dev.ujhhgtg.wekit.agent.mcp.McpConnectionState.CONNECTING -> R.string.agent_mcp_state_connecting
-        dev.ujhhgtg.wekit.agent.mcp.McpConnectionState.CONNECTED -> R.string.agent_mcp_state_connected
-        dev.ujhhgtg.wekit.agent.mcp.McpConnectionState.FAILED -> R.string.agent_mcp_state_failed
-    }
-)
-
-@Composable
-private fun McpToolModeDropdown(name: String, mode: dev.ujhhgtg.wekit.agent.tool.ToolMode, onChange: (dev.ujhhgtg.wekit.agent.tool.ToolMode) -> Unit) {
-    AgentDropdownRow(
-        title = name,
-        items = MCP_MODE_ORDER.map { it.mcpLabel() },
-        selectedIndex = MCP_MODE_ORDER.indexOf(mode).coerceAtLeast(0),
-        onSelectedIndexChange = { onChange(MCP_MODE_ORDER[it]) },
+    AgentConfirmDialog(
+        show = showDeleteConfirm,
+        title = stringResource(R.string.agent_delete_server),
+        message = stringResource(R.string.agent_delete_server_confirm),
+        confirmLabel = stringResource(R.string.action_delete),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            showDeleteConfirm = false
+            scope.launch {
+                try {
+                    WeAgentRepository.deleteMcpProvider(serverId)
+                    onBack()
+                } catch (e: Exception) {
+                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                }
+            }
+        },
+        onDismiss = { showDeleteConfirm = false },
     )
 }
+
+/** Mirrors [SegmentedColumn]'s section title styling for sections whose rows are laid out lazily. */
+@Composable
+private fun McpSectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 32.dp, top = 8.dp, bottom = 16.dp),
+    )
+}
+
+private fun currentAgentLocalizedContext(base: Context): Context =
+    LocalizedContextFactory.create(
+        base,
+        WeKitLocaleController.resolvedLocale,
+        LocaleResourceMode.InjectedHost,
+    )
+
+@Composable
+private fun mcpStateLabel(state: McpConnectionState): String = stringResource(
+    when (state) {
+        McpConnectionState.DISCONNECTED -> R.string.agent_mcp_state_disconnected
+        McpConnectionState.CONNECTING -> R.string.agent_mcp_state_connecting
+        McpConnectionState.CONNECTED -> R.string.agent_mcp_state_connected
+        McpConnectionState.FAILED -> R.string.agent_mcp_state_failed
+    }
+)
 
 @Composable
 private fun AddMcpDialog(
@@ -240,8 +291,7 @@ private fun AddMcpDialog(
     var name by remember(show.value) { mutableStateOf("") }
     var url by remember(show.value) { mutableStateOf("") }
     var headers by remember(show.value) { mutableStateOf("") }
-    var transportIndex by remember(show.value) { mutableIntStateOf(0) }
-    val transports = listOf(McpTransport.STREAMABLE_HTTP, McpTransport.SSE)
+    var transport by remember(show.value) { mutableStateOf(McpTransport.STREAMABLE_HTTP) }
 
     WeKitBasicDialog(show = show.value, title = stringResource(R.string.agent_add_mcp_server), onDismissRequest = { show.value = false }) {
         Column {
@@ -261,11 +311,17 @@ private fun AddMcpDialog(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
-            AgentDropdownRow(
+            DropDownMenuWidget(
+                icon = null,
+                iconPlaceholder = false,
                 title = stringResource(R.string.agent_transport),
-                items = listOf("Streamable HTTP", "SSE"),
-                selectedIndex = transportIndex,
-                onSelectedIndexChange = { transportIndex = it },
+                description = null,
+                value = transport,
+                options = listOf(
+                    DropdownOption(McpTransport.STREAMABLE_HTTP, "Streamable HTTP"),
+                    DropdownOption(McpTransport.SSE, "SSE"),
+                ),
+                onValueChange = { transport = it },
             )
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
@@ -280,7 +336,7 @@ private fun AddMcpDialog(
                 TextButton(onClick = { show.value = false }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    onClick = { onConfirm(name, transports[transportIndex], url, headers); show.value = false },
+                    onClick = { onConfirm(name, transport, url, headers); show.value = false },
                     enabled = url.isNotBlank(),
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.action_add)) }
