@@ -62,6 +62,12 @@ object DetectDeletedFriends : ClickableFeature() {
     override val noSwitchWidget = true
 
     private const val TAG = "DetectDeletedFriends"
+    private const val SUGGESTED_LABEL_CHOICE_KEY = "suggested_label"
+
+    private sealed class LabelChoice {
+        data class Suggested(val labelName: String) : LabelChoice()
+        data class Existing(val label: WeContactLabelApi.ContactLabel) : LabelChoice()
+    }
 
     private sealed class DialogPhase {
         data object Idle : DialogPhase()
@@ -365,12 +371,23 @@ object DetectDeletedFriends : ClickableFeature() {
                                     LinearWavyProgressIndicator()
                                 } else {
                                     LazyColumn {
-                                        val choices = listOf(selectPhase.suggestedLabelName to true) +
-                                            labels.map { it.labelName to false }
+                                        val choices = listOf(
+                                            LabelChoice.Suggested(selectPhase.suggestedLabelName),
+                                        ) + labels.map { LabelChoice.Existing(it) }
                                         lazySegmentedItems(
                                             choices,
-                                            key = { (labelName, suggested) -> "$suggested:$labelName" },
-                                        ) { (labelName, suggested) ->
+                                            key = { choice ->
+                                                when (choice) {
+                                                    is LabelChoice.Suggested -> SUGGESTED_LABEL_CHOICE_KEY
+                                                    is LabelChoice.Existing -> choice.label.labelId
+                                                }
+                                            },
+                                        ) { choice ->
+                                            val suggested = choice is LabelChoice.Suggested
+                                            val labelName = when (choice) {
+                                                is LabelChoice.Suggested -> choice.labelName
+                                                is LabelChoice.Existing -> choice.label.labelName
+                                            }
                                             BaseWidget(
                                                 icon = MaterialSymbols.Outlined.Add.takeIf { suggested },
                                                 title = labelName,

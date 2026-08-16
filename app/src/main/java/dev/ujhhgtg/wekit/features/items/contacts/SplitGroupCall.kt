@@ -14,6 +14,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -403,9 +404,15 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                                 ToggleButton(
                                     checked = mode == option,
                                     onCheckedChange = { mode = option },
-                                    shapes = when (index) {
-                                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                        availableModes.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                    shapes = when {
+                                        availableModes.size == 1 ->
+                                            ButtonGroupDefaults.connectedLeadingButtonShapes(
+                                                shape = ToggleButtonDefaults.shape,
+                                                pressedShape = ToggleButtonDefaults.pressedShape,
+                                            )
+                                        index == 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                        index == availableModes.lastIndex ->
+                                            ButtonGroupDefaults.connectedTrailingButtonShapes()
                                         else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                                     },
                                     modifier = UiModifier
