@@ -797,7 +797,6 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
     private fun showCreateGroupDialog(context: Context, onGroupCreated: () -> Unit) {
         showComposeDialog(context) {
             GroupEditorDialog(
-                context = context,
                 titleRes = R.string.conversation_group_create_title,
                 group = null,
                 onDismiss = onDismiss,
@@ -819,7 +818,6 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
     ) {
         showComposeDialog(context) {
             GroupEditorDialog(
-                context = context,
                 titleRes = R.string.conversation_group_edit_title,
                 group = group,
                 onDismiss = onDismiss,
@@ -864,7 +862,6 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
 
     @Composable
     private fun GroupEditorDialog(
-        context: Context,
         @StringRes titleRes: Int,
         group: ChatGroup?,
         onDismiss: () -> Unit,
@@ -978,6 +975,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                     when (type) {
                         GroupType.MANUAL -> {
                             Text(stringResource(R.string.conversation_group_selected_count, matchedCount))
+                            val context = LocalContext.current
                             Button(
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = {
