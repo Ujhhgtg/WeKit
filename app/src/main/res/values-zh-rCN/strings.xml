@@ -1083,7 +1083,6 @@
     <string name="nav_tab_me">我</string>
     <string name="nav_page_management">页面管理</string>
     <string name="nav_page_management_summary">开关页面及调整顺序，下次启动微信生效</string>
-    <string name="nav_requires_restart">重启微信后生效</string>
     <string name="nav_page_animation">启用页面切换动画</string>
     <string name="nav_page_animation_summary">点击标签时滑动切换页面，而非直接跳转</string>
     <string name="nav_use_floating_bar">使用悬浮底栏</string>

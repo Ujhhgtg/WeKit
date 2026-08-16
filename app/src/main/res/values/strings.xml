@@ -1116,7 +1116,6 @@
     <string name="nav_tab_me">Me</string>
     <string name="nav_page_management">Page management</string>
     <string name="nav_page_management_summary">Change page visibility and order. Takes effect next time WeChat starts.</string>
-    <string name="nav_requires_restart">Takes effect after WeChat restarts</string>
     <string name="nav_page_animation">Enable page transition animation</string>
     <string name="nav_page_animation_summary">Animate between pages when tapping a tab instead of jumping directly</string>
     <string name="nav_use_floating_bar">Use floating bottom bar</string>

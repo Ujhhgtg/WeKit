@@ -1076,7 +1076,6 @@
     <string name="nav_tab_me">我</string>
     <string name="nav_page_management">頁面管理</string>
     <string name="nav_page_management_summary">開關頁面及調整順序，下次啓動微信生效</string>
-    <string name="nav_requires_restart">重新啟動 WeChat 後生效</string>
     <string name="nav_page_animation">啓用頁面切換動畫</string>
     <string name="nav_page_animation_summary">點擊標籤時滑動切換頁面，而非直接跳轉</string>
     <string name="nav_use_floating_bar">使用懸浮底欄</string>

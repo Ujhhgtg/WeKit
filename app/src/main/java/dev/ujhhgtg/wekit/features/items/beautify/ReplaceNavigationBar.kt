@@ -33,14 +33,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -58,14 +56,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Contacts
 import com.composables.icons.materialsymbols.outlined.Chevron_right
+import com.composables.icons.materialsymbols.outlined.Contacts
 import com.composables.icons.materialsymbols.outlined.Drag_handle
 import com.composables.icons.materialsymbols.outlined.Explore
 import com.composables.icons.materialsymbols.outlined.Home
@@ -78,9 +76,9 @@ import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -99,13 +97,13 @@ import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.rememberViewBackdrop
-import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Feature(
@@ -782,7 +780,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     title = stringResource(R.string.nav_page_animation),
                                     description = stringResource(R.string.nav_page_animation_summary),
                                     checked = animatePageChangeInput,
-                                    onCheckedChange = { animatePageChangeInput = it },
+                                    onCheckedChange = {
+                                        animatePageChangeInput = it
+                                        animatePageChange = it
+                                    },
                                 )
                             }
                             item {
@@ -790,7 +791,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     iconPlaceholder = false,
                                     title = stringResource(R.string.nav_use_floating_bar),
                                     checked = useFloatingInput,
-                                    onCheckedChange = { useFloatingInput = it },
+                                    onCheckedChange = {
+                                        useFloatingInput = it
+                                        useFloating = it
+                                    },
                                 )
                             }
                             expandableItem(
@@ -801,7 +805,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         title = stringResource(R.string.nav_use_liquid_glass),
                                         description = stringResource(R.string.nav_requires_floating_bar),
                                         checked = useBackdropInput,
-                                        onCheckedChange = { useBackdropInput = it },
+                                        onCheckedChange = {
+                                            useBackdropInput = it
+                                            useBackdrop = it
+                                        },
                                     )
                                 },
                                 bottomContent = {
@@ -814,7 +821,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             endInt = MAX_BLUR_RADIUS,
                                             stepSize = 1,
                                             valueSuffix = "px",
-                                            onValueChange = { blurRadiusInput = it.toFloat() },
+                                            onValueChange = {
+                                                blurRadiusInput = it.toFloat()
+                                                blurRadius = it
+                                            },
                                         )
                                     }
                                 },
@@ -825,7 +835,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     title = stringResource(R.string.nav_hide_labels),
                                     description = stringResource(R.string.nav_requires_floating_bar),
                                     checked = hideLabelsInput,
-                                    onCheckedChange = { hideLabelsInput = it },
+                                    onCheckedChange = {
+                                        hideLabelsInput = it
+                                        hideLabels = it
+                                    },
                                 )
                             }
                             item {
@@ -837,7 +850,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         endInt = MAX_BAR_SCALE,
                                         stepSize = BAR_SCALE_STEP,
                                         valueSuffix = "%",
-                                        onValueChange = { barScaleInput = it.toFloat() },
+                                        onValueChange = {
+                                            barScaleInput = it.toFloat()
+                                            barScalePercent = it
+                                        },
                                     )
                                 }
                             }
@@ -847,31 +863,16 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     title = stringResource(R.string.nav_show_discover_badge),
                                     description = stringResource(R.string.nav_discover_badge_summary),
                                     checked = showFinderBadgeInput,
-                                    onCheckedChange = { showFinderBadgeInput = it },
-                                )
-                            }
-                            item {
-                                BaseWidget(
-                                    iconPlaceholder = false,
-                                    title = stringResource(R.string.nav_requires_restart),
+                                    onCheckedChange = {
+                                        showFinderBadgeInput = it
+                                        showFinderBadge = it
+                                    },
                                 )
                             }
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
-                confirmButton = {
-                    Button(onClick = {
-                        useFloating = useFloatingInput
-                        useBackdrop = useBackdropInput
-                        animatePageChange = animatePageChangeInput
-                        hideLabels = hideLabelsInput
-                        showFinderBadge = showFinderBadgeInput
-                        blurRadius = blurRadiusInput.roundToInt()
-                        barScalePercent = barScaleInput.roundToInt()
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }
