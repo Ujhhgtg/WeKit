@@ -431,7 +431,6 @@
     <string name="licenses_unknown_author">Unknown author</string>
     <string name="licenses_version">Version %1$s</string>
     <string name="licenses_license_names">Licenses: %1$s</string>
-    <string name="accessibility_configurable">Configurable</string>
     <string name="nuke_features_heading" translatable="false">FEATURES</string>
 
     <!-- Feature categories -->

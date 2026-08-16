@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.pager.HorizontalPager
@@ -32,7 +30,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -61,6 +58,7 @@ import com.composables.icons.materialsymbols.outlined.Call
 import com.composables.icons.materialsymbols.outlined.Camera
 import com.composables.icons.materialsymbols.outlined.Chat
 import com.composables.icons.materialsymbols.outlined.Checklist
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Comedy_mask
 import com.composables.icons.materialsymbols.outlined.Contact_page
 import com.composables.icons.materialsymbols.outlined.Contacts
@@ -413,33 +411,41 @@ fun FeatureRow(
     }
 
     when (item) {
-        is ClickableFeature -> BaseWidget(
-            iconPlaceholder = false,
-            title = localizedName,
-            description = localizedDescription,
-            onClick = {
+        is ClickableFeature -> {
+            val openConfig: () -> Unit = {
                 runCatching { item.onClick(context) }
                     .onFailure { WeLogger.e("SettingsActivity", "onClick failed for ${item.technicalPath}", it) }
-            },
-            headlineTrailingContent = {
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    imageVector = MaterialSymbols.Outlined.Settings,
-                    contentDescription = stringResource(R.string.accessibility_configurable),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
+            }
+
+            if (item.noSwitchWidget) {
+                // Pure action row: the whole row triggers the feature's action.
+                BaseWidget(
+                    iconPlaceholder = false,
+                    title = localizedName,
+                    description = localizedDescription,
+                    onClick = openConfig,
+                    trailingContent = {
+                        Icon(
+                            imageVector = MaterialSymbols.Outlined.Chevron_right,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
                 )
-            },
-            trailingContent = { interactionSource ->
-                if (!item.noSwitchWidget) {
-                    Switch(
-                        checked = checked,
-                        onCheckedChange = { toggle(it) },
-                        interactionSource = interactionSource,
-                    )
-                }
-            },
-        )
+            } else {
+                // Dual click areas: the main area opens the feature's config, the
+                // switch past the divider toggles it (WeAgent "Memory" row pattern).
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = localizedName,
+                    description = localizedDescription,
+                    onClick = openConfig,
+                    trailingDivider = true,
+                    checked = checked,
+                    onCheckedChange = { toggle(it) },
+                )
+            }
+        }
 
         is SwitchFeature -> SwitchWidget(
             iconPlaceholder = false,

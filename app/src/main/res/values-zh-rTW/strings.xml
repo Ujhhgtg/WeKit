@@ -399,7 +399,6 @@
     <string name="licenses_unknown_author">未知作者</string>
     <string name="licenses_version">版本 %1$s</string>
     <string name="licenses_license_names">許可：%1$s</string>
-    <string name="accessibility_configurable">可配置</string>
     <string name="feature_category_chat_title">聊天</string>
     <string name="feature_category_contacts_groups_title">聯繫人與羣組</string>
     <string name="feature_category_payment_title">紅包與支付</string>

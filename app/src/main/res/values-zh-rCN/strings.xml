@@ -400,7 +400,6 @@
     <string name="licenses_unknown_author">未知作者</string>
     <string name="licenses_version">版本 %1$s</string>
     <string name="licenses_license_names">许可：%1$s</string>
-    <string name="accessibility_configurable">可配置</string>
 
     <!-- Feature categories -->
     <string name="feature_category_chat_title">聊天</string>
