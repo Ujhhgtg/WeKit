@@ -1,15 +1,18 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,7 +66,14 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
 
     AgentSettingsScaffold(title = stringResource(R.string.agent_external_services_title), onBack = onBack) {
         if (!loaded) {
-            item { EmptyHint(stringResource(R.string.common_loading)) }
+            item {
+                Box(
+                    Modifier.fillParentMaxWidth().padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(Modifier.size(28.dp))
+                }
+            }
             return@AgentSettingsScaffold
         }
 

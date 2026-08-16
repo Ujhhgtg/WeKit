@@ -99,18 +99,6 @@ fun AgentSettingsScaffold(
     }
 }
 
-/** Empty-state placeholder row for a list with no entries yet. */
-@Composable
-fun EmptyHint(text: String) {
-    Box(Modifier.padding(vertical = 24.dp)) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
 /**
  * Full-viewport empty state for an agent settings list: centered title, optional message,
  * and optional filled action button.
