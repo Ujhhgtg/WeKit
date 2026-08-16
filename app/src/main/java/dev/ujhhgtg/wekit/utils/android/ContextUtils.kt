@@ -16,6 +16,7 @@ inline val androidUserId: Int
 inline fun <reified T : Any> Context.getSystemService(): T =
     getSystemService(T::class.java)!!
 
+// kotlin doesnt support property:get tailrec, idk why
 inline val Context.baseActivity get() = _baseActivity(this)
 
 @Suppress("FunctionName")
