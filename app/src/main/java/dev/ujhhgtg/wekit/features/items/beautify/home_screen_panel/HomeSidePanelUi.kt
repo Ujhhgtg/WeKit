@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,7 +46,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
@@ -66,7 +64,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -120,6 +117,10 @@ import dev.ujhhgtg.wekit.features.api.core.TextStatus
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.LocalDateTime
@@ -1081,19 +1082,17 @@ private fun HomeSidePanelWalletSettings(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         SettingsHeader(stringResource(R.string.home_side_panel_wallet_settings), panelState::closeCardSettings)
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.home_side_panel_hide_balance_default)) },
-            supportingContent = { Text(stringResource(R.string.home_side_panel_hide_balance_summary)) },
-            trailingContent = {
-                Switch(
+        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_hide_balance_default),
+                    description = stringResource(R.string.home_side_panel_hide_balance_summary),
                     checked = hideBalance,
                     onCheckedChange = panelState::setHideWalletBalance,
                 )
-            },
-            modifier = Modifier.clickable {
-                panelState.setHideWalletBalance(!hideBalance)
-            },
-        )
+            }
+        }
         Text(
             stringResource(R.string.home_side_panel_hide_balance_details),
             style = MaterialTheme.typography.bodySmall,
@@ -1116,31 +1115,25 @@ private fun HomeSidePanelPanelSettings(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         SettingsHeader(stringResource(R.string.home_side_panel_settings), panelState::closeCardSettings)
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.home_side_panel_show_toolbar_profile)) },
-            trailingContent = {
-                Switch(
+        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_toolbar_profile),
                     checked = state.showToolbarProfile,
                     onCheckedChange = panelState::setShowToolbarProfile,
                 )
-            },
-            modifier = Modifier.clickable {
-                panelState.setShowToolbarProfile(!state.showToolbarProfile)
-            },
-        )
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.home_side_panel_hide_wechat_title)) },
-            trailingContent = {
-                Switch(
+            }
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_hide_wechat_title),
                     checked = state.hideWeChatTitle,
                     enabled = state.showToolbarProfile,
                     onCheckedChange = panelState::setHideWeChatTitle,
                 )
-            },
-            modifier = Modifier.clickable(enabled = state.showToolbarProfile) {
-                panelState.setHideWeChatTitle(!state.hideWeChatTitle)
-            },
-        )
+            }
+        }
     }
 }
 
@@ -1278,42 +1271,48 @@ private fun HomeSidePanelHitokotoSettings(
                 )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
-                value = draft.minLength?.toString().orEmpty(),
-                onValueChange = { draft = draft.copy(minLength = it.toIntOrNull()) },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                label = { Text(stringResource(R.string.home_side_panel_min_length)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
-            OutlinedTextField(
-                value = draft.maxLength?.toString().orEmpty(),
-                onValueChange = { draft = draft.copy(maxLength = it.toIntOrNull()) },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                label = { Text(stringResource(R.string.home_side_panel_max_length)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
-        }
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.home_side_panel_show_source)) },
-            trailingContent = {
-                Switch(
+        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item {
+                BaseItemContainer {
+                    IntNumberPickerWidget(
+                        title = stringResource(R.string.home_side_panel_min_length),
+                        value = draft.minLength ?: 0,
+                        startInt = 0,
+                        endInt = 500,
+                        stepSize = 1,
+                        onValueChange = { draft = draft.copy(minLength = it) },
+                    )
+                }
+            }
+            item {
+                BaseItemContainer {
+                    IntNumberPickerWidget(
+                        title = stringResource(R.string.home_side_panel_max_length),
+                        value = draft.maxLength ?: 0,
+                        startInt = 0,
+                        endInt = 500,
+                        stepSize = 1,
+                        onValueChange = { draft = draft.copy(maxLength = it) },
+                    )
+                }
+            }
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_source),
                     checked = draft.showSource,
                     onCheckedChange = { draft = draft.copy(showSource = it) },
                 )
-            },
-        )
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.home_side_panel_show_author)) },
-            trailingContent = {
-                Switch(
+            }
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_author),
                     checked = draft.showAuthor,
                     onCheckedChange = { draft = draft.copy(showAuthor = it) },
                 )
-            },
-        )
+            }
+        }
         if (state.hitokoto is HitokotoUiState.Error) {
             Text(
                 LocalContext.current.resolveBeautifyText(state.hitokoto.message),

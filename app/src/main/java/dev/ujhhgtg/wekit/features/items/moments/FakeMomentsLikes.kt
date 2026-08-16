@@ -4,19 +4,17 @@ import dev.ujhhgtg.wekit.R
 import android.content.ContentValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -35,6 +33,9 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.StarIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -90,7 +91,7 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
                 val currentSelected = fakeLikeWxIds[snsId] ?: emptySet()
 
                 showComposeDialog(moment.activity) {
-                    var countInput by remember { mutableStateOf("") }
+                    var countInput by remember { mutableIntStateOf(1) }
                     val localizedContext = LocalContext.current
 
                     AlertDialogContent(
@@ -128,21 +129,26 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    OutlinedTextField(
-                                        value = countInput,
-                                        onValueChange = { countInput = it.filter(Char::isDigit) },
-                                        label = { Text(stringResource(R.string.moments_fake_likes_random_count)) },
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    SegmentedColumn(
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(0.dp),
+                                    ) {
+                                        item {
+                                            BaseItemContainer {
+                                                IntNumberPickerWidget(
+                                                    title = stringResource(R.string.moments_fake_likes_random_count),
+                                                    value = countInput,
+                                                    startInt = 1,
+                                                    endInt = contacts.size.coerceAtLeast(1),
+                                                    stepSize = 1,
+                                                    onValueChange = { countInput = it },
+                                                )
+                                            }
+                                        }
+                                    }
                                     Spacer(Modifier.width(8.dp))
                                     Button(onClick = {
-                                        val count = countInput.toIntOrNull() ?: 0
-                                        if (count < 0) {
-                                            showToast(localizedContext.getString(R.string.moments_fake_likes_invalid_count))
-                                            return@Button
-                                        }
+                                        val count = countInput
                                         if (count == 0) {
                                             fakeLikeWxIds.remove(snsId)
                                             showToast(localizedContext.getString(R.string.moments_fake_likes_cleared))

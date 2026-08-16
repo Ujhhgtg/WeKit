@@ -11,15 +11,18 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.ui.LauncherUI
@@ -49,8 +52,9 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -562,12 +566,16 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_hide_contacts_name)) },
                 text = {
-                    DefaultColumn {
-                        var autoRejectVoipInput by remember { mutableStateOf(autoRejectVoip) }
-                        var tripleClickTitleInput by remember { mutableStateOf(tripleClickTitle) }
+                    var autoRejectVoipInput by remember { mutableStateOf(autoRejectVoip) }
+                    var tripleClickTitleInput by remember { mutableStateOf(tripleClickTitle) }
 
-                        ListItem(
-                            modifier = Modifier.clickable {
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            BaseWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.contacts_hide_configure),
+                                description = stringResource(R.string.contacts_hide_configure_description),
+                                onClick = {
                                 showComposeDialog(context) {
                                     ContactsSelector(
                                         title = context.localizedContactsString(R.string.contacts_hide_select),
@@ -586,40 +594,55 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                                         onDismiss()
                                     }
                                 }
-                            },
-                            supportingContent = { Text(stringResource(R.string.contacts_hide_configure_description)) },
-                            content = { Text(stringResource(R.string.contacts_hide_configure)) },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                autoRejectVoipInput = !autoRejectVoipInput
-                                autoRejectVoip = autoRejectVoipInput
-                            },
-                            trailingContent = {
-                                Switch(checked = autoRejectVoipInput, onCheckedChange = null)
-                            },
-                            supportingContent = { Text(stringResource(R.string.contacts_hide_auto_reject_description)) },
-                            content = { Text(stringResource(R.string.contacts_hide_auto_reject)) },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable { showSchedulesDialog(context) },
-                            supportingContent = { Text(stringResource(R.string.contacts_hide_schedule_description)) },
-                            content = { Text(stringResource(R.string.contacts_hide_schedule)) },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                tripleClickTitleInput = !tripleClickTitleInput
-                                tripleClickTitle = tripleClickTitleInput
-                            },
-                            trailingContent = {
-                                Switch(checked = tripleClickTitleInput, onCheckedChange = null)
-                            },
-                            supportingContent = { Text(stringResource(R.string.contacts_hide_triple_click_description)) },
-                            content = { Text(stringResource(R.string.contacts_hide_triple_click)) },
-                        )
+                                },
+                                trailingContent = {
+                                    Icon(
+                                        MaterialSymbols.Outlined.Chevron_right,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.contacts_hide_auto_reject),
+                                description = stringResource(R.string.contacts_hide_auto_reject_description),
+                                checked = autoRejectVoipInput,
+                                onCheckedChange = {
+                                    autoRejectVoipInput = it
+                                    autoRejectVoip = it
+                                },
+                            )
+                        }
+                        item {
+                            BaseWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.contacts_hide_schedule),
+                                description = stringResource(R.string.contacts_hide_schedule_description),
+                                onClick = { showSchedulesDialog(context) },
+                                trailingContent = {
+                                    Icon(
+                                        MaterialSymbols.Outlined.Chevron_right,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.contacts_hide_triple_click),
+                                description = stringResource(R.string.contacts_hide_triple_click_description),
+                                checked = tripleClickTitleInput,
+                                onCheckedChange = {
+                                    tripleClickTitleInput = it
+                                    tripleClickTitle = it
+                                },
+                            )
+                        }
                     }
                 })
         }

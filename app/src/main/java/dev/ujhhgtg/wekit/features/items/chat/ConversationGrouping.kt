@@ -84,6 +84,10 @@ import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
@@ -899,76 +903,72 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
             title = { Text(stringResource(titleRes)) },
             text = {
                 DefaultColumn {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(stringResource(R.string.conversation_group_name)) },
-                        placeholder = group?.takeIf { it.builtInLabel != null }?.let { builtInGroup ->
-                            { Text(groupDisplayName(builtInGroup)) }
-                        },
-                        singleLine = true
-                    )
-
-                    var typeExpanded by remember { mutableStateOf(false) }
-                    Column {
-                        Text(stringResource(R.string.conversation_group_mode), style = MaterialTheme.typography.labelSmall)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { typeExpanded = true }
-                                .padding(vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = when (type) {
-                                    GroupType.MANUAL -> stringResource(R.string.conversation_group_mode_manual)
-                                    GroupType.PRESET_UNREAD -> stringResource(R.string.conversation_group_mode_unread)
-                                    GroupType.PRESET_GROUPS -> stringResource(R.string.conversation_group_mode_groups)
-                                    GroupType.PRESET_OFFICIALS -> stringResource(R.string.conversation_group_mode_officials)
-                                    GroupType.SQL -> stringResource(R.string.conversation_group_mode_sql)
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.conversation_group_name),
+                            ) {
+                                OutlinedTextField(
+                                    value = name,
+                                    onValueChange = { name = it },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    placeholder = group?.takeIf { it.builtInLabel != null }?.let { builtInGroup ->
+                                        { Text(groupDisplayName(builtInGroup)) }
+                                    },
+                                    singleLine = true,
+                                )
+                            }
+                        }
+                        item {
+                            DropDownMenuWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.conversation_group_mode),
+                                description = null,
+                                value = type,
+                                options = GroupType.entries.map { option ->
+                                    DropdownOption(
+                                        option,
+                                        when (option) {
+                                            GroupType.MANUAL -> stringResource(R.string.conversation_group_mode_manual)
+                                            GroupType.PRESET_UNREAD -> stringResource(R.string.conversation_group_mode_unread)
+                                            GroupType.PRESET_GROUPS -> stringResource(R.string.conversation_group_mode_groups)
+                                            GroupType.PRESET_OFFICIALS -> stringResource(R.string.conversation_group_mode_officials)
+                                            GroupType.SQL -> stringResource(R.string.conversation_group_mode_sql)
+                                        },
+                                    )
                                 },
-                                style = MaterialTheme.typography.bodyLarge
+                                onValueChange = { type = it },
                             )
                         }
-                        DropdownMenu(
-                            expanded = typeExpanded,
-                            onDismissRequest = { typeExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_group_mode_manual)) },
-                                onClick = {
-                                    type = GroupType.MANUAL
-                                    typeExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_group_mode_unread)) },
-                                onClick = {
-                                    type = GroupType.PRESET_UNREAD
-                                    typeExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_group_mode_groups)) },
-                                onClick = {
-                                    type = GroupType.PRESET_GROUPS
-                                    typeExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_group_mode_officials)) },
-                                onClick = {
-                                    type = GroupType.PRESET_OFFICIALS
-                                    typeExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_group_mode_sql)) },
-                                onClick = {
-                                    type = GroupType.SQL
-                                    typeExpanded = false
-                                }
-                            )
+                        item(animatedVisibility = type == GroupType.SQL) {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.conversation_group_select_fields),
+                            ) {
+                                OutlinedTextField(
+                                    value = selectFields,
+                                    onValueChange = { selectFields = it },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    singleLine = true,
+                                )
+                            }
+                        }
+                        item(animatedVisibility = type == GroupType.SQL) {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.conversation_group_where_clause),
+                            ) {
+                                OutlinedTextField(
+                                    value = whereClause,
+                                    onValueChange = { whereClause = it },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    maxLines = 4,
+                                )
+                            }
                         }
                     }
 
@@ -1010,21 +1010,6 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                         }
 
                         GroupType.SQL -> {
-                            OutlinedTextField(
-                                value = selectFields,
-                                onValueChange = { selectFields = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text(stringResource(R.string.conversation_group_select_fields)) },
-                                singleLine = true
-                            )
-                            OutlinedTextField(
-                                value = whereClause,
-                                onValueChange = { whereClause = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text(stringResource(R.string.conversation_group_where_clause)) },
-                                singleLine = false,
-                                maxLines = 4
-                            )
                             Text(
                                 text = stringResource(R.string.conversation_group_match_count, matchedCount),
                                 style = MaterialTheme.typography.bodyMedium

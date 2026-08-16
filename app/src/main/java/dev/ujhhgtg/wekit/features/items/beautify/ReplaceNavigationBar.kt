@@ -13,7 +13,6 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
@@ -34,13 +33,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,11 +65,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Contacts
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Drag_handle
 import com.composables.icons.materialsymbols.outlined.Explore
 import com.composables.icons.materialsymbols.outlined.Home
 import com.composables.icons.materialsymbols.outlined.Person
-import com.composables.icons.materialsymbols.outlined.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Contacts
 import com.composables.icons.materialsymbols.outlinedfilled.Explore
 import com.composables.icons.materialsymbols.outlinedfilled.Home
@@ -96,6 +93,11 @@ import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarMode
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.rememberViewBackdrop
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
@@ -757,96 +759,105 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_replace_navigation_bar_name)) },
                 text = {
-                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        ListItem(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showTabManagementDialog(context) },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = MaterialSymbols.Outlined.Settings,
-                                    contentDescription = null,
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        SegmentedColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_page_management),
+                                    description = stringResource(R.string.nav_page_management_summary),
+                                    onClick = { showTabManagementDialog(context) },
+                                    trailingContent = {
+                                        Icon(
+                                            MaterialSymbols.Outlined.Chevron_right,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
                                 )
-                            },
-                            content = { Text(stringResource(R.string.nav_page_management)) },
-                            supportingContent = { Text(stringResource(R.string.nav_page_management_summary)) },
-                        )
-                        ListItem(
-                            trailingContent = {
-                                Switch(
-                                    animatePageChangeInput,
-                                    { animatePageChangeInput = it })
-                            },
-                            supportingContent = { Text(stringResource(R.string.nav_page_animation_summary)) },
-                            content = { Text(stringResource(R.string.nav_page_animation)) },
-                        )
-                        ListItem(
-                            trailingContent = {
-                                Switch(
-                                    useFloatingInput,
-                                    { useFloatingInput = it })
-                            },
-                            content = { Text(stringResource(R.string.nav_use_floating_bar)) },
-                        )
-                        ListItem(
-                            trailingContent = {
-                                Switch(
-                                    useBackdropInput,
-                                    { useBackdropInput = it })
-                            },
-                            supportingContent = { Text(stringResource(R.string.nav_requires_floating_bar)) },
-                            content = { Text(stringResource(R.string.nav_use_liquid_glass)) },
-                        )
-                        if (useBackdropInput) {
-                            ListItem(
-                                supportingContent = {
-                                    Slider(
-                                        value = blurRadiusInput,
-                                        onValueChange = { blurRadiusInput = it },
-                                        valueRange = MIN_BLUR_RADIUS.toFloat()..MAX_BLUR_RADIUS.toFloat(),
-                                        steps = MAX_BLUR_RADIUS - MIN_BLUR_RADIUS - 1
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_page_animation),
+                                    description = stringResource(R.string.nav_page_animation_summary),
+                                    checked = animatePageChangeInput,
+                                    onCheckedChange = { animatePageChangeInput = it },
+                                )
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_use_floating_bar),
+                                    checked = useFloatingInput,
+                                    onCheckedChange = { useFloatingInput = it },
+                                )
+                            }
+                            expandableItem(
+                                expanded = useBackdropInput,
+                                topContent = {
+                                    SwitchWidget(
+                                        iconPlaceholder = false,
+                                        title = stringResource(R.string.nav_use_liquid_glass),
+                                        description = stringResource(R.string.nav_requires_floating_bar),
+                                        checked = useBackdropInput,
+                                        onCheckedChange = { useBackdropInput = it },
                                     )
                                 },
-                                content = {
-                                    val r = blurRadiusInput.roundToInt()
-                                    Text(
-                                        if (r <= 0) stringResource(R.string.nav_blur_radius_off)
-                                        else stringResource(R.string.nav_blur_radius, r)
-                                    )
+                                bottomContent = {
+                                    BaseItemContainer {
+                                        val radius = blurRadiusInput.roundToInt()
+                                        IntNumberPickerWidget(
+                                            title = if (radius <= 0) stringResource(R.string.nav_blur_radius_off)
+                                                else stringResource(R.string.nav_blur_radius, radius),
+                                            value = radius,
+                                            startInt = MIN_BLUR_RADIUS,
+                                            endInt = MAX_BLUR_RADIUS,
+                                            stepSize = 1,
+                                            valueSuffix = "px",
+                                            onValueChange = { blurRadiusInput = it.toFloat() },
+                                        )
+                                    }
                                 },
                             )
-                        }
-                        ListItem(
-                            trailingContent = {
-                                Switch(
-                                    hideLabelsInput,
-                                    { hideLabelsInput = it })
-                            },
-                            supportingContent = { Text(stringResource(R.string.nav_requires_floating_bar)) },
-                            content = { Text(stringResource(R.string.nav_hide_labels)) },
-                        )
-                        ListItem(
-                            supportingContent = {
-                                Slider(
-                                    value = barScaleInput,
-                                    onValueChange = { barScaleInput = it },
-                                    valueRange = MIN_BAR_SCALE.toFloat()..MAX_BAR_SCALE.toFloat(),
-                                    steps = (MAX_BAR_SCALE - MIN_BAR_SCALE) / BAR_SCALE_STEP - 1
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_hide_labels),
+                                    description = stringResource(R.string.nav_requires_floating_bar),
+                                    checked = hideLabelsInput,
+                                    onCheckedChange = { hideLabelsInput = it },
                                 )
-                            },
-                            content = { Text(stringResource(R.string.nav_bar_scale, barScaleInput.roundToInt())) },
-                        )
-                        ListItem(
-                            modifier = Modifier,
-                            leadingContent = null,
-                            trailingContent = {
-                                Switch(
-                                    showFinderBadgeInput,
-                                    { showFinderBadgeInput = it })
-                            },
-                            supportingContent = { Text(stringResource(R.string.nav_discover_badge_summary)) },
-                            content = { Text(stringResource(R.string.nav_show_discover_badge)) },
-                        )
+                            }
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.nav_bar_scale, barScaleInput.roundToInt()),
+                                        value = barScaleInput.roundToInt(),
+                                        startInt = MIN_BAR_SCALE,
+                                        endInt = MAX_BAR_SCALE,
+                                        stepSize = BAR_SCALE_STEP,
+                                        valueSuffix = "%",
+                                        onValueChange = { barScaleInput = it.toFloat() },
+                                    )
+                                }
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_show_discover_badge),
+                                    description = stringResource(R.string.nav_discover_badge_summary),
+                                    checked = showFinderBadgeInput,
+                                    onCheckedChange = { showFinderBadgeInput = it },
+                                )
+                            }
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_requires_restart),
+                                )
+                            }
+                        }
                     }
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },

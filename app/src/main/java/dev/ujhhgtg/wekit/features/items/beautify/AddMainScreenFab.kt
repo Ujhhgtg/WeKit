@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -45,7 +46,6 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,6 +74,7 @@ import androidx.compose.ui.unit.sp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Drag_handle
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlinedfilled.Add
 import com.composables.icons.materialsymbols.outlinedfilled.Bookmark
 import com.composables.icons.materialsymbols.outlinedfilled.Camera
@@ -106,6 +107,9 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.ReorderableList
@@ -751,34 +755,26 @@ object AddMainScreenFab : ClickableFeature() {
                             FabType.RESTART_HOST to R.string.fab_default_restart_wechat,
                             FabType.FORCE_STOP to R.string.fab_default_force_stop,
                         )
-                        typeOptions.forEach { (type, labelRes) ->
-                            val label = stringResource(labelRes)
-                            val unavailable = type != FabType.START_ACTIVITY && hasType(type)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = !unavailable) {
-                                        newType = type
-                                        newBuiltInLabel = builtInLabelFor(type)
-                                    },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = newType == type,
-                                    onClick = {
-                                        newType = type
-                                        newBuiltInLabel = builtInLabelFor(type)
-                                    },
-                                    enabled = !unavailable,
-                                )
-                                Text(
-                                    text = if (unavailable) {
-                                        stringResource(R.string.fab_type_already_added, label)
-                                    } else {
-                                        label
-                                    },
-                                    color = if (unavailable) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
-                                )
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            typeOptions.forEach { (type, labelRes) ->
+                                item(key = type) {
+                                    val label = stringResource(labelRes)
+                                    val unavailable = type != FabType.START_ACTIVITY && hasType(type)
+                                    RadioButtonWidget(
+                                        iconPlaceholder = false,
+                                        title = if (unavailable) {
+                                            stringResource(R.string.fab_type_already_added, label)
+                                        } else {
+                                            label
+                                        },
+                                        selected = newType == type,
+                                        enabled = !unavailable,
+                                        onSelect = {
+                                            newType = type
+                                            newBuiltInLabel = builtInLabelFor(type)
+                                        },
+                                    )
+                                }
                             }
                         }
 
@@ -948,32 +944,23 @@ object AddMainScreenFab : ClickableFeature() {
                             }
                         }
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.medium)
-                                .clickable {
-                                    onDismiss()
-                                    enterEditMode(context, localizedContext)
-                                }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = MaterialSymbols.OutlinedFilled.Drag_pan,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(start = 12.dp)
-                            ) {
-                                Text(stringResource(R.string.fab_adjust_position), fontWeight = FontWeight.Medium)
-                                Text(
-                                    stringResource(R.string.fab_adjust_position_summary),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                BaseWidget(
+                                    icon = MaterialSymbols.OutlinedFilled.Drag_pan,
+                                    title = stringResource(R.string.fab_adjust_position),
+                                    description = stringResource(R.string.fab_adjust_position_summary),
+                                    onClick = {
+                                        onDismiss()
+                                        enterEditMode(context, localizedContext)
+                                    },
+                                    trailingContent = {
+                                        Icon(
+                                            MaterialSymbols.Outlined.Chevron_right,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
                                 )
                             }
                         }

@@ -30,8 +30,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,12 +56,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Account_box
 import com.composables.icons.materialsymbols.outlined.Add
-import com.composables.icons.materialsymbols.outlined.Arrow_drop_down
 import com.composables.icons.materialsymbols.outlined.Attach_file
 import com.composables.icons.materialsymbols.outlined.Attach_money
 import com.composables.icons.materialsymbols.outlined.Camera
 import com.composables.icons.materialsymbols.outlined.Chat
-import com.composables.icons.materialsymbols.outlined.Check
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Drag_handle
 import com.composables.icons.materialsymbols.outlined.Edit
@@ -98,6 +94,9 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
@@ -551,46 +550,23 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             var currentDisplayMode by remember {
                 mutableStateOf(ToolbarDisplayMode.fromPreference(displayModeValue))
             }
-            var displayModeMenuExpanded by remember { mutableStateOf(false) }
-
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
                 title = { Text(stringResource(R.string.feature_chat_toolbar_name)) },
                 text = {
                     DefaultColumn {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            ListItem(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { displayModeMenuExpanded = true },
-                                content = { Text(stringResource(R.string.chat_toolbar_display_style)) },
-                                supportingContent = { Text(stringResource(currentDisplayMode.labelRes)) },
-                                trailingContent = {
-                                    Icon(
-                                        MaterialSymbols.Outlined.Arrow_drop_down,
-                                        contentDescription = stringResource(R.string.chat_toolbar_select_display_style_description),
-                                    )
-                                },
-                            )
-                            DropdownMenu(
-                                expanded = displayModeMenuExpanded,
-                                onDismissRequest = { displayModeMenuExpanded = false },
-                            ) {
-                                ToolbarDisplayMode.entries.forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(mode.labelRes)) },
-                                        trailingIcon = if (mode == currentDisplayMode) ({
-                                            Icon(
-                                                MaterialSymbols.Outlined.Check,
-                                                contentDescription = null,
-                                            )
-                                        }) else null,
-                                        onClick = {
-                                            currentDisplayMode = mode
-                                            displayModeMenuExpanded = false
-                                        },
-                                    )
-                                }
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                DropDownMenuWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_toolbar_display_style),
+                                    description = null,
+                                    value = currentDisplayMode,
+                                    options = ToolbarDisplayMode.entries.map { mode ->
+                                        DropdownOption(mode, stringResource(mode.labelRes))
+                                    },
+                                    onValueChange = { currentDisplayMode = it },
+                                )
                             }
                         }
                         Column {

@@ -2,16 +2,18 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.content.ContentValues
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -22,10 +24,11 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -93,15 +96,25 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_auto_cache_images_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { useWhitelistState = !useWhitelistState },
-                            trailingContent = { Switch(checked = useWhitelistState, onCheckedChange = null) },
-                            supportingContent = { Text(stringResource(if (useWhitelistState) R.string.chat_auto_cache_images_whitelist_description else R.string.chat_auto_cache_images_blacklist_description)) },
-                            content = { Text(stringResource(if (useWhitelistState) R.string.chat_auto_cache_whitelist_selected else R.string.chat_auto_cache_blacklist_selected)) },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_whitelist_selected else R.string.chat_auto_cache_blacklist_selected),
+                                description = stringResource(if (useWhitelistState) R.string.chat_auto_cache_images_whitelist_description else R.string.chat_auto_cache_images_blacklist_description),
+                                checked = useWhitelistState,
+                                onCheckedChange = {
+                                    useWhitelistState = it
+                                    useWhitelist = it
+                                },
+                            )
+                        }
+                        item {
+                            BaseWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_configure_whitelist else R.string.chat_auto_cache_configure_blacklist),
+                                description = stringResource(R.string.chat_auto_cache_select_contacts_hint),
+                                onClick = {
                                 val contacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
                                 val currentList = if (useWhitelistState) whitelist else blacklist
 
@@ -121,19 +134,19 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                                         onDismiss()
                                     }
                                 }
-                            },
-                            supportingContent = { Text(stringResource(R.string.chat_auto_cache_select_contacts_hint)) },
-                            content = { Text(stringResource(if (useWhitelistState) R.string.chat_auto_cache_configure_whitelist else R.string.chat_auto_cache_configure_blacklist)) },
-                        )
+                                },
+                                trailingContent = {
+                                    Icon(
+                                        MaterialSymbols.Outlined.Chevron_right,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                            )
+                        }
                     }
                 },
-                confirmButton = {
-                    Button(onClick = {
-                        useWhitelist = useWhitelistState
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }
