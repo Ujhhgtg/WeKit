@@ -1,14 +1,14 @@
 package dev.ujhhgtg.wekit.features.items.contacts
 
 import androidx.activity.ComponentActivity
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
@@ -18,10 +18,13 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
+import kotlin.math.roundToInt
 import org.luckypray.dexkit.DexKitBridge
 
 @Feature(
@@ -97,33 +100,36 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var value by remember { mutableFloatStateOf(radiusFactor) }
+            var percent by remember { mutableIntStateOf((radiusFactor * 100).roundToInt()) }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_round_avatars_name)) },
                 text = {
-                    ListItem(
-                        supportingContent = {
-                            Slider(
-                                value = value,
-                                onValueChange = { value = it.coerceIn(0.1f, 0.5f) },
-                                valueRange = 0.1f..0.5f,
-                                steps = 39
-                            )
-                        },
-                        content = { Text(stringResource(R.string.contacts_round_avatar_radius, value)) },
-                    )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(
+                                        R.string.contacts_round_avatar_radius, percent / 100f
+                                    ),
+                                    value = percent,
+                                    startInt = 10,
+                                    endInt = 50,
+                                    stepSize = 1,
+                                    valueSuffix = "%",
+                                    onValueChange = {
+                                        percent = it
+                                        WePrefs.putFloat(KEY_ROUND_AVATAR, it / 100f)
+                                        notifyCustomContactAvatarChanged()
+                                    },
+                                )
+                            }
+                        }
+                    }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
-                confirmButton = {
-                    Button(onClick = {
-                        WePrefs.putFloat(KEY_ROUND_AVATAR, value.coerceIn(0.1f, 0.5f))
-                        notifyCustomContactAvatarChanged()
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                }
             )
         }
     }
