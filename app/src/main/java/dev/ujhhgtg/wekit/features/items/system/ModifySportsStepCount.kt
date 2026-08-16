@@ -2,22 +2,24 @@ package dev.ujhhgtg.wekit.features.items.system
 
 import android.content.Context
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -28,10 +30,16 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
+
+/** Which value row currently has its edit view swapped in. */
+private enum class EditField { PASSIVE, ACTIVE }
 
 @Feature(
     id = "修改运动步数",
@@ -78,107 +86,137 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var modeState by remember { mutableStateOf(passiveMode) }
-            var passiveInput by remember {
-                mutableStateOf(if (passiveValue >= 0) passiveValue.toString() else "")
-            }
-            var activeInput by remember { mutableStateOf("") }
-            val activeIsEmpty = activeInput.isEmpty()
+            var mode by remember { mutableStateOf(passiveMode) }
+            var passiveValueShown by remember { mutableLongStateOf(passiveValue) }
+            var activeValue by remember { mutableStateOf("") }
+            var editing by remember { mutableStateOf<EditField?>(null) }
+            var draft by remember { mutableStateOf("") }
 
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_modify_sports_step_count_name)) },
-                text = {
-                    DefaultColumn {
-                        // 被动模式: 固定 / 倍率
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(stringResource(R.string.system_sports_passive_mode), modifier = Modifier.weight(1f))
-                            SingleChoiceSegmentedButtonRow {
-                                PassiveMode.entries.forEachIndexed { index, mode ->
-                                    SegmentedButton(
-                                        selected = modeState == mode,
-                                        onClick = { modeState = mode },
-                                        shape = SegmentedButtonDefaults.itemShape(
-                                            index, PassiveMode.entries.size
-                                        )
-                                    ) {
-                                        Text(
-                                            stringResource(
-                                                if (mode == PassiveMode.FIXED) R.string.system_sports_fixed
-                                                else R.string.system_sports_multiplier
+            val editingField = editing
+            if (editingField == null) {
+                AlertDialogContent(
+                    title = { Text(stringResource(R.string.feature_modify_sports_step_count_name)) },
+                    text = {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item(key = "passive_mode_header") {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.system_sports_passive_mode),
+                                )
+                            }
+                            // 被动模式: 固定 / 倍率
+                            PassiveMode.entries.forEach { entry ->
+                                item(key = entry.name) {
+                                    RadioButtonWidget(
+                                        iconPlaceholder = false,
+                                        title = stringResource(
+                                            if (entry == PassiveMode.FIXED) R.string.system_sports_fixed
+                                            else R.string.system_sports_multiplier
+                                        ),
+                                        selected = mode == entry,
+                                        onClick = {
+                                            mode = entry
+                                            passiveMode = entry
+                                        },
+                                    )
+                                }
+                            }
+                            // 被动值: 空 = -1 = 不修改
+                            item(key = "passive_value") {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.system_sports_passive_value),
+                                    description = if (passiveValueShown >= 0) passiveValueShown.toString()
+                                    else stringResource(R.string.system_none),
+                                    onClick = {
+                                        draft = if (passiveValueShown >= 0) passiveValueShown.toString() else ""
+                                        editing = EditField.PASSIVE
+                                    },
+                                    trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
+                                )
+                            }
+                            // 主动值 + 立即上传 (事务性动作, 不做草稿化)
+                            item(key = "active_upload") {
+                                BaseItemContainer {
+                                    BaseWidget(
+                                        iconPlaceholder = false,
+                                        title = stringResource(R.string.system_sports_active_value),
+                                        description = activeValue.ifEmpty { stringResource(R.string.system_none) },
+                                        onClick = {
+                                            draft = activeValue
+                                            editing = EditField.ACTIVE
+                                        },
+                                        trailingContent = { Icon(MaterialSymbols.Outlined.Edit, null) },
+                                    )
+                                    Button(
+                                        enabled = activeValue.isNotEmpty(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        onClick = {
+                                            val count = activeValue.toLongOrNull() ?: run {
+                                                showToast(localizedSystemString(R.string.system_invalid_format))
+                                                return@Button
+                                            }
+                                            val sportsMan =
+                                                methodUploadSteps.method.declaringClass.createInstance()
+                                            val ok =
+                                                methodUploadSteps.method.invoke(sportsMan, count) as Boolean
+                                            val result = localizedSystemString(
+                                                if (ok) R.string.system_success else R.string.system_failure
                                             )
-                                        )
+                                            showToast(
+                                                context,
+                                                context.localizedSystemString(R.string.system_sports_upload_result, result)
+                                            )
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.system_sports_upload))
                                     }
                                 }
                             }
                         }
-
-                        // 被动值
-                        TextField(
-                            modifier = Modifier.fillMaxWidth(),
-                            value = passiveInput,
-                            onValueChange = {
-                                passiveInput = it.filter { c -> c.isDigit() }.trim()
-                            },
-                            label = { Text(stringResource(R.string.system_sports_passive_value)) }
-                        )
-
-                        // 主动值 + 立即上传
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TextField(
-                                modifier = Modifier.weight(1f),
-                                value = activeInput,
-                                onValueChange = {
-                                    activeInput = it.filter { c -> c.isDigit() }.trim()
-                                },
-                                label = { Text(stringResource(R.string.system_sports_active_value)) },
+                    },
+                    dismissButton = {
+                        TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                    },
+                )
+            } else {
+                AlertDialogContent(
+                    title = {
+                        Text(
+                            stringResource(
+                                if (editingField == EditField.PASSIVE) R.string.system_sports_passive_value
+                                else R.string.system_sports_active_value
                             )
-                            Button(
-                                enabled = !activeIsEmpty,
-                                onClick = {
-                                    val count = activeInput.toLongOrNull() ?: run {
-                                        showToast(localizedSystemString(R.string.system_invalid_format))
-                                        return@Button
-                                    }
-                                    val sportsMan =
-                                        methodUploadSteps.method.declaringClass.createInstance()
-                                    val ok =
-                                        methodUploadSteps.method.invoke(sportsMan, count) as Boolean
-                                    val result = localizedSystemString(
-                                        if (ok) R.string.system_success else R.string.system_failure
-                                    )
-                                    showToast(
-                                        context,
-                                        context.localizedSystemString(R.string.system_sports_upload_result, result)
-                                    )
+                        )
+                    },
+                    text = {
+                        OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it.filter(Char::isDigit) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            when (editingField) {
+                                EditField.PASSIVE -> {
+                                    passiveValue = draft.toLongOrNull() ?: -1L
+                                    passiveValueShown = passiveValue
                                 }
-                            ) {
-                                Text(stringResource(R.string.system_sports_upload))
+                                EditField.ACTIVE -> activeValue = draft
                             }
-                        }
-                    }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        passiveMode = modeState
-                        passiveValue = passiveInput.toLongOrNull() ?: -1L
-                        onDismiss()
-                    }) {
-                        Text(stringResource(R.string.action_save))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onDismiss) {
-                        Text(stringResource(R.string.dialog_cancel))
-                    }
-                }
-            )
+                            editing = null
+                        }) { Text(stringResource(R.string.dialog_confirm)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { editing = null }) { Text(stringResource(R.string.dialog_cancel)) }
+                    },
+                )
+            }
         }
     }
 
