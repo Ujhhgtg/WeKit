@@ -137,7 +137,7 @@ internal object ReadReceiptsTunnelRuntime {
     private var cachedCredentialMetadata: CommittedTunnelCredentialMetadata? = null
 
     @Volatile
-    private var credentialMetadataLoading = true
+    private var credentialMetadataLoadingInternal = true
 
     private var appliedCredentialRevision = 0L
     private var credentialFileRevision = 0L
@@ -1160,6 +1160,13 @@ internal object ReadReceiptsTunnelRuntime {
     fun committedCredentialMetadata(): CommittedTunnelCredentialMetadata? =
         authSnapshot?.committedMetadata
 
+    val browserMetadataRebindDecision: BrowserMetadataRebindDecision
+        get() = authSnapshot?.browserMetadataRebindDecision()
+            ?: BrowserMetadataRebindDecision.Keep
+
+    val credentialMetadataLoading: Boolean
+        get() = authSnapshot?.metadataLoading ?: true
+
     /**
      * Port of the service's `beginLogin`: replaces any live browser session, calls
      * `beginLogin` natively, then polls (`startAuthPolling`/`applyAuthPollResult`) until the
@@ -1175,8 +1182,9 @@ internal object ReadReceiptsTunnelRuntime {
         if (native == null) {
             ReadReceiptsTunnelNative.cancelLogin()
             finishBrokenBegin()
+            // planBeginNativeResult: a failed begin result maps to BROWSER_CREDENTIAL_INVALID.
             throw browserLoginException(
-                ReadReceiptsTunnelErrorCode.SERVICE_UNAVAILABLE,
+                ReadReceiptsTunnelErrorCode.BROWSER_CREDENTIAL_INVALID,
                 "browser auth operation failed",
             )
         }
@@ -1229,6 +1237,9 @@ internal object ReadReceiptsTunnelRuntime {
                     ReadReceiptsTunnelState.STARTING -> publishAuthSnapshot()
                     else -> {
                         // Preserve the login failure for the UI; a restart is required.
+                        // scheduleBrokenAuthTeardown(preserveLoginFailure = true) also cancels
+                        // the native login before clearing the native generation.
+                        ReadReceiptsTunnelNative.cancelLogin()
                         nativeAuthGeneration = 0
                         authAccountId = ""
                         authTunnels = emptyList()
@@ -1242,7 +1253,17 @@ internal object ReadReceiptsTunnelRuntime {
                 }
             }
         }
-        checkNotNull(authLoginState)
+        val finalLogin = checkNotNull(authLoginState)
+        if (finalLogin.state != ReadReceiptsTunnelState.CONNECTED) {
+            // Poll budget / overall timeout exhausted while still WAITING (STARTING): the
+            // service's startAuthPolling tail tore the session down (native cancel, transient
+            // state cleared, restartRequired = true). Match it so browserLoginRestartRequired
+            // becomes true and the UI prompts a restart. The caller still receives the STARTING
+            // state: the service's begin op had already completed with STARTING before its
+            // async teardown ran — it did not throw to the caller.
+            brokenSessionTeardown()
+        }
+        finalLogin
     }
 
     /** Port of the service's `listTunnels`/`finishList` under exclusive auth admission. */
@@ -1666,7 +1687,7 @@ internal object ReadReceiptsTunnelRuntime {
                 loginState = login,
                 accountId = authAccountId,
                 tunnels = authTunnels,
-                metadataLoading = credentialMetadataLoading,
+                metadataLoading = credentialMetadataLoadingInternal,
                 committedMetadata = cachedCredentialMetadata,
             )
         }.getOrNull() ?: return
@@ -1746,7 +1767,7 @@ internal object ReadReceiptsTunnelRuntime {
         appliedCredentialRevision = update.revision
         cachedCredentialMetadata = update.metadata
         cachedCredentialExists = update.metadata != null
-        credentialMetadataLoading = false
+        credentialMetadataLoadingInternal = false
         publishAuthSnapshot()
         listeners.forEach { it() }
     }
