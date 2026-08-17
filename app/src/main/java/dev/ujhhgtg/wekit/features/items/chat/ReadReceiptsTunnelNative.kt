@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.serialization.json.JsonArray
@@ -187,13 +188,12 @@ internal object ReadReceiptsTunnelNative {
     private val handle = AtomicLong()
     private val authHandle = AtomicLong()
 
-    init {
-        System.loadLibrary("wekit_cloudflared")
-    }
-
     @Synchronized
-    fun startQuick(origin: String, connectorAuthenticator: String): Result<Unit> = start {
-        nativeStartQuick(authenticatedOrigin(origin, connectorAuthenticator))
+    fun startQuick(origin: String, connectorAuthenticator: String): Result<Unit> {
+        ensureLoaded()
+        return start {
+            nativeStartQuick(authenticatedOrigin(origin, connectorAuthenticator))
+        }
     }
 
     @Synchronized
@@ -201,8 +201,11 @@ internal object ReadReceiptsTunnelNative {
         token: String,
         origin: String,
         connectorAuthenticator: String,
-    ): Result<Unit> = start {
-        nativeStartToken(token, authenticatedOrigin(origin, connectorAuthenticator))
+    ): Result<Unit> {
+        ensureLoaded()
+        return start {
+            nativeStartToken(token, authenticatedOrigin(origin, connectorAuthenticator))
+        }
     }
 
     private fun authenticatedOrigin(origin: String, connectorAuthenticator: String): String {
@@ -220,52 +223,64 @@ internal object ReadReceiptsTunnelNative {
 
     /** Replaces only browser authentication; the active connector remains untouched. */
     @Synchronized
-    fun beginLogin(): Result<NativeCloudflareLoginStatus> = runCatching {
-        val previous = authHandle.getAndSet(0L)
-        if (previous != 0L) {
-            check(nativeAuthCancel(previous) == 0) { "browser login replacement failed" }
+    fun beginLogin(): Result<NativeCloudflareLoginStatus> {
+        ensureLoaded()
+        return runCatching {
+            val previous = authHandle.getAndSet(0L)
+            if (previous != 0L) {
+                check(nativeAuthCancel(previous) == 0) { "browser login replacement failed" }
+            }
+            val created = nativeAuthBegin()
+            check(created != 0L) { "browser login could not be created" }
+            authHandle.set(created)
+            parseLoginStatus(
+                checkNotNull(nativeAuthStatus(created)) { "browser login status is unavailable" },
+            )
+        }.onFailure {
+            val created = authHandle.getAndSet(0L)
+            if (created != 0L) nativeAuthCancel(created)
         }
-        val created = nativeAuthBegin()
-        check(created != 0L) { "browser login could not be created" }
-        authHandle.set(created)
-        parseLoginStatus(
-            checkNotNull(nativeAuthStatus(created)) { "browser login status is unavailable" },
-        )
-    }.onFailure {
-        val created = authHandle.getAndSet(0L)
-        if (created != 0L) nativeAuthCancel(created)
     }
 
-    fun loginStatus(): Result<NativeCloudflareLoginStatus> = runCatching {
-        parseLoginStatus(
-            checkNotNull(nativeAuthStatus(requireAuthHandle())) {
-                "browser login status is unavailable"
-            },
-        )
+    fun loginStatus(): Result<NativeCloudflareLoginStatus> {
+        ensureLoaded()
+        return runCatching {
+            parseLoginStatus(
+                checkNotNull(nativeAuthStatus(requireAuthHandle())) {
+                    "browser login status is unavailable"
+                },
+            )
+        }
     }
 
     /** Intentionally unlocked: a timeout owner must cancel this blocking JNI call from another IO coroutine. */
-    fun listExistingTunnels(): Result<NativeExistingTunnelList> = runCatching {
-        parseTunnelList(
-            checkNotNull(nativeAuthList(requireAuthHandle())) {
-                "Cloudflare tunnel list is unavailable"
-            },
-        )
+    fun listExistingTunnels(): Result<NativeExistingTunnelList> {
+        ensureLoaded()
+        return runCatching {
+            parseTunnelList(
+                checkNotNull(nativeAuthList(requireAuthHandle())) {
+                    "Cloudflare tunnel list is unavailable"
+                },
+            )
+        }
     }
 
     /**
      * The run token exists only as this private service-facing return value. This remains unlocked so
      * [cancelLogin] can cancel and join an in-flight native selection from another IO coroutine.
      */
-    fun selectExistingTunnelForService(tunnelId: String, hostname: String): Result<String> =
-        runCatching {
+    fun selectExistingTunnelForService(tunnelId: String, hostname: String): Result<String> {
+        ensureLoaded()
+        return runCatching {
             checkNotNull(nativeAuthSelect(requireAuthHandle(), tunnelId, hostname)) {
                 "Cloudflare tunnel selection failed"
             }
         }
+    }
 
     @Synchronized
     fun cancelLogin(): Result<Unit> {
+        ensureLoaded()
         val owned = authHandle.getAndSet(0L)
         if (owned == 0L) return Result.success(Unit)
         return runCatching {
@@ -298,6 +313,7 @@ internal object ReadReceiptsTunnelNative {
     /** Atomically clears ownership before native stop frees the handle. */
     @Synchronized
     fun stop(): Result<Unit> {
+        ensureLoaded()
         val owned = handle.getAndSet(0L)
         if (owned == 0L) return Result.success(Unit)
         return runCatching { check(nativeStop(owned) == 0) { "tunnel stop failed" } }
@@ -305,6 +321,7 @@ internal object ReadReceiptsTunnelNative {
 
     @Synchronized
     fun status(): ReadReceiptsTunnelStatus {
+        ensureLoaded()
         val owned = handle.get()
         if (owned == 0L) return ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STOPPED)
         return runCatching {
@@ -347,6 +364,10 @@ internal object ReadReceiptsTunnelNative {
     }
 
     private const val TAG = "ReadReceiptsTunnelNative"
+
+    private fun ensureLoaded() {
+        NativeLoader.ensureCloudflaredLoaded()
+    }
 
     private external fun nativeStartQuick(origin: String): Long
 

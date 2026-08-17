@@ -74,6 +74,42 @@ object NativeLoader {
         }
     }
 
+    @Volatile
+    private var cloudflaredLoaded = false
+
+    /**
+     * Lazily loads the Go cloudflared bridge only when the built-in read-receipts
+     * backend is actually used. Keeps WeChat startup free of the heavy Go runtime.
+     */
+    @JvmStatic
+    fun ensureCloudflaredLoaded() {
+        if (cloudflaredLoaded) return
+        synchronized(nativeLoadLock) {
+            if (cloudflaredLoaded) return
+            val payload = zygiskPayload
+            if (payload == null) {
+                System.loadLibrary("wekit_cloudflared")
+            } else {
+                loadZygiskCloudflared(payload)
+            }
+            cloudflaredLoaded = true
+        }
+    }
+
+    @SuppressLint("UnsafeDynamicallyLoadedCode")
+    private fun loadZygiskCloudflared(payload: ZygiskPayload) {
+        val abi = currentProcessAbi(payload.apk)
+        val libraryDir = File(payload.dataDir, ".wekit-native-$abi")
+        if (!libraryDir.exists() && !libraryDir.mkdirs()) {
+            error("cannot create Zygisk native-library directory: $libraryDir")
+        }
+        ZipFile(payload.apk).use { archive ->
+            val entry = archive.getEntry("lib/$abi/libwekit_cloudflared.so")
+                ?: error("Zygisk payload is missing libwekit_cloudflared.so for $abi")
+            System.load(extractLibrary(archive, entry.name, libraryDir, "libwekit_cloudflared.so").absolutePath)
+        }
+    }
+
     /**
      * InMemoryDexClassLoader has no native-library directory on API 28. Match
      * FunBox's workaround: extract packaged libraries into app data, then use
