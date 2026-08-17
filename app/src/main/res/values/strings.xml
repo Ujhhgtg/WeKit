@@ -3119,6 +3119,16 @@
     <string name="payment_transfer_received">Received a transfer from “%1$s”: %2$s</string>
     <string name="payment_wallet_balance_optional">Wallet balance (leave blank to keep unchanged)</string>
     <string name="payment_wealth_balance_optional">Wealth balance (leave blank to keep unchanged)</string>
+    <string name="payment_business_balance_optional">Business account balance (leave blank to keep unchanged)</string>
+    <string name="payment_wallet_balance_title">Wallet balance</string>
+    <string name="payment_wealth_balance_title">Wealth balance</string>
+    <string name="payment_business_balance_title">Business account</string>
+    <string name="payment_wallet_balance_mode">Wallet balance mode</string>
+    <string name="payment_wealth_balance_mode">Wealth balance mode</string>
+    <string name="payment_business_balance_mode">Business balance mode</string>
+    <string name="payment_wallet_balance_mode_fixed">Show fixed amount</string>
+    <string name="payment_wallet_balance_mode_increase">Add to real balance</string>
+    <string name="payment_wallet_balance_mode_decrease">Subtract from real balance</string>
     <string name="payment_transfer_wallet_balance">Wallet (remaining %1$s)</string>
     <string name="payment_transfer_wealth_balance">Wealth (remaining %1$s)</string>
     <string name="payment_red_packet_date_today">HH:mm:ss</string>

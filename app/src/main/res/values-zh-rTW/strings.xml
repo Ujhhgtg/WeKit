@@ -3022,6 +3022,16 @@
     <string name="payment_transfer_received">收到「%1$s」的轉賬 %2$s</string>
     <string name="payment_wallet_balance_optional">零錢餘額 (留空不修改)</string>
     <string name="payment_wealth_balance_optional">零錢通餘額 (留空不修改)</string>
+    <string name="payment_business_balance_optional">經營賬戶餘額 (留空不修改)</string>
+    <string name="payment_wallet_balance_title">零錢</string>
+    <string name="payment_wealth_balance_title">零錢通</string>
+    <string name="payment_business_balance_title">經營賬戶</string>
+    <string name="payment_wallet_balance_mode">零錢餘額模式</string>
+    <string name="payment_wealth_balance_mode">零錢通餘額模式</string>
+    <string name="payment_business_balance_mode">經營賬戶餘額模式</string>
+    <string name="payment_wallet_balance_mode_fixed">固定顯示該金額</string>
+    <string name="payment_wallet_balance_mode_increase">在真實餘額上增加</string>
+    <string name="payment_wallet_balance_mode_decrease">從真實餘額中減少</string>
     <string name="payment_transfer_wallet_balance">零錢(剩餘%1$s)</string>
     <string name="payment_transfer_wealth_balance">零錢通(剩餘%1$s)</string>
     <string name="payment_red_packet_date_today">HH:mm:ss</string>
