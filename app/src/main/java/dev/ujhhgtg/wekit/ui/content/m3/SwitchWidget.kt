@@ -74,11 +74,6 @@ fun SwitchWidget(
         }
     }
 
-    val trailingClickAction = if (onClick != null || trailingDivider) {
-        { handleCheckedChange(!checked) }
-    } else {
-        null
-    }
     val separateClickAreas = onClick != null || trailingDivider
 
     BaseWidget(
@@ -91,7 +86,7 @@ fun SwitchWidget(
         title = title,
         enabled = enabled,
         isError = isError,
-        onTrailingClick = if (separateClickAreas) null else trailingClickAction,
+        onTrailingClick = null,
         trailingDivider = trailingDivider,
         onClick = leftClickAction,
         clickHaptic = null,
