@@ -311,7 +311,6 @@
     <string name="theme_mode_system">Follow system</string>
     <string name="theme_mode_light">Light mode</string>
     <string name="theme_mode_dark">Dark mode</string>
-    <string name="settings_custom_color_title">Custom colors</string>
     <string name="settings_custom_color_summary">Generate colors from a palette instead of using the default Material 3 color</string>
     <string name="settings_dynamic_wallpaper_title">Dynamic wallpaper colors</string>
     <string name="settings_dynamic_wallpaper_summary">Use the system wallpaper accent as the seed color\nRequires Android SDK 31 or later</string>
@@ -382,7 +381,6 @@
     <string name="nuke_haptics_title">Haptic feedback</string>
     <string name="nuke_haptics_summary">Provide haptic feedback when buttons and settings are tapped</string>
     <string name="nuke_section_colors">Colors</string>
-    <string name="nuke_custom_color_summary">Use the shared theme color instead of Nuke pink</string>
     <string name="nuke_dynamic_wallpaper_summary">Use the system wallpaper accent as the seed color; requires Android 12 or later</string>
     <string name="nuke_apply_to_wechat_summary">Apply the custom color scheme to WeChat itself; takes effect after restarting WeChat</string>
     <string name="nuke_section_fine_tuning">Fine tuning</string>

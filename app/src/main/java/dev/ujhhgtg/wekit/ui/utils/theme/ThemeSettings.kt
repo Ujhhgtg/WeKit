@@ -135,9 +135,6 @@ object ThemeSettings {
         WePrefs.getBoolOrDef(Preferences.THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK, true)
     )
         private set
-    var customColor by mutableStateOf(WePrefs.getBoolOrFalse(Preferences.THEME_CUSTOM_COLOR))
-        private set
-
     /** Seed the accent from the platform wallpaper accent (SDK >= 31) instead of [seedColor]. */
     var dynamicWallpaper by mutableStateOf(WePrefs.getBoolOrFalse(Preferences.THEME_DYNAMIC_WALLPAPER))
         private set
@@ -148,12 +145,12 @@ object ThemeSettings {
     var colorSpec by mutableStateOf(AppColorSpec.fromName(WePrefs.getString(Preferences.THEME_COLOR_SPEC)))
         private set
 
-    /** Custom seed color (ARGB int) used when custom color is on and wallpaper color is off. */
+    /** Seed color (ARGB int) used when wallpaper color is off. */
     var seedColor by mutableIntStateOf(WePrefs.getIntOrDef(Preferences.THEME_SEED_COLOR, DEFAULT_SEED_COLOR))
         private set
 
     /**
-     * Whether the custom color also applies to WeChat itself (injected WeKit ComposeUI + native
+     * Whether the selected color also applies to WeChat itself (injected WeKit ComposeUI + native
      * recoloring via [dev.ujhhgtg.wekit.features.items.beautify.MonetEngine]). Does NOT take effect live — requires restarting WeChat.
      */
     var applyToWechat by mutableStateOf(WePrefs.getBoolOrFalse(Preferences.THEME_APPLY_TO_WECHAT))
@@ -217,11 +214,6 @@ object ThemeSettings {
         updateNukePopupAnimation(NukePopupAnimationMode.Vanilla)
         updateNukePopupDialogHost(false)
         updateNukePopupPredictiveExit(false)
-    }
-
-    fun updateCustomColor(value: Boolean) {
-        customColor = value
-        WePrefs.putBool(Preferences.THEME_CUSTOM_COLOR, value)
     }
 
     fun updateDynamicWallpaper(value: Boolean) {

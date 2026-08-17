@@ -11,8 +11,8 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 /**
  * Theme for WeKit UI injected INTO WeChat.
  *
- * The seed is [SeedResolver.injectedSeed]: WeChat green by default, or the user's custom color when
- * they opted it into WeChat ([ThemeSettings.applyToWechat]). This is read once when the composition
+ * The seed is [SeedResolver.injectedSeed]: WeChat green by default, or the selected seed when
+ * opted into WeChat ([ThemeSettings.applyToWechat]). This is read once when the composition
  * enters — it does NOT re-theme live (the user must restart WeChat for a change to apply).
  *
  * NEVER CALL THIS INSIDE MODULE APP.
@@ -24,7 +24,7 @@ fun InjectedUiTheme(
 ) {
     WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
         val dark = darkTheme ?: isSystemInDarkTheme()
-        val applyCustom = ThemeSettings.applyToWechat && ThemeSettings.customColor
+        val applyCustom = ThemeSettings.applyToWechat
         val seed = SeedResolver.injectedSeed(HostInfo.application, dark)
 
         val materialScheme = if (!applyCustom) {

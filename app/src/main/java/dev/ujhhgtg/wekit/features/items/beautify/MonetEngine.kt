@@ -60,7 +60,7 @@ object MonetEngine : ApiFeature() {
     private val onPrimaryColor by lazy { scheme.onPrimary.toArgb() }
 
     override fun onEnable() {
-        if (!(ThemeSettings.applyToWechat && ThemeSettings.customColor)) {
+        if (!ThemeSettings.applyToWechat) {
             WeLogger.i(TAG, "apply-to-wechat off, not recoloring")
             return
         }

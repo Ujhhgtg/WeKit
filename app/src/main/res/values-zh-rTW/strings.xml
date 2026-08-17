@@ -282,7 +282,6 @@
     <string name="theme_mode_system">跟隨系統</string>
     <string name="theme_mode_light">淺色模式</string>
     <string name="theme_mode_dark">深色模式</string>
-    <string name="settings_custom_color_title">自定義顏色</string>
     <string name="settings_custom_color_summary">使用調色板樣式生成配色，而非 Material 3 默認顏色</string>
     <string name="settings_dynamic_wallpaper_title">動態壁紙取色</string>
     <string name="settings_dynamic_wallpaper_summary">使用系統壁紙的強調色作爲種子\n需系統 Android SDK &gt;= 31</string>
@@ -349,7 +348,6 @@
     <string name="nuke_haptics_title">觸覺反饋</string>
     <string name="nuke_haptics_summary">點擊按鈕和設置項時提供觸覺反饋</string>
     <string name="nuke_section_colors">顏色</string>
-    <string name="nuke_custom_color_summary">啓用後使用共享主題顏色，而非 Nuke 默認粉色</string>
     <string name="nuke_dynamic_wallpaper_summary">使用系統壁紙的強調色作爲種子，需要 Android 12 或更高版本</string>
     <string name="nuke_apply_to_wechat_summary">將自定義配色應用到微信本身，重啓微信後生效</string>
     <string name="nuke_section_fine_tuning">微調</string>

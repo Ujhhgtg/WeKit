@@ -82,7 +82,6 @@ import com.composables.icons.materialsymbols.outlined.Label
 import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.License
 import com.composables.icons.materialsymbols.outlined.Notifications
-import com.composables.icons.materialsymbols.outlined.Palette
 import com.composables.icons.materialsymbols.outlined.Rule_settings
 import com.composables.icons.materialsymbols.outlined.Search
 import com.composables.icons.materialsymbols.outlined.Shield
@@ -476,7 +475,6 @@ private fun ThemeSection() {
         AppColorSpec.SPEC_2021 to stringResource(R.string.color_spec_material_2021),
         AppColorSpec.SPEC_2025 to stringResource(R.string.color_spec_expressive_2025),
     )
-    var customColor by remember { mutableStateOf(ThemeSettings.customColor) }
     var dynamicWallpaper by remember { mutableStateOf(ThemeSettings.dynamicWallpaper) }
     var showColorPicker by remember { mutableStateOf(false) }
     SeedColorPickerDialog(show = showColorPicker, onDismiss = { showColorPicker = false })
@@ -521,19 +519,6 @@ private fun ThemeSection() {
 
         item {
             SwitchWidget(
-                title = stringResource(R.string.settings_custom_color_title),
-                description = stringResource(R.string.settings_custom_color_summary),
-                icon = MaterialSymbols.Outlined.Palette,
-                checked = customColor,
-                onCheckedChange = {
-                    customColor = it
-                    ThemeSettings.updateCustomColor(it)
-                },
-            )
-        }
-
-        item(animatedVisibility = customColor) {
-            SwitchWidget(
                 title = stringResource(R.string.settings_dynamic_wallpaper_title),
                 description = stringResource(R.string.settings_dynamic_wallpaper_summary),
                 icon = MaterialSymbols.Outlined.Wallpaper,
@@ -544,7 +529,7 @@ private fun ThemeSection() {
                 },
             )
         }
-        item(animatedVisibility = customColor && !dynamicWallpaper) {
+        item(animatedVisibility = !dynamicWallpaper) {
             BaseWidget(
                 title = stringResource(R.string.settings_seed_color_title),
                 description = stringResource(R.string.settings_seed_color_summary),
@@ -559,7 +544,7 @@ private fun ThemeSection() {
                 )
             }
         }
-        item(animatedVisibility = customColor) {
+        item {
             DropDownMenuWidget(
                 title = stringResource(R.string.settings_palette_style_title),
                 description = null,
@@ -590,7 +575,7 @@ private fun ThemeSection() {
             )
         }
         val spec2025Supported = ThemeSettings.paletteStyle.supportsSpec2025
-        item(animatedVisibility = customColor) {
+        item {
             DropDownMenuWidget(
                 title = stringResource(R.string.settings_color_spec_title),
                 description = if (!spec2025Supported) {
@@ -606,7 +591,7 @@ private fun ThemeSection() {
             )
         }
 
-        item(animatedVisibility = customColor) {
+        item {
             var applyToWechat by remember { mutableStateOf(ThemeSettings.applyToWechat) }
             SwitchWidget(
                 title = stringResource(R.string.settings_apply_to_wechat_title),
@@ -644,7 +629,7 @@ private fun SeedColorPickerDialog(show: Boolean, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_custom_color_title)) },
+        title = { Text(stringResource(R.string.settings_seed_color_title)) },
         text = {
             Column {
                 Box(

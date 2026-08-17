@@ -123,22 +123,7 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
         }
         item(key = "color") {
             NukeSettingGroup(title = stringResource(R.string.nuke_section_colors)) {
-                NukePreferenceRow(
-                    title = stringResource(R.string.settings_custom_color_title),
-                    description = stringResource(R.string.nuke_custom_color_summary),
-                    trailing = {
-                        NukeSwitch(
-                            checked = ThemeSettings.customColor,
-                            onCheckedChange = ThemeSettings::updateCustomColor,
-                        )
-                    },
-                    onClick = { ThemeSettings.updateCustomColor(!ThemeSettings.customColor) },
-                )
-                NukeAnimatedVisibility(
-                    visible = ThemeSettings.customColor,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column {
+                Column {
                         NukeDivider(startPadding = 14.dp, endPadding = 14.dp)
                         NukePreferenceRow(
                             title = stringResource(R.string.settings_dynamic_wallpaper_title),
@@ -195,7 +180,6 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                                 scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat)) }
                             },
                         )
-                    }
                 }
             }
         }

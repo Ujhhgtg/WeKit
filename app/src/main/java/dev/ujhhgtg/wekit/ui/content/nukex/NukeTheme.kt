@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 
-private const val NUKE_DEFAULT_ACCENT = 0xFFEC4899.toInt()
 
 @Immutable
 data class NukeColors(
@@ -155,10 +154,9 @@ fun NukeModuleTheme(
     NukeTheme(
         darkTheme = darkTheme,
         accent = Color(
-            SeedResolver.moduleAccent(
+            SeedResolver.customSeed(
                 context = context,
                 dark = darkTheme,
-                defaultAccent = NUKE_DEFAULT_ACCENT,
             ),
         ),
         hapticsEnabled = ThemeSettings.nukeHaptics,
