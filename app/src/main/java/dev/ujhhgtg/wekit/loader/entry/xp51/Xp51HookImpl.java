@@ -15,6 +15,8 @@ import java.util.Set;
 
 import de.robv.android.xposed.XposedBridge;
 import dev.ujhhgtg.wekit.BuildConfig;
+import dev.ujhhgtg.wekit.R;
+import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings;
 import dev.ujhhgtg.wekit.loader.abc.IClassLoaderHelper;
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge;
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService;
@@ -29,7 +31,7 @@ public class Xp51HookImpl implements IHookBridge, ILoaderService {
     @NonNull
     @Override
     public String getLoaderName() {
-        return "旧式 Xposed API " + XposedBridge.getXposedVersion();
+        return HostLocalizedStrings.get(R.string.loader_legacy_xposed_api_name, XposedBridge.getXposedVersion());
     }
 
     @NonNull

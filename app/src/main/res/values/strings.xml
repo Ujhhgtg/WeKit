@@ -245,6 +245,11 @@
     <string name="home_device_model_value" translatable="false">%1$s %2$s</string>
     <string name="home_android_version_value" translatable="false">%1$s (API %2$d)</string>
     <string name="home_loading_environment_value">Current loader: %1$s\nCurrent hook bridge: %2$s</string>
+    <string name="loader_libxposed_api_name">libxposed API %1$d</string>
+    <string name="loader_legacy_xposed_api_name">Legacy Xposed API %1$d</string>
+    <string name="loader_art_hook_name">ART hooks</string>
+    <string name="loader_zygisk_name">Zygisk loader</string>
+    <string name="loader_frida_inject_name">Frida injection loader</string>
     <string name="common_not_provided">Not provided</string>
     <string name="config_export_failed">Export failed!</string>
     <string name="config_export_success">Export successful</string>

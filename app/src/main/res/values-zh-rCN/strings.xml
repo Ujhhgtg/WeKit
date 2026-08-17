@@ -218,6 +218,10 @@
     <string name="home_android_version">Android 版本</string>
     <string name="home_loading_environment">加载环境</string>
     <string name="home_loading_environment_value">当前加载器：%1$s\n当前 Hook 桥接：%2$s</string>
+    <string name="loader_legacy_xposed_api_name">旧式 Xposed API %1$d</string>
+    <string name="loader_art_hook_name">ART 钩子</string>
+    <string name="loader_zygisk_name">Zygisk 加载器</string>
+    <string name="loader_frida_inject_name">Frida 注入加载器</string>
     <string name="common_not_provided">未提供</string>
     <string name="config_export_failed">导出失败!</string>
     <string name="config_export_success">导出成功</string>

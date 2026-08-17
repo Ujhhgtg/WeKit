@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.loader.entry.zygisk
 
 import android.util.Log
 import androidx.annotation.Keep
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
 import dev.ujhhgtg.wekit.loader.abc.IClassLoaderHelper
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 
@@ -14,7 +16,7 @@ internal class ZygiskLoaderService(
 
     override var classLoaderHelper: IClassLoaderHelper? = null
 
-    override val loaderName: String = "Zygisk 加载器"
+    override val loaderName: String get() = HostLocalizedStrings.get(R.string.loader_zygisk_name)
 
     override val entryPointName: String = "dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskEntry"
 
