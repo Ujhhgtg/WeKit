@@ -6,32 +6,31 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Icon
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Block
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.LocalSegmentedItemShape
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.showToast
 
 @Feature(
     id = "聊天输入栏增强 API",
@@ -63,12 +62,6 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
 
     fun removeProvider(provider: IActionItemsProvider) {
         providers.remove(provider.javaClass.name)
-    }
-
-    fun hasItems(context: Context, chatFooter: ChatFooter): Boolean {
-        return providers.values
-            .flatMap { it.getActionItems() }
-            .any { it.isSupported(context, chatFooter) }
     }
 
     val methodSendMessage by dexMethod {
@@ -113,27 +106,27 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
             .flatMap { it.getActionItems() }
             .filter { it.isSupported(context, chatFooter) }
 
-        if (applicableItems.isEmpty()) {
-            showToast(context, context.localizedChatString(R.string.noncompose_chat_input_no_actions))
-            return
-        }
-
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.noncompose_chat_input_actions_title)) },
                 text = {
-                    LazyColumn(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.large)
-                    ) {
-                        items(applicableItems) { item ->
-                            ActionItemRow(
-                                item = item,
-                                context = context,
-                                chatFooter = chatFooter,
-                                onDismiss = { onDismiss() }
-                            )
+                    LazyColumn(Modifier.fillMaxWidth()) {
+                        if (applicableItems.isEmpty()) {
+                            item(key = "no_actions_placeholder") {
+                                BaseWidget(
+                                    icon = MaterialSymbols.Outlined.Block,
+                                    title = stringResource(R.string.noncompose_chat_input_no_actions)
+                                )
+                            }
+                        } else {
+                            lazySegmentedItems(applicableItems, key = { it.id }) { item ->
+                                ActionItemRow(
+                                    item = item,
+                                    context = context,
+                                    chatFooter = chatFooter,
+                                    onDismiss = { onDismiss() }
+                                )
+                            }
                         }
                     }
                 },
@@ -150,30 +143,34 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
         chatFooter: ChatFooter,
         onDismiss: () -> Unit
     ) {
-        ListItem(
-            modifier = Modifier.combinedClickable(
-                onClick = {
-                    onDismiss()
-                    try {
-                        item.onClick(context, chatFooter)
-                    } catch (ex: Throwable) {
-                        WeLogger.e(TAG, "exception occurred while handling click event for ${item.id}", ex)
-                    }
-                },
-                onLongClick = item.onLongClick?.let { longClick ->
-                    {
-                        try {
-                            longClick(context, chatFooter)
-                        } catch (ex: Throwable) {
-                            WeLogger.e(TAG, "exception occurred while handling long-click event for ${item.id}", ex)
-                        }
-                    }
+        val handleClick = {
+            onDismiss()
+            try {
+                item.onClick(context, chatFooter)
+            } catch (ex: Throwable) {
+                WeLogger.e(TAG, "exception occurred while handling click event for ${item.id}", ex)
+            }
+        }
+
+        val handleLongClick = item.onLongClick?.let { longClick ->
+            {
+                try {
+                    longClick(context, chatFooter)
+                } catch (ex: Throwable) {
+                    WeLogger.e(TAG, "exception occurred while handling long-click event for ${item.id}", ex)
                 }
-            ),
-            leadingContent = {
-                Icon(imageVector = item.icon, contentDescription = item.label)
-            },
-            content = { Text(item.label) },
+            }
+        }
+
+        BaseWidget(
+            modifier = handleLongClick?.let { longClick ->
+                Modifier
+                    .clip(LocalSegmentedItemShape.current)
+                    .combinedClickable(onClick = handleClick, onLongClick = longClick)
+            } ?: Modifier,
+            icon = item.icon,
+            title = item.label,
+            onClick = if (handleLongClick == null) handleClick else null
         )
     }
 }

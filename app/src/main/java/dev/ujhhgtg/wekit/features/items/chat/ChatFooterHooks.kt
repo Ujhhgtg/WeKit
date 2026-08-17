@@ -56,13 +56,8 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
 
             listOf(menuBtn, sendBtn).forEach {
                 it.setOnLongClickListener { view ->
-                    val context = view.context
-                    if (WeChatInputBarMenuApi.hasItems(context, chatFooter)) {
-                        WeChatInputBarMenuApi.showMenu(context, chatFooter)
-                        true
-                    } else {
-                        false
-                    }
+                    WeChatInputBarMenuApi.showMenu(view.context, chatFooter)
+                    true
                 }
             }
         }
