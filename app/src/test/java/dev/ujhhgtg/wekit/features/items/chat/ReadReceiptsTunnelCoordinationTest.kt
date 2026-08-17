@@ -1178,4 +1178,63 @@ class ReadReceiptsTunnelCoordinationTest {
         assertFalse(handoff.fail(100))
         assertEquals(102L, handoff.pendingGeneration())
     }
+
+    @Test
+    fun `select commit and timeout claims are mutually exclusive`() {
+        val committed = SelectCommitGate()
+        assertTrue(committed.tryCommit())
+        assertFalse(committed.tryTerminal())
+
+        val timedOut = SelectCommitGate()
+        assertTrue(timedOut.tryTerminal())
+        assertFalse(timedOut.tryCommit())
+    }
+
+    @Test
+    fun `auth snapshot bounds reject excessive counts or dynamic UTF8 text`() {
+        val login = waitingLoginState()
+        assertTrue(AuthSnapshotBounds.isValid(login, "account_1", tunnels(100, 0), null))
+        assertFalse(AuthSnapshotBounds.isValid(login, "account_1", tunnels(101, 0), null))
+        assertTrue(AuthSnapshotBounds.isValid(login, "account_1", tunnels(6, 512), null))
+        assertFalse(AuthSnapshotBounds.isValid(login, "account_1", tunnels(6, 513), null))
+        assertFalse(
+            AuthSnapshotBounds.isValid(
+                login,
+                "account_1",
+                tunnels(100, 512, longHostnames = true),
+                null,
+            ),
+        )
+    }
+
+    private fun waitingLoginState() = CloudflareLoginState(
+        authorizationUrl =
+            "https://dash.cloudflare.com/argotunnel?callback=" +
+                "https%3A%2F%2Flogin.cloudflareaccess.org%2F" + "a".repeat(43) + "%3D",
+        state = ReadReceiptsTunnelState.STARTING,
+        error = null,
+    )
+
+    private fun tunnels(
+        tunnelCount: Int,
+        totalHostnames: Int,
+        longHostnames: Boolean = false,
+    ): List<ExistingTunnel> {
+        var hostnameIndex = 0
+        return List(tunnelCount) { tunnelIndex ->
+            val count = minOf(100, totalHostnames - hostnameIndex).coerceAtLeast(0)
+            ExistingTunnel.create(
+                id = "550e8400-e29b-41d4-a716-${tunnelIndex.toString().padStart(12, '0')}",
+                name = "tunnel-$tunnelIndex",
+                hostnames = List(count) {
+                    val index = hostnameIndex++
+                    if (longHostnames) longHostname(index) else "host-$index.example.com"
+                },
+            )!!
+        }
+    }
+
+    private fun longHostname(index: Int): String =
+        "h${index.toString().padStart(3, '0')}${"a".repeat(59)}." +
+            "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(61)
 }
