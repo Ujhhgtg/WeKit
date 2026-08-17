@@ -1406,6 +1406,10 @@ internal object ReadReceiptsTunnelRuntime {
         } catch (cancelled: CancellationException) {
             finishCancelledSelect(commitGate)
             throw cancelled
+        } catch (error: BrowserLoginException) {
+            Result.failure(error)
+        } catch (error: ReadReceiptsTunnelException) {
+            Result.failure(error)
         } finally {
             endAuthWatchdog(watchdog)
         }
