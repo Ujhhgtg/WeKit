@@ -36,6 +36,15 @@ enum class AppThemeMode(val displayName: String) {
     }
 }
 
+enum class PageTransitionAnimation {
+    AOSP,
+    MIUIX;
+
+    companion object {
+        fun fromName(value: String?) = entries.find { it.name == value } ?: AOSP
+    }
+}
+
 enum class SettingsUiEngine(val displayName: String) {
     MATERIAL3("Material 3"),
     NUKE("Nuke");
@@ -108,6 +117,18 @@ object ThemeSettings {
         private set
     var themeMode by mutableStateOf(AppThemeMode.fromName(WePrefs.getString(Preferences.THEME_MODE)))
         private set
+    var predictiveBackEnabled by mutableStateOf(
+        WePrefs.getBoolOrFalse(Preferences.THEME_PREDICTIVE_BACK_ENABLED)
+    )
+        private set
+    /** Installing the platform flags is a process-start operation. */
+    val appliedPredictiveBackEnabled = predictiveBackEnabled
+    var pageTransitionAnimation by mutableStateOf(
+        PageTransitionAnimation.fromName(
+            WePrefs.getString(Preferences.THEME_PAGE_TRANSITION_ANIMATION)
+        )
+    )
+        private set
     /** Haptic feedback for the Nuke component engine; ignored by Material 3. */
     var nukeHaptics by mutableStateOf(
         WePrefs.getBoolOrDef(Preferences.THEME_NUKE_HAPTICS, true)
@@ -168,6 +189,16 @@ object ThemeSettings {
     fun updateThemeMode(value: AppThemeMode) {
         themeMode = value
         WePrefs.putString(Preferences.THEME_MODE, value.name)
+    }
+
+    fun updatePredictiveBackEnabled(value: Boolean) {
+        predictiveBackEnabled = value
+        WePrefs.putBool(Preferences.THEME_PREDICTIVE_BACK_ENABLED, value)
+    }
+
+    fun updatePageTransitionAnimation(value: PageTransitionAnimation) {
+        pageTransitionAnimation = value
+        WePrefs.putString(Preferences.THEME_PAGE_TRANSITION_ANIMATION, value.name)
     }
 
     fun updateNukeHaptics(value: Boolean) {
@@ -243,4 +274,5 @@ object ThemeSettings {
 
     /** Default seed accent (WeChat green 0xFF07C160). */
     const val DEFAULT_SEED_COLOR: Int = 0xFF07C160.toInt()
+
 }

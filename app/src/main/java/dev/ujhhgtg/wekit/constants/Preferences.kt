@@ -14,6 +14,8 @@ object Preferences {
     // Settings UI theming
     const val THEME_MODE = "settings_theme_mode"
     const val THEME_UI_ENGINE = "settings_theme_ui_engine"
+    const val THEME_PREDICTIVE_BACK_ENABLED = "settings_theme_predictive_back_enabled"
+    const val THEME_PAGE_TRANSITION_ANIMATION = "settings_theme_page_transition_animation"
     const val THEME_NUKE_HAPTICS = "settings_theme_nuke_haptics"
     const val THEME_NUKE_POPUP_ANIMATION = "settings_theme_nuke_popup_animation"
     const val THEME_NUKE_POPUP_DIALOG_HOST = "settings_theme_nuke_popup_dialog_host"

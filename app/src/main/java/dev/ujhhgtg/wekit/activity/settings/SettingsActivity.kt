@@ -99,6 +99,7 @@ import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
+import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -108,7 +109,6 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavKey
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
-import top.yukonga.miuix.kmp.nav.transition.NavTransitions
 
 val LocalComponentActivity = staticCompositionLocalOf<ComponentActivity> { error("not provided") }
 
@@ -221,7 +221,7 @@ private fun SettingsRoot(onFinish: () -> Unit) {
             onBack = {
                 if (navigator.backStackSize() <= 1) onFinish() else navigator.pop()
             },
-            transition = NavTransitions.MiuixDefault,
+            transition = weKitNavTransition(ThemeSettings.pageTransitionAnimation),
             effects = rememberM3NavEffects(),
         ) {
             entry<SettingsRoute.Main> {

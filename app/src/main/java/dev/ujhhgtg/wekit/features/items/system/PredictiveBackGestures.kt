@@ -5,28 +5,22 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.os.Build
-import androidx.activity.ComponentActivity
-import androidx.compose.material3.Text
-import androidx.compose.ui.res.stringResource
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.features.core.ClickableFeature
+import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 // https://github.com/Ujhhgtg/PandorasBox
 @Feature(
     id = "预见性返回动画",
     nameRes = "feature_predictive_back_gestures_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    categoryIds = [FeatureCategoryIds.API],
     descriptionRes = "feature_predictive_back_gestures_description",
 )
-object PredictiveBackGestures : ClickableFeature() {
+object PredictiveBackGestures : ApiFeature() {
 
     private const val PRIVATE_FLAG_ENABLE_ON_BACK_INVOKED_CALLBACK = 1 shl 2
     private const val PRIVATE_FLAG_DISABLE_ON_BACK_INVOKED_CALLBACK = 1 shl 3
@@ -35,6 +29,10 @@ object PredictiveBackGestures : ClickableFeature() {
     private const val TAG = "PredictiveBackGestures"
 
     override fun onEnable() {
+        if (!ThemeSettings.appliedPredictiveBackEnabled) {
+            WeLogger.i(TAG, "predictive back animation is off")
+            return
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             WeLogger.w(TAG, "sdk < 33, not enabling predictive back gestures")
             return
@@ -90,14 +88,4 @@ object PredictiveBackGestures : ClickableFeature() {
         field.set(flags)
     }
 
-    override fun onClick(context: ComponentActivity) {
-        showComposeDialog(context) {
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_predictive_back_gestures_name)) },
-                text = {
-                    Text(stringResource(R.string.system_predictive_back_unsupported))
-                },
-                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.action_close)) } })
-        }
-    }
 }

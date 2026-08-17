@@ -30,6 +30,7 @@ import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderTools
 import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
 import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
+import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import kotlinx.serialization.Serializable
@@ -37,7 +38,6 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavKey
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
-import top.yukonga.miuix.kmp.nav.transition.NavTransitions
 
 /**
  * Dedicated WeAgent configuration Activity (§8). Deliberately separate from the floating overlay:
@@ -113,7 +113,7 @@ private fun WeAgentSettingsRoot(onFinish: () -> Unit) {
             onBack = {
                 if (navigator.backStackSize() <= 1) onFinish() else navigator.pop()
             },
-            transition = NavTransitions.MiuixDefault,
+            transition = weKitNavTransition(ThemeSettings.pageTransitionAnimation),
             effects = rememberM3NavEffects(),
         ) {
             entry<AgentSettingsRoute.Home> {

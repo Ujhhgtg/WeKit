@@ -86,6 +86,7 @@ import com.composables.icons.materialsymbols.outlined.Rule_settings
 import com.composables.icons.materialsymbols.outlined.Search
 import com.composables.icons.materialsymbols.outlined.Shield
 import com.composables.icons.materialsymbols.outlined.Style
+import com.composables.icons.materialsymbols.outlined.Swipe
 import com.composables.icons.materialsymbols.outlined.Sync
 import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Upload
@@ -126,6 +127,7 @@ import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.theme.AppColorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.AppPaletteStyle
 import dev.ujhhgtg.wekit.ui.utils.theme.AppThemeMode
+import dev.ujhhgtg.wekit.ui.utils.theme.PageTransitionAnimation
 import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.AppUpdater
@@ -475,6 +477,10 @@ private fun ThemeSection() {
         AppColorSpec.SPEC_2021 to stringResource(R.string.color_spec_material_2021),
         AppColorSpec.SPEC_2025 to stringResource(R.string.color_spec_expressive_2025),
     )
+    val pageTransitionLabels = mapOf(
+        PageTransitionAnimation.AOSP to stringResource(R.string.settings_page_transition_animation_aosp),
+        PageTransitionAnimation.MIUIX to stringResource(R.string.settings_page_transition_animation_miuix),
+    )
     var dynamicWallpaper by remember { mutableStateOf(ThemeSettings.dynamicWallpaper) }
     var showColorPicker by remember { mutableStateOf(false) }
     SeedColorPickerDialog(show = showColorPicker, onDismiss = { showColorPicker = false })
@@ -514,6 +520,34 @@ private fun ThemeSection() {
                 },
                 onValueChange = ThemeSettings::updateThemeMode,
                 icon = MaterialSymbols.Outlined.Brightness_medium,
+            )
+        }
+
+        item {
+            SwitchWidget(
+                title = stringResource(R.string.settings_predictive_back_animation_title),
+                description = stringResource(R.string.settings_predictive_back_animation_summary),
+                checked = ThemeSettings.predictiveBackEnabled,
+                onCheckedChange = { enabled ->
+                    ThemeSettings.updatePredictiveBackEnabled(enabled)
+                    CoroutineScope(Dispatchers.Main).launch {
+                        showToastSuspend(context.getString(R.string.restart_wechat_to_apply))
+                    }
+                },
+                icon = MaterialSymbols.Outlined.Swipe,
+            )
+        }
+
+        item {
+            DropDownMenuWidget(
+                title = stringResource(R.string.settings_page_transition_animation_title),
+                description = null,
+                value = ThemeSettings.pageTransitionAnimation,
+                options = PageTransitionAnimation.entries.map {
+                    DropdownOption(it, pageTransitionLabels.getValue(it))
+                },
+                onValueChange = ThemeSettings::updatePageTransitionAnimation,
+                icon = MaterialSymbols.Outlined.Style,
             )
         }
 
@@ -602,7 +636,7 @@ private fun ThemeSection() {
                     applyToWechat = it
                     ThemeSettings.updateApplyToWechat(it)
                     CoroutineScope(Dispatchers.Main).launch {
-                        showToastSuspend(context.getString(R.string.restart_wechat))
+                        showToastSuspend(context.getString(R.string.restart_wechat_to_apply))
                     }
                 },
             )

@@ -93,6 +93,7 @@
     <string name="clipboard_copied">Copied</string>
     <string name="clipboard_label_link">Link</string>
     <string name="restart_wechat">Restart WeChat</string>
+    <string name="restart_wechat_to_apply">Takes effect after restarting WeChat</string>
     <string name="dex_cache_status_resolving">Resolving…</string>
     <string name="dex_cache_status_completed">Completed: %1$s</string>
     <string name="dex_cache_status_failed">Failed: %1$s</string>
@@ -3522,4 +3523,10 @@
     <string name="agent_empty_skills_message">Skills are task playbooks the LLM loads on demand.</string>
     <string name="agent_empty_triggers_title">No triggers yet</string>
     <string name="agent_empty_triggers_message">Triggers automatically invoke the AI on a schedule, when a new message arrives, or when a database operation is detected.</string>
+    <string name="settings_predictive_back_animation_title">Predictive back animation</string>
+    <string name="settings_predictive_back_animation_summary">Enable system predictive back for module pages</string>
+    <string name="settings_predictive_back_animation_nuke_summary">Enable system predictive back for module pages; Nuke keeps its own page transition</string>
+    <string name="settings_page_transition_animation_title">Page transition animation</string>
+    <string name="settings_page_transition_animation_aosp">AOSP</string>
+    <string name="settings_page_transition_animation_miuix">Miuix</string>
 </resources>

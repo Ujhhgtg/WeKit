@@ -80,6 +80,11 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
         NukePopupAnimationMode.ExitAlignedToEnter to stringResource(R.string.nuke_popup_animation_exit_to_enter),
         NukePopupAnimationMode.EnterAlignedToExit to stringResource(R.string.nuke_popup_animation_enter_to_exit),
     )
+    fun updatePredictiveBackEnabled(value: Boolean) {
+        if (value == ThemeSettings.predictiveBackEnabled) return
+        ThemeSettings.updatePredictiveBackEnabled(value)
+        scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat_to_apply)) }
+    }
 
     NukePageScaffold(title = stringResource(R.string.nuke_appearance_title), onBack = onBack) {
         item(key = "ui_engine") {
@@ -103,6 +108,23 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                     selected = ThemeSettings.themeMode,
                     optionLabel = { themeLabels.getValue(it) },
                     onSelected = ThemeSettings::updateThemeMode,
+                )
+            }
+        }
+        item(key = "predictive_back") {
+            NukeSettingGroup(title = stringResource(R.string.nuke_section_interaction)) {
+                NukePreferenceRow(
+                    title = stringResource(R.string.settings_predictive_back_animation_title),
+                    description = stringResource(R.string.settings_predictive_back_animation_nuke_summary),
+                    trailing = {
+                        NukeSwitch(
+                            checked = ThemeSettings.predictiveBackEnabled,
+                            onCheckedChange = ::updatePredictiveBackEnabled,
+                        )
+                    },
+                    onClick = {
+                        updatePredictiveBackEnabled(!ThemeSettings.predictiveBackEnabled)
+                    },
                 )
             }
         }
@@ -171,13 +193,13 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                                     checked = ThemeSettings.applyToWechat,
                                     onCheckedChange = { value ->
                                         ThemeSettings.updateApplyToWechat(value)
-                                        scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat)) }
+                                        scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat_to_apply)) }
                                     },
                                 )
                             },
                             onClick = {
                                 ThemeSettings.updateApplyToWechat(!ThemeSettings.applyToWechat)
-                                scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat)) }
+                                scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat_to_apply)) }
                             },
                         )
                 }

@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.ui.utils.rememberDeviceCornerRadius
+import dev.ujhhgtg.wekit.ui.utils.theme.PageTransitionAnimation
+import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import top.yukonga.miuix.kmp.nav.core.NavCornerClipMode
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 
@@ -13,11 +15,12 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 fun rememberM3NavEffects(): NavDisplayEffects {
     val cornerRadius = rememberDeviceCornerRadius(defaultRadius = 32.dp)
     val backdropColor = MaterialTheme.colorScheme.surfaceContainer
-    return remember(cornerRadius, backdropColor) {
+    val roundAllCorners = ThemeSettings.pageTransitionAnimation == PageTransitionAnimation.AOSP
+    return remember(cornerRadius, backdropColor, roundAllCorners) {
         NavDisplayEffects(
             enableCornerClip = true,
             cornerClipRadius = cornerRadius,
-            cornerClipMode = NavCornerClipMode.Leading,
+            cornerClipMode = if (roundAllCorners) NavCornerClipMode.All else NavCornerClipMode.Leading,
             dimAmount = 0.5f,
             backdropColor = backdropColor,
             blockInputDuringTransition = false,

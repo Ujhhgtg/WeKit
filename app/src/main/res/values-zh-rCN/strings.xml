@@ -80,6 +80,7 @@
     <string name="clipboard_copied">已复制</string>
     <string name="clipboard_label_link">链接</string>
     <string name="restart_wechat">重启微信</string>
+    <string name="restart_wechat_to_apply">重启微信后生效</string>
     <string name="dex_cache_status_resolving">正在解析...</string>
     <string name="dex_cache_status_completed">已完成: %1$s</string>
     <string name="dex_cache_status_failed">失败: %1$s</string>
@@ -3290,4 +3291,10 @@
     <string name="agent_empty_skills_message">技能是 LLM 可按需加载的任务指南。</string>
     <string name="agent_empty_triggers_title">暂无触发器</string>
     <string name="agent_empty_triggers_message">触发器可按计划、收到新消息或检测到数据库操作时自动调用 AI。</string>
+    <string name="settings_predictive_back_animation_title">预见性返回动画</string>
+    <string name="settings_predictive_back_animation_summary">为模块页面启用系统预见性返回</string>
+    <string name="settings_predictive_back_animation_nuke_summary">为模块页面启用系统预见性返回；Nuke 保留自己的页面过渡动画</string>
+    <string name="settings_page_transition_animation_title">页面过渡动画</string>
+    <string name="settings_page_transition_animation_aosp">AOSP</string>
+    <string name="settings_page_transition_animation_miuix">Miuix</string>
 </resources>
