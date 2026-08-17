@@ -112,8 +112,8 @@
     <string name="dex_cache_cloud_no_matches">The cloud report contains no current resolver entries. You can continue with local resolution.</string>
     <string name="dex_cache_total_progress">Total progress: %1$d/%2$d</string>
     <string name="dex_cache_cloud_resolution">Cloud resolution</string>
-    <string name="dex_cache_start_local_resolution">Start local resolution</string>
-    <string name="dex_cache_continue_local_resolution">Continue local resolution</string>
+    <string name="dex_cache_start_local_resolution">Start resolution</string>
+    <string name="dex_cache_continue_local_resolution">Continue resolution</string>
     <string name="dex_cache_failure_detail">%1$d. %2$s\n   Error: %3$s\n\n</string>
     <string name="dex_cache_copy_error_information">Copy error information</string>
     <string name="dex_error_report_title">=== WeKit DEX Scan Error Report ===</string>
