@@ -334,7 +334,7 @@ private fun ReadReceiptsHomeScreen(
                 )
 
                 ReadReceiptsTunnelMode.TOKEN -> {
-                    if (ReadReceiptsTunnelService.canonicalPublicRoot(currentConfiguration.hostname) == null) {
+                    if (ReadReceiptsTunnelHostnames.canonicalPublicRoot(currentConfiguration.hostname) == null) {
                         operationState.feedback = context.getString(R.string.read_receipts_managed_tunnel_requires_hostname).errorFeedback()
                         return
                     }
@@ -1118,7 +1118,7 @@ private fun BrowserTunnelScreen(
                         onClick = {
                             val tunnel = selectedTunnel ?: run { operationState.feedback = context.getString(R.string.read_receipts_invalid_cloudflare_tunnel).errorFeedback(); return@Button }
                             val fixedPort = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: run { operationState.feedback = context.getString(R.string.read_receipts_invalid_loopback_port).errorFeedback(); return@Button }
-                            val root = ReadReceiptsTunnelService.canonicalPublicRoot(selectedHostname) ?: run { operationState.feedback = context.getString(R.string.read_receipts_invalid_public_hostname).errorFeedback(); return@Button }
+                            val root = ReadReceiptsTunnelHostnames.canonicalPublicRoot(selectedHostname) ?: run { operationState.feedback = context.getString(R.string.read_receipts_invalid_public_hostname).errorFeedback(); return@Button }
                             val value = ReadReceipts.configuration().copy(
                                 mode = ReadReceiptsServerMode.BUILT_IN,
                                 automaticPort = false,
@@ -1372,7 +1372,7 @@ private fun builtInCandidate(
         }
     }
     val canonicalHostname = if (mode == ReadReceiptsTunnelMode.QUICK) current.hostname else {
-        ReadReceiptsTunnelService.canonicalPublicRoot(hostname) ?: run {
+        ReadReceiptsTunnelHostnames.canonicalPublicRoot(hostname) ?: run {
             feedback(context.getString(R.string.read_receipts_invalid_public_hostname).errorFeedback())
             return null
         }

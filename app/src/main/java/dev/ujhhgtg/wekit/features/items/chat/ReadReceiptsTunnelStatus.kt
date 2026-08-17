@@ -137,7 +137,7 @@ data class ExistingTunnel private constructor(
             if (value.isEmpty() || value != value.trim() || value.any(Char::isWhitespace)) return null
             val withoutFinalDot = value.removeSuffix(".")
             if (withoutFinalDot.isEmpty() || withoutFinalDot.contains("//")) return null
-            return ReadReceiptsTunnelService.canonicalPublicRoot("https://$withoutFinalDot")
+            return ReadReceiptsTunnelHostnames.canonicalPublicRoot("https://$withoutFinalDot")
                 ?.removePrefix("https://")
         }
 

@@ -54,7 +54,7 @@ internal object ReadReceiptsTunnelNativeParser {
         require(selectedTunnelId.isNotEmpty() == selectedHostname.isNotEmpty())
         if (selected) {
             require(ExistingTunnel.isCanonicalId(selectedTunnelId))
-            require(ReadReceiptsTunnelService.canonicalPublicRoot(selectedHostname) == selectedHostname)
+            require(ReadReceiptsTunnelHostnames.canonicalPublicRoot(selectedHostname) == selectedHostname)
         }
         val loginState = when (state) {
             "WAITING" -> {

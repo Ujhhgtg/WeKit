@@ -273,7 +273,7 @@ internal object ReadReceiptsTunnelController {
             "invalid tunnel ID",
         )
         if (
-            ReadReceiptsTunnelService.canonicalPublicRoot(canonicalRoot) != canonicalRoot
+            ReadReceiptsTunnelHostnames.canonicalPublicRoot(canonicalRoot) != canonicalRoot
         ) {
             throw authException(
                 ReadReceiptsTunnelErrorCode.UNEXPECTED_FAILURE,
@@ -1068,7 +1068,7 @@ internal object ReadReceiptsTunnelController {
                     metadata.tunnelName.isEmpty() &&
                     (
                         metadata.canonicalHostname.isEmpty() && metadata.fixedOriginPort == 0 ||
-                            ReadReceiptsTunnelService.canonicalPublicRoot(
+                            ReadReceiptsTunnelHostnames.canonicalPublicRoot(
                                 metadata.canonicalHostname,
                             ) == metadata.canonicalHostname && metadata.fixedOriginPort in 1..65535
                     )

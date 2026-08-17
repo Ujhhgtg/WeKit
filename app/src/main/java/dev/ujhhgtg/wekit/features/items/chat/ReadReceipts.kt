@@ -987,7 +987,7 @@ object ReadReceipts : ClickableFeature(),
                 ReadReceiptsTunnelMode.BROWSER_LOGIN,
             )
         ) {
-            val canonicalHostname = ReadReceiptsTunnelService.canonicalPublicRoot(candidate.hostname)
+            val canonicalHostname = ReadReceiptsTunnelHostnames.canonicalPublicRoot(candidate.hostname)
                 ?: run {
                     owner.finishIfCurrent()
                     onFinished(

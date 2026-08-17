@@ -86,7 +86,7 @@ private fun builtInRuntimeIdentity(
         ReadReceiptsTunnelMode.QUICK -> null
         ReadReceiptsTunnelMode.TOKEN,
         ReadReceiptsTunnelMode.BROWSER_LOGIN,
-        -> ReadReceiptsTunnelService.canonicalPublicRoot(configuration.hostname)
+        -> ReadReceiptsTunnelHostnames.canonicalPublicRoot(configuration.hostname)
     }
     return BuiltInRuntimeIdentity(
         requestedPort = if (configuration.automaticPort) 0 else configuration.builtInPort,

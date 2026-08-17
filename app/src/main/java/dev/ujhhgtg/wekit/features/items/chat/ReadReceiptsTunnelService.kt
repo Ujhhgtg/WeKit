@@ -362,7 +362,7 @@ class ReadReceiptsTunnelService : Service() {
         val tunnelId = data.strictString(ReadReceiptsTunnelProtocol.KEY_TUNNEL_ID) ?: return null
         if (!ExistingTunnel.isCanonicalId(tunnelId)) return null
         val canonicalRoot = data.strictString(ReadReceiptsTunnelProtocol.KEY_HOSTNAME) ?: return null
-        if (canonicalPublicRoot(canonicalRoot) != canonicalRoot) return null
+        if (ReadReceiptsTunnelHostnames.canonicalPublicRoot(canonicalRoot) != canonicalRoot) return null
         val originPort = data.strictInt(ReadReceiptsTunnelProtocol.KEY_FIXED_ORIGIN_PORT)
             ?.takeIf { it in 1..65535 } ?: return null
         val connectorGeneration = data.strictLong(
@@ -1336,7 +1336,7 @@ class ReadReceiptsTunnelService : Service() {
             return
         }
         val publicRoot = if (mode == ReadReceiptsTunnelMode.TOKEN) {
-            normalizePublicRoot(hostname) ?: run {
+            ReadReceiptsTunnelHostnames.normalizePublicRoot(hostname) ?: run {
                 rejectStart(
                     requestedGeneration,
                     client,
@@ -1402,11 +1402,11 @@ class ReadReceiptsTunnelService : Service() {
         hostname: String,
         suppliedToken: String?,
     ) {
-        val originRoot = normalizeLoopbackRoot(origin)
-        val publicRoot = normalizePublicRoot(hostname)
+        val originRoot = ReadReceiptsTunnelHostnames.normalizeLoopbackRoot(origin)
+        val publicRoot = ReadReceiptsTunnelHostnames.normalizePublicRoot(hostname)
         if (
             suppliedToken != null || originRoot == null || publicRoot == null ||
-            canonicalPublicRoot(hostname) != hostname
+            ReadReceiptsTunnelHostnames.canonicalPublicRoot(hostname) != hostname
         ) {
             publishBrowserNeedsUserAction(
                 requestedGeneration,
@@ -1648,7 +1648,7 @@ class ReadReceiptsTunnelService : Service() {
         selectOperation: ServiceSelectCandidateOperation? = null,
     ) {
         publish(request.generation, ReadReceiptsTunnelStatus(ReadReceiptsTunnelState.STARTING))
-        val originRoot = normalizeLoopbackRoot(request.origin)
+        val originRoot = ReadReceiptsTunnelHostnames.normalizeLoopbackRoot(request.origin)
         if (originRoot == null || !checkHealth(originRoot)) {
             publishFailure(
                 request.generation,
@@ -1804,7 +1804,7 @@ class ReadReceiptsTunnelService : Service() {
                             delay(NATIVE_STATUS_POLL_MILLIS)
                             continue
                         }
-                        val candidate = request.publicRoot ?: normalizePublicRoot(native.publicUrl.orEmpty())
+                        val candidate = request.publicRoot ?: ReadReceiptsTunnelHostnames.normalizePublicRoot(native.publicUrl.orEmpty())
                         if (candidate == null) {
                             terminalErrorCode = ReadReceiptsTunnelErrorCode.HEALTH_CHECK_FAILED
                             break
@@ -2560,23 +2560,6 @@ class ReadReceiptsTunnelService : Service() {
         private val RECONNECT_DELAYS_MILLIS = longArrayOf(1_000, 2_000, 4_000, 8_000, 16_000)
 
         private const val TAG = "ReadReceiptsTunnelService"
-
-        internal fun normalizePublicRoot(value: String): HttpUrl? =
-            normalizeTunnelPublicRoot(value)
-
-        internal fun canonicalPublicRoot(value: String): String? =
-            canonicalTunnelPublicRoot(value)
-
-        internal fun normalizeLoopbackRoot(value: String): HttpUrl? {
-            val url = value.toHttpUrlOrNull() ?: return null
-            if (
-                url.scheme != "http" || url.host !in setOf("127.0.0.1", "localhost", "[::1]") ||
-                url.encodedPath != "/" || url.query != null || url.fragment != null
-            ) {
-                return null
-            }
-            return url
-        }
     }
 }
 

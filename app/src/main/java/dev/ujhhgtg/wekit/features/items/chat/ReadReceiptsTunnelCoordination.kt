@@ -509,6 +509,24 @@ internal fun normalizeTunnelPublicRoot(value: String): HttpUrl? {
 internal fun canonicalTunnelPublicRoot(value: String): String? =
     normalizeTunnelPublicRoot(value)?.toString()?.trimEnd('/')
 
+/** Canonical hostname handling shared by the runtime, controller, and settings UI. */
+internal object ReadReceiptsTunnelHostnames {
+    fun normalizePublicRoot(value: String): HttpUrl? = normalizeTunnelPublicRoot(value)
+
+    fun canonicalPublicRoot(value: String): String? = canonicalTunnelPublicRoot(value)
+
+    fun normalizeLoopbackRoot(value: String): HttpUrl? {
+        val url = value.toHttpUrlOrNull() ?: return null
+        if (
+            url.scheme != "http" || url.host !in setOf("127.0.0.1", "localhost", "[::1]") ||
+            url.encodedPath != "/" || url.query != null || url.fragment != null
+        ) {
+            return null
+        }
+        return url
+    }
+}
+
 internal enum class TunnelVerificationCommit {
     COMMITTED,
     STALE,
@@ -523,7 +541,7 @@ internal data class TunnelRuntimeIdentity(
     companion object {
         fun create(mode: ReadReceiptsTunnelMode, hostname: String): TunnelRuntimeIdentity? =
             if (mode == ReadReceiptsTunnelMode.TOKEN) {
-                ReadReceiptsTunnelService.canonicalPublicRoot(hostname)?.let {
+                ReadReceiptsTunnelHostnames.canonicalPublicRoot(hostname)?.let {
                     TunnelRuntimeIdentity(mode, it)
                 }
             } else {
@@ -2093,7 +2111,7 @@ internal class ControllerAuthSnapshot(
             metadata.tunnelName == metadata.tunnelName.trim() &&
             metadata.tunnelName.toByteArray(StandardCharsets.UTF_8).size <= 128 &&
             metadata.tunnelName.none(Char::isISOControl) &&
-            ReadReceiptsTunnelService.canonicalPublicRoot(metadata.canonicalHostname) ==
+            ReadReceiptsTunnelHostnames.canonicalPublicRoot(metadata.canonicalHostname) ==
             metadata.canonicalHostname &&
             metadata.fixedOriginPort in 1..65535
 
@@ -2317,7 +2335,7 @@ internal class TunnelCredentialPayload private constructor(
         }
 
         private fun canonicalHttpsRoot(value: String): String? =
-            ReadReceiptsTunnelService.canonicalPublicRoot(value)
+            ReadReceiptsTunnelHostnames.canonicalPublicRoot(value)
     }
 }
 
@@ -2658,7 +2676,7 @@ internal fun decideCredentialStartup(
         }
         ReadReceiptsTunnelMode.BROWSER_LOGIN -> if (
             payload.source == TunnelCredentialSource.BROWSER_LOGIN &&
-            ReadReceiptsTunnelService.canonicalPublicRoot(requestedHostname) == requestedHostname &&
+            ReadReceiptsTunnelHostnames.canonicalPublicRoot(requestedHostname) == requestedHostname &&
             requestedHostname == payload.canonicalHostname &&
             requestedOriginPort == payload.fixedOriginPort
         ) {
