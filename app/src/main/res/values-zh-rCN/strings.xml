@@ -1852,9 +1852,6 @@
     <string name="read_receipts_error_service_unavailable">WeKit 隧道服务不可用，请返回可见设置界面后重试</string>
     <string name="read_receipts_error_health_check_failed">隧道健康检查失败，请检查内置服务器、公网主机名和 ingress 配置</string>
     <string name="read_receipts_error_unexpected_failure">Cloudflare Tunnel 操作意外失败</string>
-    <string name="read_receipts_tunnel_notification_channel">已读追踪公网隧道</string>
-    <string name="read_receipts_tunnel_notification_title">WeKit 已读追踪隧道</string>
-    <string name="read_receipts_tunnel_notification_stop">停止</string>
     <string name="read_receipts_verified_public_url">已验证公网地址：%1$s</string>
     <string name="read_receipts_public_url_copied">公网地址已复制</string>
     <string name="read_receipts_share_public_url">分享公网地址</string>

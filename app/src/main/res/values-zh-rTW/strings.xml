@@ -1844,9 +1844,6 @@
     <string name="read_receipts_error_service_unavailable">WeKit 通道服務無法使用，請返回可見設定畫面後重試</string>
     <string name="read_receipts_error_health_check_failed">通道健康檢查失敗，請檢查內建伺服器、公網主機名稱和 ingress 設定</string>
     <string name="read_receipts_error_unexpected_failure">Cloudflare Tunnel 操作意外失敗</string>
-    <string name="read_receipts_tunnel_notification_channel">已讀追蹤公網通道</string>
-    <string name="read_receipts_tunnel_notification_title">WeKit 已讀追蹤通道</string>
-    <string name="read_receipts_tunnel_notification_stop">停止</string>
     <string name="read_receipts_verified_public_url">已驗證公開網路位址：%1$s</string>
     <string name="read_receipts_public_url_copied">公開網路位址已複製</string>
     <string name="read_receipts_share_public_url">分享公開網路位址</string>

@@ -45,7 +45,7 @@ import kotlin.coroutines.resume
 /**
  * WeChat-process owner of the embedded Cloudflare connector and retained run credential.
  *
- * Ported from `ReadReceiptsTunnelService` (module-process Android Service) with the standard
+ * Ported from the former module-process Android Service with the standard
  * mechanical rewrites: no foreground service/notification machinery, authoritative status kept
  * in [authoritativeState] with [publish]'s generation guard, browser-auth admission serialized by
  * [authMutex] instead of the `ServiceAuthCoordinator` wire-state machine, and no Binder/Messenger

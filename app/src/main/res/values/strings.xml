@@ -1902,9 +1902,6 @@
     <string name="read_receipts_error_service_unavailable">The WeKit tunnel service is unavailable. Return to the visible settings screen and try again.</string>
     <string name="read_receipts_error_health_check_failed">The tunnel health check failed. Check the built-in server, public hostname, and ingress configuration.</string>
     <string name="read_receipts_error_unexpected_failure">The Cloudflare Tunnel operation failed unexpectedly</string>
-    <string name="read_receipts_tunnel_notification_channel">Read-receipt public tunnel</string>
-    <string name="read_receipts_tunnel_notification_title">WeKit read-receipt tunnel</string>
-    <string name="read_receipts_tunnel_notification_stop">Stop</string>
     <string name="read_receipts_verified_public_url">Verified public URL: %1$s</string>
     <string name="read_receipts_public_url_copied">Public URL copied</string>
     <string name="read_receipts_share_public_url">Share public URL</string>
