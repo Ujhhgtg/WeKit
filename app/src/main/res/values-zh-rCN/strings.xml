@@ -99,8 +99,8 @@
     <string name="dex_cache_cloud_no_matches">云端报告中没有可用于当前版本的解析结果，可继续本地解析</string>
     <string name="dex_cache_total_progress">总进度: %1$d/%2$d</string>
     <string name="dex_cache_cloud_resolution">云端解析</string>
-    <string name="dex_cache_start_local_resolution">开始本地解析</string>
-    <string name="dex_cache_continue_local_resolution">继续本地解析</string>
+    <string name="dex_cache_start_local_resolution">开始解析</string>
+    <string name="dex_cache_continue_local_resolution">继续解析</string>
     <string name="dex_cache_failure_detail">%1$d. %2$s\n   错误: %3$s\n\n</string>
     <string name="dex_cache_copy_error_information">复制错误信息</string>
     <string name="dex_error_report_title">=== WeKit DEX 扫描错误报告 ===</string>
