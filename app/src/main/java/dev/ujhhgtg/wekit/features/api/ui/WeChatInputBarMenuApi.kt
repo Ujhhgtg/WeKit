@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.api.ui
 
 import android.content.Context
+import android.widget.Button as AndroidButton
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
+import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
@@ -25,6 +27,8 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
+import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -72,6 +76,36 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
         matcher {
             usingEqStrings("MicroMsg.ChatFooter", "send msg onClick")
         }
+    }
+
+    /**
+     * 在 ChatFooter 内定位原生发送按钮 (第 0 个子视图中文本为 "发送"/"send" 的 Button)。
+     */
+    fun findSendButton(chatFooter: ChatFooter): AndroidButton =
+        chatFooter.findViewByChildIndexes(0)!!
+            .findViewWhich { view ->
+                view.javaClass.name == "android.widget.Button" && run {
+                    val text = (view as AndroidButton).text?.toString()?.trim() ?: ""
+                    text == "发送" || text.equals("send", ignoreCase = true)
+                }
+            }!! as AndroidButton
+
+    /**
+     * 模拟用户点击原生发送按钮: 取发送按钮上的 OnClickListener
+     * (View 并不把监听器存为自身字段, 而是嵌在 View.ListenerInfo 里:
+     * `mListenerInfo.mOnClickListener`), 直接调用其 onClick(View) 处理器
+     * ([methodSendMessage]), 即用户点击发送键时实际执行的路径,
+     * 保留引用、@ 等全部原生能力。
+     */
+    fun performSend(chatFooter: ChatFooter) {
+        val sendBtn = findSendButton(chatFooter)
+        val listenerInfo = sendBtn.reflekt().firstField {
+            name = "mListenerInfo"
+            superclass()
+        }.get()!!
+        val sendListener = listenerInfo.reflekt().firstField { name = "mOnClickListener" }.get()!!
+
+        methodSendMessage.method.invoke(sendListener, sendBtn)
     }
 
     fun showMenu(context: Context, chatFooter: ChatFooter) {

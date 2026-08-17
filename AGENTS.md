@@ -189,6 +189,7 @@
   safe casts, `args.getOrNull(0)`, `?:`, `?.someFun()` or similar guards for values that should always be present/non-null/etc.
   Code that is correct does not need the defense; code that is wrong must throw loudly and get caught by either `HookUtils`' or code's own exception catcher, and these
   guards only swallow the exception and hide the real error. Defenses and guards that are reasonable should still exist.
+- The libraries `DexKit` and `reflekt` are NOT something you are familiar with. Do NOT hallucinate their API surfaces. Read their code before using them.
 
 ## Material 3 UI Standards
 

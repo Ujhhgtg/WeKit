@@ -11,6 +11,8 @@ import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Receipt_long
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
@@ -281,8 +283,19 @@ object ReadReceipts : ClickableFeature(),
 
     private const val TAG = "ReadReceipts"
 
+    /** 被动模式: 拦截所有文本发送, 一律替换为已读回执消息 */
+    internal const val MODE_PASSIVE = 0
+
+    /** 主动模式 (加号菜单): 长按发送按钮, 通过输入栏菜单主动发送 */
+    internal const val MODE_ACTIVE_MENU = 1
+
+    /** 主动模式 (触发前缀): 以触发前缀开头的文本替换为已读回执消息 */
+    internal const val MODE_ACTIVE_PREFIX = 2
+
     // ── Preferences ─────────────────────────────────────────────────────────
     private var serializedConfiguration by prefOption("read_receipts_configuration", "")
+    internal var sendMode by prefOption("read_receipts_send_mode", MODE_ACTIVE_MENU)
+    internal var triggerPrefix by prefOption("read_receipts_trigger_prefix", "#rr")
     private var lastBuiltInPort by prefOption("read_receipts_last_built_in_port", 0)
     private var lastBuiltInState by prefOption(
         "read_receipts_last_built_in_state",
@@ -386,7 +399,6 @@ object ReadReceipts : ClickableFeature(),
         return ReadReceiptsConfiguration(
             mode = mode,
             thirdPartyUrl = WePrefs.getStringOrDef("read_receipts_third_party_url", ""),
-            prefix = WePrefs.getStringOrDef("read_receipts_prefix", "#"),
             pollIntervalSecs = WePrefs.getIntOrDef("read_receipts_poll_interval", 5)
                 .takeIf { it > 0 } ?: 5,
             automaticPort = automaticPort,
@@ -1663,6 +1675,39 @@ object ReadReceipts : ClickableFeature(),
     private fun OriginRequest.isCurrent(): Boolean =
         originGeneration.get() == generation
 
+    // 主动模式 (加号菜单): 仅在模拟点击发送按钮的同步流程内置位
+    private var pendingMenuSend = false
+
+    private val provider = WeChatInputBarMenuApi.IActionItemsProvider {
+        if (sendMode != MODE_ACTIVE_MENU) return@IActionItemsProvider emptyList()
+
+        listOf(
+            WeChatInputBarMenuApi.ActionItem(
+                id = "send_read_receipt_message",
+                icon = MaterialSymbols.Outlined.Receipt_long,
+                label = localizedChatString(R.string.read_receipts_menu_label),
+                onClick = { context, chatFooter ->
+                    if (chatFooter.lastText.isEmpty()) {
+                        showToast(
+                            context,
+                            context.localizedChatString(R.string.read_receipts_input_empty),
+                        )
+                        return@ActionItem
+                    }
+
+                    // 走用户点击发送键时的原生路径, 由 methodSendMessage 的
+                    // hookBefore 拦截并替换为已读回执消息 (同步消费标记)
+                    pendingMenuSend = true
+                    try {
+                        WeChatInputBarMenuApi.performSend(chatFooter)
+                    } finally {
+                        pendingMenuSend = false
+                    }
+                }
+            )
+        )
+    }
+
     override fun onEnable() {
         loadRecords()
         featureScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -1713,8 +1758,22 @@ object ReadReceipts : ClickableFeature(),
             }.get()!! as ChatFooter
 
             val text = chatFooter.lastText
-            val configuration = configuration()
-            if (!text.startsWith(configuration.prefix)) return@hookBefore
+            if (text.isEmpty()) return@hookBefore
+            val actualText = when (sendMode) {
+                MODE_ACTIVE_PREFIX -> {
+                    if (!text.startsWith(triggerPrefix)) return@hookBefore
+                    text.removePrefix(triggerPrefix)
+                }
+
+                // 主动模式 (加号菜单): 仅放行由菜单项触发的发送流程, 其余正常发送
+                MODE_ACTIVE_MENU -> {
+                    if (!pendingMenuSend) return@hookBefore
+                    text
+                }
+
+                // 被动模式: 所有文本一律替换
+                else -> text
+            }
             result = null
 
             val (backend, endpointError) = resolveBackend()
@@ -1731,7 +1790,6 @@ object ReadReceipts : ClickableFeature(),
                 return@hookBefore
             }
 
-            val actualText = text.removePrefix(configuration.prefix)
             val selfWxId = WeApi.selfWxId
             if (
                 selfWxId.toByteArray(Charsets.UTF_8).size > MAX_WX_ID_BYTES ||
@@ -1841,11 +1899,13 @@ object ReadReceipts : ClickableFeature(),
             }
         }
 
+        WeChatInputBarMenuApi.addProvider(provider)
         WeChatMessageViewApi.addListener(this)
         WeChatMessageViewApi.addLifecycleListener(this)
     }
 
     override fun onDisable() {
+        WeChatInputBarMenuApi.removeProvider(provider)
         val configuration = configuration()
         if (
             configuration.mode == ReadReceiptsServerMode.BUILT_IN &&

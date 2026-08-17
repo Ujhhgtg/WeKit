@@ -91,7 +91,6 @@ class ReadReceiptsConfigurationTest {
         val configuration = ReadReceiptsConfiguration(
             mode = ReadReceiptsServerMode.THIRD_PARTY,
             thirdPartyUrl = "https://receipts.example",
-            prefix = "#read ",
             pollIntervalSecs = 7,
             automaticPort = true,
             builtInPort = 3000,
@@ -171,7 +170,6 @@ class ReadReceiptsConfigurationTest {
         val configuration = ReadReceiptsConfiguration(
             mode = ReadReceiptsServerMode.BUILT_IN,
             thirdPartyUrl = "https://fallback.example/base",
-            prefix = "",
             pollIntervalSecs = 11,
             automaticPort = false,
             builtInPort = 43123,

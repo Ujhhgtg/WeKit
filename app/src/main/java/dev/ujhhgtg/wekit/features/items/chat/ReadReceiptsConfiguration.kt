@@ -12,7 +12,6 @@ import kotlinx.serialization.json.put
 data class ReadReceiptsConfiguration(
     val mode: ReadReceiptsServerMode = ReadReceiptsServerMode.THIRD_PARTY,
     val thirdPartyUrl: String = "",
-    val prefix: String = "#",
     val pollIntervalSecs: Int = 5,
     val automaticPort: Boolean = true,
     val builtInPort: Int = 3000,
@@ -107,7 +106,6 @@ object ReadReceiptsConfigurationCodec {
             put("version", SCHEMA_VERSION)
             put("mode", value.mode.name)
             put("thirdPartyUrl", value.thirdPartyUrl)
-            put("prefix", value.prefix)
             put("pollIntervalSecs", value.pollIntervalSecs)
             put("automaticPort", value.automaticPort)
             put("builtInPort", value.builtInPort)
@@ -133,7 +131,6 @@ object ReadReceiptsConfigurationCodec {
                 mode = mode,
                 thirdPartyUrl = objectValue["thirdPartyUrl"]?.stringOrNull()
                     ?: error("missing third-party URL"),
-                prefix = objectValue["prefix"]?.stringOrNull() ?: error("missing prefix"),
                 pollIntervalSecs = objectValue["pollIntervalSecs"]?.strictIntOrNull()
                     ?: error("missing poll interval"),
                 automaticPort = objectValue["automaticPort"]?.strictBooleanOrNull()

@@ -293,7 +293,8 @@ private fun ReadReceiptsHomeScreen(
 ) {
     val context = LocalContext.current
     val initial = remember { ReadReceipts.configuration() }
-    var prefix by rememberSaveable { mutableStateOf(initial.prefix) }
+    var sendMode by rememberSaveable { mutableIntStateOf(ReadReceipts.sendMode) }
+    var triggerPrefix by rememberSaveable { mutableStateOf(ReadReceipts.triggerPrefix) }
     var intervalSecs by rememberSaveable { mutableIntStateOf(initial.pollIntervalSecs.coerceIn(1, 60)) }
     var automaticLifecycle by rememberSaveable { mutableStateOf(initial.automaticLifecycle) }
     val operationState = operationCoordinator.state(ReadReceiptsRoute.Home)
@@ -305,15 +306,11 @@ private fun ReadReceiptsHomeScreen(
         saveOnly(
             context,
             ReadReceipts.configuration().copy(
-                prefix = prefix,
                 pollIntervalSecs = intervalSecs,
                 automaticLifecycle = automaticLifecycle,
             ),
             operationState,
         )
-        if (prefix.isEmpty()) {
-            operationState.feedback = context.getString(R.string.chat_read_receipts_empty_prefix_warning).errorFeedback()
-        }
     }
 
     /** Radio-side mode switch: applies the committed mode change through the save-action classifier. */
@@ -460,6 +457,62 @@ private fun ReadReceiptsHomeScreen(
             }
         }
         item {
+            SegmentedColumn(title = stringResource(R.string.read_receipts_section_send_mode)) {
+                item {
+                    RadioButtonWidget(
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.read_receipts_mode_passive),
+                        description = stringResource(R.string.read_receipts_mode_passive_description),
+                        selected = sendMode == ReadReceipts.MODE_PASSIVE,
+                        trailingDivider = true,
+                        onClick = {
+                            sendMode = ReadReceipts.MODE_PASSIVE
+                            ReadReceipts.sendMode = ReadReceipts.MODE_PASSIVE
+                        },
+                    )
+                }
+                item {
+                    RadioButtonWidget(
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.read_receipts_mode_active_menu),
+                        description = stringResource(R.string.read_receipts_mode_active_menu_description),
+                        selected = sendMode == ReadReceipts.MODE_ACTIVE_MENU,
+                        trailingDivider = true,
+                        onClick = {
+                            sendMode = ReadReceipts.MODE_ACTIVE_MENU
+                            ReadReceipts.sendMode = ReadReceipts.MODE_ACTIVE_MENU
+                        },
+                    )
+                }
+                item {
+                    RadioButtonWidget(
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.read_receipts_mode_active_prefix),
+                        description = stringResource(R.string.read_receipts_mode_active_prefix_description),
+                        selected = sendMode == ReadReceipts.MODE_ACTIVE_PREFIX,
+                        trailingDivider = sendMode == ReadReceipts.MODE_ACTIVE_PREFIX,
+                        onClick = {
+                            sendMode = ReadReceipts.MODE_ACTIVE_PREFIX
+                            ReadReceipts.sendMode = ReadReceipts.MODE_ACTIVE_PREFIX
+                        },
+                    )
+                }
+                item(key = "trigger_prefix", animatedVisibility = sendMode == ReadReceipts.MODE_ACTIVE_PREFIX) {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.chat_read_receipts_prefix),
+                        value = triggerPrefix,
+                        onValueChange = {
+                            triggerPrefix = it
+                            ReadReceipts.triggerPrefix = it
+                        },
+                        dialogTitle = stringResource(R.string.chat_read_receipts_prefix),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                    )
+                }
+            }
+        }
+        item {
             SegmentedColumn(title = stringResource(R.string.settings_section_configuration)) {
                 item {
                     SwitchWidget(
@@ -469,17 +522,6 @@ private fun ReadReceiptsHomeScreen(
                         enabled = activeOperation == null,
                         checked = automaticLifecycle,
                         onCheckedChange = { automaticLifecycle = it },
-                    )
-                }
-                item {
-                    TextFieldDialogWidget(
-                        title = stringResource(R.string.chat_read_receipts_prefix),
-                        value = prefix,
-                        onValueChange = { prefix = it },
-                        dialogTitle = stringResource(R.string.chat_read_receipts_prefix),
-                        confirmLabel = stringResource(R.string.dialog_confirm),
-                        dismissLabel = stringResource(R.string.dialog_cancel),
-                        enabled = activeOperation == null,
                     )
                 }
                 item {
