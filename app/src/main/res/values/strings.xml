@@ -1891,8 +1891,6 @@
     <string name="read_receipts_database_size">Database size: %1$d bytes</string>
     <string name="read_receipts_built_in_server_error">The built-in server failed</string>
     <string name="read_receipts_tunnel_error">Tunnel error: %1$s</string>
-    <string name="read_receipts_notification_settings_failed">Could not open WeKit notification settings</string>
-    <string name="read_receipts_open_notification_settings">Open WeKit notification settings</string>
     <string name="read_receipts_error_visible_settings_required">Open Read Receipts settings and tap Connect to start the foreground tunnel</string>
     <string name="read_receipts_error_notifications_disabled">WeKit notifications are disabled. Allow notifications in system settings and try again.</string>
     <string name="read_receipts_error_token_required">Enter a Cloudflare Tunnel token</string>

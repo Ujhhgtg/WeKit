@@ -1833,8 +1833,6 @@
     <string name="read_receipts_database_size">資料庫大小：%1$d 位元組</string>
     <string name="read_receipts_built_in_server_error">內建伺服器執行失敗</string>
     <string name="read_receipts_tunnel_error">隧道錯誤：%1$s</string>
-    <string name="read_receipts_notification_settings_failed">無法開啟 WeKit 通知設定</string>
-    <string name="read_receipts_open_notification_settings">開啟 WeKit 通知設定</string>
     <string name="read_receipts_error_visible_settings_required">請開啟已讀追蹤設定並點擊「連線」，以啟動前景通道</string>
     <string name="read_receipts_error_notifications_disabled">WeKit 通知已關閉，請在系統設定中允許通知後重試</string>
     <string name="read_receipts_error_token_required">請輸入 Cloudflare Tunnel token</string>
