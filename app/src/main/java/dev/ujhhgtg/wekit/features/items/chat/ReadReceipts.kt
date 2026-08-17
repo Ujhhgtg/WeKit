@@ -327,7 +327,6 @@ object ReadReceipts : ClickableFeature(),
     private val originScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val originGeneration = AtomicLong()
     private val originLifecycleMutex = Mutex()
-    private val originRequestBoundary = OriginRequestBoundary()
     private val builtInStopCallbacks = CoalescedOriginCallbacks<Unit>()
     private val configurationTransactionOwnership = ConfigurationTransactionOwnership()
 
@@ -876,22 +875,18 @@ object ReadReceipts : ClickableFeature(),
         while (maxAttempts == null || attempts < maxAttempts) {
             currentCoroutineContext().ensureActive()
             if (!owner.isCurrent()) return OriginRequestTerminal.Superseded
-            val authoritative = withContext(Dispatchers.Main.immediate) {
-                if (!owner.isCurrent()) return@withContext OriginRequestTerminal.Superseded
-                if (attempts % BROWSER_METADATA_RECONCILE_ATTEMPTS == 0) {
-                    ReadReceiptsTunnelController.refresh()
-                }
-                if (!owner.isCurrent()) return@withContext OriginRequestTerminal.Superseded
-                val reconciled = authoritativeBrowserConfiguration(
-                    base = base,
-                    expectedTunnelId = expectedTunnelId,
-                    expectedHostname = expectedHostname,
-                    expectedPort = expectedPort,
-                    requireVerifiedEndpoint = requireVerifiedEndpoint,
-                )
-                reconciled?.let {
-                    OriginRequestTerminal.Completed(Result.success(it))
-                }
+            if (attempts % BROWSER_METADATA_RECONCILE_ATTEMPTS == 0) {
+                ReadReceiptsTunnelController.refresh()
+            }
+            if (!owner.isCurrent()) return OriginRequestTerminal.Superseded
+            val authoritative = authoritativeBrowserConfiguration(
+                base = base,
+                expectedTunnelId = expectedTunnelId,
+                expectedHostname = expectedHostname,
+                expectedPort = expectedPort,
+                requireVerifiedEndpoint = requireVerifiedEndpoint,
+            )?.let {
+                OriginRequestTerminal.Completed(Result.success(it))
             }
             if (authoritative != null) return authoritative
             attempts++
@@ -924,17 +919,15 @@ object ReadReceipts : ClickableFeature(),
                         requireVerifiedEndpoint = selection.isFailure,
                         maxAttempts = BROWSER_METADATA_RECONCILE_ATTEMPTS,
                     )
-                    withContext(Dispatchers.Main.immediate) {
-                        when {
-                            authoritative != null -> onFinished(authoritative)
-                            selection.isSuccess && owner.isCurrent() -> onCommitPending()
-                            selection.isSuccess -> onFinished(OriginRequestTerminal.Superseded)
-                            else -> complete(
-                                OriginRequestTerminal.Completed(
-                                    Result.failure(selection.exceptionOrNull()!!),
-                                ),
-                            )
-                        }
+                    when {
+                        authoritative != null -> onFinished(authoritative)
+                        selection.isSuccess && owner.isCurrent() -> onCommitPending()
+                        selection.isSuccess -> onFinished(OriginRequestTerminal.Superseded)
+                        else -> complete(
+                            OriginRequestTerminal.Completed(
+                                Result.failure(selection.exceptionOrNull()!!),
+                            ),
+                        )
                     }
                     if (
                         authoritative == null && selection.isSuccess && owner.isCurrent()
@@ -948,9 +941,7 @@ object ReadReceipts : ClickableFeature(),
                             requireVerifiedEndpoint = false,
                             maxAttempts = null,
                         )
-                        withContext(Dispatchers.Main.immediate) {
-                            onFinished(reconciled ?: OriginRequestTerminal.Superseded)
-                        }
+                        onFinished(reconciled ?: OriginRequestTerminal.Superseded)
                     }
                 }
             },
@@ -1037,26 +1028,6 @@ object ReadReceipts : ClickableFeature(),
         fun restore(error: Throwable) {
             if (!owner.isCurrent()) {
                 finishSuperseded()
-                return
-            }
-            if (
-                !previousWasActive &&
-                ReadReceiptsTunnelController.status.needsNotificationSettings
-            ) {
-                stopOrigin { stopTerminal ->
-                    when (stopTerminal) {
-                        is OriginRequestTerminal.Completed -> {
-                            if (owner.finishIfCurrent { persistConfiguration(previous) }) {
-                                onFinished(
-                                    OriginRequestTerminal.Completed(Result.failure(error)),
-                                )
-                            } else {
-                                finishSuperseded()
-                            }
-                        }
-                        OriginRequestTerminal.Superseded -> finishSuperseded()
-                    }
-                }
                 return
             }
             stopBuiltInStack { stopTerminal ->
@@ -1215,21 +1186,19 @@ object ReadReceipts : ClickableFeature(),
                                     owner,
                                     canonicalCandidate,
                                 )
-                                withContext(Dispatchers.Main.immediate) {
-                                    complete(
-                                        when (verified) {
-                                            is OriginRequestTerminal.Completed -> {
-                                                OriginRequestTerminal.Completed(
-                                                    verified.result.map { canonicalCandidate },
-                                                )
-                                            }
+                                complete(
+                                    when (verified) {
+                                        is OriginRequestTerminal.Completed -> {
+                                            OriginRequestTerminal.Completed(
+                                                verified.result.map { canonicalCandidate },
+                                            )
+                                        }
 
-                                            OriginRequestTerminal.Superseded -> {
-                                                OriginRequestTerminal.Superseded
-                                            }
-                                        },
-                                    )
-                                }
+                                        OriginRequestTerminal.Superseded -> {
+                                            OriginRequestTerminal.Superseded
+                                        }
+                                    },
+                                )
                             }
                         },
                         onFailure = { error ->
@@ -1279,12 +1248,10 @@ object ReadReceipts : ClickableFeature(),
             while (true) {
                 currentCoroutineContext().ensureActive()
                 if (!owner.isCurrent()) return@withTimeoutOrNull OriginRequestTerminal.Superseded
-                val status = withContext(Dispatchers.Main.immediate) {
-                    if (attempts % BROWSER_METADATA_RECONCILE_ATTEMPTS == 0) {
-                        ReadReceiptsTunnelController.refresh()
-                    }
-                    ReadReceiptsTunnelController.status
+                if (attempts % BROWSER_METADATA_RECONCILE_ATTEMPTS == 0) {
+                    ReadReceiptsTunnelController.refresh()
                 }
+                val status = ReadReceiptsTunnelController.status
                 if (!owner.isCurrent()) return@withTimeoutOrNull OriginRequestTerminal.Superseded
                 val verifiedEndpoint = status.publicUrl?.let(
                     ::normalizeThirdPartyReadReceiptEndpoint,
@@ -1477,21 +1444,18 @@ object ReadReceipts : ClickableFeature(),
         port: Int?,
         forceRestart: Boolean,
         desiredState: ReadReceiptsRuntimeState,
-    ): OriginRequest = originRequestBoundary.mutate {
-        OriginRequest(
-            generation = originGeneration.incrementAndGet(),
-            port = port,
-            forceRestart = forceRestart,
-        ).also {
-            lastBuiltInState = desiredState.name
-        }
+    ): OriginRequest = OriginRequest(
+        generation = originGeneration.incrementAndGet(),
+        port = port,
+        forceRestart = forceRestart,
+    ).also {
+        lastBuiltInState = desiredState.name
     }
 
     private fun submitOriginRequest(
         request: OriginRequest,
         onTerminal: ((OriginRequestTerminal<Int?>) -> Unit)? = null,
     ) {
-        val delivery = onTerminal?.let(::OriginTerminalDelivery)
         originScope.launch {
             val execution = OriginRequestExecution<Int?, ReadReceiptsStatus>(
                 isCurrent = { request.isCurrent() },
@@ -1501,32 +1465,24 @@ object ReadReceipts : ClickableFeature(),
                 reconcile = { reconcileOrigin(request) },
                 snapshot = originController::snapshot,
                 publish = { result, status ->
-                    originRequestBoundary.mutate {
-                        if (!request.isCurrent()) return@mutate false
-                        result.fold(
-                            onSuccess = { port ->
-                                lastBuiltInPort = port ?: 0
-                                lastBuiltInState = status.state.name
-                                runtimeError = null
-                            },
-                            onFailure = { error ->
-                                lastBuiltInPort = status.port ?: 0
-                                lastBuiltInState = status.state.name
-                                runtimeError = ReadReceiptRuntimeError.from(error)
-                            },
-                        )
-                        true
-                    }
+                    if (!request.isCurrent()) return@execute false
+                    result.fold(
+                        onSuccess = { port ->
+                            lastBuiltInPort = port ?: 0
+                            lastBuiltInState = status.state.name
+                            runtimeError = null
+                        },
+                        onFailure = { error ->
+                            lastBuiltInPort = status.port ?: 0
+                            lastBuiltInState = status.state.name
+                            runtimeError = ReadReceiptRuntimeError.from(error)
+                        },
+                    )
+                    true
                 },
             )
-            withContext(Dispatchers.Main.immediate) {
-                if (delivery != null) {
-                    originRequestBoundary.deliverCurrent(
-                        delivery = delivery,
-                        terminal = terminal,
-                        isCurrent = { request.isCurrent() },
-                    )
-                }
+            if (onTerminal != null) {
+                onTerminal(if (request.isCurrent()) terminal else OriginRequestTerminal.Superseded)
             }
         }
     }
@@ -1719,21 +1675,17 @@ object ReadReceipts : ClickableFeature(),
             ReadReceiptsTunnelController.refresh()
             featureScope!!.launch {
                 repeat(BROWSER_METADATA_RECONCILE_ATTEMPTS) {
-                    val reconciled = withContext(Dispatchers.Main.immediate) {
-                        reconcileActiveBrowserConfiguration()
-                    }
+                    val reconciled = reconcileActiveBrowserConfiguration()
                     if (reconciled != null) {
                         if (requestedBuiltInPort(reconciled) != requestedBuiltInPort(configuration)) {
-                            withContext(Dispatchers.Main.immediate) {
-                                startOrigin(requestedBuiltInPort(reconciled)) { terminal ->
-                                    if (
-                                        terminal is OriginRequestTerminal.Completed &&
-                                        terminal.result.isSuccess &&
-                                        ReadReceiptsTunnelController.status.state !=
-                                        ReadReceiptsTunnelState.CONNECTED
-                                    ) {
-                                        ReadReceiptsTunnelController.needsVisibleStart()
-                                    }
+                            startOrigin(requestedBuiltInPort(reconciled)) { terminal ->
+                                if (
+                                    terminal is OriginRequestTerminal.Completed &&
+                                    terminal.result.isSuccess &&
+                                    ReadReceiptsTunnelController.status.state !=
+                                    ReadReceiptsTunnelState.CONNECTED
+                                ) {
+                                    ReadReceiptsTunnelController.needsVisibleStart()
                                 }
                             }
                         }

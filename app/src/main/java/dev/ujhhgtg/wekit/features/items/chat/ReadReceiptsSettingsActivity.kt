@@ -401,23 +401,6 @@ private fun ReadReceiptsHomeScreen(
                         )
                     }
                 }
-                if (runtime.tunnel.needsNotificationSettings) {
-                    item {
-                        BaseWidget(
-                            iconPlaceholder = false,
-                            title = stringResource(R.string.read_receipts_open_notification_settings),
-                            description = stringResource(R.string.read_receipts_error_notifications_disabled),
-                            isError = true,
-                            enabled = activeOperation == null,
-                            onClick = {
-                                ReadReceiptsTunnelController.openNotificationSettings(context)
-                                    .onFailure {
-                                        operationState.feedback = context.getString(R.string.read_receipts_notification_settings_failed).errorFeedback()
-                                    }
-                            },
-                        )
-                    }
-                }
             }
         }
         item {
