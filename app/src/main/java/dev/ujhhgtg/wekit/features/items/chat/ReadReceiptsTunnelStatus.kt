@@ -21,7 +21,6 @@ enum class ReadReceiptsTunnelState {
 
 enum class ReadReceiptsTunnelErrorCode {
     VISIBLE_SETTINGS_REQUIRED,
-    NOTIFICATIONS_DISABLED,
     TOKEN_REQUIRED,
     TOKEN_INVALID,
     BROWSER_CREDENTIAL_INVALID,

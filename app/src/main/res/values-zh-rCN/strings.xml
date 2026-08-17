@@ -1842,7 +1842,6 @@
     <string name="read_receipts_built_in_server_error">内置服务器运行失败</string>
     <string name="read_receipts_tunnel_error">隧道错误：%1$s</string>
     <string name="read_receipts_error_visible_settings_required">请打开已读追踪设置并点击“连接”，以启动前台隧道</string>
-    <string name="read_receipts_error_notifications_disabled">WeKit 通知已关闭，请在系统设置中允许通知后重试</string>
     <string name="read_receipts_error_token_required">请输入 Cloudflare Tunnel token</string>
     <string name="read_receipts_error_token_invalid">保存或输入的 Tunnel token 无效，请重新输入</string>
     <string name="read_receipts_error_browser_credential_invalid">请重新完成 Cloudflare 浏览器登录并选择 Tunnel</string>

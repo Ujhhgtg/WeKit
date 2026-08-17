@@ -12,8 +12,6 @@ internal val ReadReceiptsTunnelErrorCode.messageRes: Int
     get() = when (this) {
         ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED ->
             R.string.read_receipts_error_visible_settings_required
-        ReadReceiptsTunnelErrorCode.NOTIFICATIONS_DISABLED ->
-            R.string.read_receipts_error_notifications_disabled
         ReadReceiptsTunnelErrorCode.TOKEN_REQUIRED ->
             R.string.read_receipts_error_token_required
         ReadReceiptsTunnelErrorCode.TOKEN_INVALID ->
