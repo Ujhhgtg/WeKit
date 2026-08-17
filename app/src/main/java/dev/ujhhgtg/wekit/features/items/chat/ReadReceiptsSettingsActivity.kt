@@ -464,7 +464,6 @@ private fun ReadReceiptsHomeScreen(
                         title = stringResource(R.string.read_receipts_mode_passive),
                         description = stringResource(R.string.read_receipts_mode_passive_description),
                         selected = sendMode == ReadReceipts.MODE_PASSIVE,
-                        trailingDivider = true,
                         onClick = {
                             sendMode = ReadReceipts.MODE_PASSIVE
                             ReadReceipts.sendMode = ReadReceipts.MODE_PASSIVE
@@ -477,7 +476,6 @@ private fun ReadReceiptsHomeScreen(
                         title = stringResource(R.string.read_receipts_mode_active_menu),
                         description = stringResource(R.string.read_receipts_mode_active_menu_description),
                         selected = sendMode == ReadReceipts.MODE_ACTIVE_MENU,
-                        trailingDivider = true,
                         onClick = {
                             sendMode = ReadReceipts.MODE_ACTIVE_MENU
                             ReadReceipts.sendMode = ReadReceipts.MODE_ACTIVE_MENU
@@ -490,7 +488,6 @@ private fun ReadReceiptsHomeScreen(
                         title = stringResource(R.string.read_receipts_mode_active_prefix),
                         description = stringResource(R.string.read_receipts_mode_active_prefix_description),
                         selected = sendMode == ReadReceipts.MODE_ACTIVE_PREFIX,
-                        trailingDivider = sendMode == ReadReceipts.MODE_ACTIVE_PREFIX,
                         onClick = {
                             sendMode = ReadReceipts.MODE_ACTIVE_PREFIX
                             ReadReceipts.sendMode = ReadReceipts.MODE_ACTIVE_PREFIX
