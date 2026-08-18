@@ -505,7 +505,8 @@ jobs:
         run: |
           gh release upload Extensions \
             dist/extensions/script-deps-*.dex \
-            dist/extensions/cloudflared-*.zip
+            dist/extensions/cloudflared-*.zip \
+            --clobber
 
       - name: Attest build provenance
         if: steps.published.outputs.skip == 'false'

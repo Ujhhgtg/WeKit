@@ -33,6 +33,13 @@ object ScriptDepsPack : ExtensionPack {
     override fun stagingDir(): File =
         KnownPaths.moduleData.resolve("extensions/script-deps/.staging").toFile()
 
+    /** Remove version directories left behind by previous pins (`.staging` excluded). */
+    private fun sweepOldVersions() {
+        installDir().listFiles()
+            ?.filter { it.isDirectory && it.name != pinnedVersion && !it.name.startsWith(".") }
+            ?.forEach { it.deleteRecursively() }
+    }
+
     override fun isInUse(): Boolean = cachedLoader != null
 
     /**
@@ -61,5 +68,6 @@ object ScriptDepsPack : ExtensionPack {
             versionDir,
             PackManifest(id, pinnedVersion, pinnedSha256, System.currentTimeMillis()),
         )
+        sweepOldVersions()
     }
 }

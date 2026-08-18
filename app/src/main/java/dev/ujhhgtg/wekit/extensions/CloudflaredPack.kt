@@ -87,6 +87,14 @@ object CloudflaredPack : ExtensionPack {
             versionDir,
             PackManifest(id, pinnedVersion, pinnedSha256, System.currentTimeMillis()),
         )
+        sweepOldVersions()
         WeLogger.i("CloudflaredPack", "installed cloudflared $pinnedVersion")
+    }
+
+    /** Remove version directories left behind by previous pins (`.staging` excluded). */
+    private fun sweepOldVersions() {
+        installDir().listFiles()
+            ?.filter { it.isDirectory && it.name != pinnedVersion && !it.name.startsWith(".") }
+            ?.forEach { it.deleteRecursively() }
     }
 }

@@ -136,6 +136,23 @@ pub fn compare_pack(expected: &PackLock, actual: &PackLock) -> Result<()> {
     Ok(())
 }
 
+/// Pure alignment used after a rebuild (unit-testable without touching the fs).
+///
+/// If the lock has an entry with the same id whose `files` map equals the
+/// rebuilt pack's (identical content), adopt the lock's version string so the
+/// asset name stays stable across rebuild dates — otherwise an overnight
+/// rerun would publish a new-date asset the module never requests. Returns
+/// true when aligned; new or changed content is left untouched (false).
+pub fn align_pack_to_lock(lock: &ExtensionsLock, pack: &mut PackLock) -> bool {
+    if let Some(entry) = lock.packs.iter().find(|p| p.id == pack.id) {
+        if entry.files == pack.files {
+            pack.version = entry.version.clone();
+            return true;
+        }
+    }
+    false
+}
+
 pub fn run(root: &Path, args: &ExtensionsArgs) -> Result<()> {
     let selected = |id: &str| args.only.as_deref().map(|only| only == id).unwrap_or(true);
 
@@ -156,6 +173,25 @@ pub fn run(root: &Path, args: &ExtensionsArgs) -> Result<()> {
         packs.push(build_cloudflared_zip(root, &dist)?);
     }
     packs.sort_by(|a, b| a.id.cmp(&b.id));
+
+    // Align rebuilt packs with the committed lock: identical content keeps the
+    // lock's version (and thus its asset name) so CI publishes exactly the
+    // filename the module pins even when the rebuild runs on a later date.
+    // Also makes `lock --write` stable across rebuilds of unchanged content.
+    if root.join(LOCK_FILE).is_file() {
+        let lock_text = fs::read_to_string(root.join(LOCK_FILE)).context("read extensions.lock")?;
+        let lock: ExtensionsLock = serde_json::from_str(&lock_text).context("parse extensions.lock")?;
+        for pack in &mut packs {
+            let rebuilt_name = pack.asset_name();
+            if align_pack_to_lock(&lock, pack) {
+                let locked_name = pack.asset_name();
+                if rebuilt_name != locked_name {
+                    fs::rename(dist.join(&rebuilt_name), dist.join(&locked_name))
+                        .with_context(|| format!("rename dist asset {rebuilt_name} → {locked_name}"))?;
+                }
+            }
+        }
+    }
 
     match &args.command {
         ExtensionsCommand::Pack => {
@@ -369,6 +405,57 @@ mod tests {
             ..lock.clone()
         };
         assert!(compare_pack(&lock, &rebuilt_next_day).is_ok());
+    }
+
+    #[test]
+    fn align_pack_to_lock_adopts_lock_version_for_same_content() {
+        let lock_files = files(&[("script-deps.dex", "aa")]);
+        let hash = content_hash(&lock_files);
+        let entry = PackLock {
+            id: "script-deps".into(),
+            version: derive_version("20260817", &hash),
+            files: lock_files.clone(),
+        };
+        let lock = ExtensionsLock { packs: vec![entry.clone()] };
+
+        // Same content rebuilt on a later date: aligned to the lock's version.
+        let mut rebuilt = PackLock {
+            version: derive_version("20260818", &hash),
+            files: lock_files,
+            ..entry.clone()
+        };
+        assert!(align_pack_to_lock(&lock, &mut rebuilt));
+        assert_eq!(rebuilt.version, entry.version);
+        assert_eq!(rebuilt.asset_name(), entry.asset_name());
+    }
+
+    #[test]
+    fn align_pack_to_lock_leaves_changed_or_unknown_content_alone() {
+        let lock_files = files(&[("script-deps.dex", "aa")]);
+        let entry = PackLock {
+            id: "script-deps".into(),
+            version: derive_version("20260817", &content_hash(&lock_files)),
+            files: lock_files,
+        };
+        let lock = ExtensionsLock { packs: vec![entry] };
+
+        // Changed content: not aligned, rebuilt version kept.
+        let hash = content_hash(&files(&[("script-deps.dex", "bb")]));
+        let rebuilt_version = derive_version("20260818", &hash);
+        let mut rebuilt = PackLock {
+            version: rebuilt_version.clone(),
+            files: files(&[("script-deps.dex", "bb")]),
+            ..lock.packs[0].clone()
+        };
+        assert!(!align_pack_to_lock(&lock, &mut rebuilt));
+        assert_eq!(rebuilt.version, rebuilt_version);
+
+        // No lock entry for the id: not aligned.
+        let mut unknown = PackLock {
+            id: "cloudflared".into(),
+            ..lock.packs[0].clone()
+        };
+        assert!(!align_pack_to_lock(&lock, &mut unknown));
     }
 
     #[test]
