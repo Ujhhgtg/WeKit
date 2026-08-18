@@ -56,11 +56,6 @@ class PetProjectionRuntime {
             PetActivityTransition(PetStateInput(ActivityPhase.DONE, "完成啦"), completedTurn = true)
         }
 
-        is AgentEvent.MaxRequestsReached -> {
-            activeTools.clear()
-            PetActivityTransition(PetStateInput(ActivityPhase.FAILED, "达到输出上限"))
-        }
-
         is AgentEvent.TurnFailed -> {
             activeTools.clear()
             PetActivityTransition(PetStateInput(ActivityPhase.FAILED, "执行失败"))

@@ -63,7 +63,7 @@ fun PetSprite(
                         inScaled = false
                         inPreferredConfig = Bitmap.Config.ARGB_8888
                     }
-                    BitmapFactory.decodeStream(input, null, opts).asImageBitmap()
+                    BitmapFactory.decodeStream(input, null, opts)?.asImageBitmap()
                 }
             }.getOrNull()
         }
