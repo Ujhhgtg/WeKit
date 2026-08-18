@@ -43,6 +43,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -285,12 +286,13 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                     )
                 }
                 item {
+                    val actCtx = LocalComponentActivity.current
                     PrefArrow(
                         title = stringResource(R.string.settings_extensions_title),
                         summary = stringResource(R.string.settings_extensions_summary),
                         icon = MaterialSymbols.Outlined.Extension,
                         onClick = {
-                            currentLocalizedContext.value.startActivity(
+                            actCtx.startActivity(
                                 Intent(currentLocalizedContext.value, ExtensionsSettingsActivity::class.java)
                             )
                         },
@@ -670,9 +672,9 @@ private fun SeedColorPickerDialog(show: Boolean, onDismiss: () -> Unit) {
     val initialHsv = remember {
         FloatArray(3).also { AndroidColor.colorToHSV(ThemeSettings.seedColor, it) }
     }
-    var hue by remember { mutableStateOf(initialHsv[0]) }
-    var saturation by remember { mutableStateOf(initialHsv[1] * 100f) }
-    var value by remember { mutableStateOf(initialHsv[2] * 100f) }
+    var hue by remember { mutableFloatStateOf(initialHsv[0]) }
+    var saturation by remember { mutableFloatStateOf(initialHsv[1] * 100f) }
+    var value by remember { mutableFloatStateOf(initialHsv[2] * 100f) }
     val picked = AndroidColor.HSVToColor(floatArrayOf(hue, saturation / 100f, value / 100f))
 
     AlertDialog(

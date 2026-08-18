@@ -2,7 +2,6 @@
 
 package dev.ujhhgtg.wekit.activity.settings
 
-import android.app.Activity
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -119,7 +118,7 @@ private fun ExtensionsRoot(autoPackId: String?, autoDownload: Boolean, onFinish:
 private fun PackGroup(pack: ExtensionPack) {
     val state by ExtensionPacks.stateFlow(pack).collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
-    val activity = LocalContext.current as Activity
+    val context = LocalContext.current
 
     SegmentedColumn {
         item(key = "info") {
@@ -198,8 +197,8 @@ private fun PackGroup(pack: ExtensionPack) {
                 confirmDelete = false
                 if (!ExtensionPacks.delete(pack)) {
                     Toast.makeText(
-                        activity,
-                        activity.getString(R.string.extensions_pack_in_use),
+                        context,
+                        context.getString(R.string.extensions_pack_in_use),
                         Toast.LENGTH_SHORT,
                     ).show()
                 }
