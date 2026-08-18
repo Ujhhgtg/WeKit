@@ -2,17 +2,12 @@ package dev.ujhhgtg.wekit.pet
 
 import android.content.Context
 import android.graphics.PixelFormat
-import android.os.Build
 import android.provider.Settings
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.window.OnBackInvokedCallback
-import android.window.OnBackInvokedDispatcher
-import androidx.activity.findOnBackInvokedDispatcher
-import androidx.annotation.RequiresApi
 import androidx.compose.ui.platform.ComposeView
 import dev.ujhhgtg.wekit.pet.ui.PetOverlayContent
 import dev.ujhhgtg.wekit.pet.ui.RenameDialog
@@ -237,12 +232,12 @@ object PetOverlayController {
 
 /**
  * Root view for the focusable rename dialog window. A ComposeView attached directly through
- * WindowManager has no Activity back dispatcher, so this host handles both legacy key dispatch and
- * Android 13+ system Back to close the dialog.
+ * WindowManager is not part of an Activity/Dialog, so it has no OnBackInvokedDispatcher. Instead
+ * this host intercepts the legacy KEYCODE_BACK (which overlay windows still receive) to close the
+ * dialog.
  */
 private class PetRenameHost(context: Context) : FrameLayout(context) {
     private var backHandler: (() -> Unit)? = null
-    private var systemBackCallback: Any? = null
 
     fun setBackHandler(handler: (() -> Unit)?) {
         backHandler = handler
@@ -261,41 +256,5 @@ private class PetRenameHost(context: Context) : FrameLayout(context) {
             }
         }
         return super.dispatchKeyEvent(event)
-    }
-
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        if (Build.VERSION.SDK_INT >= 33) {
-            systemBackCallback = PetRenameBackApi33.register(this) {
-                backHandler?.invoke()
-            }
-        }
-    }
-
-    override fun onDetachedFromWindow() {
-        if (Build.VERSION.SDK_INT >= 33) {
-            PetRenameBackApi33.unregister(this, systemBackCallback)
-        }
-        systemBackCallback = null
-        super.onDetachedFromWindow()
-    }
-}
-
-@RequiresApi(33)
-private object PetRenameBackApi33 {
-    fun register(view: View, onBack: () -> Unit): Any? {
-        val dispatcher = view.findOnBackInvokedDispatcher() ?: return null
-        val callback = OnBackInvokedCallback(onBack)
-        dispatcher.registerOnBackInvokedCallback(
-            OnBackInvokedDispatcher.PRIORITY_OVERLAY,
-            callback,
-        )
-        return callback
-    }
-
-    fun unregister(view: View, callback: Any?) {
-        if (callback is OnBackInvokedCallback) {
-            view.findOnBackInvokedDispatcher()?.unregisterOnBackInvokedCallback(callback)
-        }
     }
 }
