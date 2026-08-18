@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.pet
 
 import android.content.Context
 import android.graphics.PixelFormat
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.KeyEvent
@@ -42,6 +43,7 @@ object PetOverlayController {
 
     private var dragStartX = 0
     private var dragStartY = 0
+    private var lastDragLayoutAt = 0L
 
     @Volatile
     var isShown = false
@@ -100,6 +102,7 @@ object PetOverlayController {
                     PetOverlayContent(
                         onDragStart = {
                             petParams?.let { dragStartX = it.x; dragStartY = it.y }
+                            lastDragLayoutAt = 0L
                         },
                         onDrag = { dx, dy ->
                             val p = petParams
@@ -107,7 +110,14 @@ object PetOverlayController {
                             if (p != null && v != null) {
                                 p.x = dragStartX + dx.toInt()
                                 p.y = dragStartY + dy.toInt()
-                                runCatching { wm.updateViewLayout(v, p) }
+                                // Throttle the window re-layout to ~one per frame; an
+                                // unfiltered stream of MOVE events would hammer
+                                // updateViewLayout and make dragging feel laggy.
+                                val now = SystemClock.uptimeMillis()
+                                if (now - lastDragLayoutAt >= 16L) {
+                                    lastDragLayoutAt = now
+                                    runCatching { wm.updateViewLayout(v, p) }
+                                }
                             }
                         },
                         onDragEnd = {
