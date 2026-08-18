@@ -223,6 +223,29 @@ val generateNewFeatures = tasks.register<GenerateNewFeaturesTask>("generateNewFe
     gitHead.set(getGitHash())
 }
 
+val scriptDeps = configurations.create("scriptDeps") {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
+// R8/D8 fat jar, resolved through the project repositories (google()).
+val r8Tool = configurations.detachedConfiguration(
+    dependencies.create("com.android.tools:r8:8.7.18"),
+)
+
+val generateScriptDepsDex = tasks.register<GenerateScriptDepsDexTask>("generateScriptDepsDex") {
+    group = "wekit"
+    description = "Compile the script-deps extension pack DEX (fastjson2 + okhttp + kotlin-stdlib)"
+    jars.from(scriptDeps)
+    r8Classpath.from(r8Tool)
+    minApi.set(28)
+    // Bump together with compileSdk when it changes.
+    androidJar.set(
+        androidComponents.sdkComponents.bootClasspath.map { jars -> jars.first().asFile.absolutePath },
+    )
+    outputDir.set(layout.buildDirectory.dir("outputs/script-deps"))
+}
+
 // --- end tasks ---
 
 ksp {
@@ -288,6 +311,10 @@ dependencies {
 
     implementation(libs.okhttp3.okhttp)
     implementation(libs.jsoup)
+
+    scriptDeps(libs.alibaba.fastjson2)
+    scriptDeps(libs.okhttp3.okhttp)
+    scriptDeps(kotlin("stdlib"))
 
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
