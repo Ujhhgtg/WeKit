@@ -66,13 +66,11 @@ struct GoAndroidTarget {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ApkNativeBuildStep {
     Configure,
-    Cloudflared,
     WeKitNative,
 }
 
 const APK_NATIVE_BUILD_STEPS: &[ApkNativeBuildStep] = &[
     ApkNativeBuildStep::Configure,
-    ApkNativeBuildStep::Cloudflared,
     ApkNativeBuildStep::WeKitNative,
 ];
 
@@ -699,7 +697,6 @@ fn task_prepare_apk_native_inputs(abi_args: &[String]) -> Result<()> {
     for step in apk_native_build_steps() {
         match step {
             ApkNativeBuildStep::Configure => task_configure()?,
-            ApkNativeBuildStep::Cloudflared => task_build_cloudflared(abi_args)?,
             ApkNativeBuildStep::WeKitNative => task_build_native(abi_args)?,
         }
     }
@@ -1900,12 +1897,11 @@ mod tests {
     }
 
     #[test]
-    fn apk_native_build_plan_refreshes_cloudflared_before_wekit_native() {
+    fn apk_native_build_plan_runs_configure_before_wekit_native() {
         assert_eq!(
             apk_native_build_steps(),
             &[
                 ApkNativeBuildStep::Configure,
-                ApkNativeBuildStep::Cloudflared,
                 ApkNativeBuildStep::WeKitNative,
             ],
         );

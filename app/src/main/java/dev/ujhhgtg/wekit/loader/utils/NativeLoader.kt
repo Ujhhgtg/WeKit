@@ -5,6 +5,8 @@ import android.content.Context
 import android.os.Build
 import android.os.Process
 import com.tencent.mmkv.MMKV
+import dev.ujhhgtg.wekit.extensions.CloudflaredPack
+import dev.ujhhgtg.wekit.extensions.CloudflaredPackNotInstalledException
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader.init
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
@@ -82,35 +84,23 @@ object NativeLoader {
     fun isCloudflaredLoaded(): Boolean = cloudflaredLoaded
 
     /**
-     * Lazily loads the Go cloudflared bridge only when the built-in read-receipts
-     * backend is actually used. Keeps WeChat startup free of the heavy Go runtime.
+     * Lazily loads the Go cloudflared bridge from the cloudflared extension pack
+     * when the built-in read-receipts backend is first used. Throws
+     * [dev.ujhhgtg.wekit.extensions.CloudflaredPackNotInstalledException] when the
+     * pack has not been downloaded — callers surface the install dialog.
      */
     @JvmStatic
     fun ensureCloudflaredLoaded() {
         if (cloudflaredLoaded) return
         synchronized(nativeLoadLock) {
             if (cloudflaredLoaded) return
-            val payload = zygiskPayload
-            if (payload == null) {
-                System.loadLibrary("wekit_cloudflared")
-            } else {
-                loadZygiskCloudflared(payload)
-            }
+            val library = CloudflaredPack.libraryFile()
+                ?: throw CloudflaredPackNotInstalledException(
+                    "cloudflared extension pack is not installed"
+                )
+            @SuppressLint("UnsafeDynamicallyLoadedCode")
+            System.load(library.absolutePath)
             cloudflaredLoaded = true
-        }
-    }
-
-    @SuppressLint("UnsafeDynamicallyLoadedCode")
-    private fun loadZygiskCloudflared(payload: ZygiskPayload) {
-        val abi = currentProcessAbi(payload.apk)
-        val libraryDir = File(payload.dataDir, ".wekit-native-$abi")
-        if (!libraryDir.exists() && !libraryDir.mkdirs()) {
-            error("cannot create Zygisk native-library directory: $libraryDir")
-        }
-        ZipFile(payload.apk).use { archive ->
-            val entry = archive.getEntry("lib/$abi/libwekit_cloudflared.so")
-                ?: error("Zygisk payload is missing libwekit_cloudflared.so for $abi")
-            System.load(extractLibrary(archive, entry.name, libraryDir, "libwekit_cloudflared.so").absolutePath)
         }
     }
 
