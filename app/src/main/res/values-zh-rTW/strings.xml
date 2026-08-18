@@ -2034,11 +2034,11 @@
     <plurals name="chat_sticker_manager_exported"><item quantity="other">已保存 %1$d 張貼紙到 %2$s</item></plurals>
     <string name="mention_members_settings_title">@所有人設置</string>
     <string name="mention_members_stealth_label">隱蔽@所有人</string>
-    <string name="mention_members_stealth_description">開啓時點擊直接隱蔽發送@所有人消息（不顯示成員選擇彈窗且消息不附帶@暱稱前綴）；關閉時彈出成員選擇彈窗並在消息頭部附帶@暱稱文本</string>
+    <string name="mention_members_stealth_description">開啓時確認成員選擇後以原生方式發送輸入框文本（不附帶@暱稱前綴），接收方會收到「有人@我」提醒但消息內不顯示@文本；羣成員超過 200 人時僅提醒前 200 人。關閉時在消息頭部附帶@暱稱文本</string>
     <string name="mention_members_action_label">@所有人（長按配置）</string>
     <string name="mention_members_group_only">只能在羣組裏使用！</string>
     <string name="mention_members_sent_unseen">已發送（自己無法看到該消息）</string>
-    <string name="mention_members_stealth_message">你隱蔽@了所有人</string>
+    <string name="mention_members_input_empty">輸入框內容爲空！</string>
     <string name="mention_members_empty_group">羣成員列表爲空！</string>
     <string name="mention_members_select_one">請選擇至少一個好友！</string>
     <plurals name="mention_members_message_count">

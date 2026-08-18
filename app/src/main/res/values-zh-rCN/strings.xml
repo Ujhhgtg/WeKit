@@ -1998,11 +1998,11 @@
     <!-- 聊天输入栏菜单与 API 核心简体中文资源。 -->
     <string name="mention_members_settings_title">@所有人设置</string>
     <string name="mention_members_stealth_label">隐蔽@所有人</string>
-    <string name="mention_members_stealth_description">开启时点击直接隐蔽发送@所有人消息（不显示成员选择弹窗且消息不附带@昵称前缀）；关闭时弹出成员选择弹窗并在消息头部附带@昵称文本</string>
+    <string name="mention_members_stealth_description">开启时确认成员选择后以原生方式发送输入框文本（不附带@昵称前缀），接收方会收到“有人@我”提醒但消息内不显示@文本；群成员超过 200 人时仅提醒前 200 人。关闭时在消息头部附带@昵称文本</string>
     <string name="mention_members_action_label">@所有人（长按配置）</string>
     <string name="mention_members_group_only">只能在群组里使用！</string>
     <string name="mention_members_sent_unseen">已发送（自己无法看到该消息）</string>
-    <string name="mention_members_stealth_message">你隐蔽@了所有人</string>
+    <string name="mention_members_input_empty">输入框内容为空！</string>
     <string name="mention_members_empty_group">群成员列表为空！</string>
     <string name="mention_members_select_one">请选择至少一个好友！</string>
     <plurals name="mention_members_message_count">

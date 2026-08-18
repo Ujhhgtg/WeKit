@@ -2088,11 +2088,11 @@
     <!-- Chat-input-bar-menu and API-core resources. -->
     <string name="mention_members_settings_title">@everyone settings</string>
     <string name="mention_members_stealth_label">Stealth @everyone</string>
-    <string name="mention_members_stealth_description">When enabled, tapping sends a stealth @everyone message directly, without opening member selection or adding @name prefixes. When disabled, member selection opens and the message starts with @name text.</string>
+    <string name="mention_members_stealth_description">When enabled, confirming member selection sends the input text natively (no @name prefix); recipients get the "mentioned you" notification but see no @ text in the bubble. Groups over 200 members notify only the first 200. When disabled, the message starts with @name text.</string>
     <string name="mention_members_action_label">@everyone (long-press to configure)</string>
     <string name="mention_members_group_only">This action is only available in groups.</string>
     <string name="mention_members_sent_unseen">Sent (you cannot see this message yourself)</string>
-    <string name="mention_members_stealth_message">You stealth-mentioned everyone</string>
+    <string name="mention_members_input_empty">The input box is empty.</string>
     <string name="mention_members_empty_group">The group member list is empty.</string>
     <string name="mention_members_select_one">Select at least one contact.</string>
     <plurals name="mention_members_message_count">
