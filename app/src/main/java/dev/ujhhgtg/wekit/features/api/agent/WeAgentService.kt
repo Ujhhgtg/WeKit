@@ -18,6 +18,7 @@ import dev.ujhhgtg.wekit.agent.engine.PendingApproval
 import dev.ujhhgtg.wekit.agent.engine.PromptComposer
 import dev.ujhhgtg.wekit.agent.engine.SmallModelRef
 import dev.ujhhgtg.wekit.agent.engine.TurnConfig
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
 import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
 import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
@@ -73,6 +74,8 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
 
     // Permission resolution + persistence are unified in the repository.
     private val registry = ToolRegistry(permissions = WeAgentRepository, providers = BuiltinToolProvider.all)
+
+    val linuxEnvironmentManager = LinuxEnvironmentManager()
 
     /** Trigger runtime (schedule + message/SQL event triggers). Started in [init]. */
     val triggerManager = dev.ujhhgtg.wekit.agent.trigger.TriggerManager(scope, this)
@@ -688,7 +691,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             try {
                 // Install VFS (fs tools), UiImageSink (ui-screenshot), and AgentSessionContext (so the
                 // trigger tools know which session "this session" refers to for SESSION-scoped triggers).
-                withContext(VfsContext(vfs) + UiImageSink() + AgentSessionContext(sessionId)) {
+                withContext(VfsContext(vfs) + UiImageSink() + AgentSessionContext(sessionId, linuxEnvironmentManager.nativeSnapshot)) {
                     engine.runTurn(
                         TurnConfig(
                             client = config.client,

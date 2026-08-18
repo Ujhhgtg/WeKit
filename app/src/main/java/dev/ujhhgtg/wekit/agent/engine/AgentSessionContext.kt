@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.engine
 
+import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
@@ -11,6 +12,9 @@ import kotlin.coroutines.CoroutineContext
  * session am I in" to create a SESSION-scoped trigger by default) read it from the current coroutine
  * context. Installed by WeAgentService around both `runTurn` and `runTriggeredTurn`.
  */
-class AgentSessionContext(val sessionId: String) : AbstractCoroutineContextElement(AgentSessionContext) {
+class AgentSessionContext(
+    val sessionId: String,
+    val environment: EnvironmentSnapshot? = null,
+) : AbstractCoroutineContextElement(AgentSessionContext) {
     companion object Key : CoroutineContext.Key<AgentSessionContext>
 }

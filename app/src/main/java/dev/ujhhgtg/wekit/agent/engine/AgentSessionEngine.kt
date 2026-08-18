@@ -72,6 +72,7 @@ class AgentSessionEngine(
     private val promptComposer: PromptComposer,
     private val historySink: HistorySink,
 ) {
+    private val toolCallExecutor = ToolCallExecutor(registry, approvalGateway)
     /**
      * Persists conversation state as the loop advances. Implemented over Room by WeAgentService;
      * kept as an interface so the engine has no direct DB dependency and stays testable.
@@ -190,12 +191,21 @@ class AgentSessionEngine(
                 for (call in assistant.toolCalls) {
                     currentCoroutineContext().ensureActive()
                     send(AgentEvent.ToolCallStarted(call.id, call.name, call.argumentsJson))
-                    val (text, status, providerId) = executeToolCall(call, assistant.content, discovered, config.toolVisibility) { toolName ->
-                        send(AgentEvent.ToolAwaitingApproval(call.id, toolName))
+                    val result = if (call.name == ToolRegistry.DISCOVER_TOOLS_NAME) {
+                        ToolCallExecutor.Result(
+                            ToolDiscovery.handle(registry, parseArgs(call.argumentsJson), discovered, config.toolVisibility),
+                            ApprovalStatus.AUTO_ALLOWED,
+                            "builtin",
+                        )
+                    } else {
+                        toolCallExecutor.execute(call, ToolCallExecutor.Context(
+                            modelExplanation = assistant.content,
+                            visibility = config.toolVisibility,
+                        ) { toolName -> send(AgentEvent.ToolAwaitingApproval(call.id, toolName)) })
                     }
-                    messages += LlmMessage(role = LlmRole.TOOL, content = text, toolCallId = call.id)
-                    historySink.onToolResult(call.id, call.name, providerId, call.argumentsJson, text, status)
-                    send(AgentEvent.ToolCallFinished(call.id, call.name, status, text))
+                    messages += LlmMessage(role = LlmRole.TOOL, content = result.text, toolCallId = call.id)
+                    historySink.onToolResult(call.id, call.name, result.providerId, call.argumentsJson, result.text, result.status)
+                    send(AgentEvent.ToolCallFinished(call.id, call.name, result.status, result.text))
                 }
 
                 // Vision: a tool (ui-screenshot) may have staged images into the UiImageSink this
@@ -258,57 +268,6 @@ class AgentSessionEngine(
                 content = "（已省略 ${m.images.size} 张较早的界面截图，只保留最近一次截图以节省上下文）",
                 images = emptyList(),
             )
-        }
-    }
-
-    /**
-     * Handles one tool call end-to-end: the discover_tools meta-tool, permission gating, and
-     * execution. Returns (resultText, approvalStatus, providerId).
-     */
-    private suspend fun executeToolCall(
-        call: LlmToolCall,
-        modelExplanation: String?,
-        discovered: MutableSet<String>,
-        visibility: dev.ujhhgtg.wekit.agent.tool.ToolVisibility,
-        onAwaitingApproval: suspend (String) -> Unit,
-    ): Triple<String, ApprovalStatus, String> {
-        val args = parseArgs(call.argumentsJson)
-
-        // discover_tools meta-tool (§3.3): handled by the engine, always allowed.
-        if (call.name == ToolRegistry.DISCOVER_TOOLS_NAME) {
-            val text = ToolDiscovery.handle(registry, args, discovered, visibility)
-            return Triple(text, ApprovalStatus.AUTO_ALLOWED, "builtin")
-        }
-
-        val tool = registry.findByExposedName(call.name, visibility)
-            ?: return Triple("Unknown tool: ${call.name}", ApprovalStatus.AUTO_ALLOWED, "")
-
-        if (tool.mode == dev.ujhhgtg.wekit.agent.tool.ToolMode.MANUAL_APPROVAL) onAwaitingApproval(call.name)
-
-        val decision = approvalGateway.decide(
-            mode = tool.mode,
-            toolName = tool.exposedName,
-            providerName = tool.provider.name,
-            argumentsJson = call.argumentsJson,
-            modelExplanation = modelExplanation,
-        )
-
-        return when (decision) {
-            is ApprovalDecision.Allowed -> {
-                val status = when (tool.mode) {
-                    dev.ujhhgtg.wekit.agent.tool.ToolMode.MANUAL_APPROVAL -> ApprovalStatus.USER_APPROVED
-                    dev.ujhhgtg.wekit.agent.tool.ToolMode.SMART_APPROVAL -> ApprovalStatus.AI_APPROVED
-                    else -> ApprovalStatus.AUTO_ALLOWED
-                }
-                val result = runCatching { registry.execute(tool, args) }
-                    .getOrElse { "工具执行失败：${it.message ?: it.javaClass.simpleName}" }
-                Triple(result, status, tool.provider.id)
-            }
-
-            is ApprovalDecision.Denied -> {
-                val status = if (decision.bySmartReview) ApprovalStatus.AI_REJECTED else ApprovalStatus.USER_REJECTED
-                Triple(approvalGateway.deniedResultText(decision), status, tool.provider.id)
-            }
         }
     }
 

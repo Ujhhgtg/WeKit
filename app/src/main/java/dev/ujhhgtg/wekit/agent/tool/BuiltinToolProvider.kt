@@ -101,10 +101,7 @@ class BuiltinToolProvider(
          * seeding (rows are still seeded; the tools are simply not advertised while disabled).
          * `load_skill` is NOT here — it is always visible.
          */
-        val FS_TOOL_NAMES = setOf(
-            "read_file", "list_dir", "search_files",
-            "write_file", "append_file", "delete_file", "move_file",
-        )
+        val FS_TOOL_NAMES = emptySet<String>()
 
         /**
          * Preview visibility of the fs file tools OUTSIDE a resolved turn (settings previews,

@@ -137,7 +137,9 @@ class ToolRegistry(
             ToolLoadingMode.STATIC -> resolveVisibleTools(visibility)
             ToolLoadingMode.DYNAMIC -> buildList {
                 add(discoverToolsMeta())
-                resolveVisibleTools(visibility).filterTo(this) { it.exposedName in discoveredThisTurn }
+                resolveVisibleTools(visibility).filterTo(this) {
+                    it.exposedName in discoveredThisTurn || it.exposedName == "edit" || it.exposedName == "exec"
+                }
             }
         }
 
