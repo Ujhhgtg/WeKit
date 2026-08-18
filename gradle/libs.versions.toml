@@ -41,6 +41,7 @@ room = "2.8.4"
 ktor = "3.5.2"
 dexmaker = "2.28.6"
 dynamicanimation = "1.1.0"
+jsch = "2.28.6"
 
 # noinspection UnusedVersionCatalogEntry
 namespace = "dev.ujhhgtg.wekit"
@@ -137,6 +138,7 @@ ktor-client-core = { module = "io.ktor:ktor-client-core" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio" }
 ktor-client-websockets = { module = "io.ktor:ktor-client-websockets" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json" }
+jsch = { module = "com.github.mwiede:jsch", version.ref = "jsch" }
 
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 

@@ -339,6 +339,7 @@ dependencies {
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.websockets)
     implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.jsch)
 
     implementation(libs.osmdroid.android)
 
