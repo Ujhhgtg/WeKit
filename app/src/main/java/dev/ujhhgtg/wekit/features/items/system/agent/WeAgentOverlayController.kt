@@ -11,6 +11,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import androidx.activity.findOnBackInvokedDispatcher
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.platform.ComposeView
 import dev.ujhhgtg.wekit.agent.data.OverlayMode

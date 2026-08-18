@@ -43,6 +43,7 @@ import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.switchSession
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.syncForeground
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiMessages
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiSessions
+import dev.ujhhgtg.wekit.pet.PetService
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -302,6 +303,9 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
 
                 // Start the trigger runtime (schedule + message/SQL event triggers).
                 triggerManager.start()
+
+                // Bring up the desktop pet (whale-girl), driven by WeAgent session events.
+                PetService.init()
 
                 WeLogger.i(TAG, "WeAgentService initialized")
             }.onFailure { WeLogger.e(TAG, "init failed", it) }
@@ -768,6 +772,9 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                 }
             }
         }
+        // Project every event onto the pet's visual state (per-session), so background triggered
+        // turns animate the pet too, not just the foreground chat.
+        PetService.onAgentEvent(sessionId, ev)
     }
 
     // -----------------------------------------------------------------------------------------
