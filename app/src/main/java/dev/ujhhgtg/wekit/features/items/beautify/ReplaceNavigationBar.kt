@@ -9,21 +9,19 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -35,16 +33,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -62,17 +56,18 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Contacts
 import com.composables.icons.materialsymbols.outlined.Drag_handle
 import com.composables.icons.materialsymbols.outlined.Explore
 import com.composables.icons.materialsymbols.outlined.Home
 import com.composables.icons.materialsymbols.outlined.Person
-import com.composables.icons.materialsymbols.outlined.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Contacts
 import com.composables.icons.materialsymbols.outlinedfilled.Explore
 import com.composables.icons.materialsymbols.outlinedfilled.Home
@@ -81,45 +76,57 @@ import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
-import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarItem
+import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarMode
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.rememberViewBackdrop
-import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-@Feature(name = "美化首页底部导航栏", categories = ["界面美化"], description = "将首页底部导航栏替换为 Material Design 或 Backdrop 风格")
+@Feature(
+    id = "美化首页底部导航栏",
+    nameRes = "feature_replace_navigation_bar_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_replace_navigation_bar_description",
+)
 object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
     private data class NavItem(
         val wechatIndex: Int,
         val outlined: ImageVector,
         val filled: ImageVector,
-        val label: String
+        @StringRes val labelRes: Int,
     )
 
     @Stable
     private val TAB_ITEMS = listOf(
-        NavItem(0, MaterialSymbols.Outlined.Home, MaterialSymbols.OutlinedFilled.Home, "主页"),
-        NavItem(1, MaterialSymbols.Outlined.Contacts, MaterialSymbols.OutlinedFilled.Contacts, "通讯录"),
-        NavItem(2, MaterialSymbols.Outlined.Explore, MaterialSymbols.OutlinedFilled.Explore, "发现"),
-        NavItem(3, MaterialSymbols.Outlined.Person, MaterialSymbols.OutlinedFilled.Person, "我")
+        NavItem(0, MaterialSymbols.Outlined.Home, MaterialSymbols.OutlinedFilled.Home, R.string.nav_tab_home),
+        NavItem(1, MaterialSymbols.Outlined.Contacts, MaterialSymbols.OutlinedFilled.Contacts, R.string.nav_tab_contacts),
+        NavItem(2, MaterialSymbols.Outlined.Explore, MaterialSymbols.OutlinedFilled.Explore, R.string.nav_tab_discover),
+        NavItem(3, MaterialSymbols.Outlined.Person, MaterialSymbols.OutlinedFilled.Person, R.string.nav_tab_me),
     )
 
     private var useFloating by prefOption("nav_bar_use_floating", true)
@@ -175,6 +182,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         val visibleTabItems = orderedTabItems.filter { it.wechatIndex in enabledTabIndices }
         val visibleWechatIndices = visibleTabItems.map(NavItem::wechatIndex)
         val remapProgrammaticTab = ThreadLocal.withInitial { false }
+        val animateNextPageChange = ThreadLocal.withInitial { false }
         val allowLogicalTabCount = ThreadLocal.withInitial { false }
         val callbackPagerIndex = ThreadLocal<Int?>()
 
@@ -212,10 +220,12 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         result = null
                     } else {
                         remapProgrammaticTab.set(true)
+                        animateNextPageChange.set(true)
                     }
                 }
                 hookAfter(priority = 100) {
                     remapProgrammaticTab.remove()
+                    animateNextPageChange.remove()
                 }
             }
         }
@@ -262,17 +272,22 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     val pagerIndex = visibleWechatIndices.indexOf(logicalIndex)
                     if (pagerIndex >= 0) args[0] = pagerIndex
                     allowLogicalTabCount.set(false)
-                    // The second parameter is the pager's `smoothScroll` flag. WeChat always
-                    // passes false (MainTabUI.TabsAdapter.onTabClick calls
-                    // `setCurrentItem(index, false)`), which is why the content snaps to the new
-                    // tab instantly. Flipping it to true makes WxViewPager animate the same
-                    // horizontal slide a finger swipe produces. Doing this inside the
-                    // `remapProgrammaticTab` guard keeps it scoped to actual tab changes — the
-                    // state-restore and first-layout paths never reach here. Non-adjacent jumps
-                    // sweep past the pages in between, but MainTabUI sets an offscreen page
-                    // limit of 4, so every one of them is alive and renders real content. The
-                    // pager caps the scroll duration at 600ms on its own.
-                    if (animatePageChange) args[1] = true
+                    // The second parameter is the pager's `smoothScroll` flag. Flipping it to
+                    // true makes WxViewPager animate the same horizontal slide a finger swipe
+                    // produces. This is scoped to `onTabClick`-originated changes (actual tab
+                    // taps) only: MainTabUI.a(int) is also driven by programmatic flows that
+                    // fire rapid same-frame tab bounces — e.g. returning from the wallet
+                    // "服务" page starts LauncherUI with FLAG_ACTIVITY_CLEAR_TOP +
+                    // preferred_tab, which makes MainTabUI.f() call a(0) then a(3) back to
+                    // back. Stock WeChat snaps both (smoothScroll=false) so the bounce is
+                    // invisible; animating both round-trips desyncs the pager (content stays
+                    // on the first page while the logical tab says the second). The
+                    // state-restore and first-layout paths never reach here either because
+                    // the `remapProgrammaticTab` guard is only armed by tab interactions.
+                    // Non-adjacent jumps sweep past the pages in between, but MainTabUI sets
+                    // an offscreen page limit of 4, so every one of them is alive and renders
+                    // real content. The pager caps the scroll duration at 600ms on its own.
+                    if (animatePageChange && animateNextPageChange.get() == true) args[1] = true
                 }
             }
         }
@@ -321,7 +336,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
             var lastHomeTapUptime = 0L
             val onTabClicked = { index: Int ->
-                if (index == 0 && bottomTabClickListener != null &&
+                val isHome = visibleTabItems[index].wechatIndex == 0
+                if (isHome && bottomTabClickListener != null &&
                     SystemClock.uptimeMillis() - lastHomeTapUptime <= DOUBLE_TAP_WINDOW_MS
                 ) {
                     // Second tap on the Chat tab within the double-tap window: drive WeChat's
@@ -332,7 +348,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     lastHomeTapUptime = SystemClock.uptimeMillis()
                 } else {
                     navigateToTab(index)
-                    lastHomeTapUptime = if (index == 0) SystemClock.uptimeMillis() else 0L
+                    lastHomeTapUptime = if (isHome) SystemClock.uptimeMillis() else 0L
                 }
             }
 
@@ -346,11 +362,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             // half-way crossing during a finger swipe. Drives the discrete spring so a tap
             // still bulges + slides the pill instead of teleporting.
             val targetPageIndexState = mutableIntStateOf(initialPagerIndex)
-            // True only while the pager is being moved by a finger (SCROLL_STATE_DRAGGING),
-            // through to the follow-on settle. A tab tap smooth-scrolls (SETTLING) without
-            // ever passing through DRAGGING, so it stays false and takes the spring path.
-            val isSwipingState = mutableStateOf(false)
-            var pageDidDrag = false
 
             tabsAdapter.reflekt()
                 .firstMethod { name = "onPageScrolled" }
@@ -370,31 +381,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         ?: visibleWechatIndices.indexOf(args[0] as Int).coerceAtLeast(0)
                 }
 
-            tabsAdapter.reflekt()
-                .firstMethod { name = "onPageScrollStateChanged" }
-                .hookBefore {
-                    when (args[0] as Int) {
-                        1 -> { // DRAGGING: finger is moving the pager
-                            pageDidDrag = true
-                            isSwipingState.value = true
-                        }
-
-                        2 -> { // SETTLING: keep tracking only if this settle came from a drag
-                            isSwipingState.value = pageDidDrag
-                        }
-
-                        else -> { // IDLE
-                            isSwipingState.value = false
-                            pageDidDrag = false
-                        }
-                    }
-                }
-
             val useFloating = useFloating
             val useBackdrop = useBackdrop
             val showFinderBadge = showFinderBadge
             val hideLabels = hideLabels
-            val blurRadius = blurRadius
             val barScale = barScalePercent.coerceIn(MIN_BAR_SCALE, MAX_BAR_SCALE) / 100f
 
             val composeView = ComposeView(activity).apply {
@@ -446,6 +436,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     containerColor = backgroundColor
                                 ) {
                                     visibleTabItems.forEachIndexed { index, item ->
+                                        val label = stringResource(item.labelRes)
                                         val isSelected = index == selectedIndex
                                         val isNext = index == selectedIndex + 1
 
@@ -480,14 +471,14 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                         if (index == 0 && unreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
                                                                 Text(
-                                                                    if (unreadCount <= 99) unreadCount.toString() else "99+",
+                                                                    if (unreadCount <= 99) unreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
                                                             }
                                                         } else if (item.wechatIndex == 1 && contactUnreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
                                                                 Text(
-                                                                    if (contactUnreadCount <= 99) contactUnreadCount.toString() else "99+",
+                                                                    if (contactUnreadCount <= 99) contactUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
                                                             }
@@ -495,7 +486,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                             if (finderUnreadCount > 0) {
                                                                 Badge(containerColor = Color(0xFFFF3B30)) {
                                                                     Text(
-                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else "99+",
+                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                         color = Color.White, fontSize = 10.sp
                                                                     )
                                                                 }
@@ -512,7 +503,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                     ) { filled ->
                                                         Icon(
                                                             imageVector = if (filled) item.filled else item.outlined,
-                                                            contentDescription = item.label,
+                                                            contentDescription = label,
                                                             tint = tint
                                                         )
                                                     }
@@ -539,56 +530,46 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
                                 CompositionLocalProvider(LocalDensity provides scaledDensity) {
                                     FloatingBottomBar(
+                                        items = visibleTabItems,
                                         modifier = bottomCenter
-                                            .clickable(
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null,
-                                                onClick = {},
-                                            )
                                             .padding(
                                                 bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues()
                                                     .calculateBottomPadding()
                                             ),
-                                        // Spring target: on a tap this is the tapped tab, so the
-                                        // pill bulges and slides across. During a swipe the gate
-                                        // below hands position control to `progress` instead.
                                         selectedIndex = { targetIndex },
-                                        // Drive the indicator from the pager's live fractional
-                                        // scroll position so the pill tracks the content 1:1 in
-                                        // both directions, like the non-floating bar's crossfade.
-                                        progress = { selectedIndex + scrollOffsetState.floatValue },
-                                        isTracking = { isSwipingState.value },
                                         onSelected = { navigateToTab(it) },
-                                        // In glass mode the pill covers the selected tab and eats
-                                        // the tap before the item's onClick can run, so tapping /
-                                        // double-tapping the current tab (e.g. Home) would do
-                                        // nothing. Route that tap through the same haptic + tab
-                                        // handler the items use, restoring double-tap-to-next-unread.
-                                        onTabReselected = { index ->
-                                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                            onTabClicked(index)
-                                        },
-                                        // Long-pressing the "发现" tab while it is already selected:
-                                        // the pill sits on top and eats the event, so the item's
-                                        // onLongPress modifier never fires — forward it here instead.
-                                        onTabReselectedLongPress = { index ->
-                                            if (visibleTabItems[index].wechatIndex == 2) openImproveSnsTimeline()
-                                        },
                                         // Sample WeChat's real content (native ViewPager) into the
                                         // glass. rememberLayerBackdrop would only capture Compose
                                         // pixels, of which there are none behind this overlay bar.
                                         backdrop = rememberViewBackdrop(viewPager),
-                                        tabsCount = visibleTabItems.size,
-                                        isBlurEnabled = useBackdrop,
-                                        blurRadius = blurRadius.dp,
+                                        mode = if (useBackdrop) {
+                                            FloatingBottomBarMode.LiquidGlass
+                                        } else {
+                                            FloatingBottomBarMode.None
+                                        },
                                         colors = FloatingBottomBarDefaults.colors(
                                             containerColor = backgroundColor,
                                             indicatorColor = activeColor,
                                             contentColor = inactiveColor,
                                             activeContentColor = activeColor
-                                        )
-                                    ) {
-                                        visibleTabItems.forEachIndexed { index, item ->
+                                        ),
+                                        onSelectedTabTap = { index ->
+                                            if (visibleTabItems[index].wechatIndex == 0) {
+                                                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                                onTabClicked(index)
+                                            }
+                                        },
+                                        onTabLongPress = { index ->
+                                            if (visibleTabItems[index].wechatIndex == 2) {
+                                                openImproveSnsTimeline()
+                                                true
+                                            } else {
+                                                false
+                                            }
+                                        },
+                                        liquidGlassBlurRadius = blurRadius.dp,
+                                        iconContent = { item, index ->
+                                            val label = stringResource(item.labelRes)
                                             // Key the fill crossfade to the target page (the same
                                             // driver as the pill), not the settled page: target
                                             // flips immediately on a tab tap and on finger release
@@ -598,69 +579,61 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             // decision is made instead of a beat after the pill.
                                             val isSelected = index == targetIndex
 
-                                            FloatingBottomBarItem(
-                                                onClick = {
-                                                    view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                                    onTabClicked(index)
-                                                },
-                                                modifier = Modifier
-                                                    .then(if (item.wechatIndex == 2) Modifier.onLongPress(openImproveSnsTimeline) else Modifier)
-                                                    .defaultMinSize(minWidth = 76.dp)
-                                            ) {
-                                                BadgedBox(
-                                                    badge = {
-                                                        if (index == 0 && unreadCount > 0) {
+                                            BadgedBox(
+                                                badge = {
+                                                    if (index == 0 && unreadCount > 0) {
+                                                        Badge(containerColor = Color(0xFFFF3B30)) {
+                                                            Text(
+                                                                if (unreadCount <= 99) unreadCount.toString() else stringResource(R.string.badge_count_overflow),
+                                                                color = Color.White, fontSize = 10.sp
+                                                            )
+                                                        }
+                                                    } else if (item.wechatIndex == 1 && contactUnreadCount > 0) {
+                                                        Badge(containerColor = Color(0xFFFF3B30)) {
+                                                            Text(
+                                                                if (contactUnreadCount <= 99) contactUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
+                                                                color = Color.White, fontSize = 10.sp
+                                                            )
+                                                        }
+                                                    } else if (item.wechatIndex == 2 && showFinderBadge) {
+                                                        if (finderUnreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
                                                                 Text(
-                                                                    if (unreadCount <= 99) unreadCount.toString() else "99+",
+                                                                    if (finderUnreadCount <= 99) finderUnreadCount.toString() else stringResource(R.string.badge_count_overflow),
                                                                     color = Color.White, fontSize = 10.sp
                                                                 )
                                                             }
-                                                        } else if (item.wechatIndex == 1 && contactUnreadCount > 0) {
-                                                            Badge(containerColor = Color(0xFFFF3B30)) {
-                                                                Text(
-                                                                    if (contactUnreadCount <= 99) contactUnreadCount.toString() else "99+",
-                                                                    color = Color.White, fontSize = 10.sp
-                                                                )
-                                                            }
-                                                        } else if (item.wechatIndex == 2 && showFinderBadge) {
-                                                            if (finderUnreadCount > 0) {
-                                                                Badge(containerColor = Color(0xFFFF3B30)) {
-                                                                    Text(
-                                                                        if (finderUnreadCount <= 99) finderUnreadCount.toString() else "99+",
-                                                                        color = Color.White, fontSize = 10.sp
-                                                                    )
-                                                                }
-                                                            } else if (showFinderDot) {
-                                                                Badge(containerColor = Color(0xFFFF3B30))
-                                                            }
+                                                        } else if (showFinderDot) {
+                                                            Badge(containerColor = Color(0xFFFF3B30))
                                                         }
                                                     }
-                                                ) {
-                                                    Crossfade(
-                                                        targetState = isSelected,
-                                                        animationSpec = tween(200),
-                                                        label = "navIconFloating"
-                                                    ) { selected ->
-                                                        Icon(
-                                                            imageVector = if (selected) item.filled else item.outlined,
-                                                            contentDescription = item.label
-                                                        )
-                                                    }
                                                 }
-                                                if (!hideLabels) {
-                                                    Text(
-                                                        text = item.label,
-                                                        fontSize = 11.sp,
-                                                        lineHeight = 14.sp,
-                                                        maxLines = 1,
-                                                        softWrap = false,
-                                                        overflow = TextOverflow.Visible
+                                            ) {
+                                                Crossfade(
+                                                    targetState = isSelected,
+                                                    animationSpec = tween(200),
+                                                    label = "navIconFloating"
+                                                ) { selected ->
+                                                    Icon(
+                                                        imageVector = if (selected) item.filled else item.outlined,
+                                                        contentDescription = label
                                                     )
                                                 }
                                             }
-                                        }
-                                    }
+                                        },
+                                        labelContent = { item, _ ->
+                                            if (!hideLabels) {
+                                                Text(
+                                                    text = stringResource(item.labelRes),
+                                                    fontSize = 11.sp,
+                                                    lineHeight = 14.sp,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    overflow = TextOverflow.Visible
+                                                )
+                                            }
+                                        },
+                                    )
                                 }
                             }
                         }
@@ -782,110 +755,124 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             }
 
             AlertDialogContent(
-                title = { Text("美化首页底部导航栏") },
+                title = { Text(stringResource(R.string.feature_replace_navigation_bar_name)) },
                 text = {
-                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        ListItem(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showTabManagementDialog(context) },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = MaterialSymbols.Outlined.Settings,
-                                    contentDescription = null,
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        SegmentedColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_page_management),
+                                    description = stringResource(R.string.nav_page_management_summary),
+                                    onClick = { showTabManagementDialog(context) },
+                                    trailingContent = {
+                                        Icon(
+                                            MaterialSymbols.Outlined.Chevron_right,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
                                 )
-                            },
-                            content = { Text("页面管理") },
-                            supportingContent = { Text("开关页面及调整顺序, 下次启动微信生效") },
-                        )
-                        ListItem(
-                            trailingContent = {
-                                Switch(
-                                    animatePageChangeInput,
-                                    { animatePageChangeInput = it })
-                            },
-                            supportingContent = { Text("点击标签时滑动切换页面, 而非直接跳转") },
-                            content = { Text("启用页面切换动画") },
-                        )
-                        ListItem(
-                            trailingContent = {
-                                Switch(
-                                    useFloatingInput,
-                                    { useFloatingInput = it })
-                            },
-                            content = { Text("使用悬浮底栏") },
-                        )
-                        ListItem(
-                            trailingContent = {
-                                Switch(
-                                    useBackdropInput,
-                                    { useBackdropInput = it })
-                            },
-                            supportingContent = { Text("需启用「使用悬浮底栏」") },
-                            content = { Text("启用液态玻璃效果") },
-                        )
-                        if (useBackdropInput) {
-                            ListItem(
-                                supportingContent = {
-                                    Slider(
-                                        value = blurRadiusInput,
-                                        onValueChange = { blurRadiusInput = it },
-                                        valueRange = MIN_BLUR_RADIUS.toFloat()..MAX_BLUR_RADIUS.toFloat(),
-                                        steps = MAX_BLUR_RADIUS - MIN_BLUR_RADIUS - 1
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_page_animation),
+                                    description = stringResource(R.string.nav_page_animation_summary),
+                                    checked = animatePageChangeInput,
+                                    onCheckedChange = {
+                                        animatePageChangeInput = it
+                                        animatePageChange = it
+                                    },
+                                )
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_use_floating_bar),
+                                    checked = useFloatingInput,
+                                    onCheckedChange = {
+                                        useFloatingInput = it
+                                        useFloating = it
+                                    },
+                                )
+                            }
+                            expandableItem(
+                                expanded = useBackdropInput,
+                                topContent = {
+                                    SwitchWidget(
+                                        iconPlaceholder = false,
+                                        title = stringResource(R.string.nav_use_liquid_glass),
+                                        description = stringResource(R.string.nav_requires_floating_bar),
+                                        checked = useBackdropInput,
+                                        onCheckedChange = {
+                                            useBackdropInput = it
+                                            useBackdrop = it
+                                        },
                                     )
                                 },
-                                content = {
-                                    val r = blurRadiusInput.roundToInt()
-                                    Text(if (r <= 0) "模糊半径: 关闭 (完全透明)" else "模糊半径: $r")
+                                bottomContent = {
+                                    BaseItemContainer {
+                                        val radius = blurRadiusInput.roundToInt()
+                                        IntNumberPickerWidget(
+                                            title = stringResource(R.string.nav_blur_radius),
+                                            value = radius,
+                                            startInt = MIN_BLUR_RADIUS,
+                                            endInt = MAX_BLUR_RADIUS,
+                                            stepSize = 1,
+                                            valueSuffix = "px",
+                                            onValueChange = {
+                                                blurRadiusInput = it.toFloat()
+                                                blurRadius = it
+                                            },
+                                        )
+                                    }
                                 },
                             )
-                        }
-                        ListItem(
-                            trailingContent = {
-                                Switch(
-                                    hideLabelsInput,
-                                    { hideLabelsInput = it })
-                            },
-                            supportingContent = { Text("需启用「使用悬浮底栏」") },
-                            content = { Text("隐藏标签文本") },
-                        )
-                        ListItem(
-                            supportingContent = {
-                                Slider(
-                                    value = barScaleInput,
-                                    onValueChange = { barScaleInput = it },
-                                    valueRange = MIN_BAR_SCALE.toFloat()..MAX_BAR_SCALE.toFloat(),
-                                    steps = (MAX_BAR_SCALE - MIN_BAR_SCALE) / BAR_SCALE_STEP - 1
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_hide_labels),
+                                    description = stringResource(R.string.nav_requires_floating_bar),
+                                    checked = hideLabelsInput,
+                                    onCheckedChange = {
+                                        hideLabelsInput = it
+                                        hideLabels = it
+                                    },
                                 )
-                            },
-                            content = { Text("底栏缩放: ${barScaleInput.roundToInt()}%") },
-                        )
-                        ListItem(
-                            modifier = Modifier,
-                            leadingContent = null,
-                            trailingContent = {
-                                Switch(
-                                    showFinderBadgeInput,
-                                    { showFinderBadgeInput = it })
-                            },
-                            supportingContent = { Text("包含朋友圈新通知数量等") },
-                            content = { Text("显示「发现」标签角标") },
-                        )
+                            }
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.nav_bar_scale),
+                                        value = barScaleInput.roundToInt(),
+                                        startInt = MIN_BAR_SCALE,
+                                        endInt = MAX_BAR_SCALE,
+                                        stepSize = BAR_SCALE_STEP,
+                                        valueSuffix = "%",
+                                        onValueChange = {
+                                            barScaleInput = it.toFloat()
+                                            barScalePercent = it
+                                        },
+                                    )
+                                }
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_show_discover_badge),
+                                    description = stringResource(R.string.nav_discover_badge_summary),
+                                    checked = showFinderBadgeInput,
+                                    onCheckedChange = {
+                                        showFinderBadgeInput = it
+                                        showFinderBadge = it
+                                    },
+                                )
+                            }
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
-                confirmButton = {
-                    Button(onClick = {
-                        useFloating = useFloatingInput
-                        useBackdrop = useBackdropInput
-                        animatePageChange = animatePageChangeInput
-                        hideLabels = hideLabelsInput
-                        showFinderBadge = showFinderBadgeInput
-                        blurRadius = blurRadiusInput.roundToInt()
-                        barScalePercent = barScaleInput.roundToInt()
-                        onDismiss()
-                    }) { Text("确定") }
-                }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }
@@ -900,13 +887,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text("页面管理") },
+                title = { Text(stringResource(R.string.nav_page_management)) },
                 text = {
                     DefaultColumn {
                         Column {
-                            Text("显示与顺序", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.nav_display_and_order), style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "长按拖动手柄调整顺序，至少保留一个页面",
+                                stringResource(R.string.nav_reorder_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -921,6 +908,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                 .fillMaxWidth()
                                 .heightIn(max = 360.dp),
                         ) { item, dragHandleModifier ->
+                            val label = stringResource(item.labelRes)
                             val checked = item.wechatIndex in currentEnabled
                             Row(
                                 modifier = Modifier
@@ -936,7 +924,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                 ) {
                                     Icon(
                                         imageVector = MaterialSymbols.Outlined.Drag_handle,
-                                        contentDescription = "拖动${item.label}",
+                                        contentDescription = stringResource(R.string.nav_drag_tab_description, label),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -947,7 +935,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
                                 Text(
-                                    text = item.label,
+                                    text = label,
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(horizontal = 12.dp),
@@ -970,13 +958,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         tabOrder = currentOrder.joinToString(",") { it.wechatIndex.toString() }
                         enabledTabs = currentEnabled.map(Int::toString).toSet()
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
             )
         }

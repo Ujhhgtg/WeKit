@@ -14,6 +14,8 @@ import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -26,7 +28,10 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.MergeChatMessageContextMenuItems
+import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.utils.ExtensionIcon
@@ -35,7 +40,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.lang.ref.WeakReference
 
-@Feature(name = "聊天界面消息菜单扩展", categories = ["API"], description = "为聊天界面消息长按菜单提供添加菜单项功能")
+@Feature(
+    id = "聊天界面消息菜单扩展",
+    nameRes = "feature_we_chat_message_context_menu_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_chat_message_context_menu_api_description",
+)
 object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
 
     fun interface IMenuItemsProvider {
@@ -83,15 +93,18 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     // id of the single merged entry shown when MergeChatMessageContextMenuItems is enabled
     private const val MERGED_MENU_ITEM_ID = 777000
 
-    private val menuItems = mutableMapOf<String, List<MenuItem>>()
+    private val providers = mutableMapOf<String, IMenuItemsProvider>()
 
     fun addProvider(provider: IMenuItemsProvider) {
-        menuItems[provider.javaClass.name] = provider.getMenuItems()
+        providers[provider.javaClass.name] = provider
     }
 
     fun removeProvider(provider: IMenuItemsProvider) {
-        menuItems.remove(provider.javaClass.name)
+        providers.remove(provider.javaClass.name)
     }
+
+    private fun currentMenuItems(): List<MenuItem> =
+        providers.values.flatMap(IMenuItemsProvider::getMenuItems)
 
     private val methodCreateMenu by dexMethod {
         searchPackages("com.tencent.mm.ui.chatting.viewitems")
@@ -255,7 +268,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         returnType = android.view.MenuItem::class
                     }
 
-                val applicableItems = menuItems.values.flatten()
+                val applicableItems = currentMenuItems()
                     .filter { it.isSupported(msgInfoWrapper) }
 
                 if (MergeChatMessageContextMenuItems.isEnabled) {
@@ -300,14 +313,14 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
             val context = getChattingContextFromOnSelectHandler(thisObject!!)
             try {
                 if (menuItem.itemId == MERGED_MENU_ITEM_ID) {
-                    val applicableItems = menuItems.values.flatten()
+                    val applicableItems = currentMenuItems()
                         .filter { it.isSupported(msgInfoWrapper) }
                     showMergedMenuDialog(curView, context, msgInfoWrapper, applicableItems)
                     result = null
                     return@hookBefore
                 }
 
-                for (item in menuItems.values.flatten()) {
+                for (item in currentMenuItems()) {
                     if (item.id == menuItem.itemId) {
                         item.onClick(curView, context, msgInfoWrapper)
                         result = null
@@ -328,7 +341,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
 
             try {
                 // nothing to offer if no provider supports multi-select
-                val hasMultiSelectItem = menuItems.values.flatten()
+                val hasMultiSelectItem = currentMenuItems()
                     .any { it.multiSelect !is MultiSelectSupport.Unsupported }
                 if (!hasMultiSelectItem) return@hookBefore
 
@@ -381,7 +394,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     ) {
         showComposeDialog(view.context) {
             AlertDialogContent(
-                title = { Text("WeKit") },
+                title = { Text(stringResource(R.string.app_name)) },
                 text = {
                     LazyColumn(
                         Modifier
@@ -413,7 +426,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         }
                     }
                 },
-                confirmButton = { Button(onDismiss) { Text("关闭") } }
+                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }
@@ -433,7 +446,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         chattingContext: ChattingContext,
         msgInfos: List<MessageInfo>
     ) {
-        val allItems = menuItems.values.flatten()
+        val allItems = currentMenuItems()
 
         val adaptedRows = allItems.mapNotNull { item ->
             val support = item.multiSelect as? MultiSelectSupport.Adapted ?: return@mapNotNull null
@@ -458,13 +471,24 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         }
 
         if (adaptedRows.isEmpty() && autoRows.isEmpty()) {
-            showToast("没有可用于所选消息的 WeKit 菜单项")
+            showToast(
+                view.context,
+                view.context.localizedChatString(R.string.noncompose_message_menu_no_actions),
+            )
             return
         }
 
         showComposeDialog(view.context) {
             AlertDialogContent(
-                title = { Text("WeKit (${msgInfos.size} 条消息)") },
+                title = {
+                    Text(
+                        pluralStringResource(
+                            R.plurals.noncompose_message_menu_selected_title,
+                            msgInfos.size,
+                            msgInfos.size,
+                        ),
+                    )
+                },
                 text = {
                     LazyColumn(
                         Modifier
@@ -472,20 +496,28 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                             .clip(MaterialTheme.shapes.large)
                     ) {
                         if (adaptedRows.isNotEmpty()) {
-                            item { MultiSelectSectionHeader("已适配多选消息") }
+                            item {
+                                MultiSelectSectionHeader(
+                                    stringResource(R.string.noncompose_message_menu_adapted_section),
+                                )
+                            }
                             items(adaptedRows) { row ->
                                 MultiSelectMenuRow(row) { onDismiss() }
                             }
                         }
                         if (autoRows.isNotEmpty()) {
-                            item { MultiSelectSectionHeader("自动兼容多选消息") }
+                            item {
+                                MultiSelectSectionHeader(
+                                    stringResource(R.string.noncompose_message_menu_automatic_section),
+                                )
+                            }
                             items(autoRows) { row ->
                                 MultiSelectMenuRow(row) { onDismiss() }
                             }
                         }
                     }
                 },
-                confirmButton = { Button(onDismiss) { Text("关闭") } }
+                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }

@@ -1,22 +1,27 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import dev.ujhhgtg.wekit.R
 import android.app.Activity
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
 import androidx.core.view.isVisible
 import com.tencent.mm.plugin.sns.ui.SnsUserUI
 import com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI
@@ -30,25 +35,29 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.formatEpoch
 import java.util.Collections
 import java.util.Locale
 import java.util.WeakHashMap
 
 @Feature(
-    name = "底部详细信息", categories = ["朋友圈"],
-    description = "在朋友圈列表项底部显示详情信息"
+    id = "底部详细信息",
+    nameRes = "feature_display_details_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_display_details_description",
 )
 object DisplayDetails : ClickableFeature(), IResolveDex {
 
@@ -102,53 +111,81 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var textFormatInput by remember { mutableStateOf(textFormat) }
-            var timeFormatInput by remember { mutableStateOf(timeFormat) }
-            var hideGroupIconInput by remember { mutableStateOf(hideGroupIcon) }
-
+            var textFormatValue by remember { mutableStateOf(TextFieldValue(textFormat)) }
+            var timeFormatValue by remember { mutableStateOf(timeFormat) }
+            var hideIcon by remember { mutableStateOf(hideGroupIcon) }
+            var isTextFormatFocused by remember { mutableStateOf(false) }
             AlertDialogContent(
-                title = { Text("朋友圈底部信息详细") },
+                title = { Text(stringResource(R.string.moments_display_details_title)) },
                 text = {
-                    DefaultColumn {
-                        Text($$"占位符: $originalText $time $type $snsId $userName")
-                        OutlinedTextField(
-                            value = textFormatInput,
-                            onValueChange = { textFormatInput = it },
-                            label = { Text("文本格式") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = timeFormatInput,
-                            onValueChange = { timeFormatInput = it },
-                            label = { Text("时间格式") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { hideGroupIconInput = !hideGroupIconInput },
-                            trailingContent = {
-                                Switch(
-                                    checked = hideGroupIconInput,
-                                    onCheckedChange = null
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.moments_display_details_text_format),
+                            ) {
+                                Column {
+                                    OutlinedTextField(
+                                        value = textFormatValue,
+                                        onValueChange = {
+                                            textFormatValue = it
+                                            textFormat = it.text.ifBlank { DEFAULT_TEXT_FORMAT }
+                                        },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .onFocusChanged { isTextFormatFocused = it.isFocused },
+                                    )
+                                    Text(
+                                        stringResource(R.string.moments_custom_details_insert_placeholder),
+                                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                                    )
+                                    PlaceholderChips(
+                                        placeholders = listOf(PH_ORIGINAL, PH_TIME, PH_TYPE, PH_SNS_ID, PH_USER_NAME),
+                                        value = textFormatValue,
+                                        isFieldFocused = isTextFormatFocused,
+                                        onValueChange = {
+                                            textFormatValue = it
+                                            textFormat = it.text.ifBlank { DEFAULT_TEXT_FORMAT }
+                                        },
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                    )
+                                }
+                            }
+                        }
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.moments_display_details_time_format),
+                            ) {
+                                OutlinedTextField(
+                                    value = timeFormatValue,
+                                    onValueChange = {
+                                        timeFormatValue = it
+                                        timeFormat = it.ifBlank { DEFAULT_TIME_FORMAT }
+                                    },
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
                                 )
-                            },
-                            content = { Text("隐藏可见范围图标") },
-                        )
+                            }
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.moments_display_details_hide_visibility_icon),
+                                checked = hideIcon,
+                                onCheckedChange = {
+                                    hideIcon = it
+                                    hideGroupIcon = it
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
-                confirmButton = {
-                    Button(onClick = {
-                        textFormat = textFormatInput.ifBlank { DEFAULT_TEXT_FORMAT }
-                        timeFormat = timeFormatInput.ifBlank { DEFAULT_TIME_FORMAT }
-                        hideGroupIcon = hideGroupIconInput
-                        showToast("已保存, 重新进入朋友圈后生效")
-                        onDismiss()
-                    }) {
-                        Text("保存")
-                    }
-                }
             )
         }
     }

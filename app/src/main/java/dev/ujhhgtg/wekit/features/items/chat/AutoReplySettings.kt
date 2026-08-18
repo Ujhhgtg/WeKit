@@ -8,20 +8,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
@@ -39,27 +40,32 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Drag_handle
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
 import dev.ujhhgtg.wekit.features.items.AutomationContactSettingsSelector
-import dev.ujhhgtg.wekit.features.items.AutomationKeywordControls
+import dev.ujhhgtg.wekit.features.items.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordRule
-import dev.ujhhgtg.wekit.features.items.AutomationRuleHeader
-import dev.ujhhgtg.wekit.features.items.AutomationScrollableColumn
-import dev.ujhhgtg.wekit.features.items.AutomationSettingsError
-import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeControls
 import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.items.AutomationToggleRule
-import dev.ujhhgtg.wekit.features.items.automationKeywordSummary
 import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.features.items.payment.PaymentErrorRow
+import dev.ujhhgtg.wekit.features.items.payment.PaymentNavigationRow
+import dev.ujhhgtg.wekit.features.items.payment.PaymentRuleRow
+import dev.ujhhgtg.wekit.features.items.payment.keywordItems
+import dev.ujhhgtg.wekit.features.items.payment.timeRangeItems
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -151,22 +157,26 @@ internal object AutoReplySettings {
     fun showMainDialog(context: Context) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("聊天自动回复") },
+                title = { Text(stringResource(R.string.chat_auto_reply_title)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { showGlobalDialog(context) },
-                            content = { Text("全局设置") },
-                            supportingContent = { Text("配置默认自动回复任务与操作") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { showContactSelector(context) },
-                            content = { Text("分联系人设置") },
-                            supportingContent = { Text("为联系人、群聊或群成员覆盖全局设置") },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.chat_auto_reply_global_settings),
+                                description = stringResource(R.string.chat_auto_reply_global_settings_summary),
+                                onClick = { showGlobalDialog(context) },
+                            )
+                        }
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.chat_auto_reply_contact_settings),
+                                description = stringResource(R.string.chat_auto_reply_contact_settings_summary),
+                                onClick = { showContactSelector(context) },
+                            )
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("关闭") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }
@@ -175,12 +185,13 @@ internal object AutoReplySettings {
         showComposeDialog(context) {
             var draft by remember { mutableStateOf(globalRules()) }
             val validationError = validate(draft)
+            val localizedContext = LocalContext.current
 
             AlertDialogContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
-                title = { Text("全局设置") },
+                title = { Text(stringResource(R.string.chat_auto_reply_global_settings)) },
                 text = {
                     RuleSetEditor(
                         rules = draft,
@@ -208,12 +219,12 @@ internal object AutoReplySettings {
                         enabled = validationError == null,
                         onClick = {
                             updateConfig { it.copy(global = draft) }
-                            showToast("全局设置已保存")
+                            showToast(localizedContext.getString(R.string.chat_auto_reply_global_saved))
                             onDismiss()
                         },
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             )
         }
     }
@@ -222,17 +233,31 @@ internal object AutoReplySettings {
         showComposeDialog(context) {
             var revision by remember { mutableIntStateOf(0) }
             val contacts = remember { loadContacts() }
+            val contactSettingsTitle = stringResource(R.string.chat_auto_reply_contact_settings)
+            val groupSettings = stringResource(R.string.chat_auto_reply_group_settings)
+            val followsGlobal = stringResource(R.string.chat_auto_reply_follows_global)
+            val globalSettings = stringResource(R.string.chat_auto_reply_global_settings)
+            val localizedContext = LocalContext.current
             AutomationContactSettingsSelector(
-                title = "分联系人设置",
+                title = contactSettingsTitle,
                 contacts = contacts,
                 selectionKey = revision,
                 subtitle = { contact ->
                     val count = contactOverrides(contact.wxId).overriddenCount()
                     when {
-                        contact.wxId.isGroupChatWxId && count > 0 -> "群聊设置 - 已覆盖 $count 项"
-                        contact.wxId.isGroupChatWxId -> "群聊设置"
-                        count > 0 -> "已覆盖 $count 项"
-                        else -> "跟随全局设置"
+                        contact.wxId.isGroupChatWxId && count > 0 ->
+                            localizedContext.resources.getQuantityString(
+                                R.plurals.chat_auto_reply_group_overridden_count,
+                                count,
+                                count,
+                            )
+                        contact.wxId.isGroupChatWxId -> groupSettings
+                        count > 0 -> localizedContext.resources.getQuantityString(
+                            R.plurals.chat_auto_reply_overridden_count,
+                            count,
+                            count,
+                        )
+                        else -> followsGlobal
                     }
                 },
                 isConfigured = { contact ->
@@ -247,7 +272,7 @@ internal object AutoReplySettings {
                         showOverrideDialog(
                             context = context,
                             title = contact.displayName.ifBlank { contact.wxId },
-                            parentLabel = "全局设置",
+                            parentLabel = globalSettings,
                             parent = globalRules(),
                             initial = contactOverrides(contact.wxId),
                             onSave = {
@@ -269,46 +294,64 @@ internal object AutoReplySettings {
                 contactOverrides(groupId).overriddenCount()
             }
             val memberCount = remember(revision) { memberOverridesCount(groupId) }
+            val globalSettings = stringResource(R.string.chat_auto_reply_global_settings)
+            val groupGlobalSettings = stringResource(R.string.chat_auto_reply_group_global_settings)
 
             AlertDialogContent(
                 title = { Text(groupName) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                showOverrideDialog(
-                                    context = context,
-                                    title = "群聊全局设置",
-                                    parentLabel = "全局设置",
-                                    parent = globalRules(),
-                                    initial = contactOverrides(groupId),
-                                    onSave = {
-                                        setContactOverrides(groupId, it)
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.chat_auto_reply_group_global_settings),
+                                description = if (groupOverrideCount == 0) {
+                                    stringResource(R.string.chat_auto_reply_follows_global)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.chat_auto_reply_overridden_count,
+                                        groupOverrideCount,
+                                        groupOverrideCount,
+                                    )
+                                },
+                                onClick = {
+                                    showOverrideDialog(
+                                        context = context,
+                                        title = groupGlobalSettings,
+                                        parentLabel = globalSettings,
+                                        parent = globalRules(),
+                                        initial = contactOverrides(groupId),
+                                        onSave = {
+                                            setContactOverrides(groupId, it)
+                                            revision++
+                                            onUpdated()
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.chat_auto_reply_group_member_settings),
+                                description = if (memberCount == 0) {
+                                    stringResource(R.string.chat_auto_reply_all_members_follow_group)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.chat_auto_reply_configured_member_count,
+                                        memberCount,
+                                        memberCount,
+                                    )
+                                },
+                                onClick = {
+                                    showGroupMemberSelector(context, groupId) {
                                         revision++
                                         onUpdated()
-                                    },
-                                )
-                            },
-                            content = { Text("群聊全局设置") },
-                            supportingContent = {
-                                Text(if (groupOverrideCount == 0) "跟随全局设置" else "已覆盖 $groupOverrideCount 项")
-                            },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                showGroupMemberSelector(context, groupId) {
-                                    revision++
-                                    onUpdated()
-                                }
-                            },
-                            content = { Text("群聊分群成员设置") },
-                            supportingContent = {
-                                Text(if (memberCount == 0) "所有成员跟随群聊全局设置" else "已配置 $memberCount 个成员")
-                            },
-                        )
+                                    }
+                                },
+                            )
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("关闭") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }
@@ -322,14 +365,24 @@ internal object AutoReplySettings {
                     .getOrDefault(emptyList())
             }
             val groupName = remember(groupId) { WeDatabaseApi.getDisplayName(groupId) }
+            val localizedContext = LocalContext.current
+            val groupGlobalSettings = stringResource(R.string.chat_auto_reply_group_global_settings)
 
             AutomationContactSettingsSelector(
-                title = "$groupName - 分群成员设置",
+                title = stringResource(R.string.chat_auto_reply_group_member_settings_title, groupName),
                 contacts = members,
                 selectionKey = revision,
                 subtitle = { member ->
                     val count = groupMemberOverrides(groupId, member.wxId).overriddenCount()
-                    if (count == 0) "跟随群聊全局设置" else "已覆盖 $count 项"
+                    if (count == 0) {
+                        localizedContext.getString(R.string.chat_auto_reply_follows_group)
+                    } else {
+                        localizedContext.resources.getQuantityString(
+                            R.plurals.chat_auto_reply_overridden_count,
+                            count,
+                            count,
+                        )
+                    }
                 },
                 isConfigured = { member ->
                     groupMemberOverrides(groupId, member.wxId).overriddenCount() > 0
@@ -339,7 +392,7 @@ internal object AutoReplySettings {
                     showOverrideDialog(
                         context = context,
                         title = member.displayName.ifBlank { member.wxId },
-                        parentLabel = "群聊全局设置",
+                        parentLabel = groupGlobalSettings,
                         parent = globalRules().apply(contactOverrides(groupId)),
                         initial = groupMemberOverrides(groupId, member.wxId),
                         onSave = {
@@ -365,6 +418,7 @@ internal object AutoReplySettings {
             var draft by remember { mutableStateOf(initial) }
             val effective = parent.apply(draft)
             val validationError = validate(effective, draft.keys())
+            val localizedContext = LocalContext.current
 
             AlertDialogContent(
                 modifier = Modifier
@@ -400,12 +454,12 @@ internal object AutoReplySettings {
                         enabled = validationError == null,
                         onClick = {
                             onSave(draft)
-                            showToast("设置已保存")
+                            showToast(localizedContext.getString(R.string.chat_auto_reply_settings_saved))
                             onDismiss()
                         },
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             )
         }
     }
@@ -423,7 +477,9 @@ internal object AutoReplySettings {
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
-                title = { Text(initial.name.ifBlank { "任务设置" }) },
+                title = {
+                    Text(initial.name.ifBlank { stringResource(R.string.chat_auto_reply_task_settings) })
+                },
                 text = {
                     TaskEditor(
                         task = draft,
@@ -438,9 +494,9 @@ internal object AutoReplySettings {
                             onSave(draft)
                             onDismiss()
                         },
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             )
         }
     }
@@ -457,68 +513,70 @@ internal object AutoReplySettings {
         onAddTask: () -> Unit,
         validationError: String?,
     ) {
-        val isGlobalEditor = overriddenKeys == null
+        fun overridden(key: RuleKey): Boolean? = overriddenKeys?.let { key in it }
+        fun editable(key: RuleKey): Boolean = overriddenKeys == null || key in overriddenKeys
 
-        AutomationScrollableColumn {
-            RuleHeader(
-                title = "自动回复",
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item(key = "enabled") { PaymentRuleRow(
+                title = stringResource(R.string.chat_auto_reply_enabled_title),
                 summary = if (rules.enabled.enabled) {
-                    "按下方任务规则匹配收到的文字消息并自动回复"
+                    stringResource(R.string.chat_auto_reply_enabled_summary)
                 } else {
-                    "不自动回复"
+                    stringResource(R.string.chat_auto_reply_disabled_summary)
                 },
-                enabled = rules.enabled.enabled,
-                key = RuleKey.ENABLED,
-                overriddenKeys = overriddenKeys,
+                checked = rules.enabled.enabled,
+                overridden = overridden(RuleKey.ENABLED),
                 parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
+                onActivate = { onActivate(RuleKey.ENABLED) },
+                onReset = { onReset(RuleKey.ENABLED) },
+                onCheckedChange = {
                     onChange(RuleKey.ENABLED, rules.copy(enabled = rules.enabled.copy(enabled = it)))
                 },
-            )
+            ) }
 
-            val timeEditable = overriddenKeys == null || RuleKey.TIME_RANGE in overriddenKeys
-            RuleHeader(
-                title = "时间段自动回复",
+            item(key = "time_range") { PaymentRuleRow(
+                title = stringResource(R.string.chat_auto_reply_time_range_title),
                 summary = if (rules.timeRange.enabled) {
                     "${formatAutomationMinute(rules.timeRange.startMinute)} - ${formatAutomationMinute(rules.timeRange.endMinute)}"
                 } else {
-                    "不限制回复时间"
+                    stringResource(R.string.chat_auto_reply_time_unrestricted)
                 },
-                enabled = rules.timeRange.enabled,
-                key = RuleKey.TIME_RANGE,
-                overriddenKeys = overriddenKeys,
+                checked = rules.timeRange.enabled,
+                overridden = overridden(RuleKey.TIME_RANGE),
                 parentLabel = parentLabel,
-                onActivate = onActivate,
-                onReset = onReset,
-                onEnabledChange = {
+                onActivate = { onActivate(RuleKey.TIME_RANGE) },
+                onReset = { onReset(RuleKey.TIME_RANGE) },
+                onCheckedChange = {
                     onChange(
                         RuleKey.TIME_RANGE,
                         rules.copy(timeRange = rules.timeRange.copy(enabled = it)),
                     )
                 },
+            ) }
+            timeRangeItems(
+                rule = rules.timeRange,
+                editable = editable(RuleKey.TIME_RANGE),
+                visible = rules.timeRange.enabled,
+                onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) },
             )
-            if (rules.timeRange.enabled) {
-                AutomationTimeRangeControls(
-                    rule = rules.timeRange,
-                    editable = timeEditable,
-                    onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) },
+
+            item(key = "tasks_header") {
+                BaseWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.chat_auto_reply_tasks_title),
+                    description = if (rules.tasks.isEmpty()) {
+                        stringResource(R.string.chat_auto_reply_no_tasks)
+                    } else {
+                        pluralStringResource(
+                            R.plurals.chat_auto_reply_task_count_summary,
+                            rules.tasks.size,
+                            rules.tasks.size,
+                        )
+                    },
                 )
             }
-
-            ListItem(
-                content = { Text("任务 (按顺序匹配)") },
-                supportingContent = {
-                    Text(
-                        if (rules.tasks.isEmpty()) {
-                            "尚未添加任务"
-                        } else {
-                            "长按拖动手柄调整顺序 · ${rules.tasks.size} 个任务"
-                        }
-                    )
-                },
-            )
+            }
             if (rules.tasks.isNotEmpty()) {
                 ReorderableList(
                     items = rules.tasks,
@@ -547,7 +605,7 @@ internal object AutoReplySettings {
                         ) {
                             Icon(
                                 MaterialSymbols.Outlined.Drag_handle,
-                                contentDescription = "拖动任务",
+                                contentDescription = stringResource(R.string.chat_auto_reply_drag_task),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -558,11 +616,13 @@ internal object AutoReplySettings {
                                 .padding(horizontal = 8.dp, vertical = 12.dp),
                         ) {
                             Text(
-                                text = task.name.ifBlank { "任务 ${index + 1}" },
+                                text = task.name.ifBlank {
+                                    stringResource(R.string.chat_auto_reply_task_number, index + 1)
+                                },
                                 maxLines = 1,
                             )
                             Text(
-                                text = automationKeywordSummary(task.keyword, "不限关键词"),
+                                text = autoReplyKeywordSummary(task.keyword),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -575,19 +635,24 @@ internal object AutoReplySettings {
                         ) {
                             Icon(
                                 MaterialSymbols.Outlined.Delete,
-                                contentDescription = "删除任务",
+                                contentDescription = stringResource(R.string.chat_auto_reply_delete_task),
                             )
                         }
                     }
                 }
             }
-            ListItem(
-                modifier = Modifier.clickable(onClick = onAddTask),
-                content = { Text("添加任务") },
-                supportingContent = { Text("设置关键词、回复内容与延迟") },
-            )
-
-            AutomationSettingsError(validationError)
+            SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                item(key = "add_task") {
+                    PaymentNavigationRow(
+                        title = stringResource(R.string.chat_auto_reply_add_task),
+                        description = stringResource(R.string.chat_auto_reply_add_task_summary),
+                        onClick = onAddTask,
+                    )
+                }
+                validationError?.let { error ->
+                    item(key = "validation_error") { PaymentErrorRow(error) }
+                }
+            }
         }
     }
 
@@ -597,140 +662,140 @@ internal object AutoReplySettings {
         onChange: (AutoReplyTask) -> Unit,
         validationError: String?,
     ) {
-        AutomationScrollableColumn {
-            OutlinedTextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                value = task.name,
-                onValueChange = { onChange(task.copy(name = it)) },
-                label = { Text("任务名称") },
-                singleLine = true,
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("启用任务", modifier = Modifier.weight(1f))
-                Switch(
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item(key = "name") {
+                BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_task_name)) {
+                    InlineTaskTextField(value = task.name, onValueChange = { onChange(task.copy(name = it)) })
+                }
+            }
+            item(key = "enabled") {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.chat_auto_reply_enable_task),
                     checked = task.enabled,
                     onCheckedChange = { onChange(task.copy(enabled = it)) },
                 )
             }
-            AutomationKeywordControls(
+            keywordItems(
+                keyPrefix = "task_keyword",
                 rule = task.keyword,
                 editable = true,
+                visible = true,
+                modes = AutomationKeywordMode.entries,
                 onChange = { onChange(task.copy(keyword = it)) },
+                onEditText = {},
+                inlineTextFields = true,
             )
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-            ) {
-                AutoReplyType.entries.forEachIndexed { index, type ->
-                    SegmentedButton(
-                        selected = task.reply.type == type,
-                        onClick = { onChange(task.copy(reply = task.reply.copy(type = type))) },
-                        shape = SegmentedButtonDefaults.itemShape(index, AutoReplyType.entries.size),
-                    ) {
-                        Text(
-                            when (type) {
-                                AutoReplyType.TEXT -> "文本"
-                                AutoReplyType.IMAGE -> "图片"
-                                AutoReplyType.VIDEO -> "视频"
-                                AutoReplyType.VOICE -> "语音"
-                            }
+            item(key = "reply_type") {
+                DropDownMenuWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.chat_auto_reply_task_settings),
+                    description = null,
+                    value = task.reply.type,
+                    options = AutoReplyType.entries.map { type ->
+                        DropdownOption(type, stringResource(type.labelRes))
+                    },
+                    onValueChange = { onChange(task.copy(reply = task.reply.copy(type = it))) },
+                )
+            }
+            when (task.reply.type) {
+                AutoReplyType.TEXT -> item(key = "reply_text") {
+                    BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_reply_content)) {
+                        InlineTaskTextField(
+                            value = task.reply.text,
+                            onValueChange = { onChange(task.copy(reply = task.reply.copy(text = it))) },
                         )
                     }
                 }
-            }
-            when (task.reply.type) {
-                AutoReplyType.TEXT -> OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = task.reply.text,
-                    onValueChange = { onChange(task.copy(reply = task.reply.copy(text = it))) },
-                    label = { Text("回复内容") },
-                    singleLine = true,
-                )
 
-                AutoReplyType.IMAGE -> AssetPathField(
+                AutoReplyType.IMAGE -> item(key = "image_path") { AssetPathField(
                     type = AutoReplyType.IMAGE,
                     path = task.reply.path,
                     onChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
-                )
+                ) }
 
-                AutoReplyType.VIDEO -> AssetPathField(
+                AutoReplyType.VIDEO -> item(key = "video_path") { AssetPathField(
                     type = AutoReplyType.VIDEO,
                     path = task.reply.path,
                     onChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
-                )
+                ) }
 
                 AutoReplyType.VOICE -> {
-                    AssetPathField(
+                    item(key = "voice_path") { AssetPathField(
                         type = AutoReplyType.VOICE,
                         path = task.reply.path,
                         onChange = { onChange(task.copy(reply = task.reply.copy(path = it))) },
-                    )
-                    OutlinedTextField(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        value = task.reply.voiceDurationMs,
-                        onValueChange = {
-                            onChange(
-                                task.copy(
-                                    reply = task.reply.copy(
-                                        voiceDurationMs = it.filter(Char::isDigit).take(5),
-                                    ),
-                                ),
+                    ) }
+                    item(key = "voice_duration") {
+                        BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_voice_duration_ms)) {
+                            InlineTaskTextField(
+                                value = task.reply.voiceDurationMs,
+                                keyboardType = KeyboardType.Number,
+                                onValueChange = {
+                                    onChange(task.copy(reply = task.reply.copy(voiceDurationMs = it.filter(Char::isDigit).take(5))))
+                                },
                             )
-                        },
-                        label = { Text("语音时长 (毫秒)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
+                        }
+                    }
+                }
+            }
+            item(key = "delay") {
+                BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_delay_ms)) {
+                    InlineTaskTextField(
+                        value = task.delayMs,
+                        keyboardType = KeyboardType.Number,
+                        onValueChange = { onChange(task.copy(delayMs = it.filter(Char::isDigit).take(5))) },
                     )
                 }
             }
-            OutlinedTextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                value = task.delayMs,
-                onValueChange = { onChange(task.copy(delayMs = it.filter(Char::isDigit).take(5))) },
-                label = { Text("回复延迟 (毫秒, 0-60000)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                value = task.cooldownMs,
-                onValueChange = { onChange(task.copy(cooldownMs = it.filter(Char::isDigit).take(7))) },
-                label = { Text("冷却时间 (毫秒)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("命中后停止匹配后续任务", modifier = Modifier.weight(1f))
-                Switch(
+            item(key = "cooldown") {
+                BaseSupportingWidget(title = stringResource(R.string.chat_auto_reply_cooldown_ms)) {
+                    InlineTaskTextField(
+                        value = task.cooldownMs,
+                        keyboardType = KeyboardType.Number,
+                        onValueChange = { onChange(task.copy(cooldownMs = it.filter(Char::isDigit).take(7))) },
+                    )
+                }
+            }
+            item(key = "stop_after_match") {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.chat_auto_reply_stop_after_match),
                     checked = task.stopAfterMatch,
                     onCheckedChange = { onChange(task.copy(stopAfterMatch = it)) },
                 )
             }
 
-            AutomationSettingsError(validationError)
+            validationError?.let { error ->
+                item(key = "validation_error") { PaymentErrorRow(error) }
+            }
+            }
         }
     }
+
+    @Composable
+    private fun InlineTaskTextField(
+        value: String,
+        keyboardType: KeyboardType = KeyboardType.Text,
+        onValueChange: (String) -> Unit,
+    ) {
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            value = value,
+            onValueChange = onValueChange,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            singleLine = true,
+        )
+    }
+
+    private val AutoReplyType.labelRes: Int
+        get() = when (this) {
+            AutoReplyType.TEXT -> R.string.chat_auto_reply_type_text
+            AutoReplyType.IMAGE -> R.string.chat_auto_reply_type_image
+            AutoReplyType.VIDEO -> R.string.chat_auto_reply_type_video
+            AutoReplyType.VOICE -> R.string.chat_auto_reply_type_voice
+        }
 
     @Composable
     private fun AssetPathField(
@@ -739,48 +804,52 @@ internal object AutoReplySettings {
         onChange: (String) -> Unit,
     ) {
         val context = LocalContext.current
-        OutlinedTextField(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            value = path,
-            onValueChange = onChange,
-            label = {
-                Text(
-                    when (type) {
-                        AutoReplyType.IMAGE -> "图片路径"
-                        AutoReplyType.VIDEO -> "视频路径"
-                        AutoReplyType.VOICE -> "语音文件路径 (amr/silk)"
-                        AutoReplyType.TEXT -> ""
-                    }
-                )
-            },
-            trailingIcon = {
-                IconButton(
-                    onClick = {
-                        importAsset(
-                            context = context,
-                            mimeTypes = when (type) {
-                                AutoReplyType.IMAGE -> arrayOf("image/*")
-                                AutoReplyType.VIDEO -> arrayOf("video/*")
-                                AutoReplyType.VOICE -> arrayOf("audio/*")
-                                AutoReplyType.TEXT -> return@IconButton
-                            },
-                            typePrefix = when (type) {
-                                AutoReplyType.IMAGE -> "image"
-                                AutoReplyType.VIDEO -> "video"
-                                AutoReplyType.VOICE -> "voice"
-                                AutoReplyType.TEXT -> ""
-                            },
-                            onImported = onChange,
-                        )
-                    },
-                ) {
-                    Icon(MaterialSymbols.Outlined.Download, contentDescription = "导入")
-                }
-            },
-            singleLine = true,
+        val title = stringResource(
+            when (type) {
+                AutoReplyType.IMAGE -> R.string.chat_auto_reply_image_path
+                AutoReplyType.VIDEO -> R.string.chat_auto_reply_video_path
+                AutoReplyType.VOICE -> R.string.chat_auto_reply_voice_path
+                AutoReplyType.TEXT -> R.string.chat_auto_reply_reply_content
+            }
         )
+        BaseSupportingWidget(title = title) {
+            OutlinedTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                value = path,
+                onValueChange = onChange,
+                label = { Text(title) },
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            importAsset(
+                                context = context,
+                                mimeTypes = when (type) {
+                                    AutoReplyType.IMAGE -> arrayOf("image/*")
+                                    AutoReplyType.VIDEO -> arrayOf("video/*")
+                                    AutoReplyType.VOICE -> arrayOf("audio/*")
+                                    AutoReplyType.TEXT -> return@IconButton
+                                },
+                                typePrefix = when (type) {
+                                    AutoReplyType.IMAGE -> "image"
+                                    AutoReplyType.VIDEO -> "video"
+                                    AutoReplyType.VOICE -> "voice"
+                                    AutoReplyType.TEXT -> ""
+                                },
+                                onImported = onChange,
+                            )
+                        },
+                    ) {
+                        Icon(
+                            MaterialSymbols.Outlined.Download,
+                            contentDescription = stringResource(R.string.chat_auto_reply_import),
+                        )
+                    }
+                },
+                singleLine = true,
+            )
+        }
     }
 
     /**
@@ -838,30 +907,6 @@ internal object AutoReplySettings {
         else -> "bin"
     }
 
-    @Composable
-    private fun RuleHeader(
-        title: String,
-        summary: String,
-        enabled: Boolean,
-        key: RuleKey,
-        overriddenKeys: Set<RuleKey>?,
-        parentLabel: String,
-        onActivate: (RuleKey) -> Unit,
-        onReset: (RuleKey) -> Unit,
-        onEnabledChange: (Boolean) -> Unit,
-    ) {
-        AutomationRuleHeader(
-            title = title,
-            summary = summary,
-            enabled = enabled,
-            isOverridden = overriddenKeys?.let { key in it },
-            parentLabel = parentLabel,
-            onActivate = { onActivate(key) },
-            onReset = { onReset(key) },
-            onEnabledChange = onEnabledChange,
-        )
-    }
-
     private fun AutoReplyRuleSet.apply(overrides: AutoReplyRuleOverrides?): AutoReplyRuleSet {
         if (overrides == null) return this
         return copy(
@@ -894,39 +939,86 @@ internal object AutoReplySettings {
     private fun AutoReplyRuleOverrides.overriddenCount(): Int =
         listOf(enabled, timeRange, tasks).count { it != null }
 
+    @Composable
+    private fun autoReplyKeywordSummary(rule: AutomationKeywordRule): String {
+        if (!rule.enabled) return stringResource(R.string.chat_auto_reply_keyword_unrestricted)
+        return when (rule.mode) {
+            AutomationKeywordMode.STRING_LIST -> pluralStringResource(
+                R.plurals.chat_auto_reply_keyword_list_summary,
+                rule.strings.size,
+                rule.strings.size,
+            )
+            AutomationKeywordMode.EXACT -> pluralStringResource(
+                R.plurals.chat_auto_reply_keyword_exact_summary,
+                rule.strings.size,
+                rule.strings.size,
+            )
+            AutomationKeywordMode.REGEX -> if (rule.regex.isBlank()) {
+                stringResource(R.string.chat_auto_reply_keyword_regex_empty)
+            } else {
+                stringResource(R.string.chat_auto_reply_keyword_regex_summary)
+            }
+        }
+    }
+
+    @Composable
     private fun validate(rules: AutoReplyRuleSet, keys: Set<RuleKey>? = null): String? {
         fun validates(key: RuleKey) = keys == null || key in keys
 
         if (validates(RuleKey.TASKS)) {
-            rules.tasks.forEachIndexed { index, task ->
-                if (!task.enabled) return@forEachIndexed
-                validateTask(task)?.let {
-                    return "任务「${task.name.ifBlank { "任务 ${index + 1}" }}」: $it"
+            for ((index, task) in rules.tasks.withIndex()) {
+                if (!task.enabled) continue
+                val error = validateTask(task)
+                if (error != null) {
+                    val name = task.name.ifBlank {
+                        stringResource(R.string.chat_auto_reply_task_number, index + 1)
+                    }
+                    return stringResource(R.string.chat_auto_reply_task_error, name, error)
                 }
             }
         }
         return null
     }
 
+    @Composable
     private fun validateTask(task: AutoReplyTask): String? {
         if (!task.enabled) return null
-        task.keyword.validationError("关键词")?.let { return it }
+        if (task.keyword.enabled) {
+            when (task.keyword.mode) {
+                AutomationKeywordMode.STRING_LIST, AutomationKeywordMode.EXACT ->
+                    if (task.keyword.strings.none(String::isNotBlank)) {
+                        return stringResource(R.string.chat_auto_reply_error_keyword_list_empty)
+                    }
+                AutomationKeywordMode.REGEX -> when {
+                    task.keyword.regex.isBlank() ->
+                        return stringResource(R.string.chat_auto_reply_error_keyword_regex_empty)
+                    runCatching { Regex(task.keyword.regex) }.isFailure ->
+                        return stringResource(R.string.chat_auto_reply_error_keyword_regex_invalid)
+                }
+            }
+        }
         when (task.reply.type) {
-            AutoReplyType.TEXT -> if (task.reply.text.isBlank()) return "文本回复内容不能为空"
+            AutoReplyType.TEXT -> if (task.reply.text.isBlank()) {
+                return stringResource(R.string.chat_auto_reply_error_text_empty)
+            }
             AutoReplyType.IMAGE, AutoReplyType.VIDEO, AutoReplyType.VOICE -> if (task.reply.path.isBlank()) {
-                return "回复文件路径不能为空"
+                return stringResource(R.string.chat_auto_reply_error_path_empty)
             }
         }
         if (task.reply.type == AutoReplyType.VOICE) {
             val duration = task.reply.voiceDurationMs.toIntOrNull()
             if (duration == null || duration < 1 || duration > 60000) {
-                return "语音时长必须在 1-60000 毫秒之间"
+                return stringResource(R.string.chat_auto_reply_error_voice_duration)
             }
         }
         val delay = task.delayMs.toLongOrNull()
-        if (delay == null || delay < 0 || delay > 60000) return "延迟必须在 0-60000 毫秒之间"
+        if (delay == null || delay < 0 || delay > 60000) {
+            return stringResource(R.string.chat_auto_reply_error_delay)
+        }
         val cooldown = task.cooldownMs.toLongOrNull()
-        if (cooldown == null || cooldown < 0) return "冷却时间不能为负数"
+        if (cooldown == null || cooldown < 0) {
+            return stringResource(R.string.chat_auto_reply_error_cooldown)
+        }
         return null
     }
 

@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.Intent
@@ -16,9 +17,10 @@ import dev.ujhhgtg.wekit.utils.android.baseActivity
 import java.lang.reflect.Method
 
 @Feature(
-    name = "点击空白处查看详情",
-    categories = ["朋友圈"],
-    description = "点击一条朋友圈的空白区域直接进入该条朋友圈的详情页面"
+    id = "点击空白处查看详情",
+    nameRes = "feature_open_details_on_item_click_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_open_details_on_item_click_description",
 )
 object OpenDetailsOnItemClick : SwitchFeature(), IResolveDex {
 

@@ -5,6 +5,8 @@ import android.content.Context
 import android.os.Build
 import android.os.Process
 import com.tencent.mmkv.MMKV
+import dev.ujhhgtg.wekit.extensions.CloudflaredPack
+import dev.ujhhgtg.wekit.extensions.CloudflaredPackNotInstalledException
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader.init
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
@@ -71,6 +73,34 @@ object NativeLoader {
                 loadZygiskLibraries(payload)
             }
             nativeLibrariesLoaded = true
+        }
+    }
+
+    @Volatile
+    private var cloudflaredLoaded = false
+
+    /** Whether the cloudflared bridge has been System.load-ed in this process. */
+    @JvmStatic
+    fun isCloudflaredLoaded(): Boolean = cloudflaredLoaded
+
+    /**
+     * Lazily loads the Go cloudflared bridge from the cloudflared extension pack
+     * when the built-in read-receipts backend is first used. Throws
+     * [dev.ujhhgtg.wekit.extensions.CloudflaredPackNotInstalledException] when the
+     * pack has not been downloaded — callers surface the install dialog.
+     */
+    @JvmStatic
+    fun ensureCloudflaredLoaded() {
+        if (cloudflaredLoaded) return
+        synchronized(nativeLoadLock) {
+            if (cloudflaredLoaded) return
+            val library = CloudflaredPack.libraryFile()
+                ?: throw CloudflaredPackNotInstalledException(
+                    "cloudflared extension pack is not installed"
+                )
+            @SuppressLint("UnsafeDynamicallyLoadedCode")
+            System.load(library.absolutePath)
+            cloudflaredLoaded = true
         }
     }
 

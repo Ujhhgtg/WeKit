@@ -20,6 +20,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -27,6 +28,11 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -34,7 +40,11 @@ import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.StringMatchType
 import java.lang.reflect.Modifier
 
-@Feature(name = "设置模块入口", categories = ["API"])
+@Feature(
+    id = "设置模块入口",
+    nameRes = "feature_we_settings_injector_name",
+    categoryIds = [FeatureCategoryIds.API],
+)
 object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener {
 
     private val methodSetKey by dexMethod()
@@ -153,7 +163,6 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private const val TAG = "WeSettingsInjector"
 
     private const val PREFS_KEY = "wekit_settings_entry"
-    private const val PREFS_TITLE = "${BuildConfig.TAG} 设置"
     private const val PREFERENCE_CLASS_NAME = "com.tencent.mm.ui.base.preference.Preference"
 
     @SuppressLint("NonUniqueDexKitData")
@@ -268,7 +277,15 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
                 val prefInstance = IconPreference(context)
 
                 methodSetKey.method.invoke(prefInstance, PREFS_KEY)
-                methodSetTitle.method.invoke(prefInstance, PREFS_TITLE)
+                val localizedContext = LocalizedContextFactory.create(
+                    context,
+                    WeKitLocaleController.resolvedLocale,
+                    LocaleResourceMode.InjectedHost,
+                )
+                methodSetTitle.method.invoke(
+                    prefInstance,
+                    localizedContext.getString(R.string.noncompose_wekit_settings_entry),
+                )
 
                 val prefScreen = context.reflekt().invokeMethod("getPreferenceScreen", superclass = true)
 
@@ -361,9 +378,21 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
 
         settingsManager.createItem {
             key = "SettingGroup_Main_WeKitTest1"
-            title = "WeKit 设置"
+            titleProvider = {
+                LocalizedContextFactory.create(
+                    HostInfo.application,
+                    WeKitLocaleController.resolvedLocale,
+                    LocaleResourceMode.InjectedHost,
+                ).getString(R.string.noncompose_wekit_settings_entry)
+            }
             level = 1
-            groupTitle = "插件"
+            groupTitleProvider = {
+                LocalizedContextFactory.create(
+                    HostInfo.application,
+                    WeKitLocaleController.resolvedLocale,
+                    LocaleResourceMode.InjectedHost,
+                ).getString(R.string.noncompose_wekit_settings_group)
+            }
             pageClass = SettingGroupMain::class.java
             parentClass = SettingAdditionHeaderSearch::class.java
             childClass = SettingGroupPersonalInfo::class.java

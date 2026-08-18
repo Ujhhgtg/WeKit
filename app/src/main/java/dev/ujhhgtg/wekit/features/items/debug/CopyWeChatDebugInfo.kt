@@ -6,15 +6,22 @@ import androidx.activity.ComponentActivity
 import com.tencent.mm.plugin.setting.ui.setting.SettingsAboutMMHeaderPreference
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 
-@Feature(name = "复制调试信息", categories = ["调试"], description = "在报告模块问题时, 请附上本功能的结果")
+@Feature(
+    id = "复制调试信息",
+    nameRes = "feature_copy_we_chat_debug_info_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_copy_we_chat_debug_info_description",
+)
 object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
 
     override val noSwitchWidget = true
@@ -27,7 +34,7 @@ object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
             }.hookBeforeDirectly {
                 val debugText = (args[0] as StringBuilder).toString()
                 copyToClipboard(context, debugText)
-                showToast(context, "已复制")
+                showToast(context, context.localizedDebugString(R.string.debug_copied))
                 throwable = RuntimeException("halt method")
             }
 

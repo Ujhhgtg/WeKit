@@ -22,10 +22,15 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
+import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
+import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
+import dev.ujhhgtg.wekit.features.items.beautify.localizedBeautifyString
+import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -60,7 +65,7 @@ internal class HomeSidePanelState(
         HomeSidePanelUiState(
             profile = HomeSidePanelProfile(
                 wxId = "",
-                nickname = "微信用户",
+                nickname = "",
                 avatarUrl = "",
                 status = HomeSidePanelStatusUiState.Loading,
             ),
@@ -158,7 +163,7 @@ internal class HomeSidePanelState(
                     updateWeatherSettings(
                         actionInProgress = false,
                     )
-                    publishMessage(result.reason.message)
+                    publishMessage(beautifyText(result.reason.messageRes))
                     HomeSidePanelPreferences.weatherProfileAccount = _uiState.value.profile.wxId
                 }
             }
@@ -212,11 +217,10 @@ internal class HomeSidePanelState(
             detectWeatherLocation()
         } else {
             pendingLocationPermission = false
-            val message = "定位权限已拒绝，仍可搜索或手动选择城市"
             updateWeatherSettings(
                 actionInProgress = false,
             )
-            publishMessage(message)
+            publishMessage(beautifyText(R.string.home_side_panel_location_permission_denied))
         }
     }
 
@@ -307,11 +311,11 @@ internal class HomeSidePanelState(
             }
             route = HomeSidePanelRoute.HOME
             scope.launch { fetchHitokotoInternal() }
-        } catch (error: IllegalArgumentException) {
+        } catch (error: InvalidHitokotoSettingsException) {
             _uiState.update { state ->
                 state.copy(
                     hitokoto = HitokotoUiState.Error(
-                        message = error.message ?: "一言设置无效",
+                        message = error.text,
                         cached = (state.hitokoto as? HitokotoUiState.Ready)?.snapshot,
                     ),
                 )
@@ -374,9 +378,9 @@ internal class HomeSidePanelState(
         } catch (error: Throwable) {
             HomeSidePanelProfile(
                 wxId = "",
-                nickname = "微信用户",
+                nickname = "",
                 avatarUrl = "",
-                status = HomeSidePanelStatusUiState.Error("获取失败"),
+                status = HomeSidePanelStatusUiState.Error,
             )
         }
         _uiState.update { it.copy(profile = loadedProfile) }
@@ -439,13 +443,13 @@ internal class HomeSidePanelState(
         HomeSidePanelStatusUiState.Loading -> false
         is HomeSidePanelStatusUiState.Ready -> status.status.description.isNotBlank()
         HomeSidePanelStatusUiState.NoStatus,
-        is HomeSidePanelStatusUiState.Error -> true
+        HomeSidePanelStatusUiState.Error -> true
     }
 
     private fun statusFingerprint(status: HomeSidePanelStatusUiState): StatusFingerprint = when (status) {
         HomeSidePanelStatusUiState.Loading -> StatusFingerprint.Loading
         HomeSidePanelStatusUiState.NoStatus -> StatusFingerprint.NoStatus
-        is HomeSidePanelStatusUiState.Error -> StatusFingerprint.Error
+        HomeSidePanelStatusUiState.Error -> StatusFingerprint.Error
         is HomeSidePanelStatusUiState.Ready -> StatusFingerprint.Ready(
             statusId = status.status.statusId,
             description = status.status.description,
@@ -472,7 +476,7 @@ internal class HomeSidePanelState(
             }
 
             is WeatherCityMatchResult.Error -> {
-                publishMessage(result.reason.message)
+                publishMessage(beautifyText(result.reason.messageRes))
             }
         }
         HomeSidePanelPreferences.weatherProfileAccount = accountId
@@ -552,11 +556,10 @@ internal class HomeSidePanelState(
 
             LocationResolution.NeedPermission -> Unit
             else -> {
-                val message = locationResolutionMessage(resolution)
                 updateWeatherSettings(
                     actionInProgress = false,
                 )
-                publishMessage(message)
+                publishMessage(locationResolutionMessage(resolution))
             }
         }
     }
@@ -585,6 +588,10 @@ internal class HomeSidePanelState(
         _messages.tryEmit(message)
     }
 
+    private fun publishMessage(message: BeautifyText) {
+        publishMessage(activity.resolveBeautifyText(message))
+    }
+
     private fun openShortcut(shortcut: HomeSidePanelShortcut) {
         when (shortcut) {
             HomeSidePanelShortcut.SCAN -> startExplicit("${activity.packageName}.plugin.scanner.ui.BaseScanUI")
@@ -606,7 +613,7 @@ internal class HomeSidePanelState(
         val opened = startExplicit(PERSONAL_PROFILE_NEW_CLASS) {
             putExtra("key_config_item", "SettingGroup_Main_PersonalInfo")
         } || startExplicit(PERSONAL_PROFILE_LEGACY_CLASS)
-        if (!opened) showToast(activity, "无法打开个人资料页")
+        if (!opened) showToast(activity, localizedBeautifyString(R.string.home_side_panel_open_profile_failed))
     }
 
     private fun openStatusDestination() {
@@ -632,7 +639,7 @@ internal class HomeSidePanelState(
         val opened = STATUS_EDITOR_CLASSES.any { className ->
             startExplicit(className) { putExtra("KEY_IS_ENTER", true) }
         }
-        if (!opened) showToast(activity, "无法打开状态编辑页")
+        if (!opened) showToast(activity, localizedBeautifyString(R.string.home_side_panel_open_status_failed))
         return opened
     }
 

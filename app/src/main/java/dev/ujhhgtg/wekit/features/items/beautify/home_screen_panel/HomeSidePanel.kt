@@ -36,6 +36,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.beautify.AddMainScreenFab
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
@@ -96,7 +97,12 @@ private fun homeSidePanelShouldReparentExternalChrome(
         parentClassName != "androidx.appcompat.widget.ActionBarOverlayLayout"
 
 @Suppress("DEPRECATION")
-@Feature(name = "主页侧滑面板", categories = ["界面美化"], description = "在微信主页添加一个左划侧栏面板 (负一屏)")
+@Feature(
+    id = "主页侧滑面板",
+    nameRes = "feature_home_side_panel_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_home_side_panel_description",
+)
 object HomeSidePanel : SwitchFeature(), IResolveDex {
 
     private val classWalletCache by dexClass {

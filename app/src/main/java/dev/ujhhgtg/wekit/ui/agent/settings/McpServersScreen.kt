@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,35 +8,53 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Add
+import com.composables.icons.materialsymbols.outlined.Chevron_right
+import com.composables.icons.materialsymbols.outlined.Refresh
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.McpTransport
 import dev.ujhhgtg.wekit.agent.data.entity.ProviderEntity
 import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
+import dev.ujhhgtg.wekit.agent.mcp.McpConnectionState
 import dev.ujhhgtg.wekit.agent.mcp.McpProviderStatus
 import dev.ujhhgtg.wekit.agent.mcp.McpToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
+import dev.ujhhgtg.wekit.agent.tool.ToolMode
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
+import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 import java.util.UUID
 
 /**
@@ -66,27 +85,51 @@ fun McpServersScreen(onBack: () -> Unit, onOpenServer: (serverId: String) -> Uni
     val scope = rememberCoroutineScope()
     val showAdd = remember { mutableStateOf(false) }
 
-    AgentSettingsScaffold(title = "MCP 服务器", onBack = onBack) {
-        if (servers.isEmpty()) item { EmptyHint("还没有 MCP 服务器。") }
-        items(servers.size, key = { servers[it].id }) { i ->
-            val s = servers[i]
-            val status = rememberMcpStatus(liveProviders.firstOrNull { it.id == s.id })
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = s.name.ifBlank { s.endpointUrl ?: s.id },
-                    summary = "${s.transport?.name ?: "?"} · ${status.state.name}" +
-                            (status.lastError?.let { " · $it" } ?: ""),
-                    onClick = { onOpenServer(s.id) },
+    AgentSettingsScaffold(title = stringResource(R.string.agent_mcp_servers_title), onBack = onBack) {
+        if (servers.isEmpty()) {
+            item {
+                AgentEmptyState(
+                    title = stringResource(R.string.agent_empty_mcp_title),
+                    message = stringResource(R.string.agent_empty_mcp_message),
+                    actionLabel = stringResource(R.string.agent_add_server),
+                    onAction = { showAdd.value = true },
                 )
             }
-        }
-        item {
-            Button(
-                onClick = { showAdd.value = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
-            ) { Text("添加服务器") }
+        } else {
+            items(servers.size, key = { servers[it].id }) { i ->
+                val s = servers[i]
+                val status = rememberMcpStatus(liveProviders.firstOrNull { it.id == s.id })
+                SegmentedColumn {
+                    item {
+                        BaseWidget(
+                            title = s.name.ifBlank { s.endpointUrl ?: s.id },
+                            description = status.lastError?.let {
+                                stringResource(
+                                    R.string.agent_mcp_server_summary_error,
+                                    s.transport?.name ?: "?",
+                                    mcpStateLabel(status.state),
+                                    it,
+                                )
+                            } ?: stringResource(
+                                R.string.agent_mcp_server_summary,
+                                s.transport?.name ?: "?",
+                                mcpStateLabel(status.state),
+                            ),
+                            onClick = { onOpenServer(s.id) },
+                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        )
+                    }
+                }
+            }
+            item {
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.agent_add_server),
+                        icon = MaterialSymbols.Outlined.Add,
+                        onClick = { showAdd.value = true },
+                    )
+                }
+            }
         }
     }
 
@@ -116,6 +159,8 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val allProviders by WeAgentRepository.observeProviders().collectAsState(initial = emptyList())
     val server = allProviders.firstOrNull { it.id == serverId }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val perms by WeAgentRepository.observeToolPermissions().collectAsState(initial = emptyList())
     val permMap = perms.associate { it.providerId to it.toolName to it.mode }
 
@@ -123,62 +168,174 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val status = rememberMcpStatus(liveProviders.firstOrNull { it.id == serverId })
     val tools = status.tools
 
-    AgentSettingsScaffold(title = server?.name ?: "MCP 服务器", onBack = onBack) {
-        item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = "连接状态",
-                    summary = status.state.name + (status.lastError?.let { " · $it" } ?: "") + " · 点击刷新工具",
-                    onClick = { scope.launch { McpClientManager.refreshTools(serverId) } },
-                )
-                server?.let {
-                    ArrowPreference(title = "地址", summary = "${it.transport?.name ?: "?"} · ${it.endpointUrl}", onClick = {})
+    /** Connection-parameter edits rebuild the live client; a rename is display-only. */
+    fun commitServer(rebuild: Boolean, transform: (ProviderEntity) -> ProviderEntity) {
+        val current = server ?: return
+        scope.launch {
+            WeAgentRepository.upsertMcpProvider(transform(current))
+            if (rebuild) McpClientManager.reload(serverId)
+        }
+    }
+
+    AgentSettingsScaffold(title = server?.name ?: stringResource(R.string.agent_mcp_servers_title), onBack = onBack) {
+        server?.let { srv ->
+            item {
+                SegmentedColumn(title = stringResource(R.string.agent_section_connection)) {
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_field_name),
+                            value = srv.name,
+                            onValueChange = { value -> commitServer(rebuild = false) { it.copy(name = value) } },
+                            dialogTitle = stringResource(R.string.agent_field_name),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_server_url),
+                            value = srv.endpointUrl.orEmpty(),
+                            onValueChange = { value -> commitServer(rebuild = true) { it.copy(endpointUrl = value) } },
+                            dialogTitle = stringResource(R.string.agent_server_url),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                            keyboardType = KeyboardType.Uri,
+                        )
+                    }
+                    item {
+                        DropDownMenuWidget(
+                            icon = null,
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_transport),
+                            description = null,
+                            value = srv.transport ?: McpTransport.STREAMABLE_HTTP,
+                            options = listOf(
+                                DropdownOption(McpTransport.STREAMABLE_HTTP, "Streamable HTTP"),
+                                DropdownOption(McpTransport.SSE, "SSE"),
+                            ),
+                            onValueChange = { value -> commitServer(rebuild = true) { it.copy(transport = value) } },
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_custom_headers_json),
+                            value = srv.headersJson.orEmpty(),
+                            onValueChange = { value ->
+                                commitServer(rebuild = true) { it.copy(headersJson = value.ifBlank { null }) }
+                            },
+                            dialogTitle = stringResource(R.string.agent_custom_headers_json),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                            singleLine = false,
+                        )
+                    }
                 }
-                TextButton(
-                    text = "删除此服务器",
-                    onClick = { scope.launch { WeAgentRepository.deleteMcpProvider(serverId) }; onBack() },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                )
             }
         }
 
-        item { top.yukonga.miuix.kmp.basic.SmallTitle("工具权限") }
-        if (tools.isEmpty()) item { EmptyHint("未连接或无工具。连接后可在此设置每个工具的权限。") }
-        items(tools.size, key = { "${serverId}_${tools[it].name}" }) { i ->
-            val t = tools[i]
-            val mode = permMap[serverId to t.name] ?: t.factoryDefaultMode
-            Card(Modifier.padding(bottom = 6.dp)) {
-                McpToolModeDropdown(t.name, mode) { newMode ->
-                    scope.launch { WeAgentRepository.setToolMode(serverId, t.name, newMode) }
+        item {
+            SegmentedColumn {
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.agent_connection_status),
+                        description = stringResource(
+                            R.string.agent_connection_summary,
+                            status.lastError?.let {
+                                stringResource(R.string.agent_mcp_status_error, mcpStateLabel(status.state), it)
+                            } ?: mcpStateLabel(status.state),
+                        ),
+                        onClick = { scope.launch { McpClientManager.refreshTools(serverId) } },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Refresh, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+            }
+        }
+
+        item {
+            AgentActionRow {
+                OutlinedButton(
+                    onClick = { showDeleteConfirm = true },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.action_delete)) }
+            }
+        }
+
+        if (tools.isEmpty()) {
+            item {
+                AgentEmptyState(
+                    title = stringResource(R.string.agent_empty_mcp_tools_title),
+                    message = stringResource(R.string.agent_empty_mcp_tools_message),
+                )
+            }
+        } else {
+            item { McpSectionTitle(stringResource(R.string.agent_tool_permissions_title)) }
+            lazySegmentedItems(tools, key = { "${serverId}_${it.name}" }) { t ->
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    DropDownMenuWidget(
+                        icon = null,
+                        iconPlaceholder = false,
+                        title = t.name,
+                        description = null,
+                        value = permMap[serverId to t.name] ?: t.factoryDefaultMode,
+                        options = MODE_ORDER.map { DropdownOption(it, it.toolModeLabel()) },
+                        onValueChange = { newMode ->
+                            scope.launch { WeAgentRepository.setToolMode(serverId, t.name, newMode) }
+                        },
+                    )
                 }
             }
         }
     }
-}
 
-private val MCP_MODE_ORDER = listOf(
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.ENABLED,
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.MANUAL_APPROVAL,
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.SMART_APPROVAL,
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.DISABLED,
-)
-
-private fun dev.ujhhgtg.wekit.agent.tool.ToolMode.mcpLabel(): String = when (this) {
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.ENABLED -> "直接允许"
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.MANUAL_APPROVAL -> "手动审批"
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.SMART_APPROVAL -> "智能审批"
-    dev.ujhhgtg.wekit.agent.tool.ToolMode.DISABLED -> "禁用"
-}
-
-@Composable
-private fun McpToolModeDropdown(name: String, mode: dev.ujhhgtg.wekit.agent.tool.ToolMode, onChange: (dev.ujhhgtg.wekit.agent.tool.ToolMode) -> Unit) {
-    WindowDropdownPreference(
-        title = name,
-        items = MCP_MODE_ORDER.map { it.mcpLabel() },
-        selectedIndex = MCP_MODE_ORDER.indexOf(mode).coerceAtLeast(0),
-        onSelectedIndexChange = { onChange(MCP_MODE_ORDER[it]) },
+    AgentConfirmDialog(
+        show = showDeleteConfirm,
+        title = stringResource(R.string.agent_delete_server),
+        message = stringResource(R.string.agent_delete_server_confirm),
+        confirmLabel = stringResource(R.string.action_delete),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            showDeleteConfirm = false
+            scope.launch {
+                try {
+                    WeAgentRepository.deleteMcpProvider(serverId)
+                    onBack()
+                } catch (e: Exception) {
+                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                }
+            }
+        },
+        onDismiss = { showDeleteConfirm = false },
     )
 }
+
+/** Mirrors [SegmentedColumn]'s section title styling for sections whose rows are laid out lazily. */
+@Composable
+private fun McpSectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 32.dp, top = 8.dp, bottom = 16.dp),
+    )
+}
+
+private fun currentAgentLocalizedContext(base: Context): Context =
+    LocalizedContextFactory.create(
+        base,
+        WeKitLocaleController.resolvedLocale,
+        LocaleResourceMode.InjectedHost,
+    )
+
+@Composable
+private fun mcpStateLabel(state: McpConnectionState): String = stringResource(
+    when (state) {
+        McpConnectionState.DISCONNECTED -> R.string.agent_mcp_state_disconnected
+        McpConnectionState.CONNECTING -> R.string.agent_mcp_state_connecting
+        McpConnectionState.CONNECTED -> R.string.agent_mcp_state_connected
+        McpConnectionState.FAILED -> R.string.agent_mcp_state_failed
+    }
+)
 
 @Composable
 private fun AddMcpDialog(
@@ -188,40 +345,55 @@ private fun AddMcpDialog(
     var name by remember(show.value) { mutableStateOf("") }
     var url by remember(show.value) { mutableStateOf("") }
     var headers by remember(show.value) { mutableStateOf("") }
-    var transportIndex by remember(show.value) { mutableIntStateOf(0) }
-    val transports = listOf(McpTransport.STREAMABLE_HTTP, McpTransport.SSE)
+    var transport by remember(show.value) { mutableStateOf(McpTransport.STREAMABLE_HTTP) }
 
-    WindowDialog(show = show.value, title = "添加 MCP 服务器", onDismissRequest = { show.value = false }) {
+    WeKitBasicDialog(show = show.value, title = stringResource(R.string.agent_add_mcp_server), onDismissRequest = { show.value = false }) {
         Column {
-            TextField(value = name, onValueChange = { name = it }, label = "名称", useLabelAsPlaceholder = true, singleLine = true)
-            Spacer(Modifier.height(8.dp))
-            TextField(value = url, onValueChange = { url = it }, label = "服务器 URL", useLabelAsPlaceholder = true, singleLine = true)
-            Spacer(Modifier.height(8.dp))
-            WindowDropdownPreference(
-                title = "传输方式",
-                items = listOf("Streamable HTTP", "SSE"),
-                selectedIndex = transportIndex,
-                onSelectedIndexChange = { transportIndex = it },
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.agent_field_name)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
-            TextField(
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = { Text(stringResource(R.string.agent_server_url)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            DropDownMenuWidget(
+                icon = null,
+                iconPlaceholder = false,
+                title = stringResource(R.string.agent_transport),
+                description = null,
+                value = transport,
+                options = listOf(
+                    DropdownOption(McpTransport.STREAMABLE_HTTP, "Streamable HTTP"),
+                    DropdownOption(McpTransport.SSE, "SSE"),
+                ),
+                onValueChange = { transport = it },
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
                 value = headers,
                 onValueChange = { headers = it },
-                label = "自定义请求头 JSON（可选，如 {\"Authorization\":\"Bearer ...\"}）",
-                useLabelAsPlaceholder = true,
-                maxLines = 3
+                label = { Text(stringResource(R.string.agent_custom_headers_json)) },
+                maxLines = 3,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
-                TextButton(text = "取消", onClick = { show.value = false }, modifier = Modifier.weight(1f))
+                TextButton(onClick = { show.value = false }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(12.dp))
                 TextButton(
-                    text = "添加",
-                    onClick = { onConfirm(name, transports[transportIndex], url, headers); show.value = false },
+                    onClick = { onConfirm(name, transport, url, headers); show.value = false },
                     enabled = url.isNotBlank(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f),
-                )
+                ) { Text(stringResource(R.string.action_add)) }
             }
         }
     }

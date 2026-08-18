@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferRespProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -19,7 +20,12 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 import kotlin.time.Duration.Companion.seconds
 
-@Feature(name = "转账服务", categories = ["API"], description = "提供转账相关发包能力")
+@Feature(
+    id = "转账服务",
+    nameRes = "feature_we_transfer_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_transfer_api_description",
+)
 object WeTransferApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeTransferApi"

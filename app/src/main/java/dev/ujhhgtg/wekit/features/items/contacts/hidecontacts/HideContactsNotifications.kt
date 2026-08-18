@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.TargetProcesses
@@ -50,9 +51,10 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  * Turn 隐藏联系人 off entirely to get notifications back.
  */
 @Feature(
-    name = "隐藏联系人通知抑制",
-    categories = ["API"],
-    description = "在 push 进程内抑制被隐藏联系人的新消息通知 (随「隐藏联系人」开关自动生效)"
+    id = "隐藏联系人通知抑制",
+    nameRes = "feature_hide_contacts_notifications_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_hide_contacts_notifications_description",
 )
 object HideContactsNotifications : ApiFeature(), IResolveDex {
 
@@ -131,14 +133,14 @@ object HideContactsNotifications : ApiFeature(), IResolveDex {
      *
      * Everything is read from [WePrefs] (MMKV in `MULTI_PROCESS_MODE`) rather than from
      * [HideContacts]'s runtime state, because none of that state exists in `:push`:
-     * - `SwitchFeature` persists its on/off state under the feature's `name`, so the 隐藏联系人 switch
+     * - `SwitchFeature` persists its on/off state under the feature's `technicalId`, so the 隐藏联系人 switch
      *   is readable here;
      * - `HideContacts.hiddenContacts` is itself nothing but a [WePrefs] string-set read.
      *
      * `HideContacts.temporarilyShown` is intentionally *not* consulted — see the class KDoc.
      */
     private fun isSuppressed(wxId: String): Boolean =
-        WePrefs.getBoolOrDef(HideContacts.name, false) && wxId in HideContacts.hiddenContacts
+        WePrefs.getBoolOrDef(HideContacts.technicalId, false) && wxId in HideContacts.hiddenContacts
 
     override fun onEnable() {
         // Both bodies only cancel the call; they mutate no WeChat state and so cannot re-trigger the

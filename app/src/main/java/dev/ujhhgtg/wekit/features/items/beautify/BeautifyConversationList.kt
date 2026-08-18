@@ -8,27 +8,29 @@ import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
 import android.view.View
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.reflected.ReflectedField
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -51,9 +53,10 @@ private enum class ConversationListPreset(
 }
 
 @Feature(
-    name = "美化对话列表",
-    categories = ["聊天", "界面美化"],
-    description = "为主页会话列表提供卡片布局、未读突出和分隔线设置",
+    id = "美化对话列表",
+    nameRes = "feature_beautify_conversation_list_name",
+    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_beautify_conversation_list_description",
 )
 object BeautifyConversationList : ClickableFeature() {
 
@@ -123,81 +126,79 @@ object BeautifyConversationList : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var draftPreset by remember { mutableStateOf(selectedPreset) }
-            var draftHighlightUnread by remember { mutableStateOf(highlightUnreadEnabled) }
-            var draftHideDividers by remember { mutableStateOf(hideDividersEnabled) }
+            var preset by remember { mutableStateOf(selectedPreset) }
+            var highlightUnread by remember { mutableStateOf(highlightUnreadEnabled) }
+            var hideDividers by remember { mutableStateOf(hideDividersEnabled) }
+
+            fun applyChanges(highlight: Boolean, dividers: Boolean) {
+                highlightUnreadEnabled = highlight
+                hideDividersEnabled = dividers
+                updateDividerRequest()
+                WeConversationListViewApi.refresh()
+            }
 
             AlertDialogContent(
-                title = { Text("美化对话列表") },
+                title = { Text(stringResource(R.string.beautify_conversation_list_title)) },
                 text = {
-                    DefaultColumn {
-                        ConversationListPreset.entries.forEach { preset ->
-                            val label = when (preset) {
-                                ConversationListPreset.NO_LAYOUT -> "不修改卡片布局"
-                                ConversationListPreset.COMFORT_CARD -> "舒适卡片"
-                                ConversationListPreset.PINNED_GROUPED_CARD -> "置顶分组卡片"
-                                ConversationListPreset.COMPACT_ROUNDED -> "紧凑圆角"
-                                ConversationListPreset.MINIMAL_LIST -> "简洁列表"
-                            }
-                            ListItem(
-                                modifier = Modifier.clickable {
-                                    draftPreset = preset
-                                    if (preset == ConversationListPreset.NO_LAYOUT) {
-                                        draftHighlightUnread = false
-                                    }
-                                },
-                                headlineContent = { Text(label) },
-                                trailingContent = {
-                                    RadioButton(
-                                        selected = draftPreset == preset,
-                                        onClick = {
-                                            draftPreset = preset
-                                            if (preset == ConversationListPreset.NO_LAYOUT) {
-                                                draftHighlightUnread = false
-                                            }
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item(key = "preset") {
+                            DropDownMenuWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_conversation_preset),
+                                description = null,
+                                value = preset,
+                                options = ConversationListPreset.entries.map { entry ->
+                                    DropdownOption(
+                                        entry,
+                                        when (entry) {
+                                            ConversationListPreset.NO_LAYOUT -> stringResource(R.string.beautify_conversation_no_layout)
+                                            ConversationListPreset.COMFORT_CARD -> stringResource(R.string.beautify_conversation_comfort_card)
+                                            ConversationListPreset.PINNED_GROUPED_CARD -> stringResource(R.string.beautify_conversation_pinned_grouped)
+                                            ConversationListPreset.COMPACT_ROUNDED -> stringResource(R.string.beautify_conversation_compact_rounded)
+                                            ConversationListPreset.MINIMAL_LIST -> stringResource(R.string.beautify_conversation_minimal)
                                         },
                                     )
                                 },
-                            )
-                        }
-                        if (draftPreset != ConversationListPreset.NO_LAYOUT) {
-                            ListItem(
-                                modifier = Modifier.clickable { draftHighlightUnread = !draftHighlightUnread },
-                                headlineContent = { Text("突出未读会话") },
-                                trailingContent = {
-                                    Switch(
-                                        checked = draftHighlightUnread,
-                                        onCheckedChange = { draftHighlightUnread = it },
+                                onValueChange = { entry ->
+                                    preset = entry
+                                    if (entry == ConversationListPreset.NO_LAYOUT) highlightUnread = false
+                                    presetName = entry.name
+                                    applyChanges(
+                                        highlight = entry != ConversationListPreset.NO_LAYOUT && highlightUnread,
+                                        dividers = hideDividers,
                                     )
                                 },
                             )
                         }
-                        ListItem(
-                            modifier = Modifier.clickable { draftHideDividers = !draftHideDividers },
-                            headlineContent = { Text("隐藏分隔线") },
-                            trailingContent = {
-                                Switch(
-                                    checked = draftHideDividers,
-                                    onCheckedChange = { draftHideDividers = it },
-                                )
-                            },
-                        )
+                        item(
+                            key = "highlight_unread",
+                            animatedVisibility = preset != ConversationListPreset.NO_LAYOUT,
+                        ) {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_conversation_highlight_unread),
+                                checked = highlightUnread,
+                                onCheckedChange = {
+                                    highlightUnread = it
+                                    applyChanges(highlight = it, dividers = hideDividers)
+                                },
+                            )
+                        }
+                        item(key = "hide_dividers") {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.beautify_conversation_hide_dividers),
+                                checked = hideDividers,
+                                onCheckedChange = {
+                                    hideDividers = it
+                                    applyChanges(highlight = highlightUnread, dividers = it)
+                                },
+                            )
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        presetName = draftPreset.name
-                        highlightUnreadEnabled = draftPreset != ConversationListPreset.NO_LAYOUT && draftHighlightUnread
-                        hideDividersEnabled = draftHideDividers
-                        updateDividerRequest()
-                        WeConversationListViewApi.refresh()
-                        onDismiss()
-                    }) {
-                        Text("确定")
-                    }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
             )
         }

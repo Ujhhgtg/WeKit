@@ -6,13 +6,15 @@ import android.widget.TextView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookParam
 
 @Feature(
-    name = "移除群成员昵称控制字符",
-    categories = ["聊天"],
-    description = "自动移除群聊成员昵称中影响显示的 Unicode 控制字符"
+    id = "移除群成员昵称控制字符",
+    nameRes = "feature_remove_group_member_nickname_control_characters_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_remove_group_member_nickname_control_characters_description",
 )
 object RemoveGroupMemberNicknameControlCharacters : SwitchFeature(),
     WeChatMessageViewApi.ICreateViewListener {

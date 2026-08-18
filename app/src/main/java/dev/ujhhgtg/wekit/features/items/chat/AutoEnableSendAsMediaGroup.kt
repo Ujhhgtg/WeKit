@@ -7,12 +7,14 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 @Feature(
-    name = "自动启用合并发送媒体",
-    categories = ["聊天"],
-    description = "发送媒体时自动勾选「发送后合并展示」选项"
+    id = "自动启用合并发送媒体",
+    nameRes = "feature_auto_enable_send_as_media_group_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_auto_enable_send_as_media_group_description",
 )
 object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
 

@@ -4,11 +4,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -19,8 +22,14 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-@Feature(name = "红包页面详情", categories = ["红包与支付"], description = "红包领取页面显示更加详细的领取情况")
+@Feature(
+    id = "红包页面详情",
+    nameRes = "feature_display_red_packet_details_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_display_red_packet_details_description",
+)
 object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
 
     private const val TAG = "DisplayRedPacketDetails"
@@ -66,11 +75,15 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
                 val localDate = localDateTime.toLocalDate()
                 val today = LocalDate.now()
                 val pattern = when {
-                    localDate == today -> "HH:mm:ss"
-                    localDate.year == today.year -> "M月d日 HH:mm:ss"
-                    else -> "yyyy年M月d日 HH:mm:ss"
+                    localDate == today -> localizedPaymentString(R.string.payment_red_packet_date_today)
+                    localDate.year == today.year ->
+                        localizedPaymentString(R.string.payment_red_packet_date_same_year)
+                    else -> localizedPaymentString(R.string.payment_red_packet_date_other_year)
                 }
-                val formatter = DateTimeFormatter.ofPattern(pattern)
+                val formatter = DateTimeFormatter.ofPattern(
+                    pattern,
+                    Locale.forLanguageTag(WeKitLocaleController.resolvedLocale.androidTag),
+                )
                 textView.text = localDateTime.format(formatter)
             }.onFailure {
                 WeLogger.e(TAG, "error binding red packet list item time", it)
@@ -134,12 +147,20 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
         val recAmount = jsonObject.optInt("recAmount", 0)
 
         val sb = StringBuilder()
-        sb.append("金额:").append(recAmount / 100.0).append('/').append(totalAmount / 100.0).append("元\n")
-        sb.append("数量:").append(recNum).append('/').append(totalNum).append('\n')
+        sb.append(
+            localizedPaymentString(
+                R.string.payment_red_packet_amount_details,
+                recAmount / 100.0,
+                totalAmount / 100.0,
+            )
+        ).append('\n')
+        sb.append(
+            localizedPaymentString(R.string.payment_red_packet_count_details, recNum, totalNum)
+        ).append('\n')
 
         val remaining = (totalAmount - recAmount) / 100.0
         if (remaining > 0.0) {
-            sb.append("剩余:").append(remaining).append("元\n")
+            sb.append(localizedPaymentString(R.string.payment_red_packet_remaining, remaining)).append('\n')
         }
 
         jsonObject.put("headTitle", sb.toString())

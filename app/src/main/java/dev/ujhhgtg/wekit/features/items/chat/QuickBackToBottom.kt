@@ -20,15 +20,17 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.WeakHashMap
 
 @Feature(
-    name = "快捷回底",
-    categories = ["聊天"],
-    description = "聊天界面离最新消息超过一定距离时, 复用右下角「x条新消息」气泡显示「回到最新」, 点击一键回到最新消息"
+    id = "快捷回底",
+    nameRes = "feature_quick_back_to_bottom_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_quick_back_to_bottom_description",
 )
 object QuickBackToBottom : SwitchFeature(), IResolveDex {
 

@@ -1,41 +1,70 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderTool
 import dev.ujhhgtg.wekit.agent.tool.ToolMode
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 
 /**
  * Lists the built-in tool providers (builtin-wechat / builtin-wechat-sql / builtin-fs). Each drills
  * into a per-provider [ToolPermissionListScreen]. Pinned & undeletable.
  */
 @Composable
-fun BuiltinProvidersScreen(onBack: () -> Unit, onOpenProvider: (providerId: String, name: String) -> Unit) {
-    AgentSettingsScaffold(title = "内置工具", onBack = onBack) {
+fun BuiltinProvidersScreen(onBack: () -> Unit, onOpenProvider: (providerId: String) -> Unit) {
+    AgentSettingsScaffold(title = stringResource(R.string.agent_builtin_tools_title), onBack = onBack) {
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
+            SegmentedColumn {
                 BuiltinToolProvider.all.forEach { p ->
-                    ArrowPreference(
-                        title = p.name,
-                        summary = "${p.id} · ${p.seedInfos().size} 个工具",
-                        onClick = { onOpenProvider(p.id, p.name) },
-                    )
+                    item(key = p.id) {
+                        val displayName = builtinProviderDisplayName(p.id, p.name)
+                        BaseWidget(
+                            iconPlaceholder = false,
+                            title = displayName,
+                            description = stringResource(R.string.agent_tool_count_summary, p.id, p.seedInfos().size),
+                            onClick = { onOpenProvider(p.id) },
+                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        )
+                    }
                 }
             }
         }
     }
 }
+
+@Composable
+fun builtinProviderDisplayName(providerId: String, fallback: String = providerId): String =
+    when (providerId) {
+        BuiltinToolProvider.WECHAT_ID -> stringResource(R.string.agent_builtin_provider_wechat)
+        BuiltinToolProvider.WECHAT_SQL_ID -> stringResource(R.string.agent_builtin_provider_wechat_sql)
+        BuiltinToolProvider.FS_ID -> stringResource(R.string.agent_builtin_provider_files)
+        BuiltinToolProvider.JVM_ID -> stringResource(R.string.agent_builtin_provider_jvm)
+        BuiltinToolProvider.UI_ID -> stringResource(R.string.agent_builtin_provider_ui)
+        BuiltinToolProvider.WEBVIEW_ID -> stringResource(R.string.agent_builtin_provider_webview)
+        BuiltinToolProvider.TRIGGER_ID -> stringResource(R.string.agent_builtin_provider_triggers)
+        BuiltinToolProvider.INFO_ID -> stringResource(R.string.agent_builtin_provider_environment)
+        BuiltinToolProvider.NET_ID -> stringResource(R.string.agent_builtin_provider_network)
+        else -> fallback
+    }
 
 /**
  * Per-provider four-state permission editor (§3.2), reused for both a built-in provider and an MCP
@@ -54,13 +83,27 @@ fun ToolPermissionListScreen(
     val permMap = perms.associate { (it.providerId to it.toolName) to it.mode }
 
     AgentSettingsScaffold(title = title, onBack = onBack) {
-        if (tools.isEmpty()) item { EmptyHint("该提供方暂无可用工具。") }
-        items(tools.size, key = { "${providerId}_${tools[it].first}" }) { i ->
-            val (name, default) = tools[i]
-            val mode = permMap[providerId to name] ?: default
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ToolModeDropdown(name, mode) { newMode ->
-                    scope.launch { WeAgentRepository.setToolMode(providerId, name, newMode) }
+        if (tools.isEmpty()) {
+            item {
+                AgentEmptyState(
+                    title = stringResource(R.string.agent_empty_mcp_tools_title),
+                    message = stringResource(R.string.agent_no_provider_tools),
+                )
+            }
+        } else {
+            lazySegmentedItems(tools, key = { "${providerId}_${it.first}" }) { (name, default) ->
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    DropDownMenuWidget(
+                        icon = null,
+                        iconPlaceholder = false,
+                        title = name,
+                        description = null,
+                        value = permMap[providerId to name] ?: default,
+                        options = MODE_ORDER.map { DropdownOption(it, it.toolModeLabel()) },
+                        onValueChange = { newMode ->
+                            scope.launch { WeAgentRepository.setToolMode(providerId, name, newMode) }
+                        },
+                    )
                 }
             }
         }
@@ -77,21 +120,12 @@ fun builtinProviderTools(providerId: String): List<Pair<String, ToolMode>> =
 fun providerToolPairs(tools: List<ProviderTool>): List<Pair<String, ToolMode>> =
     tools.map { it.name to it.factoryDefaultMode }
 
-private val MODE_ORDER = listOf(ToolMode.ENABLED, ToolMode.MANUAL_APPROVAL, ToolMode.SMART_APPROVAL, ToolMode.DISABLED)
-
-private fun ToolMode.label(): String = when (this) {
-    ToolMode.ENABLED -> "直接允许"
-    ToolMode.MANUAL_APPROVAL -> "手动审批"
-    ToolMode.SMART_APPROVAL -> "智能审批"
-    ToolMode.DISABLED -> "禁用"
-}
+internal val MODE_ORDER = listOf(ToolMode.ENABLED, ToolMode.MANUAL_APPROVAL, ToolMode.SMART_APPROVAL, ToolMode.DISABLED)
 
 @Composable
-private fun ToolModeDropdown(name: String, mode: ToolMode, onChange: (ToolMode) -> Unit) {
-    WindowDropdownPreference(
-        title = name,
-        items = MODE_ORDER.map { it.label() },
-        selectedIndex = MODE_ORDER.indexOf(mode).coerceAtLeast(0),
-        onSelectedIndexChange = { onChange(MODE_ORDER[it]) },
-    )
-}
+internal fun ToolMode.toolModeLabel(): String = stringResource(when (this) {
+    ToolMode.ENABLED -> R.string.agent_tool_mode_enabled
+    ToolMode.MANUAL_APPROVAL -> R.string.agent_tool_mode_manual_approval
+    ToolMode.SMART_APPROVAL -> R.string.agent_tool_mode_smart_approval
+    ToolMode.DISABLED -> R.string.agent_tool_mode_disabled
+})

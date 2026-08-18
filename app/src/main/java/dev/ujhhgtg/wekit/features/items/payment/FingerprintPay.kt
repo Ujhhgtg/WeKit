@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -28,9 +29,11 @@ import com.composables.icons.materialsymbols.outlinedfilled.Visibility_off
 import com.tencent.mm.plugin.fingerprint.ui.FingerPrintAuthTransparentUI
 import com.tenpay.android.wechat.MyKeyboardWindow
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -45,7 +48,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.nul
 
 
-@Feature(name = "指纹支付", categories = ["红包与支付"], description = "使用指纹快捷确认支付")
+@Feature(
+    id = "指纹支付",
+    nameRes = "feature_fingerprint_pay_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_fingerprint_pay_description",
+)
 object FingerprintPay : ClickableFeature() {
 
     private const val TAG = "FingerprintPay"
@@ -73,13 +81,13 @@ object FingerprintPay : ClickableFeature() {
             val context = thiz.context
 
             val rawEncData = encryptedData ?: run {
-                showToast("支付密码未设置, 指纹支付不会生效!")
+                showToast(localizedPaymentString(R.string.payment_fingerprint_password_not_configured))
                 return@hookAfter
             }
             val splitRawEncData = rawEncData.split(SPLIT_CHAR)
             val encData = EncryptedData(splitRawEncData[0], splitRawEncData[1])
             decryptWithBiometric(context, encData) { plaintext ->
-                showToast("支付密码解密成功!")
+                showToast(localizedPaymentString(R.string.payment_fingerprint_decrypted))
                 for (char in plaintext) {
                     val digit = char.digitToInt()
                     digitViews[digit].performClick()
@@ -97,7 +105,7 @@ object FingerprintPay : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            showToast("Android 版本过低 (< Android 11), 无法使用指纹验证!")
+            showToast(localizedPaymentString(R.string.payment_fingerprint_android_too_old))
             return
         }
 
@@ -106,7 +114,7 @@ object FingerprintPay : ClickableFeature() {
             var visible by remember { mutableStateOf(false) }
 
             AlertDialogContent(
-                title = { Text("指纹支付") },
+                title = { Text(stringResource(R.string.feature_fingerprint_pay_name)) },
                 text = {
                     TextField(
                         value = plaintext,
@@ -114,45 +122,53 @@ object FingerprintPay : ClickableFeature() {
                             if (it.length > 6) return@TextField
                             plaintext = it.filter { c -> c.isDigit() }
                         },
-                        label = { Text("支付密码") },
+                        label = { Text(stringResource(R.string.payment_fingerprint_password)) },
                         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         trailingIcon = {
                             IconButton(onClick = { visible = !visible }) {
                                 Icon(
                                     imageVector = if (visible) MaterialSymbols.OutlinedFilled.Visibility else MaterialSymbols.OutlinedFilled.Visibility_off,
-                                    contentDescription = if (visible) "Hide password" else "Show password"
+                                    contentDescription = stringResource(
+                                        if (visible) R.string.hide_password else R.string.show_password
+                                    )
                                 )
                             }
                         }
                     )
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                     TextButton(onClick = {
                         val rawEncData = encryptedData ?: run {
-                            showToast("支付密码未设置!")
+                            showToast(localizedPaymentString(R.string.payment_fingerprint_password_missing))
                             return@TextButton
                         }
                         val splitRawEncData = rawEncData.split(SPLIT_CHAR)
                         val encData = EncryptedData(splitRawEncData[0], splitRawEncData[1])
                         decryptWithBiometric(context, encData) { plaintext ->
-                            showToast("支付密码解密成功! 内容: ${plaintext.first()}****${plaintext.last()}")
+                            showToast(
+                                localizedPaymentString(
+                                    R.string.payment_fingerprint_decrypted_preview,
+                                    plaintext.first(),
+                                    plaintext.last(),
+                                )
+                            )
                         }
-                    }) { Text("测试解密") }
+                    }) { Text(stringResource(R.string.payment_fingerprint_test_decryption)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         if (plaintext.length != 6) {
-                            showToast("密码长度不正确!")
+                            showToast(localizedPaymentString(R.string.payment_fingerprint_invalid_length))
                             return@Button
                         }
                         onDismiss()
                         encryptWithBiometric(context, plaintext) { encData ->
                             encryptedData = "${encData.ciphertext}${SPLIT_CHAR}${encData.iv}"
-                            showToast("支付密码加密并保存成功!")
+                            showToast(localizedPaymentString(R.string.payment_fingerprint_saved))
                         }
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
 
@@ -173,7 +189,7 @@ object FingerprintPay : ClickableFeature() {
                 }
 
                 override fun onAuthenticationError(code: Int, msg: CharSequence) {
-                    showToast("验证失败! 错因: $msg")
+                    showToast(localizedPaymentString(R.string.payment_fingerprint_auth_failed, msg))
                     if (code == BiometricPrompt.ERROR_CANCELED ||
                         code == BiometricPrompt.ERROR_USER_CANCELED
                     ) activity.finish()
@@ -184,16 +200,16 @@ object FingerprintPay : ClickableFeature() {
     }
 
     @get:RequiresApi(Build.VERSION_CODES.R)
-    private val promptInfo by lazy {
+    private val promptInfo: BiometricPrompt.PromptInfo
+        get() =
         BiometricPrompt.PromptInfo.Builder()
-            .setTitle("验证")
-            .setSubtitle("验证指纹或密码以加解密支付密码")
+            .setTitle(localizedPaymentString(R.string.payment_fingerprint_verify_title))
+            .setSubtitle(localizedPaymentString(R.string.payment_fingerprint_verify_subtitle))
             .setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or
                         BiometricManager.Authenticators.DEVICE_CREDENTIAL
             )
             .build()
-    }
 
     // --- ENCRYPT ---
     @RequiresApi(Build.VERSION_CODES.R)
@@ -201,24 +217,24 @@ object FingerprintPay : ClickableFeature() {
         val cipher = try {
             CryptoManager.getEncryptCipher()
         } catch (_: KeyPermanentlyInvalidatedException) {
-            showToast("检测到新生物特征, 密钥已重置, 请在模块设置中重新加密支付密码!")
+            showToast(localizedPaymentString(R.string.payment_fingerprint_key_reset))
             return
         } catch (e: Exception) {
-            showToast("捕获到未处理的异常! 请向模块作者报告问题")
+            showToast(localizedPaymentString(R.string.payment_fingerprint_unhandled_error))
             WeLogger.e(TAG, "unhandled exception", e)
             return
         }
         TransparentActivity.launch(context) {
             buildPrompt(this) { result ->
                 val authorizedCipher = result.cryptoObject?.cipher ?: run {
-                    showToast("指纹验证成功, 但无法获取密文对象! 请向模块作者报告问题")
+                    showToast(localizedPaymentString(R.string.payment_fingerprint_missing_cipher))
                     return@buildPrompt
                 }
                 val encData = runCatching {
                     CryptoManager.encrypt(plaintext, authorizedCipher)
                 }.getOrElse {
                     WeLogger.e(TAG, "failed to encrypt", it)
-                    showToast(context, "加密失败! 请向模块作者报告问题")
+                    showToast(context, context.localizedPaymentString(R.string.payment_fingerprint_encrypt_failed))
                     return@buildPrompt
                 }
                 onSuccess(encData)
@@ -233,24 +249,24 @@ object FingerprintPay : ClickableFeature() {
         val cipher = try {
             CryptoManager.getDecryptCipher(iv)
         } catch (_: KeyPermanentlyInvalidatedException) {
-            showToast("检测到新生物特征, 密钥已重置, 请在模块设置中重新加密支付密码!")
+            showToast(localizedPaymentString(R.string.payment_fingerprint_key_reset))
             return
         } catch (e: Exception) {
-            showToast("捕获到未处理的异常! 请向模块作者报告问题")
+            showToast(localizedPaymentString(R.string.payment_fingerprint_unhandled_error))
             WeLogger.e(TAG, "unhandled exception", e)
             return
         }
         TransparentActivity.launch(context) {
             buildPrompt(this) { result ->
                 val authorizedCipher = result.cryptoObject?.cipher ?: run {
-                    showToast("指纹验证成功, 但无法获取密文对象! 请向模块作者报告问题")
+                    showToast(localizedPaymentString(R.string.payment_fingerprint_missing_cipher))
                     return@buildPrompt
                 }
                 val plaintext = runCatching {
                     CryptoManager.decrypt(encryptedData, authorizedCipher)
                 }.getOrElse {
                     WeLogger.e(TAG, "failed to decrypt", it)
-                    showToast(context, "解密失败! 请向模块作者报告问题")
+                    showToast(context, context.localizedPaymentString(R.string.payment_fingerprint_decrypt_failed))
                     return@buildPrompt
                 }
                 onSuccess(plaintext)
@@ -262,34 +278,31 @@ object FingerprintPay : ClickableFeature() {
         if (newState && Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             showComposeDialog(context) {
                 AlertDialogContent(
-                    title = { Text(text = "错误") },
+                    title = { Text(text = stringResource(R.string.error)) },
                     text = {
                         Text(
-                            text =
-                                "Android 版本过低 (< Android 11), 无法使用指纹验证!\n" +
-                                        "为追求代码简洁度与稳定性, 本项目使用 AndroidX Biometric API, 不支持 < Android 11 的设备\n" +
-                                        "如确实需要此功能, 可使用第三方项目 eritpchy/FingerprintPay"
+                            text = stringResource(R.string.payment_fingerprint_android_too_old_details)
                         )
                     },
-                    confirmButton = { Button(onDismiss) { Text("关闭") } }
+                    confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
                 )
             }
-            showToast("Android 版本过低 (< Android 11), 无法使用指纹验证!")
+            showToast(localizedPaymentString(R.string.payment_fingerprint_android_too_old))
             return false
         }
 
         if (newState) {
             showComposeDialog(context) {
                 AlertDialogContent(
-                    title = { Text(text = "警告") },
-                    text = { Text(text = "此功能可能导致账号异常, 确定要启用吗?") },
+                    title = { Text(text = stringResource(R.string.warning)) },
+                    text = { Text(text = stringResource(R.string.payment_risk_warning)) },
                     confirmButton = {
                         Button(onClick = {
                             applyToggle(true)
                             onDismiss()
-                        }) { Text("确定") }
+                        }) { Text(stringResource(R.string.dialog_confirm)) }
                     },
-                    dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
                 )
             }
             return false

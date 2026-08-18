@@ -5,6 +5,7 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Edit
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -12,6 +13,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.utils.android.getSystemService
@@ -19,7 +21,12 @@ import dev.ujhhgtg.wekit.utils.now
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
-@Feature(name = "一键撤回并重新编辑", categories = ["聊天"], description = "向消息长按菜单添加菜单项, 可快捷撤回消息并将文本内容加入输入框")
+@Feature(
+    id = "一键撤回并重新编辑",
+    nameRes = "feature_quick_revoke_and_edit_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_quick_revoke_and_edit_description",
+)
 object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override fun onEnable() {
@@ -37,7 +44,7 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777016, "编辑", EditIcon, MaterialSymbols.Outlined.Edit,
+                777016, localizedChatString(R.string.chat_swipe_action_edit), EditIcon, MaterialSymbols.Outlined.Edit,
                 isSupported = { isSupported(it) },
                 // revokes then loads one message's text into the input box; single-message only
                 multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Unsupported

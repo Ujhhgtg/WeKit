@@ -13,10 +13,12 @@ import android.os.ResultReceiver
 import android.view.View
 import android.widget.FrameLayout
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.core.os.BundleCompat
 import com.tencent.mm.plugin.multitalk.ui.MultiTalkMainUI
 import com.tencent.mm.plugin.voip.ui.VideoActivity
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.PipVoipActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -24,8 +26,8 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
@@ -62,9 +64,10 @@ import java.util.WeakHashMap
  * 因此本功能在该模式下直接停用。
  */
 @Feature(
-    name = "音视频通话使用画中画",
-    categories = ["聊天", "音视频通话"],
-    description = "让微信的音视频通话使用原生的画中画模式而非悬浮窗"
+    id = "音视频通话使用画中画",
+    nameRes = "feature_pip_voip_name",
+    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
+    descriptionRes = "feature_pip_voip_description",
 )
 object PipVoip : SwitchFeature(), IResolveDex {
 
@@ -343,6 +346,10 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
 
         override fun restore() {
+            if (methodVoipMpLaunchPage.isPlaceholder) {
+                WeLogger.w(TAG, "voipmp launchPage wasn't resolved, cannot restore call UI")
+                return
+            }
             val service = voipMpService ?: error("voipmp service is unavailable")
             methodVoipMpLaunchPage.method.invoke(service, HostInfo.application, false)
         }
@@ -651,21 +658,9 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     // -------------------------------------------------------------------- 多人通话
 
-    private val classMultiTalkViewModel by dexClass {
-        matcher {
-            usingEqStrings(
-                "MicroMsg.MT.MultiTalkUIViewModel",
-                "onCameraClick, cur state: ",
-            )
-        }
-    }
+    private val classMultiTalkViewModel by dexClass()
 
-    private val fieldMultiTalkViewModel by dexField {
-        matcher {
-            declaredClass(MultiTalkMainUI::class.java)
-            type(classMultiTalkViewModel.data.name)
-        }
-    }
+    private val fieldMultiTalkViewModel by dexField()
 
     private val classObservableState by dexClass {
         searchPackages("androidx.lifecycle")
@@ -700,101 +695,29 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodMultiTalkMinimize by dexMethod {
-        matcher {
-            declaredClass(MultiTalkMainUI::class.java)
-            paramCount = 0
-            returnType = "void"
-            usingEqStrings("onMiniMultiTalk")
-        }
-    }
+    private val methodMultiTalkMinimize by dexMethod()
 
-    private val methodMultiTalkExit by dexMethod {
-        matcher {
-            declaredClass(MultiTalkMainUI::class.java)
-            paramCount = 0
-            returnType = "void"
-            usingEqStrings("onExitMultiTalk")
-        }
-    }
+    private val methodMultiTalkExit by dexMethod()
 
     private val methodMultiTalkMic by dexMethod()
 
-    private val methodMultiTalkCamera by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.MT.MultiTalkUIViewModel", "onCameraClick, cur state: ")
-        }
-    }
+    private val methodMultiTalkCamera by dexMethod()
 
-    private val classMultiTalkManager by dexClass {
-        matcher {
-            usingEqStrings("MicroMsg.MT.MultiTalkManager", "hy: set mute record: %b")
-        }
-    }
+    private val classMultiTalkManager by dexClass()
 
-    private val methodMultiTalkManagerMute by dexMethod {
-        matcher {
-            declaredClass(classMultiTalkManager.data.name)
-            paramTypes("boolean")
-            returnType = "void"
-            usingEqStrings("MicroMsg.Multitalk.ILinkService", "hy: set mute record: %b")
-        }
-    }
+    private val methodMultiTalkManagerMute by dexMethod()
 
-    private val methodGetMultiTalkManager by dexMethod {
-        matcher {
-            modifiers(Modifier.PUBLIC or Modifier.STATIC)
-            paramCount = 0
-            returnType(classMultiTalkManager.data.name)
-        }
-    }
+    private val methodGetMultiTalkManager by dexMethod()
 
-    private val classMultiTalkEngine by dexClass {
-        matcher {
-            usingEqStrings("MicroMsg.MT.MultiTalkEngine", "setEngineMicOn, %s")
-        }
-    }
+    private val classMultiTalkEngine by dexClass()
 
-    private val methodMultiTalkEngineMic by dexMethod {
-        matcher {
-            declaredClass(classMultiTalkEngine.data.name)
-            paramTypes("boolean")
-            returnType = "void"
-            usingEqStrings("MicroMsg.MT.MultiTalkEngine", "setEngineMicOn, %s")
-        }
-    }
+    private val methodMultiTalkEngineMic by dexMethod()
 
-    private val methodGetMultiTalkEngine by dexMethod {
-        matcher {
-            modifiers(Modifier.PUBLIC or Modifier.STATIC)
-            paramCount = 0
-            returnType(classMultiTalkEngine.data.name)
-        }
-    }
+    private val methodGetMultiTalkEngine by dexMethod()
 
-    private val fieldMultiTalkMicState by dexField {
-        matcher {
-            declaredClass(classMultiTalkViewModel.data.name)
-            type(classMutableObservableState.data.name)
-            addReadMethod {
-                usingEqStrings("onMicClick, cur state: ")
-            }
-            addReadMethod {
-                declaredClass(MultiTalkMainUI::class.java)
-                usingEqStrings("mMultiTalkGroupMemberList", "usrName")
-            }
-        }
-    }
+    private val fieldMultiTalkMicState by dexField()
 
-    private val fieldMultiTalkCameraState by dexField {
-        matcher {
-            declaredClass(classMultiTalkViewModel.data.name)
-            type(classObservableState.data.name)
-            addReadMethod {
-                usingEqStrings("MicroMsg.MT.MultiTalkUIViewModel", "onCameraClick, cur state: ")
-            }
-        }
-    }
+    private val fieldMultiTalkCameraState by dexField()
 
     private val methodObservableValue by dexMethod {
         matcher {
@@ -805,6 +728,146 @@ object PipVoip : SwitchFeature(), IResolveDex {
     }
 
     override fun resolveDex(dexKit: DexKitBridge) {
+        val multiTalkViewModels = dexKit.findClass {
+            matcher {
+                usingEqStrings(
+                    "MicroMsg.MT.MultiTalkUIViewModel",
+                    "onCameraClick, cur state: ",
+                )
+            }
+        }
+
+        when (multiTalkViewModels.size) {
+            1 -> classMultiTalkViewModel.setDescriptor(multiTalkViewModels.single())
+            0 -> {
+                val reason = "legacy MultiTalk UI architecture is absent"
+                classMultiTalkViewModel.setPlaceholderDescriptor(true, reason)
+                fieldMultiTalkViewModel.setPlaceholderDescriptor(true, reason)
+                methodMultiTalkMinimize.setPlaceholderDescriptor(true, reason)
+                methodMultiTalkExit.setPlaceholderDescriptor(true, reason)
+                methodMultiTalkMic.setPlaceholderDescriptor(true, reason)
+                methodMultiTalkCamera.setPlaceholderDescriptor(true, reason)
+                classMultiTalkManager.setPlaceholderDescriptor(true, reason)
+                methodMultiTalkManagerMute.setPlaceholderDescriptor(true, reason)
+                methodGetMultiTalkManager.setPlaceholderDescriptor(true, reason)
+                classMultiTalkEngine.setPlaceholderDescriptor(true, reason)
+                methodMultiTalkEngineMic.setPlaceholderDescriptor(true, reason)
+                methodGetMultiTalkEngine.setPlaceholderDescriptor(true, reason)
+                fieldMultiTalkMicState.setPlaceholderDescriptor(true, reason)
+                fieldMultiTalkCameraState.setPlaceholderDescriptor(true, reason)
+                return
+            }
+
+            else -> error(
+                "multiple MultiTalk UI view models found: " +
+                    multiTalkViewModels.joinToString { it.name }
+            )
+        }
+
+        fieldMultiTalkViewModel.find(dexKit) {
+            matcher {
+                declaredClass(MultiTalkMainUI::class.java)
+                type(classMultiTalkViewModel.data.name)
+            }
+        }
+
+        methodMultiTalkMinimize.find(dexKit) {
+            matcher {
+                declaredClass(MultiTalkMainUI::class.java)
+                paramCount = 0
+                returnType = "void"
+                usingEqStrings("onMiniMultiTalk")
+            }
+        }
+
+        methodMultiTalkExit.find(dexKit) {
+            matcher {
+                declaredClass(MultiTalkMainUI::class.java)
+                paramCount = 0
+                returnType = "void"
+                usingEqStrings("onExitMultiTalk")
+            }
+        }
+
+        methodMultiTalkCamera.find(dexKit) {
+            matcher {
+                usingEqStrings("MicroMsg.MT.MultiTalkUIViewModel", "onCameraClick, cur state: ")
+            }
+        }
+
+        classMultiTalkManager.find(dexKit) {
+            matcher {
+                usingEqStrings("MicroMsg.MT.MultiTalkManager", "hy: set mute record: %b")
+            }
+        }
+
+        methodMultiTalkManagerMute.find(dexKit) {
+            matcher {
+                declaredClass(classMultiTalkManager.data.name)
+                paramTypes("boolean")
+                returnType = "void"
+                usingEqStrings("MicroMsg.Multitalk.ILinkService", "hy: set mute record: %b")
+            }
+        }
+
+        methodGetMultiTalkManager.find(dexKit) {
+            matcher {
+                modifiers(Modifier.PUBLIC or Modifier.STATIC)
+                paramCount = 0
+                returnType(classMultiTalkManager.data.name)
+            }
+        }
+
+        classMultiTalkEngine.find(dexKit) {
+            matcher {
+                usingEqStrings("MicroMsg.MT.MultiTalkEngine", "setEngineMicOn, %s")
+            }
+        }
+
+        methodMultiTalkEngineMic.find(dexKit) {
+            matcher {
+                declaredClass(classMultiTalkEngine.data.name)
+                paramTypes("boolean")
+                returnType = "void"
+                usingEqStrings("MicroMsg.MT.MultiTalkEngine", "setEngineMicOn, %s")
+            }
+        }
+
+        methodGetMultiTalkEngine.find(dexKit) {
+            matcher {
+                modifiers(Modifier.PUBLIC or Modifier.STATIC)
+                paramCount = 0
+                returnType(classMultiTalkEngine.data.name)
+            }
+        }
+
+        fieldMultiTalkMicState.find(dexKit) {
+            matcher {
+                declaredClass(classMultiTalkViewModel.data.name)
+                type(classMutableObservableState.data.name)
+                addReadMethod {
+                    usingEqStrings("onMicClick, cur state: ")
+                }
+                addReadMethod {
+                    declaredClass(MultiTalkMainUI::class.java)
+                    usingEqStrings("mMultiTalkGroupMemberList", "usrName")
+                }
+            }
+        }
+
+        fieldMultiTalkCameraState.find(dexKit) {
+            matcher {
+                declaredClass(classMultiTalkViewModel.data.name)
+                type(classObservableState.data.name)
+                addReadMethod {
+                    usingEqStrings(
+                        "MicroMsg.MT.MultiTalkUIViewModel",
+                        "onCameraClick, cur state: ",
+                    )
+                }
+            }
+        }
+
         val directMicMethods = dexKit.findMethod {
             matcher {
                 declaredClass(classMultiTalkViewModel.data.name)
@@ -816,15 +879,10 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
         when (directMicMethods.size) {
             1 -> methodMultiTalkMic.setDescriptor(directMicMethods.single())
-            0 -> {
-                check(DexResolutionContext.host.versionName == "8.0.65") {
-                    "direct MultiTalk mic method is missing on ${DexResolutionContext.host.versionName}"
-                }
-                methodMultiTalkMic.setPlaceholderDescriptor(
-                    expectedFailure = true,
-                    reason = "WeChat 8.0.65 inlines MultiTalk mic handling into ControlPanelLogic",
-                )
-            }
+            0 -> methodMultiTalkMic.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "direct MultiTalk mic method is absent; using inlined ControlPanelLogic path",
+            )
 
             else -> error(
                 "multiple direct MultiTalk mic methods found: ${directMicMethods.joinToString { it.descriptor }}"
@@ -852,24 +910,32 @@ object PipVoip : SwitchFeature(), IResolveDex {
         methodFlutterVoipAttachedToActivity.hookAfter { registerLegacySession(thisObject!!) }
         methodFlutterVoipReattachedToActivity.hookAfter { registerLegacySession(thisObject!!) }
 
-        MultiTalkMainUI::class.reflekt()
-            .firstMethod {
-                name = "onCreate"
-                parameterCount = 1
-            }
-            .hookAfter {
-                val activity = thisObject as Activity
-                sessions[activity] = GroupSession(activity)
-            }
+        val multiTalkAvailable = !classMultiTalkViewModel.isPlaceholder
+        if (multiTalkAvailable) {
+            MultiTalkMainUI::class.reflekt()
+                .firstMethod {
+                    name = "onCreate"
+                    parameterCount = 1
+                }
+                .hookAfter {
+                    val activity = thisObject as Activity
+                    sessions[activity] = GroupSession(activity)
+                }
 
-        listOf(MultiTalkMainUI::class.java, VideoActivity::class.java).forEach { clazz ->
-            clazz.reflekt()
+            MultiTalkMainUI::class.reflekt()
                 .firstMethod {
                     name = "onDestroy"
                     parameterCount = 0
                 }
                 .hookBefore { removeSession(thisObject as Activity) }
         }
+
+        VideoActivity::class.reflekt()
+            .firstMethod {
+                name = "onDestroy"
+                parameterCount = 0
+            }
+            .hookBefore { removeSession(thisObject as Activity) }
 
         // 用户按 home / 切走时提前进入画中画：此时微信还在前台，启动 Activity 不会被拦
         Activity::class.reflekt()
@@ -881,8 +947,10 @@ object PipVoip : SwitchFeature(), IResolveDex {
                 when (val activity = thisObject) {
                     is VideoActivity -> currentSession().enterPip()
 
-                    is MultiTalkMainUI -> activitySession()?.enterPip()
-                        ?: WeLogger.w(TAG, "no session for $activity, leaving wechat alone")
+                    is MultiTalkMainUI -> if (multiTalkAvailable) {
+                        activitySession()?.enterPip()
+                            ?: WeLogger.w(TAG, "no session for $activity, leaving wechat alone")
+                    }
                 }
             }
 
@@ -899,10 +967,12 @@ object PipVoip : SwitchFeature(), IResolveDex {
         methodVoipMpDismissSmallWindow.hookBefore { closeActivePip() }
 
         // 多人通话有自己的悬浮球 helper，直接拦最小化本身
-        methodMultiTalkMinimize.hookBefore {
-            val session = activitySession() ?: return@hookBefore
-            session.enterPip()
-            result = null
+        if (multiTalkAvailable) {
+            methodMultiTalkMinimize.hookBefore {
+                val session = activitySession() ?: return@hookBefore
+                session.enterPip()
+                result = null
+            }
         }
     }
 
@@ -910,15 +980,13 @@ object PipVoip : SwitchFeature(), IResolveDex {
         if (newState && isZygiskMode) {
             showComposeDialog(context) {
                 AlertDialogContent(
-                    title = { Text("音视频通话使用画中画") },
+                    title = { Text(stringResource(R.string.feature_pip_voip_name)) },
                     text = {
                         Text(
-                            "画中画窗口必须由模块应用自己的 Activity 承载（清单里要声明 " +
-                                    "supportsPictureInPicture，微信没有这样的 Activity）, " +
-                                    "而 Zygisk 模式下模块应用并未安装, 因此本功能仅在 LSPosed 模式下可用!"
+                            stringResource(R.string.voip_pip_zygisk_unavailable)
                         )
                     },
-                    confirmButton = { TextButton(onDismiss) { Text("取消") } })
+                    confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } })
             }
             return false
         }

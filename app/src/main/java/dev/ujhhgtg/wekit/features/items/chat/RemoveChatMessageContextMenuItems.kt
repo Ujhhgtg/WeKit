@@ -8,18 +8,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(name = "移除消息菜单项", categories = ["聊天"], description = "从消息的长按菜单中移除指定名称的菜单项")
+@Feature(
+    id = "移除消息菜单项",
+    nameRes = "feature_remove_chat_message_context_menu_items_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_remove_chat_message_context_menu_items_description",
+)
 object RemoveChatMessageContextMenuItems : ClickableFeature(), IResolveDex {
 
     // this is the method that builds the whole context menu (m0.a). we can't reliably hook the
@@ -64,19 +72,19 @@ object RemoveChatMessageContextMenuItems : ClickableFeature(), IResolveDex {
         showComposeDialog(context) {
             var removedNames by remember { mutableStateOf(removedItemNames) }
             AlertDialogContent(
-                title = { Text("移除消息菜单项") },
+                title = { Text(stringResource(R.string.feature_remove_chat_message_context_menu_items_name)) },
                 text = {
                     TextField(
                         value = removedNames,
                         onValueChange = { removedNames = it },
-                        label = { Text("要移除的菜单项名称 (以逗号分割):") })
+                        label = { Text(stringResource(R.string.chat_remove_menu_items_label)) })
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         removedItemNames = removedNames
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
     }

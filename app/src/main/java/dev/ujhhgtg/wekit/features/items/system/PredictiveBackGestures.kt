@@ -5,20 +5,22 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.os.Build
-import androidx.activity.ComponentActivity
-import androidx.compose.material3.Text
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.features.core.ClickableFeature
+import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
-import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 // https://github.com/Ujhhgtg/PandorasBox
-@Feature(name = "预见性返回动画", categories = ["系统与隐私"], description = "为微信的活动强制启用预见性返回动画\n需系统 Android SDK >= 33")
-object PredictiveBackGestures : ClickableFeature() {
+@Feature(
+    id = "预见性返回动画",
+    nameRes = "feature_predictive_back_gestures_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_predictive_back_gestures_description",
+)
+object PredictiveBackGestures : ApiFeature() {
 
     private const val PRIVATE_FLAG_ENABLE_ON_BACK_INVOKED_CALLBACK = 1 shl 2
     private const val PRIVATE_FLAG_DISABLE_ON_BACK_INVOKED_CALLBACK = 1 shl 3
@@ -27,6 +29,10 @@ object PredictiveBackGestures : ClickableFeature() {
     private const val TAG = "PredictiveBackGestures"
 
     override fun onEnable() {
+        if (!ThemeSettings.appliedPredictiveBackEnabled) {
+            WeLogger.i(TAG, "predictive back animation is off")
+            return
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             WeLogger.w(TAG, "sdk < 33, not enabling predictive back gestures")
             return
@@ -82,14 +88,4 @@ object PredictiveBackGestures : ClickableFeature() {
         field.set(flags)
     }
 
-    override fun onClick(context: ComponentActivity) {
-        showComposeDialog(context) {
-            AlertDialogContent(
-                title = { Text("预见性返回动画") },
-                text = {
-                    Text("如果预见性返回动画没有生效, 说明系统 Android 版本过低 (SDK < 33)")
-                },
-                confirmButton = { Button(onDismiss) { Text("关闭") } })
-        }
-    }
 }

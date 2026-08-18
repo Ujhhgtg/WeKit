@@ -8,46 +8,44 @@ import android.view.View
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.WeColorField
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
@@ -55,7 +53,20 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
 
-@Feature(name = "消息时间增强", categories = ["聊天"], description = "显示精确消息发送时间并允许显示更多详情")
+/** View tags shared with [ReadReceipts] while keeping its bind state on the time view. */
+internal const val READ_RECEIPTS_MESSAGE_ID_TAG = 0x7E000010
+internal const val READ_RECEIPTS_BINDING_GENERATION_TAG = 0x7E000011
+internal const val READ_RECEIPTS_COUNT_TAG = 0x7E000012
+internal const val READ_RECEIPTS_NATIVE_TEXT_TAG = 0x7E000013
+
+internal data class ReadReceiptCountState(val count: Int?)
+
+@Feature(
+    id = "消息时间增强",
+    nameRes = "feature_message_time_enhancements_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_message_time_enhancements_description",
+)
 object MessageTimeEnhancements : ClickableFeature(),
     WeChatMessageViewApi.ICreateViewListener {
 
@@ -89,19 +100,34 @@ object MessageTimeEnhancements : ClickableFeature(),
             val epochDay = java.time.LocalDate.now(zoneId).toEpochDay() -
                     java.time.Instant.ofEpochMilli(createTime).atZone(zoneId).toLocalDate().toEpochDay()
             val relTimeStr = when {
-                epochDay > 1 -> "$epochDay 天前"
-                epochDay == 1L -> "昨天"
+                epochDay > 1 -> localizedChatQuantity(
+                    R.plurals.chat_message_time_days_ago,
+                    epochDay.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                    epochDay,
+                )
+                epochDay == 1L -> localizedChatString(R.string.chat_message_time_yesterday)
                 else -> {
                     val diff = System.currentTimeMillis() - createTime
                     when {
-                        diff <= 0 -> "刚刚"
+                        diff <= 0 -> localizedChatString(R.string.chat_message_time_just_now)
                         else -> {
                             val mins = diff / 60000
                             val hours = diff / 3600000
                             when {
-                                mins < 1 -> "刚刚"
-                                hours < 1 -> "$mins 分钟前"
-                                else -> "${maxOf(hours, 1L)} 小时前"
+                                mins < 1 -> localizedChatString(R.string.chat_message_time_just_now)
+                                hours < 1 -> localizedChatQuantity(
+                                    R.plurals.chat_message_time_minutes_ago,
+                                    mins.toInt(),
+                                    mins,
+                                )
+                                else -> {
+                                    val displayedHours = maxOf(hours, 1L)
+                                    localizedChatQuantity(
+                                        R.plurals.chat_message_time_hours_ago,
+                                        displayedHours.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                                        displayedHours,
+                                    )
+                                }
                             }
                         }
                     }
@@ -127,10 +153,14 @@ object MessageTimeEnhancements : ClickableFeature(),
         if (result.contains($$"$mentionedUsers")) {
             val atStr = when {
                 msgInfo.mentionedUsers.isEmpty() -> ""
-                msgInfo.isAnnounceAll -> "群公告"
-                msgInfo.isNotifyAll -> "@所有人"
-                msgInfo.isAtMe -> "@我"
-                else -> "@${msgInfo.mentionedUsers.size}人"
+                msgInfo.isAnnounceAll -> localizedChatString(R.string.chat_message_time_group_announcement)
+                msgInfo.isNotifyAll -> localizedChatString(R.string.chat_message_time_everyone)
+                msgInfo.isAtMe -> localizedChatString(R.string.chat_message_time_me)
+                else -> localizedChatQuantity(
+                    R.plurals.chat_message_time_mentioned_people,
+                    msgInfo.mentionedUsers.size,
+                    msgInfo.mentionedUsers.size,
+                )
             }
             result = result.replace($$"$mentionedUsers", atStr)
         }
@@ -138,31 +168,42 @@ object MessageTimeEnhancements : ClickableFeature(),
         return result
     }
 
+    /**
+     * Re-renders the message-time view, optionally including a read-receipt count.
+     *
+     * Read-receipt updates use this entry point instead of reproducing the time formatting and
+     * styling rules. A null count is meaningful: it clears an active template placeholder but
+     * never adds a suffix to native text.
+     */
     @SuppressLint("SetTextI18n")
-    override fun onCreateView(
-        param: HookParam,
-        view: View
+    internal fun renderMessageTime(
+        msgInfo: MessageInfo,
+        time: TextView,
+        forceVisible: Boolean = false,
+        readReceiptCount: Int? = null,
     ) {
-        val tag = view.tag ?: return
-        val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
-        val text = getFormattedText(msgInfo)
-
-        val time = tag.reflekt()
-            .firstField {
-                name = "timeTV"
-                superclass()
-            }
-            .get() as? TextView? ?: return
+        val enhancementActive = isActive
+        if (!enhancementActive && !forceVisible) return
+        if (!forceVisible && !isAlwaysVisible && !time.isVisible) return
 
         val context = time.context
-
-        if (isAlwaysVisible) {
-            time.visibility = View.VISIBLE
+        val baseText = if (enhancementActive) {
+            getFormattedText(msgInfo)
         } else {
-            if (!time.isVisible) return
+            readReceiptNativeText(
+                time.text?.toString().orEmpty(),
+                time.getTag(READ_RECEIPTS_NATIVE_TEXT_TAG) as? String,
+            )
+        }
+        val localizedReadText = readReceiptCount?.let {
+            localizedChatString(R.string.chat_read_receipts_count, it)
+        }
+        time.text = renderReadReceiptText(baseText, localizedReadText, enhancementActive)
+        if (forceVisible || isAlwaysVisible) {
+            time.visibility = View.VISIBLE
         }
 
-        time.text = text
+        if (!enhancementActive) return
 
         // Dynamic text color configuration based on system theme
         val rawColor = if (context.isDarkMode) textColorDark else textColorLight
@@ -225,8 +266,42 @@ object MessageTimeEnhancements : ClickableFeature(),
         }
     }
 
+    @SuppressLint("SetTextI18n")
+    override fun onCreateView(
+        param: HookParam,
+        view: View
+    ) {
+        val tag = view.tag ?: return
+        val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
+
+        val time = tag.reflekt()
+            .firstField {
+                name = "timeTV"
+                superclass()
+            }
+            .get() as? TextView? ?: return
+
+        val nextGeneration = ((time.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) as? Long) ?: 0L) + 1L
+        time.setTag(READ_RECEIPTS_BINDING_GENERATION_TAG, nextGeneration)
+
+        val trackedMessageId = time.getTag(READ_RECEIPTS_MESSAGE_ID_TAG) as? Long
+        val tracked = trackedMessageId == msgInfo.id
+        if (!tracked) {
+            time.setTag(READ_RECEIPTS_MESSAGE_ID_TAG, null)
+            time.setTag(READ_RECEIPTS_COUNT_TAG, null)
+            time.setTag(READ_RECEIPTS_NATIVE_TEXT_TAG, null)
+        }
+        val count = if (tracked) {
+            (time.getTag(READ_RECEIPTS_COUNT_TAG) as? ReadReceiptCountState)?.count
+        } else {
+            null
+        }
+        renderMessageTime(msgInfo, time, forceVisible = tracked, readReceiptCount = count)
+    }
+
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var displayFormatInput by remember { mutableStateOf(TextFieldValue(displayFormat)) }
             var timeFormatInput by remember { mutableStateOf(timeFormat) }
             var textSizeInputRaw by remember { mutableStateOf(textSize.toString()) }
@@ -236,129 +311,121 @@ object MessageTimeEnhancements : ClickableFeature(),
             var textColorDarkInput by remember { mutableStateOf(textColorDark) }
             var isFocused by remember { mutableStateOf(false) }
 
-            val insertPlaceholder = { placeholder: String ->
-                val selection = displayFormatInput.selection
-                val text = displayFormatInput.text
-                if (isFocused) {
-                    val newText = text.substring(0, selection.start) + placeholder + text.substring(selection.end)
-                    val newSelection = TextRange(selection.start + placeholder.length)
-                    displayFormatInput = TextFieldValue(newText, newSelection)
-                } else {
-                    val newText = text + placeholder
-                    val newSelection = TextRange(newText.length)
-                    displayFormatInput = TextFieldValue(newText, newSelection)
-                }
-            }
-
             AlertDialogContent(
-                title = { Text("消息时间增强") },
+                title = { Text(stringResource(R.string.chat_message_time_title)) },
                 text = {
-                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        TextField(
-                            value = displayFormatInput,
-                            onValueChange = { displayFormatInput = it },
-                            label = { Text("显示格式模板") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .onFocusChanged { isFocused = it.isFocused }
-                        )
-
-                        Text("点击插入占位符:")
-
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            val placeholders = listOf(
-                                $$"$time",
-                                $$"$relativeTime",
-                                $$"$type",
-                                $$"$msgId",
-                                $$"$msgSvrId",
-                                $$"$mentionedUsers"
-                            )
-                            placeholders.forEach { ph ->
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                                        .clickable { insertPlaceholder(ph) }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_message_time_display_template),
                                 ) {
-                                    Text(
-                                        text = ph,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    Column {
+                                        OutlinedTextField(
+                                            value = displayFormatInput,
+                                            onValueChange = { displayFormatInput = it },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp)
+                                                .onFocusChanged { isFocused = it.isFocused }
+                                        )
+
+                                        Text(
+                                            stringResource(R.string.chat_message_time_insert_placeholder),
+                                            modifier = Modifier
+                                                .padding(start = 16.dp, top = 8.dp)
+                                        )
+
+                                        val placeholders = listOf(
+                                            $$"$time",
+                                            $$"$relativeTime",
+                                            $$"$type",
+                                            $$"$msgId",
+                                            $$"$msgSvrId",
+                                            $$"$mentionedUsers",
+                                            READ_RECEIPTS_PLACEHOLDER,
+                                        )
+                                        PlaceholderChips(
+                                            placeholders = placeholders,
+                                            value = displayFormatInput,
+                                            isFieldFocused = isFocused,
+                                            onValueChange = { displayFormatInput = it },
+                                            modifier = Modifier
+                                                .padding(horizontal = 16.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_message_time_format),
+                                ) {
+                                    OutlinedTextField(
+                                        value = timeFormatInput,
+                                        onValueChange = { timeFormatInput = it },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
                                     )
                                 }
                             }
-                        }
-
-                        TextField(
-                            value = timeFormatInput,
-                            onValueChange = { timeFormatInput = it },
-                            label = { Text("时间格式") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        TextField(
-                            value = textSizeInputRaw,
-                            onValueChange = { textSizeInputRaw = it.filter { c -> c.isDigit() } },
-                            label = { Text("字体大小") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        WeColorField(
-                            value = textColorLightInput,
-                            onValueChange = { textColorLightInput = it },
-                            label = "字体颜色 (亮色模式)",
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        WeColorField(
-                            value = textColorDarkInput,
-                            onValueChange = { textColorDarkInput = it },
-                            label = "字体颜色 (暗色模式)",
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                isAlwaysCenteredInput = !isAlwaysCenteredInput
-                            },
-                            trailingContent = {
-                                Switch(
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_message_time_font_size),
+                                ) {
+                                    OutlinedTextField(
+                                        value = textSizeInputRaw,
+                                        onValueChange = { textSizeInputRaw = it.filter { c -> c.isDigit() } },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                    )
+                                }
+                            }
+                            item {
+                                ColorPickerWidget(
+                                    title = stringResource(R.string.chat_message_time_color_light),
+                                    value = textColorLightInput,
+                                    onValueChange = { textColorLightInput = it },
+                                )
+                            }
+                            item {
+                                ColorPickerWidget(
+                                    title = stringResource(R.string.chat_message_time_color_dark),
+                                    value = textColorDarkInput,
+                                    onValueChange = { textColorDarkInput = it },
+                                )
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_message_time_center),
+                                    description = stringResource(R.string.chat_message_time_center_summary),
                                     checked = isAlwaysCenteredInput,
-                                    onCheckedChange = null
+                                    onCheckedChange = { isAlwaysCenteredInput = it },
                                 )
-                            },
-                            supportingContent = { Text("时间是否始终居中, 不根据发送方居左居右") },
-                            content = { Text("时间居中显示") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                isAlwaysVisibleInput = !isAlwaysVisibleInput
-                            },
-                            trailingContent = {
-                                Switch(
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_message_time_always_show),
+                                    description = stringResource(R.string.chat_message_time_always_show_summary),
                                     checked = isAlwaysVisibleInput,
-                                    onCheckedChange = null
+                                    onCheckedChange = { isAlwaysVisibleInput = it },
                                 )
-                            },
-                            supportingContent = { Text("是否强制显示每条消息的时间") },
-                            content = { Text("显示每条消息时间") },
-                        )
+                            }
+                        }
                     }
                 },
                 confirmButton = {
                     Button(onClick = {
                         val textSizeInput = textSizeInputRaw.toIntOrNull()
                         if (textSizeInput == null || textSizeInput <= 0) {
-                            showToast(context, "数字格式不正确!")
+                            showToast(
+                                localizedContext,
+                                localizedContext.getString(R.string.chat_message_time_invalid_number),
+                            )
                             return@Button
                         }
 
@@ -370,9 +437,11 @@ object MessageTimeEnhancements : ClickableFeature(),
                         textColorLight = textColorLightInput
                         textColorDark = textColorDarkInput
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                }
             )
         }
     }

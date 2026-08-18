@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.activity
 
 import android.annotation.SuppressLint
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,12 +28,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.topjohnwu.superuser.Shell
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramInstalledStickerSet
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerDatabase
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import kotlinx.coroutines.Dispatchers
@@ -82,8 +88,13 @@ internal object RootTelegramStickerSetRepository {
     )
 
     @SuppressLint("SdCardPath")
-    fun discoverInstances(androidUserId: Int): Result<List<RootTelegramInstance>> = runCatching {
-        require(Shell.isAppGrantedRoot() == true) { "需要授予 WeKit 模块应用 Root 权限" }
+    fun discoverInstances(
+        context: Context,
+        androidUserId: Int,
+    ): Result<List<RootTelegramInstance>> = runCatching {
+        require(Shell.isAppGrantedRoot() == true) {
+            context.moduleAppString(R.string.telegram_root_permission_required)
+        }
         val userDataDir = "/data/user/$androidUserId"
         val appDirectoryGlob = "${userDataDir.shellLiteral()}/*"
         val scan = executeRootCommand(
@@ -106,7 +117,12 @@ internal object RootTelegramStickerSetRepository {
             """.trimIndent(),
         )
         require(scan.isSuccess) {
-            "扫描 Telegram 数据库失败：${scan.output.joinToString("；").take(300).ifBlank { "Root 命令执行失败" }}"
+            context.moduleAppString(
+                R.string.telegram_database_scan_failed,
+                scan.output.joinToString("; ").take(300).ifBlank {
+                    context.moduleAppString(R.string.telegram_root_command_failed)
+                },
+            )
         }
         val discoveredPaths = scan.output.asSequence()
             .map(String::trim)
@@ -129,26 +145,34 @@ internal object RootTelegramStickerSetRepository {
         )
         require(instances.isNotEmpty()) {
             if (discoveredPaths.isEmpty()) {
-                "未找到 cache4.db，请确认 Telegram 已登录并至少启动过一次"
+                context.moduleAppString(R.string.telegram_database_not_found)
             } else {
-                "找到 ${discoveredPaths.size} 个 cache4.db，但所属应用未识别为 Telegram：" +
-                        discoveredPackages.joinToString()
+                context.moduleAppString(
+                    R.string.telegram_database_app_unrecognized,
+                    discoveredPaths.size,
+                    discoveredPackages.joinToString(),
+                )
             }
         }
         instances
     }
 
     fun readInstalledSets(
+        context: Context,
         cacheDir: File,
         applicationUid: Int,
         instance: RootTelegramInstance,
     ): Result<List<TelegramInstalledStickerSet>> = runCatching {
-        val databasePath = requireNotNull(instance.databasePath) { "Telegram 数据库路径不可用" }
+        val databasePath = requireNotNull(instance.databasePath) {
+            context.moduleAppString(R.string.telegram_database_path_unavailable)
+        }
         val sessionDir = File(cacheDir, "telegram-root-import-${UUID.randomUUID()}")
-        require(sessionDir.mkdirs()) { "无法创建数据库临时目录" }
+        require(sessionDir.mkdirs()) {
+            context.moduleAppString(R.string.telegram_database_temp_directory_failed)
+        }
         try {
             val destination = File(sessionDir, "cache4.db")
-            copyDatabaseSnapshot(databasePath, destination, applicationUid).getOrThrow()
+            copyDatabaseSnapshot(context, databasePath, destination, applicationUid).getOrThrow()
             TelegramStickerDatabase.readInstalledSets(destination.asPath).getOrThrow()
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
         } finally {
@@ -156,7 +180,12 @@ internal object RootTelegramStickerSetRepository {
         }
     }
 
-    private fun copyDatabaseSnapshot(sourcePath: String, destination: File, applicationUid: Int): Result<Unit> =
+    private fun copyDatabaseSnapshot(
+        context: Context,
+        sourcePath: String,
+        destination: File,
+        applicationUid: Int,
+    ): Result<Unit> =
         runCatching {
             val source = sourcePath.shellLiteral()
             val target = destination.absolutePath.shellLiteral()
@@ -172,7 +201,9 @@ internal object RootTelegramStickerSetRepository {
             }
             val result = executeRootCommand(command)
             require(result.isSuccess && destination.isFile && destination.length() > 0L) {
-                result.output.joinToString("\n").ifBlank { "复制 Telegram 数据库失败" }
+                result.output.joinToString("\n").ifBlank {
+                    context.moduleAppString(R.string.telegram_database_copy_failed)
+                }
             }
         }
 
@@ -228,6 +259,9 @@ internal fun RootTelegramStickerSetPickerContent(
     var error by remember { mutableStateOf<String?>(null) }
     var parsing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val scanFailed = stringResource(R.string.telegram_instance_scan_failed)
+    val emptyStickerSets = stringResource(R.string.telegram_no_importable_sticker_sets)
+    val parseFailed = stringResource(R.string.telegram_database_parse_failed)
 
     fun discover() {
         instances = null
@@ -241,7 +275,7 @@ internal fun RootTelegramStickerSetPickerContent(
                     instances = discovered
                     selectedPackage = discovered.singleOrNull()?.packageName
                 },
-                onFailure = { error = it.message ?: "扫描 Telegram 实例失败" },
+                onFailure = { error = it.message ?: scanFailed },
             )
         }
     }
@@ -249,14 +283,18 @@ internal fun RootTelegramStickerSetPickerContent(
     LaunchedEffect(Unit) { discover() }
 
     Scaffold(
-        topBar = { CenterAlignedTopAppBar(title = { Text("选择 Telegram 实例") }) },
+        topBar = {
+            CenterAlignedTopAppBar(title = { Text(stringResource(R.string.telegram_choose_instance)) })
+        },
         bottomBar = {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onCancel, enabled = !parsing) { Text("取消") }
+                TextButton(onClick = onCancel, enabled = !parsing) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
                 Button(
                     onClick = {
                         val instance = instances?.firstOrNull { it.packageName == selectedPackage }
@@ -270,15 +308,15 @@ internal fun RootTelegramStickerSetPickerContent(
                             parsing = false
                             result.fold(
                                 onSuccess = { sets ->
-                                    if (sets.isEmpty()) error = "所选实例中没有可导入的表情包"
+                                    if (sets.isEmpty()) error = emptyStickerSets
                                     else onComplete(sets)
                                 },
-                                onFailure = { failure -> error = failure.message ?: "解析 Telegram 数据库失败" },
+                                onFailure = { failure -> error = failure.message ?: parseFailed },
                             )
                         }
                     },
                     enabled = selectedPackage != null && !parsing,
-                ) { Text("确定") }
+                ) { Text(stringResource(R.string.dialog_confirm)) }
             }
         },
     ) { padding ->
@@ -290,21 +328,26 @@ internal fun RootTelegramStickerSetPickerContent(
                 instances == null && error == null -> CircularProgressIndicator()
                 parsing -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator()
-                    Text("正在解析数据库...", modifier = Modifier.padding(top = 12.dp))
+                    Text(
+                        stringResource(R.string.telegram_parsing_database),
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
                 }
                 error != null -> Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(requireNotNull(error), color = MaterialTheme.colorScheme.error)
-                    TextButton(onClick = { discover() }) { Text("重试") }
+                    TextButton(onClick = { discover() }) {
+                        Text(stringResource(R.string.telegram_retry))
+                    }
                 }
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(requireNotNull(instances), key = RootTelegramInstance::packageName) { instance ->
                         ListItem(
                             modifier = Modifier.clickable { selectedPackage = instance.packageName },
                             content = { Text(instance.packageName) },
-                            supportingContent = { Text("当前账户") },
+                            supportingContent = { Text(stringResource(R.string.telegram_current_account)) },
                             leadingContent = {
                                 RadioButton(
                                     selected = selectedPackage == instance.packageName,
@@ -318,3 +361,10 @@ internal fun RootTelegramStickerSetPickerContent(
         }
     }
 }
+
+private fun Context.moduleAppString(resourceId: Int, vararg formatArgs: Any): String =
+    LocalizedContextFactory.create(
+        this,
+        WeKitLocaleController.resolvedLocale,
+        LocaleResourceMode.ModuleApp,
+    ).getString(resourceId, *formatArgs)

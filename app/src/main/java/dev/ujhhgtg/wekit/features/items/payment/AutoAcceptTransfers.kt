@@ -6,6 +6,8 @@ import android.os.Handler
 import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -15,6 +17,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -26,7 +29,12 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.concurrent.thread
 
-@Feature(name = "自动接收转账", categories = ["红包与支付"], description = "监听消息并自动接收转账")
+@Feature(
+    id = "自动接收转账",
+    nameRes = "feature_auto_accept_transfers_name",
+    categoryIds = [FeatureCategoryIds.PAYMENT],
+    descriptionRes = "feature_auto_accept_transfers_description",
+)
 object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
 
     private const val TAG = "AutoAcceptTransfers"
@@ -129,7 +137,13 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
                 val displayName = WeDatabaseApi.getDisplayName(payerUsername)
 
                 runOnUiThread {
-                    showToast("收到「${displayName}」的转账 ${transferMsg.feedesc}")
+                    showToast(
+                        localizedPaymentString(
+                            R.string.payment_transfer_received,
+                            displayName,
+                            transferMsg.feedesc,
+                        )
+                    )
                 }
             } catch (e: Throwable) {
                 WeLogger.e(TAG, "failed to send accept transfer request", e)
@@ -155,15 +169,15 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
         if (newState) {
             showComposeDialog(context) {
                 AlertDialogContent(
-                    title = { Text(text = "警告") },
-                    text = { Text(text = "此功能可能导致账号异常, 确定要启用吗?") },
+                    title = { Text(text = stringResource(R.string.warning)) },
+                    text = { Text(text = stringResource(R.string.payment_risk_warning)) },
                     confirmButton = {
                         Button(onClick = {
                             applyToggle(true)
                             onDismiss()
-                        }) { Text("确定") }
+                        }) { Text(stringResource(R.string.dialog_confirm)) }
                     },
-                    dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
                 )
             }
             return false

@@ -9,7 +9,10 @@ import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import dev.ujhhgtg.wekit.utils.unreachable
 import org.json.JSONObject
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.exists
@@ -58,9 +61,9 @@ object DexCacheManager {
     fun isItemCacheValid(item: IResolveDex): Boolean {
         if (item !is BaseFeature) unreachable()
 
-        val cacheFile = getCacheFile(item.name)
+        val cacheFile = getCacheFile(item.technicalId)
         if (!cacheFile.exists()) {
-            WeLogger.d(TAG, "cache not found for ${item.name}")
+            WeLogger.d(TAG, "cache not found for ${item.technicalId}")
             return false
         }
 
@@ -68,9 +71,9 @@ object DexCacheManager {
             val json = JSONObject(cacheFile.readText())
 
             val cachedHash = json.optString("methodHash", "")
-            val currentHash = calculateMethodHash(item)
+            val currentHash = methodHash(item)
             if (cachedHash != currentHash) {
-                WeLogger.d(TAG, "resolveDex of ${item.displayName} changed: cached=$cachedHash, current=$currentHash")
+                WeLogger.d(TAG, "resolveDex of ${item.technicalPath} changed: cached=$cachedHash, current=$currentHash")
                 return false
             }
 
@@ -81,13 +84,13 @@ object DexCacheManager {
             }
 
             if (missingOrEmpty.isNotEmpty()) {
-                WeLogger.d(TAG, "cache incomplete for ${item.displayName}, missing keys: ${missingOrEmpty.map { it.key }}")
+                WeLogger.d(TAG, "cache incomplete for ${item.technicalPath}, missing keys: ${missingOrEmpty.map { it.key }}")
                 return false
             }
 
             true
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to read cache for: ${item.displayName}", e)
+            WeLogger.e(TAG, "failed to read cache for: ${item.technicalPath}", e)
             false
         }
     }
@@ -101,10 +104,10 @@ object DexCacheManager {
             error("item is not BaseFeature")
         }
 
-        val cacheFile = getCacheFile(item.name)
+        val cacheFile = getCacheFile(item.technicalId)
         try {
             val json = JSONObject()
-            json.put("methodHash", calculateMethodHash(item))
+            json.put("methodHash", methodHash(item))
             json.put("timestamp", System.currentTimeMillis())
 
             item.collectDescriptors().forEach { (key, value) ->
@@ -112,9 +115,9 @@ object DexCacheManager {
             }
 
             cacheFile.writeText(json.toString(2))
-            WeLogger.d(TAG, "cache saved for: ${item.displayName}")
+            WeLogger.d(TAG, "cache saved for: ${item.technicalPath}")
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to save cache for: ${item.displayName}", e)
+            WeLogger.e(TAG, "failed to save cache for: ${item.technicalPath}", e)
         }
     }
 
@@ -127,7 +130,7 @@ object DexCacheManager {
             error("item is not BaseFeature")
         }
 
-        val cacheFile = getCacheFile(item.name)
+        val cacheFile = getCacheFile(item.technicalId)
         if (!cacheFile.exists()) return null
 
         return try {
@@ -138,7 +141,7 @@ object DexCacheManager {
                 }
             }
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to load cache for: ${item.displayName}", e)
+            WeLogger.e(TAG, "failed to load cache for: ${item.technicalPath}", e)
             null
         }
     }
@@ -157,21 +160,115 @@ object DexCacheManager {
     fun getOutdatedItems(items: List<IResolveDex>): List<IResolveDex> =
         items.filter { !isItemCacheValid(it) }
 
+    internal fun importCloudCaches(entries: List<CloudDexCacheEntry>) {
+        writeCloudCacheFiles(cacheDir, entries, System.currentTimeMillis())
+    }
+
     // ---------------------------------------------------------------------------
 
     private val META_KEYS = setOf("methodHash", "timestamp")
 
-    private fun getCacheFile(path: String): Path =
-        cacheDir / (path.replace("/", "_") + CACHE_FILE_SUFFIX)
+    internal fun cacheFileName(technicalId: String): String =
+        technicalId.replace("/", "_") + CACHE_FILE_SUFFIX
+
+    private fun getCacheFile(technicalId: String): Path =
+        cacheDir / cacheFileName(technicalId)
 
     /**
      * 获取 resolveDex 方法编译时生成的哈希，用于检测实现变化。
      */
-    private fun calculateMethodHash(item: IResolveDex): String {
+    internal fun methodHash(item: IResolveDex): String {
         val className = item.javaClass.name
         val hash = GeneratedMethodHashes.HASHES[className]
         if (hash.isNullOrBlank())
             error("failed to retrieve method hash for item $className; this shouldn't happen")
         return hash
     }
+}
+
+internal fun writeCloudCacheFiles(
+    cacheDir: Path,
+    entries: List<CloudDexCacheEntry>,
+    timestamp: Long,
+) {
+    if (entries.isEmpty()) return
+    require(entries.map(CloudDexCacheEntry::technicalId).distinct().size == entries.size) {
+        "duplicate cloud cache technical ID"
+    }
+
+    Files.createDirectories(cacheDir)
+    val transactionId = "${System.currentTimeMillis()}-${System.nanoTime()}"
+    val staged = mutableListOf<CloudCacheStagedFile>()
+    val committed = mutableSetOf<Path>()
+    try {
+        for (entry in entries) {
+            val destination = cacheDir.resolve(DexCacheManager.cacheFileName(entry.technicalId))
+            val temp = destination.resolveSibling(".${destination.fileName}.$transactionId.tmp")
+            val backup = destination.resolveSibling(".${destination.fileName}.$transactionId.bak")
+            staged += CloudCacheStagedFile(destination, temp, backup)
+            val json = buildString {
+                append("{\n")
+                append("  \"methodHash\": ").appendJsonString(entry.methodHash).append(",\n")
+                append("  \"timestamp\": ").append(timestamp)
+                entry.descriptors.forEach { (key, value) ->
+                    append(",\n  ").appendJsonString(key).append(": ").appendJsonString(value)
+                }
+                append("\n}")
+            }
+            Files.writeString(temp, json)
+        }
+
+        for (file in staged) {
+            if (Files.exists(file.destination)) {
+                moveReplacing(file.destination, file.backup)
+            }
+            moveReplacing(file.temp, file.destination)
+            committed.add(file.destination)
+        }
+    } catch (error: Exception) {
+        for (file in staged.asReversed()) {
+            if (Files.exists(file.backup)) {
+                runCatching { moveReplacing(file.backup, file.destination) }
+            } else if (file.destination in committed) {
+                runCatching { Files.deleteIfExists(file.destination) }
+            }
+        }
+        throw error
+    } finally {
+        staged.forEach { file ->
+            runCatching { Files.deleteIfExists(file.temp) }
+            runCatching { Files.deleteIfExists(file.backup) }
+        }
+    }
+}
+
+private data class CloudCacheStagedFile(
+    val destination: Path,
+    val temp: Path,
+    val backup: Path,
+)
+
+private fun moveReplacing(source: Path, destination: Path) {
+    try {
+        Files.move(source, destination, ATOMIC_MOVE, REPLACE_EXISTING)
+    } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+        Files.move(source, destination, REPLACE_EXISTING)
+    }
+}
+
+private fun StringBuilder.appendJsonString(value: String): StringBuilder {
+    append('"')
+    value.forEach { character ->
+        when (character) {
+            '"' -> append("\\\"")
+            '\\' -> append("\\\\")
+            '\b' -> append("\\b")
+            '\u000C' -> append("\\f")
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            '\t' -> append("\\t")
+            else -> if (character.code < 0x20) append("\\u%04x".format(character.code)) else append(character)
+        }
+    }
+    return append('"')
 }

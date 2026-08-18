@@ -4,9 +4,15 @@ import android.view.WindowManager
 import com.android.internal.policy.PhoneWindow
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(name = "禁止屏幕高亮度", categories = ["系统与隐私"], description = "禁止微信将屏幕亮度设置得过高")
+@Feature(
+    id = "禁止屏幕高亮度",
+    nameRes = "feature_disable_high_brightness_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_disable_high_brightness_description",
+)
 object DisableHighBrightness : SwitchFeature() {
 
     override fun onEnable() {

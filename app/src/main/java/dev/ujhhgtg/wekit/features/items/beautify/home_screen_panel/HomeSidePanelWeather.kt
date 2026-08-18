@@ -16,6 +16,10 @@ import android.os.Build
 import android.os.CancellationSignal
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import androidx.annotation.StringRes
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
+import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
@@ -86,14 +90,14 @@ internal sealed interface WeatherUiState {
     ) : WeatherUiState
 
     data class Error(
-        val message: String,
+        val message: BeautifyText,
         val cached: WeatherSnapshot?,
     ) : WeatherUiState
 }
 
 internal sealed interface WeatherResult {
     data class Success(val snapshot: WeatherSnapshot) : WeatherResult
-    data class Error(val message: String, val cached: WeatherSnapshot?) : WeatherResult
+    data class Error(val message: BeautifyText, val cached: WeatherSnapshot?) : WeatherResult
 }
 
 internal sealed interface WeatherCityMatchResult {
@@ -101,12 +105,12 @@ internal sealed interface WeatherCityMatchResult {
     data class Error(val reason: WeatherCityMatchFailure) : WeatherCityMatchResult
 }
 
-internal enum class WeatherCityMatchFailure(val message: String) {
-    UNSUPPORTED_COUNTRY("不支持的资料地区"),
-    MISSING_REGION("个人资料中没有地区"),
-    MISSING_CITY("个人资料中没有城市"),
-    NO_MATCH("无法在天气城市库中匹配该城市"),
-    READ_ERROR("读取个人资料失败"),
+internal enum class WeatherCityMatchFailure(@StringRes val messageRes: Int) {
+    UNSUPPORTED_COUNTRY(R.string.home_side_panel_weather_unsupported_country),
+    MISSING_REGION(R.string.home_side_panel_weather_missing_region),
+    MISSING_CITY(R.string.home_side_panel_weather_missing_city),
+    NO_MATCH(R.string.home_side_panel_weather_no_match),
+    READ_ERROR(R.string.home_side_panel_weather_profile_read_error),
 }
 
 internal data class WeatherSettingsUiState(
@@ -231,7 +235,7 @@ internal class HomeSidePanelWeather(
 
     suspend fun refresh(city: WeatherCity): WeatherResult {
         if (city.cityNum.isBlank()) {
-            return WeatherResult.Error("未选择天气城市", HomeSidePanelPreferences.weatherLastSuccess)
+            return WeatherResult.Error(beautifyText(R.string.home_side_panel_weather_no_city), HomeSidePanelPreferences.weatherLastSuccess)
         }
         val now = System.currentTimeMillis()
         inFlight.get()?.let { current ->
@@ -246,7 +250,7 @@ internal class HomeSidePanelWeather(
             return if (cached?.city?.cityNum == city.cityNum) {
                 WeatherResult.Success(cached)
             } else {
-                WeatherResult.Error("刷新过于频繁，请稍后再试", cached)
+                WeatherResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), cached)
             }
         }
 
@@ -297,19 +301,19 @@ internal class HomeSidePanelWeather(
             throw error
         } catch (error: WeatherHttpException) {
             WeLogger.w(TAG, "weather request failed with HTTP ${error.code}")
-            WeatherResult.Error("天气服务请求失败：HTTP ${error.code}", cached)
+            WeatherResult.Error(beautifyText(R.string.home_side_panel_weather_http_error, error.code), cached)
         } catch (error: SocketTimeoutException) {
             WeLogger.w(TAG, "weather request timed out", error)
-            WeatherResult.Error("天气请求超时", cached)
+            WeatherResult.Error(beautifyText(R.string.home_side_panel_weather_timeout), cached)
         } catch (error: InvalidWeatherPayloadException) {
             WeLogger.w(TAG, "weather payload is incomplete", error)
-            WeatherResult.Error("天气服务返回的数据不完整", cached)
+            WeatherResult.Error(beautifyText(R.string.home_side_panel_weather_incomplete), cached)
         } catch (error: SerializationException) {
             WeLogger.w(TAG, "weather payload is malformed", error)
-            WeatherResult.Error("天气服务返回了无效数据", cached)
+            WeatherResult.Error(beautifyText(R.string.home_side_panel_weather_invalid), cached)
         } catch (error: IOException) {
             WeLogger.w(TAG, "weather request failed", error)
-            WeatherResult.Error("无法连接天气服务", cached)
+            WeatherResult.Error(beautifyText(R.string.home_side_panel_weather_connection_failed), cached)
         }
     }
 
@@ -602,16 +606,16 @@ internal sealed interface LocationResolution {
     data object GeocoderFailed : LocationResolution
     data object CityNotFound : LocationResolution
     data class Success(val city: WeatherCity) : LocationResolution
-    data class Error(val message: String) : LocationResolution
+    data class Error(val message: BeautifyText) : LocationResolution
 }
 
-internal fun locationResolutionMessage(resolution: LocationResolution): String = when (resolution) {
-    LocationResolution.NeedPermission -> "需要定位权限，请允许后重试"
-    LocationResolution.LocationDisabled -> "请先开启系统定位服务"
-    LocationResolution.Timeout -> "定位超时，请重试或手动选择城市"
-    LocationResolution.GeocoderFailed -> "无法将当前位置转换为城市"
-    LocationResolution.CityNotFound -> "天气城市库中找不到当前城市"
-    is LocationResolution.Success -> ""
+internal fun locationResolutionMessage(resolution: LocationResolution): BeautifyText = when (resolution) {
+    LocationResolution.NeedPermission -> beautifyText(R.string.home_side_panel_location_permission_needed)
+    LocationResolution.LocationDisabled -> beautifyText(R.string.home_side_panel_location_disabled)
+    LocationResolution.Timeout -> beautifyText(R.string.home_side_panel_location_timeout)
+    LocationResolution.GeocoderFailed -> beautifyText(R.string.home_side_panel_geocoder_failed)
+    LocationResolution.CityNotFound -> beautifyText(R.string.home_side_panel_location_city_not_found)
+    is LocationResolution.Success -> BeautifyText.Raw("")
     is LocationResolution.Error -> resolution.message
 }
 
@@ -629,12 +633,12 @@ internal class HomeSidePanelLocation(
 
     suspend fun resolve(activity: Activity): LocationResolution {
         if (!hostDeclaresCoarsePermission(activity)) {
-            return LocationResolution.Error("当前微信版本未声明粗略定位权限，请手动选择城市")
+            return LocationResolution.Error(beautifyText(R.string.home_side_panel_location_permission_undeclared))
         }
         if (!hasCoarsePermission(activity)) return LocationResolution.NeedPermission
 
         val locationManager = activity.getSystemService(LocationManager::class.java)
-            ?: return LocationResolution.Error("当前微信无法访问系统定位服务，请手动选择城市")
+            ?: return LocationResolution.Error(beautifyText(R.string.home_side_panel_location_unavailable))
         val provider = enabledProvider(locationManager)
             ?: return LocationResolution.LocationDisabled
         val location = try {
@@ -648,7 +652,7 @@ internal class HomeSidePanelLocation(
             throw error
         } catch (error: Throwable) {
             WeLogger.w(LOCATION_TAG, "location request failed", error)
-            return LocationResolution.Error("定位失败，请重试或手动选择城市")
+            return LocationResolution.Error(beautifyText(R.string.home_side_panel_location_failed))
         } ?: return LocationResolution.Timeout
 
         val address = try {

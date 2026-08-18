@@ -11,27 +11,29 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.DexClassDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -41,9 +43,10 @@ import java.lang.ref.WeakReference
 import kotlin.math.abs
 
 @Feature(
-    name = "左划对话菜单",
-    categories = ["聊天"],
-    description = "在主页对话列表向左滑动展开菜单, 可对对话执行隐藏或删除等操作\n点击配置可选择启用「置顶」和「免打扰」快捷按钮"
+    id = "左划对话菜单",
+    nameRes = "feature_swipe_conversation_operations_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_swipe_conversation_operations_description",
 )
 object SwipeConversationOperations : ClickableFeature(), IResolveDex {
 
@@ -65,44 +68,38 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
             var muteEnabled by remember { mutableStateOf(muteButtonEnabled) }
 
             AlertDialogContent(
-                title = { Text("左划菜单配置") },
+                title = { Text(stringResource(R.string.chat_swipe_conversation_config)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                pinEnabled = !pinEnabled
-                                pinButtonEnabled = pinEnabled
-                            },
-                            leadingContent = null,
-                            trailingContent = {
-                                Switch(
-                                    checked = pinEnabled,
-                                    onCheckedChange = null
-                                )
-                            },
-                            supportingContent = { Text("在「隐藏」左侧显示置顶快捷按钮") },
-                            content = { Text("置顶 / 取消置顶") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                muteEnabled = !muteEnabled
-                                muteButtonEnabled = muteEnabled
-                            },
-                            leadingContent = null,
-                            trailingContent = {
-                                Switch(
-                                    checked = muteEnabled,
-                                    onCheckedChange = null
-                                )
-                            },
-                            supportingContent = { Text("在「隐藏」左侧显示免打扰快捷按钮") },
-                            content = { Text("免打扰 / 取消免打扰") },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_swipe_conversation_pin_toggle),
+                                description = stringResource(R.string.chat_swipe_conversation_pin_description),
+                                checked = pinEnabled,
+                                onCheckedChange = {
+                                    pinEnabled = it
+                                    pinButtonEnabled = it
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_swipe_conversation_mute_toggle),
+                                description = stringResource(R.string.chat_swipe_conversation_mute_description),
+                                checked = muteEnabled,
+                                onCheckedChange = {
+                                    muteEnabled = it
+                                    muteButtonEnabled = it
+                                },
+                            )
+                        }
                     }
                 },
-                confirmButton = {
-                    Button(onClick = onDismiss) { Text("关闭") }
-                }
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }
@@ -350,10 +347,10 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
 
         // Create all buttons. Order in panel: pin, mute, hide, delete (left to right when revealed).
         // 删除 is last and drawn on top so it can expand to cover others on over-drag.
-        val pin = button("置顶", COLOR_PIN) { onAction(s, Action.PIN) }
-        val mute = button("免打扰", COLOR_MUTE) { onAction(s, Action.MUTE) }
-        val hide = button("隐藏", COLOR_HIDE) { onAction(s, Action.HIDE) }
-        val del = button("删除", COLOR_DELETE) { onAction(s, Action.DELETE, context) }
+        val pin = button(context.localizedChatString(R.string.chat_conversation_pin), COLOR_PIN) { onAction(s, Action.PIN) }
+        val mute = button(context.localizedChatString(R.string.chat_conversation_mute), COLOR_MUTE) { onAction(s, Action.MUTE) }
+        val hide = button(context.localizedChatString(R.string.chat_conversation_hide), COLOR_HIDE) { onAction(s, Action.HIDE) }
+        val del = button(context.localizedChatString(R.string.action_delete), COLOR_DELETE) { onAction(s, Action.DELETE, context) }
 
         panel.addView(pin)
         panel.addView(mute)
@@ -498,8 +495,8 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     runCatching {
                         s.isPinned = WeConversationApi.isPinned(talker)
                         s.isDnd = WeConversationApi.isDnd(talker)
-                        (s.pinBtn as? TextView)?.text = if (s.isPinned) "取消置顶" else "置顶"
-                        (s.muteBtn as? TextView)?.text = if (s.isDnd) "取消免打扰" else "免打扰"
+                        (s.pinBtn as? TextView)?.text = localizedChatString(if (s.isPinned) R.string.chat_conversation_unpin else R.string.chat_conversation_pin)
+                        (s.muteBtn as? TextView)?.text = localizedChatString(if (s.isDnd) R.string.chat_conversation_unmute else R.string.chat_conversation_mute)
                     }
                 }
                 false
@@ -609,17 +606,17 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     }
                     showComposeDialog(ctx) {
                         AlertDialogContent(
-                            title = { Text("删除对话") },
-                            text = { Text("确定删除该对话? 此操作将同时删除所有消息记录") },
+                            title = { Text(stringResource(R.string.chat_conversation_delete_title)) },
+                            text = { Text(stringResource(R.string.chat_conversation_delete_message)) },
                             confirmButton = {
                                 Button(onClick = {
                                     onDismiss()
                                     WeConversationApi.deleteConversation(talker, conversation)
-                                    showToast("已删除")
-                                }) { Text("删除") }
+                                    showToast(localizedChatString(R.string.chat_conversation_deleted))
+                                }) { Text(stringResource(R.string.action_delete)) }
                             },
                             dismissButton = {
-                                TextButton(onDismiss) { Text("取消") }
+                                TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                             }
                         )
                     }
@@ -627,7 +624,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
 
                 Action.HIDE -> {
                     WeConversationApi.hideConversation(talker)
-                    showToast("已隐藏")
+                    showToast(localizedChatString(R.string.chat_conversation_hidden))
                     settleClosed(s)
                     if (openState === s) openState = null
                 }
@@ -635,9 +632,9 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                 Action.PIN -> {
                     val newTop = !s.isPinned
                     WeConversationApi.setPinned(talker, newTop)
-                    showToast(if (newTop) "已置顶" else "已取消置顶")
+                    showToast(localizedChatString(if (newTop) R.string.chat_conversation_pinned else R.string.chat_conversation_unpinned))
                     s.isPinned = newTop
-                    (s.pinBtn as? TextView)?.text = if (newTop) "取消置顶" else "置顶"
+                    (s.pinBtn as? TextView)?.text = localizedChatString(if (newTop) R.string.chat_conversation_unpin else R.string.chat_conversation_pin)
                     settleClosed(s)
                     if (openState === s) openState = null
                 }
@@ -645,9 +642,9 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                 Action.MUTE -> {
                     val newMute = !s.isDnd
                     WeConversationApi.setDnd(talker, newMute)
-                    showToast(if (newMute) "已开启免打扰" else "已关闭免打扰")
+                    showToast(localizedChatString(if (newMute) R.string.chat_conversation_muted else R.string.chat_conversation_unmuted))
                     s.isDnd = newMute
-                    (s.muteBtn as? TextView)?.text = if (newMute) "取消免打扰" else "免打扰"
+                    (s.muteBtn as? TextView)?.text = localizedChatString(if (newMute) R.string.chat_conversation_unmute else R.string.chat_conversation_mute)
                     settleClosed(s)
                     if (openState === s) openState = null
                 }

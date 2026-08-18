@@ -8,7 +8,9 @@ import android.content.ContextWrapper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
@@ -20,9 +22,10 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  * "保留"/"不保留"按钮语义保持不变。
  */
 @Feature(
-    name = "朋友圈编辑界面返回逻辑优化",
-    categories = ["朋友圈"],
-    description = "编辑朋友圈返回弹出「保留当前内容?」对话框后, 触发系统返回手势可直接关闭对话框并留在编辑页",
+    id = "朋友圈编辑界面返回逻辑优化",
+    nameRes = "feature_moments_editor_back_optimization_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_moments_editor_back_optimization_description",
 )
 object MomentsEditorBackOptimization : SwitchFeature() {
 
@@ -30,8 +33,7 @@ object MomentsEditorBackOptimization : SwitchFeature() {
 
     private const val SNS_UPLOAD_UI = "com.tencent.mm.plugin.sns.ui.SnsUploadUI"
 
-    private const val BACK_HINT = "\n触发系统返回以留在当前页面。"
-
+    // Host-owned dialog titles used only to identify the target dialog.
     private val KEEP_CONTENT_TITLES = arrayOf("保留当前内容？", "保留此次编辑？")
 
     override fun onEnable() {
@@ -68,8 +70,9 @@ object MomentsEditorBackOptimization : SwitchFeature() {
     @SuppressLint("SetTextI18n")
     private fun TextView.appendBackHint() {
         val current = text?.toString().orEmpty()
-        if (BACK_HINT !in current) {
-            text = current + BACK_HINT
+        val backHint = context.localizedMomentsString(R.string.moments_editor_back_hint)
+        if (backHint !in current) {
+            text = current + backHint
         }
     }
 

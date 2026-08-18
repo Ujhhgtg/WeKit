@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.normalizeChatroomMemberIds
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ChatRoomDataProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -33,7 +34,12 @@ import java.lang.reflect.Modifier
 
 @OptIn(ExperimentalSerializationApi::class)
 @SuppressLint("DiscouragedApi")
-@Feature(name = "数据库服务", categories = ["API"], description = "提供数据库直接查询能力")
+@Feature(
+    id = "数据库服务",
+    nameRes = "feature_we_database_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_database_api_description",
+)
 object WeDatabaseApi : ApiFeature(), IResolveDex {
 
     private val classMmKernel by dexClass {

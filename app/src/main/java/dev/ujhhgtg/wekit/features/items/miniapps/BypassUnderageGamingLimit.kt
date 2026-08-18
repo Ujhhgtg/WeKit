@@ -4,10 +4,16 @@ import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 
-@Feature(name = "绕过防沉迷", categories = ["小程序"], description = "绕过微信游戏小程序的未成年防沉迷\n绕过后可能没有声音, 看广告能恢复")
+@Feature(
+    id = "绕过防沉迷",
+    nameRes = "feature_bypass_underage_gaming_limit_name",
+    categoryIds = [FeatureCategoryIds.MINIAPPS],
+    descriptionRes = "feature_bypass_underage_gaming_limit_description",
+)
 object BypassUnderageGamingLimit : SwitchFeature() {
 
     override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND

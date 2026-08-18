@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import dev.ujhhgtg.wekit.R
 import android.content.ContentValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.tencent.mm.plugin.sns.ui.SnsCommentFooter
 import com.tencent.mm.protocal.protobuf.SnsObject
 import dev.ujhhgtg.reflekt.reflekt
@@ -25,6 +28,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -40,7 +44,12 @@ import java.lang.reflect.Method
 import java.util.LinkedList
 import java.util.concurrent.ConcurrentHashMap
 
-@Feature(name = "伪集赞", categories = ["朋友圈"], description = "自定义朋友圈点赞用户列表")
+@Feature(
+    id = "伪集赞",
+    nameRes = "feature_fake_moments_likes_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_fake_moments_likes_description",
+)
 object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider,
     WeDatabaseListenerApi.IUpdateListener {
 
@@ -70,7 +79,7 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
         return listOf(
             WeMomentsContextMenuApi.MenuItem(
                 777006,
-                "伪点赞",
+                localizedMomentsString(R.string.moments_fake_likes_menu),
                 StarIcon,
                 { _, _ -> true }
             ) { moment ->
@@ -82,9 +91,10 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
 
                 showComposeDialog(moment.activity) {
                     var countInput by remember { mutableStateOf("") }
+                    val localizedContext = LocalContext.current
 
                     AlertDialogContent(
-                        title = { Text("伪点赞方式") },
+                        title = { Text(stringResource(R.string.moments_fake_likes_method_title)) },
                         text = {
                             DefaultColumn {
                                 Button(
@@ -92,17 +102,17 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
                                         onDismiss()
                                         showComposeDialog(moment.activity) {
                                             ContactsSelector(
-                                                title = "选择伪点赞用户",
+                                                title = localizedContext.getString(R.string.moments_fake_likes_select_users),
                                                 contacts = contacts,
                                                 initialSelectedWxIds = currentSelected,
                                                 onDismiss = onDismiss,
                                                 onConfirm = { selectedWxids ->
                                                     if (selectedWxids.isEmpty()) {
                                                         fakeLikeWxIds.remove(snsId)
-                                                        showToast("已清除伪点赞配置")
+                                                        showToast(localizedContext.getString(R.string.moments_fake_likes_cleared))
                                                     } else {
                                                         fakeLikeWxIds[snsId] = selectedWxids
-                                                        showToast("已设置 ${selectedWxids.size} 个伪点赞")
+                                                        showToast(localizedMomentsQuantity(R.plurals.moments_fake_likes_set_count, selectedWxids.size, selectedWxids.size))
                                                     }
                                                     onDismiss()
                                                 }
@@ -110,7 +120,7 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
                                         }
                                     },
                                     modifier = Modifier.fillMaxWidth()
-                                ) { Text("选择指定联系人") }
+                                ) { Text(stringResource(R.string.moments_fake_likes_select_contacts)) }
 
                                 HorizontalDivider()
 
@@ -121,28 +131,32 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
                                     OutlinedTextField(
                                         value = countInput,
                                         onValueChange = { countInput = it.filter(Char::isDigit) },
-                                        label = { Text("随机数量") },
+                                        label = { Text(stringResource(R.string.moments_fake_likes_random_count)) },
+                                        enabled = contacts.isNotEmpty(),
                                         singleLine = true,
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f)
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Button(onClick = {
-                                        val count = countInput.toIntOrNull() ?: 0
-                                        if (count < 0) {
-                                            showToast("请输入有效数量!")
-                                            return@Button
+                                    Button(
+                                        enabled = contacts.isNotEmpty(),
+                                        onClick = {
+                                            val count = countInput.toIntOrNull() ?: 0
+                                            if (count < 0) {
+                                                showToast(localizedContext.getString(R.string.moments_fake_likes_invalid_count))
+                                                return@Button
+                                            }
+                                            if (count == 0) {
+                                                fakeLikeWxIds.remove(snsId)
+                                                showToast(localizedContext.getString(R.string.moments_fake_likes_cleared))
+                                            } else {
+                                                val selected = contacts.shuffled().take(count).map { it.wxId }.toSet()
+                                                fakeLikeWxIds[snsId] = selected
+                                                showToast(localizedMomentsQuantity(R.plurals.moments_fake_likes_random_set_count, selected.size, selected.size))
+                                            }
+                                            onDismiss()
                                         }
-                                        if (count == 0) {
-                                            fakeLikeWxIds.remove(snsId)
-                                            showToast("已清除伪点赞配置")
-                                        } else {
-                                            val selected = contacts.shuffled().take(count).map { it.wxId }.toSet()
-                                            fakeLikeWxIds[snsId] = selected
-                                            showToast("已随机设置 ${selected.size} 个伪点赞")
-                                        }
-                                        onDismiss()
-                                    }) { Text("确定") }
+                                    ) { Text(stringResource(R.string.dialog_confirm)) }
                                 }
                             }
                         },
@@ -150,10 +164,10 @@ object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsPro
                             TextButton({
                                 onDismiss()
                                 fakeLikeWxIds.remove(snsId)
-                                showToast("已清除伪点赞配置")
-                            }) { Text("清除") }
+                                showToast(localizedContext.getString(R.string.moments_fake_likes_cleared))
+                            }) { Text(stringResource(R.string.action_clear)) }
                         },
-                        confirmButton = { TextButton(onDismiss) { Text("取消") } }
+                        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
                     )
                 }
             }

@@ -5,13 +5,15 @@ import android.widget.TextView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookParam
 
 @Feature(
-    name = "解除群成员昵称长度限制",
-    categories = ["聊天"],
-    description = "移除微信为群成员昵称设置的固定最大宽度, 让昵称尽可能使用消息区域的可用空间"
+    id = "解除群成员昵称长度限制",
+    nameRes = "feature_remove_group_member_nickname_length_limit_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_remove_group_member_nickname_length_limit_description",
 )
 object RemoveGroupMemberNicknameLengthLimit : SwitchFeature(),
     WeChatMessageViewApi.ICreateViewListener {

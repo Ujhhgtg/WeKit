@@ -2,29 +2,32 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.view.View
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.WeakHashMap
 
@@ -58,9 +61,10 @@ import java.util.WeakHashMap
  *     (translation stiffness=300, dampingRatio=0.5; scale stiffness=200, dampingRatio=0.6)。
  */
 @Feature(
-    name = "消息进入动画",
-    categories = ["聊天"],
-    description = "聊天界面中单条消息进入屏幕时播放入场动画, 支持弹跳/平移滑入/重力掉落, 可让历史消息全跳动"
+    id = "消息进入动画",
+    nameRes = "feature_message_entrance_animation_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_message_entrance_animation_description",
 )
 object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
 
@@ -325,58 +329,63 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
             var bounceAllInput by remember { mutableStateOf(bounceAllOnEnter) }
 
             AlertDialogContent(
-                title = { Text("消息进入动画") },
+                title = { Text(stringResource(R.string.feature_message_entrance_animation_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                styleInput = STYLE_BOUNCE
-                                entranceStyle = STYLE_BOUNCE
-                            },
-                            trailingContent = {
-                                RadioButton(selected = styleInput == STYLE_BOUNCE, onClick = null)
-                            },
-                            supportingContent = { Text("消息缩放弹跳进入屏幕") },
-                            content = { Text("弹跳入场") },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                styleInput = STYLE_SLIDE
-                                entranceStyle = STYLE_SLIDE
-                            },
-                            trailingContent = {
-                                RadioButton(selected = styleInput == STYLE_SLIDE, onClick = null)
-                            },
-                            supportingContent = { Text("消息水平平移滑入, 自己发出的从右侧、收到的从左侧") },
-                            content = { Text("平移滑入") },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                styleInput = STYLE_DROP
-                                entranceStyle = STYLE_DROP
-                            },
-                            trailingContent = {
-                                RadioButton(selected = styleInput == STYLE_DROP, onClick = null)
-                            },
-                            supportingContent = { Text("消息从上方掉落进入") },
-                            content = { Text("重力掉落") },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                bounceAllInput = !bounceAllInput
-                                bounceAllOnEnter = bounceAllInput
-                            },
-                            trailingContent = {
-                                Switch(checked = bounceAllInput, onCheckedChange = null)
-                            },
-                            supportingContent = { Text("进入聊天界面时历史消息也逐条播放入场动画") },
-                            content = { Text("历史消息全跳动") },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item(key = "bounce") {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_message_animation_bounce),
+                                description = stringResource(R.string.chat_message_animation_bounce_description),
+                                selected = styleInput == STYLE_BOUNCE,
+                                onClick = {
+                                    styleInput = STYLE_BOUNCE
+                                    entranceStyle = STYLE_BOUNCE
+                                },
+                            )
+                        }
+                        item(key = "slide") {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_message_animation_slide),
+                                description = stringResource(R.string.chat_message_animation_slide_description),
+                                selected = styleInput == STYLE_SLIDE,
+                                onClick = {
+                                    styleInput = STYLE_SLIDE
+                                    entranceStyle = STYLE_SLIDE
+                                },
+                            )
+                        }
+                        item(key = "drop") {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_message_animation_drop),
+                                description = stringResource(R.string.chat_message_animation_drop_description),
+                                selected = styleInput == STYLE_DROP,
+                                onClick = {
+                                    styleInput = STYLE_DROP
+                                    entranceStyle = STYLE_DROP
+                                },
+                            )
+                        }
+                        item(key = "bounce_all") {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_message_animation_history),
+                                description = stringResource(R.string.chat_message_animation_history_description),
+                                checked = bounceAllInput,
+                                onCheckedChange = {
+                                    bounceAllInput = it
+                                    bounceAllOnEnter = it
+                                },
+                            )
+                        }
                     }
-                })
+                },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
+            )
         }
     }
 }

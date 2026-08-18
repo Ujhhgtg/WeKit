@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.data
 
+import androidx.room.withTransaction
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository.getExternalServiceKey
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository.permissionCache
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
@@ -609,42 +610,104 @@ object WeAgentRepository : ToolPermissionSource {
     // Settings-screen CRUD (Phase 8)
     // ---------------------------------------------------------------------------
 
+    /**
+     * Transactionally deletes a model provider together with its models, every session model
+     * binding pointing at those models, and any settings default (default/small model) that
+     * referenced one of them. In-memory caches and the live UI selection are updated after the
+     * transaction commits.
+     */
     suspend fun deleteModelProvider(id: String) {
-        db.modelProviderDao().deleteById(id)
+        val modelIds = db.modelDao().getForProviderOnce(id).map { it.id }.toSet()
+        val settingKeys = WeAgentSettings.modelDefaultKeysFor(modelIds)
+        db.withTransaction {
+            if (modelIds.isNotEmpty()) db.sessionDao().clearModelBindings(modelIds.toList())
+            settingKeys.forEach { db.settingDao().delete(it) }
+            db.modelDao().deleteForProvider(id)
+            db.modelProviderDao().deleteById(id)
+        }
+        settingKeys.forEach { WeAgentSettings.clearCached(it) }
         dev.ujhhgtg.wekit.agent.model.ModelProviderManager.invalidate(id)
+        notifyModelsDeleted(modelIds)
     }
 
     suspend fun upsertModel(model: ModelEntity) = db.modelDao().upsert(model)
-    suspend fun deleteModel(id: String) = db.modelDao().deleteById(id)
 
     /**
-     * Bulk-imports [remoteIds] as models under [providerId], skipping ids already present. Returns
-     * the number newly added. Each imported model uses the remote id as its display name, no
-     * reasoning gear, no custom override.
+     * Transactionally deletes one model, clearing every session model binding and any settings
+     * default that referenced it. No-op when the row is already gone (double delete).
      */
-    suspend fun importModels(providerId: String, remoteIds: List<String>): Int {
-        val existing = db.modelDao().getAllOnce()
-            .filter { it.providerId == providerId }
-            .map { it.modelIdRemote }
-            .toSet()
-        val toAdd = remoteIds.filter { it !in existing }
-        toAdd.forEach { id ->
-            db.modelDao().upsert(
-                ModelEntity(
-                    id = UUID.randomUUID().toString(),
-                    providerId = providerId,
-                    modelIdRemote = id,
-                    reasoningEffort = null,
-                    customJsonOverride = null,
-                    displayName = id,
-                )
-            )
+    suspend fun deleteModel(id: String) {
+        db.modelDao().getById(id) ?: return
+        val settingKeys = WeAgentSettings.modelDefaultKeysFor(setOf(id))
+        db.withTransaction {
+            db.sessionDao().clearModelBindings(listOf(id))
+            settingKeys.forEach { db.settingDao().delete(it) }
+            db.modelDao().deleteById(id)
         }
-        return toAdd.size
+        settingKeys.forEach { WeAgentSettings.clearCached(it) }
+        notifyModelsDeleted(setOf(id))
+    }
+
+    /** Outcome of [importModels]: how many rows were newly added vs overwritten in place. */
+    data class ModelImportResult(val added: Int, val overwritten: Int)
+
+    /**
+     * Bulk-imports [remoteIds] as models under [providerId] in one transaction. An id already
+     * present for this provider keeps its local row id but is reset to a freshly-imported state
+     * (displayName = remote id, no reasoning gear, no custom override/context/max-token values,
+     * no vision); new ids get fresh UUIDs. Returns separate added/overwritten counts.
+     */
+    suspend fun importModels(providerId: String, remoteIds: List<String>): ModelImportResult {
+        var added = 0
+        var overwritten = 0
+        db.withTransaction {
+            val existing = db.modelDao().getForProviderOnce(providerId).associateBy { it.modelIdRemote }
+            for (remoteId in remoteIds) {
+                val cur = existing[remoteId]
+                if (cur == null) {
+                    db.modelDao().upsert(
+                        ModelEntity(
+                            id = UUID.randomUUID().toString(),
+                            providerId = providerId,
+                            modelIdRemote = remoteId,
+                            reasoningEffort = null,
+                            customJsonOverride = null,
+                            displayName = remoteId,
+                        )
+                    )
+                    added++
+                } else {
+                    db.modelDao().upsert(
+                        cur.copy(
+                            displayName = remoteId,
+                            reasoningEffort = null,
+                            customJsonOverride = null,
+                            contextWindow = null,
+                            maxTokens = null,
+                            supportsVision = false,
+                        )
+                    )
+                    overwritten++
+                }
+            }
+        }
+        return ModelImportResult(added, overwritten)
     }
 
     fun observeModelsForProvider(providerId: String): Flow<List<ModelEntity>> =
         db.modelDao().observeForProvider(providerId)
+
+    /**
+     * Best-effort live-UI refresh after model rows were deleted (models or a whole provider).
+     * Only the Compose selection state is cleared — the DB is already committed at this point, so
+     * a failure here must not roll anything back.
+     */
+    private fun notifyModelsDeleted(modelIds: Set<String>) {
+        if (modelIds.isEmpty()) return
+        runCatching {
+            dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onModelsDeleted(modelIds)
+        }
+    }
 
     /** Upserts an MCP server row (kind=MCP) and re-syncs the client manager. */
     suspend fun upsertMcpProvider(provider: ProviderEntity) {
@@ -659,7 +722,22 @@ object WeAgentRepository : ToolPermissionSource {
     }
 
     suspend fun upsertSystemPrompt(p: SystemPromptEntity) = db.systemPromptDao().upsert(p)
-    suspend fun deleteSystemPrompt(id: String) = db.systemPromptDao().deleteById(id)
+
+    /**
+     * Transactionally deletes a system prompt, clearing every session binding and the settings
+     * default that referenced it. No-op when the row is already gone (double delete).
+     */
+    suspend fun deleteSystemPrompt(id: String) {
+        db.systemPromptDao().getById(id) ?: return
+        val settingKeys = WeAgentSettings.systemPromptDefaultKeysFor(setOf(id))
+        db.withTransaction {
+            db.sessionDao().clearSystemPromptBindings(id)
+            settingKeys.forEach { db.settingDao().delete(it) }
+            db.systemPromptDao().deleteById(id)
+        }
+        settingKeys.forEach { WeAgentSettings.clearCached(it) }
+        runCatching { dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onSystemPromptDeleted(id) }
+    }
     suspend fun getAllSystemPromptsOnce(): List<SystemPromptEntity> = db.systemPromptDao().getAllOnce()
 
     suspend fun upsertPerTurnPrompt(p: PerTurnPromptEntity) = db.perTurnPromptDao().upsert(p)
@@ -674,7 +752,30 @@ object WeAgentRepository : ToolPermissionSource {
     suspend fun upsertWorkspace(w: dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity) =
         db.workspaceDao().upsert(w)
 
-    suspend fun deleteWorkspace(id: String) = db.workspaceDao().deleteById(id)
+    /**
+     * Transactionally deletes a workspace row together with its session bindings and the settings
+     * default that referenced it. The real directory is staged aside first (recoverable) and only
+     * recursively deleted after the DB transaction commits; if the transaction fails the directory
+     * is restored and the error rethrown. No-op when the row is already gone (double delete).
+     */
+    suspend fun deleteWorkspace(id: String) {
+        val workspace = db.workspaceDao().getById(id) ?: return
+        val staged = dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore.stageWorkspaceDeletion(workspace.name)
+        val settingKeys = WeAgentSettings.workspaceDefaultKeysFor(setOf(id))
+        try {
+            db.withTransaction {
+                db.sessionDao().clearWorkspaceBindings(id)
+                settingKeys.forEach { db.settingDao().delete(it) }
+                db.workspaceDao().deleteById(id)
+            }
+        } catch (e: Throwable) {
+            dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore.restoreWorkspaceDeletion(staged)
+            throw e
+        }
+        settingKeys.forEach { WeAgentSettings.clearCached(it) }
+        dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore.finalizeWorkspaceDeletion(staged)
+        runCatching { dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onWorkspaceDeleted(id) }
+    }
 
     suspend fun getAllModelsOnce(): List<ModelEntity> = db.modelDao().getAllOnce()
     suspend fun observeWorkspacesOnce(): List<dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity> =

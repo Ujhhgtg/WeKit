@@ -1,7 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.debug
 
 import com.tencent.mm.ui.LauncherUI
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -9,7 +11,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.crash.NativeCrashHandler
 
-@Feature(name = "崩溃拦截 (Native)", categories = ["调试"], description = "拦截 Native 层崩溃并记录详细信息，支持查看和导出日志")
+@Feature(
+    id = "崩溃拦截 (Native)",
+    nameRes = "feature_native_crash_interceptor_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_native_crash_interceptor_description",
+)
 object NativeCrashInterceptor : SwitchFeature() {
 
     private const val TAG = "NativeCrashInterceptor"
@@ -34,7 +41,7 @@ object NativeCrashInterceptor : SwitchFeature() {
                     TAG,
                     "pending native crash detected, will show dialog when Activity is ready"
                 )
-                showToast("检测到上次 Native 崩溃, 正在准备崩溃报告...")
+                showToast(localizedDebugString(R.string.debug_native_crash_preparing_report))
                 CrashInterceptorUtils.startActivityPolling(TAG) {
                     showPendingNativeCrashDialog()
                 }
@@ -50,8 +57,8 @@ object NativeCrashInterceptor : SwitchFeature() {
             CrashInterceptorUtils.showPendingCrashDialog(
                 activity = activity,
                 crashLogFile = crashLogFile,
-                titleSummary = "检测到上次 Native 崩溃",
-                titleDetail = "Native 崩溃详情",
+                titleSummaryRes = R.string.debug_native_crash_detected,
+                titleDetailRes = R.string.debug_native_crash_details,
                 clearPendingFlag = CrashLogsManager::clearPendingNativeCrashFlag,
                 extractSummary = ::extractCrashSummary
             )
@@ -89,7 +96,7 @@ object NativeCrashInterceptor : SwitchFeature() {
 
                 line.contains("Stack Trace") -> {
                     foundStackTrace = true
-                    summary.append("堆栈信息（前5行）:\n")
+                    summary.append(localizedDebugString(R.string.debug_crash_stack_preview)).append("\n")
                 }
 
                 foundStackTrace -> {
@@ -104,10 +111,10 @@ object NativeCrashInterceptor : SwitchFeature() {
         }
 
         if (summary.isEmpty()) {
-            return "崩溃信息解析失败\n\n点击「查看详情」查看完整日志"
+            return localizedDebugString(R.string.debug_crash_summary_parse_failed)
         }
 
-        summary.append("\n点击「查看详情」查看完整日志")
+        summary.append("\n").append(localizedDebugString(R.string.debug_crash_view_full_log_hint))
         return summary.toString()
     }
 

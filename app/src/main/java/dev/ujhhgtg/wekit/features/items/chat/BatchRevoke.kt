@@ -2,15 +2,22 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Edit
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.UndoIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(name = "批量撤回", categories = ["聊天"], description = "向消息长按菜单添加菜单项, 可批量撤回消息")
+@Feature(
+    id = "批量撤回",
+    nameRes = "feature_batch_revoke_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_batch_revoke_description",
+)
 object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override fun onEnable() {
@@ -24,7 +31,7 @@ object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777023, "撤回", UndoIcon, MaterialSymbols.Outlined.Edit,
+                777023, localizedChatString(R.string.chat_batch_revoke_menu), UndoIcon, MaterialSymbols.Outlined.Edit,
                 isSupported = { false },
                 // revokes then loads one message's text into the input box; single-message only
                 multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
@@ -37,7 +44,15 @@ object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
                                     WeLogger.e("BatchRevoke", "failed to revoke msgId=${msg.id}", it); 0
                                 }
                         }
-                        showToast(view.context, "已撤回 $succeeded/${msgs.size} 条消息")
+                        showToast(
+                            view.context,
+                            view.context.localizedChatQuantity(
+                                R.plurals.chat_batch_revoke_result,
+                                msgs.size,
+                                succeeded,
+                                msgs.size,
+                            ),
+                        )
                     }
                 )
             ) { _, _, _ ->

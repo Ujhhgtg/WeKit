@@ -6,31 +6,39 @@ import android.os.Build
 import android.view.Window
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.HorizontalDivider
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.tencent.mm.ui.halfscreen.HalfScreenTransparentActivity
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Modifier
-import kotlin.math.roundToInt
 
-@Feature(name = "对话框窗口级背景模糊", categories = ["界面美化"], description = "为模块与微信的对话框添加窗口级模糊处理 [需 SDK >= 31]")
+@Feature(
+    id = "对话框窗口级背景模糊",
+    nameRes = "feature_apply_dialog_background_blur_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_apply_dialog_background_blur_description",
+)
 object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
 
     private const val TAG = "ApplyDialogBackgroundBlur"
@@ -104,57 +112,50 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            AlertDialogContent(
-                title = { Text("对话框窗口级背景模糊") },
-                text = {
-                    var blurRadius by remember {
-                        mutableIntStateOf(
-                            WePrefs.getIntOrDef(
-                                KEY_BLUR_RADIUS, DEFAULT_BLUR_RADIUS
-                            )
-                        )
-                    }
-
-                    Text("如果本对话框背景没有模糊, 说明系统 Android 版本过低 (SDK < 31) 或未在开发者选项中启用")
-                    HorizontalDivider()
-                    ListItem(
-                        supportingContent = {
-                            IntSlider(
-                                blurRadius,
-                                {
-                                    blurRadius = it
-                                    WePrefs.putInt(KEY_BLUR_RADIUS, blurRadius)
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                        window.attributes.blurBehindRadius = blurRadius
-                                        window.attributes = window.attributes // trigger onWindowAttributesChanged
-                                    } else {
-                                        WeLogger.w(TAG, "sdk < 31, not applying blur behind dialog")
-                                    }
-                                },
-                                5..30
-                            )
-                        },
-                        content = { Text("模糊半径 (实时生效)") },
+            var blurRadius by remember {
+                mutableIntStateOf(
+                    WePrefs.getIntOrDef(
+                        KEY_BLUR_RADIUS, DEFAULT_BLUR_RADIUS
                     )
-                },
-                confirmButton = { Button(onDismiss) { Text("关闭") } })
-        }
-    }
-}
+                )
+            }
 
-@Composable
-private fun IntSlider(
-    value: Int,
-    onValueChange: (Int) -> Unit,
-    valueRange: IntRange = 0..100
-) {
-    Column {
-        Text(text = "当前值: $value")
-        Slider(
-            value = value.toFloat(),
-            onValueChange = { onValueChange(it.roundToInt()) },
-            valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
-            steps = valueRange.last - valueRange.first - 1
-        )
+            AlertDialogContent(
+                title = { Text(stringResource(R.string.beautify_dialog_blur_title)) },
+                text = {
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.beautify_dialog_blur_unsupported_hint),
+                                )
+                            }
+                        }
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.beautify_dialog_blur_radius),
+                                    value = blurRadius,
+                                    startInt = 5,
+                                    endInt = 30,
+                                    stepSize = 1,
+                                    valueSuffix = "px",
+                                    onValueChange = {
+                                        blurRadius = it
+                                        WePrefs.putInt(KEY_BLUR_RADIUS, it)
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                            window.attributes.blurBehindRadius = it
+                                            window.attributes = window.attributes // trigger onWindowAttributesChanged
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
+            )
+        }
     }
 }

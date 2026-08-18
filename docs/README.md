@@ -11,7 +11,7 @@ WeKit 是一个功能丰富的微信增强模块, 支持通过 Xposed 框架或 
 - [🧩 Zygisk 模式](zygisk.md)
 - [⚙️ 配置指南](configuration.md)
 - [❓ 常见问题](faq.md)
-- [🛠 开发指南](development.md)
+- [🛠 开发指南](development/README.md)
 
 ## 修改内容 (相比 [上游](https://github.com/cwuom/WeKit))
 

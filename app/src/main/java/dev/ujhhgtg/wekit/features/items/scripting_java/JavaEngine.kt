@@ -13,6 +13,7 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeAuthApi
 import dev.ujhhgtg.wekit.features.api.core.WeContactApi
@@ -26,6 +27,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
+import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.BshSnapshotDecompiler
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -221,6 +223,7 @@ object JavaEngine {
 
         val classManager = interpreter.classManager
         classManager.setClassLoader(ClassLoaders.HYBRID)
+        ScriptDepsPack.classLoader()?.let { classManager.addClassLoader(it) }
 
         val nameSpace = interpreter.nameSpace
         initNameSpace(nameSpace, plugin)
@@ -503,9 +506,17 @@ object JavaEngine {
                     val context = HostInfo.application
                     val nm = context.getSystemService<NotificationManager>()
                     val channelId = "script_${plugin.name}"
+                    val localizedPluginName = if (plugin.info.name == "unnamed") {
+                        localizedScriptingJavaString(R.string.java_script_unnamed)
+                    } else {
+                        plugin.info.name
+                    }
                     val channel = NotificationChannel(
                         channelId,
-                        "Script: ${plugin.info.name}",
+                        localizedScriptingJavaString(
+                            R.string.java_script_notification_channel,
+                            localizedPluginName,
+                        ),
                         NotificationManager.IMPORTANCE_DEFAULT
                     )
                     nm.createNotificationChannel(channel)
@@ -1045,10 +1056,10 @@ object JavaEngine {
                     "sendQuoteMsg", arrayOf(BString, java.lang.Long.TYPE, BString)
                 ) {
                     val talker = it[0] as String
-                    val content = it[1] as String
-                    val msgId = it[2] as Long
+                    val msgId = it[1] as Long
+                    val content = it[2] as String
                     return@BshMethod runCatchingBsh("sendQuoteMsg") {
-                        WeMessageApi.sendQuoteMsgByMsgId(talker, msgId, content)
+                        WeMessageApi.sendQuoteTextByMsgId(talker, msgId, content)
                     }.getOrDefault(false)
                 })
 

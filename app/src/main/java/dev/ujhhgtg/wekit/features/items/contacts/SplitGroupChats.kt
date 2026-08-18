@@ -4,14 +4,21 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import com.tencent.mm.ui.chatting.ChattingUI
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(name = "分裂群组", categories = ["娱乐"], description = "让群聊一分为二; 在假群聊中发送的红包即为假红包")
+@Feature(
+    id = "分裂群组",
+    nameRes = "feature_split_group_chats_name",
+    categoryIds = [FeatureCategoryIds.ENTERTAIN],
+    descriptionRes = "feature_split_group_chats_description",
+)
 object SplitGroupChats : ClickableFeature() {
 
     private const val TAG = "SplitGroupChats"
@@ -19,7 +26,7 @@ object SplitGroupChats : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             SingleContactSelector(
-                "分裂群组",
+                context.localizedContactsString(R.string.feature_split_group_chats_name),
                 WeDatabaseApi.getGroups(),
                 initialSelectedWxId = null,
                 onDismiss = onDismiss,

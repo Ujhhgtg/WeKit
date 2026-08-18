@@ -47,6 +47,7 @@ import dev.ujhhgtg.wekit.pet.PetService
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -58,8 +59,8 @@ import kotlinx.coroutines.withContext
 /**
  * The WeAgent brain: a process-level singleton coordinating persistence, the tool registry, the
  * model layer, and the [AgentSessionEngine], while exposing Compose snapshot state for the overlay
- * UI. Lives in WeChat's main process; initialized once when the [dev.ujhhgtg.wekit] WeAgent feature
- * is enabled.
+ * UI. Lives in WeChat's main process; initialized lazily (and exactly once) on first
+ * [WeAgentService.init] call — the WeAgent feature is always enabled.
  *
  * The overlay UI is intentionally thin (per project decision): it renders [uiSessions]/[uiMessages]/
  * [ballState]/[pendingApproval] and calls [sendMessage]/[newSession]/[switchSession]/… — all heavy
@@ -196,8 +197,18 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         val deferred: CompletableDeferred<ManualApprovalResult>,
     )
 
-    @Volatile
-    private var initialized = false
+    /**
+     * One supervised initialization job, created lazily and started at most once. Subsequent
+     * [init] calls return the same job, so every entry point (feature startup, settings Activity,
+     * chat toolbar) shares a single initialization.
+     */
+    private val initializationJob: Job by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        scope.launch(start = CoroutineStart.LAZY) {
+            runCatching { initialize() }.onFailure { WeLogger.e(TAG, "init failed", it) }
+        }
+    }
+
+    fun init(): Job = initializationJob.also(Job::start)
 
     /**
      * Running turns keyed by sessionId. Multiple sessions can run concurrently (a foreground chat and
@@ -212,104 +223,97 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     // Lifecycle
     // -----------------------------------------------------------------------------------------
 
-    fun init() {
-        if (initialized) return
-        initialized = true
-        scope.launch {
-            runCatching {
-                // Warm the DB, seed permissions, load settings.
-                WeAgentDatabase.instance
-                WeAgentRepository.seedAndLoad()
-                WeAgentSettings.load()
-                BuiltinToolProvider.fsToolsVisible =
-                    WeAgentSettings.workspaceEnabled() || WeAgentSettings.memoryEnabled()
+    private suspend fun initialize() {
+        // Warm the DB, seed permissions, load settings.
+        WeAgentDatabase.instance
+        WeAgentRepository.seedAndLoad()
+        WeAgentSettings.load()
+        BuiltinToolProvider.fsToolsVisible = WeAgentSettings.memoryEnabled()
 
-                // Bring up MCP providers and keep the registry's MCP set in sync.
-                McpClientManager.onProvidersChanged = {
-                    registry.setMcpProviders(McpClientManager.connectedProviders())
-                }
-                McpClientManager.sync()
-
-                // Observe sessions for the drawer.
-                launch {
-                    WeAgentRepository.observeSessions().collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            uiSessions.clear()
-                            uiSessions.addAll(rows.map { SessionRow(it.id, it.title, it.favorite) })
-                        }
-                    }
-                }
-                // Observe models + providers for the panel quick-switch menu. The label is
-                // "<providerName>:<displayName|modelId>" (§ item 1), so we combine both flows.
-                launch {
-                    kotlinx.coroutines.flow.combine(
-                        WeAgentRepository.observeModels(),
-                        WeAgentRepository.observeModelProviders(),
-                    ) { models, providers ->
-                        val providerName = providers.associate { it.id to it.name }
-                        models.map { m ->
-                            val model = m.displayName.ifBlank { m.modelIdRemote }
-                            val prefix = providerName[m.providerId]?.takeIf { it.isNotBlank() }
-                            ModelOption(m.id, if (prefix != null) "$prefix:$model" else model, m.contextWindow)
-                        }
-                    }.collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            availableModels.clear()
-                            availableModels.addAll(rows)
-                        }
-                    }
-                }
-                launch {
-                    WeAgentRepository.observeSystemPrompts().collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            availableSystemPrompts.clear()
-                            availableSystemPrompts.addAll(rows.map { SystemPromptOption(it.id, it.name) })
-                        }
-                    }
-                }
-                launch {
-                    WeAgentRepository.observePresetPrompts().collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            availablePresets.clear()
-                            availablePresets.addAll(rows.map { PresetOption(it.id, it.title, it.content) })
-                        }
-                    }
-                }
-                launch {
-                    WeAgentRepository.observeWorkspaces().collectLatest { rows ->
-                        withContext(Dispatchers.Main) {
-                            availableWorkspaces.clear()
-                            availableWorkspaces.addAll(rows.map { WorkspaceOption(it.id, it.name) })
-                        }
-                    }
-                }
-                withContext(Dispatchers.Main) {
-                    memoryEnabled.value = WeAgentSettings.memoryEnabled()
-                    sendWhileRunningMode.value = WeAgentSettings.sendWhileRunningMode()
-                }
-
-                // Observe external service keys and keep API-key-gated tool visibility in sync.
-                // Exa / Brave tools are only advertised to the model when the corresponding key
-                // is present, so they never produce a "key not configured" error mid-turn.
-                launch {
-                    WeAgentRepository.observeExternalServices().collectLatest { services ->
-                        val keys = services.associateBy { it.serviceId }
-                        BuiltinToolProvider.exaKeyPresent =
-                            !keys[ExternalServiceId.EXA]?.apiKey.isNullOrBlank()
-                        BuiltinToolProvider.braveKeyPresent =
-                            !keys[ExternalServiceId.BRAVE]?.apiKey.isNullOrBlank()
-                    }
-                }
-
-                // Start the trigger runtime (schedule + message/SQL event triggers).
-                triggerManager.start()
-
-                // Bring up the desktop pet (whale-girl), driven by WeAgent session events.
-                PetService.init()
-
-                WeLogger.i(TAG, "WeAgentService initialized")
-            }.onFailure { WeLogger.e(TAG, "init failed", it) }
+        // Bring up MCP providers and keep the registry's MCP set in sync.
+        McpClientManager.onProvidersChanged = {
+            registry.setMcpProviders(McpClientManager.connectedProviders())
         }
+        McpClientManager.sync()
+
+        // Observe sessions for the drawer.
+        scope.launch {
+            WeAgentRepository.observeSessions().collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    uiSessions.clear()
+                    uiSessions.addAll(rows.map { SessionRow(it.id, it.title, it.favorite) })
+                }
+            }
+        }
+        // Observe models + providers for the panel quick-switch menu. The label is
+        // "<providerName>:<displayName|modelId>" (§ item 1), so we combine both flows.
+        scope.launch {
+            kotlinx.coroutines.flow.combine(
+                WeAgentRepository.observeModels(),
+                WeAgentRepository.observeModelProviders(),
+            ) { models, providers ->
+                val providerName = providers.associate { it.id to it.name }
+                models.map { m ->
+                    val model = m.displayName.ifBlank { m.modelIdRemote }
+                    val prefix = providerName[m.providerId]?.takeIf { it.isNotBlank() }
+                    ModelOption(m.id, if (prefix != null) "$prefix:$model" else model, m.contextWindow)
+                }
+            }.collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    availableModels.clear()
+                    availableModels.addAll(rows)
+                }
+            }
+        }
+        scope.launch {
+            WeAgentRepository.observeSystemPrompts().collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    availableSystemPrompts.clear()
+                    availableSystemPrompts.addAll(rows.map { SystemPromptOption(it.id, it.name) })
+                }
+            }
+        }
+        scope.launch {
+            WeAgentRepository.observePresetPrompts().collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    availablePresets.clear()
+                    availablePresets.addAll(rows.map { PresetOption(it.id, it.title, it.content) })
+                }
+            }
+        }
+        scope.launch {
+            WeAgentRepository.observeWorkspaces().collectLatest { rows ->
+                withContext(Dispatchers.Main) {
+                    availableWorkspaces.clear()
+                    availableWorkspaces.addAll(rows.map { WorkspaceOption(it.id, it.name) })
+                }
+            }
+        }
+        withContext(Dispatchers.Main) {
+            memoryEnabled.value = WeAgentSettings.memoryEnabled()
+            sendWhileRunningMode.value = WeAgentSettings.sendWhileRunningMode()
+        }
+
+        // Observe external service keys and keep API-key-gated tool visibility in sync.
+        // Exa / Brave tools are only advertised to the model when the corresponding key
+        // is present, so they never produce a "key not configured" error mid-turn.
+        scope.launch {
+            WeAgentRepository.observeExternalServices().collectLatest { services ->
+                val keys = services.associateBy { it.serviceId }
+                BuiltinToolProvider.exaKeyPresent =
+                    !keys[ExternalServiceId.EXA]?.apiKey.isNullOrBlank()
+                BuiltinToolProvider.braveKeyPresent =
+                    !keys[ExternalServiceId.BRAVE]?.apiKey.isNullOrBlank()
+            }
+        }
+
+        // Start the trigger runtime (schedule + message/SQL event triggers).
+        triggerManager.start()
+
+        // Bring up the desktop pet (whale-girl), driven by WeAgent session events.
+        PetService.init()
+
+        WeLogger.i(TAG, "WeAgentService initialized")
     }
 
     // -----------------------------------------------------------------------------------------
@@ -475,10 +479,28 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         withContext(Dispatchers.Main) { currentWorkspaceId.value = workspaceId }
     }
 
-    /** Toggles the global memory-enabled setting (also flips fs-tool visibility). */
+    // --- live-selection cleanup after settings deletions (called by WeAgentRepository post-commit) ---
+
+    /** Clears the foreground model binding if it references one of the deleted models. */
+    fun onModelsDeleted(ids: Set<String>) {
+        val current = currentModelId.value ?: return
+        if (current in ids) currentModelId.value = null
+    }
+
+    /** Clears the foreground system-prompt binding if it references the deleted prompt. */
+    fun onSystemPromptDeleted(id: String) {
+        if (currentSystemPromptId.value == id) currentSystemPromptId.value = null
+    }
+
+    /** Clears the foreground workspace binding if it references the deleted workspace. */
+    fun onWorkspaceDeleted(id: String) {
+        if (currentWorkspaceId.value == id) currentWorkspaceId.value = null
+    }
+
+    /** Toggles the global memory-enabled setting (also flips fs-tool preview visibility). */
     fun setMemoryEnabled(enabled: Boolean) = scope.launch {
         WeAgentSettings.set(WeAgentSettings.KEY_MEMORY_ENABLED, enabled.toString())
-        BuiltinToolProvider.fsToolsVisible = enabled || WeAgentSettings.workspaceEnabled()
+        BuiltinToolProvider.fsToolsVisible = enabled
         withContext(Dispatchers.Main) { memoryEnabled.value = enabled }
     }
 
@@ -650,7 +672,6 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         val sanitized = WeAgentRepository.sanitizeSessionHistory(sessionId)
         if (sanitized && sessionId == currentSessionId.value) reloadMessages(sessionId)
         val priorHistory = WeAgentRepository.loadHistory(sessionId)
-        val engine = buildEngine(sessionId, session.createdAt)
         // workspaceId semantics: null = "默认" (resolve to the settings default so changing it applies
         // to existing sessions too), "" = "无" (explicitly no workspace), any other value = that workspace.
         val effectiveWorkspaceId = when (val ws = session.workspaceId) {
@@ -658,10 +679,13 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             "" -> null
             else -> ws
         }
-        val vfs = WorkspaceStore.buildVfs(
-            workspaceName = effectiveWorkspaceId?.let { WeAgentRepository.getWorkspaceName(it) },
-            memoryEnabled = WeAgentSettings.memoryEnabled(),
-        )
+        // Workspace enablement is per turn: enabled only when this session actually resolves to a
+        // workspace. The engine's prompt, the VFS, and the fs-tool gate all see the same resolved name.
+        val workspaceName = effectiveWorkspaceId?.let { WeAgentRepository.getWorkspaceName(it) }
+        val workspaceEnabled = workspaceName != null
+        val memoryEnabled = WeAgentSettings.memoryEnabled()
+        val engine = buildEngine(sessionId, session.createdAt, workspaceEnabled)
+        val vfs = WorkspaceStore.buildVfs(workspaceName = workspaceName, memoryEnabled = memoryEnabled)
 
         if (sessionId == currentSessionId.value) ballState.value = BallState.RUNNING
         val job = scope.launch {
@@ -680,8 +704,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                             perTurnPrompts = config.perTurnPrompts,
                             conditionalPrompts = config.conditionalPrompts,
                             toolLoadingMode = config.toolLoadingMode,
-                            maxModelRequests = config.maxModelRequests,
-                            toolVisibility = config.toolVisibility,
+                            toolVisibility = config.toolVisibility.copy(fsTools = workspaceEnabled || memoryEnabled),
                             onFetchSteerMessage = onFetchSteer,
                         ), priorHistory, userText
                     )
@@ -764,7 +787,6 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             }
 
             is AgentEvent.TurnCompleted -> if (foreground) refreshBallStateForForeground()
-            is AgentEvent.MaxRequestsReached -> if (foreground) appendSystemNote("已达到最大调用次数（${ev.cap}）。")
             is AgentEvent.TurnFailed -> {
                 if (foreground) {
                     appendSystemNote("出错：${ev.error.message ?: ev.error.javaClass.simpleName}")
@@ -781,10 +803,14 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     // Engine assembly
     // -----------------------------------------------------------------------------------------
 
-    private suspend fun buildEngine(sessionId: String, promptAnchorTime: java.time.Instant): AgentSessionEngine {
+    private suspend fun buildEngine(
+        sessionId: String,
+        promptAnchorTime: java.time.Instant,
+        workspaceEnabled: Boolean,
+    ): AgentSessionEngine {
         val composer = PromptComposer(
             toolLoadingMode = WeAgentSettings.toolLoadingMode(),
-            workspaceEnabled = WeAgentSettings.workspaceEnabled(),
+            workspaceEnabled = workspaceEnabled,
             memoryEnabled = WeAgentSettings.memoryEnabled(),
             memoryIndexContent = if (WeAgentSettings.memoryEnabled()) WorkspaceStore.readMemoryIndex() else null,
             skillCatalog = dev.ujhhgtg.wekit.agent.skill.SkillStore.enabledSkills().map { it.name to it.description },
@@ -860,9 +886,11 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         // tool list is rebuilt on every request, so a global would let whichever session resolved last
         // decide the vision gate for all of them — stripping ui-screenshot mid-turn from a vision
         // session, or advertising it to a non-vision model whose provider then 400s on the images.
+        // fsTools here is a placeholder: launchTurn overrides it per turn with the session's resolved
+        // workspace + the memory setting (workspace enablement is per turn, not global).
         val toolVisibility = dev.ujhhgtg.wekit.agent.tool.ToolVisibility(
             visionTools = model.supportsVision,
-            fsTools = WeAgentSettings.workspaceEnabled() || WeAgentSettings.memoryEnabled(),
+            fsTools = false,
         )
         return TurnConfig(
             client = client,
@@ -874,7 +902,6 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             perTurnPrompts = perTurn,
             conditionalPrompts = conditionals,
             toolLoadingMode = WeAgentSettings.toolLoadingMode(),
-            maxModelRequests = WeAgentSettings.maxModelRequests(),
             toolVisibility = toolVisibility,
         )
     }

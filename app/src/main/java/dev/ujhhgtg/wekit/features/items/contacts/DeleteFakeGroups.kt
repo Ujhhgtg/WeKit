@@ -2,11 +2,15 @@ package dev.ujhhgtg.wekit.features.items.contacts
 
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.LEGIT_CHATROOM_REGEX
 import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.isFakeGroup
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -20,10 +24,10 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlin.concurrent.thread
 
 @Feature(
-    name = "删除假群组",
-    categories = ["娱乐"],
-    description = "彻底清除假群组 (仅清除本地数据库，不影响原群)。" +
-        "任何包含 @chatroom、但不符合 <纯数字>@chatroom 格式的 wxid 都会被识别为假群。"
+    id = "删除假群组",
+    nameRes = "feature_delete_fake_groups_name",
+    categoryIds = [FeatureCategoryIds.ENTERTAIN],
+    descriptionRes = "feature_delete_fake_groups_description",
 )
 object DeleteFakeGroups : ClickableFeature() {
 
@@ -35,19 +39,23 @@ object DeleteFakeGroups : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         val fakeGroups = getFakeGroups()
         if (fakeGroups.isEmpty()) {
-            showToast("未发现假群组!")
+            showToast(localizedContactsString(R.string.contacts_delete_fake_none))
             return
         }
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = "删除假群组 (共 ${fakeGroups.size} 个)",
+                title = context.localizedContactsQuantity(
+                    R.plurals.contacts_delete_fake_select_title,
+                    fakeGroups.size,
+                    fakeGroups.size,
+                ),
                 contacts = fakeGroups,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedIds ->
                     if (selectedIds.isEmpty()) {
-                        showToast("请选择至少一个假群")
+                        showToast(localizedContactsString(R.string.contacts_delete_fake_select_one))
                         return@ContactsSelector
                     }
                     onDismiss()
@@ -64,9 +72,17 @@ object DeleteFakeGroups : ClickableFeature() {
     ) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("确认删除") },
-                text = { Text("确定要删除选中的 ${selectedIds.size} 个假群组吗? 此操作不可逆，原群不受影响。") },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                title = { Text(stringResource(R.string.contacts_delete_fake_confirm_title)) },
+                text = {
+                    Text(
+                        pluralStringResource(
+                            R.plurals.contacts_delete_fake_confirm_message,
+                            selectedIds.size,
+                            selectedIds.size,
+                        ),
+                    )
+                },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         onDismiss()
@@ -76,10 +92,16 @@ object DeleteFakeGroups : ClickableFeature() {
                                 fakeGroups.associate { it.wxId to it.nickname },
                             )
                             runOnUiThread {
-                                showToast("已清除 ${selectedIds.size} 个假群组")
+                                showToast(
+                                    localizedContactsQuantity(
+                                        R.plurals.contacts_delete_fake_done,
+                                        selectedIds.size,
+                                        selectedIds.size,
+                                    ),
+                                )
                             }
                         }
-                    }) { Text("删除") }
+                    }) { Text(stringResource(R.string.action_delete)) }
                 }
             )
         }

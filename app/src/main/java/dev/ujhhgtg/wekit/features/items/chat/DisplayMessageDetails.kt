@@ -9,10 +9,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Info
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -21,7 +25,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(name = "显示消息详情", categories = ["聊天"], description = "向消息长按菜单添加菜单项, 可查看消息详情")
+@Feature(
+    id = "显示消息详情",
+    nameRes = "feature_display_message_details_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_display_message_details_description",
+)
 object DisplayMessageDetails : SwitchFeature(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
 
@@ -36,22 +45,27 @@ object DisplayMessageDetails : SwitchFeature(),
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777005, "查看详情",
+                777005, localizedChatString(R.string.chat_message_details_menu),
                 ChatInfoIcon, MaterialSymbols.Outlined.Info, { _ -> true },
                 // per-message detail dialog; has no meaning for a batch selection
                 multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Unsupported
             )
             { view, _, msgInfo ->
                 val displayItems = mutableListOf<Pair<String, String>>()
-                displayItems += "类型" to msgInfo.typeCode.toString()
+                displayItems += view.context.localizedChatString(R.string.chat_message_details_type) to
+                    msgInfo.typeCode.toString()
                 displayItems += "ID" to msgInfo.id.toString()
-                displayItems += "对方/群聊 ID" to msgInfo.talker
-                displayItems += "发送者 ID" to msgInfo.sender
-                displayItems += "内容" to msgInfo.content
+                displayItems += view.context.localizedChatString(R.string.chat_message_details_talker_id) to
+                    msgInfo.talker
+                displayItems += view.context.localizedChatString(R.string.chat_message_details_sender_id) to
+                    msgInfo.sender
+                displayItems += view.context.localizedChatString(R.string.chat_message_details_content) to
+                    msgInfo.content
 
                 showComposeDialog(view.context) {
+                    val localizedContext = LocalContext.current
                     AlertDialogContent(
-                        title = { Text("消息详情") },
+                        title = { Text(stringResource(R.string.chat_message_details_title)) },
                         text = {
                             LazyColumn(
                                 Modifier
@@ -62,7 +76,7 @@ object DisplayMessageDetails : SwitchFeature(),
                                     ListItem(
                                         modifier = Modifier.clickable {
                                             copyToClipboard(value)
-                                            showToast("已复制")
+                                            showToast(localizedContext.getString(R.string.chat_message_details_copied))
                                         },
                                         supportingContent = { Text(value) },
                                         content = { Text(key) },
@@ -70,7 +84,7 @@ object DisplayMessageDetails : SwitchFeature(),
                                 }
                             }
                         },
-                        confirmButton = { Button(onDismiss) { Text("关闭") } }
+                        confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
                     )
                 }
             }

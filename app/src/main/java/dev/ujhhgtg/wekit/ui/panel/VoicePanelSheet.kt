@@ -46,6 +46,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -73,12 +75,14 @@ import com.composables.icons.materialsymbols.outlined.Share
 import com.composables.icons.materialsymbols.outlined.Text_to_speech
 import com.composables.icons.materialsymbols.outlined.Travel_explore
 import com.composables.icons.materialsymbols.outlined.Upload_file
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSource
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
+import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiText
 import dev.ujhhgtg.wekit.features.items.chat.panel.RECENT_PACK_ID
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceDestination
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceItem
@@ -87,6 +91,8 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePackLayout
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePreview
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceProviderPage
 import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
+import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiText
+import dev.ujhhgtg.wekit.features.items.chat.panel.toPanelUiText
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProvider
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProviderRegistry
 import dev.ujhhgtg.wekit.utils.MediaFileTypeDetector
@@ -125,7 +131,9 @@ data class VoicePanelActions(
     val preview: suspend (VoiceItem) -> Result<VoicePreview> = { Result.failure(UnsupportedOperationException()) },
     val releasePreview: (VoicePreview) -> Unit = {},
     val send: suspend (VoiceItem) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
-    val ensureLocalPack: suspend (String) -> Result<String> = { Result.failure(UnsupportedOperationException()) },
+    val ensureLocalPack: suspend (String, String?) -> Result<String> = { _, _ ->
+        Result.failure(UnsupportedOperationException())
+    },
     val addToLocal: suspend (String, VoiceItem) -> Result<Unit> = { _, _ ->
         Result.failure(UnsupportedOperationException())
     },
@@ -218,6 +226,7 @@ private fun VoicePanelContent(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val currentLocalizedContext by rememberUpdatedState(context)
     val scope = rememberCoroutineScope()
     val rememberedNavigation = remember {
         PanelNavigationMemory.voice.takeIf { PanelSettings.rememberPanelNavigation }
@@ -254,13 +263,13 @@ private fun VoicePanelContent(
         )
     }
     var prompt by remember { mutableStateOf<VoicePrompt?>(null) }
-    var operationMessage by remember { mutableStateOf<String?>(null) }
-    var progressMessage by remember { mutableStateOf<String?>(null) }
+    var operationMessage by remember { mutableStateOf<PanelUiText?>(null) }
+    var progressMessage by remember { mutableStateOf<PanelUiText?>(null) }
     var ttsMode by remember { mutableStateOf(rememberedNavigation?.ttsMode ?: TtsMode.EDGE) }
     var ttsText by remember { mutableStateOf("") }
     var selectedEdgeVoice by remember { mutableStateOf(PanelSettings.selectedEdgeVoice) }
     var convertedTts by remember { mutableStateOf<VoicePreview?>(null) }
-    var convertedTtsTitle by remember { mutableStateOf("") }
+    var convertedTtsTitle by remember { mutableStateOf<PanelUiText?>(null) }
     var clones by remember { mutableStateOf<List<CloneVoice>>(emptyList()) }
     var selectedCloneId by remember { mutableStateOf("") }
     var managingClones by remember { mutableStateOf(rememberedNavigation?.managingClones == true) }
@@ -293,7 +302,7 @@ private fun VoicePanelContent(
             if (onlineSearchExecuted || onlineSearchParent != null) {
                 PanelUiState.Loading
             } else {
-                PanelUiState.Empty("输入关键词搜索在线语音")
+                PanelUiState.Empty(panelUiText(R.string.voice_panel_search_prompt))
             },
         )
     }
@@ -304,12 +313,20 @@ private fun VoicePanelContent(
     var selectedSharedPack by remember { mutableStateOf(rememberedNavigation?.selectedSharedPack) }
     var sharedQuery by remember { mutableStateOf("") }
     var sharedSearchExpanded by remember { mutableStateOf(false) }
-    var sharedItemsState by remember { mutableStateOf<PanelUiState<List<VoiceItem>>>(PanelUiState.Empty("选择一个语音包")) }
+    var sharedItemsState by remember {
+        mutableStateOf<PanelUiState<List<VoiceItem>>>(
+            PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack)),
+        )
+    }
     var sharedItemsRequest by remember { mutableIntStateOf(0) }
     var cloneSharedPack by remember { mutableStateOf(rememberedNavigation?.cloneSharedPack) }
     var cloneSharedPacksState by remember { mutableStateOf<PanelUiState<List<VoicePack>>>(PanelUiState.Loading) }
     var cloneSharedPacksRequest by remember { mutableIntStateOf(0) }
-    var cloneSharedItemsState by remember { mutableStateOf<PanelUiState<List<VoiceItem>>>(PanelUiState.Empty("选择一个共享语音包")) }
+    var cloneSharedItemsState by remember {
+        mutableStateOf<PanelUiState<List<VoiceItem>>>(
+            PanelUiState.Empty(panelUiText(R.string.voice_panel_select_shared_pack)),
+        )
+    }
     var cloneSharedItemsRequest by remember { mutableIntStateOf(0) }
     var exampleGroupsRequest by remember { mutableIntStateOf(0) }
     var examplesRequest by remember { mutableIntStateOf(0) }
@@ -391,9 +408,9 @@ private fun VoicePanelContent(
             } catch (error: Throwable) {
                 if (request != localRequest) return@launch
                 if (showFullLoadingState) {
-                    localState = PanelUiState.Error(error.message ?: "本地语音加载失败")
+                    localState = PanelUiState.Error(error.toPanelUiText(R.string.voice_panel_error_local_load))
                 } else {
-                    operationMessage = error.message ?: "本地语音刷新失败"
+                    operationMessage = error.toPanelUiText(R.string.voice_panel_error_local_refresh)
                 }
             }
         }
@@ -419,10 +436,10 @@ private fun VoicePanelContent(
             providerState = result.fold(
                 {
                     val uniqueItems = it.items.distinctBy(::voiceSelectionKey)
-                    if (uniqueItems.isEmpty()) PanelUiState.Empty("没有更多语音")
+                    if (uniqueItems.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_more))
                     else PanelUiState.Content(it.copy(items = uniqueItems))
                 },
-                { PanelUiState.Error(it.message ?: "语音加载失败") },
+                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_voice_load)) },
             )
         }
     }
@@ -436,7 +453,7 @@ private fun VoicePanelContent(
         val requestedQuery = onlineSearchQuery.trim()
         if (requestedParent == null && requestedQuery.isBlank()) {
             onlineSearchExecuted = false
-            onlineSearchState = PanelUiState.Empty("输入关键词搜索在线语音")
+            onlineSearchState = PanelUiState.Empty(panelUiText(R.string.voice_panel_search_prompt))
             return
         }
         onlineSearchExecuted = true
@@ -451,10 +468,10 @@ private fun VoicePanelContent(
             onlineSearchState = result.fold(
                 {
                     val uniqueItems = it.items.distinctBy(::voiceSelectionKey)
-                    if (uniqueItems.isEmpty()) PanelUiState.Empty("没有更多语音")
+                    if (uniqueItems.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_more))
                     else PanelUiState.Content(it.copy(items = uniqueItems))
                 },
-                { PanelUiState.Error(it.message ?: "在线语音搜索失败") },
+                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_online_search)) },
             )
         }
     }
@@ -473,10 +490,10 @@ private fun VoicePanelContent(
             sharedItemsState = result.fold(
                 {
                     val uniqueItems = it.distinctBy(::voiceSelectionKey)
-                    if (uniqueItems.isEmpty()) PanelUiState.Empty("语音包中还没有语音")
+                    if (uniqueItems.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_pack))
                     else PanelUiState.Content(uniqueItems)
                 },
-                { PanelUiState.Error(it.message ?: "语音包加载失败") },
+                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_pack_load)) },
             )
         }
     }
@@ -492,8 +509,8 @@ private fun VoicePanelContent(
                     if (packs.isEmpty()) {
                         selectedSharedPack = null
                         sharedItemsRequest++
-                        sharedItemsState = PanelUiState.Empty("选择一个语音包")
-                        PanelUiState.Empty("还没有创建共享语音包")
+                        sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
+                        PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_shared_packs))
                     } else {
                         val current = packs.firstOrNull { it.id == selectedSharedPack?.id }
                         when {
@@ -506,13 +523,13 @@ private fun VoicePanelContent(
                             selectedSharedPack != null -> {
                                 selectedSharedPack = null
                                 sharedItemsRequest++
-                                sharedItemsState = PanelUiState.Empty("选择一个语音包")
+                                sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
                             }
                         }
                         PanelUiState.Content(packs)
                     }
                 },
-                { PanelUiState.Error(it.message ?: "共享语音包加载失败") },
+                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_shared_pack_load)) },
             )
         }
     }
@@ -524,8 +541,8 @@ private fun VoicePanelContent(
             val result = actions.loadCloneSharedPacks()
             if (request != cloneSharedPacksRequest) return@launch
             cloneSharedPacksState = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty("暂无可选共享语音包") else PanelUiState.Content(it) },
-                { PanelUiState.Error(it.message ?: "共享语音包加载失败") },
+                { if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_available_shared_packs)) else PanelUiState.Content(it) },
+                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_shared_pack_load)) },
             )
         }
     }
@@ -538,8 +555,8 @@ private fun VoicePanelContent(
             val result = actions.loadSharedPack(pack.id)
             if (request != cloneSharedItemsRequest || cloneSharedPack?.id != pack.id) return@launch
             cloneSharedItemsState = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty("语音包中没有可用语音") else PanelUiState.Content(it) },
-                { PanelUiState.Error(it.message ?: "读取共享语音包失败") },
+                { if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_shared_pack_no_voice)) else PanelUiState.Content(it) },
+                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_shared_pack_read)) },
             )
         }
     }
@@ -578,7 +595,7 @@ private fun VoicePanelContent(
                 previewPlaying = true
                 playingId = activePreviewId
             }
-        }.onFailure { operationMessage = it.message ?: "音频播放失败" }
+        }.onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_play) }
     }
 
     fun seekPreview(positionMs: Long) {
@@ -586,7 +603,7 @@ private fun VoicePanelContent(
             val position = positionMs.coerceIn(0L, previewDurationMs.coerceAtLeast(0L))
             player.seekTo(position.toInt())
             previewPositionMs = position
-        }.onFailure { operationMessage = it.message ?: "无法跳转播放位置" }
+        }.onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_seek) }
     }
 
     fun preview(
@@ -605,7 +622,7 @@ private fun VoicePanelContent(
         val request = previewRequest
         previewJob?.cancel()
         stopPreview()
-        progressMessage = "正在加载音频..."
+        progressMessage = panelUiText(R.string.voice_panel_progress_audio_load)
         previewJob = scope.launch {
             val result = resolve()
             if (request != previewRequest) {
@@ -638,9 +655,9 @@ private fun VoicePanelContent(
                     }
                 }.onFailure {
                     actions.releasePreview(preview)
-                    operationMessage = it.message ?: "音频播放失败"
+                    operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_play)
                 }
-            }.onFailure { operationMessage = it.message ?: "音频加载失败" }
+            }.onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_load) }
         }
     }
 
@@ -662,11 +679,16 @@ private fun VoicePanelContent(
     }
 
     fun send(item: VoiceItem) {
-        progressMessage = "正在发送语音..."
+        progressMessage = panelUiText(R.string.voice_panel_progress_send)
         scope.launch {
             val result = actions.send(item)
             progressMessage = null
-            showToastSuspend(context, result.exceptionOrNull()?.message ?: "语音发送成功")
+            val toastContext = currentLocalizedContext
+            showToastSuspend(
+                toastContext,
+                result.exceptionOrNull()?.message
+                    ?: toastContext.getString(R.string.voice_panel_send_success),
+            )
             if (result.isSuccess) {
                 refreshLocal()
                 if (PanelSettings.panelAutoClose) onDismiss()
@@ -681,8 +703,8 @@ private fun VoicePanelContent(
             val result = actions.loadExampleGroups()
             if (request != exampleGroupsRequest) return@launch
             exampleGroups = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty("服务器上暂无语音示例目录") else PanelUiState.Content(it) },
-                { PanelUiState.Error(it.message ?: "读取语音示例失败") },
+                { if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_example_groups)) else PanelUiState.Content(it) },
+                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_example_load)) },
             )
         }
     }
@@ -695,8 +717,8 @@ private fun VoicePanelContent(
             val result = actions.loadExamples(group)
             if (request != examplesRequest || selectedExampleGroup != group) return@launch
             examples = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty("该目录下暂无 wav 语音") else PanelUiState.Content(it) },
-                { PanelUiState.Error(it.message ?: "读取语音示例失败") },
+                { if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_examples)) else PanelUiState.Content(it) },
+                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_example_load)) },
             )
         }
     }
@@ -747,9 +769,10 @@ private fun VoicePanelContent(
         selectedDownloadIds = emptySet()
     }
 
-    LaunchedEffect(operationMessage) {
-        val message = operationMessage ?: return@LaunchedEffect
-        showToastSuspend(context, message)
+    val resolvedOperationMessage = operationMessage?.resolve()
+    LaunchedEffect(operationMessage, resolvedOperationMessage) {
+        operationMessage ?: return@LaunchedEffect
+        showToastSuspend(context, requireNotNull(resolvedOperationMessage))
         operationMessage = null
     }
 
@@ -758,22 +781,23 @@ private fun VoicePanelContent(
     }
 
     val selectedClone = clones.firstOrNull { it.id == selectedCloneId }
+    val resolvedConvertedTtsTitle = convertedTtsTitle?.resolve()
 
     fun clearConvertedTts() {
         convertedTts?.let(actions.releasePreview)
         convertedTts = null
-        convertedTtsTitle = ""
+        convertedTtsTitle = null
     }
 
     fun convertTts() {
         val count = ttsText.codePointCount(0, ttsText.length)
         when {
-            ttsText.isBlank() -> operationMessage = "转换文字不能为空"
-            count > 256 -> operationMessage = "转换文字不能超过 256 个字符"
-            ttsMode == TtsMode.CLONE && selectedClone == null -> operationMessage = "请先选择音色"
+            ttsText.isBlank() -> operationMessage = panelUiText(R.string.voice_panel_tts_empty)
+            count > 256 -> operationMessage = panelUiText(R.string.voice_panel_tts_too_long, 256)
+            ttsMode == TtsMode.CLONE && selectedClone == null -> operationMessage = panelUiText(R.string.voice_panel_tts_choose_voice_first)
             else -> {
                 clearConvertedTts()
-                progressMessage = "正在转换语音..."
+                progressMessage = panelUiText(R.string.voice_panel_progress_tts_convert)
                 scope.launch {
                     val result = when (ttsMode) {
                         TtsMode.SYSTEM -> actions.convertSystem(ttsText)
@@ -784,11 +808,12 @@ private fun VoicePanelContent(
                     result.onSuccess { preview ->
                         convertedTts = preview
                         convertedTtsTitle = when (ttsMode) {
-                            TtsMode.SYSTEM -> "系统 TTS"
-                            TtsMode.EDGE -> "Edge TTS"
-                            TtsMode.CLONE -> selectedClone?.name ?: "克隆语音"
+                            TtsMode.SYSTEM -> panelUiText(R.string.tts_mode_system)
+                            TtsMode.EDGE -> panelUiText(R.string.tts_mode_edge)
+                            TtsMode.CLONE -> selectedClone?.name?.let(PanelUiText::Raw)
+                                ?: panelUiText(R.string.tts_mode_clone)
                         }
-                    }.onFailure { operationMessage = it.message ?: "语音转换失败" }
+                    }.onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_tts_convert) }
                 }
             }
         }
@@ -796,11 +821,16 @@ private fun VoicePanelContent(
 
     fun sendConvertedTts() {
         val generated = convertedTts ?: return
-        progressMessage = "正在发送语音..."
+        progressMessage = panelUiText(R.string.voice_panel_progress_send)
         scope.launch {
-            val result = actions.sendConverted(generated, convertedTtsTitle)
+            val result = actions.sendConverted(generated, requireNotNull(resolvedConvertedTtsTitle))
             progressMessage = null
-            showToastSuspend(context, result.exceptionOrNull()?.message ?: "语音发送成功")
+            val toastContext = currentLocalizedContext
+            showToastSuspend(
+                toastContext,
+                result.exceptionOrNull()?.message
+                    ?: toastContext.getString(R.string.voice_panel_send_success),
+            )
             if (result.isSuccess) {
                 clearConvertedTts()
                 onDismiss()
@@ -840,26 +870,26 @@ private fun VoicePanelContent(
         }
     }
     val rail = listOf(
-        PanelRailItem(VoiceDestination.RECENT, MaterialSymbols.Outlined.History, "最近使用"),
-        PanelRailItem(VoiceDestination.LOCAL, MaterialSymbols.Outlined.Folder, "本地语音包"),
-        PanelRailItem(VoiceDestination.SEARCH, MaterialSymbols.Outlined.Manage_search, "本地搜索"),
-        PanelRailItem(VoiceDestination.TTS, MaterialSymbols.Outlined.Text_to_speech, "文字转语音"),
-        PanelRailItem(VoiceDestination.ONLINE, MaterialSymbols.Outlined.Cloud, "在线语音包"),
-        PanelRailItem(VoiceDestination.ONLINE_SEARCH, MaterialSymbols.Outlined.Travel_explore, "在线搜索"),
-        PanelRailItem(VoiceDestination.SHARED, MaterialSymbols.Outlined.Share, "共享语音包"),
-        PanelRailItem(VoiceDestination.SETTINGS, MaterialSymbols.Outlined.Settings, "设置"),
+        PanelRailItem(VoiceDestination.RECENT, MaterialSymbols.Outlined.History, stringResource(R.string.panel_recent)),
+        PanelRailItem(VoiceDestination.LOCAL, MaterialSymbols.Outlined.Folder, stringResource(R.string.voice_panel_local_packs)),
+        PanelRailItem(VoiceDestination.SEARCH, MaterialSymbols.Outlined.Manage_search, stringResource(R.string.panel_local_search)),
+        PanelRailItem(VoiceDestination.TTS, MaterialSymbols.Outlined.Text_to_speech, stringResource(R.string.voice_panel_tts)),
+        PanelRailItem(VoiceDestination.ONLINE, MaterialSymbols.Outlined.Cloud, stringResource(R.string.voice_panel_online_packs)),
+        PanelRailItem(VoiceDestination.ONLINE_SEARCH, MaterialSymbols.Outlined.Travel_explore, stringResource(R.string.panel_online_search)),
+        PanelRailItem(VoiceDestination.SHARED, MaterialSymbols.Outlined.Share, stringResource(R.string.voice_panel_shared_packs)),
+        PanelRailItem(VoiceDestination.SETTINGS, MaterialSymbols.Outlined.Settings, stringResource(R.string.panel_settings)),
     )
 
     val title = when (destination) {
-        VoiceDestination.RECENT -> "最近使用"
-        VoiceDestination.SEARCH -> "本地搜索"
-        VoiceDestination.LOCAL -> localDetailPack?.title ?: "本地语音包"
-        VoiceDestination.TTS -> "文字转语音"
-        VoiceDestination.ONLINE -> "在线语音包"
-        VoiceDestination.ONLINE_SEARCH -> "在线搜索"
-        VoiceDestination.SHARED -> if (sharedCatalogVisible) "我的共享语音包"
-        else selectedSharedPack?.title ?: "我的共享语音包"
-        VoiceDestination.SETTINGS -> "设置"
+        VoiceDestination.RECENT -> stringResource(R.string.panel_recent)
+        VoiceDestination.SEARCH -> stringResource(R.string.panel_local_search)
+        VoiceDestination.LOCAL -> localDetailPack?.title ?: stringResource(R.string.voice_panel_local_packs)
+        VoiceDestination.TTS -> stringResource(R.string.voice_panel_tts)
+        VoiceDestination.ONLINE -> stringResource(R.string.voice_panel_online_packs)
+        VoiceDestination.ONLINE_SEARCH -> stringResource(R.string.panel_online_search)
+        VoiceDestination.SHARED -> if (sharedCatalogVisible) stringResource(R.string.voice_panel_my_shared_packs)
+        else selectedSharedPack?.title ?: stringResource(R.string.voice_panel_my_shared_packs)
+        VoiceDestination.SETTINGS -> stringResource(R.string.panel_settings)
     }
 
     val visibleProviderState = remember(providerState, providerFilterQuery) {
@@ -869,7 +899,7 @@ private fun VoicePanelContent(
         } else {
             val page = (providerState as PanelUiState.Content<VoiceProviderPage>).value
             val items = page.items.filter { it.title.contains(term, ignoreCase = true) }
-            if (items.isEmpty()) PanelUiState.Empty("当前页面没有匹配的语音")
+            if (items.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_current_page_no_match))
             else PanelUiState.Content(page.copy(items = items))
         }
     }
@@ -899,7 +929,11 @@ private fun VoicePanelContent(
         onlineSaveProgress = null
     }
 
-    fun startVoiceSave(packId: String, items: List<VoiceItem>, title: String = "正在保存语音") {
+    fun startVoiceSave(
+        packId: String,
+        items: List<VoiceItem>,
+        title: PanelUiText = panelUiText(R.string.voice_panel_progress_save_voice),
+    ) {
         val uniqueItems = items.distinctBy(::voiceSelectionKey)
         if (uniqueItems.isEmpty()) return
         stopOnlineSave()
@@ -924,9 +958,9 @@ private fun VoicePanelContent(
             }
             refreshLocal()
             operationMessage = if (failed == 0) {
-                "已保存 $succeeded 条语音"
+                panelUiText(R.string.voice_panel_saved_count, succeeded)
             } else {
-                "保存完成：成功 $succeeded 条，失败 $failed 条"
+                panelUiText(R.string.voice_panel_save_result, succeeded, failed)
             }
         }
     }
@@ -935,9 +969,9 @@ private fun VoicePanelContent(
         if (items.isEmpty()) return
         showPanelPackPicker(
             context = context,
-            title = "保存到语音包",
-            createLabel = "新建语音包",
-            itemCountLabel = { count -> "$count 条语音" },
+            title = context.getString(R.string.voice_panel_save_to_pack),
+            createLabel = context.getString(R.string.voice_panel_new_pack),
+            itemCountLabel = { count -> context.resources.getQuantityString(R.plurals.voice_count, count, count) },
             packIcon = MaterialSymbols.Outlined.Folder,
             packs = editableLocalPacks.map { PanelPackChoice(it.id, it.title, it.itemCount) },
             onCreatePack = actions.createLocalPack,
@@ -947,7 +981,7 @@ private fun VoicePanelContent(
 
     fun saveWholeVoicePack(parent: VoiceItem) {
         stopOnlineSave()
-        onlineSaveProgress = PanelSaveProgress("正在读取语音包“${parent.title}”", 1)
+        onlineSaveProgress = PanelSaveProgress(panelUiText(R.string.voice_panel_progress_read_pack, parent.title), 1)
         onlineSaveJob = scope.launch {
             val collected = mutableListOf<VoiceItem>()
             var page = 0
@@ -958,7 +992,7 @@ private fun VoicePanelContent(
                 if (result.isFailure) {
                     onlineSaveProgress = null
                     onlineSaveJob = null
-                    operationMessage = result.exceptionOrNull()?.message ?: "语音包读取失败"
+                    operationMessage = result.exceptionOrNull()?.toPanelUiText(R.string.voice_panel_error_read_pack)
                     return@launch
                 }
                 val providerPage = result.getOrThrow()
@@ -966,16 +1000,19 @@ private fun VoicePanelContent(
                 hasMore = providerPage.hasMore
                 page++
             } while (hasMore)
-            val packId = actions.ensureLocalPack(parent.title)
+            val packId = actions.ensureLocalPack(
+                parent.metadata["localPackId"] ?: parent.title,
+                parent.metadata["legacyPackName"] ?: parent.title,
+            )
             if (packId.isFailure) {
                 onlineSaveProgress = null
                 onlineSaveJob = null
-                operationMessage = packId.exceptionOrNull()?.message ?: "无法创建本地语音包"
+                operationMessage = packId.exceptionOrNull()?.toPanelUiText(R.string.voice_panel_error_create_local_pack)
                 return@launch
             }
             onlineSaveJob = null
             onlineSaveProgress = null
-            startVoiceSave(packId.getOrThrow(), collected, "正在保存语音包“${parent.title}”")
+            startVoiceSave(packId.getOrThrow(), collected, panelUiText(R.string.voice_panel_progress_save_pack, parent.title))
         }
     }
 
@@ -992,7 +1029,7 @@ private fun VoicePanelContent(
                 PanelSettings.voicePackSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.voicePackCustomSortHintShown) {
                     PanelSettings.voicePackCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, "长按「自定义」字样开始排序") }
+                    scope.launch { showToastSuspend(context, context.getString(R.string.panel_sort_custom_hint)) }
                 }
             }
 
@@ -1001,7 +1038,7 @@ private fun VoicePanelContent(
                 PanelSettings.voiceItemSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.voiceItemCustomSortHintShown) {
                     PanelSettings.voiceItemCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, "长按「自定义」字样开始排序") }
+                    scope.launch { showToastSuspend(context, context.getString(R.string.panel_sort_custom_hint)) }
                 }
             }
         }
@@ -1036,15 +1073,15 @@ private fun VoicePanelContent(
                 when (target) {
                     VoiceReorderTarget.PACKS -> actions.savePackOrder(requested)
                     VoiceReorderTarget.ITEMS -> packId?.let { actions.saveItemOrder(it, requested) }
-                        ?: Result.failure(IllegalStateException("未选择语音包"))
+                        ?: Result.failure(IllegalStateException(context.getString(R.string.voice_panel_error_no_pack_selected)))
                 }
             }
             if (result.isSuccess) {
                 cancelReorder()
                 refreshLocal()
-                operationMessage = "已保存自定义顺序"
+                operationMessage = panelUiText(R.string.panel_sort_saved)
             } else {
-                operationMessage = result.exceptionOrNull()?.message ?: "保存排序失败"
+                operationMessage = result.exceptionOrNull()?.toPanelUiText(R.string.panel_sort_save_failed)
             }
         }
     }
@@ -1057,7 +1094,7 @@ private fun VoicePanelContent(
             selectedKeys = selectedDownloadIds,
             key = ::voiceSelectionKey,
             terminalIcon = if (deletingLocalVoices) MaterialSymbols.Outlined.Delete else MaterialSymbols.Outlined.Save,
-            terminalLabel = if (deletingLocalVoices) "删除" else "保存",
+            terminalLabel = stringResource(if (deletingLocalVoices) R.string.panel_action_delete else R.string.action_save),
             onClose = {
                 batchMode = false
                 selectedDownloadIds = emptySet()
@@ -1071,8 +1108,8 @@ private fun VoicePanelContent(
     } else when (destination) {
         VoiceDestination.LOCAL -> if (localCatalogVisible) {
             buildList {
-                add(PanelAction(MaterialSymbols.Outlined.Add, "新建语音包") { prompt = VoicePrompt.CreateLocalPack })
-                add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::refreshLocal))
+                add(PanelAction(MaterialSymbols.Outlined.Add, stringResource(R.string.voice_panel_new_pack)) { prompt = VoicePrompt.CreateLocalPack })
+                add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::refreshLocal))
                 add(
                     panelLocalSortAction(
                         mode = localPackSortMode,
@@ -1084,26 +1121,26 @@ private fun VoicePanelContent(
             }
         } else buildList {
             if (localPackLayout == VoicePackLayout.LIST) {
-                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, "返回") { localPackDetailId = null })
+                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.panel_action_back)) { localPackDetailId = null })
             } else {
-                add(PanelAction(MaterialSymbols.Outlined.Add, "新建语音包") { prompt = VoicePrompt.CreateLocalPack })
+                add(PanelAction(MaterialSymbols.Outlined.Add, stringResource(R.string.voice_panel_new_pack)) { prompt = VoicePrompt.CreateLocalPack })
             }
-            add(PanelAction(MaterialSymbols.Outlined.Edit, "重命名", selectedLocal != null) {
+            add(PanelAction(MaterialSymbols.Outlined.Edit, stringResource(R.string.panel_action_rename), selectedLocal != null) {
                 selectedLocal?.let { prompt = VoicePrompt.RenameLocalPack(it) }
             })
-            add(PanelAction(MaterialSymbols.Outlined.Delete, "删除", selectedLocal != null) {
+            add(PanelAction(MaterialSymbols.Outlined.Delete, stringResource(R.string.panel_action_delete), selectedLocal != null) {
                 selectedLocal?.let { prompt = VoicePrompt.DeleteLocalPack(it) }
             })
-            add(PanelAction(MaterialSymbols.Outlined.Upload_file, "导入", selectedLocal != null) {
+            add(PanelAction(MaterialSymbols.Outlined.Upload_file, stringResource(R.string.panel_action_import), selectedLocal != null) {
                 selectedLocal?.let { prompt = VoicePrompt.ImportLocal(it) }
             })
             if (localPackLayout == VoicePackLayout.LIST) {
-                add(PanelAction(MaterialSymbols.Outlined.Select_all, "多选", !selectedLocal?.items.isNullOrEmpty()) {
+                add(PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select), !selectedLocal?.items.isNullOrEmpty()) {
                     batchMode = true
                     selectedDownloadIds = emptySet()
                 })
             }
-            add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::refreshLocal))
+            add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::refreshLocal))
             add(
                 panelLocalSortAction(
                     mode = localItemSortMode,
@@ -1116,7 +1153,7 @@ private fun VoicePanelContent(
 
         VoiceDestination.SEARCH -> emptyList()
         VoiceDestination.ONLINE -> buildList {
-            add(PanelAction(MaterialSymbols.Outlined.Arrow_back, "返回", providerParent != null) {
+            add(PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.panel_action_back), providerParent != null) {
                 providerParent = null
                 providerRootSnapshot?.let { snapshot ->
                     providerPage = snapshot.page
@@ -1124,13 +1161,13 @@ private fun VoicePanelContent(
                 } ?: loadProvider(true)
                 providerRootSnapshot = null
             })
-            add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新") { loadProvider() })
+            add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh)) { loadProvider() })
             if (providerParent != null && batchCandidates.isNotEmpty()) {
-                add(PanelAction(MaterialSymbols.Outlined.Select_all, "多选") {
+                add(PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select)) {
                     batchMode = true
                     selectedDownloadIds = emptySet()
                 })
-                add(PanelAction(MaterialSymbols.Outlined.Save, "保存") {
+                add(PanelAction(MaterialSymbols.Outlined.Save, stringResource(R.string.action_save)) {
                     providerParent?.let(::saveWholeVoicePack)
                 })
             }
@@ -1138,7 +1175,7 @@ private fun VoicePanelContent(
 
         VoiceDestination.ONLINE_SEARCH -> buildList {
             if (onlineSearchParent != null) {
-                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, "返回搜索结果") {
+                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.voice_panel_back_to_search_results)) {
                     onlineSearchParent = null
                     onlineSearchRootSnapshot?.let { snapshot ->
                         onlineSearchPage = snapshot.page
@@ -1147,17 +1184,17 @@ private fun VoicePanelContent(
                     onlineSearchRootSnapshot = null
                 })
             }
-            add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onlineSearchQuery.isNotBlank()) {
+            add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onlineSearchQuery.isNotBlank()) {
                 loadOnlineSearch()
             })
             if (batchCandidates.isNotEmpty()) {
-                add(PanelAction(MaterialSymbols.Outlined.Select_all, "多选") {
+                add(PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select)) {
                     batchMode = true
                     selectedDownloadIds = emptySet()
                 })
             }
             if (onlineSearchParent != null && batchCandidates.isNotEmpty()) {
-                add(PanelAction(MaterialSymbols.Outlined.Save, "保存") {
+                add(PanelAction(MaterialSymbols.Outlined.Save, stringResource(R.string.action_save)) {
                     onlineSearchParent?.let(::saveWholeVoicePack)
                 })
             }
@@ -1165,40 +1202,43 @@ private fun VoicePanelContent(
 
         VoiceDestination.SHARED -> buildList {
             if (localPackLayout == VoicePackLayout.LIST && selectedSharedPack != null) {
-                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, "返回共享语音包") {
+                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.voice_panel_back_to_shared_packs)) {
                     selectedSharedPack = null
                     sharedQuery = ""
                     sharedSearchExpanded = false
                     sharedItemsRequest++
-                    sharedItemsState = PanelUiState.Empty("选择一个语音包")
+                    sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
                 })
             }
             if (batchCandidates.isNotEmpty()) {
-                add(PanelAction(MaterialSymbols.Outlined.Select_all, "多选") {
+                add(PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select)) {
                     batchMode = true
                     selectedDownloadIds = emptySet()
                 })
             }
-            add(PanelAction(MaterialSymbols.Outlined.Add, "新建语音包") { prompt = VoicePrompt.CreateSharedPack })
+            add(PanelAction(MaterialSymbols.Outlined.Add, stringResource(R.string.voice_panel_new_pack)) { prompt = VoicePrompt.CreateSharedPack })
             selectedSharedPack?.let { pack ->
-                add(PanelAction(MaterialSymbols.Outlined.Edit, "重命名") {
+                add(PanelAction(MaterialSymbols.Outlined.Edit, stringResource(R.string.panel_action_rename)) {
                     prompt = VoicePrompt.RenameSharedPack(pack)
                 })
-                add(PanelAction(MaterialSymbols.Outlined.Delete, "删除") {
+                add(PanelAction(MaterialSymbols.Outlined.Delete, stringResource(R.string.panel_action_delete)) {
                     prompt = VoicePrompt.DeleteSharedPack(pack)
                 })
-                add(PanelAction(MaterialSymbols.Outlined.Check_circle, "确认提交审核") {
+                add(PanelAction(MaterialSymbols.Outlined.Check_circle, stringResource(R.string.voice_panel_submit_for_review)) {
                     prompt = VoicePrompt.ConfirmSharedPack(pack)
                 })
-                add(PanelAction(MaterialSymbols.Outlined.Upload_file, "上传语音") {
-                    actions.uploadSharedVoice(pack.id, { progressMessage = "正在上传语音..." }) { result ->
+                add(PanelAction(MaterialSymbols.Outlined.Upload_file, stringResource(R.string.voice_panel_upload_voice)) {
+                    actions.uploadSharedVoice(pack.id, { progressMessage = panelUiText(R.string.voice_panel_progress_upload) }) { result ->
                         progressMessage = null
-                        operationMessage = result.fold({ it }, { it.message ?: "上传失败" })
+                        operationMessage = result.fold(
+                            onSuccess = { PanelUiText.Raw(it) },
+                            onFailure = { it.toPanelUiText(R.string.voice_panel_error_upload) },
+                        )
                         if (result.isSuccess) loadMySharedPacks()
                     }
                 })
             }
-            add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::loadMySharedPacks))
+            add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::loadMySharedPacks))
         }
 
         else -> emptyList()
@@ -1209,7 +1249,7 @@ private fun VoicePanelContent(
         destination == VoiceDestination.LOCAL -> PanelActionSearch(
             expanded = localPackFilterExpanded,
             value = localPackFilterQuery,
-            label = if (localCatalogVisible) "筛选本地语音包" else "筛选当前语音包",
+            label = stringResource(if (localCatalogVisible) R.string.voice_panel_filter_local_packs else R.string.voice_panel_filter_current_pack),
             actionIndex = (panelActions.size - 1).coerceAtLeast(0),
             onValueChange = { localPackFilterQuery = it },
             onExpandedChange = { localPackFilterExpanded = it },
@@ -1218,7 +1258,7 @@ private fun VoicePanelContent(
         destination == VoiceDestination.ONLINE -> PanelActionSearch(
             expanded = providerSearchExpanded,
             value = providerFilterQuery,
-            label = if (providerParent == null) "筛选当前语音包" else "筛选当前语音",
+            label = stringResource(if (providerParent == null) R.string.voice_panel_filter_current_pack else R.string.voice_panel_filter_current_voice),
             onValueChange = { providerFilterQuery = it },
             onExpandedChange = { providerSearchExpanded = it },
         )
@@ -1226,7 +1266,7 @@ private fun VoicePanelContent(
         destination == VoiceDestination.SHARED -> PanelActionSearch(
             expanded = sharedSearchExpanded,
             value = sharedQuery,
-            label = if (sharedCatalogVisible) "筛选共享语音包" else "筛选当前共享语音包",
+            label = stringResource(if (sharedCatalogVisible) R.string.voice_panel_filter_shared_packs else R.string.voice_panel_filter_current_shared_pack),
             actionIndex = (panelActions.size - 1).coerceAtLeast(0),
             onValueChange = { sharedQuery = it },
             onExpandedChange = { sharedSearchExpanded = it },
@@ -1284,7 +1324,7 @@ private fun VoicePanelContent(
                         sharedQuery = ""
                         sharedSearchExpanded = false
                         sharedItemsRequest++
-                        sharedItemsState = PanelUiState.Empty("选择一个语音包")
+                        sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
                     }
 
                     destination == VoiceDestination.LOCAL &&
@@ -1321,7 +1361,7 @@ private fun VoicePanelContent(
                     null -> when (destination) {
                     VoiceDestination.RECENT -> PanelStateContent(localState, ::refreshLocal) {
                         if (recent == null || recent.items.isEmpty()) {
-                            PanelEmptyAction("还没有发送过语音")
+                            PanelEmptyAction(stringResource(R.string.voice_panel_empty_never_sent))
                         } else {
                             VoiceList(
                                 voices = recentItems,
@@ -1392,7 +1432,7 @@ private fun VoicePanelContent(
                         onConvert = ::convertTts,
                         onPreviewConverted = {
                             convertedTts?.let { generated ->
-                                preview("tts-converted", convertedTtsTitle) {
+                                preview("tts-converted", requireNotNull(resolvedConvertedTtsTitle)) {
                                     Result.success(generated.copy(temporary = false))
                                 }
                             }
@@ -1400,19 +1440,30 @@ private fun VoicePanelContent(
                         onSendConverted = ::sendConvertedTts,
                         onSynthesize = {
                             val count = ttsText.codePointCount(0, ttsText.length)
-                            if (ttsText.isBlank()) operationMessage = "转换文字不能为空"
-                            else if (count > 256) operationMessage = "转换文字不能超过 256 个字符"
+                            if (ttsText.isBlank()) operationMessage = panelUiText(R.string.voice_panel_tts_empty)
+                            else if (count > 256) operationMessage = panelUiText(R.string.voice_panel_tts_too_long, 256)
                             else {
-                                progressMessage = "正在合成语音..."
+                                progressMessage = panelUiText(R.string.voice_panel_progress_tts_synthesize)
                                 scope.launch {
                                     val result = when (ttsMode) {
                                         TtsMode.SYSTEM -> actions.synthesizeSystem(ttsText)
                                         TtsMode.EDGE -> actions.synthesizeEdge(ttsText, selectedEdgeVoice)
                                         TtsMode.CLONE -> selectedClone?.let { actions.synthesizeClone(ttsText, it) }
-                                            ?: Result.failure(IllegalStateException("请先选择音色"))
+                                            ?: Result.failure(
+                                                IllegalStateException(
+                                                    currentLocalizedContext.getString(
+                                                        R.string.voice_panel_tts_choose_voice_first,
+                                                    ),
+                                                ),
+                                            )
                                     }
                                     progressMessage = null
-                                    showToastSuspend(context, result.exceptionOrNull()?.message ?: "语音发送成功")
+                                    val toastContext = currentLocalizedContext
+                                    showToastSuspend(
+                                        toastContext,
+                                        result.exceptionOrNull()?.message
+                                            ?: toastContext.getString(R.string.voice_panel_send_success),
+                                    )
                                     if (result.isSuccess && PanelSettings.panelAutoClose) onDismiss()
                                 }
                             }
@@ -1435,10 +1486,10 @@ private fun VoicePanelContent(
                             onlineSearchRootSnapshot = null
                             onlineSearchExecuted = false
                             onlineSearchRequest++
-                            onlineSearchState = PanelUiState.Empty(
-                                if (onlineSearchQuery.isBlank()) "输入关键词搜索在线语音"
-                                else "点击搜索查找在线语音",
-                            )
+                            onlineSearchState = PanelUiState.Empty(panelUiText(
+                                if (onlineSearchQuery.isBlank()) R.string.voice_panel_search_prompt
+                                else R.string.voice_panel_search_action_hint,
+                            ))
                             scope.launch {
                                 providerRootListState.scrollToItem(0)
                                 providerChildListState.scrollToItem(0)
@@ -1503,10 +1554,10 @@ private fun VoicePanelContent(
                             onlineSearchRootSnapshot = null
                             onlineSearchPage = 0
                             onlineSearchExecuted = false
-                            onlineSearchState = PanelUiState.Empty(
-                                if (onlineSearchQuery.isBlank()) "输入关键词搜索在线语音"
-                                else "点击搜索查找在线语音",
-                            )
+                            onlineSearchState = PanelUiState.Empty(panelUiText(
+                                if (onlineSearchQuery.isBlank()) R.string.voice_panel_search_prompt
+                                else R.string.voice_panel_search_action_hint,
+                            ))
                         },
                         onQueryChange = {
                             onlineSearchQuery = it
@@ -1515,10 +1566,10 @@ private fun VoicePanelContent(
                             onlineSearchRootSnapshot = null
                             onlineSearchPage = 0
                             onlineSearchExecuted = false
-                            onlineSearchState = PanelUiState.Empty(
-                                if (it.isBlank()) "输入关键词搜索在线语音"
-                                else "点击搜索查找在线语音",
-                            )
+                            onlineSearchState = PanelUiState.Empty(panelUiText(
+                                if (it.isBlank()) R.string.voice_panel_search_prompt
+                                else R.string.voice_panel_search_action_hint,
+                            ))
                         },
                         onSearch = { loadOnlineSearch(true) },
                         onOpen = { item ->
@@ -1601,7 +1652,7 @@ private fun VoicePanelContent(
                             } else {
                                 selectedSharedPack = null
                                 sharedItemsRequest++
-                                sharedItemsState = PanelUiState.Empty("选择一个语音包")
+                                sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
                             }
                             PanelSettings.localVoicePackLayout = it
                         },
@@ -1645,21 +1696,24 @@ private fun VoicePanelContent(
                     scope.launch {
                         actions.selectClone(null)
                             .onSuccess { selectedCloneId = "" }
-                            .onFailure { operationMessage = it.message ?: "音色选择失败" }
+                            .onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_voice_select) }
                     }
                 },
                 onSelect = { voice ->
                     clearConvertedTts()
                     scope.launch {
                         actions.selectClone(voice.id).onSuccess { selectedCloneId = voice.id }
-                            .onFailure { operationMessage = it.message ?: "音色选择失败" }
+                            .onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_voice_select) }
                     }
                 },
                 onDelete = { prompt = VoicePrompt.DeleteClone(it) },
                 onImportFile = {
-                    actions.importClone({ progressMessage = "正在导入音色..." }) { result ->
+                    actions.importClone({ progressMessage = panelUiText(R.string.voice_panel_progress_import_clone) }) { result ->
                         progressMessage = null
-                        operationMessage = result.exceptionOrNull()?.message ?: "音色已导入"
+                        operationMessage = result.fold(
+                            onSuccess = { panelUiText(R.string.voice_panel_clone_imported) },
+                            onFailure = { it.toPanelUiText(R.string.voice_panel_error_import_clone) },
+                        )
                         if (result.isSuccess) refreshClones()
                     }
                 },
@@ -1703,11 +1757,14 @@ private fun VoicePanelContent(
                     }
                 },
                 onAddExample = { example ->
-                    progressMessage = "正在导入语音示例..."
+                    progressMessage = panelUiText(R.string.voice_panel_progress_import_example)
                     scope.launch {
                         val result = actions.addExample(example)
                         progressMessage = null
-                        operationMessage = result.exceptionOrNull()?.message ?: "音色已导入"
+                        operationMessage = result.fold(
+                            onSuccess = { panelUiText(R.string.voice_panel_clone_imported) },
+                            onFailure = { it.toPanelUiText(R.string.voice_panel_error_import_example) },
+                        )
                         refreshClones()
                     }
                 },
@@ -1734,11 +1791,19 @@ private fun VoicePanelContent(
         }
 
         when (val current = prompt) {
-            VoicePrompt.CreateLocalPack -> PanelTextPrompt("新建语音包", "语音包名称", confirmText = "创建", onDismiss = { prompt = null }) { name ->
+            VoicePrompt.CreateLocalPack -> PanelTextPrompt(
+                stringResource(R.string.voice_panel_new_pack),
+                stringResource(R.string.voice_pack_name),
+                confirmText = stringResource(R.string.panel_action_create),
+                onDismiss = { prompt = null },
+            ) { name ->
                 scope.launch {
                     val result = actions.createLocalPack(name)
                     prompt = null
-                    operationMessage = result.exceptionOrNull()?.message ?: "语音包已创建"
+                    operationMessage = result.fold(
+                        onSuccess = { panelUiText(R.string.voice_panel_pack_created) },
+                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_create_pack) },
+                    )
                     if (result.isSuccess) refreshLocal()
                 }
             }
@@ -1747,42 +1812,60 @@ private fun VoicePanelContent(
                 onDismiss = { prompt = null },
                 onSelect = { mode ->
                     prompt = null
-                    actions.importVoice(current.pack.id, mode, { progressMessage = "正在导入语音..." }) { result ->
+                    actions.importVoice(current.pack.id, mode, { progressMessage = panelUiText(R.string.voice_panel_progress_import) }) { result ->
                         progressMessage = null
-                        operationMessage = result.exceptionOrNull()?.message ?: "语音导入完成"
+                        operationMessage = result.fold(
+                            onSuccess = { panelUiText(R.string.voice_panel_import_complete) },
+                            onFailure = { it.toPanelUiText(R.string.voice_panel_error_import) },
+                        )
                         if (result.isSuccess) refreshLocal()
                     }
                 },
             )
 
             is VoicePrompt.RenameLocalPack -> PanelTextPrompt(
-                "重命名语音包",
-                "语音包名称",
+                stringResource(R.string.voice_panel_rename_pack),
+                stringResource(R.string.voice_pack_name),
                 current.pack.title,
-                "保存",
+                stringResource(R.string.action_save),
                 onDismiss = { prompt = null },
             ) { name ->
                 scope.launch {
                     val result = actions.renameLocalPack(current.pack.id, name)
                     prompt = null
-                    operationMessage = result.exceptionOrNull()?.message ?: "语音包已重命名"
+                    operationMessage = result.fold(
+                        onSuccess = { panelUiText(R.string.voice_panel_pack_renamed) },
+                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_rename_pack) },
+                    )
                     if (result.isSuccess) refreshLocal()
                 }
             }
 
-            is VoicePrompt.DeleteLocalPack -> PanelConfirmation("删除语音包", "删除“${current.pack.title}”及其中的语音？", "删除", { prompt = null }) {
+            is VoicePrompt.DeleteLocalPack -> PanelConfirmation(
+                stringResource(R.string.voice_panel_delete_pack),
+                stringResource(R.string.voice_panel_delete_pack_message, current.pack.title),
+                stringResource(R.string.panel_action_delete),
+                { prompt = null },
+            ) {
                 scope.launch {
                     val result = actions.deleteLocalPack(current.pack.id)
                     prompt = null
-                    operationMessage = result.exceptionOrNull()?.message ?: "语音包已删除"
+                    operationMessage = result.fold(
+                        onSuccess = { panelUiText(R.string.voice_panel_pack_deleted) },
+                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_delete_pack) },
+                    )
                     if (result.isSuccess) refreshLocal()
                 }
             }
 
             is VoicePrompt.DeleteLocalVoices -> PanelConfirmation(
-                "删除语音",
-                "从本地语音包中删除选中的 ${current.items.size} 条语音？",
-                "删除",
+                stringResource(R.string.voice_panel_delete_voices),
+                pluralStringResource(
+                    R.plurals.voice_panel_delete_selected_message,
+                    current.items.size,
+                    current.items.size,
+                ),
+                stringResource(R.string.panel_action_delete),
                 { prompt = null },
             ) {
                 scope.launch {
@@ -1790,8 +1873,8 @@ private fun VoicePanelContent(
                     val result = actions.deleteLocalVoices(paths)
                     prompt = null
                     operationMessage = result.fold(
-                        onSuccess = { "已删除 $it 条语音" },
-                        onFailure = { it.message ?: "语音删除失败" },
+                        onSuccess = { panelUiText(R.string.voice_panel_deleted_count, it) },
+                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_delete_voices) },
                     )
                     if (result.isSuccess) {
                         stopPreview()
@@ -1802,80 +1885,101 @@ private fun VoicePanelContent(
                 }
             }
 
-            VoicePrompt.CreateSharedPack -> PanelTextPrompt("新建共享语音包", "语音包名称", confirmText = "确定创建", onDismiss = { prompt = null }) { name ->
+            VoicePrompt.CreateSharedPack -> PanelTextPrompt(
+                stringResource(R.string.voice_panel_new_shared_pack),
+                stringResource(R.string.voice_pack_name),
+                confirmText = stringResource(R.string.voice_panel_confirm_create),
+                onDismiss = { prompt = null },
+            ) { name ->
                 scope.launch {
                     val result = actions.createSharedPack(name)
-                    operationMessage = result.fold({ it }, { it.message })
+                    operationMessage = result.fold({ PanelUiText.Raw(it) }, { PanelUiText.Raw(it.message.orEmpty()) })
                     prompt = null
                     if (result.isSuccess) loadMySharedPacks()
                 }
             }
 
             is VoicePrompt.RenameSharedPack -> PanelTextPrompt(
-                "设置新的名字",
-                "语音包名称",
+                stringResource(R.string.voice_panel_set_new_name),
+                stringResource(R.string.voice_pack_name),
                 current.pack.title,
-                "确认",
+                stringResource(R.string.dialog_confirm),
                 onDismiss = { prompt = null },
             ) { name ->
                 scope.launch {
                     val result = actions.renameSharedPack(current.pack.id, name)
-                    operationMessage = result.fold({ it }, { it.message })
+                    operationMessage = result.fold({ PanelUiText.Raw(it) }, { PanelUiText.Raw(it.message.orEmpty()) })
                     prompt = null
                     if (result.isSuccess) loadMySharedPacks()
                 }
             }
 
-            is VoicePrompt.DeleteSharedPack -> PanelConfirmation("删除语音包", "是否删除语音包 ${current.pack.title}？", "确认删除", { prompt = null }) {
+            is VoicePrompt.DeleteSharedPack -> PanelConfirmation(
+                stringResource(R.string.voice_panel_delete_pack),
+                stringResource(R.string.voice_panel_delete_shared_pack_message, current.pack.title),
+                stringResource(R.string.voice_panel_confirm_delete),
+                { prompt = null },
+            ) {
                 scope.launch {
                     val result = actions.deleteSharedPack(current.pack.id)
-                    operationMessage = result.fold({ it }, { it.message })
+                    operationMessage = result.fold({ PanelUiText.Raw(it) }, { PanelUiText.Raw(it.message.orEmpty()) })
                     prompt = null
                     if (result.isSuccess) {
                         selectedSharedPack = null
                         sharedItemsRequest++
-                        sharedItemsState = PanelUiState.Empty("选择一个语音包")
+                        sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
                         loadMySharedPacks()
                     }
                 }
             }
 
             is VoicePrompt.ConfirmSharedPack -> PanelConfirmation(
-                "确认语音包",
-                "确认后语音包将进入审核阶段，之后不能再删除或修改名字。",
-                "确认",
+                stringResource(R.string.voice_panel_confirm_pack),
+                stringResource(R.string.voice_panel_confirm_pack_message),
+                stringResource(R.string.dialog_confirm),
                 { prompt = null },
             ) {
                 scope.launch {
                     val result = actions.confirmSharedPack(current.pack.id)
-                    operationMessage = result.fold({ it }, { it.message })
+                    operationMessage = result.fold({ PanelUiText.Raw(it) }, { PanelUiText.Raw(it.message.orEmpty()) })
                     prompt = null
                     if (result.isSuccess) loadMySharedPacks()
                 }
             }
 
             is VoicePrompt.NameCloneSource -> PanelTextPrompt(
-                "导入音色",
-                "音色名称",
+                stringResource(R.string.voice_panel_import_clone),
+                stringResource(R.string.voice_clone_name),
                 current.item.title,
-                "导入",
+                stringResource(R.string.panel_action_import),
                 onDismiss = { prompt = null },
             ) { name ->
-                progressMessage = "正在导入音色..."
+                progressMessage = panelUiText(R.string.voice_panel_progress_import_clone)
                 scope.launch {
                     val result = actions.importCloneFromVoice(name, current.item)
                     progressMessage = null
-                    operationMessage = result.exceptionOrNull()?.message ?: "音色已导入"
+                    operationMessage = result.fold(
+                        onSuccess = { panelUiText(R.string.voice_panel_clone_imported) },
+                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_import_clone) },
+                    )
                     prompt = null
                     refreshClones()
                 }
             }
 
-            is VoicePrompt.DeleteClone -> PanelConfirmation("删除音色", "确定删除音色 ${current.voice.name} 吗？", "删除", { prompt = null }) {
+            is VoicePrompt.DeleteClone -> PanelConfirmation(
+                stringResource(R.string.voice_panel_delete_clone),
+                stringResource(R.string.voice_panel_delete_clone_message, current.voice.name),
+                stringResource(R.string.panel_action_delete),
+                { prompt = null },
+            ) {
                 scope.launch {
                     val result = actions.deleteClone(current.voice.id)
                     prompt = null
-                    operationMessage = result.exceptionOrNull()?.message ?: "音色已删除"
+                    operationMessage = result.fold(
+                        onSuccess = { panelUiText(R.string.voice_panel_clone_deleted) },
+                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_delete_clone) },
+                    )
                     if (result.isSuccess) refreshClones()
                 }
             }
@@ -1894,14 +1998,14 @@ private fun VoiceImportModePrompt(
         options = listOf(
             PanelImportOption(
                 mode = VoiceImportMode.MULTIPLE_FILES,
-                title = "选择多个语音文件",
-                description = "从系统文件选择器一次选择一个或多个文件",
+                title = stringResource(R.string.voice_import_files_title),
+                description = stringResource(R.string.voice_import_files_description),
                 icon = MaterialSymbols.Outlined.Upload_file,
             ),
             PanelImportOption(
                 mode = VoiceImportMode.DIRECTORY,
-                title = "导入整个目录",
-                description = "递归导入所选目录内支持的语音文件",
+                title = stringResource(R.string.panel_import_directory_title),
+                description = stringResource(R.string.voice_import_directory_description),
                 icon = MaterialSymbols.Outlined.Folder,
             ),
         ),
@@ -1939,24 +2043,47 @@ private fun LocalVoiceContent(
                 )
             }
             if (selected == null) {
-                PanelEmptyAction("暂无本地语音包", "请先新建语音包")
+                PanelEmptyAction(
+                    stringResource(R.string.voice_panel_empty_no_local_packs),
+                    stringResource(R.string.voice_panel_empty_create_pack_hint),
+                )
             } else if (selected.items.isEmpty()) {
-                if (filterActive) PanelEmptyAction("当前语音包没有匹配的语音")
-                else PanelEmptyAction("语音包中还没有语音", "从文件导入", onImport)
+                if (filterActive) {
+                    PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_current_pack_match))
+                } else {
+                    PanelEmptyAction(
+                        stringResource(R.string.voice_panel_empty_pack),
+                        stringResource(R.string.voice_panel_import_from_files),
+                        onImport,
+                    )
+                }
             } else {
                 VoiceList(selected.items, playingId, onPreview, onSend)
             }
         }
     } else if (selected == null) {
         if (packs.isEmpty()) {
-            if (filterActive) PanelEmptyAction("没有找到本地语音包")
-            else PanelEmptyAction("暂无本地语音包", "请先新建语音包")
+            if (filterActive) {
+                PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_local_pack_match))
+            } else {
+                PanelEmptyAction(
+                    stringResource(R.string.voice_panel_empty_no_local_packs),
+                    stringResource(R.string.voice_panel_empty_create_pack_hint),
+                )
+            }
         } else {
             VoicePackList(packs, packListState, onSelectPack)
         }
     } else if (selected.items.isEmpty()) {
-        if (filterActive) PanelEmptyAction("当前语音包没有匹配的语音")
-        else PanelEmptyAction("语音包中还没有语音", "从文件导入", onImport)
+        if (filterActive) {
+            PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_current_pack_match))
+        } else {
+            PanelEmptyAction(
+                stringResource(R.string.voice_panel_empty_pack),
+                stringResource(R.string.voice_panel_import_from_files),
+                onImport,
+            )
+        }
     } else {
         VoiceList(
             voices = selected.items,
@@ -1989,7 +2116,9 @@ private fun VoicePackList(
                     content = {
                         Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
-                    supportingContent = { Text("${pack.itemCount} 条语音") },
+                    supportingContent = {
+                        Text(pluralStringResource(R.plurals.voice_count, pack.itemCount, pack.itemCount))
+                    },
                     leadingContent = { VoicePackIcon(pack) },
                 )
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp))
@@ -2014,7 +2143,9 @@ private fun VoicePackReorderContent(
             content = {
                 Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
-            supportingContent = { Text("${pack.itemCount} 条语音") },
+            supportingContent = {
+                Text(pluralStringResource(R.plurals.voice_count, pack.itemCount, pack.itemCount))
+            },
             leadingContent = { VoicePackIcon(pack) },
             trailingContent = {
                 Box(
@@ -2025,7 +2156,7 @@ private fun VoicePackReorderContent(
                 ) {
                     Icon(
                         MaterialSymbols.Outlined.Drag_handle,
-                        contentDescription = "拖动 ${pack.title}",
+                        contentDescription = stringResource(R.string.voice_drag_pack, pack.title),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -2070,7 +2201,11 @@ private fun VoiceItemReorderContent(
                 Text(
                     buildList {
                         if (voice.durationMs > 0) add(formatDuration(voice.durationMs))
-                        add("已发送 ${voice.sendCount} 次")
+                        add(pluralStringResource(
+                            R.plurals.voice_sent_count,
+                            voice.sendCount.toInt(),
+                            voice.sendCount,
+                        ))
                     }.joinToString(" · "),
                 )
             },
@@ -2084,7 +2219,7 @@ private fun VoiceItemReorderContent(
                 ) {
                     Icon(
                         MaterialSymbols.Outlined.Drag_handle,
-                        contentDescription = "拖动 ${voice.title}",
+                        contentDescription = stringResource(R.string.voice_drag_item, voice.title),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -2113,14 +2248,17 @@ private fun VoiceSearchContent(
         PanelSearchField(
             value = query,
             onValueChange = onQueryChange,
-            label = "搜索本地语音",
+            label = stringResource(R.string.panel_local_search),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
         )
         Box(Modifier.weight(1f)) {
-            if (query.isBlank()) PanelEmptyAction("输入文件名或语音包名称")
-            else if (results.isEmpty()) PanelEmptyAction("没有找到本地语音")
+            if (query.isBlank()) {
+                PanelEmptyAction(stringResource(R.string.voice_panel_local_search_hint))
+            } else if (results.isEmpty()) {
+                PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_local_voice_match))
+            }
             else VoiceList(results, playingId, onPreview, onSend)
         }
     }
@@ -2146,8 +2284,9 @@ private fun VoiceList(
     selectedIds: Set<String> = emptySet(),
     onToggleSelection: ((VoiceItem) -> Unit)? = null,
     terminalActionIcon: androidx.compose.ui.graphics.vector.ImageVector = MaterialSymbols.Outlined.Send,
-    terminalActionLabel: String = "发送",
+    terminalActionLabel: String? = null,
 ) {
+    val resolvedTerminalActionLabel = terminalActionLabel ?: stringResource(R.string.panel_action_send)
     val resolvedListState = listState ?: rememberLazyListState()
     val durationOverrides = LocalVoiceDurationOverrides.current
     val keyedVoices = remember(voices) {
@@ -2187,16 +2326,23 @@ private fun VoiceList(
                             IconButton(onClick = { onPreview(voice) }) {
                                 Icon(
                                     if (playingId == voice.id) MaterialSymbols.Outlined.Pause else MaterialSymbols.Outlined.Play_arrow,
-                                    if (playingId == voice.id) "暂停" else "试听",
+                                    if (playingId == voice.id) {
+                                        stringResource(R.string.panel_action_pause)
+                                    } else {
+                                        stringResource(R.string.panel_action_preview)
+                                    },
                                 )
                             }
                             if (onAdd != null) {
                                 IconButton(onClick = { onAdd(voice) }) {
-                                    Icon(MaterialSymbols.Outlined.Download, "添加到本地")
+                                    Icon(
+                                        MaterialSymbols.Outlined.Download,
+                                        stringResource(R.string.voice_panel_add_to_local),
+                                    )
                                 }
                             }
                             IconButton(onClick = { onSend(voice) }) {
-                                Icon(terminalActionIcon, terminalActionLabel)
+                                Icon(terminalActionIcon, resolvedTerminalActionLabel)
                             }
                         }
                     }),
@@ -2275,7 +2421,7 @@ private fun OnlineVoiceSearchContent(
         PanelSearchField(
             value = query,
             onValueChange = onQueryChange,
-            label = "搜索在线语音",
+            label = stringResource(R.string.panel_online_search),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -2361,9 +2507,16 @@ private fun OnlineVoiceResults(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedButton(onClick = onPrevious, enabled = state.value.page > 0) { Text("上一页") }
-                Text("第 ${state.value.page + 1} 页", Modifier.padding(horizontal = 12.dp))
-                OutlinedButton(onClick = onNext, enabled = state.value.hasMore) { Text("下一页") }
+                OutlinedButton(onClick = onPrevious, enabled = state.value.page > 0) {
+                    Text(stringResource(R.string.panel_action_previous_page))
+                }
+                Text(
+                    stringResource(R.string.voice_panel_page_number, state.value.page + 1),
+                    Modifier.padding(horizontal = 12.dp),
+                )
+                OutlinedButton(onClick = onNext, enabled = state.value.hasMore) {
+                    Text(stringResource(R.string.panel_action_next_page))
+                }
             }
         }
     }
@@ -2419,7 +2572,9 @@ private fun SharedVoiceContent(
                 query.isBlank() || it.title.contains(query, ignoreCase = true) ||
                         it.badge?.contains(query, ignoreCase = true) == true
             }
-            if (visiblePacks.isEmpty()) PanelEmptyAction("没有找到共享语音包")
+            if (visiblePacks.isEmpty()) {
+                PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_shared_pack_match))
+            }
             else VoicePackList(visiblePacks, packListState, onSelectPack)
         } else {
             SharedVoiceItems(
@@ -2454,14 +2609,16 @@ private fun SharedVoiceItems(
     onToggleSelection: ((VoiceItem) -> Unit)?,
 ) {
     if (selectedPack == null) {
-        PanelEmptyAction("选择一个共享语音包")
+        PanelEmptyAction(stringResource(R.string.voice_panel_select_shared_pack))
         return
     }
     PanelStateContent(itemsState, onRetry) { voices ->
         val visibleVoices = voices.filter {
             query.isBlank() || it.title.contains(query, ignoreCase = true)
         }
-        if (visibleVoices.isEmpty()) PanelEmptyAction("没有找到共享语音")
+        if (visibleVoices.isEmpty()) {
+            PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_shared_voice_match))
+        }
         else VoiceList(
             voices = visibleVoices,
             playingId = playingId,
@@ -2500,11 +2657,11 @@ private fun VoiceSettingsContent(
             item { PanelFunBoxApiClientIdSetting { clientIdPrompt = true } }
             item {
                 PanelDropdownSetting(
-                    title = "本地及共享语音包一级界面",
+                    title = stringResource(R.string.voice_setting_pack_layout),
                     selected = localPackLayout,
                     options = listOf(
-                        VoicePackLayout.TABS to "Tab 栏",
-                        VoicePackLayout.LIST to "列表",
+                        VoicePackLayout.TABS to stringResource(R.string.panel_layout_tabs),
+                        VoicePackLayout.LIST to stringResource(R.string.panel_layout_list),
                     ),
                     onSelected = onLocalPackLayoutChange,
                 )
@@ -2543,8 +2700,8 @@ private fun VoiceSettingsContent(
             },
         )
         if (historyPrompt) PanelNumberPrompt(
-            title = "最大历史数量",
-            label = "数量（至少 1）",
+            title = stringResource(R.string.panel_setting_max_history),
+            label = stringResource(R.string.panel_number_at_least_one),
             initialValue = maxHistory,
             minValue = 1,
             onDismiss = { historyPrompt = false },
@@ -2555,8 +2712,8 @@ private fun VoiceSettingsContent(
             },
         )
         if (downloadConcurrencyPrompt) PanelNumberPrompt(
-            title = "下载并发",
-            label = "任务数（1-32）",
+            title = stringResource(R.string.panel_setting_download_concurrency),
+            label = stringResource(R.string.panel_number_tasks_1_32),
             initialValue = downloadConcurrency.toLong(),
             minValue = PanelSettings.MIN_PANEL_CONCURRENCY.toLong(),
             maxValue = PanelSettings.MAX_PANEL_DOWNLOAD_CONCURRENCY.toLong(),
@@ -2568,8 +2725,8 @@ private fun VoiceSettingsContent(
             },
         )
         if (conversionConcurrencyPrompt) PanelNumberPrompt(
-            title = "转换并发",
-            label = "任务数（1-8）",
+            title = stringResource(R.string.panel_setting_conversion_concurrency),
+            label = stringResource(R.string.panel_number_tasks_1_8),
             initialValue = conversionConcurrency.toLong(),
             minValue = PanelSettings.MIN_PANEL_CONCURRENCY.toLong(),
             maxValue = PanelSettings.MAX_PANEL_CONVERSION_CONCURRENCY.toLong(),
@@ -2622,19 +2779,31 @@ private fun CloneManagerOverlay(
     PanelPageOverlay(onDismiss = onDismiss, onBack = onSystemBack) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (source != null) {
-                IconButton(onClick = onSystemBack) { Icon(MaterialSymbols.Outlined.Arrow_back, "返回") }
+                IconButton(onClick = onSystemBack) {
+                    Icon(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.panel_action_back))
+                }
             }
-            Text("选择或管理音色", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            IconButton(onClick = onDismiss) { Icon(MaterialSymbols.Outlined.Close, "关闭") }
+            Text(
+                stringResource(R.string.tts_choose_or_manage_voice),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.dialog_close))
+            }
         }
         when (source) {
             null -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onImportFile, modifier = Modifier.weight(1f)) { Text("从本地导入") }
-                    OutlinedButton(onClick = { onSource(SOURCE_PANEL) }, modifier = Modifier.weight(1f)) { Text("从语音面板选择") }
+                    OutlinedButton(onClick = onImportFile, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.voice_panel_import_from_device))
+                    }
+                    OutlinedButton(onClick = { onSource(SOURCE_PANEL) }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.voice_panel_choose_from_panel))
+                    }
                 }
                 OutlinedButton(onClick = { onSource(SOURCE_EXAMPLES) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("语音示例")
+                    Text(stringResource(R.string.voice_panel_voice_examples))
                 }
                 LazyColumn(Modifier.weight(1f)) {
                     item(key = "none") {
@@ -2643,8 +2812,10 @@ private fun CloneManagerOverlay(
                                 .animateItem()
                                 .clickable(onClick = onSelectNone),
                             colors = panelListItemColors(),
-                            content = { Text("无") },
-                            supportingContent = { Text("不使用克隆音色") },
+                            content = { Text(stringResource(R.string.panel_none)) },
+                            supportingContent = {
+                                Text(stringResource(R.string.voice_panel_no_clone_voice))
+                            },
                             leadingContent = {
                                 RadioButton(selected = selectedId.isBlank(), onClick = onSelectNone)
                             },
@@ -2662,7 +2833,10 @@ private fun CloneManagerOverlay(
                             },
                             trailingContent = {
                                 IconButton(onClick = { onDelete(voice) }) {
-                                    Icon(MaterialSymbols.Outlined.Delete, "删除音色")
+                                    Icon(
+                                        MaterialSymbols.Outlined.Delete,
+                                        stringResource(R.string.voice_panel_delete_clone_voice),
+                                    )
                                 }
                             },
                         )
@@ -2671,10 +2845,14 @@ private fun CloneManagerOverlay(
             }
 
             SOURCE_PANEL -> {
-                Text("从语音面板选择", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.voice_panel_choose_from_panel), style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { onSource(SOURCE_LOCAL) }, modifier = Modifier.weight(1f)) { Text("本地语音包") }
-                    OutlinedButton(onClick = { onSource(SOURCE_SHARED) }, modifier = Modifier.weight(1f)) { Text("共享语音包") }
+                    OutlinedButton(onClick = { onSource(SOURCE_LOCAL) }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.voice_panel_local_packs))
+                    }
+                    OutlinedButton(onClick = { onSource(SOURCE_SHARED) }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.voice_panel_shared_packs))
+                    }
                 }
             }
 
@@ -2684,7 +2862,7 @@ private fun CloneManagerOverlay(
                 onPreview = onPreviewVoice,
                 onSend = onChooseVoice,
                 terminalActionIcon = MaterialSymbols.Outlined.Check_circle,
-                terminalActionLabel = "选择为克隆来源",
+                terminalActionLabel = stringResource(R.string.voice_panel_choose_clone_source),
             )
 
             SOURCE_SHARED -> if (sharedPack == null) {
@@ -2697,7 +2875,9 @@ private fun CloneManagerOverlay(
                                     .clickable { onSelectSharedPack(pack) },
                                 colors = panelListItemColors(),
                                 content = { Text(pack.title) },
-                                supportingContent = { Text("${pack.itemCount} 条语音") },
+                                supportingContent = {
+                                    Text(pluralStringResource(R.plurals.voice_count, pack.itemCount, pack.itemCount))
+                                },
                                 leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
                             )
                         }
@@ -2706,7 +2886,7 @@ private fun CloneManagerOverlay(
             } else {
                 OutlinedButton(onClick = onBackSharedPacks) {
                     Icon(MaterialSymbols.Outlined.Arrow_back, null)
-                    Text("返回共享语音包")
+                    Text(stringResource(R.string.voice_panel_back_to_shared_packs))
                 }
                 Text(sharedPack.title, style = MaterialTheme.typography.titleSmall)
                 Box(Modifier.weight(1f)) {
@@ -2717,7 +2897,7 @@ private fun CloneManagerOverlay(
                             onPreview = onPreviewVoice,
                             onSend = onChooseVoice,
                             terminalActionIcon = MaterialSymbols.Outlined.Check_circle,
-                            terminalActionLabel = "选择为克隆来源",
+                            terminalActionLabel = stringResource(R.string.voice_panel_choose_clone_source),
                         )
                     }
                 }
@@ -2741,8 +2921,16 @@ private fun CloneManagerOverlay(
                     }
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onBackExamples) { Icon(MaterialSymbols.Outlined.Arrow_back, "返回示例目录") }
-                        Text("语音示例 / $selectedExampleGroup", style = MaterialTheme.typography.titleSmall)
+                        IconButton(onClick = onBackExamples) {
+                            Icon(
+                                MaterialSymbols.Outlined.Arrow_back,
+                                stringResource(R.string.voice_panel_back_to_example_groups),
+                            )
+                        }
+                        Text(
+                            stringResource(R.string.voice_panel_example_group_title, selectedExampleGroup),
+                            style = MaterialTheme.typography.titleSmall,
+                        )
                     }
                     PanelStateContent(examplesState) { examples ->
                         LazyColumn(Modifier.fillMaxSize()) {
@@ -2756,10 +2944,16 @@ private fun CloneManagerOverlay(
                                     trailingContent = {
                                         Row {
                                             IconButton(onClick = { onPreviewExample(example) }) {
-                                                Icon(MaterialSymbols.Outlined.Play_arrow, "试听")
+                                                Icon(
+                                                    MaterialSymbols.Outlined.Play_arrow,
+                                                    stringResource(R.string.panel_action_preview),
+                                                )
                                             }
                                             IconButton(onClick = { onAddExample(example) }) {
-                                                Icon(MaterialSymbols.Outlined.Download, "添加到本地")
+                                                Icon(
+                                                    MaterialSymbols.Outlined.Download,
+                                                    stringResource(R.string.voice_panel_add_to_local),
+                                                )
                                             }
                                         }
                                     },
@@ -2786,7 +2980,7 @@ private fun VoicePreviewOverlay(
     onDismiss: () -> Unit,
 ) {
     PanelFullOverlay(onDismiss) {
-        Text("语音预览", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.voice_panel_preview_title), style = MaterialTheme.typography.titleMedium)
         Text(
             title,
             modifier = Modifier.padding(top = 8.dp),
@@ -2807,7 +3001,11 @@ private fun VoicePreviewOverlay(
             IconButton(onClick = onToggle) {
                 Icon(
                     if (playing) MaterialSymbols.Outlined.Pause else MaterialSymbols.Outlined.Play_arrow,
-                    if (playing) "暂停" else "继续",
+                    if (playing) {
+                        stringResource(R.string.panel_action_pause)
+                    } else {
+                        stringResource(R.string.panel_action_resume)
+                    },
                 )
             }
             Text(

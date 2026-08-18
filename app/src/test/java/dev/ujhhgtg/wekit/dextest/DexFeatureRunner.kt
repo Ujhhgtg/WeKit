@@ -52,9 +52,6 @@ internal fun runDexFeature(
             featureError = DexTestError(message = "${entry.className} does not implement IResolveDex"),
         )
 
-    feature.name = entry.name
-    feature.categories = entry.categories
-    feature.description = entry.description
     feature.dexDelegates.forEach(BaseDexDelegate::resetForDexTest)
 
     val error = runCatching {
@@ -88,7 +85,7 @@ internal fun runDexFeature(
     }
     return DexTestFeatureReport(
         className = entry.className,
-        displayName = feature.displayName,
+        displayName = displayName(entry),
         methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
         outcome = featureOutcome(delegates, error),
         elapsedMillis = started.elapsedNow().inWholeMilliseconds,
@@ -118,7 +115,8 @@ private fun featureOutcome(
     else -> DexTestFeatureOutcome.PASS
 }
 
-private fun displayName(entry: DexResolutionTestEntry) = "${entry.categories.joinToString(",")}/${entry.name}"
+private fun displayName(entry: DexResolutionTestEntry) =
+    "${entry.categoryIds.joinToString(",")}/${entry.technicalId}"
 
 internal fun Throwable.toDexTestError() = DexTestError(
     message = message ?: cause?.message,

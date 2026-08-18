@@ -17,6 +17,13 @@
 - [❓ 常见问题](https://ujhhgtgteams.gitbook.io/wekit-docs/faq)
 - [🛠 开发指南](https://ujhhgtgteams.gitbook.io/wekit-docs/development)
 
+## 翻译 / Translation
+
+[![Translation status](https://hosted.weblate.org/widget/wekit/wekit/svg-badge.svg)](https://hosted.weblate.org/projects/wekit/wekit/)
+
+欢迎通过 [Hosted Weblate](https://hosted.weblate.org/projects/wekit/wekit/) 参与简体中文和
+繁体中文翻译。贡献流程、术语和本地校验说明见[翻译贡献指南](docs/translations/README.md)。
+
 ## 联系
 
 [Telegram 超级群组](https://t.me/+7j5dJ6g16B43OWVl)

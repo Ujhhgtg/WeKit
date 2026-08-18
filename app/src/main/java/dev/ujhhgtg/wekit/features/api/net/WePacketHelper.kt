@@ -14,6 +14,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.abc.WeRequestCallback
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.bool
@@ -29,7 +30,11 @@ import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
 
-@Feature(name = "网络数据包服务", categories = ["API"])
+@Feature(
+    id = "网络数据包服务",
+    nameRes = "feature_we_packet_helper_name",
+    categoryIds = [FeatureCategoryIds.API],
+)
 object WePacketHelper : ApiFeature(), IResolveDex {
 
     // 核心 Protobuf 类

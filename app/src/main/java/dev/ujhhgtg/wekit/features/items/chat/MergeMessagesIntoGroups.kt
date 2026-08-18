@@ -8,11 +8,17 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookParam
 import java.lang.reflect.Field
 
-@Feature(name = "合并消息显示", categories = ["聊天"], description = "将同一发送者的连续多条消息合并为一组消息显示 (Telegram 风格)")
+@Feature(
+    id = "合并消息显示",
+    nameRes = "feature_merge_messages_into_groups_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_merge_messages_into_groups_description",
+)
 object MergeMessagesIntoGroups : SwitchFeature(), WeChatMessageViewApi.ICreateViewListener {
 
     override fun onEnable() {

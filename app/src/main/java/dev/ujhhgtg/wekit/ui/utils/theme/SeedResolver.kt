@@ -13,7 +13,7 @@ import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver.customSeed
 
 /**
  * Single source of truth for turning [ThemeSettings] into a concrete accent seed and the derived
- * Material 3 / miuix color schemes. Shared by [ModuleTheme], [InjectedUiTheme], and
+ * Material 3 color schemes. Shared by [ModuleTheme], [InjectedUiTheme], and
  * [dev.ujhhgtg.wekit.features.items.beautify.MonetEngine] so the module UI, the WeKit UI injected
  * into WeChat, and the native-view recoloring all agree on the same colors.
  */
@@ -30,22 +30,14 @@ object SeedResolver {
         return scheme.primary.toArgb()
     }
 
-    /**
-     * The seed used whenever the user's custom color is in effect: the platform wallpaper accent
-     * when 动态壁纸取色 is on (and supported), otherwise the user's chosen seed color.
-     */
+    /** The platform wallpaper accent when enabled, otherwise the user's chosen seed color. */
     fun customSeed(context: Context, dark: Boolean): Int =
         if (ThemeSettings.dynamicWallpaper) wallpaperAccent(context, dark) ?: ThemeSettings.seedColor
         else ThemeSettings.seedColor
 
-    /** Effective accent for a settings engine, preserving its own default when custom color is off. */
-    fun moduleAccent(context: Context, dark: Boolean, defaultAccent: Int): Int =
-        if (ThemeSettings.customColor) customSeed(context, dark)
-        else defaultAccent
-
     /**
-     * The seed for UI injected into WeChat: WeChat green unless the user opted the custom color into
-     * WeChat ([ThemeSettings.applyToWechat]), in which case it follows [customSeed].
+     * The seed for UI injected into WeChat: WeChat green unless the user opted the selected seed
+     * into WeChat ([ThemeSettings.applyToWechat]), in which case it follows [customSeed].
      */
     fun injectedSeed(context: Context, dark: Boolean): Int =
         if (ThemeSettings.applyToWechat) customSeed(context, dark)

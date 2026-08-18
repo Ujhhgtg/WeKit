@@ -2,13 +2,13 @@ package dev.ujhhgtg.wekit.features.items.contacts
 
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
 import dev.ujhhgtg.wekit.features.api.core.models.WeChatroomSyncState
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookCallback
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -26,9 +26,10 @@ import java.util.LinkedHashMap
 import java.util.Locale
 
 @Feature(
-    name = "加入群聊自动免打扰",
-    categories = ["联系人与群组"],
-    description = "加入新的群聊后自动开启消息免打扰",
+    id = "加入群聊自动免打扰",
+    nameRes = "feature_auto_dnd_after_join_group_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
+    descriptionRes = "feature_auto_dnd_after_join_group_description",
 )
 object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
 
@@ -50,11 +51,10 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
     )
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        val parameterCount = if (DexResolutionContext.host.versionName == "8.0.65") 10 else 11
         val matches = dexKit.findMethod {
             matcher {
                 returnType = "boolean"
-                paramCount = parameterCount
+                paramCount(10, 11)
                 usingStrings("MicroMsg.ChatroomMembersLogic", "SyncAddChatroomMember")
             }
         }.filter { method ->
@@ -67,13 +67,13 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
                 params[6] == "java.lang.String" &&
                 params[8] == "boolean" &&
                 params[9] == "boolean" &&
-                (parameterCount == 10 || params[10] == "int") &&
+                (params.size == 10 || params[10] == "int") &&
                 params[2] !in PRIMITIVE_TYPE_NAMES &&
                 params[7] !in PRIMITIVE_TYPE_NAMES
         }
 
         check(matches.size == 1) {
-            "expected one ChatroomMembersLogic sync method for ${DexResolutionContext.host.versionName}, found ${matches.size}: " +
+            "expected one ChatroomMembersLogic sync method, found ${matches.size}: " +
                 matches.joinToString { it.descriptor }
         }
         methodSyncChatroomMembers.setDescriptor(matches.single())

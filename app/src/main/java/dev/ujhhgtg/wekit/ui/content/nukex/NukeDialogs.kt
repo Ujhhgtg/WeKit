@@ -26,11 +26,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import dev.ujhhgtg.wekit.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
@@ -180,8 +182,8 @@ fun NukeSimpleDialog(
     message: String,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    dismissText: String = "取消",
-    confirmText: String = "确定",
+    dismissText: String? = null,
+    confirmText: String? = null,
     onConfirm: () -> Unit = {},
 ) {
     NukeDialogSurface(
@@ -190,12 +192,12 @@ fun NukeSimpleDialog(
         modifier = modifier,
         actions = { dismiss ->
             NukeButton(
-                text = dismissText,
+                text = dismissText ?: stringResource(R.string.dialog_cancel),
                 modifier = Modifier.weight(1f),
                 onClick = dismiss,
             )
             NukeButton(
-                text = confirmText,
+                text = confirmText ?: stringResource(R.string.dialog_confirm),
                 modifier = Modifier.weight(1f),
                 primary = true,
                 onClick = {

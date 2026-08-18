@@ -1,5 +1,13 @@
 # WeKit — Agent Guide
 
+## Superpowers
+
+- All Superpowers workflow artifacts for WeKit (plans, specs/designs, SDD ledgers and
+  reports, brainstorm sessions) are written, edited, and committed **only** in
+  `~/coding/wekit_dev/superpowers` (its own git repo; read its `AGENTS.md` for layout and
+  rules). Never create, edit, or commit `.superpowers/` or `docs/superpowers/` inside this
+  repo — those paths are gitignored here by design.
+
 ## Build
 
 ```bash
@@ -47,7 +55,9 @@
 - DEX analysis via DexKit with `IResolveDex` interface; method resolve body MD5-hashed for cache (
   `GenerateMethodHashesTask`)
 - DEX-resolved targets DSL: `val methodTarget by dexMethod()` `val classTarget by dexClass()` delegate → `methodTarget.hookBefore { ... }`, `val method: Method = methodTarget.method`, `val clazz = classTarget.clazz`
-- UI: Jetpack Compose + Material 3, dialogs written using `showComposeDialog` and `AlertDialogContent`
+- UI: Jetpack Compose + Material 3, dialogs written using `showComposeDialog` and
+  `AlertDialogContent`; settings screens follow the Material 3 UI Standards section below
+  (`ui/content/m3/` widget family, InstallerX-Revived design)
 - Config: MMKV via `WePrefs`
 - Logging: via `WeLogger`
 
@@ -91,21 +101,43 @@
   derive the required descriptor from `target.data` while resolving instead. Reflection properties
   remain valid after resolution for actual hook-time Android behavior; this rule applies only to
   declaration and resolution paths.
-- Version, build-tag, and Google Play branches inside resolution must read
-  `DexResolutionContext.host`, rather than `HostInfo`, so `./x dex-test` uses metadata belonging
-  to the APK under test. Android resolution receives equivalent current-host metadata through the
-  same context.
+- An explicitly user-approved host-version branch, or any build-tag/Google Play branch, inside
+  resolution must read `DexResolutionContext.host`, rather than `HostInfo`, so `./x dex-test` uses
+  metadata belonging to the APK under test. Android resolution receives equivalent current-host
+  metadata through the same context.
 - A metadata migration must preserve the intended descriptor/matcher constraints. Do not loosen
   strings, signatures, or structural predicates merely to make a desktop test pass; use stable
   DexKit evidence as normal.
 - For an intentional supported-version absence, use `allowFailure = true` only as documented
-  below and record the placeholder explicitly with `expectedFailure = true` plus a version reason.
-  Do not convert exceptions or uncertain matches into placeholders just to obtain a green report.
+  below. Its generated generic expected-failure reason is acceptable; provide a more precise reason
+  when it materially clarifies a structure-selected compatibility path. Do not convert exceptions
+  or uncertain matches into placeholders just to obtain a green report.
 - Resolver source is part of the device cache key: even a mechanically equivalent rewrite from
   reflection to `.data` changes the generated `methodHash` and invalidates that feature's old
   cache. Expect one device re-resolution after such a change; never retain or hand-edit an old
   hash to suppress it. Avoid unrelated formatting/refactors in resolver and inline matcher bodies
   when a cache invalidation is not intended.
+
+### Host compatibility path selection
+
+- Prefer structure-based compatibility over host-version checks. In Dex resolution, first probe
+  one stable class, method, field, or constructor that exists only on the newer path. If that probe
+  produces zero results, record its expected placeholder and fall back to the older path. If it is
+  present, keep every other required target on that path strict. Multiple results, matcher errors,
+  and failures after the probe must remain visible failures; they are not fallback conditions.
+- At hook time or when invoking resolved host members, choose the path from the actual resolved
+  structure. Use the new-path probe's `isPlaceholder`, inspect the resolved member's reflection
+  signature, or test another directly relevant runtime property. Do not repeat the resolver's
+  compatibility decision with a host-version comparison.
+- If old and new hosts expose the same semantic member with only a signature difference, accept
+  the confirmed signatures structurally (for example, `paramCount(10, 11)`). When invocation
+  arguments differ, inspect `Method.parameterCount` or `Constructor.parameterCount` and construct
+  the arguments from that actual signature.
+- Avoid branches based on the WeChat host's `versionCode`, `versionName`, hard-coded WeChat version
+  strings, or equivalent version constants. If a host-version check is genuinely unavoidable, ask
+  the user for explicit confirmation before adding or retaining it. Distinguishing a Google Play
+  build through `isHostGooglePlay`/`isGooglePlay` is **not** a host-version check and does not require
+  that confirmation.
 
 ## Testing Strategy
 
@@ -157,6 +189,56 @@
   safe casts, `args.getOrNull(0)`, `?:`, `?.someFun()` or similar guards for values that should always be present/non-null/etc.
   Code that is correct does not need the defense; code that is wrong must throw loudly and get caught by either `HookUtils`' or code's own exception catcher, and these
   guards only swallow the exception and hide the real error. Defenses and guards that are reasonable should still exist.
+- The libraries `DexKit` and `reflekt` are NOT something you are familiar with. Do NOT hallucinate their API surfaces. Read their code before using them.
+
+## Material 3 UI Standards
+
+Design reference: `~/coding/InstallerX-Revived` — when unsure how a settings page should
+look or behave, read its `app/src/main/java/com/rosan/installer/ui/page/main/widget/setting/`.
+WeKit's ported widget family lives in `app/src/main/java/dev/ujhhgtg/wekit/ui/content/m3/`.
+
+### Layout
+
+- Settings screens are a `LazyColumn` of `SegmentedColumn` groups (inset rounded cards,
+  one group per concern, short `title` above each group). Do not hand-roll card layouts
+  or use flat lists with dividers.
+- Use the shared scaffolds — `M3ListScaffold` (`activity/settings/SettingsActivity.kt`)
+  or `AgentSettingsScaffold` (`ui/agent/settings/AgentSettingsCommon.kt`): collapsing
+  `LargeFlexibleTopAppBar` + blur + back button. Do not build per-screen scaffolds.
+- Multi-screen settings follow the miuix-nav `NavDisplay` pattern of
+  `WeAgentSettingsActivity` / `ReadReceiptsSettingsActivity` (sealed `@Serializable`
+  routes, predictive-back drill-down).
+
+### Widget choice
+
+Prefer these over raw Compose controls:
+
+- Plain / status / navigation row → `BaseWidget` (chevron or action in `trailingContent`).
+- Boolean setting → `SwitchWidget`.
+- Exclusive choice → `RadioButtonWidget`; supports dual click areas like the WeAgent
+  "Memory" row: `onClick` (main area, e.g. opens the detail screen) + `onSelect` (the
+  radio itself) + `trailingDivider`.
+- String or number input → `TextFieldDialogWidget`: a standard clickable row showing the
+  current value that edits it in a dialog with cancel/confirm. Or for draft & save semantics, place a bare
+  `TextField`/`OutlinedTextField` directly in a `BaseSupportingWidget`.
+- Value with a natural range and step (counts, seconds, delays) → `IntNumberPickerWidget`
+  (slider row with drag tooltip), wrapped in a `BaseItemContainer` inside the group.
+  Ports, hostnames, tokens, URLs and other free-form identifiers have no slider
+  semantics — use the dialog row instead.
+- Compact choice from a fixed set → `DropDownMenuWidget`.
+
+### Interaction semantics
+
+- Prefer **instant apply**: toggles, radios, sliders and dialog confirmations commit on
+  change. Avoid "draft state + Save button" page designs — a text row's dialog
+  cancel/confirm is its only draft lifecycle. Genuinely transactional flows (connect /
+  verify / disconnect) may keep explicit action buttons; those are actions, not saves.
+- Buttons that belong together share ONE row (`Modifier.weight(1f)` each, ~12dp gap) —
+  not one button per line. Pair an action with its opposite (connect/disconnect,
+  save/delete); destructive actions use the error color and a confirm dialog.
+- While an operation is in flight, disable the affected rows and show an inline
+  progress/feedback line; never leave conflicting controls tappable.
+- Blank values show a hint in the row description; the row itself stays clickable.
 
 ## Naming Conventions
 

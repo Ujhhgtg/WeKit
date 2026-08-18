@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
  * faithful stand-in for "when was this feature written". Renames don't count as additions —
  * git's rename detection reports them as `R`, and only `A` entries are collected.
  *
- * Only the feature name and addition time are extracted here; deciding which features are
+ * Only the feature technical ID and addition time are extracted here; deciding which features are
  * user-visible and ordering the resulting UI list are left to the UI, which owns the category
  * list.
  */
@@ -58,7 +58,7 @@ abstract class GenerateNewFeaturesTask : DefaultTask() {
 
     // -----------------------------------------------------------------------
 
-    /** Feature name to the epoch-second its source file was first added, newest first. */
+    /** Feature technical ID to the epoch-second its source file was first added, newest first. */
     private fun collectEntries(): List<Pair<String, Long>> {
         // A shallow clone squashes all of history into one synthetic commit, which would make
         // every feature look brand new. Better to ship an empty list than a bogus full one.
@@ -97,12 +97,12 @@ abstract class GenerateNewFeaturesTask : DefaultTask() {
         return addedAt.mapNotNull { (path, addedEpoch) ->
             val file = repo.resolve(path)
             if (!file.isFile) return@mapNotNull null
-            featureName(file.readText())?.let { it to addedEpoch }
+            featureId(file.readText())?.let { it to addedEpoch }
         }.sortedWith(compareByDescending<Pair<String, Long>> { it.second }.thenBy { it.first })
     }
 
-    /** Reads `name` out of the file's `@Feature(...)`, or null if it declares no feature. */
-    private fun featureName(content: String): String? {
+    /** Reads `id` out of the file's `@Feature(...)`, or null if it declares no feature. */
+    private fun featureId(content: String): String? {
         // Drop comments first so a commented-out `//@Feature(` can't be picked up.
         val clean = content
             .replace(Regex("//[^\n]*"), "")
@@ -123,8 +123,8 @@ abstract class GenerateNewFeaturesTask : DefaultTask() {
         if (end == -1) return null
 
         val args = clean.substring(open.range.last + 1, end)
-        val literal = Regex("""\bname\s*=\s*"((?:\\.|[^"\\])*)"""").find(args)?.groupValues?.get(1)
-        // Fall back to the first positional argument, which the KSP scanner also accepts as `name`.
+        val literal = Regex("""\bid\s*=\s*"((?:\\.|[^"\\])*)"""").find(args)?.groupValues?.get(1)
+        // Fall back to the first positional argument, which the KSP scanner also accepts as `id`.
             ?: Regex(""""((?:\\.|[^"\\])*)"""").find(args)?.groupValues?.get(1)
             ?: return null
 
@@ -153,8 +153,8 @@ abstract class GenerateNewFeaturesTask : DefaultTask() {
             append("package ${namespace.get()}.features.core\n\n")
             append("object NewFeatures {\n")
             append("    const val WINDOW_DAYS: Int = ${windowDays.get()}\n\n")
-            append("    /** 功能名 -> 其源文件首次加入仓库的 epoch 秒. */\n")
-            append("    val ADDED_AT_BY_NAME: Map<String, Long> = mapOf(\n")
+            append("    /** 技术 ID -> 其源文件首次加入仓库的 epoch 秒. */\n")
+            append("    val ADDED_AT_BY_ID: Map<String, Long> = mapOf(\n")
             if (body.isNotEmpty()) append(body).append('\n')
             append("    )\n")
             append("}\n")

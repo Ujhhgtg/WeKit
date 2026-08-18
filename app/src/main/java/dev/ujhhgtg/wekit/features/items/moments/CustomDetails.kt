@@ -1,15 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.Context
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.FlowRow
+import dev.ujhhgtg.wekit.R
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -17,19 +10,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -43,9 +37,10 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 @Feature(
-    name = "自定义底部详细信息",
-    categories = ["朋友圈"],
-    description = "长按朋友圈自定义该条底部详细信息\n需同时打开「朋友圈/底部详细信息」"
+    id = "自定义底部详细信息",
+    nameRes = "feature_custom_details_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_custom_details_description",
 )
 object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 
@@ -73,13 +68,13 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         return listOf(
             WeMomentsContextMenuApi.MenuItem(
                 777017,
-                "自定义底部详细信息",
+                localizedMomentsString(R.string.moments_custom_details_menu),
                 EditIcon,
                 { _, _ -> true }
             ) click@{ moment ->
                 val snsId = resolveSnsId(moment.snsInfo)
                 if (snsId == null) {
-                    showToast("未找到朋友圈 ID!")
+                    showToast(moment.activity.localizedMomentsString(R.string.moments_sns_id_not_found))
                     return@click
                 }
                 showEditor(moment.activity, snsId)
@@ -95,72 +90,48 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         showComposeDialog(context) {
             var textInput by remember { mutableStateOf(TextFieldValue(getCustomText(snsId).orEmpty())) }
             var isFocused by remember { mutableStateOf(false) }
-
-            val insertPlaceholder = { placeholder: String ->
-                val selection = textInput.selection
-                val text = textInput.text
-                if (isFocused) {
-                    val newText = text.substring(0, selection.start) + placeholder + text.substring(selection.end)
-                    val newSelection = TextRange(selection.start + placeholder.length)
-                    textInput = TextFieldValue(newText, newSelection)
-                } else {
-                    val newText = text + placeholder
-                    textInput = TextFieldValue(newText, TextRange(newText.length))
-                }
-            }
+            val localizedContext = LocalContext.current
 
             AlertDialogContent(
-                title = { Text("自定义底部详细信息") },
+                title = { Text(stringResource(R.string.moments_custom_details_title)) },
                 text = {
                     DefaultColumn {
-                        Text("留空保存可清除该条自定义内容")
+                        Text(stringResource(R.string.moments_custom_details_empty_hint))
                         OutlinedTextField(
                             value = textInput,
                             onValueChange = { textInput = it },
-                            label = { Text("底部信息内容") },
+                            label = { Text(stringResource(R.string.moments_custom_details_content)) },
                             minLines = 3,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusChanged { isFocused = it.isFocused }
                         )
 
-                        Text("点击插入占位符:")
+                        Text(stringResource(R.string.moments_custom_details_insert_placeholder))
 
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            PLACEHOLDERS.forEach { ph ->
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                                        .clickable { insertPlaceholder(ph) }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = ph,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-                        }
+                        PlaceholderChips(
+                            placeholders = PLACEHOLDERS,
+                            value = textInput,
+                            isFieldFocused = isFocused,
+                            onValueChange = { textInput = it },
+                        )
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         setCustomText(snsId, textInput.text)
-                        showToast(if (textInput.text.isBlank()) "已清除自定义底部信息" else "已保存自定义底部信息")
+                        showToast(
+                            localizedContext.getString(
+                                if (textInput.text.isBlank()) R.string.moments_custom_details_cleared
+                                else R.string.moments_custom_details_saved
+                            )
+                        )
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 }
             )

@@ -25,6 +25,7 @@ import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.allViews
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -34,10 +35,10 @@ import java.util.WeakHashMap
 
 @Suppress("DEPRECATION")
 @Feature(
-    name = "聊天界面沉浸",
-    categories = ["聊天"],
-    description = "聊天界面启用 edge-to-edge: 内容延伸到状态栏背后, 消息可以滚到状态栏下方; " +
-        "同时适配相关页面 (如服务消息盒子) 在沉浸模式下的布局"
+    id = "聊天界面沉浸",
+    nameRes = "feature_immersive_chat_ui_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_immersive_chat_ui_description",
 )
 object ImmersiveChatUi : SwitchFeature() {
 

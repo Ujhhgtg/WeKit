@@ -6,12 +6,18 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import org.json.JSONObject
 import java.lang.reflect.Field
 
-@Feature(name = "移除嵌入广告", categories = ["小程序"], description = "移除小程序嵌入广告")
+@Feature(
+    id = "移除嵌入广告",
+    nameRes = "feature_remove_embedded_ads_name",
+    categoryIds = [FeatureCategoryIds.MINIAPPS],
+    descriptionRes = "feature_remove_embedded_ads_description",
+)
 object RemoveEmbeddedAds : SwitchFeature(), IResolveDex {
 
     /**

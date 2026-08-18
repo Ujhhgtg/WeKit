@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookCallback
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -18,9 +19,10 @@ import java.lang.reflect.Field
 import java.util.concurrent.CopyOnWriteArraySet
 
 @Feature(
-    name = "解除消息多选数量限制",
-    categories = ["聊天"],
-    description = "解除聊天界面消息多选至多只能选择 100 条的限制"
+    id = "解除消息多选数量限制",
+    nameRes = "feature_remove_message_selection_limit_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_remove_message_selection_limit_description",
 )
 object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
 

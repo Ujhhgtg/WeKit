@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Forward
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
@@ -9,6 +10,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.ForwardIcon
@@ -23,9 +25,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Feature(
-    name = "转发消息",
-    categories = ["聊天"],
-    description = "在消息长按菜单添加转发按钮, 可向好友或群聊批量转发"
+    id = "转发消息",
+    nameRes = "feature_forward_messages_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_forward_messages_description",
 )
 object ForwardMessages : SwitchFeature(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
@@ -44,7 +47,7 @@ object ForwardMessages : SwitchFeature(),
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777010,
-                "转发",
+                localizedChatString(R.string.chat_forward_menu),
                 ForwardIcon,
                 MaterialSymbols.Outlined.Forward,
                 isSupported = { true },
@@ -73,13 +76,13 @@ object ForwardMessages : SwitchFeature(),
             withContext(Dispatchers.Main) {
                 showComposeDialog(view.context) {
                     ContactsSelector(
-                        title = "选择转发对象",
+                        title = localizedChatString(R.string.chat_forward_select_recipients),
                         contacts = contacts,
                         initialSelectedWxIds = emptySet(),
                         onDismiss = onDismiss,
                         onConfirm = { selectedWxIds ->
                             if (selectedWxIds.isEmpty()) {
-                                showToast("请选择至少一个联系人")
+                                showToast(localizedChatString(R.string.chat_forward_select_at_least_one))
                                 return@ContactsSelector
                             }
 
@@ -95,7 +98,14 @@ object ForwardMessages : SwitchFeature(),
     private fun forwardMessages(msgInfos: List<MessageInfo>, wxIds: Set<String>) {
         CoroutineScope(Dispatchers.IO).launch {
             val total = msgInfos.size * wxIds.size
-            showToastSuspend("正在转发 ${msgInfos.size} 条消息到 ${wxIds.size} 个对象...")
+            showToastSuspend(
+                localizedChatQuantity(
+                    R.plurals.chat_forwarding_messages,
+                    msgInfos.size,
+                    msgInfos.size,
+                    wxIds.size,
+                ),
+            )
 
             var success = 0
             wxIds.forEach { wxId ->
@@ -105,8 +115,8 @@ object ForwardMessages : SwitchFeature(),
             }
 
             showToastSuspend(
-                if (success == total) "已转发到 ${wxIds.size} 个对象"
-                else "已转发 $success/$total 条 (部分失败)"
+                if (success == total) localizedChatQuantity(R.plurals.chat_forwarded_to_recipients, wxIds.size, wxIds.size)
+                else localizedChatQuantity(R.plurals.chat_forwarded_partial_messages, total, success, total)
             )
         }
     }
@@ -123,7 +133,7 @@ object ForwardMessages : SwitchFeature(),
                 MessageType.APP -> WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
                 MessageType.QUOTE -> WeMessageApi.sendText(toUser, msgInfo.quoteMsgActualContent!!)
                 else -> {
-                    showToast("警告: 该消息类型未经过测试, 回退为作为卡片消息发送, 可能失败!")
+                    showToast(localizedChatString(R.string.chat_forward_untested_type_warning))
                     WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
                 }
             }

@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.activity.testsettings
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.foundation.background
@@ -20,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -33,9 +33,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Check_circle
 import com.composables.icons.materialsymbols.outlined.Fiber_new
 import com.composables.icons.materialsymbols.outlined.Info
 import com.composables.icons.materialsymbols.outlined.Settings
@@ -44,6 +46,10 @@ import com.composables.icons.materialsymbols.outlined.Style
 import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Volunteer_activism
 import dev.ujhhgtg.wekit.activity.settings.FEATURE_CATEGORIES
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.settings.ENABLED_FEATURES_CATEGORY
+import dev.ujhhgtg.wekit.activity.settings.FeatureCategoryState
+import dev.ujhhgtg.wekit.activity.settings.featureCategoryTitleRes
 import dev.ujhhgtg.wekit.activity.settings.LocalComponentActivity
 import dev.ujhhgtg.wekit.activity.settings.NEW_FEATURE_ITEMS
 import dev.ujhhgtg.wekit.activity.settings.NEW_FEATURES_CATEGORY
@@ -51,9 +57,11 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCountAndChevron
@@ -79,9 +87,11 @@ import dev.ujhhgtg.wekit.utils.openInSystem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.core.net.toUri
+import java.text.Collator
+import java.util.Locale
 
 internal sealed interface NukeDestination {
-    data class Category(val name: String) : NukeDestination
+    data class Category(val id: String) : NukeDestination
     data object ModuleDebug : NukeDestination
     data object Update : NukeDestination
     data object GeneralSettings : NukeDestination
@@ -101,9 +111,18 @@ private data class NukeRootEntry(
 
 @Composable
 internal fun NukeSettingsRoot() {
+    val context = LocalContext.current
+    val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val featureNameCollator = remember(resolvedLocale) {
+        Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
+    }
     var query by rememberSaveable { mutableStateOf("") }
-    val featureItems = remember {
-        FeaturesProvider.ALL_HOOK_ITEMS.filterIsInstance<SwitchFeature>()
+    val featureItems = remember(resolvedLocale) {
+        FeaturesProvider.ALL_HOOK_ITEMS
+            .filterIsInstance<SwitchFeature>()
+            .sortedWith { first, second ->
+                featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
+            }
     }
     val navigator = rememberNukeRevealStackState<NukeDestination>()
 
@@ -155,7 +174,8 @@ private fun NukeHomePage(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = LocalComponentActivity.current
-    var searchToggleRevision by remember { mutableIntStateOf(0) }
+    val revision = FeatureCategoryState.revision
+    val enabledItems = remember(revision) { FeatureCategoryState.enabledItems() }
     // Rows only animate on the first appearance of a search session; rows revealed later by
     // scrolling (second-time appearance) stay static. Reset per blank -> non-blank transition.
     var searchEntranceEnabled by remember(query.isBlank()) { mutableStateOf(true) }
@@ -165,25 +185,33 @@ private fun NukeHomePage(
     val featureEntries = buildList {
         add(
             NukeRootEntry(
-                title = NEW_FEATURES_CATEGORY,
+                title = context.getString(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
                 imageVector = MaterialSymbols.Outlined.Fiber_new,
                 count = NEW_FEATURE_ITEMS.count { it is SwitchFeature },
                 destination = NukeDestination.Category(NEW_FEATURES_CATEGORY),
             )
         )
-        FEATURE_CATEGORIES.forEach { (name, icon) ->
+        add(
+            NukeRootEntry(
+                title = context.getString(featureCategoryTitleRes(ENABLED_FEATURES_CATEGORY)),
+                imageVector = MaterialSymbols.Outlined.Check_circle,
+                count = enabledItems.size,
+                destination = NukeDestination.Category(ENABLED_FEATURES_CATEGORY),
+            )
+        )
+        FEATURE_CATEGORIES.forEach { category ->
             add(
                 NukeRootEntry(
-                    title = name,
-                    imageVector = icon,
-                    count = featureItems.count { name in it.categories },
-                    destination = NukeDestination.Category(name),
+                    title = context.getString(category.titleRes),
+                    imageVector = category.icon,
+                    count = featureItems.count { category.id in it.categoryIds },
+                    destination = NukeDestination.Category(category.id),
                 )
             )
         }
         add(
             NukeRootEntry(
-                title = "模块设置及调试",
+                title = stringResource(R.string.nuke_module_debug_title),
                 imageVector = MaterialSymbols.Outlined.Settings,
                 count = FeaturesProvider.ALL_HOOK_ITEMS.size,
                 destination = NukeDestination.ModuleDebug,
@@ -192,27 +220,27 @@ private fun NukeHomePage(
     }
     val secondaryEntries = listOf(
         NukeRootEntry(
-            "检测更新",
+            stringResource(R.string.nuke_update_title),
             imageVector = MaterialSymbols.Outlined.Update,
             destination = NukeDestination.Update,
         ),
         NukeRootEntry(
-            "通用设置",
+            stringResource(R.string.nuke_general_settings_title),
             imageVector = MaterialSymbols.Outlined.Settings,
             destination = NukeDestination.GeneralSettings,
         ),
         NukeRootEntry(
-            "界面设置",
+            stringResource(R.string.nuke_appearance_title),
             imageVector = MaterialSymbols.Outlined.Style,
             destination = NukeDestination.Appearance,
         ),
         NukeRootEntry(
-            "关于模块",
+            stringResource(R.string.nuke_about_title),
             imageVector = MaterialSymbols.Outlined.Info,
             destination = NukeDestination.About,
         ),
         NukeRootEntry(
-            title = "赞赏我们",
+            title = stringResource(R.string.nuke_support_us_title),
             imageVector = MaterialSymbols.Outlined.Volunteer_activism,
             action = {
                 "https://ifdian.net/a/ujhhgtg".toUri().openInSystem(context, true)
@@ -225,7 +253,9 @@ private fun NukeHomePage(
             .fillMaxSize()
             .background(NukeTheme.colors.background),
     ) {
-        dev.ujhhgtg.wekit.ui.content.nukex.NukeTopAppBar(title = "WeKit 设置")
+        dev.ujhhgtg.wekit.ui.content.nukex.NukeTopAppBar(
+            title = stringResource(R.string.nuke_settings_title)
+        )
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 20.dp),
@@ -237,20 +267,20 @@ private fun NukeHomePage(
                 NukeSearchField(
                     value = query,
                     onValueChange = onQueryChange,
-                    placeholder = "搜索功能",
+                    placeholder = stringResource(R.string.features_search_hint),
                 )
             }
             if (query.isBlank()) {
                 item(key = "account") { NukeCurrentAccountCard() }
                 item(key = "security") {
-                    NukeSettingGroup(title = "安全") {
+                    NukeSettingGroup(title = stringResource(R.string.nuke_section_security)) {
                         SafeModeNukeRow()
                     }
                 }
                 nukeFeatureCategoryGroups(featureEntries).forEachIndexed { index, entries ->
                     item(key = "feature_group_$index") {
                         NukeRootEntryGroup(
-                            title = if (index == 0) "功能" else null,
+                            title = if (index == 0) stringResource(R.string.nav_features) else null,
                             entries = entries,
                             onOpenDestination = onOpenDestination,
                         )
@@ -259,7 +289,7 @@ private fun NukeHomePage(
                 secondaryEntries.chunked(3).forEachIndexed { index, entries ->
                     item(key = "general_group_$index") {
                         NukeRootEntryGroup(
-                            title = if (index == 0) "通用" else null,
+                            title = if (index == 0) stringResource(R.string.nuke_section_general) else null,
                             entries = entries,
                             onOpenDestination = onOpenDestination,
                         )
@@ -269,9 +299,8 @@ private fun NukeHomePage(
                 NukeFeatureSearchResults(
                     query = query,
                     featureItems = featureItems,
-                    toggleRevision = searchToggleRevision,
-                    onToggleStateChanged = { searchToggleRevision++ },
                     activity = activity,
+                    localizedContext = context,
                     animate = searchEntranceEnabled,
                 )
             }
@@ -302,8 +331,8 @@ private fun SafeModeNukeRow() {
     }
 
     NukePreferenceRow(
-        title = SafeMode.TITLE,
-        description = SafeMode.DESCRIPTION,
+        title = stringResource(R.string.settings_safe_mode_title),
+        description = stringResource(R.string.settings_safe_mode_summary),
         leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Shield) },
         onClick = { requestToggle(!checked) },
         trailing = {
@@ -368,8 +397,8 @@ private fun NukeCurrentAccountCard() {
             NukeWechatIdentity(nickname, avatarUrl)
         }
     }
-    val title = identity.nickname.ifEmpty { wxId.ifEmpty { "微信账号" } }
-    val description = wxId.ifEmpty { "当前账号信息暂不可用" }
+    val title = identity.nickname.ifEmpty { wxId.ifEmpty { stringResource(R.string.nuke_wechat_account) } }
+    val description = wxId.ifEmpty { stringResource(R.string.nuke_account_unavailable) }
 
     NukeSettingGroup(title = null) {
         NukePreferenceRow(
@@ -409,47 +438,46 @@ private fun NukeAccountAvatar(url: String) {
 private fun LazyListScope.NukeFeatureSearchResults(
     query: String,
     featureItems: List<SwitchFeature>,
-    toggleRevision: Int,
-    onToggleStateChanged: () -> Unit,
     activity: androidx.activity.ComponentActivity,
+    localizedContext: Context,
     animate: Boolean,
 ) {
     val normalizedQuery = query.trim().lowercase()
     val matchingItems = featureItems.filter { feature ->
         buildList {
-            add(feature.name)
-            add(feature.description)
-            addAll(feature.categories)
+            add(feature.localizedName(localizedContext))
+            add(feature.localizedDescription(localizedContext))
+            addAll(feature.categoryIds.map { localizedContext.getString(featureCategoryTitleRes(it)) })
         }.any { matchesNukeQuery(it.lowercase(), normalizedQuery) }
     }
 
     if (matchingItems.isEmpty()) {
         item(key = "search_empty") {
             NukeSettingGroup(
-                title = "搜索结果",
+                title = localizedContext.getString(R.string.nuke_search_results),
                 modifier = Modifier.padding(top = 12.dp),
             ) {
                 NukeEmptyState(
-                    title = "没有匹配结果",
-                    description = "试试其他功能名称或关键词",
+                    title = localizedContext.getString(R.string.nuke_no_matching_results),
+                    description = localizedContext.getString(R.string.nuke_try_other_keywords),
                 )
             }
         }
     } else {
         item(key = "search_title") {
             NukeSettingGroupTitle(
-                title = "搜索结果",
+                title = localizedContext.getString(R.string.nuke_search_results),
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
-        itemsIndexed(matchingItems, key = { _, feature -> feature.name }) { index, feature ->
+        itemsIndexed(matchingItems, key = { _, feature -> feature.technicalId }) { index, feature ->
             Column(
-                Modifier.nukeGroupedCardItem(index, matchingItems.size, animate = animate),
+                Modifier
+                    .animateItem()
+                    .nukeGroupedCardItem(index, matchingItems.size, animate = animate),
             ) {
                 NukeFeatureRow(
                     feature = feature,
-                    revision = toggleRevision,
-                    onStateChanged = onToggleStateChanged,
                     activity = activity,
                 )
                 if (index < matchingItems.lastIndex) NukeDivider()
@@ -460,18 +488,19 @@ private fun LazyListScope.NukeFeatureSearchResults(
 
 @Composable
 internal fun NukeFeatureCategoryPage(
-    categoryName: String,
+    categoryId: String,
     featureItems: List<SwitchFeature>,
     onBack: (Offset) -> Unit,
 ) {
-    val items = remember(categoryName, featureItems) {
-        if (categoryName == NEW_FEATURES_CATEGORY) {
-            NEW_FEATURE_ITEMS.filterIsInstance<SwitchFeature>()
-        } else {
-            featureItems.filter { categoryName in it.categories }
+    val categoryTitle = LocalContext.current.getString(featureCategoryTitleRes(categoryId))
+    val revision = FeatureCategoryState.revision
+    val items = remember(categoryId, featureItems, revision) {
+        when (categoryId) {
+            NEW_FEATURES_CATEGORY -> NEW_FEATURE_ITEMS.filterIsInstance<SwitchFeature>()
+            ENABLED_FEATURES_CATEGORY -> FeatureCategoryState.enabledItems()
+            else -> featureItems.filter { categoryId in it.categoryIds }
         }
     }
-    var toggleRevision by remember { mutableIntStateOf(0) }
     val activity = LocalComponentActivity.current
     // Rows only animate on the first appearance of the page; rows revealed later by scrolling
     // stay static. The section title keeps bouncing on every appearance.
@@ -481,7 +510,7 @@ internal fun NukeFeatureCategoryPage(
     }
 
     NukePageScaffold(
-        title = categoryName,
+        title = categoryTitle,
         onBack = onBack,
         // Rows are emitted as individual items; 0 spacing keeps them flush inside one card.
         itemSpacing = 0.dp,
@@ -489,22 +518,22 @@ internal fun NukeFeatureCategoryPage(
         if (items.isEmpty()) {
             item(key = "empty") {
                 NukeEmptyState(
-                    title = "暂无功能",
-                    description = "当前分组还没有可展示的功能",
+                    title = stringResource(R.string.nuke_no_features),
+                    description = stringResource(R.string.nuke_no_features_in_group),
                 )
             }
         } else {
             item(key = "title") {
-                NukeSettingGroupTitle(title = categoryName)
+                NukeSettingGroupTitle(title = categoryTitle)
             }
-            itemsIndexed(items, key = { _, feature -> feature.name }) { index, feature ->
+            itemsIndexed(items, key = { _, feature -> feature.technicalId }) { index, feature ->
                 Column(
-                    Modifier.nukeGroupedCardItem(index, items.size, animate = entranceEnabled),
+                    Modifier
+                        .animateItem()
+                        .nukeGroupedCardItem(index, items.size, animate = entranceEnabled),
                 ) {
                     NukeFeatureRow(
                         feature = feature,
-                        revision = toggleRevision,
-                        onStateChanged = { toggleRevision++ },
                         activity = activity,
                     )
                     if (index < items.lastIndex) NukeDivider()
@@ -517,34 +546,35 @@ internal fun NukeFeatureCategoryPage(
 @Composable
 internal fun NukeFeatureRow(
     feature: SwitchFeature,
-    revision: Int,
-    onStateChanged: () -> Unit,
     activity: androidx.activity.ComponentActivity,
 ) {
-    val checked = remember(feature.name, revision) {
-        WePrefs.getBoolOrDef(feature.name, feature.defaultEnabled)
+    val context = LocalContext.current
+    val revision = FeatureCategoryState.revision
+    val checked = remember(feature.technicalId, revision) {
+        WePrefs.getBoolOrDef(feature.technicalId, feature.defaultEnabled)
     }
     val configurable = feature as? ClickableFeature
 
-    DisposableEffect(feature.name) {
-        feature.setToggleCompletionCallback { onStateChanged() }
+    DisposableEffect(feature.technicalId) {
+        feature.setToggleCompletionCallback { FeatureCategoryState.notifyToggleChanged() }
         onDispose {}
     }
 
     fun toggle(requested: Boolean) {
         if (feature.onBeforeToggle(requested, activity)) {
             feature.applyToggle(requested)
+            FeatureCategoryState.notifyToggleChanged()
         }
     }
 
     NukePreferenceRow(
-        title = feature.name,
-        description = feature.description.takeIf { it.isNotBlank() },
+        title = feature.localizedName(context),
+        description = feature.localizedDescription(context).takeIf { it.isNotBlank() },
         onClick = if (configurable != null) {
             {
                 runCatching { configurable.onClick(activity) }
                     .onFailure {
-                        WeLogger.e("NukeSettings", "onClick failed for ${feature.displayName}", it)
+                        WeLogger.e("NukeSettings", "onClick failed for ${feature.technicalPath}", it)
                     }
             }
         } else {
@@ -579,16 +609,24 @@ private fun matchesNukeQuery(candidate: String, query: String): Boolean {
 }
 
 private fun nukeFeatureCategoryGroups(entries: List<NukeRootEntry>): List<List<NukeRootEntry>> {
-    val byTitle = entries.associateBy(NukeRootEntry::title)
-    return listOf(
-        listOf(NEW_FEATURES_CATEGORY),
-        listOf("聊天", "联系人与群组", "红包与支付"),
-        listOf("朋友圈", "系统与隐私", "音视频通话", "通知"),
-        listOf("界面美化", "公众号", "小程序", "视频号"),
-        listOf("个人资料", "调试"),
-        listOf("脚本 (Java)"),
-        listOf("娱乐", "批量操作"),
-        listOf("首页右上角菜单", "联系人详情页面"),
-        listOf("模块设置及调试"),
-    ).map { titles -> titles.mapNotNull(byTitle::get) }
+    val byCategoryId = buildMap {
+        entries.forEach { entry ->
+            when (val destination = entry.destination) {
+                is NukeDestination.Category -> put(destination.id, entry)
+                else -> Unit
+            }
+        }
+    }
+    val categoryGroups = listOf(
+        listOf(NEW_FEATURES_CATEGORY, ENABLED_FEATURES_CATEGORY),
+        listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.PAYMENT),
+        listOf(FeatureCategoryIds.MOMENTS, FeatureCategoryIds.SYSTEM_PRIVACY, FeatureCategoryIds.VOIP, FeatureCategoryIds.NOTIFICATIONS),
+        listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.OFFICIAL_ACCOUNTS, FeatureCategoryIds.MINIAPPS, FeatureCategoryIds.CHANNELS),
+        listOf(FeatureCategoryIds.PROFILE, FeatureCategoryIds.DEBUG),
+        listOf(FeatureCategoryIds.SCRIPTING_JAVA),
+        listOf(FeatureCategoryIds.ENTERTAIN, FeatureCategoryIds.BATCH),
+        listOf(FeatureCategoryIds.HOME_SCREEN_MENU, FeatureCategoryIds.CONTACT_DETAILS),
+    ).map { ids -> ids.map(byCategoryId::getValue) }.toMutableList()
+    categoryGroups += entries.filter { it.destination == NukeDestination.ModuleDebug }
+    return categoryGroups
 }

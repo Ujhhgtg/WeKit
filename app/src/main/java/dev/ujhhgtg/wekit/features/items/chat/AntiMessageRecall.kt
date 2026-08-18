@@ -1,17 +1,22 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeXmlParserApi
@@ -19,17 +24,26 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
-@Feature(name = "防撤回", categories = ["聊天"], description = "阻止撤回消息")
+@Feature(
+    id = "防撤回",
+    nameRes = "feature_anti_message_recall_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_anti_message_recall_description",
+)
 object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListener {
 
     private const val TAG = "AntiMessageRecall"
@@ -105,46 +119,84 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var recallOutgoingInput by remember { mutableStateOf(recallOutgoing) }
-            var patternInput by remember { mutableStateOf(pattern) }
-            var timeFormatInput by remember { mutableStateOf(timeFormat) }
+            var patternValue by remember { mutableStateOf(TextFieldValue(pattern)) }
+            var timeFormatValue by remember { mutableStateOf(timeFormat) }
+            var isPatternFocused by remember { mutableStateOf(false) }
+
             AlertDialogContent(
-                title = { Text("防撤回") },
-                text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { recallOutgoingInput = !recallOutgoingInput },
-                            trailingContent = {
-                                Switch(checked = recallOutgoingInput, onCheckedChange = null)
-                            },
-                            supportingContent = { Text("是否对自己发出的消息也生效 (这个功能现在是坏的, 别用)") },
-                            content = { Text("防撤回自己的消息") },
-                        )
-
-                        TextField(
-                            label = { Text("提示格式") },
-                            supportingText = { Text($$"可使用占位符 $sender, $sendTime, $recallTime, $content") },
-                            value = patternInput,
-                            onValueChange = { patternInput = it },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        TextField(
-                            value = timeFormatInput,
-                            onValueChange = { timeFormatInput = it },
-                            label = { Text("时间格式") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
-                confirmButton = {
-                    Button({
-                        recallOutgoing = recallOutgoingInput
-                        pattern = patternInput
-                        timeFormat = timeFormatInput
-                        onDismiss()
-                    }) { Text("确定") }
-                })
+                    title = { Text(stringResource(R.string.feature_anti_message_recall_name)) },
+                    text = {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_anti_recall_outgoing),
+                                    description = stringResource(R.string.chat_anti_recall_outgoing_description),
+                                    checked = recallOutgoingInput,
+                                    onCheckedChange = { recallOutgoingInput = it },
+                                )
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_anti_recall_pattern),
+                                ) {
+                                    Column {
+                                        OutlinedTextField(
+                                            value = patternValue,
+                                            onValueChange = { patternValue = it },
+                                            singleLine = true,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp)
+                                                .onFocusChanged { isPatternFocused = it.isFocused },
+                                        )
+                                        Text(
+                                            stringResource(R.string.chat_message_time_insert_placeholder),
+                                            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                                        )
+                                        PlaceholderChips(
+                                            placeholders = listOf(
+                                                $$"$sender",
+                                                $$"$sendTime",
+                                                $$"$recallTime",
+                                                $$"$content",
+                                            ),
+                                            value = patternValue,
+                                            isFieldFocused = isPatternFocused,
+                                            onValueChange = { patternValue = it },
+                                            modifier = Modifier.padding(horizontal = 16.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.chat_anti_recall_time_format),
+                                ) {
+                                    OutlinedTextField(
+                                        value = timeFormatValue,
+                                        onValueChange = { timeFormatValue = it },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            recallOutgoing = recallOutgoingInput
+                            pattern = patternValue.text
+                            timeFormat = timeFormatValue
+                            onDismiss()
+                        }) { Text(stringResource(R.string.action_save)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                    },
+            )
         }
     }
 }

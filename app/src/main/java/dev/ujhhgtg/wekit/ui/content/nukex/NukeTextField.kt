@@ -35,11 +35,13 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.ujhhgtg.wekit.R
 
 @Composable
 fun NukeTextField(
@@ -230,13 +232,13 @@ fun NukeSearchField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "搜索",
+    placeholder: String? = null,
 ) {
     NukeTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier,
-        placeholder = placeholder,
+        placeholder = placeholder ?: stringResource(R.string.search_hint),
         leadingContent = {
             NukeGlyph(
                 kind = NukeGlyphKind.Search,

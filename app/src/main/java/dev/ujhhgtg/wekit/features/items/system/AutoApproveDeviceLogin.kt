@@ -5,25 +5,33 @@ import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.tencent.mm.plugin.webwx.ui.ExtDeviceWXLoginUI
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(name = "自动批准设备登录", categories = ["系统与隐私"], description = "其他设备请求登录时自动勾选选项并点击按钮")
+@Feature(
+    id = "自动批准设备登录",
+    nameRes = "feature_auto_approve_device_login_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_auto_approve_device_login_description",
+)
 object AutoApproveDeviceLogin : ClickableFeature() {
 
     private const val AUTO_SYNC_MESSAGES = 0x1
@@ -84,38 +92,43 @@ object AutoApproveDeviceLogin : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            var syncMessagesInput by remember { mutableStateOf(syncMessages) }
+            var autoLoginDeviceInput by remember { mutableStateOf(autoLoginDevice) }
+
             AlertDialogContent(
-                title = { Text("自动批准设备登录") },
+                title = { Text(stringResource(R.string.feature_auto_approve_device_login_name)) },
                 text = {
-                    DefaultColumn {
-                        var syncMessagesInput by remember { mutableStateOf(syncMessages) }
-                        var autoLoginDeviceInput by remember { mutableStateOf(autoLoginDevice) }
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                syncMessagesInput = !syncMessagesInput
-                                syncMessages = syncMessagesInput
-                            },
-                            trailingContent = {
-                                Switch(checked = syncMessagesInput, onCheckedChange = null)
-                            },
-                            supportingContent = { Text("批准登录时勾选 \"同步最近的消息\", 把手机上的近期聊天记录同步到该设备") },
-                            content = { Text("同步最近的消息") },
-                        )
-
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                autoLoginDeviceInput = !autoLoginDeviceInput
-                                autoLoginDevice = autoLoginDeviceInput
-                            },
-                            trailingContent = {
-                                Switch(checked = autoLoginDeviceInput, onCheckedChange = null)
-                            },
-                            supportingContent = { Text("批准登录时勾选 \"自动登录该设备\", 该设备以后无需再次确认即可登录") },
-                            content = { Text("自动登录该设备") },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.system_auto_approve_sync),
+                                description = stringResource(R.string.system_auto_approve_sync_summary),
+                                checked = syncMessagesInput,
+                                onCheckedChange = {
+                                    syncMessagesInput = it
+                                    syncMessages = it
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.system_auto_approve_auto_login),
+                                description = stringResource(R.string.system_auto_approve_auto_login_summary),
+                                checked = autoLoginDeviceInput,
+                                onCheckedChange = {
+                                    autoLoginDeviceInput = it
+                                    autoLoginDevice = it
+                                },
+                            )
+                        }
                     }
-                })
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
+            )
         }
     }
 }

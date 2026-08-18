@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.hideConversation
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.reloadConversations
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.runOnUiThread
@@ -20,7 +21,12 @@ import java.lang.reflect.Modifier
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-@Feature(name = "对话服务", categories = ["API"], description = "提供对话管理能力")
+@Feature(
+    id = "对话服务",
+    nameRes = "feature_we_conversation_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_conversation_api_description",
+)
 object WeConversationApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeConversationApi"

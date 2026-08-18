@@ -15,35 +15,39 @@ import android.view.ViewTreeObserver
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
-import kotlin.math.roundToInt
 
 @Feature(
-    name = "半屏相册选择器",
-    categories = ["聊天"],
-    description = "将聊天「+」面板的相册选择器、图片预览和搜索页显示为半屏卡片, 上方可看到聊天内容 (图片编辑器保持全屏)"
+    id = "半屏相册选择器",
+    nameRes = "feature_half_screen_album_picker_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_half_screen_album_picker_description",
 )
 object HalfScreenAlbumPicker : ClickableFeature() {
 
@@ -667,32 +671,33 @@ object HalfScreenAlbumPicker : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var heightInput by remember { mutableFloatStateOf(heightPercent.toFloat()) }
+            var height by remember {
+                mutableIntStateOf(heightPercent.coerceIn(MIN_HEIGHT_PERCENT, MAX_HEIGHT_PERCENT))
+            }
 
             AlertDialogContent(
-                title = { Text("半屏相册选择器") },
+                title = { Text(stringResource(R.string.feature_half_screen_album_picker_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            content = { Text("高度占比: ${heightInput.roundToInt()}%") },
-                            supportingContent = {
-                                Slider(
-                                    value = heightInput,
-                                    onValueChange = { heightInput = it },
-                                    valueRange = MIN_HEIGHT_PERCENT.toFloat()..MAX_HEIGHT_PERCENT.toFloat(),
-                                    steps = MAX_HEIGHT_PERCENT - MIN_HEIGHT_PERCENT - 1
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_half_screen_album_height_label),
+                                    value = height,
+                                    startInt = MIN_HEIGHT_PERCENT,
+                                    endInt = MAX_HEIGHT_PERCENT,
+                                    stepSize = 1,
+                                    valueSuffix = "%",
+                                    onValueChange = {
+                                        height = it
+                                        heightPercent = it
+                                    },
                                 )
                             }
-                        )
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
-                confirmButton = {
-                    Button(onClick = {
-                        heightPercent = heightInput.roundToInt()
-                        onDismiss()
-                    }) { Text("确定") }
-                }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }

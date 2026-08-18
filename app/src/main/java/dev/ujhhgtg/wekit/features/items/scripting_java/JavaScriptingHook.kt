@@ -2,23 +2,21 @@ package dev.ujhhgtg.wekit.features.items.scripting_java
 
 import android.content.ContentValues
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import bsh.Interpreter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -27,10 +25,16 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
+import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
@@ -54,7 +58,12 @@ import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-@Feature(name = "脚本引擎 (Java)", categories = ["脚本 (Java)"], description = "执行 Java 脚本")
+@Feature(
+    id = "脚本引擎 (Java)",
+    nameRes = "feature_java_scripting_hook_name",
+    categoryIds = [FeatureCategoryIds.SCRIPTING_JAVA],
+    descriptionRes = "feature_java_scripting_hook_description",
+)
 object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener, WeDatabaseListenerApi.IInsertListener {
 
     private const val TAG = "JavaScriptingHook"
@@ -147,51 +156,57 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                 JavaEngine.executeAllOnLoad(scripts)
             }
         }
+
+        if (!ScriptDepsPack.isInstalled()) {
+            getTopMostActivity(allowPaused = true)?.let { activity ->
+                ExtensionPackDialogs.suggestInstall(activity, ScriptDepsPack)
+            }
+        }
     }
 
     override fun onClick(context: ComponentActivity) {
         val entries = listScriptEntries()
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("Java 脚本") },
+                title = { Text(stringResource(R.string.java_scripts_dialog_title)) },
                 text = {
                     if (entries.isEmpty()) {
-                        Text("暂无脚本")
+                        Text(stringResource(R.string.java_scripts_empty))
                     } else {
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 480.dp),
                         ) {
-                            items(entries, key = { it.dir.name }) { entry ->
+                            lazySegmentedItems(entries, key = { it.dir.name }) { entry ->
                                 var enabled by remember(entry.dir) { mutableStateOf(entry.enabled) }
-                                fun toggle() {
-                                    val newState = !enabled
-                                    if (setScriptEnabled(entry.dir, newState)) {
-                                        enabled = newState
-                                    }
-                                }
+                                val statusText = stringResource(
+                                    if (enabled) R.string.java_script_status_enabled
+                                    else R.string.java_script_status_disabled
+                                )
+                                val versionText =
+                                    entry.info.version?.let { stringResource(R.string.java_script_version, it) }
+                                val authorText =
+                                    entry.info.author?.let { stringResource(R.string.java_script_author, it) }
 
-                                ListItem(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { toggle() },
-                                    content = { Text(entry.info.name) },
-                                    supportingContent = {
-                                        Text(
-                                            buildList {
-                                                add(entry.dir.name)
-                                                add(if (enabled) "已启用" else "已禁用")
-                                                entry.info.version?.let { add("版本 $it") }
-                                                entry.info.author?.let { add("作者 $it") }
-                                            }.joinToString(" · ")
-                                        )
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = if (entry.info.name == "unnamed") {
+                                        stringResource(R.string.java_script_unnamed)
+                                    } else {
+                                        entry.info.name
                                     },
-                                    trailingContent = {
-                                        Switch(
-                                            checked = enabled,
-                                            onCheckedChange = null,
-                                        )
+                                    description = buildList {
+                                        add(entry.dir.name)
+                                        add(statusText)
+                                        versionText?.let { add(it) }
+                                        authorText?.let { add(it) }
+                                    }.joinToString(" · "),
+                                    checked = enabled,
+                                    onCheckedChange = { newState ->
+                                        if (setScriptEnabled(entry.dir, newState)) {
+                                            enabled = newState
+                                        }
                                     },
                                 )
                             }
@@ -199,7 +214,7 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = onDismiss) { Text("完成") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
                 },
             )
         }

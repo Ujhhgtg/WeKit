@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import dev.ujhhgtg.wekit.R
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Exposure_plus_1
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -8,6 +9,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.ExposurePlus1Icon
 import dev.ujhhgtg.wekit.utils.AudioUtils
@@ -17,7 +19,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(name = "消息复读", categories = ["聊天"], description = "向消息长按菜单添加菜单项, 可复读一些常见消息")
+@Feature(
+    id = "消息复读",
+    nameRes = "feature_repeat_messages_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_repeat_messages_description",
+)
 object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     private val TAG = RepeatMessages::class.java.simpleName
@@ -47,14 +54,14 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777008, "复读", ExposurePlus1Icon, MaterialSymbols.Outlined.Exposure_plus_1,
+                777008, localizedChatString(R.string.chat_repeat_menu), ExposurePlus1Icon, MaterialSymbols.Outlined.Exposure_plus_1,
                 isSupported = ::isSupported,
                 onClick = { view, _, msgInfo ->
                     val context = view.context
 
                     CoroutineScope(Dispatchers.IO).launch {
                         val sent = repeatMessage(msgInfo)
-                        if (!sent) showToastSuspend(context, "复读失败!")
+                        if (!sent) showToastSuspend(context, context.localizedChatString(R.string.chat_repeat_failed))
                     }
                 }
             )
@@ -71,7 +78,12 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
                 MessageType.VIDEO, MessageType.MICRO_VIDEO -> repeatVideo(msgInfo)
                 MessageType.STICKER, MessageType.SO_GOU_EMOJI -> repeatEmoji(msgInfo)
                 MessageType.APP -> WeMessageApi.sendXmlAppMsg(msgInfo.talker, msgInfo.actualContent)
-                MessageType.QUOTE -> WeMessageApi.sendText(msgInfo.talker, msgInfo.quoteMsgActualContent!!)
+                MessageType.QUOTE -> {
+                    val quote = msgInfo.toQuoteMessage()!!
+                    val content = quote.title
+                    WeMessageApi.sendQuoteText(msgInfo.talker, quote.svrid, content) ||
+                        WeMessageApi.sendQuoteTextByMsgId(msgInfo.talker, msgInfo.id, content)
+                }
                 else -> false
             }
         }.getOrElse {

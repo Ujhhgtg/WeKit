@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -15,8 +16,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import com.tencent.mm.ui.LauncherUI
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -80,12 +83,15 @@ object CrashInterceptorUtils {
     }
 
     /** Truncates [crashInfo] for display and appends an overflow notice if needed. */
-    fun buildDisplayCrashInfo(crashInfo: String, maxLength: Int = 15 * 1024): String {
+    fun buildDisplayCrashInfo(
+        crashInfo: String,
+        overflowNotice: String,
+        maxLength: Int = 15 * 1024,
+    ): String {
         return if (crashInfo.length > maxLength) {
             crashInfo.take(maxLength) +
                     "\n\n=============================\n" +
-                    "日志内容过长，此处仅展示部分内容。\n" +
-                    "请点击「复制完整日志」以保存完整日志。\n" +
+                    overflowNotice + "\n" +
                     "============================="
         } else {
             crashInfo
@@ -95,8 +101,8 @@ object CrashInterceptorUtils {
     fun showPendingCrashDialog(
         activity: Activity,
         crashLogFile: Path,
-        titleSummary: String,
-        titleDetail: String,
+        @StringRes titleSummaryRes: Int,
+        @StringRes titleDetailRes: Int,
         clearPendingFlag: () -> Unit,
         extractSummary: (String) -> String
     ) {
@@ -106,11 +112,12 @@ object CrashInterceptorUtils {
             var showDetail by remember { mutableStateOf(false) }
 
             if (showDetail) {
-                val displayInfo = remember(crashInfo) {
-                    buildDisplayCrashInfo(crashInfo)
+                val overflowNotice = stringResource(R.string.debug_crash_log_truncated_notice)
+                val displayInfo = remember(crashInfo, overflowNotice) {
+                    buildDisplayCrashInfo(crashInfo, overflowNotice)
                 }
                 AlertDialogContent(
-                    title = { Text(titleDetail) },
+                    title = { Text(stringResource(titleDetailRes)) },
                     text = {
                         SelectionContainer {
                             Text(
@@ -128,18 +135,18 @@ object CrashInterceptorUtils {
                             copyToClipboard(activity, fullCrashInfo)
                             onDismiss()
                             clearPendingFlag()
-                        }) { Text("复制完整日志") }
+                        }) { Text(stringResource(R.string.debug_crash_copy_full_log)) }
                     },
                     dismissButton = {
                         TextButton(onClick = {
                             onDismiss()
                             clearPendingFlag()
-                        }) { Text("关闭") }
+                        }) { Text(stringResource(R.string.action_close)) }
                     }
                 )
             } else {
                 AlertDialogContent(
-                    title = { Text(titleSummary) },
+                    title = { Text(stringResource(titleSummaryRes)) },
                     text = {
                         Text(
                             extractSummary(crashInfo),
@@ -150,13 +157,15 @@ object CrashInterceptorUtils {
                         )
                     },
                     confirmButton = {
-                        TextButton(onClick = { showDetail = true }) { Text("查看详情") }
+                        TextButton(onClick = { showDetail = true }) {
+                            Text(stringResource(R.string.debug_crash_view_details))
+                        }
                     },
                     dismissButton = {
                         TextButton(onClick = {
                             onDismiss()
                             clearPendingFlag()
-                        }) { Text("忽略") }
+                        }) { Text(stringResource(R.string.debug_crash_ignore)) }
                     }
                 )
             }

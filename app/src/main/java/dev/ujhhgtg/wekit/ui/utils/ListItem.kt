@@ -1,42 +1,47 @@
+@file:Suppress("NOTHING_TO_INLINE")
+
 package dev.ujhhgtg.wekit.ui.utils
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.ListItem as MaterialListItem
+import androidx.compose.material3.ListItemElevation
+import androidx.compose.material3.ListItemShapes
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.Dp
+import androidx.compose.material3.ListItem as MaterialListItem
 
 /**
  * Compatibility wrapper around [MaterialListItem].
- *
- * material3 1.5.0-alpha24 renamed the main slot of the non-clickable [MaterialListItem] overload
- * from `headlineContent` to a trailing `content` lambda. WeKit's call sites were migrated to
- * `content`, but the project stays on material3 1.5.0-alpha19 where the parameter is still
- * `headlineContent`. This wrapper keeps the `content` name used by all call sites and forwards it
- * to the material3 implementation.
  */
 @Composable
-fun ListItem(
-    content: @Composable () -> Unit,
+inline fun ListItem(
     modifier: Modifier = Modifier,
-    overlineContent: @Composable (() -> Unit)? = null,
-    supportingContent: @Composable (() -> Unit)? = null,
-    leadingContent: @Composable (() -> Unit)? = null,
-    trailingContent: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true,
+    noinline leadingContent: @Composable (() -> Unit)? = null,
+    noinline trailingContent: @Composable (() -> Unit)? = null,
+    noinline overlineContent: @Composable (() -> Unit)? = null,
+    noinline supportingContent: @Composable (() -> Unit)? = null,
+    verticalAlignment: Alignment.Vertical = ListItemDefaults.verticalAlignment(),
+    shapes: ListItemShapes = ListItemDefaults.shapes(),
     colors: ListItemColors = ListItemDefaults.colors(),
-    tonalElevation: Dp = ListItemDefaults.Elevation,
-    shadowElevation: Dp = ListItemDefaults.Elevation,
+    elevation: ListItemElevation = ListItemDefaults.elevation(),
+    contentPadding: PaddingValues = ListItemDefaults.ContentPadding,
+    noinline content: @Composable () -> Unit,
 ) {
     MaterialListItem(
-        headlineContent = content,
         modifier = modifier,
-        overlineContent = overlineContent,
-        supportingContent = supportingContent,
+        enabled = enabled,
         leadingContent = leadingContent,
         trailingContent = trailingContent,
+        overlineContent = overlineContent,
+        supportingContent = supportingContent,
+        verticalAlignment = verticalAlignment,
+        shapes = shapes,
         colors = colors,
-        tonalElevation = tonalElevation,
-        shadowElevation = shadowElevation,
+        elevation = elevation,
+        contentPadding = contentPadding,
+        content = content
     )
 }

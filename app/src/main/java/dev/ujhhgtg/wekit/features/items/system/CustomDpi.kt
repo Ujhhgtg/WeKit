@@ -11,14 +11,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -30,8 +33,10 @@ import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 
 @Feature(
-    name = "DPI 修改", categories = ["界面美化", "系统与隐私"],
-    description = "自定义微信屏幕密度"
+    id = "DPI 修改",
+    nameRes = "feature_custom_dpi_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_custom_dpi_description",
 )
 object CustomDpi : ClickableFeature(), IResolveDex {
 
@@ -67,29 +72,29 @@ object CustomDpi : ClickableFeature(), IResolveDex {
             var value by remember { mutableStateOf(customDpi.toString()) }
 
             AlertDialogContent(
-                title = { Text("DPI 修改") },
+                title = { Text(stringResource(R.string.feature_custom_dpi_name)) },
                 text = {
                     TextField(
                         value = value,
                         onValueChange = { value = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("显示宽度") },
+                        label = { Text(stringResource(R.string.system_custom_dpi_width)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         val dpiInput = value.toIntOrNull()
                         if (dpiInput == null || dpiInput <= 0) {
-                            showToast("数字格式不正确!")
+                            showToast(localizedSystemString(R.string.system_invalid_number))
                             return@Button
                         }
                         customDpi = dpiInput
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             )
         }
@@ -121,4 +126,3 @@ object CustomDpi : ClickableFeature(), IResolveDex {
         }
     }
 }
-

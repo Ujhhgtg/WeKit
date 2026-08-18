@@ -7,13 +7,15 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import org.luckypray.dexkit.DexKitBridge
 
 @Feature(
-    name = "强制启用所有功能",
-    categories = ["聊天"],
-    description = "在聊天工具面板中强制启用所有功能"
+    id = "强制启用所有功能",
+    nameRes = "feature_force_enable_all_tools_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_force_enable_all_tools_description",
 )
 object ForceEnableAllTools : SwitchFeature(), IResolveDex {
 

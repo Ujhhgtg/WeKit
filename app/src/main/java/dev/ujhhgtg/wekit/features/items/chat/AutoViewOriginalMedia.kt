@@ -9,18 +9,22 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.util.WeakHashMap
 import org.luckypray.dexkit.DexKitBridge
 
-@Feature(name = "自动查看原图", categories = ["聊天"], description = "在打开图片和视频时自动点击查看原图")
+@Feature(
+    id = "自动查看原图",
+    nameRes = "feature_auto_view_original_media_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_auto_view_original_media_description",
+)
 object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
     private const val MEDIA_DOWNLOAD_TEXT_CLASS =
         "com.tencent.mm.plugin.media.view.download.MediaDownloadText"
-    private const val LAYERED_ORIGINAL_MEDIA_VERSION = "8.0.76"
 
     private val methodSetImageHdImgBtnVisibility by dexMethod()
     private val methodCheckNeedShowOriginVideoBtn by dexMethod()
@@ -65,35 +69,37 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             }
         }
 
-        if (DexResolutionContext.host.versionName != LAYERED_ORIGINAL_MEDIA_VERSION) {
-            methodUpdateMediaGalleryVideoOriginButton.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "the layered original-video button is absent before WeChat 8.0.76",
-            )
-            classMediaGalleryChatLiveBottomBarLayer.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "the chat live-photo bottom bar is absent before WeChat 8.0.76",
-            )
-            methodBindMediaGalleryChatLiveBottomBar.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "the chat live-photo bottom bar is absent before WeChat 8.0.76",
-            )
-            return
-        }
-
-        methodUpdateMediaGalleryVideoOriginButton.find(dexKit) {
-            matcher {
-                declaredClass(classMediaGalleryVideoBottomBarLayer.data.name)
-                paramTypes("java.lang.String", "boolean")
-                returnType = "void"
-                usingEqStrings("getString(...)")
-            }
-        }
-
-        classMediaGalleryChatLiveBottomBarLayer.find(dexKit) {
+        val chatLiveBottomBarLayers = dexKit.findClass {
             matcher {
                 usingEqStrings("MediaGallery.ChatLiveBottomBarLayer")
             }
+        }
+
+        when (chatLiveBottomBarLayers.size) {
+            0 -> {
+                classMediaGalleryChatLiveBottomBarLayer.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "chat live-photo bottom bar is absent; using common media controls",
+                )
+                methodUpdateMediaGalleryVideoOriginButton.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "layered original-video controls are absent",
+                )
+                methodBindMediaGalleryChatLiveBottomBar.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "chat live-photo bottom bar is absent",
+                )
+                return
+            }
+
+            1 -> classMediaGalleryChatLiveBottomBarLayer.setDescriptor(
+                chatLiveBottomBarLayers.single()
+            )
+
+            else -> error(
+                "multiple MediaGallery.ChatLiveBottomBarLayer classes found: " +
+                    chatLiveBottomBarLayers.joinToString { it.name }
+            )
         }
 
         methodBindMediaGalleryChatLiveBottomBar.find(dexKit) {
@@ -103,6 +109,31 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 returnType = "void"
                 usingEqStrings("bindContext", "msgInfo")
             }
+        }
+
+        val updateVideoOriginButtonMethods = dexKit.findMethod {
+            matcher {
+                declaredClass(classMediaGalleryVideoBottomBarLayer.data.name)
+                paramTypes("java.lang.String", "boolean")
+                returnType = "void"
+                usingEqStrings("getString(...)")
+            }
+        }
+
+        when (updateVideoOriginButtonMethods.size) {
+            0 -> methodUpdateMediaGalleryVideoOriginButton.setPlaceholderDescriptor(
+                expectedFailure = true,
+                reason = "layered original-video controls are absent",
+            )
+
+            1 -> methodUpdateMediaGalleryVideoOriginButton.setDescriptor(
+                updateVideoOriginButtonMethods.single()
+            )
+
+            else -> error(
+                "multiple layered original-video update methods found: " +
+                    updateVideoOriginButtonMethods.joinToString { it.descriptor }
+            )
         }
     }
 
@@ -130,9 +161,6 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 }.get() as Button
                 clickOriginalMediaButton(originalVideoButton)
             }
-        }
-
-        if (!methodBindMediaGalleryChatLiveBottomBar.isPlaceholder) {
             methodBindMediaGalleryChatLiveBottomBar.hookAfter {
                 val layer = thisObject!!
                 val bindContext = args[0]!!

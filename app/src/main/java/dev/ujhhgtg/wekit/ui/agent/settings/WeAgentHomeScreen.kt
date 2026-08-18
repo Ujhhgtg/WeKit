@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -11,55 +11,74 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.wekit.activity.agent.AgentSettingsScreen
+import androidx.compose.ui.res.stringResource
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Auto_stories
+import com.composables.icons.materialsymbols.outlined.Bolt
+import com.composables.icons.materialsymbols.outlined.Chevron_right
+import com.composables.icons.materialsymbols.outlined.Cloud
+import com.composables.icons.materialsymbols.outlined.Construction
+import com.composables.icons.materialsymbols.outlined.Edit_note
+import com.composables.icons.materialsymbols.outlined.Extension
+import com.composables.icons.materialsymbols.outlined.Folder
+import com.composables.icons.materialsymbols.outlined.Folder_open
+import com.composables.icons.materialsymbols.outlined.Key
+import com.composables.icons.materialsymbols.outlined.Notes
+import com.composables.icons.materialsymbols.outlined.Notifications_active
+import com.composables.icons.materialsymbols.outlined.Psychology
+import com.composables.icons.materialsymbols.outlined.Search
+import com.composables.icons.materialsymbols.outlined.Send
+import com.composables.icons.materialsymbols.outlined.Smart_display
+import com.composables.icons.materialsymbols.outlined.Smart_toy
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.agent.AgentSettingsRoute
 import dev.ujhhgtg.wekit.agent.data.OverlayMode
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
-import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
+import dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
-import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 
 /**
  * WeAgent settings home.
  */
 @Composable
-fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
+fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
     val scope = rememberCoroutineScope()
+    val memoryEnabled by WeAgentService.memoryEnabled
 
     var loaded by remember { mutableStateOf(false) }
     var dynamicTools by remember { mutableStateOf(false) }
-    var overlayMode by remember { mutableStateOf(OverlayMode.ALWAYS) }
-    var sendWhileRunning by remember { mutableStateOf("QUEUE_AFTER_TURN") }
-    var maxRequests by remember { mutableStateOf(WeAgentSettings.DEFAULT_MAX_MODEL_REQUESTS.toString()) }
+    var overlayMode by remember { mutableStateOf(OverlayMode.DISABLED) }
+    var sendWhileRunning by remember { mutableStateOf(WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN) }
     var smallModelId by remember { mutableStateOf<String?>(null) }
     var defaultModelId by remember { mutableStateOf<String?>(null) }
     var defaultSystemPromptId by remember { mutableStateOf<String?>(null) }
     var defaultWorkspaceId by remember { mutableStateOf<String?>(null) }
 
-    // These must come from the live DB flows, not a one-shot read: MiuixStackNavigator keeps the whole
-    // stack composed, so this screen never leaves composition and a LaunchedEffect(Unit) would never
-    // re-run. A model/prompt/workspace added on a child screen has to show up in these dropdowns as
-    // soon as the user comes back.
-    val models by remember { WeAgentRepository.observeModels() }.collectAsState(initial = emptyList())
-    val systemPrompts by remember { WeAgentRepository.observeSystemPrompts() }.collectAsState(initial = emptyList())
-    val workspaces by remember { WeAgentRepository.observeWorkspaces() }.collectAsState(initial = emptyList())
+    // These must come from the live DB flows, not a one-shot read: a model/prompt/workspace added
+    // on a child screen has to show up in these dropdowns as soon as the user comes back, no
+    // matter how the nav host composes covered entries.
+    // Null until the flow's first emission: the selector rows below must not compose against a
+    // not-yet-loaded option list, since a persisted non-null id would not match any option.
+    val models by remember { WeAgentRepository.observeModels() }
+        .collectAsState(initial = null)
+    val systemPrompts by remember { WeAgentRepository.observeSystemPrompts() }
+        .collectAsState(initial = null)
+    val workspaces by remember { WeAgentRepository.observeWorkspaces() }
+        .collectAsState(initial = null)
 
     LaunchedEffect(Unit) {
-        dynamicTools = WeAgentSettings.toolLoadingMode() == dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode.DYNAMIC
+        dynamicTools = WeAgentSettings.toolLoadingMode() == ToolLoadingMode.DYNAMIC
         overlayMode = WeAgentSettings.overlayMode()
-        sendWhileRunning = WeAgentSettings.sendWhileRunningMode().name
-        maxRequests = WeAgentSettings.maxModelRequests().toString()
+        sendWhileRunning = WeAgentSettings.sendWhileRunningMode()
         smallModelId = WeAgentSettings.smallModelId()
         defaultModelId = WeAgentSettings.defaultModelId()
         defaultSystemPromptId = WeAgentSettings.defaultSystemPromptId()
@@ -67,225 +86,266 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
         loaded = true
     }
 
-    AgentSettingsScaffold(title = "WeAgent 设置", onBack = null) {
+    AgentSettingsScaffold(title = stringResource(R.string.agent_settings_title), onBack = null) {
         // ---------- 界面 ----------
-        item { MiuixSmallTitle("界面") }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
+            SegmentedColumn(title = stringResource(R.string.settings_section_interface)) {
                 if (loaded) {
-                    WindowDropdownPreference(
-                        title = "悬浮窗模式",
-                        summary = "悬浮球何时显示（禁用后仍可从聊天工具栏唤起）",
-                        items = OverlayMode.entries.map { it.label },
-                        selectedIndex = OverlayMode.entries.indexOf(overlayMode),
-                        onSelectedIndexChange = {
-                            val mode = OverlayMode.entries[it]
-                            overlayMode = mode
-                            WeAgentOverlayController.setMode(mode)
-                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_OVERLAY_MODE, mode.name) }
-                        },
-                    )
+                    item {
+                        DropDownMenuWidget(
+                            icon = MaterialSymbols.Outlined.Smart_display,
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_overlay_mode_title),
+                            description = null,
+                            value = overlayMode,
+                            options = OverlayMode.entries.map { DropdownOption(it, it.labelRes()) },
+                            onValueChange = { mode ->
+                                overlayMode = mode
+                                WeAgentOverlayController.setMode(mode)
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_OVERLAY_MODE, mode.name) }
+                            },
+                        )
+                    }
                 }
             }
         }
 
         // ---------- 模型 ----------
-        item { MiuixSmallTitle("模型") }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = "模型提供方",
-                    summary = "配置 OpenAI / Anthropic / Gemini 服务器、API Key、模型",
-                    onClick = { onOpen(AgentSettingsScreen.ModelProviders) },
-                )
-                if (loaded) {
-                    // 文本在左，短输入框在右
-                    Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("每轮请求上限", modifier = Modifier.weight(1f))
-                        TextField(
-                            value = maxRequests,
-                            onValueChange = { v -> maxRequests = v.filter { it.isDigit() }.take(3) },
-                            label = "",
-                            useLabelAsPlaceholder = true,
-                            singleLine = true,
-                            modifier = Modifier.width(96.dp),
+            SegmentedColumn(title = stringResource(R.string.agent_section_models)) {
+                item {
+                    BaseWidget(
+                        icon = MaterialSymbols.Outlined.Cloud,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_model_providers_title),
+                        description = stringResource(R.string.agent_model_providers_summary),
+                        onClick = { onOpen(AgentSettingsRoute.ModelProviders) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                if (loaded && models != null) {
+                    item {
+                        DropDownMenuWidget(
+                            icon = MaterialSymbols.Outlined.Bolt,
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_small_model_title),
+                            description = null,
+                            value = staleToNull(smallModelId, models!!.map { it.id }),
+                            options = listOf(DropdownOption<String?>(null, stringResource(R.string.agent_same_as_primary_model))) +
+                                models!!.map { DropdownOption(it.id, it.displayName.ifBlank { it.modelIdRemote }) },
+                            onValueChange = { id ->
+                                smallModelId = id
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SMALL_MODEL_ID, id.orEmpty()) }
+                            },
                         )
                     }
-                    ModelDropdown(
-                        title = "审批 / 标题小模型",
-                        models = models,
-                        selectedId = smallModelId,
-                        noneLabel = "（与主模型相同）",
-                    ) { id ->
-                        smallModelId = id
-                        scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SMALL_MODEL_ID, id.orEmpty()) }
+                    item {
+                        DropDownMenuWidget(
+                            icon = MaterialSymbols.Outlined.Send,
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_send_while_running_title),
+                            description = null,
+                            value = sendWhileRunning,
+                            options = WeAgentService.SendWhileRunningMode.entries.map { DropdownOption(it, it.labelRes()) },
+                            onValueChange = { mode ->
+                                sendWhileRunning = mode
+                                WeAgentService.sendWhileRunningMode.value = mode
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SEND_WHILE_RUNNING, mode.name) }
+                            },
+                        )
                     }
-                    WindowDropdownPreference(
-                        title = "运行中发送行为",
-                        items = listOf("队列（本轮结束后发送）", "引导（下次请求前插入）"),
-                        selectedIndex = if (sendWhileRunning == "QUEUE_AS_STEER") 1 else 0,
-                        onSelectedIndexChange = {
-                            val mode = if (it == 1) "QUEUE_AS_STEER" else "QUEUE_AFTER_TURN"
-                            sendWhileRunning = mode
-                            WeAgentService.sendWhileRunningMode.value =
-                                if (mode == "QUEUE_AS_STEER") WeAgentService.SendWhileRunningMode.QUEUE_AS_STEER
-                                else WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN
-                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_SEND_WHILE_RUNNING, mode) }
-                        },
-                    )
                 }
             }
         }
 
         // ---------- 工具 ----------
-        item { MiuixSmallTitle("工具") }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = "内置工具",
-                    summary = "微信操作 / 数据库 SQL / 文件与技能，逐项设置权限",
-                    onClick = { onOpen(AgentSettingsScreen.BuiltinTools) },
-                )
-                ArrowPreference(
-                    title = "MCP 服务器",
-                    summary = "添加 Streamable HTTP / SSE 服务器",
-                    onClick = { onOpen(AgentSettingsScreen.McpServers) },
-                )
-                if (loaded) {
-                    SwitchPreference(
-                        title = "动态工具发现",
-                        summary = "仅提供 discover_tools 元工具，按需暴露其余工具（工具很多时省 token）",
-                        checked = dynamicTools,
-                        onCheckedChange = {
-                            dynamicTools = it
-                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_TOOL_LOADING_MODE, if (it) "DYNAMIC" else "STATIC") }
-                        },
+            SegmentedColumn(title = stringResource(R.string.agent_section_tools)) {
+                item {
+                    BaseWidget(
+                        icon = MaterialSymbols.Outlined.Construction,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_builtin_tools_title),
+                        description = stringResource(R.string.agent_builtin_tools_summary),
+                        onClick = { onOpen(AgentSettingsRoute.BuiltinTools) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     )
                 }
-                ArrowPreference(
-                    title = "工作区",
-                    summary = "文件工作区目录管理",
-                    onClick = { onOpen(AgentSettingsScreen.Workspaces) },
-                )
-                ArrowPreference(
-                    title = "记忆",
-                    summary = "全局开关与记忆索引查看",
-                    onClick = { onOpen(AgentSettingsScreen.Memory) },
-                )
-                ArrowPreference(
-                    title = "外部服务",
-                    summary = "Exa Search、Brave Search 等网络工具的 API Key",
-                    onClick = { onOpen(AgentSettingsScreen.ExternalServices) },
-                )
+                item {
+                    BaseWidget(
+                        icon = MaterialSymbols.Outlined.Extension,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_mcp_servers_title),
+                        description = stringResource(R.string.agent_mcp_servers_summary),
+                        onClick = { onOpen(AgentSettingsRoute.McpServers) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                if (loaded) {
+                    item {
+                        SwitchWidget(
+                            icon = MaterialSymbols.Outlined.Search,
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_dynamic_tools_title),
+                            description = stringResource(R.string.agent_dynamic_tools_summary),
+                            checked = dynamicTools,
+                            onCheckedChange = {
+                                dynamicTools = it
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_TOOL_LOADING_MODE, if (it) "DYNAMIC" else "STATIC") }
+                            },
+                        )
+                    }
+                }
+                item {
+                    BaseWidget(
+                        icon = MaterialSymbols.Outlined.Folder,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_workspaces_title),
+                        description = stringResource(R.string.agent_workspaces_summary),
+                        onClick = { onOpen(AgentSettingsRoute.Workspaces) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                item {
+                    SwitchWidget(
+                        icon = MaterialSymbols.Outlined.Psychology,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_memory_title),
+                        description = stringResource(
+                            if (memoryEnabled) R.string.agent_memory_enabled_summary
+                            else R.string.agent_memory_disabled_summary
+                        ),
+                        onClick = { onOpen(AgentSettingsRoute.Memory) },
+                        trailingDivider = true,
+                        checked = memoryEnabled,
+                        onCheckedChange = { on -> scope.launch { WeAgentService.setMemoryEnabled(on) } },
+                    )
+                }
+                item {
+                    BaseWidget(
+                        icon = MaterialSymbols.Outlined.Key,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_external_services_title),
+                        description = stringResource(R.string.agent_external_services_summary),
+                        onClick = { onOpen(AgentSettingsRoute.ExternalServices) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
             }
         }
 
         // ---------- 上下文 ----------
-        item { MiuixSmallTitle("上下文") }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = "提示词",
-                    summary = "系统 / 每轮 / 条件 / 预设 提示词",
-                    onClick = { onOpen(AgentSettingsScreen.Prompts) },
-                )
-                ArrowPreference(
-                    title = "技能",
-                    summary = "任务操作手册, 可被 LLM 动态发现并按需加载",
-                    onClick = { onOpen(AgentSettingsScreen.Skills) },
-                )
-                ArrowPreference(
-                    title = "触发器",
-                    summary = "定时 / 新消息 / 数据库事件自动唤起 AI, 支持会话级与全局触发器",
-                    onClick = { onOpen(AgentSettingsScreen.Triggers) },
-                )
+            SegmentedColumn(title = stringResource(R.string.agent_section_context)) {
+                item {
+                    BaseWidget(
+                        icon = MaterialSymbols.Outlined.Edit_note,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_prompts_title),
+                        description = stringResource(R.string.agent_prompts_summary),
+                        onClick = { onOpen(AgentSettingsRoute.Prompts) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                item {
+                    BaseWidget(
+                        icon = MaterialSymbols.Outlined.Auto_stories,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_skills_title),
+                        description = stringResource(R.string.agent_skills_summary),
+                        onClick = { onOpen(AgentSettingsRoute.Skills) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
+                item {
+                    BaseWidget(
+                        icon = MaterialSymbols.Outlined.Notifications_active,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_triggers_title),
+                        description = stringResource(R.string.agent_triggers_summary),
+                        onClick = { onOpen(AgentSettingsRoute.Triggers) },
+                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
             }
         }
 
         // ---------- 默认 ----------
-        if (loaded) {
-            item { MiuixSmallTitle("默认") }
+        if (loaded && models != null && systemPrompts != null && workspaces != null) {
             item {
-                Card(Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET)) {
-                    ModelDropdown(
-                        title = "默认模型",
-                        models = models,
-                        selectedId = defaultModelId,
-                        noneLabel = "（使用第一个模型）",
-                    ) { id ->
-                        defaultModelId = id
-                        scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_MODEL_ID, id.orEmpty()) }
+                SegmentedColumn(
+                    title = stringResource(R.string.agent_section_defaults),
+                    modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                ) {
+                    item {
+                        DropDownMenuWidget(
+                            icon = MaterialSymbols.Outlined.Smart_toy,
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_default_model_title),
+                            description = null,
+                            value = staleToNull(defaultModelId, models!!.map { it.id }),
+                            options = listOf(DropdownOption<String?>(null, stringResource(R.string.agent_use_first_model))) +
+                                models!!.map { DropdownOption(it.id, it.displayName.ifBlank { it.modelIdRemote }) },
+                            onValueChange = { id ->
+                                defaultModelId = id
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_MODEL_ID, id.orEmpty()) }
+                            },
+                        )
                     }
-                    GenericDropdown(
-                        title = "默认系统提示词",
-                        items = systemPrompts.map { it.id to it.name },
-                        selectedId = defaultSystemPromptId,
-                        noneLabel = "（无）",
-                    ) { id ->
-                        defaultSystemPromptId = id
-                        scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_SYSTEM_PROMPT_ID, id.orEmpty()) }
+                    item {
+                        DropDownMenuWidget(
+                            icon = MaterialSymbols.Outlined.Notes,
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_default_system_prompt_title),
+                            description = null,
+                            value = staleToNull(defaultSystemPromptId, systemPrompts!!.map { it.id }),
+                            options = listOf(DropdownOption<String?>(null, stringResource(R.string.common_none_parenthesized))) +
+                                systemPrompts!!.map { DropdownOption(it.id, it.name) },
+                            onValueChange = { id ->
+                                defaultSystemPromptId = id
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_SYSTEM_PROMPT_ID, id.orEmpty()) }
+                            },
+                        )
                     }
-                    GenericDropdown(
-                        title = "默认工作区",
-                        items = workspaces.map { it.id to it.name },
-                        selectedId = defaultWorkspaceId,
-                        noneLabel = "（无）",
-                    ) { id ->
-                        defaultWorkspaceId = id
-                        scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_WORKSPACE_ID, id.orEmpty()) }
+                    item {
+                        DropDownMenuWidget(
+                            icon = MaterialSymbols.Outlined.Folder_open,
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_default_workspace_title),
+                            description = null,
+                            value = staleToNull(defaultWorkspaceId, workspaces!!.map { it.id }),
+                            options = listOf(DropdownOption<String?>(null, stringResource(R.string.common_none_parenthesized))) +
+                                workspaces!!.map { DropdownOption(it.id, it.name) },
+                            onValueChange = { id ->
+                                defaultWorkspaceId = id
+                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_WORKSPACE_ID, id.orEmpty()) }
+                            },
+                        )
                     }
                 }
             }
         }
     }
-
-    // Persist the (validated) request cap as it changes — but only AFTER the initial load has
-    // populated the field. Otherwise this effect fires on first composition with the default
-    // ("50") and clobbers the stored value before LaunchedEffect(Unit) can read it back, so the
-    // setting never appears to persist across screen opens.
-    LaunchedEffect(maxRequests, loaded) {
-        if (!loaded) return@LaunchedEffect
-        // Blank means "still typing" — don't store anything yet.
-        val typed = maxRequests.toIntOrNull() ?: return@LaunchedEffect
-        val clamped = typed.coerceIn(1, 100)
-        // Write the clamp back into the field as well, otherwise the UI would keep showing the raw
-        // input (e.g. "500" or "0") while a different value is actually stored.
-        if (clamped != typed) maxRequests = clamped.toString()
-        WeAgentSettings.set(WeAgentSettings.KEY_MAX_MODEL_REQUESTS, clamped.toString())
-    }
 }
 
-@Composable
-private fun ModelDropdown(
-    title: String,
-    models: List<ModelEntity>,
-    selectedId: String?,
-    noneLabel: String,
-    onSelected: (String?) -> Unit,
-) = GenericDropdown(
-    title = title,
-    items = models.map { it.id to it.displayName.ifBlank { it.modelIdRemote } },
-    selectedId = selectedId,
-    noneLabel = noneLabel,
-    onSelected = onSelected,
-)
+/**
+ * Maps an id whose entity no longer exists in the live list (e.g. deleted on a child screen
+ * while it was still the persisted default) to null so the dropdown renders its no-selection
+ * option instead of failing to find the value in [DropDownMenuWidget]'s option list.
+ */
+private fun <T> staleToNull(v: T?, list: List<T>): T? = if (v != null && v !in list) null else v
 
-/** Dropdown over (id, label) pairs with an optional leading "none" entry mapping to null. */
+/** Localized picker label for [OverlayMode]; declaration order is the picker order. */
 @Composable
-private fun GenericDropdown(
-    title: String,
-    items: List<Pair<String, String>>,
-    selectedId: String?,
-    noneLabel: String?,
-    onSelected: (String?) -> Unit,
-) {
-    val ids = buildList { if (noneLabel != null) add(null); items.forEach { add(it.first) } }
-    val labels = buildList { if (noneLabel != null) add(noneLabel); items.forEach { add(it.second) } }
-    val selectedIndex = ids.indexOf(selectedId).coerceAtLeast(0)
-    WindowDropdownPreference(
-        title = title,
-        items = labels,
-        selectedIndex = selectedIndex,
-        onSelectedIndexChange = { onSelected(ids[it]) },
-    )
-}
+private fun OverlayMode.labelRes(): String = stringResource(when (this) {
+    OverlayMode.DISABLED -> R.string.agent_overlay_mode_disabled
+    OverlayMode.FOREGROUND_ONLY -> R.string.agent_overlay_mode_foreground_only
+    OverlayMode.ALWAYS -> R.string.agent_overlay_mode_always
+})
+
+/** Localized picker label for the send-while-running behavior; declaration order is the picker order. */
+@Composable
+private fun WeAgentService.SendWhileRunningMode.labelRes(): String = stringResource(when (this) {
+    WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN -> R.string.agent_send_queue_after_turn
+    WeAgentService.SendWhileRunningMode.QUEUE_AS_STEER -> R.string.agent_send_steer_next_request
+})

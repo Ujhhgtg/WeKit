@@ -4,11 +4,13 @@ import android.content.Context
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Folder
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.panel.RECENT_PACK_ID
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.StickerPanelRepository
@@ -27,9 +29,10 @@ import java.nio.file.Files
 import kotlin.io.path.name
 
 @Feature(
-    name = "保存到面板",
-    categories = ["聊天"],
-    description = "在表情或语音消息菜单添加保存按钮, 可选择对应面板中的目标包",
+    id = "保存到面板",
+    nameRes = "feature_save_to_panel_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_save_to_panel_description",
 )
 object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
@@ -46,7 +49,7 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> = listOf(
         WeChatMessageContextMenuApi.MenuItem(
             id = 777024,
-            text = "保存到面板",
+            text = localizedChatString(R.string.chat_save_to_panel_menu),
             drawable = DownloadIcon,
             imageVector = MaterialSymbols.Outlined.Download,
             isSupported = ::isSupportedMessage,
@@ -99,9 +102,9 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
             val packs = withContext(Dispatchers.IO) { StickerPanelRepository.loadPacks() }
             showPanelPackPicker(
                 context = pending.context,
-                title = "选择表情包",
-                createLabel = "新建表情包",
-                itemCountLabel = { "$it 张表情" },
+                title = pending.context.localizedChatString(R.string.chat_save_to_panel_select_sticker_pack),
+                createLabel = pending.context.localizedChatString(R.string.chat_save_to_panel_new_sticker_pack),
+                itemCountLabel = { pending.context.localizedChatQuantity(R.plurals.chat_save_to_panel_sticker_count, it, it) },
                 packIcon = MaterialSymbols.Outlined.Folder,
                 packs = packs.map { PanelPackChoice(it.id, it.title, it.itemCount) },
                 onCreatePack = { name ->
@@ -122,9 +125,9 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
             }
             showPanelPackPicker(
                 context = pending.context,
-                title = "选择语音包",
-                createLabel = "新建语音包",
-                itemCountLabel = { "$it 条语音" },
+                title = pending.context.localizedChatString(R.string.chat_save_to_panel_select_voice_pack),
+                createLabel = pending.context.localizedChatString(R.string.chat_save_to_panel_new_voice_pack),
+                itemCountLabel = { pending.context.localizedChatQuantity(R.plurals.chat_save_to_panel_voice_count, it, it) },
                 packIcon = MaterialSymbols.Outlined.Folder,
                 packs = packs.map { PanelPackChoice(it.id, it.title, it.itemCount) },
                 onCreatePack = { name ->
@@ -161,22 +164,22 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
         if (pending.messages.size == 1) {
             return when {
                 succeeded == 1 && pending.stickerPackId != null ->
-                    "已保存贴纸到「${pending.stickerPackId}」"
+                    pending.context.localizedChatString(R.string.chat_save_to_panel_sticker_success, pending.stickerPackId!!)
 
                 succeeded == 1 && pending.voicePackId != null ->
-                    "已保存语音到「${pending.voicePackId}」"
+                    pending.context.localizedChatString(R.string.chat_save_to_panel_voice_success, pending.voicePackId!!)
 
-                pending.stickerMessages.isNotEmpty() -> "贴纸保存失败! 查看日志以了解错误详情"
-                else -> "语音保存失败! 查看日志以了解错误详情"
+                pending.stickerMessages.isNotEmpty() -> pending.context.localizedChatString(R.string.chat_sticker_save_failed)
+                else -> pending.context.localizedChatString(R.string.chat_voice_save_failed)
             }
         }
         if (pending.stickerMessages.isNotEmpty() && pending.voiceMessages.isNotEmpty()) {
-            return "已保存 $succeeded/${pending.messages.size} 条消息到面板"
+            return pending.context.localizedChatQuantity(R.plurals.chat_save_to_panel_messages_result, pending.messages.size, succeeded, pending.messages.size)
         }
         return if (pending.stickerMessages.isNotEmpty()) {
-            "已保存 $succeeded/${pending.messages.size} 张贴纸到「${pending.stickerPackId}」"
+            pending.context.localizedChatQuantity(R.plurals.chat_save_to_panel_stickers_result, pending.messages.size, succeeded, pending.messages.size, pending.stickerPackId!!)
         } else {
-            "已保存 $succeeded/${pending.messages.size} 条语音到「${pending.voicePackId}」"
+            pending.context.localizedChatQuantity(R.plurals.chat_save_to_panel_voices_result, pending.messages.size, succeeded, pending.messages.size, pending.voicePackId!!)
         }
     }
 

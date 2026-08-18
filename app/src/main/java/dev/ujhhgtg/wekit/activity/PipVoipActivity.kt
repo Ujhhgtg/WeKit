@@ -16,6 +16,7 @@ import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.Keep
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -42,6 +44,10 @@ import com.composables.icons.materialsymbols.outlined.Mic
 import com.composables.icons.materialsymbols.outlined.Mic_off
 import com.composables.icons.materialsymbols.outlined.Videocam
 import com.composables.icons.materialsymbols.outlined.Videocam_off
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleAppTheme
 
 @Keep
@@ -175,13 +181,13 @@ class PipVoipActivity : ComponentActivity() {
         val actions = mutableListOf(
             remoteAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
-                "挂断",
+                localizedString(R.string.voip_hang_up),
                 ACTION_HANG_UP,
                 REQUEST_HANG_UP,
             ),
             remoteAction(
                 android.R.drawable.ic_btn_speak_now,
-                if (micMuted) "打开麦克风" else "关闭麦克风",
+                localizedString(if (micMuted) R.string.voip_turn_on_microphone else R.string.voip_turn_off_microphone),
                 ACTION_TOGGLE_MIC,
                 REQUEST_TOGGLE_MIC,
             ),
@@ -189,7 +195,7 @@ class PipVoipActivity : ComponentActivity() {
         if (groupCall) {
             actions += remoteAction(
                 android.R.drawable.ic_menu_camera,
-                if (videoEnabled) "关闭视频" else "打开视频",
+                localizedString(if (videoEnabled) R.string.voip_turn_off_video else R.string.voip_turn_on_video),
                 ACTION_TOGGLE_VIDEO,
                 REQUEST_TOGGLE_VIDEO,
             )
@@ -202,6 +208,13 @@ class PipVoipActivity : ComponentActivity() {
         setPictureInPictureParams(params)
         return params
     }
+
+    private fun localizedString(@StringRes resourceId: Int): String =
+        LocalizedContextFactory.create(
+            this,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.ModuleApp,
+        ).getString(resourceId)
 
     private fun remoteAction(icon: Int, title: String, action: String, requestCode: Int): RemoteAction {
         val intent = Intent(this, PipVoipActionReceiver::class.java).setAction(action)
@@ -216,6 +229,12 @@ class PipVoipActivity : ComponentActivity() {
 
     @Composable
     private fun PipControls() {
+        val hangUp = stringResource(R.string.voip_hang_up)
+        val turnOnMicrophone = stringResource(R.string.voip_turn_on_microphone)
+        val turnOffMicrophone = stringResource(R.string.voip_turn_off_microphone)
+        val turnOnVideo = stringResource(R.string.voip_turn_on_video)
+        val turnOffVideo = stringResource(R.string.voip_turn_off_video)
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -239,19 +258,19 @@ class PipVoipActivity : ComponentActivity() {
                         contentColor = MaterialTheme.colorScheme.onError,
                     ),
                 ) {
-                    Icon(MaterialSymbols.Outlined.Call_end, contentDescription = "挂断")
+                    Icon(MaterialSymbols.Outlined.Call_end, contentDescription = hangUp)
                 }
                 FilledIconButton(onClick = ::toggleMic, modifier = Modifier.size(48.dp)) {
                     Icon(
                         if (micMuted) MaterialSymbols.Outlined.Mic else MaterialSymbols.Outlined.Mic_off,
-                        contentDescription = if (micMuted) "打开麦克风" else "关闭麦克风",
+                        contentDescription = if (micMuted) turnOnMicrophone else turnOffMicrophone,
                     )
                 }
                 if (groupCall) {
                     FilledIconButton(onClick = ::toggleVideo, modifier = Modifier.size(48.dp)) {
                         Icon(
                             if (videoEnabled) MaterialSymbols.Outlined.Videocam_off else MaterialSymbols.Outlined.Videocam,
-                            contentDescription = if (videoEnabled) "关闭视频" else "打开视频",
+                            contentDescription = if (videoEnabled) turnOffVideo else turnOnVideo,
                         )
                     }
                 }

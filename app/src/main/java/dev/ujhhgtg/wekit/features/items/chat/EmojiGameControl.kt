@@ -10,7 +10,7 @@ import android.os.Looper
 import android.view.ContextThemeWrapper
 import android.view.View
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,10 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,20 +30,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.tencent.mm.api.IEmojiInfo
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -62,7 +64,12 @@ import kotlin.math.atan2
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-@Feature(name = "表情游戏控制", categories = ["聊天"], description = "自定义猜拳和骰子的结果")
+@Feature(
+    id = "表情游戏控制",
+    nameRes = "feature_emoji_game_control_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_emoji_game_control_description",
+)
 object EmojiGameControl : ClickableFeature(), IResolveDex {
 
     private const val MD5_MORRA = "9bd1281af3a31710a45b84d736363691"
@@ -95,8 +102,10 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
 
     private var stealthMode by prefOption("emoji_game_stealth", false)
 
-    private enum class MorraType(val chineseName: String) {
-        SCISSORS("剪刀"), STONE("石头"), PAPER("布")
+    private enum class MorraType(@StringRes val nameRes: Int) {
+        SCISSORS(R.string.chat_emoji_game_scissors),
+        STONE(R.string.chat_emoji_game_rock),
+        PAPER(R.string.chat_emoji_game_paper),
     }
 
     private enum class DiceFace(val chineseName: String) {
@@ -156,14 +165,14 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         // No sensor data yet — fall back to random
         if (ax == 0f && ay == 0f && az == 0f) {
             WeLogger.w(TAG, "no sensor data, using random")
-            showToast("暂无传感器数据, 正使用随机数!")
+            showToast(localizedChatString(R.string.chat_emoji_game_no_sensor))
             return Random.nextInt(if (isDice) 6 else 3)
         }
 
         // Accelerating significantly — motion fallback
         if (isInMotion(ax, ay, az)) {
             WeLogger.w(TAG, "accelerating signaficantly")
-            showToast("加速度过高, 正使用随机数!")
+            showToast(localizedChatString(R.string.chat_emoji_game_motion_fallback))
             return Random.nextInt(if (isDice) 6 else 3)
         }
 
@@ -246,8 +255,14 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 if (isDice) valDice = value else valMorra = value
 
                 val name = if (isDice) DiceFace.entries[value].chineseName
-                else MorraType.entries[value].chineseName
-                showToast(activity, "${if (isDice) "骰子" else "猜拳"}: $name")
+                else activity.localizedChatString(MorraType.entries[value].nameRes)
+                showToast(
+                    activity,
+                    activity.localizedChatString(
+                        if (isDice) R.string.chat_emoji_game_dice_result else R.string.chat_emoji_game_morra_result,
+                        name,
+                    ),
+                )
 
                 invokeOriginalMethod()
             } else {
@@ -268,22 +283,24 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("表情游戏控制") },
+                title = { Text(stringResource(R.string.feature_emoji_game_control_name)) },
                 text = {
                     var stealthInput by remember { mutableStateOf(stealthMode) }
 
-                    ListItem(
-                        modifier = Modifier.clickable {
-                            stealthInput = !stealthInput
-                            stealthMode = stealthInput
+                    SwitchWidget(
+                        title = stringResource(R.string.chat_emoji_game_stealth),
+                        description = stringResource(R.string.chat_emoji_game_stealth_description),
+                        checked = stealthInput,
+                        onCheckedChange = {
+                            stealthInput = it
+                            stealthMode = it
                         },
-                        trailingContent = {
-                            Switch(checked = stealthInput, onCheckedChange = null)
-                        },
-                        supportingContent = { Text("根据设备陀螺仪状态选择发送内容") },
-                        content = { Text("隐蔽模式") },
                     )
-                })
+                },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
+            )
         }
     }
 
@@ -301,14 +318,14 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         } else {
                             val values = parseMultipleInput(inputText, isDice)
                             if (values.isEmpty()) {
-                                showToast(activity, "输入格式错误!")
+                                showToast(activity, activity.localizedChatString(R.string.chat_emoji_game_invalid_input))
                                 return@EmojiGameDialogContent
                             }
                             sendMultiple(originalMethod, values, isDice, activity)
                         }
                     } catch (e: Throwable) {
                         WeLogger.e(TAG, "failed to send", e)
-                        showToast(activity, "发送失败")
+                        showToast(activity, activity.localizedChatString(R.string.chat_send_failed))
                     }
                 },
                 onRandom = { isSingle ->
@@ -326,7 +343,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         }
                     } catch (e: Throwable) {
                         WeLogger.e(TAG, "failed to send random", e)
-                        showToast(activity, "发送失败")
+                        showToast(activity, activity.localizedChatString(R.string.chat_send_failed))
                     }
                 },
                 onDismiss = onDismiss
@@ -348,7 +365,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         var selectedIndex by remember { mutableIntStateOf(0) }
 
         val options = if (isDice) DiceFace.entries.map { it.chineseName }
-        else MorraType.entries.map { it.chineseName }
+        else MorraType.entries.map { stringResource(it.nameRes) }
 
         // keep valMorra / valDice in sync
         LaunchedEffect(selectedIndex, isSingleMode) {
@@ -358,7 +375,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         }
 
         AlertDialogContent(
-            title = { Text(if (isDice) "选择骰子点数" else "选择猜拳结果") },
+            title = { Text(stringResource(if (isDice) R.string.chat_emoji_game_select_dice else R.string.chat_emoji_game_select_morra)) },
             text = {
                 DefaultColumn {
                     Row(
@@ -366,11 +383,14 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "发送模式: ",
+                            stringResource(R.string.chat_emoji_game_send_mode),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        listOf("单次" to true, "多次" to false).forEach { (label, single) ->
+                        listOf(
+                            stringResource(R.string.chat_emoji_game_single) to true,
+                            stringResource(R.string.chat_emoji_game_multiple) to false,
+                        ).forEach { (label, single) ->
                             FilterChip(
                                 selected = isSingleMode == single,
                                 onClick = { isSingleMode = single },
@@ -411,7 +431,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         OutlinedTextField(
                             value = inputText,
                             onValueChange = { inputText = it.filter { c -> c.isDigit() } },
-                            placeholder = { Text(if (isDice) "输入 1~6" else "输入 1:剪刀 2:石头 3:布") },
+                            placeholder = { Text(stringResource(if (isDice) R.string.chat_emoji_game_dice_input else R.string.chat_emoji_game_morra_input)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -419,11 +439,11 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 }
             },
             dismissButton = {
-                TextButton(onDismiss) { Text("取消") }
+                TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 TextButton(onClick = {
                     onRandom(isSingleMode)
                     onDismiss()
-                }) { Text("随机") }
+                }) { Text(stringResource(R.string.chat_emoji_game_random)) }
             },
             confirmButton = {
                 // In single mode the option buttons send directly; only show confirm in multimode
@@ -431,7 +451,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                     Button(onClick = {
                         onSend(false, inputText)
                         onDismiss()
-                    }) { Text("发送") }
+                    }) { Text(stringResource(R.string.chat_emoji_game_send)) }
                 }
             })
     }
@@ -472,13 +492,13 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "failed to send at index $index", e)
                     activity.runOnUiThread {
-                        showToast(activity, "第 ${index + 1} 次发送失败")
+                        showToast(activity, activity.localizedChatString(R.string.chat_emoji_game_send_index_failed, index + 1))
                     }
                 }
             }
 
             activity.runOnUiThread {
-                showToast(activity, "已发送 ${values.size} 次")
+                showToast(activity, activity.localizedChatQuantity(R.plurals.chat_emoji_game_sent_count, values.size, values.size))
             }
         }.start()
     }

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import com.tencent.mm.ui.LauncherUI
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -65,10 +66,10 @@ object SettingsConfigActions {
                             stream.writer().use { it.write(exportJson) }
                         }
                     }.onFailure {
-                        showToastSuspend("导出失败!")
+                        showToastSuspend(context.getString(R.string.config_export_failed))
                         WeLogger.e("WePrefs", "failed to export", it)
                     }.onSuccess {
-                        showToastSuspend("导出成功")
+                        showToastSuspend(context.getString(R.string.config_export_success))
                     }
                     withContext(Dispatchers.Main) { finish() }
                 }
@@ -114,10 +115,10 @@ object SettingsConfigActions {
                             }
                         }
                     }.onFailure {
-                        showToastSuspend("导入失败!")
+                        showToastSuspend(context.getString(R.string.config_import_failed))
                         WeLogger.e("WePrefs", "failed to import", it)
                     }.onSuccess {
-                        showToastSuspend("导入成功")
+                        showToastSuspend(context.getString(R.string.config_import_success))
                     }
                     withContext(Dispatchers.Main) { finish() }
                 }

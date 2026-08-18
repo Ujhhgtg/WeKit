@@ -7,13 +7,19 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import java.lang.reflect.Proxy
 import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicBoolean
 
-@Feature(name = "授权与登录服务", categories = ["API"], description = "提供微信网页/小程序的授权登录能力")
+@Feature(
+    id = "授权与登录服务",
+    nameRes = "feature_we_auth_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_auth_api_description",
+)
 object WeAuthApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeAuthApi"

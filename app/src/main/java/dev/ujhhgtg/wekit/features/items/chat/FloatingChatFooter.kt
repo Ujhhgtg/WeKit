@@ -16,46 +16,49 @@ import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.tencent.mm.pluginsdk.ui.chat.AppPanel
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooterBottom
 import com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.PANEL_TOP_RESERVE_DP
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.maxPanelHeight
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.movePanelAbove
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.offscreenHeight
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.allViews
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.constructor
 import java.util.WeakHashMap
-import kotlin.math.roundToInt
 
 @Feature(
-    name = "悬浮输入框",
-    categories = ["聊天"],
-    description = "将聊天输入框改为悬浮卡片形式, 带有圆角、阴影和侧边距\n" +
-        "建议同时启用「聊天/聊天界面沉浸」"
+    id = "悬浮输入框",
+    nameRes = "feature_floating_chat_footer_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_floating_chat_footer_description",
 )
 object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
@@ -910,85 +913,95 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var cornerInput by remember { mutableFloatStateOf(cornerRadiusDp.toFloat()) }
-            var sideInput by remember { mutableFloatStateOf(sideMarginDp.toFloat()) }
-            var gapInput by remember { mutableFloatStateOf(bottomGapDp.toFloat()) }
-            var elevInput by remember { mutableFloatStateOf(elevationDp.toFloat()) }
-            var panelAboveInput by remember { mutableStateOf(movePanelAbove) }
+            var corner by remember { mutableIntStateOf(cornerRadiusDp) }
+            var side by remember { mutableIntStateOf(sideMarginDp) }
+            var gap by remember { mutableIntStateOf(bottomGapDp) }
+            var elev by remember { mutableIntStateOf(elevationDp) }
+            var panelAbove by remember { mutableStateOf(movePanelAbove) }
 
             AlertDialogContent(
-                title = { Text("悬浮输入框") },
+                title = { Text(stringResource(R.string.chat_floating_footer_title)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            content = { Text("菜单显示在输入框上方") },
-                            supportingContent = {
-                                Text("表情与工具菜单从输入框上沿向上展开, 输入框位置不动; 关闭则维持微信原样")
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = panelAboveInput,
-                                    onCheckedChange = { panelAboveInput = it }
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_floating_footer_panel_above),
+                                description = stringResource(R.string.chat_floating_footer_panel_above_summary),
+                                checked = panelAbove,
+                                onCheckedChange = {
+                                    panelAbove = it
+                                    movePanelAbove = it
+                                },
+                            )
+                        }
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_floating_corner_radius_label),
+                                    value = corner,
+                                    startInt = MIN_CORNER_RADIUS,
+                                    endInt = MAX_CORNER_RADIUS,
+                                    stepSize = 1,
+                                    valueSuffix = "dp",
+                                    onValueChange = {
+                                        corner = it
+                                        cornerRadiusDp = it
+                                    },
                                 )
                             }
-                        )
-                        ListItem(
-                            content = { Text("圆角半径: ${cornerInput.roundToInt()} dp") },
-                            supportingContent = {
-                                Slider(
-                                    value = cornerInput,
-                                    onValueChange = { cornerInput = it },
-                                    valueRange = MIN_CORNER_RADIUS.toFloat()..MAX_CORNER_RADIUS.toFloat(),
-                                    steps = MAX_CORNER_RADIUS - MIN_CORNER_RADIUS - 1
+                        }
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_floating_side_margin_label),
+                                    value = side,
+                                    startInt = MIN_SIDE_MARGIN,
+                                    endInt = MAX_SIDE_MARGIN,
+                                    stepSize = 1,
+                                    valueSuffix = "dp",
+                                    onValueChange = {
+                                        side = it
+                                        sideMarginDp = it
+                                    },
                                 )
                             }
-                        )
-                        ListItem(
-                            content = { Text("侧边距: ${sideInput.roundToInt()} dp") },
-                            supportingContent = {
-                                Slider(
-                                    value = sideInput,
-                                    onValueChange = { sideInput = it },
-                                    valueRange = MIN_SIDE_MARGIN.toFloat()..MAX_SIDE_MARGIN.toFloat(),
-                                    steps = MAX_SIDE_MARGIN - MIN_SIDE_MARGIN - 1
+                        }
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_floating_bottom_gap_label),
+                                    value = gap,
+                                    startInt = MIN_BOTTOM_GAP,
+                                    endInt = MAX_BOTTOM_GAP,
+                                    stepSize = 1,
+                                    valueSuffix = "dp",
+                                    onValueChange = {
+                                        gap = it
+                                        bottomGapDp = it
+                                    },
                                 )
                             }
-                        )
-                        ListItem(
-                            content = { Text("底部间距: ${gapInput.roundToInt()} dp") },
-                            supportingContent = {
-                                Slider(
-                                    value = gapInput,
-                                    onValueChange = { gapInput = it },
-                                    valueRange = MIN_BOTTOM_GAP.toFloat()..MAX_BOTTOM_GAP.toFloat(),
-                                    steps = MAX_BOTTOM_GAP - MIN_BOTTOM_GAP - 1
+                        }
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_floating_elevation_label),
+                                    value = elev,
+                                    startInt = MIN_ELEVATION,
+                                    endInt = MAX_ELEVATION,
+                                    stepSize = 1,
+                                    valueSuffix = "dp",
+                                    onValueChange = {
+                                        elev = it
+                                        elevationDp = it
+                                    },
                                 )
                             }
-                        )
-                        ListItem(
-                            content = { Text("阴影强度: ${elevInput.roundToInt()} dp") },
-                            supportingContent = {
-                                Slider(
-                                    value = elevInput,
-                                    onValueChange = { elevInput = it },
-                                    valueRange = MIN_ELEVATION.toFloat()..MAX_ELEVATION.toFloat(),
-                                    steps = MAX_ELEVATION - MIN_ELEVATION - 1
-                                )
-                            }
-                        )
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
-                confirmButton = {
-                    Button(onClick = {
-                        movePanelAbove = panelAboveInput
-                        cornerRadiusDp = cornerInput.roundToInt()
-                        sideMarginDp = sideInput.roundToInt()
-                        bottomGapDp = gapInput.roundToInt()
-                        elevationDp = elevInput.roundToInt()
-                        onDismiss()
-                    }) { Text("确定") }
-                }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }

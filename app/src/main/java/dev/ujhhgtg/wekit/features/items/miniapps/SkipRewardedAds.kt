@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcesses
@@ -45,9 +46,10 @@ import java.util.concurrent.atomic.AtomicLong
  * 任一核心结构缺失时明确打 WeLogger.w 报告, 不注入半成品补丁。
  */
 @Feature(
-    name = "跳过激励广告",
-    categories = ["小程序"],
-    description = "跳过小程序激励广告: 广告展示后立即视为看完并发放奖励"
+    id = "跳过激励广告",
+    nameRes = "feature_skip_rewarded_ads_name",
+    categoryIds = [FeatureCategoryIds.MINIAPPS],
+    descriptionRes = "feature_skip_rewarded_ads_description",
 )
 object SkipRewardedAds : SwitchFeature(), IResolveDex {
 

@@ -4,9 +4,15 @@ import android.annotation.SuppressLint
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import java.lang.reflect.Method
 
-@Feature(name = "Unsafe 服务", categories = ["API"], description = "提供调用 sun.misc.Unsafe 功能的能力")
+@Feature(
+    id = "Unsafe 服务",
+    nameRes = "feature_we_unsafe_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_unsafe_api_description",
+)
 object WeUnsafeApi : ApiFeature() {
 
     private lateinit var theUnsafe: Any

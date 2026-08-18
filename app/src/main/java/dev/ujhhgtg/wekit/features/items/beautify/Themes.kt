@@ -38,19 +38,19 @@ import android.widget.RelativeLayout
 import android.widget.Space
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.content.withStyledAttributes
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.scale
@@ -70,17 +70,20 @@ import com.tencent.mm.ui.conversation.MainUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.Themes.THEMES_PATH
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -115,9 +118,10 @@ import kotlin.math.roundToInt
 @Suppress("DEPRECATION")
 @SuppressLint("DiscouragedApi", "InternalInsetResource")
 @Feature(
-    name = "主题",
-    categories = ["界面美化"],
-    description = "应用 THEMES_PATH 中的主题，切换后重启微信生效"
+    id = "主题",
+    nameRes = "feature_themes_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_themes_description",
 )
 object Themes : ClickableFeature(), IResolveDex {
 
@@ -153,12 +157,12 @@ object Themes : ClickableFeature(), IResolveDex {
         val description: String
     )
 
-    private fun getDefaultTheme() = ThemeInfo(
+    private fun getDefaultTheme(context: Context) = ThemeInfo(
         id = DEFAULT_THEME_ID,
-        name = "无",
+        name = context.localizedBeautifyString(R.string.beautify_theme_none),
         author = "—",
         version = "",
-        description = "不应用任何主题"
+        description = context.localizedBeautifyString(R.string.beautify_theme_none_summary)
     )
 
     private fun getThemePath(themeId: String): File = (THEMES_PATH / themeId).toFile()
@@ -178,7 +182,7 @@ object Themes : ClickableFeature(), IResolveDex {
             ThemeInfo(
                 id = dir.name,
                 name = json.optString("name", dir.name),
-                author = json.optString("author", "未知作者"),
+                author = json.optString("author", localizedBeautifyString(R.string.unknown_author)),
                 version = json.optString("version", "1.0"),
                 description = json.optString("description", "")
             )
@@ -2953,8 +2957,9 @@ object Themes : ClickableFeature(), IResolveDex {
     // ------------------------------------------------------------------
 
     override fun onClick(context: ComponentActivity) {
-        val themes = listOf(getDefaultTheme()) + scanThemes()
+        val themes = listOf(getDefaultTheme(context)) + scanThemes()
         showComposeDialog(context) {
+            val localizedContext = LocalContext.current
             var selectedId by remember {
                 mutableStateOf(
                     currentThemeId.takeIf { id ->
@@ -2964,62 +2969,49 @@ object Themes : ClickableFeature(), IResolveDex {
             }
 
             AlertDialogContent(
-                title = { Text("主题") },
+                title = { Text(stringResource(R.string.beautify_theme_title)) },
                 text = {
-                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        Text(
-                            text = "主题目录：${THEMES_PATH}",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "每个主题文件夹需包含 manifest.json（名称/作者/版本/描述）；" +
-                                "颜色/字符串分别放在 colors.json / strings.json；" +
-                                "图片按场景分目录存放（home/、chat/、chat/bubbles/、plus/、settings/、splash/）。" +
-                                "切换后重启微信生效。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        themes.forEach { theme ->
-                            ListItem(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { selectedId = theme.id },
-                                trailingContent = {
-                                    RadioButton(
-                                        selected = selectedId == theme.id,
-                                        onClick = { selectedId = theme.id }
-                                    )
-                                },
-                                content = { Text(theme.name) },
-                                supportingContent = {
-                                    Text(
-                                        buildString {
-                                            append("作者：${theme.author}")
-                                            if (theme.version.isNotBlank()) append(" · 版本：${theme.version}")
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item(key = "info") {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.beautify_theme_directory, THEMES_PATH),
+                                    description = stringResource(R.string.beautify_theme_instructions),
+                                )
+                            }
+                            themes.forEach { theme ->
+                                item(key = theme.id) {
+                                    RadioButtonWidget(
+                                        iconPlaceholder = false,
+                                        title = theme.name,
+                                        description = buildString {
+                                            append(localizedContext.getString(R.string.beautify_theme_author, theme.author))
+                                            if (theme.version.isNotBlank()) {
+                                                append(localizedContext.getString(R.string.beautify_theme_version, theme.version))
+                                            }
                                             if (theme.description.isNotBlank()) {
                                                 append("\n")
                                                 append(theme.description)
                                             }
-                                        }
+                                        },
+                                        selected = selectedId == theme.id,
+                                        onClick = {
+                                            selectedId = theme.id
+                                            if (theme.id != currentThemeId) {
+                                                currentThemeId = theme.id
+                                                showToast(localizedContext.getString(R.string.beautify_theme_saved))
+                                            }
+                                        },
                                     )
                                 }
-                            )
+                            }
                         }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
-                confirmButton = {
-                    Button(onClick = {
-                        if (selectedId != currentThemeId) {
-                            currentThemeId = selectedId
-                            showToast("主题已保存，重启微信生效")
-                        }
-                        onDismiss()
-                    }) {
-                        Text("保存")
-                    }
-                }
             )
         }
     }

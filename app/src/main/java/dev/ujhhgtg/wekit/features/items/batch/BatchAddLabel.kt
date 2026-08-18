@@ -10,6 +10,8 @@ import androidx.compose.material3.LinearWavyProgressIndicator
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,9 +21,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -38,9 +42,10 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "批量打标签",
-    categories = ["批量操作"],
-    description = "为选中的多个好友追加同一个标签, 可选择已有标签或新建, 请求会自动间隔以规避服务器风控"
+    id = "批量打标签",
+    nameRes = "feature_batch_add_label_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_batch_add_label_description",
 )
 object BatchAddLabel : ClickableFeature() {
 
@@ -56,13 +61,13 @@ object BatchAddLabel : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = "选择要打标签的好友",
+                title = context.localizedBatchString(R.string.batch_add_label_select_friends),
                 contacts = friends,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast("请选择至少一个好友")
+                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_friend))
                         return@ContactsSelector
                     }
 
@@ -100,14 +105,14 @@ object BatchAddLabel : ClickableFeature() {
         }
 
         AlertDialogContent(
-            title = { Text("选择标签") },
+            title = { Text(stringResource(R.string.batch_add_label_select_label)) },
             text = {
                 DefaultColumn {
                     OutlinedTextField(
                         value = newLabelName,
                         onValueChange = { newLabelName = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("新建标签 (输入名称后点击「新建并应用」)") },
+                        label = { Text(stringResource(R.string.batch_add_label_new_label_hint)) },
                         singleLine = true
                     )
 
@@ -115,7 +120,7 @@ object BatchAddLabel : ClickableFeature() {
                     if (loaded == null) {
                         LinearWavyProgressIndicator()
                     } else if (loaded.isNotEmpty()) {
-                        Text("或选择已有标签:")
+                        Text(stringResource(R.string.batch_add_label_existing_labels))
                         LazyColumn {
                             items(loaded) { label ->
                                 ListItem(
@@ -127,12 +132,12 @@ object BatchAddLabel : ClickableFeature() {
                     }
                 }
             },
-            dismissButton = { TextButton(onDismiss) { Text("取消") } },
+            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             confirmButton = {
                 Button(
                     enabled = newLabelName.isNotBlank(),
                     onClick = { onPick(newLabelName.trim()) }
-                ) { Text("新建并应用") }
+                ) { Text(stringResource(R.string.batch_add_label_create_and_apply)) }
             }
         )
     }
@@ -150,7 +155,10 @@ object BatchAddLabel : ClickableFeature() {
                     // for the server-assigned id to land
                     val labelId = WeContactLabelApi.createLabel(labelName)
                     if (labelId == null) {
-                        showToastSuspend(context, "创建标签「$labelName」失败")
+                        showToastSuspend(
+                            context,
+                            context.localizedBatchString(R.string.batch_add_label_create_failed, labelName),
+                        )
                         done = true
                         return@launch
                     }
@@ -172,18 +180,40 @@ object BatchAddLabel : ClickableFeature() {
 
             val completedValue by completed
             AlertDialogContent(
-                title = { Text(if (done) "打标签完成" else "正在打标签") },
+                title = {
+                    Text(
+                        stringResource(
+                            if (done) R.string.batch_add_label_done_title
+                            else R.string.batch_add_label_progress_title,
+                        ),
+                    )
+                },
                 text = {
                     DefaultColumn {
                         Text(
-                            if (done) "已为 $completedValue/$total 位好友添加标签「$labelName」"
-                            else "正在添加标签「$labelName」, 请稍等...\n已完成: $completedValue/$total"
+                            if (done) {
+                                pluralStringResource(
+                                    R.plurals.batch_add_label_done,
+                                    total,
+                                    completedValue,
+                                    total,
+                                    labelName,
+                                )
+                            } else {
+                                pluralStringResource(
+                                    R.plurals.batch_add_label_progress,
+                                    total,
+                                    labelName,
+                                    completedValue,
+                                    total,
+                                )
+                            }
                         )
                         LinearWavyProgressIndicator(progress = { if (total == 0) 1f else completedValue.toFloat() / total })
                     }
                 },
                 confirmButton = if (done) {
-                    { Button(onDismiss) { Text("关闭") } }
+                    { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
                 } else null
             )
         }

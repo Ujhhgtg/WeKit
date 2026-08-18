@@ -8,8 +8,12 @@ import android.content.Context
 import dev.ujhhgtg.wekit.utils.HostInfo
 
 fun copyToClipboard(context: Context, content: String) {
+    copyToClipboard(context, "text", content)
+}
+
+fun copyToClipboard(context: Context, label: CharSequence, content: String) {
     val clipboard = context.getSystemService<ClipboardManager>()
-    val clip = ClipData.newPlainText("text", content)
+    val clip = ClipData.newPlainText(label, content)
     clipboard.setPrimaryClip(clip)
 }
 

@@ -6,22 +6,19 @@ on:
       - master
       - dev
     paths-ignore:
-      - '**/*.md'
       - '**/*.txt'
       - '.editorconfig'
       - '.gitignore'
       - '.idea/**'
-      - 'docs/**'
   pull_request:
     branches:
       - master
+      - dev
     paths-ignore:
-      - '**/*.md'
       - '**/*.txt'
       - '.editorconfig'
       - '.gitignore'
       - '.idea/**'
-      - 'docs/**'
   workflow_dispatch:
 
 permissions:
@@ -94,6 +91,11 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y gcc-multilib
+
+      - name: Validate i18n catalogs
+        run: |
+          cargo test -p xtask i18n_check
+          ./x i18n-check
 
       - name: Build native library
         run: |
@@ -215,6 +217,304 @@ jobs:
           name: wekit-zygisk
           path: wekit-zygisk/release/*.zip
           if-no-files-found: error
+
+  dex-test:
+    runs-on: ubuntu-latest
+    outputs:
+      reports-available: ${{ steps.report-check.outputs.available }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib jq unzip
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl --fail --location --retry 3 \
+            https://github.com/mgdm/htmlq/releases/download/v0.4.0/htmlq-x86_64-linux.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP/bin"
+          chmod +x "$RUNNER_TEMP/bin/htmlq"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Restore fixed WeChat APKs
+        id: apk-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/wekit-dex-test-apks
+          key: dex-test-apks-v1-${{ runner.os }}-${{ hashFiles('docs/getting-started.md', '.github/scripts/download-dex-test-apks.sh', 'xtask/src/dex_test_ci.rs') }}
+
+      - name: Restore DexKit desktop cache
+        id: dexkit-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .wekit/dex-test/source
+          key: dexkit-desktop-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', 'xtask/src/dex_test.rs') }}
+
+      - name: Generate supported APK manifest
+        run: |
+          ./x dex-test-ci sources \
+            --doc docs/getting-started.md \
+            --output "$RUNNER_TEMP/wekit-dex-test-sources.json"
+          test "$(jq '.sources | length' "$RUNNER_TEMP/wekit-dex-test-sources.json")" -gt 0
+
+      - name: Download supported WeChat APKs
+        id: apks
+        run: |
+          chmod +x .github/scripts/download-dex-test-apks.sh
+          set +e
+          .github/scripts/download-dex-test-apks.sh \
+            "$RUNNER_TEMP/wekit-dex-test-sources.json" \
+            "$RUNNER_TEMP/wekit-dex-test-apks" \
+            --failures-out "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" \
+            > "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+          download_status=$?
+          set -e
+          if [[ -s "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" ]]; then
+            while IFS= read -r failed_apk; do
+              echo "::warning::failed to download $failed_apk; skipping its dex resolution"
+            done < "$RUNNER_TEMP/wekit-dex-test-download-failures.txt"
+          fi
+          if [[ -s "$RUNNER_TEMP/wekit-dex-test-apks.txt" ]]; then
+            mapfile -t downloaded_apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+            echo "apk-count=${#downloaded_apks[@]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "apk-count=0" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ $download_status -ne 0 ]]; then
+            echo "::error::download script failed with status $download_status"
+            exit 1
+          fi
+
+      - name: Run desktop Dex resolution
+        id: dex-resolution
+        if: steps.apks.outcome == 'success' && fromJSON(steps.apks.outputs.apk-count || '0') > 0
+        run: |
+          mapfile -t apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+          args=()
+          for apk in "${apks[@]}"; do
+            args+=(--apk "$apk")
+          done
+          set +e
+          ./x dex-test "${args[@]}" --output-dir dex-test-results/ci
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"
+
+      - name: Check Dex resolution reports
+        id: report-check
+        if: always()
+        run: |
+          if test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Dex resolution reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wekit-dex-test-reports
+          path: dex-test-results/ci
+          if-no-files-found: warn
+
+      - name: Save fixed WeChat APKs
+        if: always() && steps.apks.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/wekit-dex-test-apks
+          key: ${{ steps.apk-cache.outputs.cache-primary-key }}
+
+      - name: Save DexKit desktop cache
+        if: always() && steps.dex-resolution.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: .wekit/dex-test/source
+          key: ${{ steps.dexkit-cache.outputs.cache-primary-key }}
+
+      - name: Enforce Dex resolution result
+        if: always()
+        env:
+          DEX_TEST_STATUS: ${{ steps.dex-resolution.outputs.status }}
+        run: |
+          test -n "$DEX_TEST_STATUS"
+          test "$DEX_TEST_STATUS" -eq 0
+
+  release-dex-test:
+    needs: dex-test
+    runs-on: ubuntu-latest
+    if: ${{ always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request' && needs.dex-test.outputs.reports-available == 'true' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Download Dex resolution reports
+        uses: actions/download-artifact@v8
+        with:
+          name: wekit-dex-test-reports
+          path: dex-test-results/ci
+
+      - name: Stage successful Release assets
+        id: stage
+        run: |
+          run_dir=$(dirname "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)")
+          test -n "$run_dir"
+          ./x dex-test-ci stage-release \
+            --run-dir "$run_dir" \
+            --output-dir dist/dex-test-release \
+            --sha "${{ github.sha }}"
+          if [[ -s dist/dex-test-release/assets.txt ]]; then
+            echo "has-assets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-assets=false" >> "$GITHUB_OUTPUT"
+            echo "No host passed; leaving the Dex-Test Release unchanged."
+          fi
+
+      - name: Create or update Dex Test Release
+        if: steps.stage.outputs.has-assets == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view Dex-Test >/dev/null 2>&1; then
+            gh release edit Dex-Test \
+              --title "Dex Test" \
+              --prerelease \
+              --notes-file dist/dex-test-release/release-notes.md
+          else
+            gh release create Dex-Test \
+              --target "${{ github.sha }}" \
+              --title "Dex Test" \
+              --prerelease \
+              --notes-file dist/dex-test-release/release-notes.md
+          fi
+
+          upload=(dist/dex-test-release/summary.json)
+          while IFS= read -r asset; do
+            [[ -n "$asset" ]] && upload+=("dist/dex-test-release/$asset")
+          done < dist/dex-test-release/assets.txt
+          gh release upload Dex-Test "${upload[@]}" --clobber
+
+  build-extensions:
+    runs-on: ubuntu-latest
+    # Publishing is push-only to master/dev: pull_request jobs must never touch
+    # the persistent Extensions release or create attestations.
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Set up Rust
+        # xtask is host-only Rust; the Android targets/nightly channel used by
+        # the build job are not needed here.
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: app/src/main/go/wekit-cloudflared/go.mod
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Install Android NDK
+        run: |
+          NDK_VERSION=$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          MIN_SDK=$(sed -n 's/^minSdk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
+          NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
+          test -x "$NDK_BIN/armv7a-linux-androideabi$MIN_SDK-clang"
+          test -x "$NDK_BIN/llvm-strip"
+
+      - name: Build packs
+        run: |
+          cargo xtask configure
+          cargo xtask extensions pack
+
+      - name: Skip if assets already published
+        id: published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          skip=true
+          for f in dist/extensions/script-deps-*.dex dist/extensions/cloudflared-*.zip dist/extensions/manifest.json; do
+            name=$(basename "$f")
+            if ! gh release view Extensions --json assets -q '.assets[].name' | grep -qx "$name"; then
+              skip=false
+            fi
+          done
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+      - name: Create Extensions release if missing
+        if: steps.published.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view Extensions >/dev/null 2>&1; then
+            gh release create Extensions \
+              --target "${{ github.sha }}" \
+              --title "Extensions" \
+              --prerelease \
+              --notes "扩展包资产。manifest.json 为最新版本索引, 本体按索引下载并校验 SHA-256。"
+          fi
+
+      - name: Upload pack assets
+        if: steps.published.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload Extensions \
+            dist/extensions/script-deps-*.dex \
+            dist/extensions/cloudflared-*.zip \
+            dist/extensions/manifest.json \
+            --clobber
+
+      - name: Attest build provenance
+        if: steps.published.outputs.skip == 'false'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            dist/extensions/script-deps-*.dex
+            dist/extensions/cloudflared-*.zip
+            dist/extensions/manifest.json
 
   release-ci:
     needs: [build, build_zygisk]

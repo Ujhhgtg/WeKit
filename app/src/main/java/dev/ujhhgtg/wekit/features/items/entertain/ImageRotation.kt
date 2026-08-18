@@ -5,34 +5,38 @@ import android.view.View
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.WeakHashMap
 
-@Feature(name = "图片旋转", categories = ["娱乐"], description = "让微信中的图片持续旋转")
+@Feature(
+    id = "图片旋转",
+    nameRes = "feature_image_rotation_name",
+    categoryIds = [FeatureCategoryIds.ENTERTAIN],
+    descriptionRes = "feature_image_rotation_description",
+)
 object ImageRotation : ClickableFeature() {
 
     private data class RotationState(
@@ -44,6 +48,9 @@ object ImageRotation : ClickableFeature() {
 
     private var onlyAvatars by prefOption("image_rotation_only_avatars", false)
     private var durationMs by prefOption("image_rotation_duration", 1000)
+
+    private const val MIN_DURATION_MS = 100
+    private const val MAX_DURATION_MS = 60000
 
     override fun onEnable() {
         if (onlyAvatars) {
@@ -91,54 +98,59 @@ object ImageRotation : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var avatars by remember { mutableStateOf(onlyAvatars) }
-            var duration by remember { mutableStateOf(durationMs.toString()) }
-            val durationValid = (duration.toIntOrNull() ?: 0) > 0
+            var duration by remember {
+                mutableIntStateOf(durationMs.coerceIn(MIN_DURATION_MS, MAX_DURATION_MS))
+            }
+            var dirty by remember { mutableStateOf(false) }
+
+            // 动画时长只在视图创建时读取, 立即写偏好不会刷新已存在的旋转; 对话框关闭时统一重启
+            DisposableEffect(Unit) {
+                onDispose {
+                    if (dirty && isActive) {
+                        disable()
+                        enable()
+                    }
+                }
+            }
 
             AlertDialogContent(
-                title = { Text("图片旋转") },
+                title = { Text(stringResource(R.string.feature_image_rotation_name)) },
                 text = {
-                    DefaultColumn {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("只对头像生效", modifier = Modifier.weight(1f))
-                            Switch(checked = avatars, onCheckedChange = { avatars = it })
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.image_rotation_only_avatars),
+                                checked = avatars,
+                                onCheckedChange = {
+                                    avatars = it
+                                    onlyAvatars = it
+                                    dirty = true
+                                },
+                            )
                         }
-                        OutlinedTextField(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            value = duration,
-                            onValueChange = { duration = it.filter(Char::isDigit).take(6) },
-                            label = { Text("旋转周期 (毫秒)") },
-                            supportingText = { Text("请输入大于 0 的毫秒数") },
-                            isError = !durationValid,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                        )
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.image_rotation_period_milliseconds),
+                                    value = duration,
+                                    startInt = MIN_DURATION_MS,
+                                    endInt = MAX_DURATION_MS,
+                                    stepSize = 100,
+                                    valueSuffix = "ms",
+                                    onValueChange = {
+                                        duration = it
+                                        durationMs = it
+                                        dirty = true
+                                    },
+                                )
+                            }
+                        }
                     }
                 },
-                confirmButton = {
-                    Button(
-                        enabled = durationValid,
-                        onClick = {
-                            val newDuration = duration.toIntOrNull() ?: 1000
-                            val newOnlyAvatars = avatars
-                            val changed = newDuration != durationMs || newOnlyAvatars != onlyAvatars
-                            durationMs = newDuration
-                            onlyAvatars = newOnlyAvatars
-                            if (changed && isActive) {
-                                disable()
-                                enable()
-                            }
-                            onDismiss()
-                        },
-                    ) { Text("确定") }
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
             )
         }
     }

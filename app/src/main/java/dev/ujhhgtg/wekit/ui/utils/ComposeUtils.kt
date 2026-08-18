@@ -16,10 +16,12 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.ui.content.nukex.NukeModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeModuleTheme
 
 // useful for showing a compose dialog in non-compose context,
 // or when you don't want to manage the state for a dialog inside a composable
@@ -51,20 +53,22 @@ fun showComposeDialog(
         setContentView(
             ComposeView(context).apply {
                 setContent {
-                    val themedContent: @Composable () -> Unit = {
-                        ModuleTheme {
-                            Box(
-                                modifier = Modifier.wrapContentSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                scope.content()
+                    WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+                        val themedContent: @Composable () -> Unit = {
+                            ModuleTheme {
+                                Box(
+                                    modifier = Modifier.wrapContentSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    scope.content()
+                                }
                             }
                         }
-                    }
-                    if (ThemeSettings.uiEngine == SettingsUiEngine.NUKE) {
-                        NukeModuleTheme(content = themedContent)
-                    } else {
-                        themedContent()
+                        if (ThemeSettings.uiEngine == SettingsUiEngine.NUKE) {
+                            NukeModuleTheme(content = themedContent)
+                        } else {
+                            themedContent()
+                        }
                     }
                 }
             }
@@ -83,9 +87,7 @@ class ShowComposeDialogScope(
 )
 
 fun View.setLifecycleOwner(lifecycleOwner: XposedLifecycleOwner) {
-    apply {
-        setViewTreeLifecycleOwner(lifecycleOwner)
-        setViewTreeViewModelStoreOwner(lifecycleOwner)
-        setViewTreeSavedStateRegistryOwner(lifecycleOwner)
-    }
+    setViewTreeLifecycleOwner(lifecycleOwner)
+    setViewTreeViewModelStoreOwner(lifecycleOwner)
+    setViewTreeSavedStateRegistryOwner(lifecycleOwner)
 }
