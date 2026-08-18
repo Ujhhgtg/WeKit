@@ -34,6 +34,7 @@ import java.lang.reflect.Proxy
     id = "网络数据包服务",
     nameRes = "feature_we_packet_helper_name",
     categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "",
 )
 object WePacketHelper : ApiFeature(), IResolveDex {
 

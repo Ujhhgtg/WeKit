@@ -3586,4 +3586,6 @@
     <string name="settings_page_transition_animation_title">Page transition animation</string>
     <string name="settings_page_transition_animation_aosp">AOSP</string>
     <string name="settings_page_transition_animation_miuix">Miuix</string>
+    <string name="feature_pet_name">Desktop pet</string>
+    <string name="feature_pet_description">Bongo Cat desktop pet: pat its head, drag to move, long-press to feed. Follows WeAgent session state. Requires overlay permission.</string>
 </resources>

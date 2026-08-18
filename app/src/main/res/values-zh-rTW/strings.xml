@@ -3475,4 +3475,6 @@
     <string name="settings_page_transition_animation_title">頁面過渡動畫</string>
     <string name="settings_page_transition_animation_aosp">AOSP</string>
     <string name="settings_page_transition_animation_miuix">Miuix</string>
+    <string name="feature_pet_name">桌面寵物</string>
+    <string name="feature_pet_description">Bongo Cat 桌寵: 摸頭/拖拽/長按餵食, 隨 WeAgent 會話狀態變化。需要懸浮窗權限。</string>
 </resources>

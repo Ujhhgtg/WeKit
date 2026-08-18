@@ -44,6 +44,7 @@ import java.lang.reflect.Modifier
     id = "设置模块入口",
     nameRes = "feature_we_settings_injector_name",
     categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "",
 )
 object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener {
 

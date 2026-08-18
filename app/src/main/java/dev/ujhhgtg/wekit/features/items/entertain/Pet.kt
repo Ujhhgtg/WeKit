@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.entertain
 
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.pet.PetService
 import kotlinx.coroutines.Dispatchers
@@ -14,9 +15,10 @@ import kotlinx.coroutines.launch
  * agent session state via [PetService.onAgentEvent].
  */
 @Feature(
-    name = "桌面宠物",
-    categories = ["娱乐"],
-    description = "Bongo Cat 桌宠: 摸头/拖拽/长按喂食, 随 WeAgent 会话状态变化。需要悬浮窗权限。",
+    id = "桌面宠物",
+    nameRes = "feature_pet_name",
+    categoryIds = [FeatureCategoryIds.ENTERTAIN],
+    descriptionRes = "feature_pet_description",
 )
 object Pet : SwitchFeature() {
 

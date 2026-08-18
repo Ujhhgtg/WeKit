@@ -24,6 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList
     id = "联系人页面扩展",
     nameRes = "feature_we_contact_prefs_screen_api_name",
     categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "",
 )
 object WeContactPrefsScreenApi : ApiFeature() {
 
