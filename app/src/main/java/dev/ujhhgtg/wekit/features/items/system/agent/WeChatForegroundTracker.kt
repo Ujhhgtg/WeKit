@@ -5,14 +5,17 @@ import android.app.Application
 import android.os.Bundle
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Process-wide foreground/background tracker for the WeChat host, built on
  * [Application.ActivityLifecycleCallbacks] (there is no such global signal elsewhere in the app).
  *
  * "Foreground" = at least one host Activity is started (between onStart and onStop). The started
- * count is the standard, orientation-change-safe way to detect this. A single listener is enough
- * for our needs ([WeAgentOverlayController]); transitions are only reported when the boolean flips.
+ * count is the standard, orientation-change-safe way to detect this. Transitions are reported only
+ * when the boolean flips. Supports multiple listeners ([addListener]) plus a single-listener
+ * accessor ([onChanged]) for [WeAgentOverlayController], so the WeAgent ball and the pet overlay
+ * can observe the same transitions without conflict.
  */
 object WeChatForegroundTracker {
 
@@ -20,7 +23,28 @@ object WeChatForegroundTracker {
     var isForeground = false
         private set
 
-    /** Invoked on every foreground ↔ background transition with the new state. */
+    private val listeners = CopyOnWriteArrayList<(Boolean) -> Unit>()
+
+    /**
+     * Registers a foreground ↔ background transition listener. Listeners are additive —
+     * the same lambda added twice fires twice (callers should manage idempotency themselves
+     * or call [removeListener]).
+     */
+    fun addListener(listener: (Boolean) -> Unit) {
+        listeners.add(listener)
+    }
+
+    /** Removes a previously added listener. */
+    fun removeListener(listener: (Boolean) -> Unit) {
+        listeners.remove(listener)
+    }
+
+    /**
+     * Backwards-compatible single-listener accessor (kept with overwrite semantics for
+     * [dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController]). Independent
+     * from [addListener], so the WeAgent ball and the pet overlay can observe transitions
+     * without stepping on each other.
+     */
     var onChanged: ((Boolean) -> Unit)? = null
 
     private var startedCount = 0
@@ -58,5 +82,6 @@ object WeChatForegroundTracker {
         if (isForeground == foreground) return
         isForeground = foreground
         onChanged?.invoke(foreground)
+        listeners.forEach { it(foreground) }
     }
 }

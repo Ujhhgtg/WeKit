@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.pet.ui
 
+import android.os.SystemClock
 import android.view.MotionEvent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +39,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+
+/** Double-tap window (ms) — a rapid second tap upgrades a pet into a feed. */
+private const val DOUBLE_TAP_WINDOW_MS = 320L
 
 /** Transient per-gesture touch state for the pet (tap vs long-press vs drag). */
 private class PetDragTracker {
@@ -69,6 +74,8 @@ fun PetOverlayContent(
     val tracker = remember { PetDragTracker() }
     val scope = rememberCoroutineScope()
     var longPressJob by remember { mutableStateOf<Job?>(null) }
+    // Double-tap → quick feed (single tap still pets; a rapid second tap upgrades to feed).
+    var lastTapAt by remember { mutableStateOf(0L) }
 
     if (entry == null) return
 
@@ -77,9 +84,10 @@ fun PetOverlayContent(
             PetInfoPanel()
         } else {
             // Fixed-height bubble slot (keeps the sprite stable when the bubble appears).
+            // No fillMaxWidth here: the WRAP_CONTENT window must shrink to the sprite width,
+            // otherwise the inflated window width breaks the right-edge drag clamp.
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
                     .height(44.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -88,7 +96,9 @@ fun PetOverlayContent(
                         color = MaterialTheme.colorScheme.surface,
                         shape = RoundedCornerShape(14.dp),
                         shadowElevation = 4.dp,
-                        modifier = Modifier.padding(horizontal = 8.dp),
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .widthIn(max = 220.dp),
                     ) {
                         Text(
                             text = bubble,
@@ -138,7 +148,14 @@ fun PetOverlayContent(
 
                         MotionEvent.ACTION_UP -> {
                             longPressJob?.cancel()
-                            if (tracker.moved) onDragEnd() else PetService.pet()
+                            if (tracker.moved) {
+                                onDragEnd()
+                            } else {
+                                val now = SystemClock.uptimeMillis()
+                                val doubleTap = now - lastTapAt < DOUBLE_TAP_WINDOW_MS
+                                lastTapAt = now
+                                if (doubleTap) PetService.feed() else PetService.pet()
+                            }
                             true
                         }
 

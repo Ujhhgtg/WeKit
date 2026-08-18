@@ -78,7 +78,10 @@ fun PetSprite(
         while (true) {
             val elapsed = (System.currentTimeMillis() - animationStartedAt).coerceAtLeast(0L)
             val frame = computeDisplayFrame(definition, phase, elapsed)
-            value = frame
+            // Only write when the frame advances. Writing an equal data class on every tick
+            // still pings the snapshot machinery; for a long-lived overlay this churn is
+            // measurable, and skipping it is what keeps the pet from slowly degrading.
+            if (frame != value) value = frame
             val track = definition.tracks[frame.animation]
             val duration = track?.durations?.getOrNull(frame.frameIndex)?.toLong() ?: 100L
             delay(duration.coerceIn(16L, 1000L))
@@ -122,7 +125,7 @@ fun PetSprite(
             srcSize = IntSize(cell.width, cell.height),
             dstOffset = IntOffset(((w - dstW) / 2f).toInt(), (h - dstH).toInt()),
             dstSize = IntSize(dstW.toInt(), dstH.toInt()),
-            filterQuality = FilterQuality.High,
+            filterQuality = FilterQuality.Medium,
         )
     }
 }

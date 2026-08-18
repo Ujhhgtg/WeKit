@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeApi
@@ -76,21 +77,24 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
     private var prefix by prefOption("read_receipts_prefix", "#")
     private var server by prefOption("read_receipts_server", "")
     private var pollIntervalSecs by prefOption("read_receipts_poll_interval", 5)
+    private var authUser by prefOption("read_receipts_auth_user", "Monk")
+    private var authPass by prefOption("read_receipts_auth_pass", "bxl20031228")
 
     /** Normalized server base URL with any trailing slash removed. */
     private val serverBase: String get() = server.trimEnd('/')
 
     /**
-     * 采集端上报认证 token：URL-safe base64（无 padding）编码的 "Monk:bxl20031228"。
+     * 采集端上报认证 token：URL-safe base64（无 padding）编码的 "user:pass"。
      * 服务器端据此校验采集端身份，验证通过才展示在网站面板。与网站面板登录
      * （Monk/20031228 + session cookie）完全独立，二者互不通用。
+     * 用户名/密码可在「已读追踪」设置里填写（默认 Monk / bxl20031228），
+     * 每次请求动态取最新值，改完立即生效。
      */
-    private val collectorAuth: String by lazy {
-        Base64.encodeToString(
-            "Monk:bxl20031228".toByteArray(Charsets.UTF_8),
+    private val collectorAuth: String
+        get() = Base64.encodeToString(
+            "$authUser:$authPass".toByteArray(Charsets.UTF_8),
             Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
         )
-    }
 
     // ── HTTP ────────────────────────────────────────────────────────────────
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -583,6 +587,8 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             var serverInput by remember { mutableStateOf(server) }
             var prefixInput by remember { mutableStateOf(prefix) }
             var intervalInput by remember { mutableStateOf(pollIntervalSecs.toString()) }
+            var userInput by remember { mutableStateOf(authUser) }
+            var passInput by remember { mutableStateOf(authPass) }
 
             AlertDialogContent(
                 title = { Text("已读追踪") },
@@ -607,6 +613,21 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
+                        TextField(
+                            value = userInput,
+                            onValueChange = { userInput = it },
+                            label = { Text("上报用户名 (采集端认证)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        TextField(
+                            value = passInput,
+                            onValueChange = { passInput = it },
+                            label = { Text("上报访问密码 (采集端认证)") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 },
                 dismissButton = { TextButton(onDismiss) { Text("取消") } },
@@ -629,6 +650,10 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
                             return@Button
                         }
                         pollIntervalSecs = interval
+
+                        // 采集端上报认证（独立于网站面板登录）。留空时回退到服务器默认值。
+                        authUser = userInput.trim().ifBlank { "Monk" }
+                        authPass = passInput.trim().ifBlank { "bxl20031228" }
 
                         onDismiss()
                     }) { Text("确定") }

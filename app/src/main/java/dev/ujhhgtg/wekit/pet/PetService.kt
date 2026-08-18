@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.pet
 
 import androidx.compose.runtime.mutableStateOf
 import dev.ujhhgtg.wekit.agent.engine.AgentEvent
+import dev.ujhhgtg.wekit.features.items.system.agent.WeChatForegroundTracker
 import dev.ujhhgtg.wekit.pet.core.ActivityPhase
 import dev.ujhhgtg.wekit.pet.core.AffinityState
 import dev.ujhhgtg.wekit.pet.core.ConsumeTreatResult
@@ -111,11 +112,19 @@ object PetService {
         treats = persist.treats.toCore()
         loadRegistry()
         remarkPicker = RemarkPicker(activeEntry()?.definition?.remarks)
+        // 桌宠只在微信前台时可见：切到主界面 / 其他 App 自动隐藏，回到微信恢复。
+        // 复用 WeChatForegroundTracker（已升级为多监听者，不影响 WeAgent 悬浮球）。
+        // 先 ensureRegistered 以播种 isForeground，再挂载 overlay。
+        WeChatForegroundTracker.ensureRegistered()
+        WeChatForegroundTracker.addListener { foreground ->
+            if (!persist.display.visible) return@addListener
+            if (foreground) PetOverlayController.show() else PetOverlayController.hide()
+        }
         // State updates and overlay mounting must run on the main thread; init itself may be
         // invoked from an IO coroutine (WeAgentService.init).
         scope.launch {
             refreshUiState()
-            if (persist.display.visible) PetOverlayController.show()
+            if (persist.display.visible && WeChatForegroundTracker.isForeground) PetOverlayController.show()
         }
         WeLogger.d(TAG, "pet initialized: entries=${registry?.entries?.size}, warnings=${registry?.warnings}")
     }
@@ -267,7 +276,12 @@ object PetService {
     fun setVisible(visible: Boolean) {
         persist = persist.copy(display = persist.display.copy(visible = visible))
         savePersist()
-        if (visible) PetOverlayController.show() else PetOverlayController.hide()
+        if (visible) {
+            // 仅在微信前台时立即显示；若处于后台，等回到前台由监听器恢复。
+            if (WeChatForegroundTracker.isForeground) PetOverlayController.show()
+        } else {
+            PetOverlayController.hide()
+        }
     }
 
     // -----------------------------------------------------------------------------------------

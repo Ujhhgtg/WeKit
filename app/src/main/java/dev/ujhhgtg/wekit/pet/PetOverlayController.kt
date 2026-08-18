@@ -75,7 +75,13 @@ object PetOverlayController {
             runCatching { addPet() }.onFailure { WeLogger.e(TAG, "failed to add pet overlay", it) }
             isShown = true
         } else if (!desiredVisible && isShown) {
-            petView?.let { runCatching { wm.removeView(it) } }
+            petView?.let { v ->
+                // Explicitly dispose the composition BEFORE removing the view so the sprite's
+                // unbounded produceState frame loop is cancelled promptly on every hide
+                // (foreground↔background swaps otherwise leak a coroutine each time).
+                v.disposeComposition()
+                runCatching { wm.removeView(v) }
+            }
             petView = null
             petParams = null
             isShown = false
@@ -140,9 +146,14 @@ object PetOverlayController {
 
     private fun clampToScreen(view: View, params: WindowManager.LayoutParams) {
         val metrics = view.resources.displayMetrics
-        // Bubble slot (44dp) rides above the sprite, so the window is taller than the pet itself.
-        val w = if (view.width > 0) view.width else (petSizeDp() * petAspect() * metrics.density).toInt()
-        val h = if (view.height > 0) view.height else ((petSizeDp() + 44) * metrics.density).toInt()
+        val density = metrics.density
+        // Clamp by the sprite's own footprint, NOT the WRAP_CONTENT window size: the 44dp
+        // bubble slot can inflate the measured window width (its fillMaxWidth used to reach
+        // near-screen width), which shrank the right edge and stopped the pet from reaching
+        // the far side. The sprite is centered inside the window, so using its exact size
+        // keeps the pet within the screen while allowing it to hug every edge.
+        val w = (petSizeDp() * petAspect() * density).toInt()
+        val h = ((petSizeDp() + 44) * density).toInt()
         params.x = params.x.coerceIn(0, (metrics.widthPixels - w).coerceAtLeast(0))
         params.y = params.y.coerceIn(0, (metrics.heightPixels - h).coerceAtLeast(0))
     }

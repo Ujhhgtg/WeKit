@@ -115,13 +115,13 @@ jobs:
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --warning-mode all --stacktrace
+        run: ./gradlew assembleStandardRelease --warning-mode all --stacktrace
 
       - name: Build Release (Unsigned)
         if: github.event_name == 'pull_request' || env.HAS_KEYSTORE != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew assembleRelease --warning-mode all --stacktrace
+        run: ./gradlew assembleStandardRelease --warning-mode all --stacktrace
 
       - name: Collect APKs
         run: |
@@ -129,7 +129,7 @@ jobs:
           mkdir -p dist/apk
 
           expected_abis=$(printf '%s\n' arm64-v8a armeabi-v7a)
-          for flavor in standard legacy; do
+          for flavor in standard; do
             apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
             test -f "$apk"
 
@@ -170,7 +170,8 @@ jobs:
   build_zygisk:
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ needs.build.result == 'success' }}
+    # Disabled: only the standard APK is built for this fork (no Zygisk module).
+    if: false
     steps:
       - name: Checkout
         uses: actions/checkout@v7
