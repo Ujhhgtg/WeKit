@@ -40,3 +40,6 @@ local.properties
 # Superpowers artifacts live in /home/ujhhgtg/coding/wekit_dev/superpowers (AGENTS.md there)
 .superpowers/
 docs/superpowers/
+
+# Extension-pack build outputs (./x extensions pack/lock)
+dist/

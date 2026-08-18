@@ -29,6 +29,7 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 mod dex_test;
 mod dex_test_ci;
+mod extensions;
 mod i18n_check;
 
 // ── Project constants (mirror app/build.gradle.kts / libs.versions.toml) ──────
@@ -166,6 +167,9 @@ enum Cmd {
 
     /// Prepare inputs and outputs used by the cloud Dex resolution CI jobs.
     DexTestCi(dex_test_ci::DexTestCiArgs),
+
+    /// Build and manage extension packs (script-deps DEX, cloudflared zip) and extensions.lock.
+    Extensions(extensions::ExtensionsArgs),
 
     /// Validate the Android English and Chinese resource catalogs.
     I18nCheck,
@@ -396,6 +400,7 @@ fn main() -> Result<()> {
         Cmd::DexTest(args) => dex_test::task_dex_test(args)?,
         Cmd::DexTestCi(args) => dex_test_ci::task_dex_test_ci(args)?,
         Cmd::I18nCheck => i18n_check::check_repository(&workspace_root())?,
+        Cmd::Extensions(args) => extensions::run(&workspace_root(), &args)?,
     }
     Ok(())
 }
@@ -403,7 +408,7 @@ fn main() -> Result<()> {
 // ── Workspace / path helpers ───────────────────────────────────────────────────
 
 /// Walk up from `cwd` until we find a `Cargo.toml` that declares `[workspace]`.
-fn workspace_root() -> PathBuf {
+pub(crate) fn workspace_root() -> PathBuf {
     let mut dir = env::current_dir().expect("could not read cwd");
     loop {
         let toml = dir.join("Cargo.toml");
@@ -787,7 +792,7 @@ fn verify_cloudflared_checkout(source: &Path, expected_commit: &str) -> Result<(
     Ok(())
 }
 
-fn task_build_cloudflared(abi_args: &[String]) -> Result<()> {
+pub(crate) fn task_build_cloudflared(abi_args: &[String]) -> Result<()> {
     let root = workspace_root();
     verify_cloudflared_pin(&root)?;
     let bridge_dir = cloudflared_bridge_dir(&root);
@@ -815,6 +820,7 @@ fn task_build_cloudflared(abi_args: &[String]) -> Result<()> {
                 "build",
                 "-mod=readonly",
                 "-buildmode=c-shared",
+                "-buildvcs=false",
                 "-trimpath",
                 "-ldflags=-s -w",
                 "-o",
