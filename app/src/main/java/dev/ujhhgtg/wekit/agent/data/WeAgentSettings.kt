@@ -38,6 +38,11 @@ object WeAgentSettings {
     private suspend fun get(key: String): String? = cache[key] ?: db.settingDao().getValue(key)?.also { cache[key] = it }
 
     suspend fun set(key: String, value: String) {
+        if (key == KEY_MEMORY_ENABLED || key == KEY_DEFAULT_WORKSPACE_ID) {
+            db.settingDao().delete(key)
+            cache.remove(key)
+            return
+        }
         db.settingDao().upsert(SettingEntity(key, value))
         cache[key] = value
     }
