@@ -1,8 +1,13 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import dev.ujhhgtg.wekit.extensions.CloudflaredPack
+import dev.ujhhgtg.wekit.extensions.CloudflaredPackNotInstalledException
+import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
+import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -366,7 +371,18 @@ internal object ReadReceiptsTunnelNative {
     private const val TAG = "ReadReceiptsTunnelNative"
 
     private fun ensureLoaded() {
-        NativeLoader.ensureCloudflaredLoaded()
+        try {
+            NativeLoader.ensureCloudflaredLoaded()
+        } catch (e: CloudflaredPackNotInstalledException) {
+            val activity = getTopMostActivity(allowPaused = true)
+            if (activity != null) {
+                ExtensionPacks.refresh(CloudflaredPack)
+                activity.runOnUiThread {
+                    ExtensionPackDialogs.requireInstall(activity, CloudflaredPack)
+                }
+            }
+            throw e
+        }
     }
 
     private external fun nativeStartQuick(origin: String): Long

@@ -26,12 +26,15 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
+import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
@@ -151,6 +154,12 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                 scripts.clear()
                 scripts.putAll(loadedScripts)
                 JavaEngine.executeAllOnLoad(scripts)
+            }
+        }
+
+        if (!ScriptDepsPack.isInstalled()) {
+            getTopMostActivity(allowPaused = true)?.let { activity ->
+                ExtensionPackDialogs.suggestInstall(activity, ScriptDepsPack)
             }
         }
     }

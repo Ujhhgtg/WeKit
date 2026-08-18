@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
+import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.BshSnapshotDecompiler
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -222,6 +223,7 @@ object JavaEngine {
 
         val classManager = interpreter.classManager
         classManager.setClassLoader(ClassLoaders.HYBRID)
+        ScriptDepsPack.classLoader()?.let { classManager.addClassLoader(it) }
 
         val nameSpace = interpreter.nameSpace
         initNameSpace(nameSpace, plugin)
