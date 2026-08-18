@@ -77,6 +77,10 @@ object NativeLoader {
     @Volatile
     private var cloudflaredLoaded = false
 
+    /** Whether the cloudflared bridge has been System.load-ed in this process. */
+    @JvmStatic
+    fun isCloudflaredLoaded(): Boolean = cloudflaredLoaded
+
     /**
      * Lazily loads the Go cloudflared bridge only when the built-in read-receipts
      * backend is actually used. Keeps WeChat startup free of the heavy Go runtime.
