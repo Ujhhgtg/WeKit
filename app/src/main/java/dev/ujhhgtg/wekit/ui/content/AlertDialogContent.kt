@@ -33,7 +33,7 @@ fun AlertDialogContent(
         shape = MaterialTheme.shapes.extraLarge,
         tonalElevation = 6.dp,
         modifier = modifier
-            .padding(12.dp)
+            .padding(4.dp)
             .fillMaxWidth()
             .wrapContentHeight()
     ) {
