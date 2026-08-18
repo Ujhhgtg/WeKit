@@ -5,14 +5,18 @@ import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Failed
 import dev.ujhhgtg.wekit.extensions.ExtensionPackState.NotInstalled
 import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Verifying
 import dev.ujhhgtg.wekit.utils.WeLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -30,6 +34,7 @@ object ExtensionPacks {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val flows = packs.associate { it.id to MutableStateFlow<ExtensionPackState>(NotInstalled) }
     private val downloadJobs = mutableMapOf<String, Job>()
+    private val activeCalls = mutableMapOf<String, Call>()
     private val lock = Any()
 
     private val httpClient by lazy {
@@ -62,6 +67,7 @@ object ExtensionPacks {
     fun cancelDownload(pack: ExtensionPack) {
         synchronized(lock) {
             downloadJobs.remove(pack.id)?.cancel()
+            activeCalls.remove(pack.id)?.cancel()
         }
         val flow = flows.getValue(pack.id)
         if (flow.value is Downloading || flow.value is Verifying) {
@@ -89,27 +95,34 @@ object ExtensionPacks {
             val request = Request.Builder()
                 .url("${ExtensionLock.BASE_URL}/${pack.assetName}")
                 .build()
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) error("HTTP ${response.code}")
-                val body = response.body
-                val total = body.contentLength()
-                var downloaded = 0L
-                body.byteStream().use { input ->
-                    tmp.outputStream().use { output ->
-                        val buf = ByteArray(64 * 1024)
-                        while (true) {
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            output.write(buf, 0, n)
-                            downloaded += n
-                            flow.value = Downloading(
-                                progress = if (total > 0) downloaded.toFloat() / total else 0f,
-                                bytesDownloaded = downloaded,
-                                bytesTotal = total,
-                            )
+            val call = httpClient.newCall(request)
+            synchronized(lock) { activeCalls[pack.id] = call }
+            try {
+                call.execute().use { response ->
+                    if (!response.isSuccessful) error("HTTP ${response.code}")
+                    val body = response.body
+                    val total = body.contentLength()
+                    var downloaded = 0L
+                    body.byteStream().use { input ->
+                        tmp.outputStream().use { output ->
+                            val buf = ByteArray(64 * 1024)
+                            while (true) {
+                                currentCoroutineContext().ensureActive()
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                output.write(buf, 0, n)
+                                downloaded += n
+                                flow.value = Downloading(
+                                    progress = if (total > 0) downloaded.toFloat() / total else 0f,
+                                    bytesDownloaded = downloaded,
+                                    bytesTotal = total,
+                                )
+                            }
                         }
                     }
                 }
+            } finally {
+                synchronized(lock) { activeCalls.remove(pack.id) }
             }
 
             flow.value = Verifying
@@ -119,6 +132,9 @@ object ExtensionPacks {
             }
             pack.install(tmp)
             WeLogger.i(TAG, "installed ${pack.id} ${pack.pinnedVersion}")
+        } catch (e: CancellationException) {
+            tmp.delete()
+            throw e
         } catch (e: Exception) {
             tmp.delete()
             WeLogger.e(TAG, "download/install failed for ${pack.id}", e)
