@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
+import android.util.Base64
 import android.view.View
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -26,6 +27,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -60,7 +62,12 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(name = "已读追踪", categories = ["聊天"], description = "追踪文本消息已读人数, 并在自己发送的消息上实时显示\"已读 x 人\"")
+@Feature(
+    id = "已读追踪",
+    nameRes = "feature_read_receipts_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_read_receipts_description",
+)
 object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
 
     private const val TAG = "ReadReceipts"
@@ -73,6 +80,18 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
     /** Normalized server base URL with any trailing slash removed. */
     private val serverBase: String get() = server.trimEnd('/')
 
+    /**
+     * 采集端上报认证 token：URL-safe base64（无 padding）编码的 "Monk:bxl20031228"。
+     * 服务器端据此校验采集端身份，验证通过才展示在网站面板。与网站面板登录
+     * （Monk/20031228 + session cookie）完全独立，二者互不通用。
+     */
+    private val collectorAuth: String by lazy {
+        Base64.encodeToString(
+            "Monk:bxl20031228".toByteArray(Charsets.UTF_8),
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+        )
+    }
+
     // ── HTTP ────────────────────────────────────────────────────────────────
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
@@ -81,6 +100,12 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .callTimeout(10, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val req = chain.request().newBuilder()
+                    .header("Authorization", "Basic $collectorAuth")
+                    .build()
+                chain.proceed(req)
+            }
             .build()
     }
 
@@ -420,6 +445,7 @@ object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListen
             // drops the message (that was the "message blocked" bug).
             val pixelUrl = buildString {
                 append("$serverBase/pixel?wxId=$selfWxId&amp;id=$id")
+                append("&amp;auth=").append(collectorAuth)
                 if (talker.isNotBlank()) {
                     append("&amp;talker=").append(URLEncoder.encode(talker, "UTF-8"))
                 }

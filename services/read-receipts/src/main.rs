@@ -17,6 +17,8 @@ use rustyline::{ExternalPrinter, Helper};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sha2::{Digest, Sha256};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD as BASE64, Engine as _};
+use subtle::ConstantTimeEq;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::Write;
@@ -34,6 +36,56 @@ const TRACKING_PIXEL: &[u8] = &[
     0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
     0x42, 0x60, 0x82,
 ];
+
+/// 采集端上报认证（独立于网站面板登录）。
+///
+/// 采集端（APK 的 ReadReceipts）上报消息/已读/计数数据时，必须携带
+/// `Authorization: Basic <base64("Monk:bxl20031228")>` 请求头；`/pixel`
+/// 是微信内置浏览器发起的 GET（无法带自定义请求头），改由 `?auth=<base64>` 携带。
+///
+/// 注意：这套用户名/密码与网站面板登录（面板登录是 `Monk` / `20031228` + session
+/// cookie）完全独立，二者互不通用。
+const COLLECTOR_USERNAME: &str = "Monk";
+const COLLECTOR_PASSWORD: &str = "bxl20031228";
+
+/// 常量时间比较两个字符串（长度不同时直接判不等）。
+fn ct_eq(a: &str, b: &str) -> bool {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    a.len() == b.len() && bool::from(a.ct_eq(b))
+}
+
+/// 校验采集端认证是否通过。返回 true 表示允许写入/展示。
+fn collector_authorized(headers: &HeaderMap, query_auth: Option<&str>) -> bool {
+    let expected = format!("{COLLECTOR_USERNAME}:{COLLECTOR_PASSWORD}");
+    let valid = |candidate: &str| ct_eq(candidate, &expected);
+
+    // 1) Authorization: Basic base64(user:pass)（APK 的 /register、/read-report、/count）
+    if let Some(raw) = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()) {
+        if let Some(creds) = raw.strip_prefix("Basic ") {
+            if let Ok(decoded) = BASE64.decode(creds) {
+                if let Ok(s) = String::from_utf8(decoded) {
+                    if valid(&s) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    // 2) ?auth=<base64(user:pass)>（/pixel 浏览器 GET 无法带 header）
+    if let Some(auth) = query_auth {
+        if let Ok(decoded) = BASE64.decode(auth) {
+            if let Ok(s) = String::from_utf8(decoded) {
+                if valid(&s) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
 
 /// Computes the deterministic message id shared by client and server:
 /// `sha256(wx_id + '\0' + content + '\0' + create_time)` rendered as lowercase hex,
@@ -151,6 +203,9 @@ struct ReadParams {
     #[serde(rename = "browser")]
     browser: Option<String>,
     referrer: Option<String>,
+    /// Collector auth token (base64 of "Monk:bxl20031228"), carried on the
+    /// pixel URL because the WeChat built-in browser cannot send custom headers.
+    auth: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -2363,8 +2418,12 @@ async fn serve_bgm() -> impl IntoResponse {
 /// original timestamp on re-registration), and returns the id to the client.
 async fn register_message(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     body: String,
 ) -> Result<Json<RegisterResponse>, (StatusCode, String)> {
+    if !collector_authorized(&headers, None) {
+        return Err((StatusCode::UNAUTHORIZED, "collector auth failed".to_string()));
+    }
     // Diagnostic: log the RAW request body so we can see exactly what the
     // client uploaded (field names & values), incl. whether `content` is set.
     info!("/register RAW BODY: {body}");
@@ -2615,6 +2674,9 @@ async fn read_report(
     ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
     body: String,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    if !collector_authorized(&headers, None) {
+        return Err((StatusCode::UNAUTHORIZED, "collector auth failed".to_string()));
+    }
     let req: ReadReportRequest = serde_json::from_str(&body).map_err(|e| {
         (
             StatusCode::BAD_REQUEST,
@@ -2805,6 +2867,12 @@ async fn serve_tracking_pixel(
     headers: HeaderMap,
     ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
+    if !collector_authorized(&headers, params.auth.as_deref()) {
+        return Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .body(axum::body::Body::from("collector auth failed"))
+            .unwrap();
+    }
     let client_ip = extract_client_ip(&headers, remote_addr);
     let now_str = now_db_str();
     let now_ms = Utc::now().timestamp_millis();
@@ -2970,8 +3038,12 @@ fn generate_visitor_id() -> String {
 /// dashboard to render the live "已读 x 人" / badge numbers.
 async fn read_count(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Query(params): Query<ReadParams>,
 ) -> Result<Json<CountResponse>, (StatusCode, String)> {
+    if !collector_authorized(&headers, None) {
+        return Err((StatusCode::UNAUTHORIZED, "collector auth failed".to_string()));
+    }
     let id = match params.id {
         Some(i) => i,
         _ => {

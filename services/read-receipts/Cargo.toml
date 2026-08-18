@@ -33,6 +33,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = tr
 sha2 = "0.11"
 hex = "0.4"
 subtle = "2.6"
+base64 = "0.22"
 rustyline = { version = "18.0.1", optional = true }
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 futures-util = "0.3"

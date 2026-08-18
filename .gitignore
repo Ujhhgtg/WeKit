@@ -44,6 +44,12 @@ services/read-receipts/read_receipts.db
 server.log
 *.db
 
+# Local server working dir (runtime db backups, media, test scripts/screenshots)
+/contrib/
+
+# Built APKs (kept locally, never committed)
+*.apk
+
 # Superpowers artifacts live in /home/ujhhgtg/coding/wekit_dev/superpowers (AGENTS.md there)
 .superpowers/
 docs/superpowers/
