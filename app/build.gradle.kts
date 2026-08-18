@@ -170,6 +170,15 @@ tasks.withType<KotlinCompile> {
     }
 }
 
+val generateExtensionLock = tasks.register<GenerateExtensionLockTask>("generateExtensionLock") {
+    group = "wekit"
+    description = "Compile extensions.lock into pinned Kotlin constants"
+    lockFile.set(rootProject.layout.projectDirectory.file("extensions.lock"))
+    namespace.set(libs.versions.namespace.get())
+    baseUrl.set("https://github.com/Ujhhgtg/WeKit/releases/download/Extensions")
+    outputDir.set(layout.buildDirectory.dir("generated/source/extensionlock"))
+}
+
 val adbProvider = androidComponents.sdkComponents.adb
 androidComponents {
     onVariants { variant ->
@@ -183,6 +192,11 @@ androidComponents {
         kotlinSources.addGeneratedSourceDirectory(
             generateNewFeatures,
             GenerateNewFeaturesTask::outputDir
+        )
+
+        kotlinSources.addGeneratedSourceDirectory(
+            generateExtensionLock,
+            GenerateExtensionLockTask::outputDir
         )
     }
 }
