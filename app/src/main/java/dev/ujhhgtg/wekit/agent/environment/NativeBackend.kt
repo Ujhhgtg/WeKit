@@ -9,6 +9,7 @@ import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.io.ByteArrayOutputStream
+import android.os.Process as AndroidProcess
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -31,8 +32,10 @@ class NativeBackend(
         Files.createDirectories(outputDirectory)
         val stdoutFile = Files.createTempFile(outputDirectory, "exec-", ".stdout")
         val stderrFile = Files.createTempFile(outputDirectory, "exec-", ".stderr")
+        val pidFile = Files.createTempFile(outputDirectory, "exec-", ".pid")
         val startedAt = System.nanoTime()
-        val process = ProcessBuilder("/system/bin/sh", "-c", command)
+        val launcher = "echo \$\$ > ${shellQuote(pidFile.toString())}; exec /system/bin/sh -c ${shellQuote(command)}"
+        val process = ProcessBuilder("/system/bin/sh", "-c", launcher)
             .directory(workingDirectory.toFile())
             .redirectOutput(stdoutFile.toFile())
             .redirectError(stderrFile.toFile())
@@ -45,6 +48,8 @@ class NativeBackend(
                 coroutineContext.ensureActive()
                 if (System.nanoTime() >= deadline) {
                     timedOut = true
+                    val rootPid = runCatching { Files.readString(pidFile).trim().toInt() }.getOrNull()
+                    if (rootPid != null) terminateProcessTree(rootPid)
                     process.destroy()
                     if (process.isAlive) process.destroyForcibly()
                     break
@@ -81,8 +86,28 @@ class NativeBackend(
             if (process.isAlive) process.destroyForcibly()
             Files.deleteIfExists(stdoutFile)
             Files.deleteIfExists(stderrFile)
+            Files.deleteIfExists(pidFile)
         }
     }
+
+    private fun terminateProcessTree(rootPid: Int) {
+        val parentOf = HashMap<Int, Int>()
+        runCatching {
+            Files.list(Paths.get("/proc")).use { entries ->
+                entries.filter { it.fileName.toString().all(Char::isDigit) }.forEach { pidPath ->
+                    val pid = pidPath.fileName.toString().toInt()
+                    val fields = Files.readString(pidPath.resolve("stat")).substringAfterLast(") ").split(' ')
+                    if (fields.size > 1) parentOf[pid] = fields[1].toInt()
+                }
+            }
+        }
+        for (pid in ProcessTree.descendants(rootPid, parentOf)) {
+            runCatching { AndroidProcess.killProcess(pid) }
+        }
+        runCatching { AndroidProcess.killProcess(rootPid) }
+    }
+
+    private fun shellQuote(value: String): String = "'${value.replace("'", "'\\''")}'"
 
     override suspend fun readUtf8(path: String, maxBytes: Long): String = withContext(Dispatchers.IO) {
         require(maxBytes > 0)
@@ -189,6 +214,18 @@ class NativeBackend(
             if (match < 0) return count
             count++
             start = match + needle.length
+        }
+    }
+
+    internal object ProcessTree {
+        fun descendants(rootPid: Int, parentOf: Map<Int, Int>): List<Int> {
+            val children = parentOf.entries.groupBy({ it.value }, { it.key })
+            val result = ArrayList<Int>()
+            fun visit(pid: Int) {
+                children[pid].orEmpty().forEach { child -> visit(child); result += child }
+            }
+            visit(rootPid)
+            return result
         }
     }
 

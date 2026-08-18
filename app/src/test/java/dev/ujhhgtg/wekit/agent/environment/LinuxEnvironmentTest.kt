@@ -59,6 +59,17 @@ class LinuxEnvironmentTest {
         assertThrows(IllegalArgumentException::class.java) { backend.resolvePath("../outside") }
     }
 
+    @Test
+    fun `native timeout tree orders descendants before their parents`() {
+        assertEquals(
+            listOf(4, 3, 2),
+            NativeBackend.ProcessTree.descendants(
+                rootPid = 1,
+                parentOf = mapOf(2 to 1, 3 to 2, 4 to 3),
+            ),
+        )
+    }
+
     private fun environment(type: LinuxEnvironmentType) = LinuxEnvironmentEntity(
         id = "environment",
         name = "Environment",

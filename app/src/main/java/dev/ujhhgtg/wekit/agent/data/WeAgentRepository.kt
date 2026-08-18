@@ -815,9 +815,11 @@ object WeAgentRepository : ToolPermissionSource {
     suspend fun upsertLinuxEnvironment(environment: LinuxEnvironmentEntity) {
         require(environment.id != NATIVE_ENVIRONMENT_ID) { "native environment is built in" }
         validateLinuxEnvironment(environment)
-        val existing = db.linuxEnvironmentDao().getById(environment.id)
-        validateLinuxEnvironmentUpdate(existing, environment)
-        db.linuxEnvironmentDao().upsert(environment)
+        db.withTransaction {
+            val existing = db.linuxEnvironmentDao().getById(environment.id)
+            validateLinuxEnvironmentUpdate(existing, environment)
+            db.linuxEnvironmentDao().upsert(environment)
+        }
     }
 
     /** Temporary source compatibility until workspace UI callers are replaced. */

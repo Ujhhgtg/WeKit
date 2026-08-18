@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -25,6 +26,7 @@ class LinuxEnvironmentManager(
     private val leaseCounts = HashMap<String, Int>()
     private val deleting = HashSet<String>()
     private val backends = ConcurrentHashMap<String, LinuxEnvironmentBackend>()
+    private val staleBackends = HashSet<String>()
     private val mutableHealth = MutableStateFlow<Map<String, EnvironmentHealth>>(
         mapOf(NATIVE_ENVIRONMENT_ID to EnvironmentHealth(EnvironmentHealthState.UNKNOWN))
     )
@@ -42,8 +44,16 @@ class LinuxEnvironmentManager(
     suspend fun effectiveEnvironmentId(sessionId: String): String =
         WeAgentRepository.getEffectiveLinuxEnvironmentId(sessionId)
 
-    suspend fun upsert(environment: LinuxEnvironmentEntity) =
+    suspend fun upsert(environment: LinuxEnvironmentEntity) {
         WeAgentRepository.upsertLinuxEnvironment(environment)
+        stateMutex.withLock {
+            staleBackends.add(environment.id)
+            if ((leaseCounts[environment.id] ?: 0) == 0) {
+                backends.remove(environment.id)?.close()
+                staleBackends.remove(environment.id)
+            }
+        }
+    }
 
     suspend fun delete(id: String): Boolean {
         require(id != NATIVE_ENVIRONMENT_ID) { "native environment cannot be deleted" }
@@ -56,7 +66,7 @@ class LinuxEnvironmentManager(
             if (deleted) {
                 backends.remove(id)?.close()
                 executionMutexes.remove(id)
-                mutableHealth.value = mutableHealth.value - id
+                stateMutex.withLock { mutableHealth.update { it - id } }
             }
             return deleted
         } finally {
@@ -71,11 +81,20 @@ class LinuxEnvironmentManager(
         withLease(environmentId) { it.edit(request) }
 
     suspend fun checkHealth(environmentId: String): EnvironmentHealth {
-        mutableHealth.value = mutableHealth.value +
-                (environmentId to EnvironmentHealth(EnvironmentHealthState.CHECKING))
+        publishHealth(environmentId, EnvironmentHealth(EnvironmentHealthState.CHECKING))
         return runCatching { withLease(environmentId) { it.checkHealth() } }
             .getOrElse { EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, it.message) }
-            .also { result -> mutableHealth.value = mutableHealth.value + (environmentId to result) }
+            .also { result -> publishHealth(environmentId, result) }
+    }
+
+    private suspend fun publishHealth(environmentId: String, value: EnvironmentHealth) {
+        stateMutex.withLock {
+            if (environmentId == NATIVE_ENVIRONMENT_ID ||
+                WeAgentRepository.getLinuxEnvironment(environmentId) != null
+            ) {
+                mutableHealth.update { it + (environmentId to value) }
+            }
+        }
     }
 
     private suspend fun <T> withLease(
@@ -95,6 +114,9 @@ class LinuxEnvironmentManager(
             stateMutex.withLock {
                 val remaining = leaseCounts.getValue(environmentId) - 1
                 if (remaining == 0) leaseCounts.remove(environmentId) else leaseCounts[environmentId] = remaining
+                if (remaining == 0 && staleBackends.remove(environmentId)) {
+                    backends.remove(environmentId)?.close()
+                }
             }
         }
     }
