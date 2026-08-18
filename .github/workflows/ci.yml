@@ -414,6 +414,107 @@ jobs:
           done < dist/dex-test-release/assets.txt
           gh release upload Dex-Test "${upload[@]}" --clobber
 
+  build-extensions:
+    name: Build & publish extension packs
+    runs-on: ubuntu-latest
+    # Publishing is push-only to master/dev: pull_request jobs must never touch
+    # the persistent Extensions release or create attestations.
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Set up Rust
+        # xtask is host-only Rust; the Android targets/nightly channel used by
+        # the build job are not needed here.
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: app/src/main/go/wekit-cloudflared/go.mod
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Install Android NDK
+        run: |
+          NDK_VERSION=$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          MIN_SDK=$(sed -n 's/^minSdk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
+          NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
+          test -x "$NDK_BIN/armv7a-linux-androideabi$MIN_SDK-clang"
+          test -x "$NDK_BIN/llvm-strip"
+
+      - name: Build packs
+        run: |
+          cargo xtask configure
+          cargo xtask extensions pack
+
+      - name: Verify against extensions.lock
+        run: cargo xtask extensions verify
+
+      - name: Skip if assets already published
+        id: published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          skip=true
+          for f in dist/extensions/script-deps-*.dex dist/extensions/cloudflared-*.zip; do
+            name=$(basename "$f")
+            if ! gh release view Extensions --json assets -q '.assets[].name' | grep -qx "$name"; then
+              skip=false
+            fi
+          done
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+      - name: Create Extensions release if missing
+        if: steps.published.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view Extensions >/dev/null 2>&1; then
+            gh release create Extensions \
+              --target "${{ github.sha }}" \
+              --title "Extensions" \
+              --prerelease \
+              --notes "扩展包资产。版本与哈希由仓库内 extensions.lock 锁定,本体只加载 lock 中 pin 的版本。"
+          fi
+
+      - name: Upload pack assets
+        if: steps.published.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload Extensions \
+            dist/extensions/script-deps-*.dex \
+            dist/extensions/cloudflared-*.zip
+
+      - name: Attest build provenance
+        if: steps.published.outputs.skip == 'false'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            dist/extensions/script-deps-*.dex
+            dist/extensions/cloudflared-*.zip
+
   release-ci:
     needs: [build, build_zygisk]
     runs-on: ubuntu-latest
