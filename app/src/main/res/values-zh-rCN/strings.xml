@@ -2120,7 +2120,7 @@
     <string name="chat_auto_reply_error_voice_duration">语音时长必须在 1–60000 毫秒之间</string>
     <string name="chat_auto_reply_error_delay">延迟必须在 0–60000 毫秒之间</string>
     <string name="chat_auto_reply_error_cooldown">冷却时间不能为负数</string>
-    <string name="chat_message_details_menu">查看详情</string>
+    <string name="chat_message_details_menu">详情</string>
     <string name="chat_message_details_type">类型</string>
     <string name="chat_message_details_talker_id">对方/群聊 ID</string>
     <string name="chat_message_details_sender_id">发送者 ID</string>
