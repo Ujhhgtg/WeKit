@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.agent.data.entity
 
 import androidx.room.Entity
+import androidx.room.Ignore
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
@@ -16,10 +17,11 @@ data class SessionEntity(
     @PrimaryKey val id: String,
     val title: String,
     val systemPromptId: String?,
-    val workspaceId: String?,
+    val linuxEnvironmentId: String?,
+    val lastEffectiveLinuxEnvironmentId: String?,
     /**
      * Bound model id, or null for "默认" — meaning follow [dev.ujhhgtg.wekit.agent.data.WeAgentSettings.defaultModelId] resolved
-     * at turn time (like [systemPromptId]/[workspaceId]). Null lets changing the global default apply
+     * at turn time (like [systemPromptId]/[linuxEnvironmentId]). Null lets changing the global default apply
      * to existing sessions instead of snapshotting the model at creation.
      */
     val modelId: String?,
@@ -40,7 +42,11 @@ data class SessionEntity(
     val completionTokens: Int? = null,
     val totalTokens: Int? = null,
     val contextWindow: Int? = null,
-)
+) {
+    /** Temporary source compatibility until workspace UI/tool callers are replaced. */
+    @get:Ignore
+    val workspaceId: String? get() = null
+}
 
 enum class MessageRole { USER, ASSISTANT, TOOL, SYSTEM }
 

@@ -21,6 +21,9 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE id = :id")
     suspend fun getById(id: String): SessionEntity?
 
+    @Query("SELECT linuxEnvironmentId FROM sessions WHERE id = :id")
+    fun observeLinuxEnvironmentId(id: String): Flow<String?>
+
     @Upsert
     suspend fun upsert(session: SessionEntity)
 
@@ -51,8 +54,8 @@ interface SessionDao {
     @Query("UPDATE sessions SET systemPromptId = NULL WHERE systemPromptId = :promptId")
     suspend fun clearSystemPromptBindings(promptId: String)
 
-    @Query("UPDATE sessions SET workspaceId = NULL WHERE workspaceId = :workspaceId")
-    suspend fun clearWorkspaceBindings(workspaceId: String)
+    @Query("UPDATE sessions SET linuxEnvironmentId = NULL WHERE linuxEnvironmentId = :environmentId")
+    suspend fun clearLinuxEnvironmentBindings(environmentId: String)
 }
 
 @Dao

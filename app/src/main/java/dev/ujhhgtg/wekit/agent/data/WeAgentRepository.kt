@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ExternalServiceEntity
 import dev.ujhhgtg.wekit.agent.data.entity.MessageEntity
 import dev.ujhhgtg.wekit.agent.data.entity.MessageRole
+import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
@@ -19,12 +20,16 @@ import dev.ujhhgtg.wekit.agent.data.entity.ToolPermissionEntity
 import dev.ujhhgtg.wekit.agent.model.LlmMessage
 import dev.ujhhgtg.wekit.agent.model.LlmRole
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
+import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.ToolMode
 import dev.ujhhgtg.wekit.agent.tool.ToolPermissionSource
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -189,9 +194,8 @@ object WeAgentRepository : ToolPermissionSource {
     /** First configured model id, if any (used to seed a new session when no default is set). */
     suspend fun firstModelId(): String? = db.modelDao().first()?.id
 
-    /** Real directory name for a workspace id (its `name` doubles as the on-disk folder). */
-    suspend fun getWorkspaceName(workspaceId: String): String? =
-        db.workspaceDao().getById(workspaceId)?.name
+    /** Temporary source compatibility until workspace tool callers are replaced. */
+    suspend fun getWorkspaceName(workspaceId: String): String? = null
 
     /** Creates a new session with a placeholder title; returns its id. modelId null = "默认" (follow settings default). */
     suspend fun createSession(modelId: String?, systemPromptId: String?, workspaceId: String?): String {
@@ -202,7 +206,8 @@ object WeAgentRepository : ToolPermissionSource {
                 id = id,
                 title = "新对话",
                 systemPromptId = systemPromptId,
-                workspaceId = workspaceId,
+                linuxEnvironmentId = null,
+                lastEffectiveLinuxEnvironmentId = null,
                 modelId = modelId,
                 createdAt = now,
                 updatedAt = now,
@@ -290,7 +295,8 @@ object WeAgentRepository : ToolPermissionSource {
                 id = newSessionId,
                 title = "[分支] ${source.title}",
                 systemPromptId = source.systemPromptId,
-                workspaceId = source.workspaceId,
+                linuxEnvironmentId = source.linuxEnvironmentId,
+                lastEffectiveLinuxEnvironmentId = source.lastEffectiveLinuxEnvironmentId,
                 modelId = source.modelId,
                 favorite = source.favorite,
                 createdAt = now,
@@ -381,9 +387,19 @@ object WeAgentRepository : ToolPermissionSource {
         db.sessionDao().upsert(s.copy(systemPromptId = systemPromptId, updatedAt = nextStamp()))
     }
 
-    suspend fun updateSessionWorkspace(id: String, workspaceId: String?) {
-        val s = db.sessionDao().getById(id) ?: return
-        db.sessionDao().upsert(s.copy(workspaceId = workspaceId, updatedAt = nextStamp()))
+    /** Temporary source compatibility until workspace UI callers are replaced. */
+    suspend fun updateSessionWorkspace(id: String, workspaceId: String?) = Unit
+
+    suspend fun updateSessionLinuxEnvironment(id: String, environmentId: String?) {
+        if (environmentId != null) requireEnvironmentExists(environmentId)
+        val session = db.sessionDao().getById(id) ?: return
+        db.sessionDao().upsert(
+            session.copy(
+                linuxEnvironmentId = environmentId,
+                lastEffectiveLinuxEnvironmentId = null,
+                updatedAt = nextStamp(),
+            )
+        )
     }
 
     // --- write paths used by the engine's HistorySink ---
@@ -604,7 +620,54 @@ object WeAgentRepository : ToolPermissionSource {
     fun observePerTurnPrompts(): Flow<List<PerTurnPromptEntity>> = db.perTurnPromptDao().observeAll()
     fun observeConditionalPrompts(): Flow<List<ConditionalPromptEntity>> = db.conditionalPromptDao().observeAll()
     fun observePresetPrompts(): Flow<List<PresetPromptEntity>> = db.presetPromptDao().observeAll()
-    fun observeWorkspaces() = db.workspaceDao().observeAll()
+    /** Temporary source compatibility until workspace UI callers are replaced. */
+    fun observeWorkspaces(): Flow<List<dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity>> = flowOf(emptyList())
+
+    fun observeLinuxEnvironments(): Flow<List<LinuxEnvironmentEntity>> =
+        db.linuxEnvironmentDao().observeAll()
+
+    suspend fun getLinuxEnvironment(id: String): LinuxEnvironmentEntity? =
+        if (id == NATIVE_ENVIRONMENT_ID) null else db.linuxEnvironmentDao().getById(id)
+
+    fun observeLinuxEnvironment(id: String): Flow<LinuxEnvironmentEntity?> =
+        if (id == NATIVE_ENVIRONMENT_ID) flowOf(null) else db.linuxEnvironmentDao().observeById(id)
+
+    suspend fun getAllLinuxEnvironments(): List<LinuxEnvironmentEntity> =
+        db.linuxEnvironmentDao().getAllOnce()
+
+    fun observeDefaultLinuxEnvironmentId(): Flow<String> = combine(
+        db.settingDao().observeValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
+        db.linuxEnvironmentDao().observeAll(),
+    ) { configured, environments ->
+        resolveEffectiveLinuxEnvironmentId(null, configured, environments.mapTo(HashSet()) { it.id })
+    }
+
+    fun observeSessionEffectiveLinuxEnvironmentId(sessionId: String): Flow<String> = combine(
+        db.sessionDao().observeLinuxEnvironmentId(sessionId),
+        db.settingDao().observeValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
+        db.linuxEnvironmentDao().observeAll(),
+    ) { sessionEnvironmentId, defaultEnvironmentId, environments ->
+        resolveEffectiveLinuxEnvironmentId(
+            sessionEnvironmentId,
+            defaultEnvironmentId,
+            environments.mapTo(HashSet()) { it.id },
+        )
+    }
+
+    suspend fun getEffectiveLinuxEnvironmentId(sessionId: String): String {
+        val sessionIdValue = db.sessionDao().getById(sessionId)?.linuxEnvironmentId
+        val defaultId = WeAgentSettings.defaultLinuxEnvironmentId()
+        return resolveEffectiveLinuxEnvironmentId(
+            sessionIdValue,
+            defaultId,
+            db.linuxEnvironmentDao().getAllOnce().mapTo(HashSet()) { it.id },
+        )
+    }
+
+    suspend fun setDefaultLinuxEnvironmentId(id: String) {
+        requireEnvironmentExists(id)
+        WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID, id)
+    }
 
     // ---------------------------------------------------------------------------
     // Settings-screen CRUD (Phase 8)
@@ -749,37 +812,90 @@ object WeAgentRepository : ToolPermissionSource {
     suspend fun upsertPresetPrompt(p: PresetPromptEntity) = db.presetPromptDao().upsert(p)
     suspend fun deletePresetPrompt(id: String) = db.presetPromptDao().deleteById(id)
 
-    suspend fun upsertWorkspace(w: dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity) =
-        db.workspaceDao().upsert(w)
-
-    /**
-     * Transactionally deletes a workspace row together with its session bindings and the settings
-     * default that referenced it. The real directory is staged aside first (recoverable) and only
-     * recursively deleted after the DB transaction commits; if the transaction fails the directory
-     * is restored and the error rethrown. No-op when the row is already gone (double delete).
-     */
-    suspend fun deleteWorkspace(id: String) {
-        val workspace = db.workspaceDao().getById(id) ?: return
-        val staged = dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore.stageWorkspaceDeletion(workspace.name)
-        val settingKeys = WeAgentSettings.workspaceDefaultKeysFor(setOf(id))
-        try {
-            db.withTransaction {
-                db.sessionDao().clearWorkspaceBindings(id)
-                settingKeys.forEach { db.settingDao().delete(it) }
-                db.workspaceDao().deleteById(id)
-            }
-        } catch (e: Throwable) {
-            dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore.restoreWorkspaceDeletion(staged)
-            throw e
-        }
-        settingKeys.forEach { WeAgentSettings.clearCached(it) }
-        dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore.finalizeWorkspaceDeletion(staged)
-        runCatching { dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onWorkspaceDeleted(id) }
+    suspend fun upsertLinuxEnvironment(environment: LinuxEnvironmentEntity) {
+        require(environment.id != NATIVE_ENVIRONMENT_ID) { "native environment is built in" }
+        validateLinuxEnvironment(environment)
+        val existing = db.linuxEnvironmentDao().getById(environment.id)
+        validateLinuxEnvironmentUpdate(existing, environment)
+        db.linuxEnvironmentDao().upsert(environment)
     }
 
+    /** Temporary source compatibility until workspace UI callers are replaced. */
+    suspend fun upsertWorkspace(w: dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity) = Unit
+
+    suspend fun deleteLinuxEnvironment(id: String): Boolean {
+        require(id != NATIVE_ENVIRONMENT_ID) { "native environment cannot be deleted" }
+        var deleted = false
+        db.withTransaction {
+            val existing = db.linuxEnvironmentDao().getById(id) ?: return@withTransaction
+            if (db.settingDao().getValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID) == existing.id) {
+                db.settingDao().upsert(
+                    dev.ujhhgtg.wekit.agent.data.entity.SettingEntity(
+                        WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID,
+                        NATIVE_ENVIRONMENT_ID,
+                    )
+                )
+            }
+            db.sessionDao().clearLinuxEnvironmentBindings(id)
+            deleted = db.linuxEnvironmentDao().deleteById(id) != 0
+        }
+        WeAgentSettings.clearCached(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID)
+        return deleted
+    }
+
+    /** Temporary source compatibility; old directories are deliberately preserved. */
+    suspend fun deleteWorkspace(id: String) = Unit
+
     suspend fun getAllModelsOnce(): List<ModelEntity> = db.modelDao().getAllOnce()
-    suspend fun observeWorkspacesOnce(): List<dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity> =
-        db.workspaceDao().getAllOnce()
+    suspend fun observeWorkspacesOnce(): List<dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity> = emptyList()
+
+    internal fun resolveEffectiveLinuxEnvironmentId(
+        sessionEnvironmentId: String?,
+        defaultEnvironmentId: String?,
+        storedEnvironmentIds: Set<String>,
+    ): String = when {
+        sessionEnvironmentId == NATIVE_ENVIRONMENT_ID -> NATIVE_ENVIRONMENT_ID
+        sessionEnvironmentId != null && sessionEnvironmentId in storedEnvironmentIds -> sessionEnvironmentId
+        defaultEnvironmentId == NATIVE_ENVIRONMENT_ID -> NATIVE_ENVIRONMENT_ID
+        defaultEnvironmentId != null && defaultEnvironmentId in storedEnvironmentIds -> defaultEnvironmentId
+        else -> NATIVE_ENVIRONMENT_ID
+    }
+
+    internal fun validateLinuxEnvironmentUpdate(
+        existing: LinuxEnvironmentEntity?,
+        incoming: LinuxEnvironmentEntity,
+    ) {
+        require(existing == null || existing.type == incoming.type) { "environment type is immutable" }
+    }
+
+    private suspend fun requireEnvironmentExists(id: String) {
+        require(id == NATIVE_ENVIRONMENT_ID || db.linuxEnvironmentDao().getById(id) != null) {
+            "environment $id does not exist"
+        }
+    }
+
+    private fun validateLinuxEnvironment(environment: LinuxEnvironmentEntity) {
+        require(environment.name.isNotBlank()) { "environment name is required" }
+        require(environment.workingDirectory.isNotBlank()) { "working directory is required" }
+        require(environment.type != LinuxEnvironmentType.NATIVE) { "native environment is built in" }
+        require(
+            (environment.sshCredentialCiphertext == null) == (environment.sshCredentialIv == null)
+        ) { "encrypted SSH credentials require both ciphertext and IV" }
+        when (environment.type) {
+            LinuxEnvironmentType.PROOT, LinuxEnvironmentType.CHROOT -> {
+                require(!environment.rootfsPath.isNullOrBlank()) { "local environments require a rootfs path" }
+                require(environment.sshHost == null) { "local environments cannot contain SSH configuration" }
+            }
+            LinuxEnvironmentType.SSH -> {
+                require(environment.rootfsPath == null) { "SSH environments cannot contain a rootfs path" }
+                require(!environment.sshHost.isNullOrBlank()) { "SSH host is required" }
+                require(environment.sshPort != null && environment.sshPort in 1..65535) { "SSH port is invalid" }
+                require(!environment.sshUsername.isNullOrBlank()) { "SSH username is required" }
+                require(!environment.sshAuthenticationType.isNullOrBlank()) { "SSH authentication type is required" }
+            }
+            LinuxEnvironmentType.NATIVE -> error("native environment is built in")
+        }
+    }
 
     // ---------------------------------------------------------------------------
     // Triggers (WeAgent trigger system)

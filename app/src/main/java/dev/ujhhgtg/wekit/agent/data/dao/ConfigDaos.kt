@@ -5,13 +5,13 @@ import androidx.room.Query
 import androidx.room.Upsert
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ExternalServiceEntity
+import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PresetPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SettingEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
-import dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -123,21 +123,24 @@ interface PresetPromptDao {
 }
 
 @Dao
-interface WorkspaceDao {
-    @Query("SELECT * FROM workspaces ORDER BY name COLLATE NOCASE, id")
-    fun observeAll(): Flow<List<WorkspaceEntity>>
+interface LinuxEnvironmentDao {
+    @Query("SELECT * FROM linux_environments ORDER BY name COLLATE NOCASE, id")
+    fun observeAll(): Flow<List<LinuxEnvironmentEntity>>
 
-    @Query("SELECT * FROM workspaces ORDER BY name COLLATE NOCASE, id")
-    suspend fun getAllOnce(): List<WorkspaceEntity>
+    @Query("SELECT * FROM linux_environments ORDER BY name COLLATE NOCASE, id")
+    suspend fun getAllOnce(): List<LinuxEnvironmentEntity>
 
-    @Query("SELECT * FROM workspaces WHERE id = :id")
-    suspend fun getById(id: String): WorkspaceEntity?
+    @Query("SELECT * FROM linux_environments WHERE id = :id")
+    suspend fun getById(id: String): LinuxEnvironmentEntity?
+
+    @Query("SELECT * FROM linux_environments WHERE id = :id")
+    fun observeById(id: String): Flow<LinuxEnvironmentEntity?>
 
     @Upsert
-    suspend fun upsert(workspace: WorkspaceEntity)
+    suspend fun upsert(environment: LinuxEnvironmentEntity)
 
-    @Query("DELETE FROM workspaces WHERE id = :id")
-    suspend fun deleteById(id: String)
+    @Query("DELETE FROM linux_environments WHERE id = :id")
+    suspend fun deleteById(id: String): Int
 }
 
 @Dao
@@ -147,6 +150,9 @@ interface SettingDao {
 
     @Query("SELECT value FROM settings WHERE key = :key")
     suspend fun getValue(key: String): String?
+
+    @Query("SELECT value FROM settings WHERE key = :key")
+    fun observeValue(key: String): Flow<String?>
 
     @Upsert
     suspend fun upsert(setting: SettingEntity)

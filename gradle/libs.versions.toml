@@ -42,6 +42,7 @@ ktor = "3.5.2"
 dexmaker = "2.28.6"
 dynamicanimation = "1.1.0"
 jsch = "2.28.6"
+sqliteJdbc = "3.50.3.0"
 
 # noinspection UnusedVersionCatalogEntry
 namespace = "dev.ujhhgtg.wekit"
@@ -89,6 +90,7 @@ coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version
 
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 
 markwon-core = { module = "io.noties.markwon:core", version.ref = "markwon" }
 markwon-ext-strikethrough = { module = "io.noties.markwon:ext-strikethrough", version.ref = "markwon" }

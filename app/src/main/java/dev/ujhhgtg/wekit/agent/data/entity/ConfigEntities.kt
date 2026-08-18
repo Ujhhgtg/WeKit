@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.agent.data.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 
 // ---------------------------------------------------------------------------
 // Model providers & models
@@ -96,14 +97,54 @@ data class PresetPromptEntity(
 )
 
 // ---------------------------------------------------------------------------
-// Workspaces & global settings
+// Linux environments & global settings
 // ---------------------------------------------------------------------------
 
-@Entity(tableName = "workspaces")
+/** Temporary source compatibility for workspace UI removed by a later task. */
 data class WorkspaceEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val name: String,
 )
+
+@Entity(tableName = "linux_environments")
+data class LinuxEnvironmentEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val type: LinuxEnvironmentType,
+    val workingDirectory: String,
+    val environmentVariablesJson: String = "{}",
+    val rootfsPath: String? = null,
+    val rootfsContentVersion: String? = null,
+    val createdAt: Long? = null,
+    val sshHost: String? = null,
+    val sshPort: Int? = null,
+    val sshUsername: String? = null,
+    val sshAuthenticationType: String? = null,
+    val sshCredentialCiphertext: ByteArray? = null,
+    val sshCredentialIv: ByteArray? = null,
+    val sshCredentialReference: String? = null,
+    val sshHostKeyAlgorithm: String? = null,
+    val sshHostKeyFingerprint: String? = null,
+    val bridgePath: String? = null,
+) {
+    override fun equals(other: Any?): Boolean = other is LinuxEnvironmentEntity &&
+            id == other.id && name == other.name && type == other.type &&
+            workingDirectory == other.workingDirectory &&
+            environmentVariablesJson == other.environmentVariablesJson &&
+            rootfsPath == other.rootfsPath && rootfsContentVersion == other.rootfsContentVersion &&
+            createdAt == other.createdAt && sshHost == other.sshHost && sshPort == other.sshPort &&
+            sshUsername == other.sshUsername && sshAuthenticationType == other.sshAuthenticationType &&
+            sshCredentialCiphertext.contentEqualsNullable(other.sshCredentialCiphertext) &&
+            sshCredentialIv.contentEqualsNullable(other.sshCredentialIv) &&
+            sshCredentialReference == other.sshCredentialReference &&
+            sshHostKeyAlgorithm == other.sshHostKeyAlgorithm &&
+            sshHostKeyFingerprint == other.sshHostKeyFingerprint && bridgePath == other.bridgePath
+
+    override fun hashCode(): Int = id.hashCode()
+}
+
+private fun ByteArray?.contentEqualsNullable(other: ByteArray?): Boolean =
+    if (this == null || other == null) this === other else contentEquals(other)
 
 @Entity(tableName = "settings")
 data class SettingEntity(

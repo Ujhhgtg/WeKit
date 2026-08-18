@@ -349,6 +349,7 @@ dependencies {
     testImplementation(project(":libs:common:stubs"))
     testImplementation(libs.legacyxposed.api)
     testImplementation(libs.libxposed.api)
+    testImplementation(libs.sqlite.jdbc)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
