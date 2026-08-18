@@ -2,6 +2,10 @@ package dev.ujhhgtg.wekit.extensions
 
 import android.os.Build
 import android.os.Process
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Cloud
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -24,6 +28,9 @@ object CloudflaredPack : ExtensionPack {
     override val pinnedVersion = ExtensionLock.Cloudflared.VERSION
     override val pinnedSha256 = ExtensionLock.Cloudflared.SHA256
     override val assetName = ExtensionLock.Cloudflared.ASSET_NAME
+    override val nameRes = R.string.extensions_pack_cloudflared_name
+    override val descriptionRes = R.string.extensions_pack_cloudflared_desc
+    override val icon: ImageVector = MaterialSymbols.Outlined.Cloud
 
     private const val LIB_NAME = "libwekit_cloudflared.so"
 

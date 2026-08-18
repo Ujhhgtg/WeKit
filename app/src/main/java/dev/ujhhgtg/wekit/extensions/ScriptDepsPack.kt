@@ -1,6 +1,10 @@
 package dev.ujhhgtg.wekit.extensions
 
 import dalvik.system.InMemoryDexClassLoader
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Extension
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
 import java.nio.ByteBuffer
@@ -17,6 +21,9 @@ object ScriptDepsPack : ExtensionPack {
     override val pinnedVersion = ExtensionLock.ScriptDeps.VERSION
     override val pinnedSha256 = ExtensionLock.ScriptDeps.SHA256
     override val assetName = ExtensionLock.ScriptDeps.ASSET_NAME
+    override val nameRes = R.string.extensions_pack_script_deps_name
+    override val descriptionRes = R.string.extensions_pack_script_deps_desc
+    override val icon: ImageVector = MaterialSymbols.Outlined.Extension
 
     private var cachedLoader: InMemoryDexClassLoader? = null
 

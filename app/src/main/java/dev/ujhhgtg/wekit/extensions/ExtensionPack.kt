@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.extensions
 
+import androidx.compose.ui.graphics.vector.ImageVector
 import java.io.File
 
 /**
@@ -13,6 +14,15 @@ interface ExtensionPack {
     val pinnedVersion: String
     val pinnedSha256: String
     val assetName: String
+
+    /** UI metadata: display name resource shown on the management screen and in dialogs. */
+    val nameRes: Int
+
+    /** UI metadata: short description resource shown under the pack name. */
+    val descriptionRes: Int
+
+    /** UI metadata: leading icon on the management screen. */
+    val icon: ImageVector
 
     /** Directory holding versioned install payloads (manifest.json + payload). */
     fun installDir(): File

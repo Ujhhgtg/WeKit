@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.activity.settings
 
 
 import android.content.Context
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -77,6 +78,7 @@ import com.composables.icons.materialsymbols.outlined.Colorize
 import com.composables.icons.materialsymbols.outlined.Contrast
 import com.composables.icons.materialsymbols.outlined.Delete_forever
 import com.composables.icons.materialsymbols.outlined.Download
+import com.composables.icons.materialsymbols.outlined.Extension
 import com.composables.icons.materialsymbols.outlined.Frame_bug
 import com.composables.icons.materialsymbols.outlined.Label
 import com.composables.icons.materialsymbols.outlined.Language
@@ -278,6 +280,18 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                                 context = { currentLocalizedContext.value },
                                 onAvailable = { updateInfo = it },
                                 onError = { updateError = it },
+                            )
+                        },
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_extensions_title),
+                        summary = stringResource(R.string.settings_extensions_summary),
+                        icon = MaterialSymbols.Outlined.Extension,
+                        onClick = {
+                            currentLocalizedContext.value.startActivity(
+                                Intent(currentLocalizedContext.value, ExtensionsSettingsActivity::class.java)
                             )
                         },
                     )
