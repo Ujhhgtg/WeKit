@@ -6,7 +6,6 @@ mod audio_utils;
 mod crash_handler;
 mod crash_triggerer;
 mod logging;
-mod read_receipts_server;
 mod telegram_sticker;
 mod utils;
 
@@ -23,80 +22,25 @@ use libc::c_void;
 
 use crate::utils::with_jstring;
 
-fn native_string(env: *mut RawJNIEnv, value: &str) -> jstring {
+fn native_error_string(env: *mut RawJNIEnv, result: Result<(), String>) -> jstring {
     if env.is_null() {
         return std::ptr::null_mut();
     }
 
-    unsafe {
-        let fns = *env;
-        let c_str = CString::new(value)
-            .unwrap_or_else(|_| CString::new("native conversion failed").unwrap());
-        ((*fns).v1_6.NewStringUTF)(env, c_str.as_ptr())
-    }
-}
-
-fn native_error_string(env: *mut RawJNIEnv, result: Result<(), String>) -> jstring {
     match result {
         Ok(()) => std::ptr::null_mut(),
-        Err(message) => native_string(env, &message),
+        Err(message) => unsafe {
+            let fns = *env;
+            let c_str = CString::new(message)
+                .unwrap_or_else(|_| CString::new("native conversion failed").unwrap());
+            ((*fns).v1_6.NewStringUTF)(env, c_str.as_ptr())
+        },
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JNI exports
 // ─────────────────────────────────────────────────────────────────────────────
-
-/// Start the loopback-only embedded read-receipts origin.
-///
-/// Java signature: `(Ljava/lang/String;ILjava/lang/String;)Ljava/lang/String;`
-#[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsNative_startServer(
-    env: *mut RawJNIEnv,
-    _thiz: jobject,
-    database_path: jstring,
-    port: jint,
-    connector_authenticator: jstring,
-) -> jstring {
-    let result = if !(0..=u16::MAX as jint).contains(&port) {
-        Err("server port must be between 0 and 65535".to_owned())
-    } else {
-        with_jstring(env, database_path, |database_path| {
-            with_jstring(env, connector_authenticator, |connector_authenticator| {
-                read_receipts_server::start(database_path, port as u16, connector_authenticator)
-                    .map(|_| ())
-            })
-            .unwrap_or_else(|| Err("missing or unreadable connector authenticator".to_owned()))
-        })
-        .unwrap_or_else(|| Err("missing or unreadable database path".to_owned()))
-    };
-    if let Err(error) = &result {
-        loge!("failed to start read receipts server: {error}");
-    }
-    native_error_string(env, result)
-}
-
-/// Request asynchronous shutdown of the embedded read-receipts origin.
-///
-/// Java signature: `()V`
-#[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsNative_stopServer(
-    _env: *mut RawJNIEnv,
-    _thiz: jobject,
-) {
-    read_receipts_server::stop();
-}
-
-/// Return a bounded JSON status object with `state`, `port`, and `error` fields.
-///
-/// Java signature: `()Ljava/lang/String;`
-#[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsNative_serverStatus(
-    env: *mut RawJNIEnv,
-    _thiz: jobject,
-) -> jstring {
-    native_string(env, &read_receipts_server::status().to_json())
-}
 
 /// Install the native crash handler.
 ///
