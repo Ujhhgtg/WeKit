@@ -13,6 +13,39 @@
             line-height: 1.6;
         }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        /* ── Login gate ─────────────────────────────────────────────── */
+        .login-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #1e2733 0%, #2c3a4d 55%, #37475c 100%);
+            padding: 20px;
+        }
+        .login-card {
+            width: 100%; max-width: 380px;
+            background: #fff; border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.35);
+            padding: 36px 32px 32px;
+            text-align: center;
+        }
+        .login-logo {
+            width: 68px; height: 68px; margin: 0 auto 14px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1890ff, #36cfc9);
+            color: #fff; font-size: 30px;
+        }
+        .login-card h2 { margin: 0 0 4px; font-size: 22px; color: #1f1f1f; }
+        .login-sub { margin: 0 0 22px; font-size: 13px; color: #999; }
+        .login-field { text-align: left; margin-bottom: 14px; }
+        .login-field label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 500; }
+        .login-field input {
+            width: 100%; box-sizing: border-box;
+            padding: 10px 12px; border: 1px solid #d9d9d9; border-radius: 8px;
+            font-size: 14px; outline: none; transition: border-color .15s;
+        }
+        .login-field input:focus { border-color: #1890ff; box-shadow: 0 0 0 3px rgba(24,144,255,.12); }
+        .login-btn { width: 100%; padding: 11px; font-size: 15px; margin-top: 6px; }
+        .login-error { min-height: 20px; margin: 2px 0 6px; font-size: 13px; color: #cf1322; text-align: left; }
         header {
             display: flex; justify-content: space-between; align-items: center;
             padding: 20px 0; border-bottom: 1px solid #e0e0e0; margin-bottom: 20px;
@@ -1173,7 +1206,36 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <!-- Login gate: shown until the correct Monk / password is entered.
+         Login-only, no registration. The dashboard markup below is kept in the
+         DOM but hidden until /auth/status reports an authenticated session, and
+         every data API is guarded server-side anyway. -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="login-logo">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <h2>WeKit Dashboard</h2>
+            <p class="login-sub">请输入账号密码以访问面板</p>
+            <form id="loginForm" onsubmit="return doLogin(event)">
+                <div class="login-field">
+                    <label for="loginUser">用户名</label>
+                    <input type="text" id="loginUser" name="username" autocomplete="username" placeholder="用户名" required>
+                </div>
+                <div class="login-field">
+                    <label for="loginPass">密码</label>
+                    <input type="password" id="loginPass" name="password" autocomplete="current-password" placeholder="密码" required>
+                </div>
+                <div class="login-error" id="loginError"></div>
+                <button type="submit" class="btn btn-primary login-btn" id="loginBtn">登 录</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container" id="dashboardContainer" style="display:none;">
         <header>
             <h1>
                 <span class="header-logo">
@@ -1186,6 +1248,7 @@
             </h1>
             <div class="header-actions">
                 <div class="header-clock" id="headerClock" title="当前北京时间 (UTC+8)">--:--:--</div>
+                <button class="btn btn-secondary logout-btn" onclick="doLogout()" title="退出登录">登出</button>
                 <button class="btn btn-secondary theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换深色 / 浅色主题">
                     <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                     <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>
@@ -2514,7 +2577,78 @@
         }
 
         // Initialize
+        // ── Login gate ─────────────────────────────────────────────────
+        // The dashboard only boots after /auth/status confirms a valid session.
+        // All data APIs are additionally guarded server-side, so this is mostly
+        // UX — the server is the real gate.
+        async function checkAuth() {
+            try {
+                const r = await fetch('/auth/status', { credentials: 'same-origin' });
+                const d = await r.json();
+                if (d && d.authenticated) {
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    document.getElementById('dashboardContainer').style.display = '';
+                    bootDashboard();
+                    return;
+                }
+            } catch (e) { /* fall through to showing login */ }
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('dashboardContainer').style.display = 'none';
+        }
+
+        async function doLogin(event) {
+            event.preventDefault();
+            const btn = document.getElementById('loginBtn');
+            const err = document.getElementById('loginError');
+            err.textContent = '';
+            const username = document.getElementById('loginUser').value.trim();
+            const password = document.getElementById('loginPass').value;
+            if (!username || !password) {
+                err.textContent = '请输入用户名和密码';
+                return false;
+            }
+            btn.disabled = true;
+            btn.textContent = '验证中…';
+            try {
+                const r = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ username, password })
+                });
+                if (r.ok) {
+                    const d = await r.json();
+                    if (d && d.ok) {
+                        location.reload();
+                        return false;
+                    }
+                }
+                let msg = '用户名或密码错误';
+                try {
+                    const d = await r.json();
+                    if (d && d.error) msg = d.error;
+                } catch (e2) {}
+                err.textContent = msg;
+            } catch (e) {
+                err.textContent = '网络错误，请重试';
+            }
+            btn.disabled = false;
+            btn.textContent = '登 录';
+            return false;
+        }
+
+        async function doLogout() {
+            try {
+                await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+            } catch (e) {}
+            location.reload();
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+        });
+
+        function bootDashboard() {
             initTheme();
             initBgm();
             updateSortHeaders();
@@ -2557,14 +2691,14 @@
                     }
                 }
             });
-        });
 
-        // Auto-refresh every 30 seconds
-        setInterval(() => {
-            if (!document.getElementById('detailModal').classList.contains('open')) {
-                loadMessages(currentPage);
-            }
-        }, 30000);
+            // Auto-refresh every 30 seconds
+            setInterval(() => {
+                if (!document.getElementById('detailModal').classList.contains('open')) {
+                    loadMessages(currentPage);
+                }
+            }, 30000);
+        }
 
         // ── Bongo Cat desktop pet (keyboard-driven; read-only, never blocks existing UI) ──
         (function () {

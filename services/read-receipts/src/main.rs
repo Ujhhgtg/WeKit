@@ -211,6 +211,79 @@ struct AppState {
     street_cache: Arc<Mutex<HashMap<String, (Option<ApiLocation>, i64)>>>,
     /// Last apizero (street-level) call timestamp, used to respect its QPS limit.
     apizero_throttle: Arc<tokio::sync::Mutex<i64>>,
+    /// Login sessions: session token -> expiry (epoch millis). In-memory only;
+    /// a login simply adds a token and the browser keeps it in an HttpOnly
+    /// cookie. Only the DASHBOARD APIs are guarded by this — the client
+    /// collection endpoints (/register, /read-report, /pixel, /count) stay open
+    /// so probe/report traffic is never blocked by authentication.
+    auth_tokens: Arc<Mutex<HashMap<String, i64>>>,
+    /// Valid dashboard username (env AUTH_USER, default "Monk").
+    auth_user: String,
+    /// Valid dashboard password (env AUTH_PASS, default "20031228").
+    auth_pass: String,
+}
+
+/// Dashboard login guard middleware. Rejects requests without a valid
+/// `wekit_session` cookie. Applied only to the dashboard/API routes below —
+/// the client collection endpoints are registered OUTSIDE this layer.
+async fn require_auth(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Result<Response, (StatusCode, String)> {
+    let cookie = headers
+        .get(header::COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let authenticated = match extract_session_token(cookie) {
+        Some(token) => state
+            .auth_tokens
+            .lock()
+            .unwrap()
+            .get(&token)
+            .map(|exp| *exp > Utc::now().timestamp_millis())
+            .unwrap_or(false),
+        None => false,
+    };
+    if authenticated {
+        Ok(next.run(request).await)
+    } else {
+        Err((StatusCode::UNAUTHORIZED, "unauthorized".to_string()))
+    }
+}
+
+/// Pulls the `wekit_session` value out of a raw Cookie header.
+fn extract_session_token(cookie: &str) -> Option<String> {
+    for part in cookie.split(';') {
+        let part = part.trim();
+        if let Some(v) = part.strip_prefix("wekit_session=") {
+            let v = v.trim();
+            return if v.is_empty() { None } else { Some(v.to_string()) };
+        }
+    }
+    None
+}
+
+/// Generates an unguessable session token (128 bits of entropy from
+/// /dev/urandom, hex-encoded; falls back to a time-seeded SHA-256).
+fn generate_session_token() -> String {
+    use std::io::Read;
+    let mut buf = [0u8; 32];
+    let mut entropy_ok = false;
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") {
+        if f.read_exact(&mut buf).is_ok() {
+            entropy_ok = true;
+        }
+    }
+    if !entropy_ok {
+        let now = Utc::now().timestamp_nanos_opt().unwrap_or(0) as u128;
+        let pid = std::process::id() as u128;
+        buf[..32].copy_from_slice(&(now ^ (pid << 64)).to_le_bytes());
+    }
+    let mut hasher = Sha256::new();
+    hasher.update(buf);
+    hex::encode(hasher.finalize())
 }
 
 /// Enriched location data returned by the third-party IP geolocation chain.
@@ -2001,13 +2074,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let street_cache = Arc::new(Mutex::new(HashMap::new()));
     let apizero_throttle = Arc::new(tokio::sync::Mutex::new(0i64));
 
-    let app = Router::new()
+    // Dashboard credentials: fixed via env vars, defaulting to Monk / 20031228.
+    let auth_user = std::env::var("AUTH_USER").unwrap_or_else(|_| "Monk".to_string());
+    let auth_pass = std::env::var("AUTH_PASS").unwrap_or_else(|_| "20031228".to_string());
+    let auth_tokens: Arc<Mutex<HashMap<String, i64>>> = Arc::new(Mutex::new(HashMap::new()));
+
+    let app_state = Arc::new(AppState {
+        db: conn,
+        ws_tx,
+        geoip,
+        http,
+        ip_cache,
+        street_cache,
+        apizero_throttle,
+        auth_tokens,
+        auth_user,
+        auth_pass,
+    });
+
+    // Public routes: login page, auth endpoints, and client collection
+    // endpoints (probe/report/count traffic comes from the WeKit app, not from
+    // a logged-in browser — it must NEVER be gated). The index page is public
+    // too: it renders the login gate until a valid session exists, then shows
+    // the dashboard.
+    let public_routes = Router::new()
         .route("/", get(serve_index))
+        .route("/auth/login", post(auth_login))
+        .route("/auth/logout", post(auth_logout))
+        .route("/auth/status", get(auth_status))
         .route("/register", post(register_message))
         .route("/read-report", post(read_report))
         .route("/pixel", get(serve_tracking_pixel))
         .route("/count", get(read_count))
         .route("/health", get(health_check))
+        .route("/media/bgm.mp3", get(serve_bgm));
+
+    // Dashboard data APIs — login-protected via route_layer (applies only to
+    // the routes registered in this router).
+    let protected_routes = Router::new()
         .route("/batch-status", get(batch_status))
         .route("/stats", get(global_stats))
         .route("/messages", get(list_messages).delete(delete_all_messages))
@@ -2022,16 +2126,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/locate/city", get(city_locate_handler))
         .route("/locate/district", get(district_locate_handler))
         .route("/ws", get(ws_handler))
-        .route("/media/bgm.mp3", get(serve_bgm))
-        .with_state(Arc::new(AppState {
-            db: conn,
-            ws_tx,
-            geoip,
-            http,
-            ip_cache,
-            street_cache,
-            apizero_throttle,
-        }));
+        .route_layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            require_auth,
+        ));
+
+    let app = public_routes.merge(protected_routes).with_state(app_state);
 
     // Bind host/port are configurable via env vars, falling back to 0.0.0.0:8080.
     // BIND_ADDR must parse as an IP address; PORT as a u16.
@@ -2144,6 +2244,105 @@ async fn serve_index() -> impl IntoResponse {
         .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
         .body(axum::body::Body::from(include_str!("../index.html")))
         .unwrap()
+}
+
+/// Dashboard login request body (login only — there is intentionally NO
+/// registration endpoint).
+#[derive(Deserialize)]
+struct LoginRequest {
+    username: String,
+    password: String,
+}
+
+/// POST /auth/login — validates the fixed credentials, issues an HttpOnly
+/// session cookie (7 days). Returns 401 on wrong credentials.
+async fn auth_login(
+    State(state): State<Arc<AppState>>,
+    body: String,
+) -> Result<(StatusCode, HeaderMap, String), (StatusCode, String)> {
+    let req: LoginRequest = serde_json::from_str(&body)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid login JSON: {e}")))?;
+    let user = req.username.trim();
+    let pass = req.password.trim();
+    if user != state.auth_user || pass != state.auth_pass {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            serde_json::json!({ "ok": false, "error": "用户名或密码错误" }).to_string(),
+        ));
+    }
+    let token = generate_session_token();
+    let expires = Utc::now().timestamp_millis() + 7 * 24 * 3600 * 1000;
+    state.auth_tokens.lock().unwrap().insert(token.clone(), expires);
+    // Opportunistically prune expired tokens.
+    let now = Utc::now().timestamp_millis();
+    state
+        .auth_tokens
+        .lock()
+        .unwrap()
+        .retain(|_, exp| *exp > now);
+    let mut headers = HeaderMap::new();
+    let cookie_val = format!(
+        "wekit_session={token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800"
+    );
+    headers.insert(
+        header::SET_COOKIE,
+        cookie_val
+            .parse()
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("cookie header: {e}")))?,
+    );
+    Ok((
+        StatusCode::OK,
+        headers,
+        serde_json::json!({ "ok": true, "username": user }).to_string(),
+    ))
+}
+
+/// POST /auth/logout — invalidates the current session and clears the cookie.
+async fn auth_logout(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<(StatusCode, HeaderMap, String), (StatusCode, String)> {
+    let cookie = headers
+        .get(header::COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if let Some(token) = extract_session_token(cookie) {
+        state.auth_tokens.lock().unwrap().remove(&token);
+    }
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::SET_COOKIE,
+        "wekit_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0"
+            .parse()
+            .unwrap(),
+    );
+    Ok((StatusCode::OK, headers, serde_json::json!({ "ok": true }).to_string()))
+}
+
+/// GET /auth/status — the login page polls this to decide whether to show the
+/// login form or boot the dashboard. Always open (no auth required).
+async fn auth_status(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let cookie = headers
+        .get(header::COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let authenticated = match extract_session_token(cookie) {
+        Some(token) => state
+            .auth_tokens
+            .lock()
+            .unwrap()
+            .get(&token)
+            .map(|exp| *exp > Utc::now().timestamp_millis())
+            .unwrap_or(false),
+        None => false,
+    };
+    Json(serde_json::json!({
+        "authenticated": authenticated,
+        "username": if authenticated { state.auth_user.clone() } else { String::new() }
+    }))
 }
 
 /// Background music embedded into the binary (glgl.tv-style). Served with a
