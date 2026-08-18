@@ -112,15 +112,25 @@ fn sha256_file(path: &Path) -> Result<String> {
 }
 
 /// Pure comparison used by `verify` (unit-testable without touching the fs).
+///
+/// Compares content hashes only: a same-content rebuild on a later date carries
+/// a different date-bearing version, which is not drift. The lock itself must
+/// be internally consistent (version matches its own file hashes).
 pub fn compare_pack(expected: &PackLock, actual: &PackLock) -> Result<()> {
-    let expected_version = derive_version(date_part(&expected.version), &content_hash(&expected.files));
     if expected.id != actual.id {
         bail!("pack id mismatch: lock '{}' vs rebuilt '{}'", expected.id, actual.id);
     }
-    if actual.version != expected_version || actual.files != expected.files {
+    let expected_version = derive_version(date_part(&expected.version), &content_hash(&expected.files));
+    if expected.version != expected_version {
+        bail!(
+            "extensions.lock is internally inconsistent for pack '{}' (hand-edited version or hash)\n  lock:    {}\n  derived: {}\n  regenerate with `cargo xtask extensions lock --write`",
+            expected.id, expected.version, expected_version
+        );
+    }
+    if expected.files != actual.files {
         bail!(
             "pack '{}' does not match extensions.lock\n  lock:    {} {:#?}\n  rebuilt: {} {:#?}",
-            actual.id, expected_version, expected.files, actual.version, actual.files
+            actual.id, expected.version, expected.files, actual.version, actual.files
         );
     }
     Ok(())
@@ -325,11 +335,7 @@ mod tests {
             version: derive_version("20260818", &content_hash(&lock_files)),
             files: lock_files.clone(),
         };
-        // Rebuilt pack carries no version of its own beyond hash-derivation.
-        let rebuilt = PackLock {
-            version: derive_version("20260818", &content_hash(&lock_files)),
-            ..lock.clone()
-        };
+        let rebuilt = lock.clone();
         assert!(compare_pack(&lock, &rebuilt).is_ok());
 
         let drifted = PackLock {
@@ -337,6 +343,32 @@ mod tests {
             ..lock.clone()
         };
         assert!(compare_pack(&lock, &drifted).is_err());
+
+        // A hand-edited or corrupted lock (version does not match its own hashes)
+        // must fail loudly instead of being compared against rebuilt content.
+        let inconsistent = PackLock {
+            version: derive_version("20260818", &content_hash(&files(&[("script-deps.dex", "bb")]))),
+            ..lock.clone()
+        };
+        assert!(compare_pack(&inconsistent, &rebuilt).is_err());
+    }
+
+    #[test]
+    fn compare_pack_accepts_same_content_rebuilt_on_a_different_date() {
+        let lock_files = files(&[("script-deps.dex", "aa")]);
+        let hash = content_hash(&lock_files);
+        let lock = PackLock {
+            id: "script-deps".into(),
+            version: derive_version("20260818", &hash),
+            files: lock_files.clone(),
+        };
+        // Calendar-day rollover: identical content, new date prefix in the version.
+        let rebuilt_next_day = PackLock {
+            version: derive_version("20260819", &hash),
+            files: lock_files,
+            ..lock.clone()
+        };
+        assert!(compare_pack(&lock, &rebuilt_next_day).is_ok());
     }
 
     #[test]
