@@ -45,4 +45,6 @@ object PackFs {
         if (!file.isFile) return null
         return json.decodeFromString(PackManifest.serializer(), file.readText())
     }
+
+    fun decodeIndex(text: String): PackIndex = json.decodeFromString(PackIndex.serializer(), text)
 }

@@ -22,10 +22,14 @@ import okhttp3.Request
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-/** Generic extension-pack plumbing: download, verify, install, state, delete. */
+/** Generic extension-pack plumbing: remote index, download, verify, install, state, delete. */
 object ExtensionPacks {
 
     private const val TAG = "ExtensionPacks"
+
+    /** The persistent "Extensions" prerelease carrying the pack assets and the index. */
+    const val BASE_URL = "https://github.com/Ujhhgtg/WeKit/releases/download/Extensions"
+    private const val INDEX_ASSET = "manifest.json"
 
     val packs: List<ExtensionPack> = listOf(ScriptDepsPack, CloudflaredPack)
 
@@ -35,6 +39,7 @@ object ExtensionPacks {
     private val flows = packs.associate { it.id to MutableStateFlow<ExtensionPackState>(NotInstalled) }
     private val downloadJobs = mutableMapOf<String, Job>()
     private val activeCalls = mutableMapOf<String, Call>()
+    private val remote = mutableMapOf<String, PackIndexEntry>()
     private val lock = Any()
 
     private val httpClient by lazy {
@@ -52,7 +57,28 @@ object ExtensionPacks {
         val flow = flows.getValue(pack.id)
         val current = flow.value
         if (current is Downloading || current is Verifying) return
-        flow.value = classifyPackState(PackFs.readManifest(pack.installDir().resolve(pack.pinnedVersion)), pack.pinnedVersion)
+        flow.value = classifyPackState(pack.installedManifest(), remoteEntryOf(pack))
+    }
+
+    /**
+     * Fetches the remote index and reclassifies every pack against it, turning
+     * up-to-date installs into [ExtensionPackState.UpdateAvailable]. The screen
+     * calls this on open; fetch failures are logged and leave states untouched.
+     */
+    fun checkUpdates() {
+        scope.launch {
+            val index = try {
+                fetchIndex()
+            } catch (e: Exception) {
+                WeLogger.w(TAG, "index fetch failed: ${e.message}")
+                return@launch
+            }
+            synchronized(lock) {
+                remote.clear()
+                index.packs.associateByTo(remote) { it.id }
+            }
+            packs.forEach(::refresh)
+        }
     }
 
     fun download(pack: ExtensionPack) {
@@ -86,14 +112,35 @@ object ExtensionPacks {
         return true
     }
 
+    private fun remoteEntryOf(pack: ExtensionPack): PackIndexEntry? = synchronized(lock) { remote[pack.id] }
+
+    private fun fetchIndex(): PackIndex {
+        val request = Request.Builder().url("$BASE_URL/$INDEX_ASSET").build()
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) error("manifest: HTTP ${response.code}")
+            return PackFs.decodeIndex(response.body.byteStream().readBytes().decodeToString())
+        }
+    }
+
+    /** The cached index entry, fetching the index first when it is not cached yet. */
+    private suspend fun remoteEntry(pack: ExtensionPack): PackIndexEntry {
+        remoteEntryOf(pack)?.let { return it }
+        val index = fetchIndex()
+        val entry = index.packs.firstOrNull { it.id == pack.id }
+            ?: error("manifest: no entry for ${pack.id}")
+        synchronized(lock) { remote[pack.id] = entry }
+        return entry
+    }
+
     private suspend fun downloadInternal(pack: ExtensionPack, flow: MutableStateFlow<ExtensionPackState>) {
         val staging = pack.stagingDir().also { it.mkdirs() }
         val tmp = File(staging, "download.tmp")
         tmp.delete()
         flow.value = Downloading(0f, 0, 0)
         try {
+            val entry = remoteEntry(pack)
             val request = Request.Builder()
-                .url("${ExtensionLock.BASE_URL}/${pack.assetName}")
+                .url("${BASE_URL}/${entry.asset}")
                 .build()
             val call = httpClient.newCall(request)
             synchronized(lock) { activeCalls[pack.id] = call }
@@ -126,12 +173,12 @@ object ExtensionPacks {
             }
 
             flow.value = Verifying
-            if (!PackFs.verify(tmp, pack.pinnedSha256)) {
+            if (!PackFs.verify(tmp, entry.sha256)) {
                 tmp.delete()
-                error("SHA-256 mismatch (expected ${pack.pinnedSha256}); refusing to install")
+                error("SHA-256 mismatch (expected ${entry.sha256}); refusing to install")
             }
-            pack.install(tmp)
-            WeLogger.i(TAG, "installed ${pack.id} ${pack.pinnedVersion}")
+            pack.install(tmp, entry.version, entry.sha256)
+            WeLogger.i(TAG, "installed ${pack.id} ${entry.version}")
         } catch (e: CancellationException) {
             tmp.delete()
             throw e
@@ -141,9 +188,6 @@ object ExtensionPacks {
             flow.value = Failed(e.message ?: e.javaClass.simpleName)
             return
         }
-        flow.value = classifyPackState(
-            PackFs.readManifest(pack.installDir().resolve(pack.pinnedVersion)),
-            pack.pinnedVersion,
-        )
+        flow.value = classifyPackState(pack.installedManifest(), remoteEntryOf(pack))
     }
 }

@@ -166,7 +166,7 @@ enum Cmd {
     /// Prepare inputs and outputs used by the cloud Dex resolution CI jobs.
     DexTestCi(dex_test_ci::DexTestCiArgs),
 
-    /// Build and manage extension packs (script-deps DEX, cloudflared zip) and extensions.lock.
+    /// Build extension packs (script-deps DEX, cloudflared zip) and their manifest.json index.
     Extensions(extensions::ExtensionsArgs),
 
     /// Validate the Android English and Chinese resource catalogs.

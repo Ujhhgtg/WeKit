@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.extensions
 
-import android.os.Build
 import android.os.Process
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -24,10 +23,7 @@ class CloudflaredPackNotInstalledException(message: String) : RuntimeException(m
  */
 object CloudflaredPack : ExtensionPack {
 
-    override val id = ExtensionLock.Cloudflared.ID
-    override val pinnedVersion = ExtensionLock.Cloudflared.VERSION
-    override val pinnedSha256 = ExtensionLock.Cloudflared.SHA256
-    override val assetName = ExtensionLock.Cloudflared.ASSET_NAME
+    override val id = "cloudflared"
     override val nameRes = R.string.extensions_pack_cloudflared_name
     override val descriptionRes = R.string.extensions_pack_cloudflared_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Cloud
@@ -36,9 +32,7 @@ object CloudflaredPack : ExtensionPack {
 
     /** The error callers rethrow after showing the install dialog. */
     val notInstalledError: CloudflaredPackNotInstalledException
-        get() = CloudflaredPackNotInstalledException(
-            "cloudflared extension pack $pinnedVersion is not installed"
-        )
+        get() = CloudflaredPackNotInstalledException("cloudflared extension pack is not installed")
 
     private val baseDir: File
         get() = File(HostInfo.application.filesDir, "wekit-extensions/cloudflared")
@@ -49,15 +43,15 @@ object CloudflaredPack : ExtensionPack {
 
     /** Current-ABI library file, or null when not installed. */
     fun libraryFile(): File? {
-        if (!isInstalled()) return null
-        val lib = baseDir.resolve(pinnedVersion).resolve(LIB_NAME)
+        val manifest = installedManifest() ?: return null
+        val lib = baseDir.resolve(manifest.version).resolve(LIB_NAME)
         return if (lib.isFile) lib else null
     }
 
     override fun isInUse(): Boolean = NativeLoader.isCloudflaredLoaded()
 
-    override fun install(verifiedTmp: File) {
-        val versionDir = baseDir.resolve(pinnedVersion)
+    override fun install(verifiedTmp: File, version: String, sha256: String) {
+        val versionDir = baseDir.resolve(version)
         versionDir.deleteRecursively()
         versionDir.mkdirs()
 
@@ -85,16 +79,9 @@ object CloudflaredPack : ExtensionPack {
         }
         PackFs.writeManifest(
             versionDir,
-            PackManifest(id, pinnedVersion, pinnedSha256, System.currentTimeMillis()),
+            PackManifest(id, version, sha256, System.currentTimeMillis()),
         )
-        sweepOldVersions()
-        WeLogger.i("CloudflaredPack", "installed cloudflared $pinnedVersion")
-    }
-
-    /** Remove version directories left behind by previous pins (`.staging` excluded). */
-    private fun sweepOldVersions() {
-        installDir().listFiles()
-            ?.filter { it.isDirectory && it.name != pinnedVersion && !it.name.startsWith(".") }
-            ?.forEach { it.deleteRecursively() }
+        sweepOtherVersions(version)
+        WeLogger.i("CloudflaredPack", "installed cloudflared $version")
     }
 }

@@ -17,10 +17,7 @@ import java.nio.file.Files
  */
 object ScriptDepsPack : ExtensionPack {
 
-    override val id = ExtensionLock.ScriptDeps.ID
-    override val pinnedVersion = ExtensionLock.ScriptDeps.VERSION
-    override val pinnedSha256 = ExtensionLock.ScriptDeps.SHA256
-    override val assetName = ExtensionLock.ScriptDeps.ASSET_NAME
+    override val id = "script-deps"
     override val nameRes = R.string.extensions_pack_script_deps_name
     override val descriptionRes = R.string.extensions_pack_script_deps_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Extension
@@ -33,13 +30,6 @@ object ScriptDepsPack : ExtensionPack {
     override fun stagingDir(): File =
         KnownPaths.moduleData.resolve("extensions/script-deps/.staging").toFile()
 
-    /** Remove version directories left behind by previous pins (`.staging` excluded). */
-    private fun sweepOldVersions() {
-        installDir().listFiles()
-            ?.filter { it.isDirectory && it.name != pinnedVersion && !it.name.startsWith(".") }
-            ?.forEach { it.deleteRecursively() }
-    }
-
     override fun isInUse(): Boolean = cachedLoader != null
 
     /**
@@ -48,10 +38,8 @@ object ScriptDepsPack : ExtensionPack {
      */
     fun classLoader(): InMemoryDexClassLoader? {
         cachedLoader?.let { return it }
-        val versionDir = installDir().resolve(pinnedVersion)
-        val manifest = PackFs.readManifest(versionDir) ?: return null
-        if (manifest.version != pinnedVersion) return null
-        val dex = versionDir.resolve("classes.dex")
+        val manifest = installedManifest() ?: return null
+        val dex = installDir().resolve(manifest.version).resolve("classes.dex")
         if (!dex.isFile) return null
         val dexBytes = Files.readAllBytes(dex.toPath())
         val loader = InMemoryDexClassLoader(ByteBuffer.wrap(dexBytes), ScriptDepsPack::class.java.classLoader)
@@ -59,15 +47,15 @@ object ScriptDepsPack : ExtensionPack {
         return loader
     }
 
-    override fun install(verifiedTmp: File) {
-        val versionDir = installDir().resolve(pinnedVersion)
+    override fun install(verifiedTmp: File, version: String, sha256: String) {
+        val versionDir = installDir().resolve(version)
         versionDir.deleteRecursively()
         versionDir.mkdirs()
         PackFs.atomicReplace(verifiedTmp, versionDir.resolve("classes.dex"))
         PackFs.writeManifest(
             versionDir,
-            PackManifest(id, pinnedVersion, pinnedSha256, System.currentTimeMillis()),
+            PackManifest(id, version, sha256, System.currentTimeMillis()),
         )
-        sweepOldVersions()
+        sweepOtherVersions(version)
     }
 }

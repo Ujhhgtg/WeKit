@@ -41,8 +41,8 @@ import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Downloading
 import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Failed
 import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Installed
 import dev.ujhhgtg.wekit.extensions.ExtensionPackState.NotInstalled
+import dev.ujhhgtg.wekit.extensions.ExtensionPackState.UpdateAvailable
 import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Verifying
-import dev.ujhhgtg.wekit.extensions.ExtensionPackState.VersionMismatch
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
@@ -89,9 +89,11 @@ class ExtensionsSettingsActivity : ComponentActivity() {
 
 @Composable
 private fun ExtensionsRoot(autoPackId: String?, autoDownload: Boolean, onFinish: () -> Unit) {
-    // Re-scan disk on open so installed packs show their real state.
+    // Re-scan disk on open so installed packs show their real state, then check
+    // the remote index to surface available updates.
     LaunchedEffect(Unit) {
         ExtensionPacks.packs.forEach(ExtensionPacks::refresh)
+        ExtensionPacks.checkUpdates()
     }
     // Deep-link auto-download: refresh once, then start downloading if it would help.
     LaunchedEffect(autoPackId, autoDownload) {
@@ -99,7 +101,7 @@ private fun ExtensionsRoot(autoPackId: String?, autoDownload: Boolean, onFinish:
         val pack = ExtensionPacks.byId(autoPackId) ?: return@LaunchedEffect
         ExtensionPacks.refresh(pack)
         val state = ExtensionPacks.stateFlow(pack).value
-        if (state is NotInstalled || state is Failed || state is VersionMismatch) {
+        if (state is NotInstalled || state is Failed) {
             ExtensionPacks.download(pack)
         }
     }
@@ -156,7 +158,7 @@ private fun PackGroup(pack: ExtensionPack) {
             is Verifying -> item(key = "verifying") {
                 BaseWidget(
                     title = stringResource(R.string.extensions_pack_verifying),
-                    description = stringResource(R.string.extensions_pack_pinned_version, pack.pinnedVersion),
+                    description = stringResource(R.string.extensions_pack_downloading),
                 )
             }
             else -> item(key = "actions") {
@@ -165,7 +167,8 @@ private fun PackGroup(pack: ExtensionPack) {
                         AgentListActionButton(
                             label = stringResource(
                                 when (s) {
-                                    is VersionMismatch, is Failed -> R.string.extensions_pack_redownload
+                                    is UpdateAvailable -> R.string.extensions_pack_update
+                                    is Failed -> R.string.extensions_pack_retry
                                     else -> R.string.extensions_pack_download
                                 }
                             ),
@@ -175,7 +178,7 @@ private fun PackGroup(pack: ExtensionPack) {
                         )
                         OutlinedButton(
                             onClick = { confirmDelete = true },
-                            enabled = s is Installed || s is VersionMismatch,
+                            enabled = s is Installed || s is UpdateAvailable,
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                             modifier = Modifier.weight(1f),
                         ) { Text(stringResource(R.string.extensions_pack_delete)) }
@@ -213,10 +216,10 @@ private fun descriptionLine(pack: ExtensionPack, state: ExtensionPackState): Str
     val base = stringResource(pack.descriptionRes)
     val status = when (state) {
         is NotInstalled -> stringResource(R.string.extensions_pack_state_not_installed)
-        is Downloading -> stringResource(R.string.extensions_pack_pinned_version, pack.pinnedVersion)
+        is Downloading -> stringResource(R.string.extensions_pack_downloading)
         is Verifying -> stringResource(R.string.extensions_pack_verifying)
         is Installed -> stringResource(R.string.extensions_pack_installed_version, state.version)
-        is VersionMismatch -> stringResource(R.string.extensions_pack_state_mismatch, state.installedVersion)
+        is UpdateAvailable -> stringResource(R.string.extensions_pack_state_update_available, state.installedVersion, state.latestVersion)
         is Failed -> stringResource(R.string.extensions_pack_state_failed, state.reason)
     }
     return "$base\n$status"

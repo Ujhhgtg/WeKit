@@ -1,12 +1,17 @@
-//! Extension-pack packaging and lock management.
+//! Extension-pack packaging: build pack assets plus the remote index.
 //!
-//! Spec: ~/coding/wekit_dev/superpowers/docs/superpowers/specs/2026-08-18-extension-packs-design.md
+//! Version format: first 12 hex chars of the SHA-256 over the sorted
+//! `name:sha256\n` file lines — content-addressed, no manual version
+//! bookkeeping, and a rebuild of identical content keeps the same version (and
+//! asset name), so CI never publishes and devices never re-download unchanged
+//! content.
 //!
-//! Version format: `YYYYMMDD-<12 hex chars>` where the hash is SHA-256 over the
-//! lock's sorted `name:sha256\n` file lines — content-addressed, no manual
-//! version bookkeeping.
+//! The index (`manifest.json`, uploaded next to the assets) is the single
+//! source of truth for "latest": each entry carries the pack id, version,
+//! Release asset file name, and the asset's SHA-256, which the device verifies
+//! after download.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -16,14 +21,13 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use time::OffsetDateTime;
 use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
 const PACK_SCRIPT_DEPS: &str = "script-deps";
 const PACK_CLOUDFLARED: &str = "cloudflared";
 const DIST_DIR: &str = "dist/extensions";
-const LOCK_FILE: &str = "extensions.lock";
+const INDEX_FILE: &str = "manifest.json";
 const CLOUDFLARED_LIB: &str = "libwekit_cloudflared.so";
 
 #[derive(Args)]
@@ -31,50 +35,30 @@ pub struct ExtensionsArgs {
     #[command(subcommand)]
     pub command: ExtensionsCommand,
 
-    /// Only process the given pack id (script-deps | cloudflared). Not allowed with `lock`.
+    /// Only process the given pack id (script-deps | cloudflared). Skips writing the index.
     #[arg(long, global = true)]
     pub only: Option<String>,
 }
 
 #[derive(Subcommand)]
 pub enum ExtensionsCommand {
-    /// Build pack assets into dist/extensions (versioned names).
+    /// Build pack assets and the manifest.json index into dist/extensions.
     Pack,
-    /// Build all packs and write (or print) extensions.lock.
-    Lock {
-        /// Write extensions.lock at the repo root; without it the lock is printed.
-        #[arg(long)]
-        write: bool,
-    },
-    /// Rebuild assets and fail if they do not match the committed extensions.lock.
-    Verify,
+}
+
+/// The remotely published index; mirrored on-device by `PackIndex.kt`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackIndex {
+    pub packs: Vec<PackIndexEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExtensionsLock {
-    pub packs: Vec<PackLock>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PackLock {
+pub struct PackIndexEntry {
     pub id: String,
     pub version: String,
-    /// Canonical (version-less) file name -> SHA-256 hex.
-    pub files: BTreeMap<String, String>,
-}
-
-impl PackLock {
-    /// The Release asset file name: canonical stem + version + extension.
-    pub fn asset_name(&self) -> String {
-        let (name, _) = self.files.iter().next()
-            .unwrap_or_else(|| panic!("pack '{}' has no files", self.id));
-        let stem = name.split('.').next().unwrap();
-        let ext = name.rsplit('.').next().filter(|e| *e != name);
-        match ext {
-            Some(e) => format!("{stem}-{}.{e}", self.version),
-            None => format!("{stem}-{}", self.version),
-        }
-    }
+    /// Release asset file name for this version.
+    pub asset: String,
+    pub sha256: String,
 }
 
 /// SHA-256 over the sorted `name:sha256\n` lines — the pack's content identity.
@@ -86,13 +70,9 @@ pub fn content_hash(files: &BTreeMap<String, String>) -> String {
     hex(&hasher.finalize())
 }
 
-/// `YYYYMMDD-<12 hex>` from a UTC date and the pack content hash.
-pub fn derive_version(date: &str, content_hash: &str) -> String {
-    format!("{date}-{}", &content_hash[..12])
-}
-
-fn date_part(version: &str) -> &str {
-    version.split('-').next().unwrap_or(version)
+/// First 12 hex chars of the content hash.
+pub fn derive_version(content_hash: &str) -> String {
+    content_hash[..12].to_string()
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -111,129 +91,54 @@ fn sha256_file(path: &Path) -> Result<String> {
     Ok(hex(&hasher.finalize()))
 }
 
-/// Pure comparison used by `verify` (unit-testable without touching the fs).
-///
-/// Compares content hashes only: a same-content rebuild on a later date carries
-/// a different date-bearing version, which is not drift. The lock itself must
-/// be internally consistent (version matches its own file hashes).
-pub fn compare_pack(expected: &PackLock, actual: &PackLock) -> Result<()> {
-    if expected.id != actual.id {
-        bail!("pack id mismatch: lock '{}' vs rebuilt '{}'", expected.id, actual.id);
-    }
-    let expected_version = derive_version(date_part(&expected.version), &content_hash(&expected.files));
-    if expected.version != expected_version {
-        bail!(
-            "extensions.lock is internally inconsistent for pack '{}' (hand-edited version or hash)\n  lock:    {}\n  derived: {}\n  regenerate with `cargo xtask extensions lock --write`",
-            expected.id, expected.version, expected_version
-        );
-    }
-    if expected.files != actual.files {
-        bail!(
-            "pack '{}' does not match extensions.lock\n  lock:    {} {:#?}\n  rebuilt: {} {:#?}",
-            actual.id, expected.version, expected.files, actual.version, actual.files
-        );
-    }
-    Ok(())
-}
-
-/// Pure alignment used after a rebuild (unit-testable without touching the fs).
-///
-/// If the lock has an entry with the same id whose `files` map equals the
-/// rebuilt pack's (identical content), adopt the lock's version string so the
-/// asset name stays stable across rebuild dates — otherwise an overnight
-/// rerun would publish a new-date asset the module never requests. Returns
-/// true when aligned; new or changed content is left untouched (false).
-pub fn align_pack_to_lock(lock: &ExtensionsLock, pack: &mut PackLock) -> bool {
-    if let Some(entry) = lock.packs.iter().find(|p| p.id == pack.id) {
-        if entry.files == pack.files {
-            pack.version = entry.version.clone();
-            return true;
-        }
-    }
-    false
+/// Index entry for a pack: versioned asset name plus the asset's SHA-256.
+/// The files map holds exactly one canonical (version-less) name -> sha entry.
+fn index_entry(id: &str, version: &str, files: &BTreeMap<String, String>) -> PackIndexEntry {
+    let (name, sha) = files.iter().next()
+        .unwrap_or_else(|| panic!("pack '{id}' has no files"));
+    let stem = name.split('.').next().unwrap();
+    let ext = name.rsplit('.').next().filter(|e| *e != name);
+    let asset = match ext {
+        Some(e) => format!("{stem}-{version}.{e}"),
+        None => format!("{stem}-{version}"),
+    };
+    PackIndexEntry { id: id.into(), version: version.into(), asset, sha256: sha.clone() }
 }
 
 pub fn run(root: &Path, args: &ExtensionsArgs) -> Result<()> {
     let selected = |id: &str| args.only.as_deref().map(|only| only == id).unwrap_or(true);
 
-    if let ExtensionsCommand::Lock { .. } = args.command {
-        if args.only.is_some() {
-            bail!("`lock` always covers every pack; drop --only");
-        }
-    }
-
     let dist = root.join(DIST_DIR);
     fs::create_dir_all(&dist)?;
 
-    let mut packs: Vec<PackLock> = Vec::new();
+    let mut entries: Vec<PackIndexEntry> = Vec::new();
     if selected(PACK_SCRIPT_DEPS) {
-        packs.push(build_script_deps(root, &dist)?);
+        entries.push(build_script_deps(root, &dist)?);
     }
     if selected(PACK_CLOUDFLARED) {
-        packs.push(build_cloudflared_zip(root, &dist)?);
+        entries.push(build_cloudflared_zip(root, &dist)?);
     }
-    packs.sort_by(|a, b| a.id.cmp(&b.id));
-
-    // Align rebuilt packs with the committed lock: identical content keeps the
-    // lock's version (and thus its asset name) so CI publishes exactly the
-    // filename the module pins even when the rebuild runs on a later date.
-    // Also makes `lock --write` stable across rebuilds of unchanged content.
-    if root.join(LOCK_FILE).is_file() {
-        let lock_text = fs::read_to_string(root.join(LOCK_FILE)).context("read extensions.lock")?;
-        let lock: ExtensionsLock = serde_json::from_str(&lock_text).context("parse extensions.lock")?;
-        for pack in &mut packs {
-            let rebuilt_name = pack.asset_name();
-            if align_pack_to_lock(&lock, pack) {
-                let locked_name = pack.asset_name();
-                if rebuilt_name != locked_name {
-                    fs::rename(dist.join(&rebuilt_name), dist.join(&locked_name))
-                        .with_context(|| format!("rename dist asset {rebuilt_name} → {locked_name}"))?;
-                }
-            }
-        }
-    }
+    entries.sort_by(|a, b| a.id.cmp(&b.id));
 
     match &args.command {
         ExtensionsCommand::Pack => {
-            for pack in &packs {
-                println!("pack: {} {} → {}", pack.id, pack.version, dist.join(pack.asset_name()).display());
+            for entry in &entries {
+                println!("pack: {} {} → {}", entry.id, entry.version, dist.join(&entry.asset).display());
             }
-        }
-        ExtensionsCommand::Lock { write } => {
-            let lock = ExtensionsLock { packs };
-            let json = serde_json::to_string_pretty(&lock)?;
-            if *write {
-                fs::write(root.join(LOCK_FILE), &json)?;
-                println!("wrote {LOCK_FILE}");
+            if args.only.is_some() {
+                println!("note: --only skips writing {INDEX_FILE}; run a full `cargo xtask extensions pack` to refresh the index");
             } else {
-                println!("{json}");
+                let index_path = dist.join(INDEX_FILE);
+                fs::write(&index_path, serde_json::to_string_pretty(&PackIndex { packs: entries })?)
+                    .with_context(|| format!("write {}", index_path.display()))?;
+                println!("index: {}", index_path.display());
             }
-        }
-        ExtensionsCommand::Verify => {
-            let lock_text = fs::read_to_string(root.join(LOCK_FILE))
-                .with_context(|| format!("{LOCK_FILE} not found; run `cargo xtask extensions lock --write` first"))?;
-            let lock: ExtensionsLock = serde_json::from_str(&lock_text).context("parse extensions.lock")?;
-            if lock.packs.len() != packs.len() {
-                bail!(
-                    "extensions.lock has {} pack(s) but {} were rebuilt",
-                    lock.packs.len(), packs.len()
-                );
-            }
-            for actual in &packs {
-                let expected = lock
-                    .packs
-                    .iter()
-                    .find(|p| p.id == actual.id)
-                    .with_context(|| format!("extensions.lock has no entry for pack '{}'", actual.id))?;
-                compare_pack(expected, actual)?;
-            }
-            println!("{LOCK_FILE} verified");
         }
     }
     Ok(())
 }
 
-fn build_script_deps(root: &Path, dist: &Path) -> Result<PackLock> {
+fn build_script_deps(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     let gradlew = if cfg!(windows) { "gradlew.bat" } else { "./gradlew" };
     let status = Command::new(gradlew)
         .args([":app:generateScriptDepsDex", "--quiet"])
@@ -241,24 +146,24 @@ fn build_script_deps(root: &Path, dist: &Path) -> Result<PackLock> {
         .status()
         .context("failed to spawn gradlew")?;
     if !status.success() {
-        bail!(":app:generateScriptDepsDex failed");
+        anyhow::bail!(":app:generateScriptDepsDex failed");
     }
 
     let dex = root.join("app/build/outputs/script-deps/classes.dex");
-    let sha = sha256_file(&dex)?;
     let mut files = BTreeMap::new();
-    files.insert("script-deps.dex".to_string(), sha);
-    let version = derive_version(&today()?, &content_hash(&files));
+    files.insert("script-deps.dex".to_string(), sha256_file(&dex)?);
+    let version = derive_version(&content_hash(&files));
+    let entry = index_entry(PACK_SCRIPT_DEPS, &version, &files);
 
-    let asset = dist.join(format!("script-deps-{version}.dex"));
+    let asset = dist.join(&entry.asset);
     fs::copy(&dex, &asset).context("copy script-deps DEX into dist")?;
     clean_stale(dist, "script-deps-", &asset)?;
 
     println!("script-deps: {version}");
-    Ok(PackLock { id: PACK_SCRIPT_DEPS.into(), version, files })
+    Ok(entry)
 }
 
-fn build_cloudflared_zip(root: &Path, dist: &Path) -> Result<PackLock> {
+fn build_cloudflared_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     let abis = ["arm64-v8a", "armeabi-v7a"];
     crate::task_build_cloudflared(&abis.iter().map(|s| s.to_string()).collect::<Vec<_>>())?;
 
@@ -290,14 +195,15 @@ fn build_cloudflared_zip(root: &Path, dist: &Path) -> Result<PackLock> {
 
     let mut files = BTreeMap::new();
     files.insert("cloudflared.zip".to_string(), sha256_file(&zip_tmp)?);
-    let version = derive_version(&today()?, &content_hash(&files));
+    let version = derive_version(&content_hash(&files));
+    let entry = index_entry(PACK_CLOUDFLARED, &version, &files);
 
-    let asset = dist.join(format!("cloudflared-{version}.zip"));
+    let asset = dist.join(&entry.asset);
     fs::rename(&zip_tmp, &asset)?;
     clean_stale(dist, "cloudflared-", &asset)?;
 
     println!("cloudflared: {version}");
-    Ok(PackLock { id: PACK_CLOUDFLARED.into(), version, files })
+    Ok(entry)
 }
 
 /// Remove older versioned assets of the same pack so dist always holds exactly one.
@@ -313,13 +219,6 @@ fn clean_stale(dist: &Path, prefix: &str, keep: &Path) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn today() -> Result<String> {
-    let format = time::macros::format_description!("[year][month][day]");
-    OffsetDateTime::now_utc()
-        .format(&format)
-        .context("format UTC date")
 }
 
 #[cfg(test)]
@@ -342,133 +241,35 @@ mod tests {
     }
 
     #[test]
-    fn version_is_date_plus_twelve_hex_chars() {
-        let v = derive_version("20260818", &"0123456789abcdef".repeat(4));
-        assert_eq!(v, "20260818-0123456789ab");
+    fn version_is_first_twelve_hex_chars_of_content_hash() {
+        let hash = content_hash(&files(&[("script-deps.dex", "aa")]));
+        assert_eq!(derive_version(&hash), hash[..12]);
     }
 
     #[test]
-    fn asset_name_inserts_version_before_extension() {
-        let pack = PackLock {
-            id: "script-deps".into(),
-            version: "20260818-abc123def456".into(),
-            files: files(&[("script-deps.dex", "00")]),
-        };
-        assert_eq!(pack.asset_name(), "script-deps-20260818-abc123def456.dex");
-        let pack = PackLock {
-            id: "cloudflared".into(),
-            version: "20260818-abc123def456".into(),
-            files: files(&[("cloudflared.zip", "00")]),
-        };
-        assert_eq!(pack.asset_name(), "cloudflared-20260818-abc123def456.zip");
+    fn index_entry_inserts_version_before_extension() {
+        let entry = index_entry("script-deps", "0123456789ab", &files(&[("script-deps.dex", "00")]));
+        assert_eq!(entry.asset, "script-deps-0123456789ab.dex");
+        assert_eq!(entry.sha256, "00");
+
+        let entry = index_entry("cloudflared", "0123456789ab", &files(&[("cloudflared.zip", "11")]));
+        assert_eq!(entry.asset, "cloudflared-0123456789ab.zip");
+        assert_eq!(entry.sha256, "11");
     }
 
     #[test]
-    fn compare_pack_accepts_equivalent_lock_and_rejects_drift() {
-        let lock_files = files(&[("script-deps.dex", "aa")]);
-        let lock = PackLock {
-            id: "script-deps".into(),
-            version: derive_version("20260818", &content_hash(&lock_files)),
-            files: lock_files.clone(),
-        };
-        let rebuilt = lock.clone();
-        assert!(compare_pack(&lock, &rebuilt).is_ok());
-
-        let drifted = PackLock {
-            files: files(&[("script-deps.dex", "bb")]),
-            ..lock.clone()
-        };
-        assert!(compare_pack(&lock, &drifted).is_err());
-
-        // A hand-edited or corrupted lock (version does not match its own hashes)
-        // must fail loudly instead of being compared against rebuilt content.
-        let inconsistent = PackLock {
-            version: derive_version("20260818", &content_hash(&files(&[("script-deps.dex", "bb")]))),
-            ..lock.clone()
-        };
-        assert!(compare_pack(&inconsistent, &rebuilt).is_err());
-    }
-
-    #[test]
-    fn compare_pack_accepts_same_content_rebuilt_on_a_different_date() {
-        let lock_files = files(&[("script-deps.dex", "aa")]);
-        let hash = content_hash(&lock_files);
-        let lock = PackLock {
-            id: "script-deps".into(),
-            version: derive_version("20260818", &hash),
-            files: lock_files.clone(),
-        };
-        // Calendar-day rollover: identical content, new date prefix in the version.
-        let rebuilt_next_day = PackLock {
-            version: derive_version("20260819", &hash),
-            files: lock_files,
-            ..lock.clone()
-        };
-        assert!(compare_pack(&lock, &rebuilt_next_day).is_ok());
-    }
-
-    #[test]
-    fn align_pack_to_lock_adopts_lock_version_for_same_content() {
-        let lock_files = files(&[("script-deps.dex", "aa")]);
-        let hash = content_hash(&lock_files);
-        let entry = PackLock {
-            id: "script-deps".into(),
-            version: derive_version("20260817", &hash),
-            files: lock_files.clone(),
-        };
-        let lock = ExtensionsLock { packs: vec![entry.clone()] };
-
-        // Same content rebuilt on a later date: aligned to the lock's version.
-        let mut rebuilt = PackLock {
-            version: derive_version("20260818", &hash),
-            files: lock_files,
-            ..entry.clone()
-        };
-        assert!(align_pack_to_lock(&lock, &mut rebuilt));
-        assert_eq!(rebuilt.version, entry.version);
-        assert_eq!(rebuilt.asset_name(), entry.asset_name());
-    }
-
-    #[test]
-    fn align_pack_to_lock_leaves_changed_or_unknown_content_alone() {
-        let lock_files = files(&[("script-deps.dex", "aa")]);
-        let entry = PackLock {
-            id: "script-deps".into(),
-            version: derive_version("20260817", &content_hash(&lock_files)),
-            files: lock_files,
-        };
-        let lock = ExtensionsLock { packs: vec![entry] };
-
-        // Changed content: not aligned, rebuilt version kept.
-        let hash = content_hash(&files(&[("script-deps.dex", "bb")]));
-        let rebuilt_version = derive_version("20260818", &hash);
-        let mut rebuilt = PackLock {
-            version: rebuilt_version.clone(),
-            files: files(&[("script-deps.dex", "bb")]),
-            ..lock.packs[0].clone()
-        };
-        assert!(!align_pack_to_lock(&lock, &mut rebuilt));
-        assert_eq!(rebuilt.version, rebuilt_version);
-
-        // No lock entry for the id: not aligned.
-        let mut unknown = PackLock {
-            id: "cloudflared".into(),
-            ..lock.packs[0].clone()
-        };
-        assert!(!align_pack_to_lock(&lock, &mut unknown));
-    }
-
-    #[test]
-    fn lock_json_roundtrip() {
-        let lock = ExtensionsLock {
-            packs: vec![PackLock {
+    fn index_json_roundtrip() {
+        let index = PackIndex {
+            packs: vec![PackIndexEntry {
                 id: "script-deps".into(),
-                version: "20260818-0123456789ab".into(),
-                files: files(&[("script-deps.dex", "00")]),
+                version: "0123456789ab".into(),
+                asset: "script-deps-0123456789ab.dex".into(),
+                sha256: "00".into(),
             }],
         };
-        let json = serde_json::to_string_pretty(&lock).unwrap();
-        let back: ExtensionsLock = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.packs[0].version, "20260818-0123456789ab");
+        let json = serde_json::to_string_pretty(&index).unwrap();
+        let back: PackIndex = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.packs[0].version, "0123456789ab");
+        assert_eq!(back.packs[0].asset, "script-deps-0123456789ab.dex");
     }
 }

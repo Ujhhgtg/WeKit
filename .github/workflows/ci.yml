@@ -467,16 +467,13 @@ jobs:
           cargo xtask configure
           cargo xtask extensions pack
 
-#      - name: Verify against extensions.lock
-#        run: cargo xtask extensions verify
-
       - name: Skip if assets already published
         id: published
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           skip=true
-          for f in dist/extensions/script-deps-*.dex dist/extensions/cloudflared-*.zip; do
+          for f in dist/extensions/script-deps-*.dex dist/extensions/cloudflared-*.zip dist/extensions/manifest.json; do
             name=$(basename "$f")
             if ! gh release view Extensions --json assets -q '.assets[].name' | grep -qx "$name"; then
               skip=false
@@ -494,7 +491,7 @@ jobs:
               --target "${{ github.sha }}" \
               --title "Extensions" \
               --prerelease \
-              --notes "扩展包资产。版本与哈希由仓库内 extensions.lock 锁定, 本体只加载 lock 中 pin 的版本。"
+              --notes "扩展包资产。manifest.json 为最新版本索引, 本体按索引下载并校验 SHA-256。"
           fi
 
       - name: Upload pack assets
@@ -505,6 +502,7 @@ jobs:
           gh release upload Extensions \
             dist/extensions/script-deps-*.dex \
             dist/extensions/cloudflared-*.zip \
+            dist/extensions/manifest.json \
             --clobber
 
       - name: Attest build provenance
@@ -514,6 +512,7 @@ jobs:
           subject-path: |
             dist/extensions/script-deps-*.dex
             dist/extensions/cloudflared-*.zip
+            dist/extensions/manifest.json
 
   release-ci:
     needs: [build, build_zygisk]
