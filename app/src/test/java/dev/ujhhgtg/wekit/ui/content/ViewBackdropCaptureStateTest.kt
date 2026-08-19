@@ -104,4 +104,14 @@ class ViewBackdropCaptureStateTest {
         state.invalidate()
         assertFalse(state.canDrawFor(captured))
     }
+
+    @Test
+    fun invalidateClearsAttemptAndAllowsSameLogicalValuesForNewIdentity() {
+        val state = ViewBackdropCaptureState()
+        val first = key()
+
+        assertEquals(ViewBackdropCaptureDecision.CAPTURE, state.decide(first))
+        state.invalidate()
+        assertEquals(ViewBackdropCaptureDecision.CAPTURE, state.decide(first))
+    }
 }
