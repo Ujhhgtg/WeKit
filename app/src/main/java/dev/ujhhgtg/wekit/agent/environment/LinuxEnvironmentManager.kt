@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.extensions.ArchLinuxPack
 import dev.ujhhgtg.wekit.extensions.ExtensionPack
 import dev.ujhhgtg.wekit.utils.HostInfo
 import java.io.File
+import java.nio.file.Path
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.Flow
@@ -17,13 +18,7 @@ import kotlinx.coroutines.sync.withLock
 
 class LinuxEnvironmentManager(
     val nativeSnapshot: EnvironmentSnapshot = defaultNativeSnapshot(),
-    private val backendFactory: (EnvironmentSnapshot) -> LinuxEnvironmentBackend = { snapshot ->
-        when (snapshot.type) {
-            LinuxEnvironmentType.NATIVE -> NativeBackend(snapshot)
-            LinuxEnvironmentType.PROOT -> ProotBackend(snapshot)
-            else -> error("${snapshot.type} backend is not implemented")
-        }
-    },
+    private val backendFactory: ((EnvironmentSnapshot) -> LinuxEnvironmentBackend)? = null,
     private val prootPackAvailable: () -> Boolean = { ArchLinuxPack.installedManifest() != null },
     private val installProot: suspend (String) -> ArchLinuxInstance = ArchLinuxPack::createInstance,
     private val persistEnvironment: suspend (LinuxEnvironmentEntity) -> Unit = WeAgentRepository::upsertLinuxEnvironment,
@@ -91,22 +86,62 @@ class LinuxEnvironmentManager(
         return ProotEnvironmentCreationResult.Created(entity)
     }
 
+    suspend fun createChrootEnvironment(
+        name: String,
+        highRiskApproved: Boolean,
+        instanceId: String = UUID.randomUUID().toString(),
+    ): ChrootEnvironmentCreationResult {
+        check(highRiskApproved) { "rooted chroot creation requires explicit high-risk approval" }
+        val trimmedName = name.trim()
+        require(trimmedName.isNotEmpty() && trimmedName.length <= 80) { "environment name must be 1-80 characters" }
+        require(instanceId.matches(Regex("[A-Za-z0-9._-]{1,80}"))) { "invalid instance id" }
+        if (!prootPackAvailable()) return ChrootEnvironmentCreationResult.MissingPack(ArchLinuxPack)
+
+        val instance = installProot(instanceId)
+        val helper = ChrootRootHelper(ChrootConfiguration(instance.rootfs.toPath(), instance.workingDirectory))
+        val entity = LinuxEnvironmentEntity(
+            id = instanceId,
+            name = trimmedName,
+            type = LinuxEnvironmentType.CHROOT,
+            workingDirectory = instance.workingDirectory,
+            rootfsPath = instance.rootfs.absolutePath,
+            rootfsContentVersion = instance.contentVersion,
+            createdAt = System.currentTimeMillis(),
+            bridgePath = instance.bridgePath,
+        )
+        try {
+            helper.prepareInstance()
+            persistEnvironment(entity)
+        } catch (error: Throwable) {
+            runCatching { helper.removeInstance() }.exceptionOrNull()?.let(error::addSuppressed)
+            throw error
+        }
+        return ChrootEnvironmentCreationResult.Created(entity)
+    }
+
     suspend fun delete(id: String): Boolean {
         require(id != NATIVE_ENVIRONMENT_ID) { "native environment cannot be deleted" }
-        stateMutex.withLock {
-            check((leaseCounts[id] ?: 0) == 0) { "environment is currently leased" }
-            check(deleting.add(id)) { "environment deletion is already in progress" }
-        }
+        val chrootRootfs = WeAgentRepository.getLinuxEnvironment(id)
+            ?.takeIf { it.type == LinuxEnvironmentType.CHROOT }?.rootfsPath?.let(Path::of)
+        chrootRootfs?.let(ChrootMountRegistry::beginDeletion)
         try {
-            val deleted = WeAgentRepository.deleteLinuxEnvironment(id)
-            if (deleted) {
-                backends.remove(id)?.close()
-                executionMutexes.remove(id)
-                stateMutex.withLock { mutableHealth.update { it - id } }
+            stateMutex.withLock {
+                check((leaseCounts[id] ?: 0) == 0) { "environment is currently leased" }
+                check(deleting.add(id)) { "environment deletion is already in progress" }
             }
-            return deleted
+            try {
+                val deleted = WeAgentRepository.deleteLinuxEnvironment(id)
+                if (deleted) {
+                    backends.remove(id)?.close()
+                    executionMutexes.remove(id)
+                    stateMutex.withLock { mutableHealth.update { it - id } }
+                }
+                return deleted
+            } finally {
+                stateMutex.withLock { deleting.remove(id) }
+            }
         } finally {
-            stateMutex.withLock { deleting.remove(id) }
+            chrootRootfs?.let(ChrootMountRegistry::endDeletion)
         }
     }
 
@@ -115,7 +150,11 @@ class LinuxEnvironmentManager(
         command: String,
         timeoutMillis: Long,
         environmentVariables: Map<String, String> = emptyMap(),
-    ): ExecResult = withLease(environmentId) { it.exec(command, timeoutMillis, environmentVariables) }
+        highRiskApproved: Boolean = false,
+    ): ExecResult {
+        requireChrootStartApproval(environmentId, highRiskApproved)
+        return withLease(environmentId) { it.exec(command, timeoutMillis, environmentVariables) }
+    }
 
     suspend fun ensureBridge(environmentId: String): BridgeInstallArtifact? =
         withLease(environmentId) { it.ensureBridge() }
@@ -123,7 +162,11 @@ class LinuxEnvironmentManager(
     suspend fun edit(environmentId: String, request: FileEditRequest) =
         withLease(environmentId) { it.edit(request) }
 
-    suspend fun checkHealth(environmentId: String): EnvironmentHealth {
+    suspend fun checkHealth(environmentId: String, highRiskApproved: Boolean = false): EnvironmentHealth {
+        if (isChroot(environmentId) && !highRiskApproved) {
+            return EnvironmentHealth(EnvironmentHealthState.DEGRADED, "high-risk chroot start approval required")
+                .also { publishHealth(environmentId, it) }
+        }
         publishHealth(environmentId, EnvironmentHealth(EnvironmentHealthState.CHECKING))
         return runCatching { withLease(environmentId) { it.checkHealth() } }
             .getOrElse { EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, it.message) }
@@ -139,6 +182,16 @@ class LinuxEnvironmentManager(
             }
         }
     }
+
+    private suspend fun requireChrootStartApproval(environmentId: String, highRiskApproved: Boolean) {
+        check(!isChroot(environmentId) || highRiskApproved) {
+            "rooted chroot start requires explicit high-risk approval"
+        }
+    }
+
+    private suspend fun isChroot(environmentId: String): Boolean =
+        environmentId != NATIVE_ENVIRONMENT_ID &&
+            WeAgentRepository.getLinuxEnvironment(environmentId)?.type == LinuxEnvironmentType.CHROOT
 
     private suspend fun <T> withLease(
         environmentId: String,
@@ -170,7 +223,12 @@ class LinuxEnvironmentManager(
             WeAgentRepository.getLinuxEnvironment(environmentId)?.toSnapshot()
                 ?: error("environment $environmentId does not exist")
         }
-        val created = backendFactory(snapshot)
+        val created = backendFactory?.invoke(snapshot) ?: when (snapshot.type) {
+            LinuxEnvironmentType.NATIVE -> NativeBackend(snapshot)
+            LinuxEnvironmentType.PROOT -> ProotBackend(snapshot)
+            LinuxEnvironmentType.CHROOT -> ChrootBackend(snapshot, approveStart = { true })
+            LinuxEnvironmentType.SSH -> error("SSH backend is not implemented")
+        }
         val existing = backends.putIfAbsent(environmentId, created)
         if (existing != null) {
             created.close()
@@ -201,4 +259,9 @@ class LinuxEnvironmentManager(
 sealed interface ProotEnvironmentCreationResult {
     data class Created(val environment: LinuxEnvironmentEntity) : ProotEnvironmentCreationResult
     data class MissingPack(val pack: ExtensionPack) : ProotEnvironmentCreationResult
+}
+
+sealed interface ChrootEnvironmentCreationResult {
+    data class Created(val environment: LinuxEnvironmentEntity) : ChrootEnvironmentCreationResult
+    data class MissingPack(val pack: ExtensionPack) : ChrootEnvironmentCreationResult
 }

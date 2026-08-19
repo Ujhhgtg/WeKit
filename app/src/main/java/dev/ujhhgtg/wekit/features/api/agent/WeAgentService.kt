@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.agent.engine.ToolCallExecutor
 import dev.ujhhgtg.wekit.agent.bridge.ToolBridgeServer
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
 import dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult
+import dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult
 import dev.ujhhgtg.wekit.agent.terminal.EnvironmentTerminalBackend
 import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
 import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
@@ -84,7 +85,10 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
 
     suspend fun createProotEnvironment(name: String): ProotEnvironmentCreationResult =
         linuxEnvironmentManager.createProotEnvironment(name)
-    val terminalManager = TerminalManager(EnvironmentTerminalBackend())
+    suspend fun createChrootEnvironment(name: String, highRiskApproved: Boolean): ChrootEnvironmentCreationResult =
+        linuxEnvironmentManager.createChrootEnvironment(name, highRiskApproved)
+    // terminal_start is side-effecting and reaches this backend only after ApprovalGateway.
+    val terminalManager = TerminalManager(EnvironmentTerminalBackend(approveChrootStart = { true }))
     val toolBridgeServer = ToolBridgeServer(
         registry = registry,
         executorFactory = { sessionId ->

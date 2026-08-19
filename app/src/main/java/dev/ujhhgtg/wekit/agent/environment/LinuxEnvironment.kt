@@ -38,7 +38,7 @@ fun LinuxEnvironmentEntity.toSnapshot(): EnvironmentSnapshot = EnvironmentSnapsh
     privilegesAndCapabilities = when (type) {
         LinuxEnvironmentType.NATIVE -> error("native environment is not stored in Room")
         LinuxEnvironmentType.PROOT -> "Rootless PRoot; shares the Android kernel and is not a sandbox"
-        LinuxEnvironmentType.CHROOT -> "Rooted chroot; shares the Android kernel and is not a sandbox"
+        LinuxEnvironmentType.CHROOT -> ChrootConfiguration.CAPABILITIES
         LinuxEnvironmentType.SSH -> "Remote account privileges and server capabilities"
     },
     rootfsPath = rootfsPath,
