@@ -298,6 +298,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     type = "com.tencent.mm.ui.MMFragmentActivity"
                 }
                 .get()!! as Activity
+            val lifecycleOwner = LifecycleOwnerProvider.getOrCreate(activity)
             val viewPager = thisObject!!.reflekt()
                 .firstField {
                     name = "mViewPager"
@@ -352,7 +353,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                 }
             }
 
-            val lifecycleOwner = LifecycleOwnerProvider.lifecycleOwner
             bottomTabViewGroup.setLifecycleOwner(lifecycleOwner)
 
             val initialPagerIndex = viewPager.currentItem
@@ -541,7 +541,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         // Sample WeChat's real content (native ViewPager) into the
                                         // glass. rememberLayerBackdrop would only capture Compose
                                         // pixels, of which there are none behind this overlay bar.
-                                        backdrop = rememberViewBackdrop(viewPager),
+                                        backdrop = rememberViewBackdrop(viewPager, lifecycleOwner),
                                         mode = if (useBackdrop) {
                                             FloatingBottomBarMode.LiquidGlass
                                         } else {

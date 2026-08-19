@@ -88,6 +88,7 @@ import top.yukonga.miuix.kmp.blur.highlight.LightPosition
 import top.yukonga.miuix.kmp.blur.highlight.LightSource
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.sensor.DeviceTilt
 import top.yukonga.miuix.kmp.blur.sensor.rememberDeviceTilt
 import kotlin.math.PI
 import kotlin.math.abs
@@ -160,10 +161,10 @@ private const val GRAVITY_DIR_THRESHOLD_SQ = 0.01f // |g_xy| > 0.1, ≈ 6° tilt
 @Composable
 private fun rememberGravityRotatedHighlight(
     base: Highlight,
+    tilt: DeviceTilt,
     extraDegrees: Float = 0f,
 ): Highlight {
     val baseStyle = base.style as BloomStroke
-    val tilt by rememberDeviceTilt()
     val rotatedPrimary = remember(tilt, baseStyle.primaryLight, extraDegrees) {
         val basePrimary = baseStyle.primaryLight
         val gx = tilt.gravityX
@@ -399,8 +400,9 @@ fun <T> FloatingBottomBar(
             null
         }
 
-    val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = -45f)
-    val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
+    val tilt by rememberDeviceTilt()
+    val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, tilt, extraDegrees = -45f)
+    val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, tilt, extraDegrees = 90f)
 
     val combinedBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
 
