@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.agent.environment.ChrootRun
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceLayout
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.ProotCommand
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.NonCancellable
@@ -61,25 +62,26 @@ class EnvironmentTerminalBackend internal constructor(
             )
             val configuration = ChrootConfiguration(rootfs, workingDirectory ?: environment.workingDirectory)
             val helper = ChrootRootHelper(configuration)
+            helper.ensureReadyForLaunch()
             val launcher = resolveRootLauncher(helper)
             val hostEnvironment = environment.copy(
                 type = LinuxEnvironmentType.NATIVE,
                 workingDirectory = rootfs.parent.toString(),
                 shell = launcher.toString(),
             )
-            val run = try {
-                configuration.createRun()
+            val nonce = java.util.UUID.randomUUID().toString()
+            try {
+                ChrootMountRegistry.begin(rootfs, nonce)
             } catch (error: Throwable) {
                 throw error
             }
-            try {
-                ChrootMountRegistry.begin(rootfs, run.nonce)
-            } catch (error: Throwable) {
-                helper.removeRunMetadata(run)
+            val run = try { configuration.createRun(nonce) } catch (error: Throwable) {
+                ChrootMountRegistry.end(rootfs, nonce)
                 throw error
             }
             val hostArgv = configuration.hostLaunchArgv(run, launcher, argv, environmentVariables)
             try {
+                Files.writeString(run.stageFile, "LAUNCHING", java.nio.file.StandardOpenOption.TRUNCATE_EXISTING)
                 val started = native.start(hostEnvironment, hostArgv, hostEnvironment.workingDirectory, emptyMap(), cols, rows)
                 TerminalBackendStart(ChrootTerminalSession(started.session, rootfs, helper, run, cleanupChrootRun), environment)
             } catch (error: Throwable) {

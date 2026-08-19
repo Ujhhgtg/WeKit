@@ -176,6 +176,7 @@ class LinuxEnvironmentManager(
         environmentVariables: Map<String, String> = emptyMap(),
     ): ExecResult {
         requireChrootStartApproval(environmentId)
+        ensureChrootReady(environmentId)
         return withLease(environmentId) { it.exec(command, timeoutMillis, environmentVariables) }
     }
 
@@ -199,7 +200,7 @@ class LinuxEnvironmentManager(
     private suspend fun publishHealth(environmentId: String, value: EnvironmentHealth) {
         stateMutex.withLock {
             if (environmentId == NATIVE_ENVIRONMENT_ID ||
-                WeAgentRepository.getLinuxEnvironment(environmentId) != null
+                getEnvironment(environmentId) != null
             ) {
                 mutableHealth.update { it + (environmentId to value) }
             }
@@ -212,12 +213,25 @@ class LinuxEnvironmentManager(
         }
     }
 
+    private suspend fun ensureChrootReady(environmentId: String) {
+        val environment = getEnvironment(environmentId)?.takeIf { it.type == LinuxEnvironmentType.CHROOT } ?: return
+        val rootfs = Path.of(requireNotNull(environment.rootfsPath))
+        check(!ChrootMountRegistry.hasActiveRuns(rootfs)) { "chroot environment has an active run" }
+        val recovery = recoverChroot(rootfs, environment.workingDirectory)
+        if (!recovery.isHealthy) {
+            val health = EnvironmentHealth(EnvironmentHealthState.DEGRADED, recovery.healthError)
+            publishHealth(environmentId, health)
+            error(recovery.healthError!!)
+        }
+        check(!ChrootMountRegistry.isBusy(rootfs)) { "chroot environment has an active or unresolved run" }
+    }
+
     private suspend fun isChroot(environmentId: String): Boolean =
         environmentId != NATIVE_ENVIRONMENT_ID &&
-            WeAgentRepository.getLinuxEnvironment(environmentId)?.type == LinuxEnvironmentType.CHROOT
+            getEnvironment(environmentId)?.type == LinuxEnvironmentType.CHROOT
 
     private suspend fun snapshot(environmentId: String): EnvironmentSnapshot =
-        requireNotNull(WeAgentRepository.getLinuxEnvironment(environmentId)).toSnapshot()
+        requireNotNull(getEnvironment(environmentId)).toSnapshot()
 
     private suspend fun <T> withLease(
         environmentId: String,
@@ -246,7 +260,7 @@ class LinuxEnvironmentManager(
     private suspend fun backend(environmentId: String): LinuxEnvironmentBackend {
         backends[environmentId]?.let { return it }
         val snapshot = if (environmentId == NATIVE_ENVIRONMENT_ID) nativeSnapshot else {
-            WeAgentRepository.getLinuxEnvironment(environmentId)?.toSnapshot()
+            getEnvironment(environmentId)?.toSnapshot()
                 ?: error("environment $environmentId does not exist")
         }
         val created = backendFactory?.invoke(snapshot) ?: when (snapshot.type) {

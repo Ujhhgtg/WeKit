@@ -156,6 +156,26 @@ class LinuxEnvironmentTest {
         assertFalse(deleted)
     }
 
+    @Test
+    fun `unresolved chroot metadata blocks new exec before backend launch`(@TempDir directory: Path) = runBlocking {
+        val rootfs = Files.createDirectories(directory.resolve("arch/rootfs"))
+        val stored = environment(LinuxEnvironmentType.CHROOT).copy(rootfsPath = rootfs.toString())
+        var backendCreated = false
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
+            getEnvironment = { stored },
+            backendFactory = { backendCreated = true; error("must not create backend") },
+            highRiskApproval = { _, _ -> true },
+            recoverChroot = { _, _ -> ChrootRecoveryResult(0, mapOf("run-id" to "missing process identity")) },
+        )
+
+        val error = assertThrows(IllegalStateException::class.java) {
+            runBlocking { manager.exec(stored.id, "true", 1_000) }
+        }
+        assertTrue(error.message!!.contains("missing process identity"))
+        assertFalse(backendCreated)
+    }
+
     private fun environment(type: LinuxEnvironmentType) = LinuxEnvironmentEntity(
         id = "environment",
         name = "Environment",

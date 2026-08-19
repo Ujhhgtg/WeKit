@@ -3,6 +3,9 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref, clippy::missing_safety_doc)]
 
 mod audio_utils;
+#[cfg(test)]
+#[allow(dead_code)]
+mod chroot_cleanup;
 mod crash_handler;
 mod crash_triggerer;
 mod logging;

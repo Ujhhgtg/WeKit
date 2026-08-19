@@ -53,7 +53,7 @@ class ChrootTerminalApprovalTest {
     }
 
     @Test
-    fun `early startup failure uses only its new run and releases busy after confirmed cleanup`(@TempDir directory: Path) {
+    fun `early startup failure after launch handoff retains uncertain run`(@TempDir directory: Path) {
         val rootfs = publishedRootfs(directory)
         val stale = rootfs.parent.resolve("chroot.pid")
         Files.writeString(stale, "1")
@@ -66,7 +66,8 @@ class ChrootTerminalApprovalTest {
             cleanupChrootRun = { helper, run ->
                 cleanedNonce = run.nonce
                 assertFalse(Files.exists(run.pidFile))
-                helper.removeRunMetadata(run)
+                assertEquals("LAUNCHING", Files.readString(run.stageFile))
+                error("launch outcome is uncertain")
             },
         )
 
@@ -75,7 +76,28 @@ class ChrootTerminalApprovalTest {
         }
         assertTrue(cleanedNonce != null)
         assertEquals("1", Files.readString(stale))
-        assertFalse(ChrootMountRegistry.isBusy(rootfs))
+        assertTrue(ChrootMountRegistry.isBusy(rootfs))
+    }
+
+    @Test
+    fun `unresolved metadata blocks terminal before launcher resolution`(@TempDir directory: Path) {
+        val rootfs = publishedRootfs(directory)
+        val configuration = dev.ujhhgtg.wekit.agent.environment.ChrootConfiguration(rootfs, "/root")
+        val pending = configuration.createRun()
+        Files.writeString(pending.stageFile, "NAMESPACE")
+        var launcherResolved = false
+        val backend = EnvironmentTerminalBackend(
+            native = RecordingBackend(),
+            approveChrootStart = { true },
+            chrootInstancesRoot = directory,
+            resolveRootLauncher = { launcherResolved = true; Path.of("/system/bin/su") },
+        )
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { backend.start(snapshot(rootfs), listOf("/bin/bash"), null, emptyMap(), 80, 24) }
+        }
+        assertFalse(launcherResolved)
+        assertTrue(Files.exists(pending.directory))
     }
 
     @Test

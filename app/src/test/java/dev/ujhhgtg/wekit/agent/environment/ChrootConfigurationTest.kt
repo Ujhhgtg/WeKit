@@ -141,16 +141,18 @@ class ChrootConfigurationTest {
     }
 
     @Test
-    fun `cleanup orders term unmount kill and registry stays busy until confirmation`() {
+    fun `cleanup command delegates exact identity to process bound native helper`() {
         val rootfs = Path.of("/instances/arch/rootfs")
         val helper = ChrootRootHelper(ChrootConfiguration(rootfs, "/root"))
         val run = ChrootRun("11111111-1111-1111-1111-111111111111", Path.of("/instances/arch/chroot-runs/11111111-1111-1111-1111-111111111111"))
-        val command = helper.cleanupCommand(run, 4321, "98765", "22222222-2222-2222-2222-222222222222")
-        assertTrue(command.contains("/proc/4321/stat"))
-        assertTrue(command.contains("= '98765' &&"))
-        assertTrue(command.indexOf("kill -TERM") < command.indexOf("nsenter"))
-        assertTrue(command.indexOf("nsenter") < command.indexOf("kill -KILL"))
-        assertTrue(command.indexOf("kill -KILL") < command.indexOf("while test -e"))
+        val command = helper.cleanupCommand(
+            Path.of("/data/user/0/dev.ujhhgtg.wekit/files/chroot_cleanup"), run, 4321, "98765",
+            "22222222-2222-2222-2222-222222222222",
+        )
+        assertTrue(command.startsWith("'/data/user/0/dev.ujhhgtg.wekit/files/chroot_cleanup' 'cleanup' '4321' '98765'"))
+        assertTrue(command.contains("'${run.cmdlineMarker}'"))
+        assertFalse(command.contains("kill"))
+        assertFalse(command.contains("nsenter"))
         ChrootMountRegistry.begin(rootfs, "run-a")
         try {
             assertTrue(ChrootMountRegistry.isBusy(rootfs))
@@ -162,63 +164,32 @@ class ChrootConfigurationTest {
     }
 
     @Test
-    fun `cleanup signals only exact cmdline start time and boot identity`(@TempDir directory: Path) {
-        val rootfs = Files.createDirectories(directory.resolve("arch/rootfs"))
-        val configuration = ChrootConfiguration(rootfs, "/root")
-        val helper = ChrootRootHelper(configuration)
-        val run = configuration.createRun()
-        val procRoot = Files.createDirectory(directory.resolve("proc"))
-        val bootIdFile = directory.resolve("boot-id")
-        val bootId = "22222222-2222-2222-2222-222222222222"
-        Files.writeString(bootIdFile, bootId)
-
-        fun execute(marker: String, currentBootId: String = bootId, currentStartTime: String = "98765"): Pair<Int, Boolean> {
-            val process = Files.createDirectories(procRoot.resolve("4321"))
-            Files.writeString(process.resolve("stat"), "4321 (sh) S " + (4..21).joinToString(" ") + " $currentStartTime")
-            Files.write(process.resolve("cmdline"), ("/system/bin/sh\u0000$marker\u0000").toByteArray())
-            Files.writeString(bootIdFile, currentBootId)
-            val signaled = directory.resolve("signaled")
-            Files.deleteIfExists(signaled)
-            val command = helper.cleanupCommand(
-                run, 4321, "98765", bootId, procRoot, bootIdFile,
-                termCommand = "touch ${ChrootConfiguration.shell(signaled.toString())}; rm -rf ${ChrootConfiguration.shell(process.toString())}",
-                killCommand = "exit 99",
-            )
-            val code = ProcessBuilder("/bin/sh", "-c", command).start().waitFor()
-            return code to Files.exists(signaled)
-        }
-
-        assertEquals(75 to false, execute("wekit-chroot-run-${UUID.randomUUID()}"))
-        assertEquals(75 to false, execute(run.cmdlineMarker, "33333333-3333-3333-3333-333333333333"))
-        assertEquals(75 to false, execute(run.cmdlineMarker, currentStartTime = "98766"))
-        assertEquals(0 to true, execute(run.cmdlineMarker))
-    }
-
-    @Test
-    fun `missing pid metadata is removable only before mounts`(@TempDir directory: Path) = runBlocking {
+    fun `missing pid metadata is removable only when launch never began`(@TempDir directory: Path) = runBlocking {
         val instance = Files.createDirectory(directory.resolve("arch"))
         val configuration = ChrootConfiguration(Files.createDirectory(instance.resolve("rootfs")), "/root")
         val helper = ChrootRootHelper(configuration)
         val safe = configuration.createRun()
-        Files.writeString(safe.stageFile, "NAMESPACE")
         helper.cleanupNamespace(safe)
         assertFalse(Files.exists(safe.directory))
 
         val uncertain = configuration.createRun()
-        Files.writeString(uncertain.stageFile, "MOUNT")
+        Files.writeString(uncertain.stageFile, "NAMESPACE")
         assertThrows(ChrootFailure.Cleanup::class.java) { runBlocking { helper.cleanupNamespace(uncertain) } }
         assertTrue(Files.exists(uncertain.directory))
         assertTrue(ChrootMountRegistry.isBusy(configuration.rootfs))
+
+        val unknown = configuration.createRun()
+        Files.delete(unknown.stageFile)
+        assertThrows(ChrootFailure.Cleanup::class.java) { runBlocking { helper.cleanupNamespace(unknown) } }
+        assertTrue(Files.exists(unknown.directory))
     }
 
     @Test
-    fun `registry releases only matching run token and persisted runs remain busy`(@TempDir directory: Path) {
+    fun `active token and persisted runs each prevent another launch`(@TempDir directory: Path) {
         val rootfs = Files.createDirectories(directory.resolve("arch/rootfs"))
         ChrootMountRegistry.begin(rootfs, "run-a")
-        ChrootMountRegistry.begin(rootfs, "run-b")
+        assertThrows(IllegalStateException::class.java) { ChrootMountRegistry.begin(rootfs, "run-b") }
         ChrootMountRegistry.end(rootfs, "run-a")
-        assertTrue(ChrootMountRegistry.isBusy(rootfs))
-        ChrootMountRegistry.end(rootfs, "run-b")
         assertFalse(ChrootMountRegistry.isBusy(rootfs))
 
         ChrootConfiguration(rootfs, "/root").createRun()

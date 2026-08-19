@@ -32,23 +32,19 @@ class ChrootConfiguration(
         }
     }
 
-    fun createRun(): ChrootRun {
+    fun createRun(nonce: String = UUID.randomUUID().toString()): ChrootRun {
+        require(nonce.matches(RUN_NONCE)) { "invalid chroot run nonce" }
         Files.createDirectories(runsDirectory)
-        while (true) {
-            val nonce = UUID.randomUUID().toString()
-            val directory = runsDirectory.resolve(nonce)
-            try {
-                Files.createDirectory(directory)
-            } catch (_: java.nio.file.FileAlreadyExistsException) {
-                continue
-            }
-            try {
-                Files.writeString(directory.resolve("nonce"), nonce, StandardOpenOption.CREATE_NEW)
-                return ChrootRun(nonce, directory)
-            } catch (error: Throwable) {
-                Files.deleteIfExists(directory)
-                throw error
-            }
+        val directory = runsDirectory.resolve(nonce)
+        Files.createDirectory(directory)
+        try {
+            Files.writeString(directory.resolve("nonce"), nonce, StandardOpenOption.CREATE_NEW)
+            Files.writeString(directory.resolve("stage"), "CREATED", StandardOpenOption.CREATE_NEW)
+            return ChrootRun(nonce, directory)
+        } catch (error: Throwable) {
+            Files.newDirectoryStream(directory).use { entries -> entries.forEach(Files::deleteIfExists) }
+            Files.deleteIfExists(directory)
+            throw error
         }
     }
 
@@ -86,10 +82,10 @@ class ChrootConfiguration(
         ).joinToString(" ", transform = ::shell)
         return """
             set -u
-            printf '%s' NAMESPACE > ${shell(run.stageFile.toString())}
             printf '%s' "${'$'}${'$'}" > ${shell(run.pidFile.toString())}
             sed 's/.*) //' /proc/${'$'}${'$'}/stat | cut -d ' ' -f 20 > ${shell(run.startTimeFile.toString())} || exit 70
             cat /proc/sys/kernel/random/boot_id > ${shell(run.bootIdFile.toString())} || exit 70
+            printf '%s' NAMESPACE > ${shell(run.stageFile.toString())}
             mount --make-rprivate / || exit 70
             cleanup_failed=0
             ${mounts.indices.joinToString("\n") { "mounted_$it=0" }}
@@ -151,6 +147,7 @@ class ChrootConfiguration(
         )
 
         internal fun shell(value: String): String = "'${value.replace("'", "'\\''")}'"
+        private val RUN_NONCE = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
     }
 }
 
@@ -203,6 +200,7 @@ internal object ChrootMountRegistry {
     @Synchronized fun begin(rootfs: Path, token: String) {
         val key = rootfs.toString()
         check(key !in deleting) { "chroot environment is being deleted" }
+        check(key !in active && !hasPersistedRuns(rootfs)) { "chroot environment has an active or unresolved run" }
         check(active.getOrPut(key, ::HashSet).add(token)) { "chroot run token is already active" }
     }
     @Synchronized fun end(rootfs: Path, token: String) {
@@ -219,9 +217,11 @@ internal object ChrootMountRegistry {
     @Synchronized fun endDeletion(rootfs: Path) { deleting.remove(rootfs.toString()) }
     @Synchronized internal fun hasActiveRuns(rootfs: Path): Boolean = rootfs.toString() in active
     @Synchronized internal fun isBusy(rootfs: Path): Boolean =
-        hasActiveRuns(rootfs) || rootfs.parent.resolve("chroot-runs").let { runs ->
-            Files.isDirectory(runs) && Files.newDirectoryStream(runs).use { it.iterator().hasNext() }
-        }
+        hasActiveRuns(rootfs) || hasPersistedRuns(rootfs)
+
+    private fun hasPersistedRuns(rootfs: Path): Boolean = rootfs.parent.resolve("chroot-runs").let { runs ->
+        Files.isDirectory(runs) && Files.newDirectoryStream(runs).use { it.iterator().hasNext() }
+    }
 }
 
 class ChrootBackend internal constructor(

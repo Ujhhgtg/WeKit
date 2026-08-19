@@ -29,6 +29,7 @@ object NativeLoader {
     private var nativeLibrariesLoaded = false
     private var nativeArtifactDir: File? = null
     private var materializedInvokeTool: File? = null
+    private var materializedChrootCleanup: File? = null
 
     /**
      * Configures native loading for the copied APK that the FunBox-style
@@ -121,12 +122,21 @@ object NativeLoader {
             }
     }.also { require(it.isFile && it.canExecute()) { "invoke_tool is not executable: $it" } }
 
-    private fun materializePackagedExecutable(path: String): File {
+    fun chrootCleanupExecutable(): File = synchronized(nativeLoadLock) {
+        materializedChrootCleanup ?: (zygiskNativeLibraries["chroot_cleanup"]
+            ?: (NativeLoader::class.java.classLoader as? BaseDexClassLoader)?.findLibrary("chroot_cleanup")
+                ?.let { materializePackagedExecutable(it, "chroot_cleanup") }
+            ?: error("packaged chroot_cleanup executable is unavailable")).also {
+                materializedChrootCleanup = it
+            }
+    }.also { require(it.isFile && it.canExecute()) { "chroot_cleanup is not executable: $it" } }
+
+    private fun materializePackagedExecutable(path: String, name: String = "invoke_tool"): File {
         if (!path.contains("!/")) return File(path)
         val apk = File(path.substringBefore("!/"))
         val entryName = path.substringAfter("!/")
         val destinationDir = nativeArtifactDir ?: error("native loader is not initialized")
-        val destination = File(destinationDir, "invoke_tool")
+        val destination = File(destinationDir, name)
         ZipFile(apk).use { archive ->
             archive.getEntry(entryName) ?: error("packaged invoke_tool entry is missing")
             destination.delete()
@@ -158,13 +168,14 @@ object NativeLoader {
                 "mmkv" to "libmmkv.so",
                 "wekit_native" to "libwekit_native.so",
                 "invoke_tool" to "libinvoke_tool.so",
+                "chroot_cleanup" to "libchroot_cleanup.so",
             )
             for (name in names) {
                 val (libraryName, fileName) = name
                 val entry = archive.getEntry("lib/$abi/$fileName") ?: continue
                 val extracted = extractLibrary(archive, entry.name, libraryDir, fileName)
                 libraries[libraryName] = extracted
-                if (libraryName != "mmkv" && libraryName != "invoke_tool") {
+                if (libraryName != "mmkv" && libraryName != "invoke_tool" && libraryName != "chroot_cleanup") {
                     System.load(extracted.absolutePath)
                 }
             }
