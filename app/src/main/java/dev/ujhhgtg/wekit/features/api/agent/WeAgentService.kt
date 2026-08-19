@@ -21,7 +21,7 @@ import dev.ujhhgtg.wekit.agent.engine.TurnConfig
 import dev.ujhhgtg.wekit.agent.engine.ToolCallExecutor
 import dev.ujhhgtg.wekit.agent.bridge.ToolBridgeServer
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
-import dev.ujhhgtg.wekit.agent.terminal.NativeTerminalBackend
+import dev.ujhhgtg.wekit.agent.terminal.EnvironmentTerminalBackend
 import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
 import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
@@ -80,7 +80,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     private val registry = ToolRegistry(permissions = WeAgentRepository, providers = BuiltinToolProvider.all)
 
     val linuxEnvironmentManager = LinuxEnvironmentManager()
-    val terminalManager = TerminalManager(NativeTerminalBackend())
+    val terminalManager = TerminalManager(EnvironmentTerminalBackend())
     val toolBridgeServer = ToolBridgeServer(
         registry = registry,
         executorFactory = { sessionId ->

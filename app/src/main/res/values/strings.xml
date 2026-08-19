@@ -307,6 +307,8 @@
     <string name="extensions_pack_script_deps_desc">Unobfuscated fastjson2 and okhttp DEX for the Java script engine</string>
     <string name="extensions_pack_cloudflared_name">Cloudflared</string>
     <string name="extensions_pack_cloudflared_desc">Cloudflare Tunnel bridge for the built-in read-receipts backend</string>
+    <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
+    <string name="extensions_pack_archlinux_desc">Root filesystem and PRoot launcher for local WeAgent Linux environments</string>
     <string name="extensions_pack_downloading">Downloading…</string>
     <string name="extensions_pack_installed_version">Installed: %1$s</string>
     <string name="extensions_pack_state_not_installed">Not installed</string>

@@ -14,6 +14,7 @@ data class EnvironmentSnapshot(
     val workingDirectory: String,
     val bridgeLocation: String?,
     val privilegesAndCapabilities: String,
+    val rootfsPath: String? = null,
 )
 
 enum class EnvironmentHealthState { UNKNOWN, CHECKING, HEALTHY, DEGRADED, UNAVAILABLE }
@@ -40,4 +41,5 @@ fun LinuxEnvironmentEntity.toSnapshot(): EnvironmentSnapshot = EnvironmentSnapsh
         LinuxEnvironmentType.CHROOT -> "Rooted chroot; shares the Android kernel and is not a sandbox"
         LinuxEnvironmentType.SSH -> "Remote account privileges and server capabilities"
     },
+    rootfsPath = rootfsPath,
 )

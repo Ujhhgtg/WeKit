@@ -17,6 +17,7 @@ class LinuxEnvironmentManager(
     private val backendFactory: (EnvironmentSnapshot) -> LinuxEnvironmentBackend = { snapshot ->
         when (snapshot.type) {
             LinuxEnvironmentType.NATIVE -> NativeBackend(snapshot)
+            LinuxEnvironmentType.PROOT -> ProotBackend(snapshot)
             else -> error("${snapshot.type} backend is not implemented")
         }
     },

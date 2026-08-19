@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
+md5 = "0.8"
 regex = "1"
 roxmltree = "0.20"
 serde = { version = "1", features = ["derive"] }
