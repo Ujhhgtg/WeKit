@@ -192,6 +192,12 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 每个会话页布局对应的消息列表 RecyclerView, 避免每次高度刷新都做整树 DFS。 */
     private val chatListRecyclers = WeakHashMap<View, View>()
 
+    /** 动画帧直接验证消息列表归属, 普通 reconciliation 负责维护。 */
+    private val chatListRecyclerLayouts = WeakHashMap<View, View>()
+
+    /** 消息列表相对 ChattingUILayout 的顶部偏移, 避免动画帧沿父链计算。 */
+    private val chatListTopOffsets = WeakHashMap<View, Int>()
+
     /** 每个会话页布局对应的聊天内容区 (ChattingContent), 多选快捷按钮的宿主。 */
     private val chatContents = WeakHashMap<View, View>()
 
@@ -206,6 +212,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 每个会话页布局对应的 ChatTipsBarGroup, 构造时登记, 不依赖它在树里的具体位置。 */
     private val tipsBarGroups = WeakHashMap<View, View>()
+
+    /** ChatTipsBarGroup 到所属布局的直接映射, 动画回调只读这份缓存。 */
+    private val tipsBarGroupLayouts = WeakHashMap<View, View>()
 
     /** 半屏路径下使用窗口级 ActionBarContainer 时, 已把它所在 ActionBarOverlayLayout 切成 overlay。 */
     private val windowBarOverlays = WeakHashMap<View, Boolean>()
@@ -285,6 +294,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 每个提示条组上次套用的卡片轮廓高度。 */
     private val tipsBarCardOutlineHeights = WeakHashMap<View, Int>()
 
+    /** 主线程轮廓读取复用的 scratch, 动画帧不分配临时 Outline/Rect。 */
+    private val outlineScratch = Outline()
+    private val outlineRectScratch = Rect()
+
     /** 折叠稳态的卡片高, 展开动画的起点/折叠动画的终点。 */
     private val tipsBarFoldHeights = WeakHashMap<View, Int>()
 
@@ -340,11 +353,14 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private data class HeaderStyle(val cornerRadiusDp: Int, val elevationDp: Int)
 
     override fun onEnable() {
+        cacheAnimationGroupFields()
         methodTipsExpandAnimationUpdate.hookAfter {
-            onTipsAnimationFrame(animationGroup(thisObject!!))
+            val group = animationGroup(thisObject!!) ?: return@hookAfter
+            onTipsAnimationFrame(group)
         }
         methodTipsFoldAnimationUpdate.hookAfter {
-            onTipsAnimationFrame(animationGroup(thisObject!!))
+            val group = animationGroup(thisObject!!) ?: return@hookAfter
+            onTipsAnimationFrame(group)
         }
 
         ChattingUILayout::class.reflekt().firstConstructorOrNull {
@@ -401,14 +417,21 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     }
 
-    private fun animationGroup(listener: Any): View {
-        val clazz = listener.javaClass
-        val field = animationGroupFields.getOrPut(clazz) {
-            listener.reflekt().firstField { type = TIPS_BAR_GROUP_CLASS }.self.apply {
+    private fun cacheAnimationGroupFields() {
+        listOf(
+            methodTipsExpandAnimationUpdate.method.declaringClass,
+            methodTipsFoldAnimationUpdate.method.declaringClass,
+        ).forEach { clazz ->
+            animationGroupFields[clazz] = clazz.declaredFields.single {
+                it.type.name == TIPS_BAR_GROUP_CLASS
+            }.apply {
                 isAccessible = true
             }
         }
-        return field.get(listener) as View
+    }
+
+    private fun animationGroup(listener: Any): View? {
+        return animationGroupFields[listener.javaClass]?.get(listener) as? View
     }
 
     private fun ensureLayoutAttachListener(layout: View) {
@@ -437,10 +460,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 tipsBarGroups[layout]?.takeIf { it !== v }?.let { previous ->
                     val recycler = tipsBarRecyclers[previous]
                     unobserveTrackedView(tracker, previous)
-                    recycler?.let { unobserveTrackedView(tracker, it) }
                     clearTipsGroupCaches(previous, recycler)
+                    tipsBarGroupLayouts.remove(previous)
                 }
                 tipsBarGroups[layout] = v
+                tipsBarGroupLayouts[v] = layout
                 observeTrackedView(tracker, v, RECONCILE_TIPS)
                 tipsBarRecycler(v)?.let { observeTrackedView(tracker, it, RECONCILE_TIPS) }
                 scheduleReconcile(layout, RECONCILE_LAYOUT)
@@ -453,9 +477,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 if (tipsBarGroups[layout] === v) tipsBarGroups.remove(layout)
                 if (tracker != null) {
                     unobserveTrackedView(tracker, v)
-                    recycler?.let { unobserveTrackedView(tracker, it) }
                 }
                 clearTipsGroupCaches(v, recycler)
+                tipsBarGroupLayouts.remove(v)
                 scheduleReconcile(layout, RECONCILE_LAYOUT)
             }
         }
@@ -465,7 +489,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun ownerLayoutForTipsGroup(group: View): View? {
-        return tipsBarGroups.entries.firstOrNull { it.value === group }?.key
+        return tipsBarGroupLayouts[group]
+            ?: tipsBarGroups.entries.firstOrNull { it.value === group }?.key
             ?: group.findAncestorChattingUILayout()
     }
 
@@ -539,30 +564,33 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun runReconciliation(layout: View, flags: Int) {
-        if (flags and RECONCILE_LAYOUT != 0) {
-            applyIfReady(layout)
-            return
+        val covered = if (flags and RECONCILE_LAYOUT != 0) applyIfReady(layout) else 0
+        if (flags and RECONCILE_TIPS != 0 && covered and RECONCILE_TIPS == 0) reconcileTips(layout)
+        if (flags and RECONCILE_QUICK_SELECT != 0 && covered and RECONCILE_QUICK_SELECT == 0) {
+            reconcileQuickSelect(layout)
         }
-        if (flags and RECONCILE_TIPS != 0) reconcileTips(layout)
-        if (flags and RECONCILE_QUICK_SELECT != 0) reconcileQuickSelect(layout)
     }
 
-    private fun applyIfReady(layout: View) {
-        val header = currentHeader(layout) ?: return
+    private fun applyIfReady(layout: View): Int {
+        val header = currentHeader(layout) ?: return 0
         reparentIfNeeded(layout, header)
         applyCardStyle(header)
         applyMargins(layout, header)
         applyHeaderZoneCards(layout, header)
-        applyHeaderZoneOverlays(layout, header)
+        val tipsCovered = applyHeaderZoneOverlays(layout, header)
         suppressTipsBarDimFor(layout)
         applyChatListPadding(layout, header)
-        applyQuickSelectOffset(layout, header)
-        val tracker = layoutTrackers[layout] ?: return
+        val quickSelectCovered = applyQuickSelectOffset(layout, header)
+        val covered = (if (quickSelectCovered) RECONCILE_QUICK_SELECT else 0) or
+            if (tipsCovered) RECONCILE_TIPS else 0
+        val tracker = layoutTrackers[layout] ?: return covered
         tipsBarGroups[layout]?.takeIf { it.isAttachedToWindow }?.let { group ->
+            tipsBarGroupLayouts[group] = layout
             observeTrackedView(tracker, group, RECONCILE_TIPS)
             tipsBarRecycler(group)?.let { observeTrackedView(tracker, it, RECONCILE_TIPS) }
         }
         trackQuickSelectInputs(tracker, layout)
+        return covered
     }
 
     private fun isCachedHeaderValid(layout: View, header: View): Boolean {
@@ -580,6 +608,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private fun reconcileTips(layout: View) {
         val header = currentHeader(layout) ?: return
         val group = tipsBarGroups[layout]?.takeIf { it.isAttachedToWindow } ?: return
+        tipsBarGroupLayouts[group] = layout
         suppressTipsBarDim(group)
         applyTipsBarCardStyle(group)
         applyPinnedTipsBarLayout(group)
@@ -844,10 +873,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
      * 同样的侧边距/圆角/阴影, 并用 topMargin 把它们整体推到标题卡下方, 多张卡按顺序堆叠,
      * 互相之间间隔 extraGap。它们自己的入场动画走 translationY, 与 topMargin 互不干扰。
      */
-    private fun applyHeaderZoneOverlays(layout: View, header: View) {
-        if (headerTopOffsets[layout] == null) return
-        val host = contentHost(layout) ?: return
-        val hostGroup = host as? ViewGroup ?: return
+    private fun applyHeaderZoneOverlays(layout: View, header: View): Boolean {
+        if (headerTopOffsets[layout] == null) return false
+        val host = contentHost(layout) ?: return false
+        val hostGroup = host as? ViewGroup ?: return false
         val density = layout.resources.displayMetrics.density
         val sidePx = (sideMarginDp * density).toInt()
         val gapPx = (extraGapDp * density).toInt()
@@ -858,6 +887,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         var nextTopPx = (ImmersiveChatUi.statusBarOffset(layout) + layout.paddingTop +
             titleBottomPx + gapPx).coerceAtLeast(hostTopPx)
         var bottomPx: Int? = null
+        var pinnedTipsApplied = false
         if (overlayDiagLogged.put(layout, true) == null) {
             val children = (0 until hostGroup.childCount).joinToString(", ") { i ->
                 val c = hostGroup.getChildAt(i)
@@ -874,7 +904,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 // 否则后面的高度兜底检查会把它当成全屏覆盖层跳过。
                 suppressTipsBarDim(child)
                 applyTipsBarCardStyle(child)
-                applyPinnedTipsBarLayout(child)
+                pinnedTipsApplied = applyPinnedTipsBarLayout(child) || pinnedTipsApplied
             }
             if (!isHeaderZoneOverlay(child, hostGroup)) continue
             if (!isTipsGroup) applyCardStyle(child)
@@ -903,7 +933,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         if (tracked != null) {
             suppressTipsBarDim(tracked)
             applyTipsBarCardStyle(tracked)
-            applyPinnedTipsBarLayout(tracked)
+            pinnedTipsApplied = applyPinnedTipsBarLayout(tracked) || pinnedTipsApplied
             val parentTopPx = (tracked.parent as? View)?.offsetTopIn(layout) ?: hostTopPx
             val topPx = (nextTopPx - parentTopPx).coerceAtLeast(0)
             val lp = tracked.layoutParams as? ViewGroup.MarginLayoutParams
@@ -928,6 +958,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         } else {
             overlayCardBottoms.remove(layout)
         }
+        return pinnedTipsApplied
     }
 
     /** 用构造登记的实例压制 dim, 组在哪个父容器下都能生效。 */
@@ -984,11 +1015,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 提示条组内容列表 (MaxHeightWxRecyclerView), 找不到时返回 null。 */
     private fun tipsBarRecycler(group: View): View? {
-        tipsBarRecyclers[group]?.takeIf { it.isAttachedToWindow }?.let { return it }
+        val cached = tipsBarRecyclers[group]
+        cached?.takeIf { it.isAttachedToWindow && it.isDescendantOf(group) }?.let { return it }
         val found = group.findViewWhich {
             it.javaClass.name == "com.tencent.mm.view.recyclerview.MaxHeightWxRecyclerView"
         }
-        if (found != null) tipsBarRecyclers[group] = found
+        if (cached !== found) {
+            cached?.let { retireTipsRecycler(group, it) }
+            if (found != null) tipsBarRecyclers[group] = found
+        }
         return found
     }
 
@@ -1063,7 +1098,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
      * - 展开态: 每行底部画横向分割线 (消息间 + 最后一条后), ×N 消失, 下方保留微信原生
      *   胶囊 handle; 点 handle 折叠、点行跳转都走微信自己的监听, 这里不碰。
      */
-    private fun applyPinnedTipsBarLayout(group: View) {
+    private fun applyPinnedTipsBarLayout(group: View): Boolean {
         // 早退 1: 找不到卡片体 (s3.xml 的 hyi)。注意 s3 的根 FrameLayout 才是组的直接子
         // View, hyi 在根 FrameLayout 下面, 必须递归找, 不能用 parent === group。
         val body = tipsBarCardBody(group)
@@ -1074,11 +1109,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 }
                 WeLogger.w(TAG, "pinned tips bar card body not found, group tree: $tree")
             }
-            return
+            return false
         }
         FloatingChatCardVisuals.applyDarkSurface(body, cornerRadiusDp)
         // 早退 2: 找不到内容列表 (MaxHeightWxRecyclerView), 保留原生布局。
-        val recycler = tipsBarRecycler(group) ?: return
+        val recycler = tipsBarRecycler(group) ?: return false
         // 早退 3: 只对置顶消息行 (s4.xml 结构) 生效; 直播等其它提示条共用同一组件, 不碰。
         if (tipsBarRowHooks[recycler] == null) {
             val list = recycler as ViewGroup
@@ -1089,7 +1124,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                     break
                 }
             }
-            if (!isPinnedBar) return
+            if (!isPinnedBar) return false
         }
         val expanded = tipsBarHandle(group)?.isVisible == true
         // 折叠动画中: handle 已藏、微信的 ovv 占位层还撑着全高
@@ -1136,6 +1171,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 placeholder.requestLayout()
             }
         }
+        return true
     }
 
     /**
@@ -1182,24 +1218,24 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 读取 View 当前 outline 的实际高度。 */
     private fun outlineHeight(view: View): Int? {
         val provider = view.outlineProvider ?: return null
-        val scratch = Outline()
-        provider.getOutline(view, scratch)
-        if (!scratch.canClip()) return null
-        val rect = Rect()
-        scratch.getRect(rect)
-        return if (rect.height() > 0) rect.height() else null
+        outlineScratch.setEmpty()
+        outlineRectScratch.setEmpty()
+        provider.getOutline(view, outlineScratch)
+        if (!outlineScratch.canClip()) return null
+        outlineScratch.getRect(outlineRectScratch)
+        return if (outlineRectScratch.height() > 0) outlineRectScratch.height() else null
     }
 
     private fun onTipsAnimationFrame(group: View) {
-        val layout = group.findAncestorChattingUILayout() ?: return
+        val layout = tipsBarGroupLayouts[group] ?: return
         val tracker = layoutTrackers[layout] ?: return
-        if (!tracker.active) return
+        if (!tracker.active || tipsBarGroups[layout] !== group || !group.isAttachedToWindow) return
         val body = tipsBarCardBodies[group]?.takeIf { it.parent != null } ?: return
         val handle = tipsBarHandles[group]?.takeIf { it.parent != null } ?: return
         val placeholder = tipsBarPlaceholders[group]?.takeIf { it.parent != null } ?: return
-        val header = headerViews[layout]?.takeIf { isCachedHeaderValid(layout, it) } ?: return
+        val header = headerViews[layout]?.takeIf { it.isAttachedToWindow } ?: return
         val recycler = chatListRecyclers[layout]?.takeIf {
-            it.isAttachedToWindow && it.findAncestorChattingUILayout() === layout
+            it.isAttachedToWindow && chatListRecyclerLayouts[it] === layout
         } ?: return
         val source = if (handle.isVisible) body else placeholder
         val height = outlineHeight(source) ?: return
@@ -1223,7 +1259,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         overlayCardBottoms[layout]?.let { bottom ->
             overlayCardBottoms[layout] = bottom + height - previous
         }
-        applyAnimatedChatListPadding(layout, header, recycler)
+        applyAnimatedChatListPadding(layout, recycler)
     }
 
     /** 折叠时驱动 hyi 的裁剪轮廓, 把行从底部逐行裁掉。 */
@@ -1514,6 +1550,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         return null
     }
 
+    private fun View.isDescendantOf(ancestor: View): Boolean {
+        var parent = parent
+        while (parent != null) {
+            if (parent === ancestor) return true
+            parent = parent.parent
+        }
+        return false
+    }
+
     /** 独立 ChattingUI 的 Fragment 不使用布局内标题栏, 必须走窗口级 ActionBarContainer。 */
     private fun View.isInStandaloneChattingUi(): Boolean {
         val activity = context.activityOrNull() ?: return false
@@ -1555,11 +1600,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         WeLogger.d(TAG, "chat list top padding: ${recycler.paddingTop} -> $target (extra=$extra)")
     }
 
-    @Suppress("UNUSED_PARAMETER")
-    private fun applyAnimatedChatListPadding(layout: View, header: View, recycler: View) {
+    private fun applyAnimatedChatListPadding(layout: View, recycler: View) {
         val overlayBottom = overlayCardBottoms[layout] ?: return
         val base = chatListBasePaddings[recycler] ?: return
-        val extra = (overlayBottom - recycler.offsetTopIn(layout)).coerceAtLeast(0)
+        val recyclerTop = chatListTopOffsets[recycler] ?: return
+        val extra = (overlayBottom - recyclerTop).coerceAtLeast(0)
         val target = base + extra
         if (recycler.paddingTop == target) return
         recycler.setPadding(recycler.paddingLeft, target, recycler.paddingRight, recycler.paddingBottom)
@@ -1583,10 +1628,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
      * 原生位于标题栏下方; 标题栏重挂成悬浮卡后内容区顶到屏幕上方, 按钮会被标题卡盖住。
      * 这里把它下推到标题卡下沿 + 卡片间距, 几何与列表 top padding 同一套。
      */
-    private fun applyQuickSelectOffset(layout: View, header: View) {
-        if (headerTopOffsets[layout] == null) return
-        val content = chatContent(layout) as? ViewGroup ?: return
-        val quickSelect = quickSelectUpView(content, layout) ?: return
+    private fun applyQuickSelectOffset(layout: View, header: View): Boolean {
+        if (headerTopOffsets[layout] == null) return false
+        val content = chatContent(layout) as? ViewGroup ?: return false
+        val quickSelect = quickSelectUpView(content, layout) ?: return false
         val density = layout.resources.displayMetrics.density
         val gapPx = (extraGapDp * density).toInt()
         // 标题卡下沿 (ChattingUILayout 坐标系): statusBarOffset + 卡高 + 顶部间距
@@ -1595,12 +1640,13 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         // ChattingScrollLayout 滚动时用 translationY 移动内容区, 要一起算进按钮的屏幕位置
         val contentTopPx = content.offsetTopIn(layout) + content.translationY.roundToInt()
         val marginTop = (titleBottomPx + gapPx - contentTopPx).coerceAtLeast(0)
-        val lp = quickSelect.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+        val lp = quickSelect.layoutParams as? ViewGroup.MarginLayoutParams ?: return false
         if (lp.topMargin != marginTop) {
             lp.topMargin = marginTop
             quickSelect.requestLayout()
             WeLogger.d(TAG, "quick select up view top margin: ${lp.topMargin} -> $marginTop")
         }
+        return true
     }
 
     private fun chatContent(layout: View): View? {
@@ -1662,17 +1708,37 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun View.chatRecycler(): View? {
-        chatListRecyclers[this]?.takeIf { it.isAttachedToWindow }?.let { return it }
+        val cached = chatListRecyclers[this]
+        cached?.takeIf {
+            it.isAttachedToWindow && it.findAncestorChattingUILayout() === this
+        }?.let {
+            chatListRecyclerLayouts[it] = this
+            chatListTopOffsets[it] = it.offsetTopIn(this)
+            return it
+        }
         val listHost = allViews.firstOrNull {
             it.javaClass.name == "com.tencent.mm.ui.chatting.view.MMChattingListView"
         }
         val found = listHost?.allViews?.firstOrNull { it.isChatRecycler() }
         if (found != null) {
+            if (cached !== found) cached?.let(::retireChatListRecycler)
             chatListRecyclers[this] = found
-        } else if (lookupWarned.put(this, true) == null) {
-            WeLogger.w(TAG, "chat list recycler not found, top blank skipped")
+            chatListRecyclerLayouts[found] = this
+            chatListTopOffsets[found] = found.offsetTopIn(this)
+        } else {
+            cached?.let(::retireChatListRecycler)
+            chatListRecyclers.remove(this)
+            if (lookupWarned.put(this, true) == null) {
+                WeLogger.w(TAG, "chat list recycler not found, top blank skipped")
+            }
         }
         return found
+    }
+
+    private fun retireChatListRecycler(recycler: View) {
+        chatListRecyclerLayouts.remove(recycler)
+        chatListTopOffsets.remove(recycler)
+        chatListBasePaddings.remove(recycler)
     }
 
     private fun View.isChatRecycler(): Boolean {
@@ -1711,6 +1777,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val header = headerViews.remove(layout)
         val recycler = chatListRecyclers.remove(layout)
         val group = tipsBarGroups.remove(layout)
+        group?.let { tipsBarGroupLayouts.remove(it) }
         headerTopOffsets.remove(layout)
         chatContents.remove(layout)
         quickSelectUpViews.remove(layout)
@@ -1724,15 +1791,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             windowBarOverlays.remove(it)
             headerStyles.remove(it)
         }
-        recycler?.let { chatListBasePaddings.remove(it) }
+        recycler?.let(::retireChatListRecycler)
         group?.let { clearTipsGroupCaches(it, tipsBarRecyclers[it]) }
     }
 
     private fun clearTipsGroupCaches(group: View, recycler: View?) {
+        recycler?.let { retireTipsRecycler(group, it) }
         val body = tipsBarCardBodies.remove(group)
         dimWarned.remove(group)
         tipsBarDims.remove(group)
-        tipsBarRecyclers.remove(group)
         tipsBarStyles.remove(group)
         tipsBarBodyWarned.remove(group)
         tipsBarOverlapRects.remove(group)
@@ -1745,9 +1812,24 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         tipsBarCardOutlineHeights.remove(group)
         tipsBarFoldHeights.remove(group)
         animationGroupFields.clear()
-        recycler?.let {
-            tipsBarRowHooks.remove(it)
-            tipsBarOffsetsRemoved.remove(it)
+        if (layoutTrackers.isNotEmpty()) cacheAnimationGroupFields()
+    }
+
+    private fun retireTipsRecycler(group: View, recycler: View) {
+        if (tipsBarRecyclers[group] === recycler) tipsBarRecyclers.remove(group)
+        tipsBarGroupLayouts[group]?.let { layout ->
+            layoutTrackers[layout]?.let { unobserveTrackedView(it, recycler) }
+        }
+        tipsBarRowHooks.remove(recycler)
+        tipsBarOffsetsRemoved.remove(recycler)
+        if (recycler is ViewGroup) {
+            for (i in 0 until recycler.childCount) {
+                val row = recycler.getChildAt(i)
+                tipsBarRowBadges.remove(row)
+                tipsBarRowTexts.remove(row)
+                tipsBarRowLines.remove(row)
+                tipsBarRowDividers.remove(row)
+            }
         }
     }
 
@@ -1765,11 +1847,14 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         headerViews.clear()
         headerTopOffsets.clear()
         chatListRecyclers.clear()
+        chatListRecyclerLayouts.clear()
+        chatListTopOffsets.clear()
         chatContents.clear()
         quickSelectUpViews.clear()
         contentHosts.clear()
         overlayCardBottoms.clear()
         tipsBarGroups.clear()
+        tipsBarGroupLayouts.clear()
         windowBarOverlays.clear()
         windowBarHeaders.clear()
         overlayDiagLogged.clear()
