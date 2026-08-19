@@ -70,7 +70,7 @@ struct ArchSources {
 }
 
 #[derive(Debug, Deserialize)]
-struct ArchRootfsSource { release: String, url: String, md5: String, max_extracted_bytes: u64, signature_url: String, signing_fingerprint: String }
+struct ArchRootfsSource { release: String, url: String, md5: String, sha256: String, max_extracted_bytes: u64, signature_url: String, signing_fingerprint: String }
 #[derive(Debug, Deserialize)]
 struct ArchProotSource { source: String, commit: String }
 #[derive(Debug, Deserialize)]
@@ -170,15 +170,26 @@ pub fn run(root: &Path, args: &ExtensionsArgs) -> Result<()> {
 
 fn read_arch_sources(root: &Path) -> Result<ArchSources> {
     let path = root.join("extensions/archlinux-arm64-sources.json");
-    let source: ArchSources = serde_json::from_slice(&fs::read(&path)?)?;
+    parse_arch_sources(&fs::read(&path)?)
+}
+
+fn parse_arch_sources(bytes: &[u8]) -> Result<ArchSources> {
+    let source: ArchSources = serde_json::from_slice(bytes)?;
     anyhow::ensure!(source.rootfs.release.chars().all(|c| c.is_ascii_digit() || c == '.'), "invalid Arch release");
     anyhow::ensure!(source.rootfs.url.starts_with("https://") && source.rootfs.signature_url.starts_with("https://"), "Arch inputs must use HTTPS");
-    anyhow::ensure!(source.rootfs.md5.len() == 32 && source.rootfs.md5.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs checksum");
+    anyhow::ensure!(source.rootfs.md5.len() == 32 && source.rootfs.md5.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs MD5");
+    anyhow::ensure!(source.rootfs.sha256.len() == 64 && source.rootfs.sha256.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs SHA-256");
     anyhow::ensure!(source.rootfs.max_extracted_bytes >= 1024 * 1024 * 1024, "invalid rootfs extracted-size limit");
     anyhow::ensure!(source.rootfs.signing_fingerprint.len() == 40 && source.rootfs.signing_fingerprint.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs signing fingerprint");
     anyhow::ensure!(source.proot.source.starts_with("https://") && source.proot.commit.len() == 40 && source.proot.commit.chars().all(|c| c.is_ascii_hexdigit()), "invalid pinned PRoot source");
     anyhow::ensure!(source.bridge.cargo_package == "invoke_tool" && source.bridge.target == "aarch64-linux-android", "invalid bridge identity");
     Ok(source)
+}
+
+fn verify_arch_rootfs(path: &Path, source: &ArchRootfsSource) -> Result<()> {
+    anyhow::ensure!(sha256_file(path)?.eq_ignore_ascii_case(&source.sha256), "pinned Arch rootfs SHA-256 mismatch");
+    anyhow::ensure!(md5_file(path)?.eq_ignore_ascii_case(&source.md5), "pinned Arch rootfs MD5 mismatch");
+    Ok(())
 }
 
 fn build_archlinux_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
@@ -191,7 +202,7 @@ fn build_archlinux_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
         .context("WEKIT_ARCH_PROOT_LOADER must point to the matching ARM64 PRoot loader")?;
     let bridge = root.join("app/src/main/jniLibs/arm64-v8a/libinvoke_tool.so");
     anyhow::ensure!(rootfs.is_file() && proot.is_file() && proot_loader.is_file() && bridge.is_file(), "Arch pack input is missing");
-    anyhow::ensure!(md5_file(&rootfs)?.eq_ignore_ascii_case(&source.rootfs.md5), "pinned Arch rootfs checksum mismatch");
+    verify_arch_rootfs(&rootfs, &source.rootfs)?;
     let built_from = std::env::var("WEKIT_ARCH_PROOT_COMMIT")
         .context("WEKIT_ARCH_PROOT_COMMIT must identify the checked-out static PRoot source")?;
     anyhow::ensure!(built_from == source.proot.commit, "static PRoot was not built from the pinned commit");
@@ -209,6 +220,7 @@ fn build_archlinux_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
             "rootfs_release": source.rootfs.release,
             "rootfs_url": source.rootfs.url,
             "rootfs_md5": source.rootfs.md5,
+            "rootfs_sha256": source.rootfs.sha256,
             "rootfs_max_extracted_bytes": source.rootfs.max_extracted_bytes,
             "rootfs_signature_url": source.rootfs.signature_url,
             "rootfs_signing_fingerprint": source.rootfs.signing_fingerprint,
@@ -383,10 +395,45 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let source = read_arch_sources(root).unwrap();
         assert_eq!(source.rootfs.release, "2026.08");
-        assert_eq!(source.rootfs.md5.len(), 32);
+        assert_eq!(source.rootfs.md5, "23eec86365b24f7913c403e8f4e8719b");
+        assert_eq!(source.rootfs.sha256, "42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319");
         assert_eq!(source.rootfs.signing_fingerprint, "68B3537F39A313B3E574D06777193F152BDBE6A6");
         assert_eq!(source.proot.commit.len(), 40);
         assert_eq!(source.bridge.target, "aarch64-linux-android");
+    }
+
+    #[test]
+    fn arch_source_descriptor_requires_valid_sha256() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let path = root.join("extensions/archlinux-arm64-sources.json");
+        let mut json: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        json["rootfs"]["sha256"] = serde_json::Value::String("not-a-sha256".into());
+        let error = parse_arch_sources(&serde_json::to_vec(&json).unwrap()).unwrap_err();
+        assert!(error.to_string().contains("invalid rootfs SHA-256"));
+
+        json["rootfs"].as_object_mut().unwrap().remove("sha256");
+        assert!(parse_arch_sources(&serde_json::to_vec(&json).unwrap()).is_err());
+    }
+
+    #[test]
+    fn arch_rootfs_verification_rejects_sha256_mismatch() {
+        let path = std::env::temp_dir().join(format!("wekit-rootfs-checksum-test-{}", std::process::id()));
+        fs::write(&path, b"rootfs").unwrap();
+        let source = ArchRootfsSource {
+            release: "2026.08".into(),
+            url: "https://example.invalid/rootfs".into(),
+            md5: "307cfa551ed600e2db40b7885ce3ceda".into(),
+            sha256: "3c47ef972d531d524daa15fa33dd885dd23de6221bbd10a29eb42ecfcf2ef422".into(),
+            max_extracted_bytes: 1024 * 1024 * 1024,
+            signature_url: "https://example.invalid/rootfs.sig".into(),
+            signing_fingerprint: "68B3537F39A313B3E574D06777193F152BDBE6A6".into(),
+        };
+        verify_arch_rootfs(&path, &source).unwrap();
+
+        let mismatched = ArchRootfsSource { sha256: "0".repeat(64), ..source };
+        let error = verify_arch_rootfs(&path, &mismatched).unwrap_err();
+        assert!(error.to_string().contains("SHA-256 mismatch"));
+        fs::remove_file(path).unwrap();
     }
 
     #[test]

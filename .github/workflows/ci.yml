@@ -475,6 +475,7 @@ jobs:
           SOURCE=extensions/archlinux-arm64-sources.json
           ROOTFS_URL=$(jq -r '.rootfs.url' "$SOURCE")
           ROOTFS_MD5=$(jq -r '.rootfs.md5' "$SOURCE")
+          ROOTFS_SHA256=$(jq -er '.rootfs.sha256 | select(test("^[0-9A-Fa-f]{64}$"))' "$SOURCE")
           ROOTFS_SIGNATURE_URL=$(jq -r '.rootfs.signature_url' "$SOURCE")
           SIGNING_FINGERPRINT=$(jq -r '.rootfs.signing_fingerprint' "$SOURCE")
           PROOT_SOURCE=$(jq -r '.proot.source' "$SOURCE")
@@ -484,6 +485,7 @@ jobs:
           curl --fail --location --retry 3 \
             "$ROOTFS_URL" \
             -o "$WEKIT_ARCH_ROOTFS"
+          printf '%s  %s\n' "$ROOTFS_SHA256" "$WEKIT_ARCH_ROOTFS" | sha256sum --check --strict
           printf '%s  %s\n' "$ROOTFS_MD5" "$WEKIT_ARCH_ROOTFS" | md5sum --check --strict
           curl --fail --location --retry 3 \
             "$ROOTFS_SIGNATURE_URL" \
