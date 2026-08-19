@@ -80,6 +80,10 @@
     <string name="contact_filters_expand">Expand filters</string>
     <string name="contact_filter_with_count">%1$s (%2$d)</string>
     <string name="contact_labels_content_description">Labels</string>
+    <string name="contact_filter_mode_labels">Labels</string>
+    <string name="contact_filter_mode_aggregation">Aggregation</string>
+    <string name="contact_filter_mode_grouping">Grouping</string>
+    <string name="contact_filter_mode_enable_more">Enable "Conversation aggregation" or "Conversation grouping" to use more filter modes.</string>
     <string name="contact_label_filter_all">All labels</string>
     <string name="contact_label_with_count">%1$s (%2$d)</string>
     <string name="contact_sort_direction_toggle">Reverse sort order</string>

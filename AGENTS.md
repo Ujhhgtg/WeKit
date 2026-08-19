@@ -141,6 +141,11 @@
 
 ## Testing Strategy
 
+- These repository-specific testing constraints take precedence over the generic Superpowers
+  skills' TDD workflow. Do not add tests for host hooks, Compose UI, WeChat runtime behavior, or
+  database integration when they fall outside the qualifying conditions below; use the required
+  build, static checks, and manual host validation instead.
+
 - TDD and new automated tests are allowed only when all core logic under test lives in WeKit,
   has low coupling to WeChat, and does not depend on WeChat host classes, runtime state, UI, or
   behavior.

@@ -522,6 +522,20 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
         }
     }
 
+    data class GroupChoice(val id: String, val name: String, val members: List<String>)
+
+    /** Public member snapshots used by contact pickers that need to filter by group. */
+    fun groupFilterOptions(context: Context): List<GroupChoice> =
+        loadGroups()
+            .filterNot { isAllTab(it.id) }
+            .map { group ->
+                GroupChoice(
+                    id = group.id,
+                    name = localizedGroupName(context, group),
+                    members = getGroupMembers(group),
+                )
+            }
+
     @Composable
     private fun groupDisplayName(group: ChatGroup): String =
         localizedGroupName(LocalContext.current, group)

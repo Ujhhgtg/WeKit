@@ -63,6 +63,7 @@ import com.composables.icons.materialsymbols.outlined.Compare_arrows
 import com.composables.icons.materialsymbols.outlined.Deselect
 import com.composables.icons.materialsymbols.outlined.Expand_less
 import com.composables.icons.materialsymbols.outlined.Expand_more
+import com.composables.icons.materialsymbols.outlined.Folder
 import com.composables.icons.materialsymbols.outlined.Groups
 import com.composables.icons.materialsymbols.outlined.Label
 import com.composables.icons.materialsymbols.outlined.Person
@@ -79,6 +80,9 @@ import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.core.models.WeContact
 import dev.ujhhgtg.wekit.features.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.features.api.core.models.WeOfficialAccount
+import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation
+import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.Dispatchers
@@ -100,6 +104,23 @@ enum class FilterType(@StringRes val displayNameRes: Int) {
     OFFICIAL_ACCOUNTS(R.string.contact_filter_official_accounts),
     OTHERS(R.string.contact_filter_others),
 }
+
+private enum class ContactFilterMode(val icon: ImageVector, @StringRes val nameRes: Int) {
+    LABELS(MaterialSymbols.Outlined.Label, R.string.contact_filter_mode_labels),
+    AGGREGATION(MaterialSymbols.Outlined.Folder, R.string.contact_filter_mode_aggregation),
+    GROUPING(MaterialSymbols.Outlined.Groups, R.string.contact_filter_mode_grouping),
+}
+
+private var persistedContactFilterMode by WePrefs.prefOption(
+    "contact_selector_filter_mode",
+    ContactFilterMode.LABELS.name,
+)
+
+private data class ContactFilterOption(
+    val id: String,
+    val name: String,
+    val wxIds: Set<String>,
+)
 
 enum class SortMode(val icon: ImageVector) {
     ALPHABETICAL(MaterialSymbols.Outlined.Sort_by_alpha),
@@ -189,6 +210,8 @@ fun BaseContactSelector(
     var officialAccountWxIds by remember { mutableStateOf(emptySet<String>()) }
     var allLabels by remember { mutableStateOf(emptyList<WeContactLabelApi.ContactLabel>()) }
     var labelContactsMap by remember { mutableStateOf(emptyMap<String, Set<String>>()) }
+    var aggregationOptions by remember { mutableStateOf(emptyList<ContactFilterOption>()) }
+    var groupingOptions by remember { mutableStateOf(emptyList<ContactFilterOption>()) }
     var isFiltersLoaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -206,6 +229,24 @@ fun BaseContactSelector(
                     val labelMap = labels.associate { label ->
                         label.labelName to WeContactLabelApi.getContactsByLabelId(label.labelId).toSet()
                     }
+                    val aggregation = if (ConversationAggregation.isEnabled) {
+                        ConversationAggregation.aggregationFolders().map { folder ->
+                            ContactFilterOption(
+                                id = folder.id,
+                                name = folder.name,
+                                wxIds = ConversationAggregation.folderMembers(folder.id).toSet(),
+                            )
+                        }
+                    } else {
+                        emptyList()
+                    }
+                    val grouping = if (ConversationGrouping.isEnabled) {
+                        ConversationGrouping.groupFilterOptions(currentLocalizedContext.value).map { group ->
+                            ContactFilterOption(group.id, group.name, group.members.toSet())
+                        }
+                    } else {
+                        emptyList()
+                    }
 
                     withContext(Dispatchers.Main) {
                         friendWxIds = friends
@@ -213,6 +254,8 @@ fun BaseContactSelector(
                         officialAccountWxIds = officialAccounts
                         allLabels = labels
                         labelContactsMap = labelMap
+                        aggregationOptions = aggregation
+                        groupingOptions = grouping
                         isFiltersLoaded = true
                     }
                 } else {
@@ -235,7 +278,21 @@ fun BaseContactSelector(
     }
 
     var selectedType by remember { mutableStateOf(FilterType.ALL) }
+    var filterMode by remember {
+        val persistedMode = ContactFilterMode.entries.firstOrNull {
+            it.name == persistedContactFilterMode
+        }
+        mutableStateOf(
+            when (persistedMode) {
+                ContactFilterMode.AGGREGATION -> if (ConversationAggregation.isEnabled) persistedMode else ContactFilterMode.LABELS
+                ContactFilterMode.GROUPING -> if (ConversationGrouping.isEnabled) persistedMode else ContactFilterMode.LABELS
+                ContactFilterMode.LABELS, null -> ContactFilterMode.LABELS
+            }
+        )
+    }
     var selectedLabelName by remember { mutableStateOf<String?>(null) }
+    var selectedAggregationId by remember { mutableStateOf<String?>(null) }
+    var selectedGroupingId by remember { mutableStateOf<String?>(null) }
 
     var filtersExpanded by remember { mutableStateOf(true) }
 
@@ -346,9 +403,25 @@ fun BaseContactSelector(
             allContacts.any { it.wxId in wxIds }
         }
     }
-    val showLabelFilterRow = remember(availableLabels, isFiltersLoaded) { isFiltersLoaded && availableLabels.isNotEmpty() }
+    val availableAggregationOptions = remember(allContacts, aggregationOptions) {
+        aggregationOptions.filter { option -> allContacts.any { it.wxId in option.wxIds } }
+    }
+    val availableGroupingOptions = remember(allContacts, groupingOptions) {
+        groupingOptions.filter { option -> allContacts.any { it.wxId in option.wxIds } }
+    }
+    val availableFilterModes = remember(isFiltersLoaded) {
+        if (!isFiltersLoaded) emptyList()
+        else ContactFilterMode.entries.filter { mode ->
+            mode == ContactFilterMode.LABELS || when (mode) {
+                ContactFilterMode.AGGREGATION -> ConversationAggregation.isEnabled
+                ContactFilterMode.GROUPING -> ConversationGrouping.isEnabled
+                ContactFilterMode.LABELS -> true
+            }
+        }
+    }
+    val showFilterModeRow = availableFilterModes.isNotEmpty()
 
-    val displayedContacts = remember(filteredContacts, selectedType, selectedLabelName, friendWxIds, groupWxIds, officialAccountWxIds, labelContactsMap) {
+    val displayedContacts = remember(filteredContacts, selectedType, filterMode, selectedLabelName, selectedAggregationId, selectedGroupingId, friendWxIds, groupWxIds, officialAccountWxIds, labelContactsMap, aggregationOptions, groupingOptions) {
         filteredContacts.filter { contact ->
             val isGroup = contact is WeGroup || contact.wxId.endsWith("@chatroom") || contact.wxId in groupWxIds
             val isOfficial = contact is WeOfficialAccount || contact.wxId.startsWith("gh_") || contact.wxId in officialAccountWxIds
@@ -362,14 +435,13 @@ fun BaseContactSelector(
                 FilterType.OTHERS -> !isFriend && !isGroup && !isOfficial
             }
 
-            val matchesLabel = if (selectedLabelName == null) {
-                true
-            } else {
-                val labelWxIds = labelContactsMap[selectedLabelName] ?: emptySet()
-                contact.wxId in labelWxIds
+            val matchesMode = when (filterMode) {
+                ContactFilterMode.LABELS -> selectedLabelName == null || contact.wxId in (labelContactsMap[selectedLabelName] ?: emptySet())
+                ContactFilterMode.AGGREGATION -> selectedAggregationId == null || contact.wxId in (aggregationOptions.firstOrNull { it.id == selectedAggregationId }?.wxIds ?: emptySet())
+                ContactFilterMode.GROUPING -> selectedGroupingId == null || contact.wxId in (groupingOptions.firstOrNull { it.id == selectedGroupingId }?.wxIds ?: emptySet())
             }
 
-            matchesType && matchesLabel
+            matchesType && matchesMode
         }
     }
 
@@ -506,7 +578,7 @@ fun BaseContactSelector(
                             }
                         }
 
-                        if (showLabelFilterRow) {
+                        if (showFilterModeRow) {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 contentPadding = PaddingValues(horizontal = 4.dp),
@@ -516,39 +588,96 @@ fun BaseContactSelector(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 item {
-                                    Icon(
-                                        imageVector = MaterialSymbols.Outlined.Label,
-                                        contentDescription = stringResource(R.string.contact_labels_content_description),
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                item {
-                                    val isSelected = selectedLabelName == null
+                                    val modeIndex = availableFilterModes.indexOf(filterMode).coerceAtLeast(0)
+                                    val hasMoreModes = availableFilterModes.size > 1
                                     FilterChip(
-                                        selected = isSelected,
-                                        onClick = { selectedLabelName = null },
-                                        label = { Text(stringResource(R.string.contact_label_filter_all)) }
-                                    )
-                                }
-
-                                items(availableLabels) { label ->
-                                    val isSelected = selectedLabelName == label.labelName
-                                    val labelCount = labelCounts[label.labelName] ?: 0
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { selectedLabelName = if (isSelected) null else label.labelName },
-                                        label = {
-                                            Text(
-                                                stringResource(
-                                                    R.string.contact_label_with_count,
-                                                    label.labelName,
-                                                    labelCount,
-                                                ),
+                                        selected = true,
+                                        onClick = {
+                                            if (!hasMoreModes) {
+                                                showToast(
+                                                    localizedContext,
+                                                    localizedContext.getString(R.string.contact_filter_mode_enable_more),
+                                                )
+                                            } else {
+                                                filterMode = availableFilterModes[(modeIndex + 1) % availableFilterModes.size]
+                                                persistedContactFilterMode = filterMode.name
+                                                selectedLabelName = null
+                                                selectedAggregationId = null
+                                                selectedGroupingId = null
+                                            }
+                                        },
+                                        label = { Text(stringResource(filterMode.nameRes)) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = filterMode.icon,
+                                                contentDescription = stringResource(filterMode.nameRes),
+                                                modifier = Modifier.size(16.dp),
                                             )
-                                        }
+                                        },
                                     )
+                                }
+
+                                if (filterMode == ContactFilterMode.LABELS) {
+                                    item {
+                                        val isSelected = selectedLabelName == null
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { selectedLabelName = null },
+                                            label = { Text(stringResource(R.string.contact_label_filter_all)) }
+                                        )
+                                    }
+
+                                    items(availableLabels) { label ->
+                                        val isSelected = selectedLabelName == label.labelName
+                                        val labelCount = labelCounts[label.labelName] ?: 0
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { selectedLabelName = if (isSelected) null else label.labelName },
+                                            label = {
+                                                Text(stringResource(R.string.contact_label_with_count, label.labelName, labelCount))
+                                            }
+                                        )
+                                    }
+                                } else {
+                                    val options = if (filterMode == ContactFilterMode.AGGREGATION) {
+                                        availableAggregationOptions
+                                    } else {
+                                        availableGroupingOptions
+                                    }
+                                    item {
+                                        val isSelected = if (filterMode == ContactFilterMode.AGGREGATION) {
+                                            selectedAggregationId == null
+                                        } else {
+                                            selectedGroupingId == null
+                                        }
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                if (filterMode == ContactFilterMode.AGGREGATION) {
+                                                    selectedAggregationId = null
+                                                } else {
+                                                    selectedGroupingId = null
+                                                }
+                                            },
+                                            label = { Text(stringResource(R.string.contact_label_filter_all)) },
+                                        )
+                                    }
+                                    items(options, key = { it.id }) { option ->
+                                        val selectedId = if (filterMode == ContactFilterMode.AGGREGATION) selectedAggregationId else selectedGroupingId
+                                        val isSelected = selectedId == option.id
+                                        val count = filteredContacts.count { it.wxId in option.wxIds }
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                if (filterMode == ContactFilterMode.AGGREGATION) {
+                                                    selectedAggregationId = if (isSelected) null else option.id
+                                                } else {
+                                                    selectedGroupingId = if (isSelected) null else option.id
+                                                }
+                                            },
+                                            label = { Text(stringResource(R.string.contact_label_with_count, option.name, count)) },
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -317,6 +317,10 @@ object ConversationAggregation : ClickableFeature(),
     /** A folder choice exposed to other features (e.g. the "add to folder" conversation menu). */
     data class FolderChoice(val id: String, val name: String, val isAuto: Boolean)
 
+    /** Public member snapshot used by contact pickers that need to filter by folder. */
+    fun folderMembers(folderId: String): List<String> =
+        folderById(folderId)?.let(::getFolderMembers).orEmpty()
+
     /** Public snapshot of the configured folders, for features that let the user pick one. */
     fun aggregationFolders(): List<FolderChoice> =
         loadFolders().map { FolderChoice(it.id, it.name, it.type != FolderType.MANUAL) }

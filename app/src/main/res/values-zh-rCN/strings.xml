@@ -67,6 +67,10 @@
     <string name="contact_filters_expand">展开筛选</string>
     <string name="contact_filter_with_count">%1$s (%2$d)</string>
     <string name="contact_labels_content_description">标签</string>
+    <string name="contact_filter_mode_labels">标签</string>
+    <string name="contact_filter_mode_aggregation">归拢</string>
+    <string name="contact_filter_mode_grouping">分组</string>
+    <string name="contact_filter_mode_enable_more">可启用「对话归拢」或「对话分组」以使用更多筛选方式</string>
     <string name="contact_label_filter_all">全部</string>
     <string name="contact_label_with_count">%1$s (%2$d)</string>
     <string name="contact_sort_direction_toggle">切换排序方向</string>
