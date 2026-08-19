@@ -879,7 +879,6 @@ object WeAgentRepository : ToolPermissionSource {
     ): Boolean {
         require(id != NATIVE_ENVIRONMENT_ID) { "native environment cannot be deleted" }
         var deleted = false
-        var plan: LinuxEnvironmentDeletionPlan? = null
         db.withTransaction {
             val existing = db.linuxEnvironmentDao().getById(id) ?: return@withTransaction
             check(existing.id == deletedEnvironment.id) { "deleted environment snapshot does not match the stored row" }
@@ -895,7 +894,6 @@ object WeAgentRepository : ToolPermissionSource {
                 storedEnvironmentIds = stored.mapTo(HashSet()) { it.id },
                 storedEnvironmentSnapshots = stored.associate { it.id to it.toSnapshot() },
             )
-            plan = deletionPlan
             db.settingDao().upsert(
                 dev.ujhhgtg.wekit.agent.data.entity.SettingEntity(
                     WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID,
@@ -921,11 +919,6 @@ object WeAgentRepository : ToolPermissionSource {
             deleted = db.linuxEnvironmentDao().deleteById(id) != 0
         }
         WeAgentSettings.clearCached(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID)
-        if (deleted) {
-            dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onLinuxEnvironmentDeleted(
-                requireNotNull(plan).transitions
-            )
-        }
         return deleted
     }
 

@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -240,6 +241,55 @@ class LinuxEnvironmentTest {
         val error = assertThrows(IllegalStateException::class.java) { runBlocking { manager.delete(stored.id) } }
         assertTrue(error.message!!.contains("identity cannot be proven"))
         assertFalse(deleted)
+    }
+
+    @Test
+    fun `throwing deletion notification still clears runtime state and returns committed result`(@TempDir directory: Path) = runBlocking {
+        val stored = environment(LinuxEnvironmentType.SSH).copy(
+            rootfsPath = null,
+            sshHost = "host",
+            sshPort = 22,
+            sshUsername = "user",
+            sshAuthenticationType = "PASSWORD",
+        )
+        var backendCreations = 0
+        var backendCloses = 0
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
+            getEnvironment = { stored },
+            backendFactory = { snapshot ->
+                backendCreations++
+                object : LinuxEnvironmentBackend {
+                    override val snapshot = snapshot
+                    override suspend fun exec(command: String, timeoutMillis: Long, environmentVariables: Map<String, String>) =
+                        ExecResult("ok", "", 0, false, 1)
+                    override suspend fun readUtf8(path: String, maxBytes: Long) = ""
+                    override suspend fun edit(request: FileEditRequest) = Unit
+                    override fun resolvePath(path: String) = path
+                    override suspend fun ensureBridge(): BridgeInstallArtifact? = null
+                    override suspend fun checkHealth() = EnvironmentHealth(EnvironmentHealthState.HEALTHY)
+                    override suspend fun close() { backendCloses++ }
+                }
+            },
+            deleteEnvironment = { _, _, _ -> true },
+            notifyEnvironmentDeleted = { error("UI refresh failed") },
+        )
+
+        manager.exec(stored.id, "true", 1_000)
+        manager.checkHealth(stored.id)
+
+        assertTrue(manager.delete(stored.id))
+        assertEquals(1, backendCloses)
+        assertFalse(manager.health.first().containsKey(stored.id))
+        val mutexes = LinuxEnvironmentManager::class.java.getDeclaredField("executionMutexes").run {
+            isAccessible = true
+            get(manager) as Map<*, *>
+        }
+        assertFalse(mutexes.containsKey(stored.id))
+
+        manager.exec(stored.id, "true", 1_000)
+        assertEquals(2, backendCreations)
+        assertTrue(manager.delete(stored.id))
     }
 
     @Test

@@ -21,7 +21,6 @@ import dev.ujhhgtg.wekit.agent.engine.TurnConfig
 import dev.ujhhgtg.wekit.agent.engine.ToolCallExecutor
 import dev.ujhhgtg.wekit.agent.bridge.ToolBridgeServer
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
-import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionTransition
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult
 import dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult
@@ -393,11 +392,14 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     fun switchSession(id: String) = scope.launch { switchSessionInternal(id) }
 
     private suspend fun switchSessionInternal(id: String) {
-        currentSessionId.value = id
+        withContext(Dispatchers.Main) { currentSessionId.value = id }
         val session = WeAgentRepository.getSession(id)
-        withContext(Dispatchers.Main) {
+        val foreground = withContext(Dispatchers.Main) {
+            if (currentSessionId.value != id) return@withContext false
             currentModelId.value = session?.modelId
+            if (currentSessionId.value != id) return@withContext false
             currentSystemPromptId.value = session?.systemPromptId
+            if (currentSessionId.value != id) return@withContext false
             currentLinuxEnvironmentId.value = session?.linuxEnvironmentId
             // Restore the last persisted usage + context window so the strip survives a session
             // switch / WeChat restart (the next turn's resolveTurnConfig refreshes contextWindow).
@@ -407,13 +409,20 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             }
             currentContextWindow.value = session?.contextWindow
             syncForeground(id)
+            true
         }
+        if (!foreground) return
         val previous = session?.lastEffectiveLinuxEnvironmentId?.let { previousId ->
             if (previousId == NATIVE_ENVIRONMENT_ID) linuxEnvironmentManager.nativeSnapshot
             else runCatching { linuxEnvironmentManager.snapshot(previousId) }.getOrNull()
         }
         val environment = linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(id))
-        withContext(Dispatchers.Main) { effectiveLinuxEnvironmentId.value = environment.id }
+        val environmentApplied = withContext(Dispatchers.Main) {
+            if (currentSessionId.value != id) return@withContext false
+            effectiveLinuxEnvironmentId.value = environment.id
+            true
+        }
+        if (!environmentApplied) return
         WeAgentRepository.announceEffectiveLinuxEnvironment(id, environment, previous)
         reloadMessages(id)
     }
@@ -453,9 +462,9 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             if (!p.deferred.isCompleted) p.deferred.complete(ManualApprovalResult.Rejected("会话已删除"))
         }
         WeAgentRepository.deleteSession(id)
-        if (currentSessionId.value == id) {
-            currentSessionId.value = null
-            withContext(Dispatchers.Main) {
+        val deletedForeground = withContext(Dispatchers.Main) {
+            if (currentSessionId.value == id) {
+                currentSessionId.value = null
                 uiMessages.clear()
                 currentUsage.value = null
                 currentContextWindow.value = null
@@ -463,7 +472,12 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                 currentSystemPromptId.value = null
                 currentLinuxEnvironmentId.value = null
                 pendingApproval.value = null
+                true
+            } else {
+                false
             }
+        }
+        if (deletedForeground) {
             // Clear the queued message — it belongs to the deleted session.
             queuedMessage.value = null
         }
@@ -544,17 +558,44 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         if (currentSystemPromptId.value == id) currentSystemPromptId.value = null
     }
 
-    suspend fun onLinuxEnvironmentDeleted(transitions: List<LinuxEnvironmentSessionTransition>) {
-        val currentId = currentSessionId.value ?: return
-        val transition = transitions.firstOrNull { it.sessionId == currentId } ?: return
+    suspend fun onLinuxEnvironmentDeleted(deletedEnvironmentId: String) {
         withContext(Dispatchers.Main) {
-            currentLinuxEnvironmentId.value = transition.environmentId
-            effectiveLinuxEnvironmentId.value = transition.environment.id
+            val sessionId = currentSessionId.value ?: return@withContext
+            if (currentSessionId.value == sessionId && currentLinuxEnvironmentId.value == deletedEnvironmentId) {
+                currentLinuxEnvironmentId.value = null
+            }
+            if (currentSessionId.value == sessionId && effectiveLinuxEnvironmentId.value == deletedEnvironmentId) {
+                effectiveLinuxEnvironmentId.value = NATIVE_ENVIRONMENT_ID
+            }
         }
-        reloadMessages(currentId)
+        reconcileForegroundSession(
+            currentSessionId = { withContext(Dispatchers.Main) { currentSessionId.value } },
+            loadState = { sessionId ->
+                val session = WeAgentRepository.getSession(sessionId) ?: return@reconcileForegroundSession null
+                val effective = linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(sessionId))
+                check(session.linuxEnvironmentId != deletedEnvironmentId)
+                check(effective.id != deletedEnvironmentId)
+                session.linuxEnvironmentId to effective.id
+            },
+            applyStateIfCurrent = { sessionId, (bindingId, effectiveId) ->
+                withContext(Dispatchers.Main) {
+                    if (currentSessionId.value != sessionId) return@withContext false
+                    currentLinuxEnvironmentId.value = bindingId
+                    if (currentSessionId.value != sessionId) return@withContext false
+                    effectiveLinuxEnvironmentId.value = effectiveId
+                    true
+                }
+            },
+            loadMessages = ::loadMessages,
+            publishMessagesIfCurrent = ::publishMessagesIfCurrent,
+        )
     }
 
     private suspend fun reloadMessages(sessionId: String) {
+        publishMessagesIfCurrent(sessionId, loadMessages(sessionId))
+    }
+
+    private suspend fun loadMessages(sessionId: String): List<ChatRow> {
         val rows = mutableListOf<ChatRow>()
         for (m in WeAgentRepository.getMessages(sessionId)) {
             when (m.role) {
@@ -587,14 +628,20 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                     )
                 }
 
-            MessageRole.SYSTEM -> rows += ChatRow(m.id, ChatRow.Role.SYSTEM_NOTE, m.content, createdAt = m.createdAt)
+                MessageRole.SYSTEM -> rows += ChatRow(m.id, ChatRow.Role.SYSTEM_NOTE, m.content, createdAt = m.createdAt)
             }
         }
-        withContext(Dispatchers.Main) {
-            uiMessages.clear()
-            uiMessages.addAll(rows)
-        }
+        return rows
     }
+
+    private suspend fun publishMessagesIfCurrent(sessionId: String, rows: List<ChatRow>): Boolean =
+        withContext(Dispatchers.Main) {
+            if (currentSessionId.value != sessionId) return@withContext false
+            uiMessages.clear()
+            if (currentSessionId.value != sessionId) return@withContext false
+            uiMessages.addAll(rows)
+            true
+        }
 
     // -----------------------------------------------------------------------------------------
     // Sending a message / running a turn

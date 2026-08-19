@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import dev.ujhhgtg.wekit.extensions.ArchLinuxPack
 import dev.ujhhgtg.wekit.extensions.ExtensionPack
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.WeLogger
 import java.io.File
 import java.nio.file.Path
 import java.util.UUID
@@ -18,8 +19,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 class LinuxEnvironmentManager(
     val nativeSnapshot: EnvironmentSnapshot = defaultNativeSnapshot(),
@@ -32,6 +35,9 @@ class LinuxEnvironmentManager(
     private val getEnvironment: suspend (String) -> LinuxEnvironmentEntity? = WeAgentRepository::getLinuxEnvironment,
     private val deleteEnvironment: suspend (String, EnvironmentSnapshot, EnvironmentSnapshot) -> Boolean =
         WeAgentRepository::deleteLinuxEnvironment,
+    private val notifyEnvironmentDeleted: suspend (String) -> Unit = { id ->
+        dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onLinuxEnvironmentDeleted(id)
+    },
     private val recoverChroot: suspend (Path, String) -> ChrootRecoveryResult = { rootfs, workingDirectory ->
         ChrootRootHelper(ChrootConfiguration(rootfs, workingDirectory)).recoverPendingRuns()
     },
@@ -165,6 +171,7 @@ class LinuxEnvironmentManager(
             check(deleting.add(id)) { "environment deletion is already in progress" }
         }
         var registryLocked = false
+        var deleted = false
         try {
             if (chrootRootfs != null) {
                 check(!ChrootMountRegistry.hasActiveRuns(chrootRootfs)) { "chroot environment has an active run" }
@@ -179,16 +186,24 @@ class LinuxEnvironmentManager(
                 check(instance.fileName.toString() == id) { "invalid local environment layout" }
                 check(!instance.toFile().exists() || instance.toFile().deleteRecursively()) { "cannot remove local environment files" }
             }
-            val deleted = environment != null && deleteEnvironment(id, environment.toSnapshot(), nativeSnapshot)
-            if (deleted) {
-                backends.remove(id)?.close()
-                executionMutexes.remove(id)
-                stateMutex.withLock { mutableHealth.update { it - id } }
-            }
+            deleted = environment != null && deleteEnvironment(id, environment.toSnapshot(), nativeSnapshot)
             return deleted
         } finally {
-            if (registryLocked) ChrootMountRegistry.endDeletion(chrootRootfs!!)
-            stateMutex.withLock { deleting.remove(id) }
+            withContext(NonCancellable) {
+                try {
+                    if (deleted) {
+                        runCatching { backends.remove(id)?.close() }
+                            .onFailure { WeLogger.e("LinuxEnvironmentManager", "failed to close deleted environment backend $id", it) }
+                        executionMutexes.remove(id)
+                        stateMutex.withLock { mutableHealth.update { it - id } }
+                        runCatching { notifyEnvironmentDeleted(id) }
+                            .onFailure { WeLogger.e("LinuxEnvironmentManager", "failed to refresh foreground after deleting environment $id", it) }
+                    }
+                } finally {
+                    if (registryLocked) ChrootMountRegistry.endDeletion(chrootRootfs!!)
+                    stateMutex.withLock { deleting.remove(id) }
+                }
+            }
         }
     }
 
