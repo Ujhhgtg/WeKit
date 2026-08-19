@@ -417,11 +417,13 @@ class LinuxEnvironmentManager(
                 action(backend)
             }
         } finally {
-            stateMutex.withLock {
-                val remaining = leaseCounts.getValue(environmentId) - 1
-                if (remaining == 0) leaseCounts.remove(environmentId) else leaseCounts[environmentId] = remaining
-                if (remaining == 0 && staleBackends.remove(environmentId)) {
-                    backends.remove(environmentId)?.close()
+            withContext(NonCancellable) {
+                stateMutex.withLock {
+                    val remaining = leaseCounts.getValue(environmentId) - 1
+                    if (remaining == 0) leaseCounts.remove(environmentId) else leaseCounts[environmentId] = remaining
+                    if (remaining == 0 && staleBackends.remove(environmentId)) {
+                        backends.remove(environmentId)?.close()
+                    }
                 }
             }
         }
@@ -520,7 +522,13 @@ class LinuxEnvironmentManager(
 class EnvironmentLease internal constructor(private val releaseBlock: suspend () -> Unit) {
     private val released = java.util.concurrent.atomic.AtomicBoolean()
     suspend fun release() {
-        if (released.compareAndSet(false, true)) releaseBlock()
+        if (!released.compareAndSet(false, true)) return
+        try {
+            withContext(NonCancellable) { releaseBlock() }
+        } catch (error: Throwable) {
+            released.set(false)
+            throw error
+        }
     }
 }
 

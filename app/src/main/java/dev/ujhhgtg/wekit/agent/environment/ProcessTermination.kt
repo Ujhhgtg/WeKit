@@ -6,17 +6,16 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 internal object ProcessTermination {
+    const val TERM_GRACE_MILLIS = 500L
+
+    fun drain(process: OwnedProcess) = process.terminateGroup(TERM_GRACE_MILLIS)
+
     fun terminateTree(process: Process, rootPid: Int?) {
-        if (rootPid == null) {
-            process.destroyForcibly()
-            runCatching { process.waitFor(2, TimeUnit.SECONDS) }
-            return
+        if (rootPid != null) {
+            val parentOf = readParents()
+            descendants(rootPid, parentOf).forEach { pid -> runCatching { AndroidProcess.killProcess(pid) } }
+            runCatching { AndroidProcess.killProcess(rootPid) }
         }
-        val parentOf = readParents()
-        descendants(rootPid, parentOf).forEach { pid ->
-            runCatching { AndroidProcess.killProcess(pid) }
-        }
-        runCatching { AndroidProcess.killProcess(rootPid) }
         process.destroy()
         if (!runCatching { process.waitFor(2, TimeUnit.SECONDS) }.getOrDefault(false)) {
             process.destroyForcibly()
@@ -40,10 +39,7 @@ internal object ProcessTermination {
         val children = parentOf.entries.groupBy({ it.value }, { it.key })
         return buildList {
             fun visit(pid: Int) {
-                children[pid].orEmpty().forEach { child ->
-                    visit(child)
-                    add(child)
-                }
+                children[pid].orEmpty().forEach { child -> visit(child); add(child) }
             }
             visit(rootPid)
         }

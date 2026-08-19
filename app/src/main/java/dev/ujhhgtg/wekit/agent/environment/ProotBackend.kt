@@ -10,8 +10,10 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
@@ -39,27 +41,43 @@ class ProotBackend(
             val outputs = rootfs.resolve("root/.weagent/outputs").also(Files::createDirectories)
             val stdout = Files.createTempFile(outputs, "exec-", ".stdout")
             val stderr = Files.createTempFile(outputs, "exec-", ".stderr")
-            val pidFile = Files.createTempFile(outputs, "exec-", ".pid")
             val startedAt = System.nanoTime()
             val argv = ProotCommand.execArgv(launcher, rootfs, snapshot.workingDirectory, command, environmentVariables, storageBinds)
-            val process = ProcessBuilder(processWithPidFile(pidFile, argv)).directory(instance.toFile()).redirectOutput(stdout.toFile()).redirectError(stderr.toFile()).apply {
-                environment()["PROOT_LOADER"] = instance.resolve("bin/loader").toString()
-                environment()["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
-            }.start()
+            val processEnvironment = System.getenv().toMutableMap().apply {
+                this["PROOT_LOADER"] = instance.resolve("bin/loader").toString()
+                this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
+            }
+            val process = OwnedProcess.start(argv, processEnvironment, instance.toString())
+            val streamFailure = AtomicReference<Throwable?>()
+            var stdoutReader: Thread? = null
+            var stderrReader: Thread? = null
             var timedOut = false
-            var completedNormally = false
             try {
+                process.outputStream.close()
+                stdoutReader = drain(process.inputStream, stdout, streamFailure)
+                stderrReader = drain(process.errorStream, stderr, streamFailure)
                 val deadline = System.nanoTime() + timeoutMillis * 1_000_000
-                while (process.isAlive) {
+                var exitCode = process.pollExit()
+                while (exitCode == null) {
                     coroutineContext.ensureActive()
+                    streamFailure.get()?.let { throw it }
                     if (System.nanoTime() >= deadline) {
                         timedOut = true
-                        ProcessTermination.terminateTree(process, readPid(pidFile))
                         break
                     }
                     Thread.sleep(25)
+                    exitCode = process.pollExit()
                 }
-                process.waitFor()
+                withContext(NonCancellable) {
+                    ProcessTermination.drain(process)
+                    while (exitCode == null) {
+                        Thread.sleep(25)
+                        exitCode = process.pollExit()
+                    }
+                    stdoutReader.join()
+                    stderrReader.join()
+                }
+                streamFailure.get()?.let { throw it }
                 val stdoutBytes = Files.size(stdout)
                 val stderrBytes = Files.size(stderr)
                 val spill = stdoutBytes + stderrBytes > NativeBackend.DEFAULT_MAX_OUTPUT_BYTES
@@ -71,11 +89,17 @@ class ProotBackend(
                         stream.write("\n--- stderr ---\n".toByteArray()); Files.copy(stderr, stream)
                     }
                 }.let { "/root/" + rootfs.resolve("root").relativize(it) } else null
-                ExecResult(readPrefix(stdout, outLimit), readPrefix(stderr, errLimit), if (timedOut) null else process.exitValue(), timedOut,
-                    (System.nanoTime() - startedAt) / 1_000_000, spillPath).also { completedNormally = true }
+                ExecResult(readPrefix(stdout, outLimit), readPrefix(stderr, errLimit), if (timedOut) null else exitCode, timedOut,
+                    (System.nanoTime() - startedAt) / 1_000_000, spillPath)
             } finally {
-                if (!completedNormally || process.isAlive) ProcessTermination.terminateTree(process, readPid(pidFile))
-                Files.deleteIfExists(stdout); Files.deleteIfExists(stderr); Files.deleteIfExists(pidFile)
+                withContext(NonCancellable) {
+                    try { ProcessTermination.drain(process) } finally {
+                        process.close()
+                        stdoutReader?.join()
+                        stderrReader?.join()
+                    }
+                }
+                Files.deleteIfExists(stdout); Files.deleteIfExists(stderr)
             }
         }
 
@@ -176,7 +200,14 @@ class ProotBackend(
         return output.toString(StandardCharsets.UTF_8.name())
     }
 
-    private fun readPid(path: Path): Int? = runCatching { Files.readString(path).trim().toInt() }.getOrNull()
+    private fun drain(input: java.io.InputStream, path: Path, failure: AtomicReference<Throwable?>) =
+        Thread {
+            try {
+                input.use { source -> Files.newOutputStream(path, StandardOpenOption.TRUNCATE_EXISTING).use { target -> source.copyTo(target) } }
+            } catch (error: Throwable) {
+                failure.compareAndSet(null, error)
+            }
+        }.apply { name = "wekit-owned-process-output"; start() }
 
     companion object {
         private val APPROVED_STORAGE_ROOTS = listOf(

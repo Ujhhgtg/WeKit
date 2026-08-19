@@ -4,6 +4,11 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -330,6 +335,63 @@ class LinuxEnvironmentTest {
         lease.release()
         assertTrue(manager.delete(stored.id))
         assertTrue(deleted)
+    }
+
+    @Test
+    fun `lease release completes once after caller cancellation`() = runBlocking {
+        val entered = CompletableDeferred<Unit>()
+        val proceed = CompletableDeferred<Unit>()
+        val releases = AtomicInteger()
+        val lease = EnvironmentLease {
+            entered.complete(Unit)
+            proceed.await()
+            releases.incrementAndGet()
+        }
+
+        val release = launch { lease.release() }
+        entered.await()
+        release.cancel()
+        proceed.complete(Unit)
+        release.join()
+        lease.release()
+
+        assertEquals(1, releases.get())
+    }
+
+    @Test
+    fun `cancelled exec waiting for environment mutex releases its lease`(@TempDir directory: Path) = runBlocking {
+        val stored = environment(LinuxEnvironmentType.SSH).copy(rootfsPath = null)
+        val entered = CompletableDeferred<Unit>()
+        val proceed = CompletableDeferred<Unit>()
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
+            getEnvironment = { stored },
+            deleteEnvironment = { _, _, _ -> true },
+            backendFactory = { snapshot ->
+                object : LinuxEnvironmentBackend {
+                    override val snapshot = snapshot
+                    override suspend fun exec(command: String, timeoutMillis: Long, environmentVariables: Map<String, String>): ExecResult {
+                        entered.complete(Unit)
+                        proceed.await()
+                        return ExecResult("", "", 0, false, 1)
+                    }
+                    override suspend fun readUtf8(path: String, maxBytes: Long) = ""
+                    override suspend fun edit(request: FileEditRequest) = Unit
+                    override fun resolvePath(path: String) = path
+                    override suspend fun ensureBridge(): BridgeInstallArtifact? = null
+                    override suspend fun checkHealth() = EnvironmentHealth(EnvironmentHealthState.HEALTHY)
+                }
+            },
+        )
+
+        val first = async { manager.exec(stored.id, "first", 1_000) }
+        entered.await()
+        val waiting = launch { manager.exec(stored.id, "second", 1_000) }
+        waiting.cancelAndJoin()
+        proceed.complete(Unit)
+        first.await()
+
+        assertTrue(manager.delete(stored.id))
     }
 
     @Test

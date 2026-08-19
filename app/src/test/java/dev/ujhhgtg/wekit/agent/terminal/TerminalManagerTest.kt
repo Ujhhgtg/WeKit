@@ -1,22 +1,27 @@
 package dev.ujhhgtg.wekit.agent.terminal
 
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
+import dev.ujhhgtg.wekit.agent.environment.EnvironmentLease
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.tool.ToolCallOrigin
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
+import java.nio.file.Path
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -241,6 +246,35 @@ class TerminalManagerTest {
         assertEquals(TerminalState.FAILED, info.state)
         assertEquals(1, revoked)
         assertEquals(0, backend.startCount)
+    }
+
+    @Test
+    fun `environment terminal releases leases after startup cancellation and close timeout`() = runBlocking {
+        val startGate = CompletableDeferred<Unit>()
+        val startEntered = CompletableDeferred<Unit>()
+        val startupReleases = AtomicLong()
+        val startupBackend = EnvironmentTerminalBackend(
+            native = FakeBackend(startGate = startGate, startEntered = startEntered),
+            chrootInstancesRoot = Path.of("/tmp"),
+            acquireEnvironmentLease = { EnvironmentLease { startupReleases.incrementAndGet() } },
+        )
+        val startup = launch { startupBackend.start(environment, listOf("/system/bin/sh"), null, emptyMap(), 80, 24) }
+        startEntered.await()
+        startup.cancelAndJoin()
+        assertEquals(1, startupReleases.get())
+
+        val closeGate = CompletableDeferred<Unit>()
+        val closeReleases = AtomicLong()
+        val closeBackend = EnvironmentTerminalBackend(
+            native = FakeBackend(closeGate = closeGate),
+            chrootInstancesRoot = Path.of("/tmp"),
+            acquireEnvironmentLease = { EnvironmentLease { closeReleases.incrementAndGet() } },
+        )
+        val session = closeBackend.start(environment, listOf("/system/bin/sh"), null, emptyMap(), 80, 24).session
+        assertEquals(null, withTimeoutOrNull(50) { session.close(); Unit })
+        assertEquals(1, closeReleases.get())
+        session.close()
+        assertEquals(1, closeReleases.get())
     }
 
     @Test

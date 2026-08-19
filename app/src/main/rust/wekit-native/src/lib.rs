@@ -9,6 +9,7 @@ mod chroot_cleanup;
 mod crash_handler;
 mod crash_triggerer;
 mod logging;
+mod owned_process;
 mod pty;
 mod read_receipts_server;
 mod telegram_sticker;
@@ -21,11 +22,114 @@ use crash_triggerer::trigger_test_crash;
 
 use jni::sys::{
     JNI_FALSE, JNI_TRUE, JNI_VERSION_1_6, JNIEnv as RawJNIEnv, JavaVM, jboolean, jbyteArray, jint,
-    jlong, jobject, jobjectArray, jstring,
+    jlong, jlongArray, jobject, jobjectArray, jstring,
 };
 use libc::c_void;
 
 use crate::utils::with_jstring;
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_start(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    argv: jobjectArray,
+    environment: jobjectArray,
+    cwd: jstring,
+) -> jlongArray {
+    let result = string_array(env, argv).and_then(|argv| {
+        string_array(env, environment).and_then(|environment| {
+            with_jstring(env, cwd, |cwd| {
+                owned_process::start(argv, environment, cwd.to_owned())
+            })
+            .unwrap_or_else(|| Err("missing cwd".into()))
+        })
+    });
+    match result {
+        Ok(started) => unsafe {
+            let pid = started.process.pid();
+            let pgid = started.process.pgid();
+            let array = ((**env).v1_6.NewLongArray)(env, 6);
+            if array.is_null() {
+                libc::close(started.stdin);
+                libc::close(started.stdout);
+                libc::close(started.stderr);
+                return std::ptr::null_mut();
+            }
+            let process = Box::new(started.process);
+            let values = [
+                (&*process as *const owned_process::OwnedProcess) as jlong,
+                pid as jlong,
+                pgid as jlong,
+                started.stdin as jlong,
+                started.stdout as jlong,
+                started.stderr as jlong,
+            ];
+            ((**env).v1_6.SetLongArrayRegion)(env, array, 0, values.len() as jint, values.as_ptr());
+            if ((**env).v1_6.ExceptionCheck)(env) != JNI_FALSE {
+                libc::close(started.stdin);
+                libc::close(started.stdout);
+                libc::close(started.stderr);
+                return std::ptr::null_mut();
+            }
+            let _ = Box::into_raw(process);
+            array
+        },
+        Err(error) => {
+            loge!("owned process start failed: {error}");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_pollExit(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) -> jint {
+    if handle == 0 {
+        return i32::MIN;
+    }
+    match unsafe { &*(handle as *const owned_process::OwnedProcess) }.poll_exit() {
+        Ok(Some(code)) => code,
+        Ok(None) => i32::MIN + 1,
+        Err(error) => {
+            loge!("owned process wait failed: {error}");
+            i32::MIN
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_terminateGroup(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    grace_millis: jlong,
+) -> jboolean {
+    if handle != 0
+        && unsafe { &*(handle as *const owned_process::OwnedProcess) }
+            .terminate_group(std::time::Duration::from_millis(grace_millis.max(0) as u64))
+            .is_ok()
+    {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_close(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) {
+    if handle != 0 {
+        unsafe {
+            drop(Box::from_raw(handle as *mut owned_process::OwnedProcess));
+        }
+    }
+}
 
 fn native_string(env: *mut RawJNIEnv, value: &str) -> jstring {
     if env.is_null() {

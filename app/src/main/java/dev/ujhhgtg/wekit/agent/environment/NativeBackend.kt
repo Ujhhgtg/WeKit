@@ -11,8 +11,10 @@ import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
@@ -40,32 +42,42 @@ class NativeBackend(
         Files.createDirectories(outputDirectory)
         val stdoutFile = Files.createTempFile(outputDirectory, "exec-", ".stdout")
         val stderrFile = Files.createTempFile(outputDirectory, "exec-", ".stderr")
-        val pidFile = Files.createTempFile(outputDirectory, "exec-", ".pid")
         val startedAt = System.nanoTime()
-        val launcher = "echo \$\$ > ${shellQuote(pidFile.toString())}; exec ${shellQuote(snapshot.shell)} -c ${shellQuote(command)}"
-        val process = ProcessBuilder(snapshot.shell, "-c", launcher)
-            .directory(workingDirectory.toFile())
-            .redirectOutput(stdoutFile.toFile())
-            .redirectError(stderrFile.toFile())
-            .apply {
-                environment().putAll(this@NativeBackend.environmentVariables)
-                environment().putAll(environmentVariables)
-            }
-            .start()
+        val processEnvironment = System.getenv().toMutableMap().apply {
+            putAll(this@NativeBackend.environmentVariables)
+            putAll(environmentVariables)
+        }
+        val process = OwnedProcess.start(listOf(snapshot.shell, "-c", command), processEnvironment, workingDirectory.toString())
+        val streamFailure = AtomicReference<Throwable?>()
+        var stdoutReader: Thread? = null
+        var stderrReader: Thread? = null
         var timedOut = false
-        var completedNormally = false
         try {
+            process.outputStream.close()
+            stdoutReader = drain(process.inputStream, stdoutFile, streamFailure)
+            stderrReader = drain(process.errorStream, stderrFile, streamFailure)
             val deadline = System.nanoTime() + timeoutMillis * 1_000_000
-            while (process.isAlive) {
+            var exitCode = process.pollExit()
+            while (exitCode == null) {
                 coroutineContext.ensureActive()
+                streamFailure.get()?.let { throw it }
                 if (System.nanoTime() >= deadline) {
                     timedOut = true
-                    ProcessTermination.terminateTree(process, readPid(pidFile))
                     break
                 }
                 Thread.sleep(25)
+                exitCode = process.pollExit()
             }
-            process.waitFor()
+            withContext(NonCancellable) {
+                ProcessTermination.drain(process)
+                while (exitCode == null) {
+                    Thread.sleep(25)
+                    exitCode = process.pollExit()
+                }
+                stdoutReader.join()
+                stderrReader.join()
+            }
+            streamFailure.get()?.let { throw it }
             val stdoutSize = Files.size(stdoutFile)
             val stderrSize = Files.size(stderrFile)
             val spilled = stdoutSize + stderrSize > maxOutputBytes
@@ -86,28 +98,34 @@ class NativeBackend(
             ExecResult(
                 stdout = stdout,
                 stderr = stderr,
-                exitCode = if (timedOut) null else process.exitValue(),
+                exitCode = if (timedOut) null else exitCode,
                 timedOut = timedOut,
                 elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000,
                 spillPath = spillPath,
-            ).also { completedNormally = true }
+            )
         } finally {
-            if (!completedNormally || process.isAlive) {
-                ProcessTermination.terminateTree(
-                    process,
-                    readPid(pidFile),
-                )
+            withContext(NonCancellable) {
+                try {
+                    ProcessTermination.drain(process)
+                } finally {
+                    process.close()
+                    stdoutReader?.join()
+                    stderrReader?.join()
+                }
             }
             Files.deleteIfExists(stdoutFile)
             Files.deleteIfExists(stderrFile)
-            Files.deleteIfExists(pidFile)
         }
     }
 
-    private fun readPid(pidFile: Path): Int? =
-        runCatching { Files.readString(pidFile).trim().toInt() }.getOrNull()
-
-    private fun shellQuote(value: String): String = "'${value.replace("'", "'\\''")}'"
+    private fun drain(input: java.io.InputStream, path: Path, failure: AtomicReference<Throwable?>) =
+        Thread {
+            try {
+                input.use { source -> Files.newOutputStream(path, StandardOpenOption.TRUNCATE_EXISTING).use { target -> source.copyTo(target) } }
+            } catch (error: Throwable) {
+                failure.compareAndSet(null, error)
+            }
+        }.apply { name = "wekit-owned-process-output"; start() }
 
     override suspend fun readUtf8(path: String, maxBytes: Long): String = withContext(Dispatchers.IO) {
         require(maxBytes > 0)
@@ -239,15 +257,8 @@ class NativeBackend(
     }
 
     internal object ProcessTree {
-        fun descendants(rootPid: Int, parentOf: Map<Int, Int>): List<Int> {
-            val children = parentOf.entries.groupBy({ it.value }, { it.key })
-            val result = ArrayList<Int>()
-            fun visit(pid: Int) {
-                children[pid].orEmpty().forEach { child -> visit(child); result += child }
-            }
-            visit(rootPid)
-            return result
-        }
+        fun descendants(rootPid: Int, parentOf: Map<Int, Int>): List<Int> =
+            ProcessTermination.descendants(rootPid, parentOf)
     }
 
     companion object {
