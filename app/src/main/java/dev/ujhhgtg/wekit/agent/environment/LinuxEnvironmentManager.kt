@@ -23,6 +23,12 @@ class LinuxEnvironmentManager(
     private val installProot: suspend (String) -> ArchLinuxInstance = ArchLinuxPack::createInstance,
     private val persistEnvironment: suspend (LinuxEnvironmentEntity) -> Unit = WeAgentRepository::upsertLinuxEnvironment,
     private val highRiskApproval: suspend (String, EnvironmentSnapshot?) -> Boolean = { _, _ -> false },
+    private val storedEnvironments: suspend () -> List<LinuxEnvironmentEntity> = WeAgentRepository::getAllLinuxEnvironments,
+    private val getEnvironment: suspend (String) -> LinuxEnvironmentEntity? = WeAgentRepository::getLinuxEnvironment,
+    private val deleteEnvironment: suspend (String) -> Boolean = WeAgentRepository::deleteLinuxEnvironment,
+    private val recoverChroot: suspend (Path, String) -> ChrootRecoveryResult = { rootfs, workingDirectory ->
+        ChrootRootHelper(ChrootConfiguration(rootfs, workingDirectory)).recoverPendingRuns()
+    },
 ) {
     private val stateMutex = Mutex()
     private val executionMutexes = ConcurrentHashMap<String, Mutex>()
@@ -35,6 +41,17 @@ class LinuxEnvironmentManager(
     )
 
     val health: Flow<Map<String, EnvironmentHealth>> = mutableHealth
+
+    suspend fun initialize() {
+        storedEnvironments().filter { it.type == LinuxEnvironmentType.CHROOT }.forEach { environment ->
+            val result = runCatching {
+                recoverChroot(Path.of(requireNotNull(environment.rootfsPath)), environment.workingDirectory)
+            }.getOrElse { error -> ChrootRecoveryResult(0, mapOf("recovery" to (error.message ?: error::class.java.simpleName))) }
+            result.healthError?.let {
+                publishHealth(environment.id, EnvironmentHealth(EnvironmentHealthState.DEGRADED, it))
+            }
+        }
+    }
 
     fun observeEnvironments(): Flow<List<EnvironmentSnapshot>> =
         WeAgentRepository.observeLinuxEnvironments().map { stored ->
@@ -124,27 +141,31 @@ class LinuxEnvironmentManager(
 
     suspend fun delete(id: String): Boolean {
         require(id != NATIVE_ENVIRONMENT_ID) { "native environment cannot be deleted" }
-        val chrootRootfs = WeAgentRepository.getLinuxEnvironment(id)
-            ?.takeIf { it.type == LinuxEnvironmentType.CHROOT }?.rootfsPath?.let(Path::of)
-        chrootRootfs?.let(ChrootMountRegistry::beginDeletion)
+        val environment = getEnvironment(id)
+        val chrootRootfs = environment?.takeIf { it.type == LinuxEnvironmentType.CHROOT }?.rootfsPath?.let(Path::of)
+        stateMutex.withLock {
+            check((leaseCounts[id] ?: 0) == 0) { "environment is currently leased" }
+            check(deleting.add(id)) { "environment deletion is already in progress" }
+        }
+        var registryLocked = false
         try {
-            stateMutex.withLock {
-                check((leaseCounts[id] ?: 0) == 0) { "environment is currently leased" }
-                check(deleting.add(id)) { "environment deletion is already in progress" }
+            if (chrootRootfs != null) {
+                check(!ChrootMountRegistry.hasActiveRuns(chrootRootfs)) { "chroot environment has an active run" }
+                val recovery = recoverChroot(chrootRootfs, environment.workingDirectory)
+                check(recovery.isHealthy) { recovery.healthError!! }
+                ChrootMountRegistry.beginDeletion(chrootRootfs)
+                registryLocked = true
             }
-            try {
-                val deleted = WeAgentRepository.deleteLinuxEnvironment(id)
-                if (deleted) {
-                    backends.remove(id)?.close()
-                    executionMutexes.remove(id)
-                    stateMutex.withLock { mutableHealth.update { it - id } }
-                }
-                return deleted
-            } finally {
-                stateMutex.withLock { deleting.remove(id) }
+            val deleted = deleteEnvironment(id)
+            if (deleted) {
+                backends.remove(id)?.close()
+                executionMutexes.remove(id)
+                stateMutex.withLock { mutableHealth.update { it - id } }
             }
+            return deleted
         } finally {
-            chrootRootfs?.let(ChrootMountRegistry::endDeletion)
+            if (registryLocked) ChrootMountRegistry.endDeletion(chrootRootfs!!)
+            stateMutex.withLock { deleting.remove(id) }
         }
     }
 

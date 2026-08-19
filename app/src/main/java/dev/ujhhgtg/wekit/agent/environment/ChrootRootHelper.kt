@@ -19,9 +19,15 @@ import kotlinx.coroutines.withContext
 sealed class ChrootFailure(message: String, cause: Throwable? = null) : IllegalStateException(message, cause) {
     class Root(cause: Throwable? = null) : ChrootFailure("root access denied", cause)
     class Namespace(detail: String) : ChrootFailure("private mount namespace failed: $detail")
-    class Selinux(detail: String) : ChrootFailure("SELinux denied chroot mount or execution: $detail")
+    class Selinux(detail: String) : ChrootFailure("SELinux denied chroot namespace or mount setup: $detail")
     class Mount(detail: String) : ChrootFailure("chroot mount failed: $detail")
     class Cleanup(detail: String) : ChrootFailure("chroot mount cleanup failed: $detail")
+}
+
+data class ChrootRecoveryResult(val recoveredRuns: Int, val unresolvedRuns: Map<String, String>) {
+    val isHealthy: Boolean get() = unresolvedRuns.isEmpty()
+    val healthError: String? get() = unresolvedRuns.takeIf(Map<*, *>::isNotEmpty)?.entries
+        ?.joinToString(prefix = "unresolved chroot runs: ") { "${it.key}: ${it.value}" }
 }
 
 internal class ChrootRootHelper(private val configuration: ChrootConfiguration) {
@@ -53,15 +59,20 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         val shell = rootShell()
         var timedOut = false
         var spill = false
-        ChrootMountRegistry.begin(configuration.rootfs)
         val run = try {
             configuration.createRun()
         } catch (error: Throwable) {
-            ChrootMountRegistry.end(configuration.rootfs)
             throw error
         }
         try {
-            val launch = "exec setsid unshare -m -- /system/bin/sh -c ${ChrootConfiguration.shell(configuration.execScript(run, command, environment))}" +
+            ChrootMountRegistry.begin(configuration.rootfs, run.nonce)
+        } catch (error: Throwable) {
+            removeRunMetadata(run)
+            throw error
+        }
+        try {
+            val launch = "exec setsid unshare -m -- /system/bin/sh -c ${ChrootConfiguration.shell(configuration.execScript(run, command, environment))} " +
+                ChrootConfiguration.shell(run.cmdlineMarker) +
                 " > ${ChrootConfiguration.shell(stdout.toString())} 2> ${ChrootConfiguration.shell(stderr.toString())}"
             val future = shell.newJob().add(launch).enqueue()
             val deadline = System.nanoTime() + timeoutMillis * 1_000_000
@@ -105,7 +116,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
                     if (!timedOut && !spill) { Files.deleteIfExists(stdout); Files.deleteIfExists(stderr) }
                 }
                 cleanupFailure?.let { throw it }
-                ChrootMountRegistry.end(configuration.rootfs)
+                ChrootMountRegistry.end(configuration.rootfs, run.nonce)
             }
         }
     }
@@ -211,7 +222,6 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
             val result = shell.newJob().add(command).enqueue().get(timeoutMillis, TimeUnit.MILLISECONDS)
             if (!result.isSuccess) {
                 val detail = (result.err + result.out).joinToString("\n").take(500)
-                if (SELINUX_DENIAL.containsMatchIn(detail)) throw ChrootFailure.Selinux(detail)
                 error("$failureMessage${detail.takeIf(String::isNotBlank)?.let { ": $it" } ?: ""}")
             }
         } catch (error: TimeoutException) {
@@ -229,11 +239,15 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         throw ChrootFailure.Root(error)
     }
 
-    suspend fun recoverPendingRuns() {
+    suspend fun recoverPendingRuns(): ChrootRecoveryResult {
+        val failures = LinkedHashMap<String, String>()
+        var recovered = 0
         configuration.pendingRuns().forEach { run ->
-            cleanupNamespace(run)
-            if (ChrootMountRegistry.isBusy(configuration.rootfs)) ChrootMountRegistry.end(configuration.rootfs)
+            runCatching { cleanupNamespace(run) }
+                .onSuccess { ChrootMountRegistry.end(configuration.rootfs, run.nonce); recovered++ }
+                .onFailure { failures[run.nonce] = it.message ?: it::class.java.simpleName }
         }
+        return ChrootRecoveryResult(recovered, failures)
     }
 
     suspend fun cleanupNamespace(run: ChrootRun) = withContext(NonCancellable + Dispatchers.IO) {
@@ -245,12 +259,21 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
             throw ChrootFailure.Cleanup("run nonce identity does not match ${run.directory}")
         }
         val pid = readMetadata(run.pidFile)?.toIntOrNull()
-            ?: throw ChrootFailure.Cleanup("run ${run.nonce} has no process identity yet")
+        if (pid == null) {
+            val stage = readMetadata(run.stageFile)
+            if (stage == null || stage == "NAMESPACE") {
+                removeRunMetadata(run)
+                return@withContext
+            }
+            throw ChrootFailure.Cleanup("run ${run.nonce} may have mounted resources but has no process identity (stage $stage)")
+        }
         val startTime = readMetadata(run.startTimeFile)
             ?: throw ChrootFailure.Cleanup("run ${run.nonce} has incomplete process identity")
+        val bootId = readMetadata(run.bootIdFile)
+            ?: throw ChrootFailure.Cleanup("run ${run.nonce} has incomplete boot identity")
         val shell = rootShell()
         try {
-            val result = shell.newJob().add(cleanupCommand(run, pid, startTime)).enqueue().get(CLEANUP_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+            val result = shell.newJob().add(cleanupCommand(run, pid, startTime, bootId)).enqueue().get(CLEANUP_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
             if (!result.isSuccess) throw ChrootFailure.Cleanup((result.err + result.out).joinToString("\n").ifBlank { "namespace process $pid remains" })
         } catch (error: TimeoutException) {
             throw ChrootFailure.Cleanup("namespace cleanup timed out")
@@ -260,20 +283,33 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         removeRunMetadata(run)
     }
 
-    internal fun cleanupCommand(run: ChrootRun, pid: Int, startTime: String): String {
+    internal fun cleanupCommand(
+        run: ChrootRun,
+        pid: Int,
+        startTime: String,
+        bootId: String,
+        procRoot: Path = Path.of("/proc"),
+        bootIdPath: Path = Path.of("/proc/sys/kernel/random/boot_id"),
+        termCommand: String = "kill -TERM -$pid 2>/dev/null || kill -TERM $pid 2>/dev/null",
+        killCommand: String = "kill -KILL -$pid 2>/dev/null || kill -KILL $pid 2>/dev/null",
+    ): String {
         require(run.nonce.matches(RUN_NONCE)) { "invalid chroot run nonce" }
         require(startTime.matches(PROCESS_START_TIME)) { "invalid chroot process start time" }
+        require(bootId.matches(RUN_NONCE)) { "invalid boot id" }
         val targets = configuration.mountArguments().asReversed().joinToString("; ") { mount ->
             val guest = mount.last()
             "umount -l ${ChrootConfiguration.shell(configuration.rootfs.resolve(guest.removePrefix("/")).toString())} 2>/dev/null || true"
         }
-        val currentStartTime = "sed 's/.*) //' /proc/$pid/stat 2>/dev/null | cut -d ' ' -f 20"
-        return "if test ! -e /proc/$pid; then exit 0; fi; " +
-            "test \"\$($currentStartTime)\" = ${ChrootConfiguration.shell(startTime)} || exit 75; " +
-            "kill -TERM -$pid 2>/dev/null || kill -TERM $pid 2>/dev/null || true; " +
-            "if test -e /proc/$pid/ns/mnt; then nsenter -t $pid -m -- /system/bin/sh -c ${ChrootConfiguration.shell(targets)} || true; fi; " +
-            "kill -KILL -$pid 2>/dev/null || kill -KILL $pid 2>/dev/null || true; " +
-            "i=0; while test -e /proc/$pid && test \$i -lt 50; do sleep 0.05; i=\$((i+1)); done; test ! -e /proc/$pid"
+        val process = procRoot.resolve(pid.toString())
+        val currentStartTime = "sed 's/.*) //' ${ChrootConfiguration.shell(process.resolve("stat").toString())} 2>/dev/null | cut -d ' ' -f 20"
+        val identity = "test \"\$(cat ${ChrootConfiguration.shell(bootIdPath.toString())} 2>/dev/null)\" = ${ChrootConfiguration.shell(bootId)} && " +
+            "test \"\$($currentStartTime)\" = ${ChrootConfiguration.shell(startTime)} && " +
+            "tr '\\000' '\\n' < ${ChrootConfiguration.shell(process.resolve("cmdline").toString())} 2>/dev/null | grep -F -x -q -- ${ChrootConfiguration.shell(run.cmdlineMarker)}"
+        return "if test ! -e ${ChrootConfiguration.shell(process.toString())}; then exit 0; fi; " +
+            "$identity || exit 75; $termCommand || true; " +
+            "if test -e ${ChrootConfiguration.shell(process.resolve("ns/mnt").toString())}; then $identity || exit 75; nsenter -t $pid -m -- /system/bin/sh -c ${ChrootConfiguration.shell(targets)} || true; fi; " +
+            "if test -e ${ChrootConfiguration.shell(process.toString())}; then $identity || exit 75; $killCommand || true; fi; " +
+            "i=0; while test -e ${ChrootConfiguration.shell(process.toString())} && test \$i -lt 50; do sleep 0.05; i=\$((i+1)); done; test ! -e ${ChrootConfiguration.shell(process.toString())}"
     }
 
     internal fun removeRunMetadata(run: ChrootRun) {
@@ -318,7 +354,6 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         private const val HEALTH_TIMEOUT_MILLIS = 15_000L
         private const val CLEANUP_TIMEOUT_MILLIS = 5_000L
         internal val SELINUX_DENIAL = Regex("(?i)(avc:.*denied|permission denied|operation not permitted)")
-        internal val CHROOT_DENIAL = Regex("(?i)chroot:.*(permission denied|operation not permitted)")
         private val RUN_NONCE = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
         private val PROCESS_START_TIME = Regex("[0-9]+")
         private val TRUSTED_SU_PATHS = listOf(
@@ -331,9 +366,9 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
 internal fun classifyChrootFailure(stage: String, code: Int, stderr: String): ChrootFailure? {
     if (code == 0) return null
     val detail = stderr.trim().take(500).ifBlank { "exit code $code" }
-    if (stage in setOf("NAMESPACE", "MOUNT") && ChrootRootHelper.SELINUX_DENIAL.containsMatchIn(stderr) ||
-        stage == "EXEC" && ChrootRootHelper.CHROOT_DENIAL.containsMatchIn(stderr)
-    ) return ChrootFailure.Selinux(detail)
+    if (stage in setOf("NAMESPACE", "MOUNT") && ChrootRootHelper.SELINUX_DENIAL.containsMatchIn(stderr)) {
+        return ChrootFailure.Selinux(detail)
+    }
     if (stage == "EXEC" && code != 74) return null
     return when {
         code == 74 || stage == "CLEANUP" -> ChrootFailure.Cleanup(detail)

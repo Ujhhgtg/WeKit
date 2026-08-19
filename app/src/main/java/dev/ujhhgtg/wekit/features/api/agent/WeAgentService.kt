@@ -251,6 +251,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         // Warm the DB, seed permissions, load settings.
         WeAgentDatabase.instance
         WeAgentRepository.seedAndLoad()
+        linuxEnvironmentManager.initialize()
         WeAgentSettings.load()
         toolBridgeServer.start()
         BuiltinToolProvider.fsToolsVisible = WeAgentSettings.memoryEnabled()

@@ -121,6 +121,41 @@ class LinuxEnvironmentTest {
         assertFalse(installCalled)
     }
 
+    @Test
+    fun `manager initialization recovers persisted chroot runs`(@TempDir directory: Path) = runBlocking {
+        val rootfs = Files.createDirectories(directory.resolve("arch/rootfs"))
+        var recoveries = 0
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
+            storedEnvironments = { listOf(environment(LinuxEnvironmentType.CHROOT).copy(rootfsPath = rootfs.toString())) },
+            recoverChroot = { recoveredRootfs, _ ->
+                assertEquals(rootfs, recoveredRootfs)
+                recoveries++
+                ChrootRecoveryResult(1, emptyMap())
+            },
+        )
+
+        manager.initialize()
+        assertEquals(1, recoveries)
+    }
+
+    @Test
+    fun `deletion refuses persisted unresolved chroot run after restart`(@TempDir directory: Path) = runBlocking {
+        val rootfs = Files.createDirectories(directory.resolve("arch/rootfs"))
+        val stored = environment(LinuxEnvironmentType.CHROOT).copy(rootfsPath = rootfs.toString())
+        var deleted = false
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
+            getEnvironment = { stored },
+            deleteEnvironment = { deleted = true; true },
+            recoverChroot = { _, _ -> ChrootRecoveryResult(0, mapOf("run-id" to "identity cannot be proven")) },
+        )
+
+        val error = assertThrows(IllegalStateException::class.java) { runBlocking { manager.delete(stored.id) } }
+        assertTrue(error.message!!.contains("identity cannot be proven"))
+        assertFalse(deleted)
+    }
+
     private fun environment(type: LinuxEnvironmentType) = LinuxEnvironmentEntity(
         id = "environment",
         name = "Environment",

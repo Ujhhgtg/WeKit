@@ -67,11 +67,15 @@ class EnvironmentTerminalBackend internal constructor(
                 workingDirectory = rootfs.parent.toString(),
                 shell = launcher.toString(),
             )
-            ChrootMountRegistry.begin(rootfs)
             val run = try {
                 configuration.createRun()
             } catch (error: Throwable) {
-                ChrootMountRegistry.end(rootfs)
+                throw error
+            }
+            try {
+                ChrootMountRegistry.begin(rootfs, run.nonce)
+            } catch (error: Throwable) {
+                helper.removeRunMetadata(run)
                 throw error
             }
             val hostArgv = configuration.hostLaunchArgv(run, launcher, argv, environmentVariables)
@@ -82,7 +86,7 @@ class EnvironmentTerminalBackend internal constructor(
                 withContext(NonCancellable) {
                     try {
                         cleanupChrootRun(helper, run)
-                        ChrootMountRegistry.end(rootfs)
+                        ChrootMountRegistry.end(rootfs, run.nonce)
                     } catch (cleanupError: Throwable) {
                         error.addSuppressed(cleanupError)
                     }
@@ -122,7 +126,7 @@ class EnvironmentTerminalBackend internal constructor(
         private suspend fun cleanup() = cleanupMutex.withLock {
             if (cleaned) return@withLock
             cleanupChrootRun(helper, run)
-            ChrootMountRegistry.end(rootfs)
+            ChrootMountRegistry.end(rootfs, run.nonce)
             cleaned = true
         }
     }

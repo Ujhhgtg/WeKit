@@ -89,6 +89,7 @@ class ChrootConfiguration(
             printf '%s' NAMESPACE > ${shell(run.stageFile.toString())}
             printf '%s' "${'$'}${'$'}" > ${shell(run.pidFile.toString())}
             sed 's/.*) //' /proc/${'$'}${'$'}/stat | cut -d ' ' -f 20 > ${shell(run.startTimeFile.toString())} || exit 70
+            cat /proc/sys/kernel/random/boot_id > ${shell(run.bootIdFile.toString())} || exit 70
             mount --make-rprivate / || exit 70
             cleanup_failed=0
             ${mounts.indices.joinToString("\n") { "mounted_$it=0" }}
@@ -111,7 +112,10 @@ class ChrootConfiguration(
 
     internal fun hostLaunchArgv(run: ChrootRun, suExecutable: Path, argv: List<String>, environment: Map<String, String>): List<String> {
         require(suExecutable.isAbsolute) { "root helper executable must be absolute" }
-        return listOf(suExecutable.toString(), "-c", "exec unshare -m -- /system/bin/sh -c ${shell(launchScript(run, argv, environment))}")
+        return listOf(
+            suExecutable.toString(), "-c",
+            "exec unshare -m -- /system/bin/sh -c ${shell(launchScript(run, argv, environment))} ${shell(run.cmdlineMarker)}",
+        )
     }
 
     fun mountArguments(): List<List<String>> = mountCommands().map(Mount::arguments)
@@ -151,8 +155,10 @@ class ChrootConfiguration(
 }
 
 class ChrootRun internal constructor(val nonce: String, val directory: Path) {
+    val cmdlineMarker: String = "wekit-chroot-run-$nonce"
     val pidFile: Path = directory.resolve("pid")
     val startTimeFile: Path = directory.resolve("starttime")
+    val bootIdFile: Path = directory.resolve("boot-id")
     val stageFile: Path = directory.resolve("stage")
 }
 
@@ -192,25 +198,30 @@ internal object ArchLinuxInstanceLayout {
 }
 
 internal object ChrootMountRegistry {
-    private val active = HashMap<String, Int>()
+    private val active = HashMap<String, MutableSet<String>>()
     private val deleting = HashSet<String>()
-    @Synchronized fun begin(rootfs: Path) {
+    @Synchronized fun begin(rootfs: Path, token: String) {
         val key = rootfs.toString()
         check(key !in deleting) { "chroot environment is being deleted" }
-        active[key] = (active[key] ?: 0) + 1
+        check(active.getOrPut(key, ::HashSet).add(token)) { "chroot run token is already active" }
     }
-    @Synchronized fun end(rootfs: Path) {
+    @Synchronized fun end(rootfs: Path, token: String) {
         val key = rootfs.toString()
-        val count = active.getValue(key)
-        if (count == 1) active.remove(key) else active[key] = count - 1
+        val tokens = active[key] ?: return
+        tokens.remove(token)
+        if (tokens.isEmpty()) active.remove(key)
     }
     @Synchronized fun beginDeletion(rootfs: Path) {
         val key = rootfs.toString()
-        check(key !in active) { "chroot environment is mounted or running" }
+        check(!isBusy(rootfs)) { "chroot environment has an active or unresolved run" }
         check(deleting.add(key)) { "chroot environment deletion is already in progress" }
     }
     @Synchronized fun endDeletion(rootfs: Path) { deleting.remove(rootfs.toString()) }
-    @Synchronized internal fun isBusy(rootfs: Path): Boolean = rootfs.toString() in active
+    @Synchronized internal fun hasActiveRuns(rootfs: Path): Boolean = rootfs.toString() in active
+    @Synchronized internal fun isBusy(rootfs: Path): Boolean =
+        hasActiveRuns(rootfs) || rootfs.parent.resolve("chroot-runs").let { runs ->
+            Files.isDirectory(runs) && Files.newDirectoryStream(runs).use { it.iterator().hasNext() }
+        }
 }
 
 class ChrootBackend internal constructor(
