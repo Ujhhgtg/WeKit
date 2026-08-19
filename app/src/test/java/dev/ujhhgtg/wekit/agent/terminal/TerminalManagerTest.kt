@@ -76,9 +76,11 @@ class TerminalManagerTest {
         val manager = manager(backend)
         val id = manager.start("one", environment).id
         val outputRead = async { manager.read("one", id, cursor = 0, waitMs = 5_000) }
+        val secondOutputRead = async { manager.read("one", id, cursor = 0, waitMs = 5_000) }
         delay(50)
         backend.sessions.single().emit("ready")
         assertEquals("ready", withTimeout(1_000) { outputRead.await() }.bytes.toString(Charsets.UTF_8))
+        assertEquals("ready", withTimeout(1_000) { secondOutputRead.await() }.bytes.toString(Charsets.UTF_8))
 
         val endRead = async { manager.read("one", id, cursor = 5, waitMs = 5_000) }
         delay(50)

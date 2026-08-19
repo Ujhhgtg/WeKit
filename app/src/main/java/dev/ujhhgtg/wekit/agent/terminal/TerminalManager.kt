@@ -9,13 +9,14 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 
 class TerminalManager(
     private val backend: TerminalBackend,
@@ -122,17 +123,14 @@ class TerminalManager(
         require(maxBytes in 1..MAX_READ_BYTES && waitMs in 0..MAX_WAIT_MS)
         expireSessions()
         val session = owned(owner, id)
-        while (session.changed.tryReceive().isSuccess) {
-            // Drain stale notifications before taking the snapshot used for this wait.
-        }
-        val initial = synchronized(lock) {
+        val (initial, generation) = synchronized(lock) {
             session.lastActivity = now()
-            session.read(cursor, maxBytes)
+            session.read(cursor, maxBytes) to session.changed.value
         }
         if (waitMs == 0L || initial.bytes.isNotEmpty() || initial.state.isFinished ||
             cursor != null && cursor > initial.endCursor
         ) return initial
-        withTimeoutOrNull(waitMs) { session.changed.receive() }
+        withTimeoutOrNull(waitMs) { session.changed.first { it != generation } }
         return synchronized(lock) {
             session.lastActivity = now()
             session.read(cursor, maxBytes)
@@ -192,7 +190,7 @@ class TerminalManager(
                         session.ring.append(bytes)
                         trimGlobalOutput()
                     }
-                    session.changed.trySend(Unit)
+                    synchronized(lock) { session.changed.value = session.changed.value + 1 }
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -200,13 +198,14 @@ class TerminalManager(
                 synchronized(lock) {
                     if (session.state.isActive) session.finish(TerminalState.FAILED, now())
                 }
-                session.changed.trySend(Unit)
+                synchronized(lock) { session.changed.value = session.changed.value + 1 }
                 runCatching { terminal.kill() }
             }
         }
         val waiter = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 terminal.waitForExit()
+                reader.join()
                 synchronized(lock) {
                     if (session.state == TerminalState.RUNNING) session.finish(TerminalState.EXITED, now())
                 }
@@ -217,8 +216,6 @@ class TerminalManager(
                     if (session.state.isActive) session.finish(TerminalState.FAILED, now())
                 }
             } finally {
-                session.changed.trySend(Unit)
-                reader.join()
                 terminal.close()
             }
         }
@@ -236,13 +233,13 @@ class TerminalManager(
             session.finish(state, now())
             session.backend
         }
-        session.changed.trySend(Unit)
+        synchronized(lock) { session.changed.value = session.changed.value + 1 }
         if (terminal != null) {
             try {
                 terminal.kill()
             } catch (_: Throwable) {
                 synchronized(lock) { session.finish(TerminalState.FAILED, now(), replaceFinished = true) }
-                session.changed.trySend(Unit)
+                synchronized(lock) { session.changed.value = session.changed.value + 1 }
             }
         }
     }
@@ -287,7 +284,7 @@ class TerminalManager(
     ) {
         val writeMutex = Mutex()
         val ring = ByteRing()
-        val changed = Channel<Unit>(Channel.CONFLATED)
+        val changed = MutableStateFlow(0L)
         var backend: TerminalBackendSession? = null
         var state = TerminalState.STARTING
         var lastActivity = createdAt
@@ -299,7 +296,7 @@ class TerminalManager(
             if (state.isFinished && !replaceFinished) return
             state = newState
             finishedAt = timestamp
-            changed.trySend(Unit)
+            changed.value = changed.value + 1
         }
 
         fun read(cursor: Long?, max: Int): TerminalReadResult {
