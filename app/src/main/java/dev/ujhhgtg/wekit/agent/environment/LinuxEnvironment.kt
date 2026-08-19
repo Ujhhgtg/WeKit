@@ -17,6 +17,24 @@ data class EnvironmentSnapshot(
     val rootfsPath: String? = null,
 )
 
+data class LinuxEnvironmentSessionState(
+    val sessionId: String,
+    val environmentId: String?,
+    val lastEffectiveEnvironmentId: String?,
+)
+
+data class LinuxEnvironmentSessionTransition(
+    val sessionId: String,
+    val environmentId: String?,
+    val previousEnvironment: EnvironmentSnapshot,
+    val environment: EnvironmentSnapshot,
+)
+
+data class LinuxEnvironmentDeletionPlan(
+    val defaultEnvironmentId: String,
+    val transitions: List<LinuxEnvironmentSessionTransition>,
+)
+
 enum class EnvironmentHealthState { UNKNOWN, CHECKING, HEALTHY, DEGRADED, UNAVAILABLE }
 
 data class EnvironmentHealth(

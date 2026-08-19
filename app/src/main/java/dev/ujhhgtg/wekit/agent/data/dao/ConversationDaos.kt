@@ -22,6 +22,9 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE id = :id")
     suspend fun getById(id: String): SessionEntity?
 
+    @Query("SELECT * FROM sessions")
+    suspend fun getAllOnce(): List<SessionEntity>
+
     @Query("SELECT linuxEnvironmentId FROM sessions WHERE id = :id")
     fun observeLinuxEnvironmentId(id: String): Flow<String?>
 
@@ -60,6 +63,9 @@ interface SessionDao {
 
     @Query("UPDATE sessions SET lastEffectiveLinuxEnvironmentId = :environmentId WHERE id = :id")
     suspend fun setLastEffectiveLinuxEnvironmentId(id: String, environmentId: String)
+
+    @Query("UPDATE sessions SET linuxEnvironmentId = :bindingId, lastEffectiveLinuxEnvironmentId = :effectiveId WHERE id = :id")
+    suspend fun transitionLinuxEnvironment(id: String, bindingId: String?, effectiveId: String)
 }
 
 @Dao

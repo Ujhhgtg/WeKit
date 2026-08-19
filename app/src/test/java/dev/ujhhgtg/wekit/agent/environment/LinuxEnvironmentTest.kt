@@ -42,6 +42,92 @@ class LinuxEnvironmentTest {
     }
 
     @Test
+    fun `native snapshot and backend never require a stored entity`(@TempDir directory: Path) = runBlocking {
+        val native = nativeSnapshot(directory)
+        var roomReads = 0
+        var backendSnapshot: EnvironmentSnapshot? = null
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = native,
+            getEnvironment = { roomReads++; error("native must not read Room") },
+            backendFactory = { snapshot ->
+                backendSnapshot = snapshot
+                object : LinuxEnvironmentBackend {
+                    override val snapshot = snapshot
+                    override suspend fun exec(command: String, timeoutMillis: Long, environmentVariables: Map<String, String>) =
+                        ExecResult("native", "", 0, false, 1)
+                    override suspend fun readUtf8(path: String, maxBytes: Long) = "native"
+                    override suspend fun edit(request: FileEditRequest) = Unit
+                    override fun resolvePath(path: String) = path
+                    override suspend fun ensureBridge(): BridgeInstallArtifact? = null
+                    override suspend fun checkHealth() = EnvironmentHealth(EnvironmentHealthState.HEALTHY)
+                }
+            },
+        )
+
+        assertEquals(native, manager.snapshot(NATIVE_ENVIRONMENT_ID))
+        assertEquals("native", manager.exec(NATIVE_ENVIRONMENT_ID, "true", 1_000).stdout)
+        assertEquals(native, backendSnapshot)
+        assertEquals(0, roomReads)
+    }
+
+    @Test
+    fun `deletion plan transitions pinned and default-following sessions with full context`() {
+        val old = environment(LinuxEnvironmentType.PROOT).toSnapshot()
+        val native = nativeSnapshot(Path.of("/native"))
+
+        val plan = WeAgentRepository.planLinuxEnvironmentDeletion(
+            deletedEnvironment = old,
+            nativeEnvironment = native,
+            defaultEnvironmentId = old.id,
+            sessions = listOf(
+                LinuxEnvironmentSessionState("pinned", old.id, old.id),
+                LinuxEnvironmentSessionState("following", null, old.id),
+                LinuxEnvironmentSessionState("fresh-following", null, null),
+                LinuxEnvironmentSessionState("other", "other", "other"),
+            ),
+            storedEnvironmentIds = setOf(old.id, "other"),
+        )
+
+        assertEquals(NATIVE_ENVIRONMENT_ID, plan.defaultEnvironmentId)
+        assertEquals(
+            listOf(
+                LinuxEnvironmentSessionTransition("pinned", null, old, native),
+                LinuxEnvironmentSessionTransition("following", null, old, native),
+                LinuxEnvironmentSessionTransition("fresh-following", null, old, native),
+            ),
+            plan.transitions,
+        )
+    }
+
+    @Test
+    fun `deletion plan replaces a deleted binding with the surviving default`() {
+        val old = environment(LinuxEnvironmentType.PROOT).toSnapshot()
+        val replacement = environment(LinuxEnvironmentType.SSH).copy(
+            id = "replacement",
+            rootfsPath = null,
+            sshHost = "host",
+            sshPort = 22,
+            sshUsername = "user",
+            sshAuthenticationType = "PASSWORD",
+        ).toSnapshot()
+
+        val plan = WeAgentRepository.planLinuxEnvironmentDeletion(
+            deletedEnvironment = old,
+            nativeEnvironment = nativeSnapshot(Path.of("/native")),
+            defaultEnvironmentId = replacement.id,
+            sessions = listOf(LinuxEnvironmentSessionState("session", old.id, old.id)),
+            storedEnvironmentIds = setOf(old.id, replacement.id),
+            storedEnvironmentSnapshots = mapOf(replacement.id to replacement),
+        )
+
+        assertEquals(replacement.id, plan.defaultEnvironmentId)
+        assertEquals(
+            listOf(LinuxEnvironmentSessionTransition("session", null, old, replacement)),
+            plan.transitions,
+        )
+    }
+
+    @Test
     fun `environment type is immutable at repository boundary`() {
         val existing = environment(LinuxEnvironmentType.PROOT)
         assertThrows(IllegalArgumentException::class.java) {
@@ -147,7 +233,7 @@ class LinuxEnvironmentTest {
         val manager = LinuxEnvironmentManager(
             nativeSnapshot = nativeSnapshot(directory.resolve("native")),
             getEnvironment = { stored },
-            deleteEnvironment = { deleted = true; true },
+            deleteEnvironment = { _, _, _ -> deleted = true; true },
             recoverChroot = { _, _ -> ChrootRecoveryResult(0, mapOf("run-id" to "identity cannot be proven")) },
         )
 

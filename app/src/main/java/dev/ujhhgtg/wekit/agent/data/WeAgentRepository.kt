@@ -21,6 +21,11 @@ import dev.ujhhgtg.wekit.agent.model.LlmMessage
 import dev.ujhhgtg.wekit.agent.model.LlmRole
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
+import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentDeletionPlan
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionState
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionTransition
+import dev.ujhhgtg.wekit.agent.environment.toSnapshot
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
@@ -867,23 +872,60 @@ object WeAgentRepository : ToolPermissionSource {
     /** Temporary source compatibility until workspace UI callers are replaced. */
     suspend fun upsertWorkspace(w: dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity) = Unit
 
-    suspend fun deleteLinuxEnvironment(id: String): Boolean {
+    suspend fun deleteLinuxEnvironment(
+        id: String,
+        deletedEnvironment: EnvironmentSnapshot,
+        nativeEnvironment: EnvironmentSnapshot,
+    ): Boolean {
         require(id != NATIVE_ENVIRONMENT_ID) { "native environment cannot be deleted" }
         var deleted = false
+        var plan: LinuxEnvironmentDeletionPlan? = null
         db.withTransaction {
             val existing = db.linuxEnvironmentDao().getById(id) ?: return@withTransaction
-            if (db.settingDao().getValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID) == existing.id) {
-                db.settingDao().upsert(
-                    dev.ujhhgtg.wekit.agent.data.entity.SettingEntity(
-                        WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID,
-                        NATIVE_ENVIRONMENT_ID,
+            check(existing.id == deletedEnvironment.id) { "deleted environment snapshot does not match the stored row" }
+            val stored = db.linuxEnvironmentDao().getAllOnce()
+            val sessions = db.sessionDao().getAllOnce()
+            val deletionPlan = planLinuxEnvironmentDeletion(
+                deletedEnvironment = deletedEnvironment,
+                nativeEnvironment = nativeEnvironment,
+                defaultEnvironmentId = db.settingDao().getValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
+                sessions = sessions.map {
+                    LinuxEnvironmentSessionState(it.id, it.linuxEnvironmentId, it.lastEffectiveLinuxEnvironmentId)
+                },
+                storedEnvironmentIds = stored.mapTo(HashSet()) { it.id },
+                storedEnvironmentSnapshots = stored.associate { it.id to it.toSnapshot() },
+            )
+            plan = deletionPlan
+            db.settingDao().upsert(
+                dev.ujhhgtg.wekit.agent.data.entity.SettingEntity(
+                    WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID,
+                    deletionPlan.defaultEnvironmentId,
+                )
+            )
+            deletionPlan.transitions.forEach { transition ->
+                db.sessionDao().transitionLinuxEnvironment(
+                    transition.sessionId,
+                    transition.environmentId,
+                    transition.environment.id,
+                )
+                db.messageDao().insert(
+                    MessageEntity(
+                        id = UUID.randomUUID().toString(),
+                        sessionId = transition.sessionId,
+                        role = MessageRole.SYSTEM,
+                        content = environmentReminder(transition.previousEnvironment, transition.environment),
+                        createdAt = nextStamp(),
                     )
                 )
             }
-            db.sessionDao().clearLinuxEnvironmentBindings(id)
             deleted = db.linuxEnvironmentDao().deleteById(id) != 0
         }
         WeAgentSettings.clearCached(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID)
+        if (deleted) {
+            dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onLinuxEnvironmentDeleted(
+                requireNotNull(plan).transitions
+            )
+        }
         return deleted
     }
 
@@ -903,6 +945,35 @@ object WeAgentRepository : ToolPermissionSource {
         defaultEnvironmentId == NATIVE_ENVIRONMENT_ID -> NATIVE_ENVIRONMENT_ID
         defaultEnvironmentId != null && defaultEnvironmentId in storedEnvironmentIds -> defaultEnvironmentId
         else -> NATIVE_ENVIRONMENT_ID
+    }
+
+    internal fun planLinuxEnvironmentDeletion(
+        deletedEnvironment: EnvironmentSnapshot,
+        nativeEnvironment: EnvironmentSnapshot,
+        defaultEnvironmentId: String?,
+        sessions: List<LinuxEnvironmentSessionState>,
+        storedEnvironmentIds: Set<String>,
+        storedEnvironmentSnapshots: Map<String, EnvironmentSnapshot> = emptyMap(),
+    ): LinuxEnvironmentDeletionPlan {
+        val remainingIds = storedEnvironmentIds - deletedEnvironment.id
+        val replacementDefaultId = resolveEffectiveLinuxEnvironmentId(null, defaultEnvironmentId, remainingIds)
+        val snapshots = storedEnvironmentSnapshots + (NATIVE_ENVIRONMENT_ID to nativeEnvironment)
+        val transitions = sessions.mapNotNull { session ->
+            if (session.environmentId != deletedEnvironment.id &&
+                session.lastEffectiveEnvironmentId != deletedEnvironment.id &&
+                !(session.environmentId == null && defaultEnvironmentId == deletedEnvironment.id)
+            ) return@mapNotNull null
+
+            val bindingId = session.environmentId?.takeUnless { it == deletedEnvironment.id }
+            val effectiveId = resolveEffectiveLinuxEnvironmentId(bindingId, replacementDefaultId, remainingIds)
+            LinuxEnvironmentSessionTransition(
+                sessionId = session.sessionId,
+                environmentId = bindingId,
+                previousEnvironment = deletedEnvironment,
+                environment = requireNotNull(snapshots[effectiveId]) { "replacement environment $effectiveId has no snapshot" },
+            )
+        }
+        return LinuxEnvironmentDeletionPlan(replacementDefaultId, transitions)
     }
 
     internal fun validateLinuxEnvironmentUpdate(

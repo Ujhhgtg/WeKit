@@ -21,6 +21,7 @@ import dev.ujhhgtg.wekit.agent.engine.TurnConfig
 import dev.ujhhgtg.wekit.agent.engine.ToolCallExecutor
 import dev.ujhhgtg.wekit.agent.bridge.ToolBridgeServer
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionTransition
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult
 import dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult
@@ -541,6 +542,16 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     /** Clears the foreground system-prompt binding if it references the deleted prompt. */
     fun onSystemPromptDeleted(id: String) {
         if (currentSystemPromptId.value == id) currentSystemPromptId.value = null
+    }
+
+    suspend fun onLinuxEnvironmentDeleted(transitions: List<LinuxEnvironmentSessionTransition>) {
+        val currentId = currentSessionId.value ?: return
+        val transition = transitions.firstOrNull { it.sessionId == currentId } ?: return
+        withContext(Dispatchers.Main) {
+            currentLinuxEnvironmentId.value = transition.environmentId
+            effectiveLinuxEnvironmentId.value = transition.environment.id
+        }
+        reloadMessages(currentId)
     }
 
     private suspend fun reloadMessages(sessionId: String) {

@@ -30,7 +30,8 @@ class LinuxEnvironmentManager(
     private val highRiskApproval: suspend (String, EnvironmentSnapshot?) -> Boolean = { _, _ -> false },
     private val storedEnvironments: suspend () -> List<LinuxEnvironmentEntity> = WeAgentRepository::getAllLinuxEnvironments,
     private val getEnvironment: suspend (String) -> LinuxEnvironmentEntity? = WeAgentRepository::getLinuxEnvironment,
-    private val deleteEnvironment: suspend (String) -> Boolean = WeAgentRepository::deleteLinuxEnvironment,
+    private val deleteEnvironment: suspend (String, EnvironmentSnapshot, EnvironmentSnapshot) -> Boolean =
+        WeAgentRepository::deleteLinuxEnvironment,
     private val recoverChroot: suspend (Path, String) -> ChrootRecoveryResult = { rootfs, workingDirectory ->
         ChrootRootHelper(ChrootConfiguration(rootfs, workingDirectory)).recoverPendingRuns()
     },
@@ -178,7 +179,7 @@ class LinuxEnvironmentManager(
                 check(instance.fileName.toString() == id) { "invalid local environment layout" }
                 check(!instance.toFile().exists() || instance.toFile().deleteRecursively()) { "cannot remove local environment files" }
             }
-            val deleted = deleteEnvironment(id)
+            val deleted = environment != null && deleteEnvironment(id, environment.toSnapshot(), nativeSnapshot)
             if (deleted) {
                 backends.remove(id)?.close()
                 executionMutexes.remove(id)
@@ -275,6 +276,7 @@ class LinuxEnvironmentManager(
     }
 
     private suspend fun ensureChrootReady(environmentId: String) {
+        if (environmentId == NATIVE_ENVIRONMENT_ID) return
         val environment = getEnvironment(environmentId)?.takeIf { it.type == LinuxEnvironmentType.CHROOT } ?: return
         val rootfs = Path.of(requireNotNull(environment.rootfsPath))
         check(!ChrootMountRegistry.hasActiveRuns(rootfs)) { "chroot environment has an active run" }
@@ -292,7 +294,8 @@ class LinuxEnvironmentManager(
             getEnvironment(environmentId)?.type == LinuxEnvironmentType.CHROOT
 
     suspend fun snapshot(environmentId: String): EnvironmentSnapshot =
-        requireNotNull(getEnvironment(environmentId)).toSnapshot()
+        if (environmentId == NATIVE_ENVIRONMENT_ID) nativeSnapshot
+        else requireNotNull(getEnvironment(environmentId)).toSnapshot()
 
     private suspend fun <T> withLease(
         environmentId: String,
