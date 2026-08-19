@@ -64,6 +64,8 @@ class ChrootConfigurationTest {
         assertTrue(script.contains("'printf '\\''%s'\\'' '\\''a; b'\\'''"))
         assertFalse(script.contains("PATH=/host/bin"))
         assertTrue(script.contains("mount --make-rprivate /"))
+        assertTrue(script.indexOf("/ns/mnt") < script.indexOf("NAMESPACE >"))
+        assertTrue(script.contains(run.mountNamespaceFile.toString()))
         assertTrue(script.contains("trap cleanup EXIT HUP INT TERM"))
         assertTrue(script.contains("test -r '/instances/arch/rootfs/etc/resolv.conf'"))
         val hostArgv = configuration.hostLaunchArgv(run, Path.of("/system/bin/su"), listOf("/bin/bash"), emptyMap())
@@ -147,10 +149,11 @@ class ChrootConfigurationTest {
         val run = ChrootRun("11111111-1111-1111-1111-111111111111", Path.of("/instances/arch/chroot-runs/11111111-1111-1111-1111-111111111111"))
         val command = helper.cleanupCommand(
             Path.of("/data/user/0/dev.ujhhgtg.wekit/files/chroot_cleanup"), run, 4321, "98765",
-            "22222222-2222-2222-2222-222222222222",
+            "22222222-2222-2222-2222-222222222222", "4026533001",
         )
         assertTrue(command.startsWith("'/data/user/0/dev.ujhhgtg.wekit/files/chroot_cleanup' 'cleanup' '4321' '98765'"))
         assertTrue(command.contains("'${run.cmdlineMarker}'"))
+        assertTrue(command.contains("'4026533001' '/instances/arch/rootfs'"))
         assertFalse(command.contains("kill"))
         assertFalse(command.contains("nsenter"))
         ChrootMountRegistry.begin(rootfs, "run-a")
@@ -230,6 +233,23 @@ class ChrootConfigurationTest {
         helper.removeRunMetadata(run)
         assertFalse(Files.exists(run.directory))
         assertTrue(configuration.pendingRuns().isEmpty())
+    }
+
+    @Test
+    fun `missing namespace identity retains metadata and busy state`(@TempDir directory: Path) {
+        val instance = Files.createDirectory(directory.resolve("arch"))
+        val configuration = ChrootConfiguration(Files.createDirectory(instance.resolve("rootfs")), "/root")
+        val run = configuration.createRun()
+        Files.writeString(run.pidFile, "4321")
+        Files.writeString(run.startTimeFile, "98765")
+        Files.writeString(run.bootIdFile, "22222222-2222-2222-2222-222222222222")
+        Files.writeString(run.stageFile, "EXEC")
+
+        assertThrows(ChrootFailure.Cleanup::class.java) {
+            runBlocking { ChrootRootHelper(configuration).cleanupNamespace(run) }
+        }
+        assertTrue(Files.exists(run.directory))
+        assertTrue(ChrootMountRegistry.isBusy(configuration.rootfs))
     }
 
     @Test

@@ -284,10 +284,12 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
             ?: throw ChrootFailure.Cleanup("run ${run.nonce} has incomplete process identity")
         val bootId = readMetadata(run.bootIdFile)
             ?: throw ChrootFailure.Cleanup("run ${run.nonce} has incomplete boot identity")
+        val mountNamespace = readMetadata(run.mountNamespaceFile)
+            ?: throw ChrootFailure.Cleanup("run ${run.nonce} has incomplete mount namespace identity")
         val helper = NativeLoader.chrootCleanupExecutable().toPath()
         val shell = rootShell()
         try {
-            val result = shell.newJob().add(cleanupCommand(helper, run, pid, startTime, bootId)).enqueue().get(CLEANUP_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+            val result = shell.newJob().add(cleanupCommand(helper, run, pid, startTime, bootId, mountNamespace)).enqueue().get(CLEANUP_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
             if (!result.isSuccess) throw ChrootFailure.Cleanup((result.err + result.out).joinToString("\n").ifBlank { "namespace process $pid remains" })
         } catch (error: TimeoutException) {
             throw ChrootFailure.Cleanup("namespace cleanup timed out")
@@ -303,16 +305,18 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         pid: Int,
         startTime: String,
         bootId: String,
+        mountNamespace: String,
     ): String {
         require(helper.isAbsolute) { "chroot cleanup helper must be absolute" }
         require(run.nonce.matches(RUN_NONCE)) { "invalid chroot run nonce" }
         require(startTime.matches(PROCESS_START_TIME)) { "invalid chroot process start time" }
         require(bootId.matches(RUN_NONCE)) { "invalid boot id" }
+        require(mountNamespace.matches(PROCESS_START_TIME)) { "invalid mount namespace identity" }
         val targets = configuration.mountArguments().asReversed().map { mount ->
             val guest = mount.last()
             configuration.rootfs.resolve(guest.removePrefix("/")).toString()
         }
-        return (listOf(helper.toString(), "cleanup", pid.toString(), startTime, bootId, run.cmdlineMarker, configuration.rootfs.toString()) + targets)
+        return (listOf(helper.toString(), "cleanup", pid.toString(), startTime, bootId, run.cmdlineMarker, mountNamespace, configuration.rootfs.toString()) + targets)
             .joinToString(" ", transform = ChrootConfiguration::shell)
     }
 

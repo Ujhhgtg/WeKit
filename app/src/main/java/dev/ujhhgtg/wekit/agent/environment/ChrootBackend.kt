@@ -85,6 +85,7 @@ class ChrootConfiguration(
             printf '%s' "${'$'}${'$'}" > ${shell(run.pidFile.toString())}
             sed 's/.*) //' /proc/${'$'}${'$'}/stat | cut -d ' ' -f 20 > ${shell(run.startTimeFile.toString())} || exit 70
             cat /proc/sys/kernel/random/boot_id > ${shell(run.bootIdFile.toString())} || exit 70
+            stat -Lc %i /proc/${'$'}${'$'}/ns/mnt > ${shell(run.mountNamespaceFile.toString())} || exit 70
             printf '%s' NAMESPACE > ${shell(run.stageFile.toString())}
             mount --make-rprivate / || exit 70
             cleanup_failed=0
@@ -156,6 +157,7 @@ class ChrootRun internal constructor(val nonce: String, val directory: Path) {
     val pidFile: Path = directory.resolve("pid")
     val startTimeFile: Path = directory.resolve("starttime")
     val bootIdFile: Path = directory.resolve("boot-id")
+    val mountNamespaceFile: Path = directory.resolve("mnt-ns")
     val stageFile: Path = directory.resolve("stage")
 }
 
