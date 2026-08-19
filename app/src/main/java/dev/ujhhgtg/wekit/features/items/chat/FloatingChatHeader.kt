@@ -92,6 +92,10 @@ object FloatingChatHeader : ClickableFeature() {
     private const val MIN_ELEVATION = 0
     private const val MAX_ELEVATION = 16
 
+    private const val RECONCILE_LAYOUT = 1
+    private const val RECONCILE_TIPS = 1 shl 1
+    private const val RECONCILE_QUICK_SELECT = 1 shl 2
+
     /** 标题栏容器, 微信把 ViewStub(bkr) inflate 成这个 androidx 控件。 */
     private const val ACTION_BAR_CONTAINER_CLASS = "androidx.appcompat.widget.ActionBarContainer"
 
@@ -253,11 +257,23 @@ object FloatingChatHeader : ClickableFeature() {
     /** 消息列表 RecyclerView 由微信自己设的原始 top padding。 */
     private val chatListBasePaddings = WeakHashMap<View, Int>()
 
-    /** 已注册的 pre-draw 监听, 重挂前先摘旧监听, 避免旧 observer 失效或重复触发。 */
-    private val headerPreDraws = WeakHashMap<View, ViewTreeObserver.OnPreDrawListener>()
+    private class TrackedViewListeners(
+        val attachListener: View.OnAttachStateChangeListener,
+        val layoutListener: View.OnLayoutChangeListener,
+    )
 
-    /** 已排期重挂的布局, 防止 pre-draw 每帧重复 post。 */
-    private val reparentScheduled = WeakHashMap<View, Boolean>()
+    private class LayoutTracker(val layout: View) {
+        var active = true
+        var pendingFlags = 0
+        var observer: ViewTreeObserver? = null
+        var oneShotPreDraw: ViewTreeObserver.OnPreDrawListener? = null
+        var reparentRunnable: Runnable? = null
+        val observedViews = WeakHashMap<View, TrackedViewListeners>()
+    }
+
+    private val layoutTrackers = WeakHashMap<View, LayoutTracker>()
+    private val layoutAttachListeners = WeakHashMap<View, View.OnAttachStateChangeListener>()
+    private val tipsGroupAttachListeners = WeakHashMap<View, View.OnAttachStateChangeListener>()
 
     /** 根布局不是 RelativeLayout 而放弃重挂的布局, 不再每帧重试。 */
     private val reparentBlocked = WeakHashMap<View, Boolean>()
@@ -271,26 +287,21 @@ object FloatingChatHeader : ClickableFeature() {
     private data class HeaderStyle(val cornerRadiusDp: Int, val elevationDp: Int)
 
     override fun onEnable() {
-        // pre-draw 里幂等处理"找到容器 → 重挂 → 样式 → 列表 padding", ViewStub 还没 inflate
-        // 或重进会话复用旧视图等时序都能兜住。
         ChattingUILayout::class.reflekt().firstConstructorOrNull {
             parameters(Context::class, AttributeSet::class)
         }?.hookAfter {
             val layout = thisObject as? ChattingUILayout ?: return@hookAfter
-            layout.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: View) {
-                    trackHeader(layout)
-                }
-
-                override fun onViewDetachedFromWindow(v: View) {}
-            })
+            ensureLayoutAttachListener(layout)
         } ?: WeLogger.w(TAG, "ChattingUILayout constructor hook target not found")
 
         // 通知半屏/全屏路径下 ChatFooter 一定存在且稳定 attach, 借它兜底追踪 ChattingUILayout:
         // 这些路径的 ChattingUILayout 可能由微信布局预取线程提前 inflate, 构造 hook/attach 监听会漏。
         ChatFooter::class.reflekt().firstMethodOrNull { name = "onAttachedToWindow" }?.hookAfter {
             val footer = thisObject as? ChatFooter ?: return@hookAfter
-            footer.findAncestorChattingUILayout()?.let(::trackHeader)
+            footer.findAncestorChattingUILayout()?.let { layout ->
+                ensureLayoutAttachListener(layout)
+                trackLayout(layout)
+            }
         } ?: WeLogger.w(TAG, "ChatFooter.onAttachedToWindow hook target not found")
 
         // 运行中才打开本特性时, 已有会话的布局早已构造完, attach 监听不会再触发;
@@ -303,7 +314,8 @@ object FloatingChatHeader : ClickableFeature() {
         }?.hookAfter {
             val layout = thisObject
             if (layout !is ChattingUILayout) return@hookAfter
-            if (headerPreDraws[layout] == null) trackHeader(layout)
+            trackLayout(layout)
+            scheduleReconcile(layout, RECONCILE_LAYOUT)
         } ?: WeLogger.w(TAG, "onLayout hook target not found")
 
         // 置顶消息卡展开/收起时, 微信通过 ChatTipsBarGroup.setListViewPaddingTop 自己给消息
@@ -312,7 +324,10 @@ object FloatingChatHeader : ClickableFeature() {
         "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup".toClass().reflekt().firstMethodOrNull {
             name = "setListViewPaddingTop"
         }?.hookBefore {
+            val group = thisObject as? View
+            val layout = group?.let(::ownerLayoutForTipsGroup)
             result = null
+            if (layout != null) scheduleReconcile(layout, RECONCILE_TIPS)
         } ?: WeLogger.w(TAG, "ChatTipsBarGroup.setListViewPaddingTop hook target not found")
 
         // ChatTipsBarGroup 在树里的实际父容器不猜了: 构造时拿到实例, attach 后反查所属
@@ -321,36 +336,143 @@ object FloatingChatHeader : ClickableFeature() {
             parameters(Context::class, AttributeSet::class)
         }?.hookAfter {
             val group = thisObject as? View ?: return@hookAfter
-            group.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: View) {
-                    group.findAncestorChattingUILayout()?.let { layout ->
-                        tipsBarGroups[layout] = group
-                    }
-                }
-
-                override fun onViewDetachedFromWindow(v: View) {}
-            })
+            ensureTipsGroupAttachListener(group)
         } ?: WeLogger.w(TAG, "ChatTipsBarGroup constructor hook target not found")
 
     }
 
-    private fun trackHeader(layout: View) {
-        val old = headerPreDraws.remove(layout)
-        old?.let { listener ->
-            runCatching { layout.viewTreeObserver.removeOnPreDrawListener(listener) }
+    private fun ensureLayoutAttachListener(layout: View) {
+        if (layoutAttachListeners[layout] != null) return
+        val listener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                trackLayout(v)
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                disposeTracker(v)
+            }
         }
-        val listener = ViewTreeObserver.OnPreDrawListener {
+        layoutAttachListeners[layout] = listener
+        layout.addOnAttachStateChangeListener(listener)
+        if (layout.isAttachedToWindow) trackLayout(layout)
+    }
+
+    private fun ensureTipsGroupAttachListener(group: View) {
+        if (tipsGroupAttachListeners[group] != null) return
+        val listener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                val layout = v.findAncestorChattingUILayout() ?: return
+                trackLayout(layout)
+                val tracker = layoutTrackers[layout] ?: return
+                tipsBarGroups[layout] = v
+                observeTrackedView(tracker, v, RECONCILE_TIPS)
+                tipsBarRecycler(v)?.let { observeTrackedView(tracker, it, RECONCILE_TIPS) }
+                scheduleReconcile(layout, RECONCILE_LAYOUT)
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                val layout = ownerLayoutForTipsGroup(v) ?: return
+                val tracker = layoutTrackers[layout]
+                val recycler = tipsBarRecyclers[v]
+                if (tipsBarGroups[layout] === v) tipsBarGroups.remove(layout)
+                if (tracker != null) {
+                    unobserveTrackedView(tracker, v)
+                    recycler?.let { unobserveTrackedView(tracker, it) }
+                }
+                clearTipsGroupCaches(v, recycler)
+                scheduleReconcile(layout, RECONCILE_LAYOUT)
+            }
+        }
+        tipsGroupAttachListeners[group] = listener
+        group.addOnAttachStateChangeListener(listener)
+        if (group.isAttachedToWindow) listener.onViewAttachedToWindow(group)
+    }
+
+    private fun ownerLayoutForTipsGroup(group: View): View? {
+        return tipsBarGroups.entries.firstOrNull { it.value === group }?.key
+            ?: group.findAncestorChattingUILayout()
+    }
+
+    private fun trackLayout(layout: View) {
+        val existing = layoutTrackers[layout]
+        if (existing?.active == true) return
+        val tracker = LayoutTracker(layout)
+        layoutTrackers[layout] = tracker
+        observeTrackedView(tracker, layout, RECONCILE_LAYOUT)
+        scheduleReconcile(layout, RECONCILE_LAYOUT)
+    }
+
+    private fun observeTrackedView(tracker: LayoutTracker, view: View, flags: Int) {
+        if (tracker.observedViews[view] != null) return
+        val attachListener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                scheduleReconcile(tracker.layout, flags)
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                unobserveTrackedView(tracker, v)
+                if (v === tracker.layout) {
+                    disposeTracker(tracker.layout)
+                } else {
+                    scheduleReconcile(tracker.layout, flags)
+                }
+            }
+        }
+        val layoutListener = View.OnLayoutChangeListener { _, left, top, right, bottom,
+                                                           oldLeft, oldTop, oldRight, oldBottom ->
+            if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
+                scheduleReconcile(tracker.layout, flags)
+            }
+        }
+        tracker.observedViews[view] = TrackedViewListeners(attachListener, layoutListener)
+        view.addOnAttachStateChangeListener(attachListener)
+        view.addOnLayoutChangeListener(layoutListener)
+    }
+
+    private fun unobserveTrackedView(tracker: LayoutTracker, view: View) {
+        val listeners = tracker.observedViews.remove(view) ?: return
+        view.removeOnAttachStateChangeListener(listeners.attachListener)
+        view.removeOnLayoutChangeListener(listeners.layoutListener)
+    }
+
+    private fun scheduleReconcile(layout: View, flags: Int = RECONCILE_LAYOUT) {
+        val tracker = layoutTrackers[layout] ?: return
+        if (!tracker.active || !layout.isAttachedToWindow) return
+        tracker.pendingFlags = tracker.pendingFlags or flags
+        if (tracker.oneShotPreDraw != null) return
+
+        val observer = layout.viewTreeObserver
+        val listener = object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                if (observer.isAlive) observer.removeOnPreDrawListener(this)
+                if (tracker.oneShotPreDraw === this) {
+                    tracker.oneShotPreDraw = null
+                    tracker.observer = null
+                }
+                val pending = tracker.pendingFlags
+                tracker.pendingFlags = 0
+                if (tracker.active && layout.isAttachedToWindow) {
+                    runReconciliation(layout, pending)
+                }
+                return true
+            }
+        }
+        tracker.observer = observer
+        tracker.oneShotPreDraw = listener
+        observer.addOnPreDrawListener(listener)
+    }
+
+    private fun runReconciliation(layout: View, flags: Int) {
+        if (flags and RECONCILE_LAYOUT != 0) {
             applyIfReady(layout)
-            true
+            return
         }
-        headerPreDraws[layout] = listener
-        layout.viewTreeObserver.addOnPreDrawListener(listener)
+        if (flags and RECONCILE_TIPS != 0) reconcileTips(layout)
+        if (flags and RECONCILE_QUICK_SELECT != 0) reconcileQuickSelect(layout)
     }
 
     private fun applyIfReady(layout: View) {
-        val header = headerViews[layout]?.takeIf { it.isAttachedToWindow }
-            ?: findHeader(layout)
-            ?: return
+        val header = currentHeader(layout) ?: return
         reparentIfNeeded(layout, header)
         applyCardStyle(header)
         applyMargins(layout, header)
@@ -358,6 +480,41 @@ object FloatingChatHeader : ClickableFeature() {
         applyHeaderZoneOverlays(layout, header)
         suppressTipsBarDimFor(layout)
         applyChatListPadding(layout, header)
+        applyQuickSelectOffset(layout, header)
+        val tracker = layoutTrackers[layout] ?: return
+        tipsBarGroups[layout]?.takeIf { it.isAttachedToWindow }?.let { group ->
+            observeTrackedView(tracker, group, RECONCILE_TIPS)
+            tipsBarRecycler(group)?.let { observeTrackedView(tracker, it, RECONCILE_TIPS) }
+        }
+        trackQuickSelectInputs(tracker, layout)
+    }
+
+    private fun isCachedHeaderValid(layout: View, header: View): Boolean {
+        return header.isAttachedToWindow && header.rootView === layout.rootView
+    }
+
+    private fun currentHeader(layout: View): View? {
+        headerViews[layout]?.let { header ->
+            if (isCachedHeaderValid(layout, header)) return header
+            headerViews.remove(layout)
+        }
+        return findHeader(layout)
+    }
+
+    private fun reconcileTips(layout: View) {
+        val header = currentHeader(layout) ?: return
+        val group = tipsBarGroups[layout]?.takeIf { it.isAttachedToWindow } ?: return
+        suppressTipsBarDim(group)
+        applyTipsBarCardStyle(group)
+        applyPinnedTipsBarLayout(group)
+        applyHeaderZoneOverlays(layout, header)
+        applyChatListPadding(layout, header)
+        val tracker = layoutTrackers[layout] ?: return
+        tipsBarRecycler(group)?.let { observeTrackedView(tracker, it, RECONCILE_TIPS) }
+    }
+
+    private fun reconcileQuickSelect(layout: View) {
+        val header = currentHeader(layout) ?: return
         applyQuickSelectOffset(layout, header)
     }
 
@@ -380,7 +537,7 @@ object FloatingChatHeader : ClickableFeature() {
             }
         }
         if (lookupWarned.put(layout, true) == null) {
-            WeLogger.w(TAG, "ActionBarContainer not found, retrying on next pre-draw")
+            WeLogger.w(TAG, "ActionBarContainer not found, retrying on next layout event")
         }
         return null
     }
@@ -403,14 +560,24 @@ object FloatingChatHeader : ClickableFeature() {
             }
             return
         }
-        if (reparentScheduled.put(layout, true) != null) return
-        layout.post {
-            try {
-                performReparent(layout, header)
-            } finally {
-                reparentScheduled.remove(layout)
+        val tracker = layoutTrackers[layout] ?: return
+        if (tracker.reparentRunnable != null) return
+        val runnable = object : Runnable {
+            override fun run() {
+                if (!tracker.active) {
+                    if (tracker.reparentRunnable === this) tracker.reparentRunnable = null
+                    return
+                }
+                try {
+                    performReparent(layout, header)
+                } finally {
+                    if (tracker.reparentRunnable === this) tracker.reparentRunnable = null
+                }
+                scheduleReconcile(layout, RECONCILE_LAYOUT)
             }
         }
+        tracker.reparentRunnable = runnable
+        if (!layout.post(runnable)) tracker.reparentRunnable = null
     }
 
     /** 把窗口级标题栏所在的 ActionBarOverlayLayout 切成 overlay, 让消息内容延伸到标题卡背后。 */
@@ -1393,6 +1560,30 @@ object FloatingChatHeader : ClickableFeature() {
         return null
     }
 
+    private fun trackQuickSelectInputs(tracker: LayoutTracker, layout: View) {
+        val oldContent = chatContents[layout]
+        val content = chatContent(layout)
+        if (oldContent !== content) {
+            oldContent?.let { unobserveTrackedView(tracker, it) }
+            if (content == null) chatContents.remove(layout)
+        }
+        if (content == null) {
+            quickSelectUpViews.remove(layout)?.let { unobserveTrackedView(tracker, it) }
+            return
+        }
+        observeTrackedView(tracker, content, RECONCILE_QUICK_SELECT)
+
+        val oldQuickSelect = quickSelectUpViews[layout]
+        val quickSelect = (content as? ViewGroup)?.let { quickSelectUpView(it, layout) }
+        if (oldQuickSelect !== quickSelect) {
+            oldQuickSelect?.let { unobserveTrackedView(tracker, it) }
+            if (quickSelect == null) quickSelectUpViews.remove(layout)
+        }
+        if (quickSelect != null) {
+            observeTrackedView(tracker, quickSelect, RECONCILE_QUICK_SELECT)
+        }
+    }
+
     /** 结构特征: 内容区直接子 View 里 top|left 的 wrap_content 小浮层 (含未展开的 ViewStub)。 */
     @SuppressLint("RtlHardcoded")
     private fun View.isQuickSelectUp(): Boolean {
@@ -1434,6 +1625,122 @@ object FloatingChatHeader : ClickableFeature() {
         return hostRecycler.isInstance(this)
     }
 
+    private fun scheduleAllLayouts(flags: Int) {
+        layoutTrackers.keys.toList().forEach { layout ->
+            if (layoutTrackers[layout]?.active == true) scheduleReconcile(layout, flags)
+        }
+    }
+
+    private fun disposeTracker(layout: View) {
+        val tracker = layoutTrackers.remove(layout) ?: return
+        tracker.active = false
+        tracker.oneShotPreDraw?.let { listener ->
+            tracker.observer?.takeIf { it.isAlive }?.removeOnPreDrawListener(listener)
+        }
+        tracker.reparentRunnable?.let(layout::removeCallbacks)
+        tracker.observedViews.keys.toList().forEach { unobserveTrackedView(tracker, it) }
+        tracker.pendingFlags = 0
+        tracker.observer = null
+        tracker.oneShotPreDraw = null
+        tracker.reparentRunnable = null
+
+        val header = headerViews.remove(layout)
+        val recycler = chatListRecyclers.remove(layout)
+        val group = tipsBarGroups.remove(layout)
+        headerTopOffsets.remove(layout)
+        chatContents.remove(layout)
+        quickSelectUpViews.remove(layout)
+        contentHosts.remove(layout)
+        overlayCardBottoms.remove(layout)
+        windowBarHeaders.remove(layout)
+        overlayDiagLogged.remove(layout)
+        reparentBlocked.remove(layout)
+        lookupWarned.remove(layout)
+        header?.let {
+            windowBarOverlays.remove(it)
+            headerStyles.remove(it)
+        }
+        recycler?.let { chatListBasePaddings.remove(it) }
+        group?.let { clearTipsGroupCaches(it, tipsBarRecyclers[it]) }
+    }
+
+    private fun clearTipsGroupCaches(group: View, recycler: View?) {
+        dimWarned.remove(group)
+        tipsBarDims.remove(group)
+        tipsBarRecyclers.remove(group)
+        tipsBarStyles.remove(group)
+        tipsBarCardBodies.remove(group)
+        tipsBarBodyWarned.remove(group)
+        tipsBarOverlapRects.remove(group)
+        tipsBarDividers.remove(group)
+        tipsBarHandles.remove(group)
+        tipsBarDividerColors.remove(group)
+        tipsBarPlaceholders.remove(group)
+        tipsBarCardAnims.remove(group)
+        tipsBarBodyOutlineHeights.remove(group)
+        tipsBarCardOutlineHeights.remove(group)
+        tipsBarFoldHeights.remove(group)
+        recycler?.let {
+            tipsBarRowHooks.remove(it)
+            tipsBarOffsetsRemoved.remove(it)
+            pinnedTouchConsumed.remove(it)
+            tipsBarExpandedFlags.remove(it)
+        }
+    }
+
+    override fun onDisable() {
+        layoutTrackers.keys.toList().forEach(::disposeTracker)
+        layoutAttachListeners.entries.toList().forEach { (layout, listener) ->
+            layout.removeOnAttachStateChangeListener(listener)
+        }
+        tipsGroupAttachListeners.entries.toList().forEach { (group, listener) ->
+            group.removeOnAttachStateChangeListener(listener)
+        }
+        layoutAttachListeners.clear()
+        tipsGroupAttachListeners.clear()
+        layoutTrackers.clear()
+        headerViews.clear()
+        headerTopOffsets.clear()
+        chatListRecyclers.clear()
+        chatContents.clear()
+        quickSelectUpViews.clear()
+        contentHosts.clear()
+        overlayCardBottoms.clear()
+        tipsBarGroups.clear()
+        windowBarOverlays.clear()
+        windowBarHeaders.clear()
+        overlayDiagLogged.clear()
+        dimWarned.clear()
+        tipsBarDims.clear()
+        tipsBarRecyclers.clear()
+        tipsBarStyles.clear()
+        tipsBarCardBodies.clear()
+        tipsBarBodyWarned.clear()
+        tipsBarOverlapRects.clear()
+        tipsBarDividers.clear()
+        tipsBarHandles.clear()
+        tipsBarDividerColors.clear()
+        tipsBarRowHooks.clear()
+        tipsBarRowBadges.clear()
+        tipsBarRowTexts.clear()
+        tipsBarRowLines.clear()
+        tipsBarRowDividers.clear()
+        tipsBarPlaceholders.clear()
+        tipsBarOffsetsRemoved.clear()
+        tipsBarAdapterHooked.clear()
+        tipsBarAdapterGroupFields.clear()
+        tipsBarCardAnims.clear()
+        tipsBarBodyOutlineHeights.clear()
+        tipsBarCardOutlineHeights.clear()
+        tipsBarFoldHeights.clear()
+        pinnedTouchConsumed.clear()
+        tipsBarExpandedFlags.clear()
+        chatListBasePaddings.clear()
+        reparentBlocked.clear()
+        lookupWarned.clear()
+        headerStyles.clear()
+    }
+
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var corner by remember { mutableIntStateOf(cornerRadiusDp) }
@@ -1466,6 +1773,7 @@ object FloatingChatHeader : ClickableFeature() {
                                         onValueChange = {
                                             corner = it
                                             cornerRadiusDp = it
+                                            scheduleAllLayouts(RECONCILE_LAYOUT)
                                         },
                                     )
                                 }
@@ -1482,6 +1790,7 @@ object FloatingChatHeader : ClickableFeature() {
                                         onValueChange = {
                                             side = it
                                             sideMarginDp = it
+                                            scheduleAllLayouts(RECONCILE_LAYOUT)
                                         },
                                     )
                                 }
@@ -1498,6 +1807,7 @@ object FloatingChatHeader : ClickableFeature() {
                                         onValueChange = {
                                             topGap = it
                                             topGapDp = it
+                                            scheduleAllLayouts(RECONCILE_LAYOUT)
                                         },
                                     )
                                 }
@@ -1514,6 +1824,7 @@ object FloatingChatHeader : ClickableFeature() {
                                         onValueChange = {
                                             extraGap = it
                                             extraGapDp = it
+                                            scheduleAllLayouts(RECONCILE_LAYOUT)
                                         },
                                     )
                                 }
@@ -1530,6 +1841,7 @@ object FloatingChatHeader : ClickableFeature() {
                                         onValueChange = {
                                             elevation = it
                                             elevationDp = it
+                                            scheduleAllLayouts(RECONCILE_LAYOUT)
                                         },
                                     )
                                 }
