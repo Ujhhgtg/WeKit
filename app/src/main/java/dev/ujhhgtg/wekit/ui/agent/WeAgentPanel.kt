@@ -528,6 +528,7 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
     val currentModelId by WeAgentService.currentModelId
     val currentSystemPromptId by WeAgentService.currentSystemPromptId
     val currentEnvironmentId by WeAgentService.currentLinuxEnvironmentId
+    val effectiveEnvironmentId by WeAgentService.effectiveLinuxEnvironmentId
     val environmentLocked = WeAgentService.ballState.value == WeAgentService.BallState.RUNNING ||
         WeAgentService.ballState.value == WeAgentService.BallState.PENDING_APPROVAL
 
@@ -538,7 +539,8 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
     val modelLabel = if (currentModelId == null) defaultLabel
     else models.firstOrNull { it.id == currentModelId }?.label
         ?: stringResource(R.string.agent_panel_not_selected)
-    val environmentLabel = environments.firstOrNull { it.id == currentEnvironmentId }?.let { "${it.name} (${it.type})" } ?: defaultLabel
+    val environmentLabel = environments.firstOrNull { it.id == (currentEnvironmentId ?: effectiveEnvironmentId) }
+        ?.let { "${it.name} (${it.type})" } ?: defaultLabel
     val systemPromptLabel = when (currentSystemPromptId) {
         null -> defaultLabel; "" -> noneLabel
         else -> systemPrompts.firstOrNull { it.id == currentSystemPromptId }?.name ?: defaultLabel

@@ -4,6 +4,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,6 +23,7 @@ import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.ssh.SshCredentialStore
 import dev.ujhhgtg.wekit.agent.ssh.SshCredentials
+import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -43,6 +45,8 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var showDelete by remember { mutableStateOf(false) }
     var showHostKey by remember { mutableStateOf(false) }
+    var observedHostKey by remember { mutableStateOf<dev.ujhhgtg.wekit.agent.ssh.SshHostKey?>(null) }
+    var busy by remember { mutableStateOf(false) }
 
     LaunchedEffect(environmentId) {
         existing = environmentId?.let { WeAgentRepository.getLinuxEnvironment(it) }
@@ -83,7 +87,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                         title = stringResource(R.string.agent_linux_environment_working_directory), value = workingDirectory,
                         onValueChange = { value ->
                             workingDirectory = value
-                            existing?.let { valueEntity -> scope.launch { WeAgentRepository.upsertLinuxEnvironment(valueEntity.copy(workingDirectory = value)) } }
+                            existing?.let { valueEntity -> scope.launch { WeAgentService.linuxEnvironmentManager.upsert(valueEntity.copy(workingDirectory = value)) } }
                         },
                         dialogTitle = stringResource(R.string.agent_linux_environment_working_directory),
                         confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel),
@@ -102,36 +106,67 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                 item {
                     BaseWidget(
                         title = stringResource(R.string.agent_linux_environment_save),
+                        enabled = !busy,
                         onClick = {
+                            busy = true
                             scope.launch {
                                 runCatching { saveOrCreate(environmentId, existing, name, type, workingDirectory, host, port, username, password) }
-                                    .onSuccess { onBack() }.onFailure { error = it.message }
+                                    .onSuccess { created ->
+                                        busy = false
+                                        if (created) onBack()
+                                    }.onFailure {
+                                        busy = false
+                                        if (it is SshHostKeyException) {
+                                            observedHostKey = it.observed; showHostKey = true
+                                        } else error = it.message
+                                    }
                             }
                         },
+                        trailingContent = { if (busy) CircularProgressIndicator() },
                     )
                 }
                 if (existing != null) {
-                    item { BaseWidget(icon = MaterialSymbols.Outlined.Play_arrow, title = stringResource(R.string.agent_linux_environment_test), onClick = { scope.launch { error = WeAgentService.linuxEnvironmentManager.checkHealth(existing!!.id).detail ?: "OK" } }) }
-                    item { BaseWidget(icon = MaterialSymbols.Outlined.Delete, title = stringResource(R.string.action_delete), onClick = { showDelete = true }) }
+                    item { BaseWidget(icon = MaterialSymbols.Outlined.Play_arrow, title = stringResource(R.string.agent_linux_environment_test), enabled = !busy, onClick = { busy = true; scope.launch { runCatching { WeAgentService.linuxEnvironmentManager.checkHealth(existing!!.id) }.onSuccess { error = it.detail ?: "OK" }.onFailure { if (it is SshHostKeyException) { observedHostKey = it.observed; showHostKey = true } else error = it.message }; busy = false } }) }
+                    item { BaseWidget(icon = MaterialSymbols.Outlined.Delete, title = stringResource(R.string.action_delete), enabled = !busy, onClick = { showDelete = true }) }
                 }
             }
         }
     }
     error?.let { message -> AlertDialog(onDismissRequest = { error = null }, title = { Text(stringResource(R.string.agent_linux_environment_error)) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { error = null }) { Text(stringResource(android.R.string.ok)) } }) }
-    if (showDelete) AgentConfirmDialog(true, stringResource(R.string.action_delete), stringResource(R.string.agent_linux_environment_delete_confirm), stringResource(R.string.action_delete), stringResource(android.R.string.cancel), destructive = true, onConfirm = { scope.launch { WeAgentService.linuxEnvironmentManager.delete(existing!!.id); showDelete = false; onBack() } }, onDismiss = { showDelete = false })
+    if (showDelete) AgentConfirmDialog(true, stringResource(R.string.action_delete), stringResource(R.string.agent_linux_environment_delete_confirm), stringResource(R.string.action_delete), stringResource(android.R.string.cancel), destructive = true, onConfirm = { busy = true; scope.launch { runCatching { WeAgentService.linuxEnvironmentManager.delete(existing!!.id) }.onSuccess { showDelete = false; onBack() }.onFailure { error = it.message }; busy = false } }, onDismiss = { showDelete = false })
+    if (showHostKey && observedHostKey != null) AgentConfirmDialog(true, stringResource(R.string.agent_linux_environment_host_key_title), stringResource(R.string.agent_linux_environment_host_key_message, observedHostKey!!.algorithm, observedHostKey!!.fingerprint), stringResource(R.string.agent_linux_environment_host_key_confirm), stringResource(android.R.string.cancel), onConfirm = { scope.launch { runCatching { WeAgentService.linuxEnvironmentManager.confirmSshHostKey(requireNotNull(existing).id, requireNotNull(observedHostKey)) }.onSuccess { showHostKey = false; error = "Host key trusted. Test again." }.onFailure { error = it.message } } }, onDismiss = { showHostKey = false })
 }
 
-private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?, name: String, type: LinuxEnvironmentType, workingDirectory: String, host: String, port: String, username: String, password: String) {
+private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?, name: String, type: LinuxEnvironmentType, workingDirectory: String, host: String, port: String, username: String, password: String): Boolean {
     require(name.isNotBlank()) { "name is required" }
     if (existing != null) {
-        WeAgentRepository.upsertLinuxEnvironment(existing.copy(name = name, workingDirectory = workingDirectory))
-        return
+        val credentials = if (password.isNotEmpty()) SshCredentialStore.encrypt(SshCredentials.Password(password)) else null
+        WeAgentService.linuxEnvironmentManager.upsert(existing.copy(
+            name = name, workingDirectory = workingDirectory,
+            sshHost = if (type == LinuxEnvironmentType.SSH) host else existing.sshHost,
+            sshPort = if (type == LinuxEnvironmentType.SSH) port.toInt() else existing.sshPort,
+            sshUsername = if (type == LinuxEnvironmentType.SSH) username else existing.sshUsername,
+            sshCredentialCiphertext = credentials?.ciphertext ?: existing.sshCredentialCiphertext,
+            sshCredentialIv = credentials?.iv ?: existing.sshCredentialIv,
+            sshHostKeyAlgorithm = if (credentials != null && (host != existing.sshHost || username != existing.sshUsername || port.toInt() != existing.sshPort)) null else existing.sshHostKeyAlgorithm,
+            sshHostKeyFingerprint = if (credentials != null && (host != existing.sshHost || username != existing.sshUsername || port.toInt() != existing.sshPort)) null else existing.sshHostKeyFingerprint,
+        ))
+        return true
     }
     if (type == LinuxEnvironmentType.PROOT) {
-        WeAgentService.linuxEnvironmentManager.createProotEnvironment(name)
-        return
+        return when (WeAgentService.linuxEnvironmentManager.createProotEnvironment(name)) {
+            is dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult.Created -> true
+            is dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult.MissingPack -> error("Arch Linux extension pack is not installed")
+        }
+    }
+    if (type == LinuxEnvironmentType.CHROOT) {
+        return when (WeAgentService.linuxEnvironmentManager.createChrootEnvironment(name)) {
+            is dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult.Created -> true
+            is dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult.MissingPack -> error("Arch Linux extension pack is not installed")
+        }
     }
     require(type == LinuxEnvironmentType.SSH) { "unsupported environment type" }
     val credentials = SshCredentialStore.encrypt(SshCredentials.Password(password))
-    WeAgentRepository.upsertLinuxEnvironment(LinuxEnvironmentEntity(UUID.randomUUID().toString(), name, type, workingDirectory, sshHost = host, sshPort = port.toInt(), sshUsername = username, sshAuthenticationType = "PASSWORD", sshCredentialCiphertext = credentials.ciphertext, sshCredentialIv = credentials.iv))
+    WeAgentService.linuxEnvironmentManager.upsert(LinuxEnvironmentEntity(UUID.randomUUID().toString(), name, type, workingDirectory, sshHost = host, sshPort = port.toInt(), sshUsername = username, sshAuthenticationType = "PASSWORD", sshCredentialCiphertext = credentials.ciphertext, sshCredentialIv = credentials.iv))
+    return true
 }

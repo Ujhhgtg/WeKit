@@ -206,7 +206,7 @@ object WeAgentRepository : ToolPermissionSource {
         db.messageDao().getForSession(sessionId)
 
     /** Records a model-visible environment transition exactly once for a session. */
-    suspend fun announceEffectiveLinuxEnvironment(sessionId: String, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot): Boolean =
+    suspend fun announceEffectiveLinuxEnvironment(sessionId: String, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot, previousEnvironment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot? = null): Boolean =
         db.withTransaction {
             val session = db.sessionDao().getById(sessionId) ?: return@withTransaction false
             if (session.lastEffectiveLinuxEnvironmentId == environment.id) return@withTransaction false
@@ -216,18 +216,18 @@ object WeAgentRepository : ToolPermissionSource {
                     id = UUID.randomUUID().toString(),
                     sessionId = sessionId,
                     role = MessageRole.SYSTEM,
-                    content = environmentReminder(environment),
+                    content = environmentReminder(previousEnvironment, environment),
                     createdAt = nextStamp(),
                 )
             )
             true
         }
 
-    private fun environmentReminder(environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot): String =
+    private fun environmentReminder(previous: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot?, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot): String =
         "[系统提醒] 当前 Linux 环境已切换为「${environment.displayName}」(${environment.type.name})。" +
             "工作目录：${environment.workingDirectory}；Shell：${environment.shell}；" +
-            "权限边界：${environment.privilegesAndCapabilities}；" +
-            "invoke_tool：${environment.bridgeLocation ?: "不可用"}。"
+            "架构：${environment.architecture}；权限边界：${environment.privilegesAndCapabilities}；" +
+            "invoke_tool：${environment.bridgeLocation ?: "不可用"}；旧环境：${previous?.let { "${it.displayName} (${it.type.name})，工作目录：${it.workingDirectory}；Shell：${it.shell}；架构：${it.architecture}；权限边界：${it.privilegesAndCapabilities}；invoke_tool：${it.bridgeLocation ?: "不可用"}" } ?: "未设置"}。"
 
     /** One tool-call row by its call id (used to restore tool name / status on UI reload). */
     suspend fun getToolCall(callId: String): ToolCallEntity? =

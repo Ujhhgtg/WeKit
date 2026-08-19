@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.ssh.EncryptedSshCredentials
 import dev.ujhhgtg.wekit.agent.ssh.SshCredentialStore
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKey
+import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import dev.ujhhgtg.wekit.extensions.ArchLinuxPack
 import dev.ujhhgtg.wekit.extensions.ExtensionPack
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -68,7 +69,7 @@ class LinuxEnvironmentManager(
         WeAgentRepository.getEffectiveLinuxEnvironmentId(sessionId)
 
     suspend fun upsert(environment: LinuxEnvironmentEntity) {
-        WeAgentRepository.upsertLinuxEnvironment(environment)
+        persistEnvironment(environment)
         stateMutex.withLock {
             staleBackends.add(environment.id)
             if ((leaseCounts[environment.id] ?: 0) == 0) {
@@ -133,6 +134,7 @@ class LinuxEnvironmentManager(
             bridgePath = instance.bridgePath,
         )
         try {
+            check(helper.hasRoot()) { "root access denied" }
             helper.prepareInstance()
             persistEnvironment(entity)
         } catch (error: Throwable) {
@@ -158,6 +160,12 @@ class LinuxEnvironmentManager(
                 check(recovery.isHealthy) { recovery.healthError!! }
                 ChrootMountRegistry.beginDeletion(chrootRootfs)
                 registryLocked = true
+            }
+            if (environment != null && environment.type != LinuxEnvironmentType.SSH) {
+                val rootfs = Path.of(requireNotNull(environment.rootfsPath))
+                val instance = rootfs.parent
+                check(instance.fileName.toString() == id) { "invalid local environment layout" }
+                check(!instance.toFile().exists() || instance.toFile().deleteRecursively()) { "cannot remove local environment files" }
             }
             val deleted = deleteEnvironment(id)
             if (deleted) {
@@ -196,7 +204,10 @@ class LinuxEnvironmentManager(
         }
         publishHealth(environmentId, EnvironmentHealth(EnvironmentHealthState.CHECKING))
         return runCatching { withLease(environmentId) { it.checkHealth() } }
-            .getOrElse { EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, it.message) }
+            .getOrElse {
+                if (it is SshHostKeyException) throw it
+                EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, it.message)
+            }
             .also { result -> publishHealth(environmentId, result) }
     }
 

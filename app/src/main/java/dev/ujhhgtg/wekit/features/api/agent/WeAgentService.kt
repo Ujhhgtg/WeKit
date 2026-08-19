@@ -21,6 +21,7 @@ import dev.ujhhgtg.wekit.agent.engine.TurnConfig
 import dev.ujhhgtg.wekit.agent.engine.ToolCallExecutor
 import dev.ujhhgtg.wekit.agent.bridge.ToolBridgeServer
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
+import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult
 import dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult
 import dev.ujhhgtg.wekit.agent.terminal.EnvironmentTerminalBackend
@@ -156,6 +157,8 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
 
     /** Current session's explicit Linux environment binding; null follows the global default. */
     val currentLinuxEnvironmentId = mutableStateOf<String?>(null)
+    /** Resolved environment shown alongside the explicit binding in the quick-action panel. */
+    val effectiveLinuxEnvironmentId = mutableStateOf(NATIVE_ENVIRONMENT_ID)
 
 
     /** Token usage of the latest model request this session, for the usage strip (null = none yet). */
@@ -404,8 +407,13 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             currentContextWindow.value = session?.contextWindow
             syncForeground(id)
         }
+        val previous = session?.lastEffectiveLinuxEnvironmentId?.let { previousId ->
+            if (previousId == NATIVE_ENVIRONMENT_ID) linuxEnvironmentManager.nativeSnapshot
+            else runCatching { linuxEnvironmentManager.snapshot(previousId) }.getOrNull()
+        }
         val environment = linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(id))
-        WeAgentRepository.announceEffectiveLinuxEnvironment(id, environment)
+        withContext(Dispatchers.Main) { effectiveLinuxEnvironmentId.value = environment.id }
+        WeAgentRepository.announceEffectiveLinuxEnvironment(id, environment, previous)
         reloadMessages(id)
     }
 

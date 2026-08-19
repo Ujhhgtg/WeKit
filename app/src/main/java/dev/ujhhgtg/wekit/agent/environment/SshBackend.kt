@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
 import dev.ujhhgtg.wekit.agent.bridge.ToolBridgeServer
+import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
@@ -122,6 +123,8 @@ class SshBackend(
             EnvironmentHealthState.DEGRADED,
             result.stderr.toString(StandardCharsets.UTF_8).ifBlank { "remote Bash, dd, wc, or working directory is unavailable" },
         )
+    } catch (error: SshHostKeyException) {
+        throw error
     } catch (error: Throwable) {
         EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, error.message)
     }

@@ -166,6 +166,9 @@
     <string name="agent_linux_environment_test">Test connection</string>
     <string name="agent_linux_environment_error">Environment error</string>
     <string name="agent_linux_environment_delete_confirm">Delete this environment and its local files?</string>
+    <string name="agent_linux_environment_host_key_title">Confirm SSH host key</string>
+    <string name="agent_linux_environment_host_key_message">The server presented %1$s fingerprint %2$s. Trust it and retry?</string>
+    <string name="agent_linux_environment_host_key_confirm">Trust and retry</string>
     <string name="agent_overlay_mode_title">Floating overlay mode</string>
     <string name="agent_overlay_mode_disabled">Disabled</string>
     <string name="agent_overlay_mode_foreground_only">Only while WeChat is in the foreground</string>
