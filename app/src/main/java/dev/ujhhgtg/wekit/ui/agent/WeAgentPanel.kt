@@ -50,6 +50,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -88,6 +89,7 @@ import com.composables.icons.materialsymbols.outlined.Stop
 import com.composables.icons.materialsymbols.outlinedfilled.Star
 import dev.ujhhgtg.wekit.activity.agent.WeAgentSettingsActivity
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ChatRow
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -528,7 +530,11 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
     val currentModelId by WeAgentService.currentModelId
     val currentSystemPromptId by WeAgentService.currentSystemPromptId
     val currentEnvironmentId by WeAgentService.currentLinuxEnvironmentId
-    val effectiveEnvironmentId by WeAgentService.effectiveLinuxEnvironmentId
+    val currentSessionId by WeAgentService.currentSessionId
+    val effectiveEnvironmentId by remember(currentSessionId) {
+        currentSessionId?.let(WeAgentService.linuxEnvironmentManager::observeEffectiveEnvironmentId)
+            ?: kotlinx.coroutines.flow.flowOf(NATIVE_ENVIRONMENT_ID)
+    }.collectAsState(initial = WeAgentService.effectiveLinuxEnvironmentId.value)
     val environmentLocked = WeAgentService.ballState.value == WeAgentService.BallState.RUNNING ||
         WeAgentService.ballState.value == WeAgentService.BallState.PENDING_APPROVAL
 

@@ -150,6 +150,7 @@ fun AgentConfirmDialog(
     confirmLabel: String,
     dismissLabel: String,
     destructive: Boolean = false,
+    loading: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -159,19 +160,23 @@ fun AgentConfirmDialog(
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    text = confirmLabel,
-                    color = if (destructive) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        LocalContentColor.current
-                    },
-                )
+            TextButton(onClick = onConfirm, enabled = !loading) {
+                if (loading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(
+                        text = confirmLabel,
+                        color = if (destructive) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            LocalContentColor.current
+                        },
+                    )
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(dismissLabel) }
+            TextButton(onClick = onDismiss, enabled = !loading) { Text(dismissLabel) }
         },
     )
 }

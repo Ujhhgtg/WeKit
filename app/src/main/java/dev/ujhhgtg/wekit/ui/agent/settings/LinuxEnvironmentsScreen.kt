@@ -22,7 +22,6 @@ import androidx.compose.ui.res.stringResource
 
 @Composable
 fun LinuxEnvironmentsScreen(onBack: () -> Unit, onOpen: (String?) -> Unit) {
-    val scope = rememberCoroutineScope()
     val environments by WeAgentService.linuxEnvironmentManager.observeEnvironments().collectAsState(initial = emptyList())
     var defaultId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(NATIVE_ENVIRONMENT_ID) }
     androidx.compose.runtime.LaunchedEffect(Unit) { defaultId = dev.ujhhgtg.wekit.agent.data.WeAgentSettings.defaultLinuxEnvironmentId() ?: NATIVE_ENVIRONMENT_ID }
@@ -39,7 +38,7 @@ fun LinuxEnvironmentsScreen(onBack: () -> Unit, onOpen: (String?) -> Unit) {
                             onClick = { onOpen(environment.id) },
                             onSelect = {
                                 defaultId = environment.id
-                                scope.launch { WeAgentRepository.setDefaultLinuxEnvironmentId(environment.id) }
+                                 WeAgentService.setDefaultLinuxEnvironment(environment.id)
                             },
                         )
                     }

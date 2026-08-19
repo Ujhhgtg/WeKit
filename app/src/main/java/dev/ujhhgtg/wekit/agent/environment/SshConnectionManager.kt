@@ -14,6 +14,7 @@ import com.jcraft.jsch.SftpException
 import com.jcraft.jsch.UserInfo
 import dev.ujhhgtg.wekit.agent.ssh.SshAuthenticationException
 import dev.ujhhgtg.wekit.agent.ssh.SshCredentials
+import dev.ujhhgtg.wekit.agent.ssh.SshEndpoint
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKey
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyDecision
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
@@ -321,7 +322,10 @@ class SshConnectionManager(
         session?.disconnect()
 
         val verifier = SshHostKeyVerifier(configuration.confirmedHostKey)
-        val repository = StrictHostKeyRepository(verifier)
+        val repository = StrictHostKeyRepository(
+            verifier,
+            SshEndpoint(configuration.host, configuration.port, configuration.username),
+        )
         val jsch = JSch().apply {
             setHostKeyRepository(repository)
             if (credentials is SshCredentials.PrivateKey) {
@@ -428,7 +432,10 @@ class SshConnectionManager(
 
     private fun SftpATTRS.toMetadata() = SshRemoteMetadata(size, mTime, permissions)
 
-    private class StrictHostKeyRepository(private val verifier: SshHostKeyVerifier) : HostKeyRepository {
+    private class StrictHostKeyRepository(
+        private val verifier: SshHostKeyVerifier,
+        private val endpoint: SshEndpoint,
+    ) : HostKeyRepository {
         @Volatile private var rejected: SshHostKeyException? = null
 
         override fun check(host: String, key: ByteArray): Int {
@@ -436,11 +443,11 @@ class SshConnectionManager(
             return when (verifier.verify(observed)) {
                 SshHostKeyDecision.MATCH -> HostKeyRepository.OK
                 SshHostKeyDecision.CONFIRMATION_REQUIRED -> {
-                    rejected = SshHostKeyException.ConfirmationRequired(observed)
+                    rejected = SshHostKeyException.ConfirmationRequired(endpoint, observed)
                     HostKeyRepository.NOT_INCLUDED
                 }
                 SshHostKeyDecision.CHANGED -> {
-                    rejected = SshHostKeyException.Changed(observed)
+                    rejected = SshHostKeyException.Changed(endpoint, observed)
                     HostKeyRepository.CHANGED
                 }
             }

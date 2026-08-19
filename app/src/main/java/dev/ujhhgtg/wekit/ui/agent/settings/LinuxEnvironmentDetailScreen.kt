@@ -1,10 +1,12 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -13,6 +15,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Play_arrow
@@ -44,9 +48,18 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
     var workingDirectory by remember { mutableStateOf("/root") }
     var error by remember { mutableStateOf<String?>(null) }
     var showDelete by remember { mutableStateOf(false) }
-    var showHostKey by remember { mutableStateOf(false) }
-    var observedHostKey by remember { mutableStateOf<dev.ujhhgtg.wekit.agent.ssh.SshHostKey?>(null) }
-    var busy by remember { mutableStateOf(false) }
+    var pendingHostKey by remember { mutableStateOf<SshHostKeyException?>(null) }
+    var operation by remember { mutableStateOf<EnvironmentOperation?>(null) }
+    var status by remember { mutableStateOf<String?>(null) }
+    val busy = operation != null
+    val healthyStatus = stringResource(R.string.agent_linux_environment_healthy)
+    val operationMessage = when (operation) {
+        EnvironmentOperation.SAVE -> stringResource(R.string.agent_linux_environment_saving)
+        EnvironmentOperation.TEST -> stringResource(R.string.agent_linux_environment_testing)
+        EnvironmentOperation.DELETE -> stringResource(R.string.agent_linux_environment_deleting)
+        EnvironmentOperation.TRUST -> stringResource(R.string.agent_linux_environment_trusting)
+        null -> null
+    }
 
     LaunchedEffect(environmentId) {
         existing = environmentId?.let { WeAgentRepository.getLinuxEnvironment(it) }
@@ -65,6 +78,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                 item {
                     TextFieldDialogWidget(
                         title = stringResource(R.string.agent_linux_environment_name), value = name,
+                        enabled = !busy,
                         onValueChange = { name = it }, dialogTitle = stringResource(R.string.agent_linux_environment_name),
                         confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel),
                     )
@@ -75,6 +89,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                             BaseWidget(
                                 title = candidate.name,
                                 description = if (candidate == type) stringResource(R.string.agent_linux_environment_selected) else null,
+                                enabled = !busy,
                                 onClick = { type = candidate },
                             )
                         }
@@ -85,6 +100,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                 item {
                     TextFieldDialogWidget(
                         title = stringResource(R.string.agent_linux_environment_working_directory), value = workingDirectory,
+                        enabled = !busy,
                         onValueChange = { value ->
                             workingDirectory = value
                             existing?.let { valueEntity -> scope.launch { WeAgentService.linuxEnvironmentManager.upsert(valueEntity.copy(workingDirectory = value)) } }
@@ -94,10 +110,10 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                     )
                 }
                 if (type == LinuxEnvironmentType.SSH) {
-                    item { TextFieldDialogWidget(title = stringResource(R.string.agent_linux_environment_host), value = host, onValueChange = { host = it }, dialogTitle = stringResource(R.string.agent_linux_environment_host), confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel)) }
-                    item { TextFieldDialogWidget(title = stringResource(R.string.agent_linux_environment_port), value = port, onValueChange = { port = it.filter(Char::isDigit) }, dialogTitle = stringResource(R.string.agent_linux_environment_port), confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel)) }
-                    item { TextFieldDialogWidget(title = stringResource(R.string.agent_linux_environment_username), value = username, onValueChange = { username = it }, dialogTitle = stringResource(R.string.agent_linux_environment_username), confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel)) }
-                    item { TextFieldDialogWidget(title = stringResource(R.string.agent_linux_environment_password), value = password, password = true, onValueChange = { password = it }, dialogTitle = stringResource(R.string.agent_linux_environment_password), confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel)) }
+                    item { TextFieldDialogWidget(title = stringResource(R.string.agent_linux_environment_host), value = host, enabled = !busy, onValueChange = { host = it }, dialogTitle = stringResource(R.string.agent_linux_environment_host), confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel)) }
+                    item { TextFieldDialogWidget(title = stringResource(R.string.agent_linux_environment_port), value = port, enabled = !busy, onValueChange = { port = it.filter(Char::isDigit) }, dialogTitle = stringResource(R.string.agent_linux_environment_port), confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel)) }
+                    item { TextFieldDialogWidget(title = stringResource(R.string.agent_linux_environment_username), value = username, enabled = !busy, onValueChange = { username = it }, dialogTitle = stringResource(R.string.agent_linux_environment_username), confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel)) }
+                    item { TextFieldDialogWidget(title = stringResource(R.string.agent_linux_environment_password), value = password, enabled = !busy, password = true, onValueChange = { password = it }, dialogTitle = stringResource(R.string.agent_linux_environment_password), confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel)) }
                 }
             }
         }
@@ -108,34 +124,121 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                         title = stringResource(R.string.agent_linux_environment_save),
                         enabled = !busy,
                         onClick = {
-                            busy = true
+                            if (busy) return@BaseWidget
+                            operation = EnvironmentOperation.SAVE
+                            status = null
                             scope.launch {
                                 runCatching { saveOrCreate(environmentId, existing, name, type, workingDirectory, host, port, username, password) }
                                     .onSuccess { created ->
-                                        busy = false
                                         if (created) onBack()
                                     }.onFailure {
-                                        busy = false
                                         if (it is SshHostKeyException) {
-                                            observedHostKey = it.observed; showHostKey = true
+                                            pendingHostKey = it
                                         } else error = it.message
                                     }
+                                operation = null
                             }
                         },
-                        trailingContent = { if (busy) CircularProgressIndicator() },
+                        trailingContent = {
+                            if (operation == EnvironmentOperation.SAVE) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            }
+                        },
                     )
                 }
                 if (existing != null) {
-                    item { BaseWidget(icon = MaterialSymbols.Outlined.Play_arrow, title = stringResource(R.string.agent_linux_environment_test), enabled = !busy, onClick = { busy = true; scope.launch { runCatching { WeAgentService.linuxEnvironmentManager.checkHealth(existing!!.id) }.onSuccess { error = it.detail ?: "OK" }.onFailure { if (it is SshHostKeyException) { observedHostKey = it.observed; showHostKey = true } else error = it.message }; busy = false } }) }
+                    item {
+                        BaseWidget(
+                            icon = MaterialSymbols.Outlined.Play_arrow,
+                            title = stringResource(R.string.agent_linux_environment_test),
+                            enabled = !busy,
+                            onClick = {
+                                if (busy) return@BaseWidget
+                                operation = EnvironmentOperation.TEST
+                                status = null
+                                scope.launch {
+                                    runCatching { WeAgentService.linuxEnvironmentManager.checkHealth(existing!!.id) }
+                                        .onSuccess { status = it.detail ?: healthyStatus }
+                                        .onFailure {
+                                            if (it is SshHostKeyException) pendingHostKey = it else error = it.message
+                                        }
+                                    operation = null
+                                }
+                            },
+                            trailingContent = {
+                                if (operation == EnvironmentOperation.TEST) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                }
+                            },
+                        )
+                    }
                     item { BaseWidget(icon = MaterialSymbols.Outlined.Delete, title = stringResource(R.string.action_delete), enabled = !busy, onClick = { showDelete = true }) }
+                }
+                (operationMessage ?: status)?.let { message ->
+                    item { Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }
     }
     error?.let { message -> AlertDialog(onDismissRequest = { error = null }, title = { Text(stringResource(R.string.agent_linux_environment_error)) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { error = null }) { Text(stringResource(android.R.string.ok)) } }) }
-    if (showDelete) AgentConfirmDialog(true, stringResource(R.string.action_delete), stringResource(R.string.agent_linux_environment_delete_confirm), stringResource(R.string.action_delete), stringResource(android.R.string.cancel), destructive = true, onConfirm = { busy = true; scope.launch { runCatching { WeAgentService.linuxEnvironmentManager.delete(existing!!.id) }.onSuccess { showDelete = false; onBack() }.onFailure { error = it.message }; busy = false } }, onDismiss = { showDelete = false })
-    if (showHostKey && observedHostKey != null) AgentConfirmDialog(true, stringResource(R.string.agent_linux_environment_host_key_title), stringResource(R.string.agent_linux_environment_host_key_message, observedHostKey!!.algorithm, observedHostKey!!.fingerprint), stringResource(R.string.agent_linux_environment_host_key_confirm), stringResource(android.R.string.cancel), onConfirm = { scope.launch { runCatching { WeAgentService.linuxEnvironmentManager.confirmSshHostKey(requireNotNull(existing).id, requireNotNull(observedHostKey)) }.onSuccess { showHostKey = false; error = "Host key trusted. Test again." }.onFailure { error = it.message } } }, onDismiss = { showHostKey = false })
+    if (showDelete) AgentConfirmDialog(
+        true,
+        stringResource(R.string.action_delete),
+        stringResource(R.string.agent_linux_environment_delete_confirm),
+        stringResource(R.string.action_delete),
+        stringResource(android.R.string.cancel),
+        destructive = true,
+        loading = operation == EnvironmentOperation.DELETE,
+        onConfirm = {
+            if (busy) return@AgentConfirmDialog
+            operation = EnvironmentOperation.DELETE
+            status = null
+            scope.launch {
+                runCatching { WeAgentService.linuxEnvironmentManager.delete(existing!!.id) }
+                    .onSuccess { showDelete = false; onBack() }
+                    .onFailure { error = it.message }
+                operation = null
+            }
+        },
+        onDismiss = { if (!busy) showDelete = false },
+    )
+    pendingHostKey?.let { hostKeyError ->
+        AgentConfirmDialog(
+            true,
+            stringResource(R.string.agent_linux_environment_host_key_title),
+            stringResource(
+                R.string.agent_linux_environment_host_key_message,
+                hostKeyError.observed.algorithm,
+                hostKeyError.observed.fingerprint,
+            ),
+            stringResource(R.string.agent_linux_environment_host_key_confirm),
+            stringResource(android.R.string.cancel),
+            loading = operation == EnvironmentOperation.TRUST,
+            onConfirm = {
+                if (busy) return@AgentConfirmDialog
+                operation = EnvironmentOperation.TRUST
+                status = null
+                scope.launch {
+                    runCatching {
+                        WeAgentService.linuxEnvironmentManager.confirmSshHostKey(
+                            requireNotNull(existing).id,
+                            hostKeyError.endpoint,
+                            hostKeyError.observed,
+                        )
+                        WeAgentService.linuxEnvironmentManager.checkHealth(requireNotNull(existing).id)
+                    }.onSuccess { result ->
+                        pendingHostKey = null
+                        status = result.detail ?: healthyStatus
+                    }.onFailure { error = it.message }
+                    operation = null
+                }
+            },
+            onDismiss = { if (!busy) pendingHostKey = null },
+        )
+    }
 }
+
+private enum class EnvironmentOperation { SAVE, TEST, DELETE, TRUST }
 
 private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?, name: String, type: LinuxEnvironmentType, workingDirectory: String, host: String, port: String, username: String, password: String): Boolean {
     require(name.isNotBlank()) { "name is required" }

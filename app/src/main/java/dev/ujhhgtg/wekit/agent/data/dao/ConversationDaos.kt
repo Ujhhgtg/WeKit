@@ -97,7 +97,7 @@ interface MessageDao {
 
 @Dao
 interface ToolCallDao {
-    @Query("SELECT * FROM tool_calls WHERE messageId = :messageId")
+    @Query("SELECT * FROM tool_calls WHERE messageId = :messageId ORDER BY rowid ASC")
     suspend fun getForMessage(messageId: String): List<ToolCallEntity>
 
     @Query("SELECT * FROM tool_calls WHERE id = :id")

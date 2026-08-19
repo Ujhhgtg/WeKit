@@ -509,11 +509,25 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     fun setSessionLinuxEnvironment(environmentId: String?) = scope.launch {
         val id = currentSessionId.value ?: return@launch
         if (isRunning(id)) return@launch
+        val oldId = linuxEnvironmentManager.effectiveEnvironmentId(id)
+        val oldEnvironment = linuxEnvironmentManager.snapshot(oldId)
         WeAgentRepository.updateSessionLinuxEnvironment(id, environmentId)
         withContext(Dispatchers.Main) { currentLinuxEnvironmentId.value = environmentId }
         val effective = linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(id))
-        WeAgentRepository.announceEffectiveLinuxEnvironment(id, effective)
+        WeAgentRepository.announceEffectiveLinuxEnvironment(id, effective, oldEnvironment)
         if (id == currentSessionId.value) reloadMessages(id)
+    }
+
+    fun setDefaultLinuxEnvironment(environmentId: String) = scope.launch {
+        val currentId = currentSessionId.value
+        val oldEnvironment = currentId?.let { linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(it)) }
+        WeAgentRepository.setDefaultLinuxEnvironmentId(environmentId)
+        if (currentId != null) {
+            val effective = linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(currentId))
+            effectiveLinuxEnvironmentId.value = effective.id
+            WeAgentRepository.announceEffectiveLinuxEnvironment(currentId, effective, oldEnvironment)
+            reloadMessages(currentId)
+        }
     }
 
     // --- live-selection cleanup after settings deletions (called by WeAgentRepository post-commit) ---
@@ -695,7 +709,11 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         // Resolve and persist the effective environment before history is loaded so the reminder is
         // replayed at its chronological position and the whole turn uses one immutable snapshot.
         val effectiveEnvironment = linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(sessionId))
-        WeAgentRepository.announceEffectiveLinuxEnvironment(sessionId, effectiveEnvironment)
+        val previousEnvironment = session.lastEffectiveLinuxEnvironmentId?.let { previousId ->
+            if (previousId == NATIVE_ENVIRONMENT_ID) linuxEnvironmentManager.nativeSnapshot
+            else runCatching { linuxEnvironmentManager.snapshot(previousId) }.getOrNull()
+        }
+        WeAgentRepository.announceEffectiveLinuxEnvironment(sessionId, effectiveEnvironment, previousEnvironment)
         // Remove any trailing incomplete assistant turns (thinking-only rows or tool calls whose
         // results never arrived) so the history we send to the API is always well-formed.
         val sanitized = WeAgentRepository.sanitizeSessionHistory(sessionId)

@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.ssh.EncryptedSshCredentials
 import dev.ujhhgtg.wekit.agent.ssh.SshCredentialStore
+import dev.ujhhgtg.wekit.agent.ssh.SshEndpoint
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKey
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import dev.ujhhgtg.wekit.extensions.ArchLinuxPack
@@ -69,7 +70,17 @@ class LinuxEnvironmentManager(
         WeAgentRepository.getEffectiveLinuxEnvironmentId(sessionId)
 
     suspend fun upsert(environment: LinuxEnvironmentEntity) {
-        persistEnvironment(environment)
+        val existing = getEnvironment(environment.id)
+        val identityChanged = existing?.type == LinuxEnvironmentType.SSH &&
+            environment.type == LinuxEnvironmentType.SSH &&
+            (existing.sshHost != environment.sshHost ||
+                existing.sshPort != environment.sshPort ||
+                existing.sshUsername != environment.sshUsername ||
+                existing.sshAuthenticationType != environment.sshAuthenticationType)
+        persistEnvironment(if (identityChanged) environment.copy(
+            sshHostKeyAlgorithm = null,
+            sshHostKeyFingerprint = null,
+        ) else environment)
         stateMutex.withLock {
             staleBackends.add(environment.id)
             if ((leaseCounts[environment.id] ?: 0) == 0) {
@@ -218,13 +229,20 @@ class LinuxEnvironmentManager(
     }
 
     /** Persists a host key only after the caller has explicitly approved [observed]. */
-    suspend fun confirmSshHostKey(environmentId: String, observed: SshHostKey) {
+    suspend fun confirmSshHostKey(environmentId: String, endpoint: SshEndpoint, observed: SshHostKey) {
         val environment = requireNotNull(getEnvironment(environmentId)) { "environment does not exist" }
         require(environment.type == LinuxEnvironmentType.SSH) { "environment is not SSH" }
+        check(
+            endpoint == SshEndpoint(
+                requireNotNull(environment.sshHost),
+                requireNotNull(environment.sshPort),
+                requireNotNull(environment.sshUsername),
+            )
+        ) { "SSH endpoint changed; test the connection again before trusting its host key" }
         SshConfiguration(
-            requireNotNull(environment.sshHost),
-            requireNotNull(environment.sshPort),
-            requireNotNull(environment.sshUsername),
+            endpoint.host,
+            endpoint.port,
+            endpoint.username,
             observed,
         )
         persistEnvironment(environment.copy(
