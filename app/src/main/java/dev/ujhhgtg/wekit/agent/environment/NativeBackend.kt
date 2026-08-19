@@ -8,6 +8,8 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
+import java.nio.file.attribute.PosixFilePermission
+import java.nio.file.attribute.PosixFilePermissions
 import java.io.ByteArrayOutputStream
 import android.os.Process as AndroidProcess
 import kotlin.coroutines.coroutineContext
@@ -19,10 +21,12 @@ class NativeBackend(
     override val snapshot: EnvironmentSnapshot,
     private val environmentVariables: Map<String, String> = emptyMap(),
     private val maxOutputBytes: Int = DEFAULT_MAX_OUTPUT_BYTES,
+    private val defaultFilePermissions: Set<PosixFilePermission> = DEFAULT_NEW_FILE_PERMISSIONS,
 ) : LinuxEnvironmentBackend {
     init {
         require(snapshot.type == LinuxEnvironmentType.NATIVE)
         require(snapshot.id == NATIVE_ENVIRONMENT_ID)
+        require(maxOutputBytes >= 0) { "max output bytes must not be negative" }
     }
 
     override suspend fun exec(command: String, timeoutMillis: Long): ExecResult = withContext(Dispatchers.IO) {
@@ -34,8 +38,8 @@ class NativeBackend(
         val stderrFile = Files.createTempFile(outputDirectory, "exec-", ".stderr")
         val pidFile = Files.createTempFile(outputDirectory, "exec-", ".pid")
         val startedAt = System.nanoTime()
-        val launcher = "echo \$\$ > ${shellQuote(pidFile.toString())}; exec /system/bin/sh -c ${shellQuote(command)}"
-        val process = ProcessBuilder("/system/bin/sh", "-c", launcher)
+        val launcher = "echo \$\$ > ${shellQuote(pidFile.toString())}; exec ${shellQuote(snapshot.shell)} -c ${shellQuote(command)}"
+        val process = ProcessBuilder(snapshot.shell, "-c", launcher)
             .directory(workingDirectory.toFile())
             .redirectOutput(stdoutFile.toFile())
             .redirectError(stderrFile.toFile())
@@ -142,10 +146,21 @@ class NativeBackend(
         }
         val parent = target.parent ?: error("target has no parent")
         require(Files.isDirectory(parent)) { "parent directory does not exist" }
+        val originalPermissions = if (exists) {
+            try {
+                Files.getPosixFilePermissions(target)
+            } catch (error: Exception) {
+                throw IllegalStateException("cannot read mode for existing file ${request.path}", error)
+            }
+        } else null
         val temporary = Files.createTempFile(parent, ".weagent-edit-", ".tmp")
         try {
             Files.writeString(temporary, updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
-            if (exists) runCatching { Files.setPosixFilePermissions(temporary, Files.getPosixFilePermissions(target)) }
+            try {
+                Files.setPosixFilePermissions(temporary, originalPermissions ?: defaultFilePermissions)
+            } catch (error: Exception) {
+                throw IllegalStateException("cannot set mode for edited file ${request.path}", error)
+            }
             Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         } finally {
             Files.deleteIfExists(temporary)
@@ -233,6 +248,8 @@ class NativeBackend(
         const val DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024
         const val MAX_TIMEOUT_MILLIS = 10 * 60 * 1000L
         const val MAX_EDIT_BYTES = 4 * 1024 * 1024L
+        val DEFAULT_NEW_FILE_PERMISSIONS: Set<PosixFilePermission> =
+            PosixFilePermissions.fromString("rw-------")
         private val FORBIDDEN_EDIT_ROOTS = listOf(Paths.get("/proc"), Paths.get("/sys"), Paths.get("/dev"))
     }
 }

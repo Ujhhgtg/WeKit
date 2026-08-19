@@ -138,7 +138,7 @@ class ToolRegistry(
             ToolLoadingMode.DYNAMIC -> buildList {
                 add(discoverToolsMeta())
                 resolveVisibleTools(visibility).filterTo(this) {
-                    it.exposedName in discoveredThisTurn || it.exposedName == "edit" || it.exposedName == "exec"
+                    it.exposedName in discoveredThisTurn || it.exposedName in DYNAMIC_BASELINE_NAMES
                 }
             }
         }
@@ -173,6 +173,7 @@ class ToolRegistry(
 
     companion object {
         const val DISCOVER_TOOLS_NAME = "discover_tools"
+        private val DYNAMIC_BASELINE_NAMES = setOf("edit", "exec", "load_skill")
 
         private val DISCOVER_TOOLS_SCHEMA: JsonObject = buildJsonObject {
             put("type", "object")
