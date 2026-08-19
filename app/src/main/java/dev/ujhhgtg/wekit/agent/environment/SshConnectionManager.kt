@@ -154,6 +154,35 @@ class SshConnectionManager(
         SshRemoteFile(bytes, attributes.toMetadata())
     }
 
+    suspend fun readFilePrefix(path: String, maxBytes: Int): SshRemoteFile = withSftp { sftp ->
+        require(maxBytes >= 0)
+        val attributes = sftp.lstat(path)
+        require(attributes.isReg) { "not a regular file: $path" }
+        val bytes = sftp.get(path).use { input ->
+            val output = ByteArrayOutputStream(maxBytes)
+            val buffer = ByteArray(minOf(IO_BUFFER_SIZE, maxBytes.coerceAtLeast(1)))
+            var remaining = maxBytes
+            while (remaining > 0) {
+                val count = input.read(buffer, 0, minOf(buffer.size, remaining))
+                if (count < 0) break
+                output.write(buffer, 0, count)
+                remaining -= count
+            }
+            output.toByteArray()
+        }
+        SshRemoteFile(bytes, attributes.toMetadata())
+    }
+
+    suspend fun removeFiles(paths: Collection<String>) = withSftp { sftp ->
+        paths.forEach { path ->
+            try {
+                sftp.rm(path)
+            } catch (error: SftpException) {
+                if (error.id != ChannelSftp.SSH_FX_NO_SUCH_FILE) throw error
+            }
+        }
+    }
+
     suspend fun atomicWrite(
         path: String,
         expected: SshRemoteFile,

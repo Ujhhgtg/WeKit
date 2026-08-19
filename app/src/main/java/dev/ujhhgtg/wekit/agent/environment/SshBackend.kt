@@ -29,26 +29,45 @@ class SshBackend(
                     environmentVariables.getValue("WEAGENT_BRIDGE_TOKEN"),
                 ).environment(forward.remotePort)
             }
-            val response = connection.execute(shellCommand(command, remoteEnvironment), timeoutMillis)
-            val totalBytes = response.stdout.size.toLong() + response.stderr.size
-            val stdoutLimit = minOf(response.stdout.size, NativeBackend.DEFAULT_MAX_OUTPUT_BYTES)
-            val stderrLimit = minOf(
-                response.stderr.size,
-                NativeBackend.DEFAULT_MAX_OUTPUT_BYTES - stdoutLimit,
+            val outputDirectory = "${snapshot.workingDirectory.trimEnd('/')}/.weagent/outputs"
+            val outputId = java.util.UUID.randomUUID().toString()
+            val stdoutPath = "$outputDirectory/.exec-$outputId.stdout"
+            val stderrPath = "$outputDirectory/.exec-$outputId.stderr"
+            val prepare = connection.execute("mkdir -p ${quote(outputDirectory)}", 15_000)
+            check(prepare.exitCode == 0) {
+                prepare.stderr.toString(StandardCharsets.UTF_8).ifBlank { "cannot create remote output directory" }
+            }
+            val response = connection.execute(
+                "${shellCommand(command, remoteEnvironment)} >${quote(stdoutPath)} 2>${quote(stderrPath)}",
+                timeoutMillis,
             )
+            val stdout = connection.readFilePrefix(stdoutPath, NativeBackend.DEFAULT_MAX_OUTPUT_BYTES)
+            val stdoutSize = requireNotNull(stdout.metadata).size
+            val stderr = connection.readFilePrefix(
+                stderrPath,
+                (NativeBackend.DEFAULT_MAX_OUTPUT_BYTES - stdout.bytes.size).coerceAtLeast(0),
+            )
+            val stderrSize = requireNotNull(stderr.metadata).size
+            val totalBytes = stdoutSize + stderrSize
             val spillPath = if (totalBytes > NativeBackend.DEFAULT_MAX_OUTPUT_BYTES) {
-                val outputDirectory = "${snapshot.workingDirectory.trimEnd('/')}/.weagent/outputs"
-                val prepare = connection.execute("mkdir -p ${quote(outputDirectory)}", 15_000)
-                check(prepare.exitCode == 0) {
-                    prepare.stderr.toString(StandardCharsets.UTF_8).ifBlank { "cannot create remote output spill directory" }
-                }
                 val path = "$outputDirectory/exec-${System.currentTimeMillis()}.log"
-                connection.upload(path, buildSpill(response.stdout, response.stderr), 0b110_000_000)
+                val combine = connection.execute(
+                    "{ printf '%s\\n' '--- stdout ---'; cat ${quote(stdoutPath)}; " +
+                        "printf '%s\\n' '--- stderr ---'; cat ${quote(stderrPath)}; } >${quote(path)} && " +
+                        "rm -f ${quote(stdoutPath)} ${quote(stderrPath)}",
+                    30_000,
+                )
+                check(combine.exitCode == 0) {
+                    combine.stderr.toString(StandardCharsets.UTF_8).ifBlank { "cannot publish remote output spill" }
+                }
                 path
-            } else null
+            } else {
+                connection.removeFiles(listOf(stdoutPath, stderrPath))
+                null
+            }
             ExecResult(
-                stdout = response.stdout.copyOf(stdoutLimit).toString(StandardCharsets.UTF_8),
-                stderr = response.stderr.copyOf(stderrLimit).toString(StandardCharsets.UTF_8),
+                stdout = stdout.bytes.toString(StandardCharsets.UTF_8),
+                stderr = stderr.bytes.toString(StandardCharsets.UTF_8),
                 exitCode = response.exitCode,
                 timedOut = response.timedOut,
                 elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000,
@@ -173,15 +192,6 @@ class SshBackend(
             offset = found + needle.length
         }
     }
-
-    private fun buildSpill(stdout: ByteArray, stderr: ByteArray): ByteArray =
-        java.io.ByteArrayOutputStream(stdout.size + stderr.size + 34).use { output ->
-            output.write("--- stdout ---\n".toByteArray())
-            output.write(stdout)
-            output.write("\n--- stderr ---\n".toByteArray())
-            output.write(stderr)
-            output.toByteArray()
-        }
 
     private fun quote(value: String) = "'${value.replace("'", "'\\''")}'"
 
