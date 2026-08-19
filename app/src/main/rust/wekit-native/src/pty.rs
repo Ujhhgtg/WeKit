@@ -71,11 +71,22 @@ pub fn start(
         if pid == 0 {
             libc::close(spawn_error[0]);
             let spawn_failed = |error: i32| -> ! {
-                let _ = libc::write(
-                    spawn_error[1],
-                    &error as *const i32 as *const _,
-                    std::mem::size_of::<i32>(),
-                );
+                let bytes = error.to_ne_bytes();
+                let mut written = 0;
+                while written < bytes.len() {
+                    let result = libc::write(
+                        spawn_error[1],
+                        bytes[written..].as_ptr() as *const _,
+                        bytes.len() - written,
+                    );
+                    if result > 0 {
+                        written += result as usize;
+                    } else if result < 0 && io::Error::last_os_error().raw_os_error() == Some(EINTR) {
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
                 libc::_exit(127);
             };
             let slave = libc::open(name, libc::O_RDWR);
@@ -116,14 +127,37 @@ pub fn start(
             );
         }
         libc::close(spawn_error[1]);
-        let mut error = 0i32;
-        let read_result = libc::read(
-            spawn_error[0],
-            &mut error as *mut i32 as *mut _,
-            std::mem::size_of::<i32>(),
-        );
+        let mut error_bytes = [0u8; std::mem::size_of::<i32>()];
+        let mut read = 0;
+        let read_result = loop {
+            if read == error_bytes.len() {
+                break Ok(());
+            }
+            let result = libc::read(
+                spawn_error[0],
+                error_bytes[read..].as_mut_ptr() as *mut _,
+                error_bytes.len() - read,
+            );
+            if result > 0 {
+                read += result as usize;
+            } else if result == 0 {
+                break if read == 0 { Ok(()) } else { Err("short PTY spawn error record".to_owned()) };
+            } else if io::Error::last_os_error().raw_os_error() == Some(EINTR) {
+                continue;
+            } else {
+                break Err(last_error());
+            }
+        };
         libc::close(spawn_error[0]);
-        if read_result > 0 {
+        if let Err(error) = read_result {
+            let mut status = 0;
+            while libc::waitpid(pid, &mut status, 0) < 0
+                && io::Error::last_os_error().raw_os_error() == Some(EINTR)
+            {}
+            return Err(error);
+        }
+        if read == error_bytes.len() {
+            let error = i32::from_ne_bytes(error_bytes);
             let mut status = 0;
             while libc::waitpid(pid, &mut status, 0) < 0
                 && io::Error::last_os_error().raw_os_error() == Some(EINTR)

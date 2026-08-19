@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 
@@ -203,6 +205,7 @@ class TerminalManager(
             }
         }
         val waiter = scope.launch(start = CoroutineStart.LAZY) {
+            var failed = false
             try {
                 terminal.waitForExit()
                 reader.join()
@@ -210,13 +213,18 @@ class TerminalManager(
                     if (session.state == TerminalState.RUNNING) session.finish(TerminalState.EXITED, now())
                 }
             } catch (error: CancellationException) {
+                cleanupAfterWaitFailure(terminal, reader)
                 throw error
             } catch (_: Throwable) {
-                synchronized(lock) {
-                    if (session.state.isActive) session.finish(TerminalState.FAILED, now())
-                }
+                cleanupAfterWaitFailure(terminal, reader)
+                failed = true
             } finally {
-                terminal.close()
+                withContext(NonCancellable) {
+                    withTimeoutOrNull(CLEANUP_TIMEOUT_MS) { terminal.close() }
+                }
+            }
+            if (failed) synchronized(lock) {
+                if (session.state.isActive) session.finish(TerminalState.FAILED, now())
             }
         }
         synchronized(lock) {
@@ -225,6 +233,18 @@ class TerminalManager(
         }
         reader.start()
         waiter.start()
+    }
+
+    private suspend fun cleanupAfterWaitFailure(terminal: TerminalBackendSession, reader: Job) {
+        withContext(NonCancellable) {
+            val killed = withTimeoutOrNull(CLEANUP_TIMEOUT_MS) { runCatching { terminal.kill() }.isSuccess } == true
+            if (!killed) {
+                withTimeoutOrNull(CLEANUP_TIMEOUT_MS) { runCatching { terminal.kill() } }
+            }
+            if (withTimeoutOrNull(CLEANUP_TIMEOUT_MS) { reader.join(); true } != true) {
+                reader.cancel()
+            }
+        }
     }
 
     private suspend fun terminate(session: Session, state: TerminalState) {
@@ -357,5 +377,6 @@ class TerminalManager(
         const val MAX_LIFETIME_MS = 30 * 60 * 1000L
         const val FINISHED_RETENTION_MS = 5 * 60 * 1000L
         private const val MAINTENANCE_INTERVAL_MS = 60_000L
+        private const val CLEANUP_TIMEOUT_MS = 1_000L
     }
 }

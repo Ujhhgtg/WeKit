@@ -103,6 +103,20 @@ class TerminalManagerTest {
     }
 
     @Test
+    fun `global limit admits only four starts while backend start is suspended`() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val backend = FakeBackend(startGate = gate)
+        val manager = manager(backend)
+        val starts = (0..TerminalManager.MAX_SESSIONS).map { async { runCatching { manager.start("owner-$it", environment) } } }
+        eventually { backend.startCount == TerminalManager.MAX_SESSIONS }
+        eventually { starts.count { it.isCompleted } == 1 }
+        val rejected = starts.single { it.isCompleted }
+        assertTrue(rejected.await().isFailure)
+        gate.complete(Unit)
+        assertEquals(TerminalManager.MAX_SESSIONS, starts.dropLast(1).count { it.await().isSuccess })
+    }
+
+    @Test
     fun `starting running exited and spawn failure are observable`() = runBlocking {
         val gate = CompletableDeferred<Unit>()
         val entered = CompletableDeferred<Unit>()
@@ -131,6 +145,30 @@ class TerminalManagerTest {
         eventually { manager.list("one").single().state == TerminalState.FAILED }
         eventually { session.closeCount == 1 }
         assertEquals(1, session.killCount)
+    }
+
+    @Test
+    fun `wait failure kills retries joins reader closes before failed`() = runBlocking {
+        val backend = FakeBackend(waitFailure = true, killFailures = 1)
+        val manager = manager(backend)
+        manager.start("one", environment)
+        val session = backend.sessions.single()
+        eventually { session.closeCount == 1 }
+        assertEquals(2, session.killCount)
+        assertEquals(TerminalState.FAILED, manager.list("one").single().state)
+    }
+
+    @Test
+    fun `reader tail is retained before exit cleanup`() = runBlocking {
+        val backend = FakeBackend()
+        val manager = manager(backend)
+        val id = manager.start("one", environment).id
+        val session = backend.sessions.single()
+        session.emit("tail")
+        session.exit(0)
+        eventually { manager.list("one").single().state == TerminalState.EXITED }
+        assertEquals("tail", manager.read("one", id, cursor = 0).bytes.toString(Charsets.UTF_8))
+        assertEquals(1, session.closeCount)
     }
 
     @Test
@@ -223,20 +261,27 @@ class TerminalManagerTest {
         private val failStart: Boolean = false,
         private val startGate: CompletableDeferred<Unit>? = null,
         private val startEntered: CompletableDeferred<Unit>? = null,
+        private val waitFailure: Boolean = false,
+        private val killFailures: Int = 0,
     ) : TerminalBackend {
         val sessions = CopyOnWriteArrayList<FakeSession>()
         val argv = CopyOnWriteArrayList<List<String>>()
+        @Volatile var startCount = 0
 
         override suspend fun start(environment: EnvironmentSnapshot, argv: List<String>, workingDirectory: String?, environmentVariables: Map<String, String>, cols: Int, rows: Int): TerminalBackendStart {
             this.argv += argv
+            startCount++
             startEntered?.complete(Unit)
             startGate?.await()
             if (failStart) error("spawn failed")
-            return TerminalBackendStart(FakeSession().also { sessions += it }, environment)
+            return TerminalBackendStart(FakeSession(waitFailure, killFailures).also { sessions += it }, environment)
         }
     }
 
-    private class FakeSession : TerminalBackendSession {
+    private class FakeSession(
+        private val waitFailure: Boolean = false,
+        private var killFailures: Int = 0,
+    ) : TerminalBackendSession {
         val writes = CopyOnWriteArrayList<ByteArray>()
         private val reads = Channel<ByteArray>(Channel.UNLIMITED)
         private val exit = CompletableDeferred<Int?>()
@@ -256,9 +301,16 @@ class TerminalManagerTest {
         override suspend fun write(bytes: ByteArray) { writes += bytes }
         override suspend fun read(maxBytes: Int): ByteArray = reads.receive()
         override suspend fun resize(cols: Int, rows: Int) = Unit
-        override suspend fun waitForExit(): Int? = exit.await()
+        override suspend fun waitForExit(): Int? {
+            if (waitFailure) error("wait failed")
+            return exit.await()
+        }
         override suspend fun kill() {
             killCount++
+            if (killFailures > 0) {
+                killFailures--
+                error("kill failed")
+            }
             exit(null)
         }
         override suspend fun close() { closeCount++ }
