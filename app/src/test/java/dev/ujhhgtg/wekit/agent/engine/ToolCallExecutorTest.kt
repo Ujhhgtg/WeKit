@@ -1,6 +1,11 @@
 package dev.ujhhgtg.wekit.agent.engine
 
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
+import dev.ujhhgtg.wekit.agent.model.LlmClient
+import dev.ujhhgtg.wekit.agent.model.LlmMessage
+import dev.ujhhgtg.wekit.agent.model.LlmRequest
+import dev.ujhhgtg.wekit.agent.model.LlmRole
+import dev.ujhhgtg.wekit.agent.model.LlmStreamEvent
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.ProviderTool
 import dev.ujhhgtg.wekit.agent.tool.ToolMode
@@ -8,6 +13,7 @@ import dev.ujhhgtg.wekit.agent.tool.ToolPermissionSource
 import dev.ujhhgtg.wekit.agent.tool.ToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,6 +21,57 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertTrue
 
 class ToolCallExecutorTest {
+    @Test
+    fun `enabled call reports automatic approval`() = runBlocking {
+        val registry = ToolRegistry(
+            ToolPermissionSource { _, _, factory -> factory },
+            listOf(provider(ToolMode.ENABLED) { "pong" }),
+        )
+
+        val result = ToolCallExecutor(registry, ApprovalGateway(ManualApprovalHandler { error("unexpected") }, null))
+            .execute(LlmToolCall("1", "mcp__test__ping", "{}"), ToolCallExecutor.Context())
+
+        assertEquals(dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus.AUTO_ALLOWED, result.status)
+        assertEquals("pong", result.text)
+    }
+
+    @Test
+    fun `smart-approved call reports AI approval`() = runBlocking {
+        val registry = ToolRegistry(
+            ToolPermissionSource { _, _, factory -> factory },
+            listOf(provider(ToolMode.SMART_APPROVAL) { "pong" }),
+        )
+        val client = object : LlmClient {
+            override fun stream(request: LlmRequest) = flowOf(
+                LlmStreamEvent.Completed(LlmMessage(LlmRole.ASSISTANT, "{\"allow\":true}"), "stop"),
+            )
+        }
+        val gateway = ApprovalGateway(
+            ManualApprovalHandler { error("unexpected") },
+            SmallModelRef(client, "reviewer", null),
+        )
+
+        val result = ToolCallExecutor(registry, gateway)
+            .execute(LlmToolCall("1", "mcp__test__ping", "{}"), ToolCallExecutor.Context())
+
+        assertEquals(dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus.AI_APPROVED, result.status)
+        assertEquals("pong", result.text)
+    }
+
+    @Test
+    fun `smart-rejected call reports AI rejection`() = runBlocking {
+        val registry = ToolRegistry(
+            ToolPermissionSource { _, _, factory -> factory },
+            listOf(provider(ToolMode.SMART_APPROVAL) { error("must not execute") }),
+        )
+        val gateway = ApprovalGateway(ManualApprovalHandler { error("unexpected") }, null)
+
+        val result = ToolCallExecutor(registry, gateway)
+            .execute(LlmToolCall("1", "mcp__test__ping", "{}"), ToolCallExecutor.Context())
+
+        assertEquals(dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus.AI_REJECTED, result.status)
+    }
+
     @Test
     fun `approved call executes once and preserves approval status`() = runBlocking {
         var executions = 0
