@@ -258,8 +258,13 @@ fn namespace_member_tasks(
             Err(error) => return Err(format!("cannot scan tasks for process {pid}: {error}")),
         };
         for task in tasks {
-            let task = task.map_err(|error| format!("cannot scan task for process {pid}: {error}"))?;
-            let Some(tid) = task.file_name().to_str().and_then(|name| name.parse::<i32>().ok()) else {
+            let task =
+                task.map_err(|error| format!("cannot scan task for process {pid}: {error}"))?;
+            let Some(tid) = task
+                .file_name()
+                .to_str()
+                .and_then(|name| name.parse::<i32>().ok())
+            else {
                 continue;
             };
             match namespace_inode(&task.path().join("ns/mnt")) {
@@ -304,7 +309,12 @@ fn bind_member(
         Err(error) if unsupported_pidfd_error(&error).is_some() => {
             return Err(unsupported_pidfd_error(&error).unwrap());
         }
-        Err(error) => return Err(format!("pidfd_open failed for process {}: {error}", task.tgid)),
+        Err(error) => {
+            return Err(format!(
+                "pidfd_open failed for process {}: {error}",
+                task.tgid
+            ));
+        }
     };
     if wait_pidfd(pidfd.as_raw_fd(), Duration::ZERO)? {
         return Ok(None);
@@ -323,12 +333,17 @@ fn bind_member(
         }
         Err(error) => {
             return Err(format!(
-                "cannot bind mount namespace for task {}/{}: {error}", task.tgid, task.tid
+                "cannot bind mount namespace for task {}/{}: {error}",
+                task.tgid, task.tid
             ));
         }
     };
-    let actual = namespace_inode_fd(namespace.as_raw_fd())
-        .map_err(|error| format!("cannot verify bound mount namespace for task {}/{}: {error}", task.tgid, task.tid))?;
+    let actual = namespace_inode_fd(namespace.as_raw_fd()).map_err(|error| {
+        format!(
+            "cannot verify bound mount namespace for task {}/{}: {error}",
+            task.tgid, task.tid
+        )
+    })?;
     if wait_pidfd(pidfd.as_raw_fd(), Duration::ZERO)? {
         return Ok(None);
     }
@@ -431,7 +446,12 @@ fn members_stopped(proc_root: &Path, members: &[NamespaceMember]) -> Result<bool
         let state = stat
             .rsplit_once(") ")
             .and_then(|(_, fields)| fields.as_bytes().first().copied())
-            .ok_or_else(|| format!("invalid process stat for task {}/{}", member.tgid, member.tid))?;
+            .ok_or_else(|| {
+                format!(
+                    "invalid process stat for task {}/{}",
+                    member.tgid, member.tid
+                )
+            })?;
         if !matches!(state, b'T' | b't') {
             return Ok(false);
         }
@@ -483,10 +503,7 @@ struct FreezeStability {
 
 impl FreezeStability {
     fn new(limit: usize) -> Self {
-        Self {
-            scans: 0,
-            limit,
-        }
+        Self { scans: 0, limit }
     }
 
     fn observe(
@@ -719,20 +736,44 @@ mod tests {
         let first = TaskIdentity { tgid: 1, tid: 1 };
         let second = TaskIdentity { tgid: 2, tid: 2 };
         let mut stability = FreezeStability::new(3);
-        assert!(!stability
-            .observe(BTreeSet::from([first]), BTreeSet::from([first, second]), false)
-            .unwrap());
-        assert!(stability
-            .observe(BTreeSet::from([first, second]), BTreeSet::from([first, second]), true)
-            .unwrap());
+        assert!(
+            !stability
+                .observe(
+                    BTreeSet::from([first]),
+                    BTreeSet::from([first, second]),
+                    false
+                )
+                .unwrap()
+        );
+        assert!(
+            stability
+                .observe(
+                    BTreeSet::from([first, second]),
+                    BTreeSet::from([first, second]),
+                    true
+                )
+                .unwrap()
+        );
 
         let mut changing = FreezeStability::new(1);
-        assert!(!changing
-            .observe(BTreeSet::from([first]), BTreeSet::from([first, second]), true)
-            .unwrap());
-        assert!(changing
-            .observe(BTreeSet::from([first, second]), BTreeSet::from([first, second]), true)
-            .is_err());
+        assert!(
+            !changing
+                .observe(
+                    BTreeSet::from([first]),
+                    BTreeSet::from([first, second]),
+                    true
+                )
+                .unwrap()
+        );
+        assert!(
+            changing
+                .observe(
+                    BTreeSet::from([first, second]),
+                    BTreeSet::from([first, second]),
+                    true
+                )
+                .is_err()
+        );
     }
 
     #[test]
