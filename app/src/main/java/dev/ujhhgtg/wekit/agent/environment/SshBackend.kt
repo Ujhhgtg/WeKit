@@ -198,32 +198,44 @@ class SshBackend(
     companion object {
         private val REMOTE_HELPER = """
             #!/bin/bash
-            set -euo pipefail
             export LC_ALL=C
-            : "${'$'}{WEAGENT_BRIDGE_PORT:?WEAGENT_BRIDGE_PORT is not set}"
-            : "${'$'}{WEAGENT_BRIDGE_TOKEN:?WEAGENT_BRIDGE_TOKEN is not set}"
             json_quote() {
               local value=${'$'}1
               value=${'$'}{value//\\/\\\\}; value=${'$'}{value//\"/\\\"}
               value=${'$'}{value//${'$'}'\n'/\\n}; value=${'$'}{value//${'$'}'\r'/\\r}; value=${'$'}{value//${'$'}'\t'/\\t}
               printf '"%s"' "${'$'}value"
             }
+            fail() {
+              printf '{"ok":false,"error":"client_error","message":%s}\n' "${'$'}(json_quote "${'$'}2")"
+              exit "${'$'}1"
+            }
+            port=${'$'}{WEAGENT_BRIDGE_PORT:-}
+            token=${'$'}{WEAGENT_BRIDGE_TOKEN:-}
+            [ -n "${'$'}port" ] || fail 7 'WEAGENT_BRIDGE_PORT is not set'
+            [ -n "${'$'}token" ] || fail 7 'WEAGENT_BRIDGE_TOKEN is not set'
+            case "${'$'}port" in (*[!0-9]*|'') fail 7 'invalid bridge port' ;; esac
+            [ "${'$'}port" -ge 1 ] && [ "${'$'}port" -le 65535 ] || fail 7 'invalid bridge port'
+            [[ "${'$'}token" =~ ^[[:xdigit:]]{64}${'$'} ]] || fail 7 'invalid bridge token'
             case "${'$'}{1:-}" in
-              list) shift; if [ "${'$'}#" -eq 0 ]; then payload='{"op":"list"}'; elif [ "${'$'}#" -eq 2 ] && [ "${'$'}1" = --provider ]; then payload="{\"op\":\"list\",\"provider\":$(json_quote "${'$'}2")}"; else exit 2; fi ;;
-              search) [ "${'$'}#" -eq 2 ] || exit 2; payload="{\"op\":\"search\",\"keyword\":$(json_quote "${'$'}2")}" ;;
-              schema) [ "${'$'}#" -eq 2 ] || exit 2; payload="{\"op\":\"schema\",\"name\":$(json_quote "${'$'}2")}" ;;
-              call) [ "${'$'}#" -eq 4 ] && [ "${'$'}3" = --json ] || exit 2; payload="{\"op\":\"call\",\"name\":$(json_quote "${'$'}2"),\"arguments\":${'$'}4}" ;;
-              *) exit 2 ;;
+              list) shift; if [ "${'$'}#" -eq 0 ]; then payload='{"op":"list"}'; elif [ "${'$'}#" -eq 2 ] && [ "${'$'}1" = --provider ]; then payload="{\"op\":\"list\",\"provider\":$(json_quote "${'$'}2")}"; else fail 2 'invalid list arguments'; fi ;;
+              search) [ "${'$'}#" -eq 2 ] || fail 2 'invalid search arguments'; payload="{\"op\":\"search\",\"keyword\":$(json_quote "${'$'}2")}" ;;
+              schema) [ "${'$'}#" -eq 2 ] || fail 2 'invalid schema arguments'; payload="{\"op\":\"schema\",\"name\":$(json_quote "${'$'}2")}" ;;
+              call) [ "${'$'}#" -eq 4 ] && [ "${'$'}3" = --json ] || fail 2 'invalid call arguments'; payload="{\"op\":\"call\",\"name\":$(json_quote "${'$'}2"),\"arguments\":${'$'}4}" ;;
+              *) fail 2 'unknown operation' ;;
             esac
-            exec 3<>"/dev/tcp/127.0.0.1/${'$'}WEAGENT_BRIDGE_PORT"
-            printf 'WBT/1 %s %s\n%s' "${'$'}WEAGENT_BRIDGE_TOKEN" "${'$'}{#payload}" "${'$'}payload" >&3
-            IFS=' ' read -r version token length <&3
-            [ "${'$'}version" = WBT/1 ] && [ "${'$'}token" = "${'$'}WEAGENT_BRIDGE_TOKEN" ] || exit 3
-            response=${'$'}(dd bs=1 count="${'$'}length" status=none <&3)
+            if ! exec 3<>"/dev/tcp/127.0.0.1/${'$'}port" 2>/dev/null; then fail 7 'bridge unavailable'; fi
+            if ! printf 'WBT/1 %s %s\n%s' "${'$'}token" "${'$'}{#payload}" "${'$'}payload" >&3; then fail 7 'bridge write failed'; fi
+            if ! IFS=' ' read -r version response_token length <&3; then fail 7 'bridge response header is unavailable'; fi
+            [ "${'$'}version" = WBT/1 ] || fail 7 'invalid bridge response header'
+            [ "${'$'}response_token" = "${'$'}token" ] || fail 7 'response token mismatch'
+            case "${'$'}length" in (*[!0-9]*|'') fail 7 'invalid response length' ;; esac
+            [ "${'$'}length" -le 1048576 ] || fail 7 'response too large'
+            response=${'$'}(dd bs=1 count="${'$'}length" status=none <&3 2>/dev/null)
+            [ "${'$'}?" -eq 0 ] || fail 7 'bridge response read failed'
             printf '%s\n' "${'$'}response"
             case "${'$'}response" in
-              *'"ok":false'*'"error":"unauthorized"'*|*'"ok":false'*'"error":"token_revoked"'*) exit 3 ;;
-              *'"ok":false'*'"error":"unknown_tool"'*) exit 4 ;;
+              *'"ok":false'*'"error":"unauthorized"'*|*'"ok":false'*'"error":"token_revoked"'*|*'"ok":false'*'"error":"authentication_failed"'*) exit 3 ;;
+              *'"ok":false'*'"error":"unknown_tool"'*|*'"ok":false'*'"error":"tool_disabled"'*|*'"ok":false'*'"error":"disabled_tool"'*) exit 4 ;;
               *'"ok":false'*'"error":"approval_denied"'*) exit 5 ;;
               *'"ok":false'*'"error":"execution_failed"'*) exit 6 ;;
               *'"ok":false'*) exit 2 ;;

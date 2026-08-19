@@ -86,20 +86,27 @@ class SshConnectionManager(
 
     suspend fun execute(command: String, timeoutMillis: Long): SshExecResponse {
         require(timeoutMillis in 1..NativeBackend.MAX_TIMEOUT_MILLIS)
-        var channel = openChannel("exec") as ChannelExec
-        repeat(2) { attempt ->
-            channel.setCommand(command)
-            try {
-                runBlockingIo { channel.connect(CHANNEL_CONNECT_TIMEOUT_MS) }
-                return executeSubmitted(channel, timeoutMillis)
-            } catch (error: Throwable) {
-                channel.disconnect()
-                if (attempt != 0 || error is CancellationException) throw error
-                invalidate(channel.session)
-                channel = openChannel("exec") as ChannelExec
-            }
+        val channel = openChannel("exec") as ChannelExec
+        channel.setCommand(command)
+        try {
+            runBlockingIo { channel.connect(CHANNEL_CONNECT_TIMEOUT_MS) }
+            return executeSubmitted(channel, timeoutMillis)
+        } catch (error: CancellationException) {
+            channel.disconnect()
+            throw error
+        } catch (error: SshIndeterminateExecutionException) {
+            val submittedSession = channel.session
+            channel.disconnect()
+            invalidate(submittedSession)
+            throw error
+        } catch (error: Throwable) {
+            val submittedSession = channel.session
+            channel.disconnect()
+            invalidate(submittedSession)
+            throw SshIndeterminateExecutionException(
+                "SSH command state is unknown after submission; it was not replayed", error,
+            )
         }
-        error("unreachable")
     }
 
     private suspend fun executeSubmitted(channel: ChannelExec, timeoutMillis: Long): SshExecResponse {
