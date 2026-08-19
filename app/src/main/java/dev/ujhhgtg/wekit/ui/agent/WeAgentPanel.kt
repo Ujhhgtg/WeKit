@@ -382,7 +382,7 @@ private fun fmtTokens(n: Int): String =
 /**
  * Multiline input with a bottom action row: a [+] menu on the left and a send button on the right.
  * The [+] opens a nested two-level menu for in-session quick actions (§1.3): switch model, bind a
- * workspace, toggle memory (inline switch), switch the system-prompt profile, and insert a preset
+ * environment, switch the system-prompt profile, and insert a preset
  * prompt. Model/workspace/prompt/preset each open a submenu; memory toggles inline.
  */
 @Composable
@@ -510,11 +510,11 @@ private fun InputBar(
 }
 
 /** State for which submenu (if any) of the [PlusMenu] is currently open. */
-private enum class PlusSubmenu { NONE, MODEL, WORKSPACE, PROFILE, PRESET }
+private enum class PlusSubmenu { NONE, MODEL, ENVIRONMENT, PROFILE, PRESET }
 
 /**
- * The nested "+" quick-action menu. The root lists the current selections; tapping model/workspace/
- * profile/preset opens a submenu, while memory toggles inline via a trailing [Switch].
+ * The nested "+" quick-action menu. The root lists the current selections; tapping model/environment/
+ * profile/preset opens a submenu.
  */
 @Composable
 private fun PlusMenu(onInsertPreset: (String) -> Unit) {
@@ -523,12 +523,13 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
 
     val models = WeAgentService.availableModels
     val systemPrompts = WeAgentService.availableSystemPrompts
-    val workspaces = WeAgentService.availableWorkspaces
+    val environments = WeAgentService.availableLinuxEnvironments
     val presets = WeAgentService.availablePresets
     val currentModelId by WeAgentService.currentModelId
     val currentSystemPromptId by WeAgentService.currentSystemPromptId
-    val currentWorkspaceId by WeAgentService.currentWorkspaceId
-    val memoryOn by WeAgentService.memoryEnabled
+    val currentEnvironmentId by WeAgentService.currentLinuxEnvironmentId
+    val environmentLocked = WeAgentService.ballState.value == WeAgentService.BallState.RUNNING ||
+        WeAgentService.ballState.value == WeAgentService.BallState.PENDING_APPROVAL
 
     // A null model id means "默认": the session follows the settings default model, resolved at turn
     // time (mirrors workspace/systemPrompt). Show "默认" for null rather than "未选择".
@@ -537,13 +538,7 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
     val modelLabel = if (currentModelId == null) defaultLabel
     else models.firstOrNull { it.id == currentModelId }?.label
         ?: stringResource(R.string.agent_panel_not_selected)
-    // A null workspace means "默认": the session follows the settings default workspace, resolved
-    // dynamically at turn time (see WeAgentService.runTurn).
-    // id semantics: null = "默认" (follow settings default), "" = "无" (explicitly none), else the item.
-    val workspaceLabel = when (currentWorkspaceId) {
-        null -> defaultLabel; "" -> noneLabel
-        else -> workspaces.firstOrNull { it.id == currentWorkspaceId }?.name ?: defaultLabel
-    }
+    val environmentLabel = environments.firstOrNull { it.id == currentEnvironmentId }?.let { "${it.name} (${it.type})" } ?: defaultLabel
     val systemPromptLabel = when (currentSystemPromptId) {
         null -> defaultLabel; "" -> noneLabel
         else -> systemPrompts.firstOrNull { it.id == currentSystemPromptId }?.name ?: defaultLabel
@@ -572,17 +567,9 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                         onClick = { submenu = PlusSubmenu.MODEL },
                     )
                     DropdownMenuItem(
-                        text = { NestedRow(stringResource(R.string.agent_panel_workspace), workspaceLabel) },
-                        onClick = { submenu = PlusSubmenu.WORKSPACE },
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Text(stringResource(R.string.agent_panel_memory), modifier = Modifier.weight(1f))
-                                Switch(checked = memoryOn, onCheckedChange = { WeAgentService.setMemoryEnabled(it) })
-                            }
-                        },
-                        onClick = { WeAgentService.setMemoryEnabled(!memoryOn) },
+                        text = { NestedRow(stringResource(R.string.agent_panel_environment), environmentLabel) },
+                        enabled = !environmentLocked,
+                        onClick = { submenu = PlusSubmenu.ENVIRONMENT },
                     )
                     DropdownMenuItem(
                         text = {
@@ -627,33 +614,18 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                     }
                 }
 
-                PlusSubmenu.WORKSPACE -> {
-                    SubmenuHeader(stringResource(R.string.agent_panel_workspace)) { submenu = PlusSubmenu.NONE }
+                PlusSubmenu.ENVIRONMENT -> {
+                    SubmenuHeader(stringResource(R.string.agent_panel_environment)) { submenu = PlusSubmenu.NONE }
                     DropdownMenuItem(
-                        text = {
-                            Text(
-                                if (currentWorkspaceId == null) {
-                                    stringResource(R.string.agent_panel_checked_value, defaultLabel)
-                                } else defaultLabel,
-                            )
-                        },
-                        onClick = { WeAgentService.setSessionWorkspace(null); close() },
+                        text = { Text(if (currentEnvironmentId == null) stringResource(R.string.agent_panel_checked_value, defaultLabel) else defaultLabel) },
+                        enabled = !environmentLocked,
+                        onClick = { WeAgentService.setSessionLinuxEnvironment(null); close() },
                     )
-                    // "无" = explicitly no workspace (sentinel ""), distinct from "默认" (follow default).
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                if (currentWorkspaceId == "") {
-                                    stringResource(R.string.agent_panel_checked_value, noneLabel)
-                                } else noneLabel,
-                            )
-                        },
-                        onClick = { WeAgentService.setSessionWorkspace(""); close() },
-                    )
-                    workspaces.forEach { w ->
+                    environments.forEach { w ->
                         DropdownMenuItem(
-                            text = { Text(w.name + if (w.id == currentWorkspaceId) "  ✓" else "") },
-                            onClick = { WeAgentService.setSessionWorkspace(w.id); close() },
+                            text = { Text("${w.name} (${w.type})" + if (w.id == currentEnvironmentId) "  ✓" else "") },
+                            enabled = !environmentLocked,
+                            onClick = { WeAgentService.setSessionLinuxEnvironment(w.id); close() },
                         )
                     }
                 }

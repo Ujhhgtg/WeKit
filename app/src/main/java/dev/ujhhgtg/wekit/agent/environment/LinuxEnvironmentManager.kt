@@ -262,7 +262,7 @@ class LinuxEnvironmentManager(
         environmentId != NATIVE_ENVIRONMENT_ID &&
             getEnvironment(environmentId)?.type == LinuxEnvironmentType.CHROOT
 
-    private suspend fun snapshot(environmentId: String): EnvironmentSnapshot =
+    suspend fun snapshot(environmentId: String): EnvironmentSnapshot =
         requireNotNull(getEnvironment(environmentId)).toSnapshot()
 
     private suspend fun <T> withLease(

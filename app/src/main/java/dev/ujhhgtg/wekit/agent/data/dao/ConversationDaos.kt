@@ -57,6 +57,9 @@ interface SessionDao {
 
     @Query("UPDATE sessions SET linuxEnvironmentId = NULL WHERE linuxEnvironmentId = :environmentId")
     suspend fun clearLinuxEnvironmentBindings(environmentId: String)
+
+    @Query("UPDATE sessions SET lastEffectiveLinuxEnvironmentId = :environmentId WHERE id = :id")
+    suspend fun setLastEffectiveLinuxEnvironmentId(id: String, environmentId: String)
 }
 
 @Dao

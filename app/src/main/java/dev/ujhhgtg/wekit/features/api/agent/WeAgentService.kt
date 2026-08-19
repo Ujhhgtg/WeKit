@@ -154,11 +154,8 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     val currentModelId = mutableStateOf<String?>(null)
     val currentSystemPromptId = mutableStateOf<String?>(null)
 
-    /** Current session's bound workspace id (null = unbound), for the input-bar + menu. */
-    val currentWorkspaceId = mutableStateOf<String?>(null)
-
-    /** Global memory-enabled flag mirrored for the input-bar + menu toggle. */
-    val memoryEnabled = mutableStateOf(false)
+    /** Current session's explicit Linux environment binding; null follows the global default. */
+    val currentLinuxEnvironmentId = mutableStateOf<String?>(null)
 
 
     /** Token usage of the latest model request this session, for the usage strip (null = none yet). */
@@ -186,11 +183,11 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
      */
     val queuedMessage = mutableStateOf<String?>(null)
 
-    /** Available models / system prompts / presets / workspaces for the input-bar menus (synced with DB). */
+    /** Available models, prompts, presets, and Linux environments for the input-bar menus. */
     val availableModels: SnapshotStateList<ModelOption> = mutableStateListOf()
     val availableSystemPrompts: SnapshotStateList<SystemPromptOption> = mutableStateListOf()
     val availablePresets: SnapshotStateList<PresetOption> = mutableStateListOf()
-    val availableWorkspaces: SnapshotStateList<WorkspaceOption> = mutableStateListOf()
+    val availableLinuxEnvironments: SnapshotStateList<EnvironmentOption> = mutableStateListOf()
 
     /**
      * [label] is "<provider name>:<model display or remote id>". [contextWindow] is the model's
@@ -199,7 +196,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     data class ModelOption(val id: String, val label: String, val contextWindow: Int? = null)
     data class SystemPromptOption(val id: String, val name: String)
     data class PresetOption(val id: String, val title: String, val content: String)
-    data class WorkspaceOption(val id: String, val name: String)
+    data class EnvironmentOption(val id: String, val name: String, val type: String)
 
     data class SessionRow(val id: String, val title: String, val favorite: Boolean = false)
     data class ChatRow(
@@ -257,7 +254,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         linuxEnvironmentManager.initialize()
         WeAgentSettings.load()
         toolBridgeServer.start()
-        BuiltinToolProvider.fsToolsVisible = WeAgentSettings.memoryEnabled()
+        BuiltinToolProvider.fsToolsVisible = true
 
         // Bring up MCP providers and keep the registry's MCP set in sync.
         McpClientManager.onProvidersChanged = {
@@ -311,15 +308,14 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             }
         }
         scope.launch {
-            WeAgentRepository.observeWorkspaces().collectLatest { rows ->
+            linuxEnvironmentManager.observeEnvironments().collectLatest { rows ->
                 withContext(Dispatchers.Main) {
-                    availableWorkspaces.clear()
-                    availableWorkspaces.addAll(rows.map { WorkspaceOption(it.id, it.name) })
+                    availableLinuxEnvironments.clear()
+                    availableLinuxEnvironments.addAll(rows.map { EnvironmentOption(it.id, it.displayName, it.type.name) })
                 }
             }
         }
         withContext(Dispatchers.Main) {
-            memoryEnabled.value = WeAgentSettings.memoryEnabled()
             sendWhileRunningMode.value = WeAgentSettings.sendWhileRunningMode()
         }
 
@@ -398,7 +394,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         withContext(Dispatchers.Main) {
             currentModelId.value = session?.modelId
             currentSystemPromptId.value = session?.systemPromptId
-            currentWorkspaceId.value = session?.workspaceId
+            currentLinuxEnvironmentId.value = session?.linuxEnvironmentId
             // Restore the last persisted usage + context window so the strip survives a session
             // switch / WeChat restart (the next turn's resolveTurnConfig refreshes contextWindow).
             currentUsage.value = session?.let {
@@ -408,6 +404,8 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             currentContextWindow.value = session?.contextWindow
             syncForeground(id)
         }
+        val environment = linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(id))
+        WeAgentRepository.announceEffectiveLinuxEnvironment(id, environment)
         reloadMessages(id)
     }
 
@@ -454,7 +452,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                 currentContextWindow.value = null
                 currentModelId.value = null
                 currentSystemPromptId.value = null
-                currentWorkspaceId.value = null
+                currentLinuxEnvironmentId.value = null
                 pendingApproval.value = null
             }
             // Clear the queued message — it belongs to the deleted session.
@@ -499,10 +497,15 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         withContext(Dispatchers.Main) { currentSystemPromptId.value = systemPromptId }
     }
 
-    /** Binds (or clears, id=null) the current session's workspace. */
-    fun setSessionWorkspace(workspaceId: String?) = scope.launch {
-        currentSessionId.value?.let { WeAgentRepository.updateSessionWorkspace(it, workspaceId) }
-        withContext(Dispatchers.Main) { currentWorkspaceId.value = workspaceId }
+    /** Binds (or clears) the current session's Linux environment. */
+    fun setSessionLinuxEnvironment(environmentId: String?) = scope.launch {
+        val id = currentSessionId.value ?: return@launch
+        if (isRunning(id)) return@launch
+        WeAgentRepository.updateSessionLinuxEnvironment(id, environmentId)
+        withContext(Dispatchers.Main) { currentLinuxEnvironmentId.value = environmentId }
+        val effective = linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(id))
+        WeAgentRepository.announceEffectiveLinuxEnvironment(id, effective)
+        if (id == currentSessionId.value) reloadMessages(id)
     }
 
     // --- live-selection cleanup after settings deletions (called by WeAgentRepository post-commit) ---
@@ -516,18 +519,6 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     /** Clears the foreground system-prompt binding if it references the deleted prompt. */
     fun onSystemPromptDeleted(id: String) {
         if (currentSystemPromptId.value == id) currentSystemPromptId.value = null
-    }
-
-    /** Clears the foreground workspace binding if it references the deleted workspace. */
-    fun onWorkspaceDeleted(id: String) {
-        if (currentWorkspaceId.value == id) currentWorkspaceId.value = null
-    }
-
-    /** Toggles the global memory-enabled setting (also flips fs-tool preview visibility). */
-    fun setMemoryEnabled(enabled: Boolean) = scope.launch {
-        WeAgentSettings.set(WeAgentSettings.KEY_MEMORY_ENABLED, enabled.toString())
-        BuiltinToolProvider.fsToolsVisible = enabled
-        withContext(Dispatchers.Main) { memoryEnabled.value = enabled }
     }
 
     private suspend fun reloadMessages(sessionId: String) {
@@ -563,7 +554,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                     )
                 }
 
-                MessageRole.SYSTEM -> Unit
+            MessageRole.SYSTEM -> rows += ChatRow(m.id, ChatRow.Role.SYSTEM_NOTE, m.content, createdAt = m.createdAt)
             }
         }
         withContext(Dispatchers.Main) {
@@ -693,34 +684,25 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             return
         }
         val session = WeAgentRepository.getSession(sessionId) ?: return
+        // Resolve and persist the effective environment before history is loaded so the reminder is
+        // replayed at its chronological position and the whole turn uses one immutable snapshot.
+        val effectiveEnvironment = linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(sessionId))
+        WeAgentRepository.announceEffectiveLinuxEnvironment(sessionId, effectiveEnvironment)
         // Remove any trailing incomplete assistant turns (thinking-only rows or tool calls whose
         // results never arrived) so the history we send to the API is always well-formed.
         val sanitized = WeAgentRepository.sanitizeSessionHistory(sessionId)
         if (sanitized && sessionId == currentSessionId.value) reloadMessages(sessionId)
         val priorHistory = WeAgentRepository.loadHistory(sessionId)
-        // workspaceId semantics: null = "默认" (resolve to the settings default so changing it applies
-        // to existing sessions too), "" = "无" (explicitly no workspace), any other value = that workspace.
-        val effectiveWorkspaceId = when (val ws = session.workspaceId) {
-            null -> WeAgentSettings.defaultWorkspaceId()
-            "" -> null
-            else -> ws
-        }
-        // Workspace enablement is per turn: enabled only when this session actually resolves to a
-        // workspace. The engine's prompt, the VFS, and the fs-tool gate all see the same resolved name.
-        val workspaceName = effectiveWorkspaceId?.let { WeAgentRepository.getWorkspaceName(it) }
-        val workspaceEnabled = workspaceName != null
-        val memoryEnabled = WeAgentSettings.memoryEnabled()
-        val engine = buildEngine(sessionId, session.createdAt, workspaceEnabled)
-        val vfs = WorkspaceStore.buildVfs(workspaceName = workspaceName, memoryEnabled = memoryEnabled)
+        val engine = buildEngine(sessionId, session.createdAt, effectiveEnvironment)
 
         if (sessionId == currentSessionId.value) ballState.value = BallState.RUNNING
         val job = scope.launch {
             try {
                 // Install VFS (fs tools), UiImageSink (ui-screenshot), and AgentSessionContext (so the
                 // trigger tools know which session "this session" refers to for SESSION-scoped triggers).
-                val visibility = config.toolVisibility.copy(fsTools = workspaceEnabled || memoryEnabled)
-                withContext(VfsContext(vfs) + UiImageSink() +
-                    AgentSessionContext(sessionId, linuxEnvironmentManager.nativeSnapshot, visibility)) {
+                val visibility = config.toolVisibility.copy(fsTools = true)
+                withContext(UiImageSink() +
+                    AgentSessionContext(sessionId, effectiveEnvironment, visibility)) {
                     engine.runTurn(
                         TurnConfig(
                             client = config.client,
@@ -831,13 +813,11 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     private suspend fun buildEngine(
         sessionId: String,
         promptAnchorTime: java.time.Instant,
-        workspaceEnabled: Boolean,
+        environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot,
     ): AgentSessionEngine {
         val composer = PromptComposer(
             toolLoadingMode = WeAgentSettings.toolLoadingMode(),
-            workspaceEnabled = workspaceEnabled,
-            memoryEnabled = WeAgentSettings.memoryEnabled(),
-            memoryIndexContent = if (WeAgentSettings.memoryEnabled()) WorkspaceStore.readMemoryIndex() else null,
+            environment = environment,
             skillCatalog = dev.ujhhgtg.wekit.agent.skill.SkillStore.enabledSkills().map { it.name to it.description },
             // Anchor the system-prompt clock to the session's creation time so the cacheable prefix
             // stays byte-stable across every turn (see PromptComposer.promptAnchorTime).

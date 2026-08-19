@@ -205,6 +205,30 @@ object WeAgentRepository : ToolPermissionSource {
     suspend fun getMessages(sessionId: String): List<MessageEntity> =
         db.messageDao().getForSession(sessionId)
 
+    /** Records a model-visible environment transition exactly once for a session. */
+    suspend fun announceEffectiveLinuxEnvironment(sessionId: String, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot): Boolean =
+        db.withTransaction {
+            val session = db.sessionDao().getById(sessionId) ?: return@withTransaction false
+            if (session.lastEffectiveLinuxEnvironmentId == environment.id) return@withTransaction false
+            db.sessionDao().setLastEffectiveLinuxEnvironmentId(sessionId, environment.id)
+            db.messageDao().insert(
+                MessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    sessionId = sessionId,
+                    role = MessageRole.SYSTEM,
+                    content = environmentReminder(environment),
+                    createdAt = nextStamp(),
+                )
+            )
+            true
+        }
+
+    private fun environmentReminder(environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot): String =
+        "[系统提醒] 当前 Linux 环境已切换为「${environment.displayName}」(${environment.type.name})。" +
+            "工作目录：${environment.workingDirectory}；Shell：${environment.shell}；" +
+            "权限边界：${environment.privilegesAndCapabilities}；" +
+            "invoke_tool：${environment.bridgeLocation ?: "不可用"}。"
+
     /** One tool-call row by its call id (used to restore tool name / status on UI reload). */
     suspend fun getToolCall(callId: String): ToolCallEntity? =
         db.toolCallDao().getById(callId)
@@ -594,7 +618,7 @@ object WeAgentRepository : ToolPermissionSource {
         for (m in rows) {
             when (m.role) {
                 MessageRole.USER -> out += LlmMessage(role = LlmRole.USER, content = m.content)
-                MessageRole.SYSTEM -> Unit // composed per-turn, never replayed
+                MessageRole.SYSTEM -> out += LlmMessage(role = LlmRole.USER, content = m.content)
                 MessageRole.ASSISTANT -> {
                     val calls = db.toolCallDao().getForMessage(m.id).map {
                         LlmToolCall(it.id, it.toolName, it.argumentsJson, providerSignature = it.providerSignature)

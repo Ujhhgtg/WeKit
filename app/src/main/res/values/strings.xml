@@ -147,6 +147,25 @@
     <string name="search_hint">Search</string>
     <string name="accessibility_back">Back</string>
     <string name="agent_settings_title">WeAgent Settings</string>
+    <string name="agent_linux_environments_title">Linux environments</string>
+    <string name="agent_linux_environments_summary">Choose where commands and files run</string>
+    <string name="agent_linux_environments_section">Environments</string>
+    <string name="agent_linux_environment_add">Add environment</string>
+    <string name="agent_linux_environment_detail">Environment details</string>
+    <string name="agent_linux_environment_details_section">Configuration</string>
+    <string name="agent_linux_environment_actions_section">Actions</string>
+    <string name="agent_linux_environment_name">Name</string>
+    <string name="agent_linux_environment_type_immutable">Type cannot be changed after creation</string>
+    <string name="agent_linux_environment_selected">Selected for new sessions</string>
+    <string name="agent_linux_environment_working_directory">Working directory</string>
+    <string name="agent_linux_environment_host">SSH host</string>
+    <string name="agent_linux_environment_port">SSH port</string>
+    <string name="agent_linux_environment_username">SSH username</string>
+    <string name="agent_linux_environment_password">SSH password</string>
+    <string name="agent_linux_environment_save">Save</string>
+    <string name="agent_linux_environment_test">Test connection</string>
+    <string name="agent_linux_environment_error">Environment error</string>
+    <string name="agent_linux_environment_delete_confirm">Delete this environment and its local files?</string>
     <string name="agent_overlay_mode_title">Floating overlay mode</string>
     <string name="agent_overlay_mode_disabled">Disabled</string>
     <string name="agent_overlay_mode_foreground_only">Only while WeChat is in the foreground</string>
@@ -166,10 +185,6 @@
     <string name="agent_mcp_servers_summary">Add Streamable HTTP and SSE servers</string>
     <string name="agent_dynamic_tools_title">Dynamic tool discovery</string>
     <string name="agent_dynamic_tools_summary">Expose only the discover_tools meta-tool and load other tools on demand to save tokens when many tools are available</string>
-    <string name="agent_workspaces_title">Workspaces</string>
-    <string name="agent_workspaces_summary">Manage file workspace directories</string>
-    <string name="agent_memory_title">Memory</string>
-    <string name="agent_memory_summary">Manage the global switch and view the memory index</string>
     <string name="agent_external_services_title">External services</string>
     <string name="agent_external_services_summary">API keys for web tools such as Exa Search and Brave Search</string>
     <string name="agent_section_context">Context</string>
@@ -183,7 +198,6 @@
     <string name="agent_default_model_title">Default model</string>
     <string name="agent_use_first_model">(Use the first model)</string>
     <string name="agent_default_system_prompt_title">Default system prompt</string>
-    <string name="agent_default_workspace_title">Default workspace</string>
     <string name="common_none_parenthesized">(None)</string>
     <string name="common_loading">Loading…</string>
     <string name="action_save">Save</string>
@@ -194,11 +208,6 @@
     <string name="external_service_brave_name" translatable="false">Brave Search</string>
     <string name="external_service_brave_description">Privacy-focused web search; requires a Brave Search API key (api.search.brave.com)</string>
     <string name="external_service_api_key" translatable="false">API Key</string>
-    <string name="agent_memory_enable_title">Enable memory</string>
-    <string name="agent_memory_enable_summary">Allow the AI to read and write persistent memory through /memory/ (MEMORY.md index and memory files)</string>
-    <string name="agent_memory_index_title">Memory index (MEMORY.md)</string>
-    <string name="agent_memory_index_parse_failed">⚠ The memory index could not be parsed. This affects only this display and does not prevent the AI from using memory.</string>
-    <string name="agent_memory_index_empty">The memory index is empty. The AI will add memories when needed.</string>
     <string name="agent_tool_count_summary">%1$s · %2$d tools</string>
     <string name="agent_no_provider_tools">This provider has no available tools.</string>
     <string name="agent_tool_mode_enabled">Allow directly</string>
@@ -3510,8 +3519,7 @@
     <string name="agent_panel_not_selected">Not selected</string>
     <string name="agent_panel_quick_actions">Quick actions</string>
     <string name="agent_panel_model">Model</string>
-    <string name="agent_panel_workspace">Workspace</string>
-    <string name="agent_panel_memory">Memory</string>
+    <string name="agent_panel_environment">Environment</string>
     <string name="agent_panel_system_prompt">System prompt</string>
     <string name="agent_panel_preset_prompt">Preset prompt</string>
     <string name="agent_panel_tap_to_choose">Tap to choose</string>

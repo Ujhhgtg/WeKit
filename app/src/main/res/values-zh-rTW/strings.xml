@@ -3399,8 +3399,6 @@
     <string name="agent_panel_not_selected">未選擇</string>
     <string name="agent_panel_quick_actions">快捷操作</string>
     <string name="agent_panel_model">模型</string>
-    <string name="agent_panel_workspace">工作區</string>
-    <string name="agent_panel_memory">記憶</string>
     <string name="agent_panel_system_prompt">系統提示詞</string>
     <string name="agent_panel_preset_prompt">預設提示詞</string>
     <string name="agent_panel_tap_to_choose">點擊選擇</string>

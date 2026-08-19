@@ -15,7 +15,8 @@ import dev.ujhhgtg.wekit.ui.agent.settings.BuiltinProvidersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ExternalServicesScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.McpServerDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.McpServersScreen
-import dev.ujhhgtg.wekit.ui.agent.settings.MemoryScreen
+import dev.ujhhgtg.wekit.ui.agent.settings.LinuxEnvironmentDetailScreen
+import dev.ujhhgtg.wekit.ui.agent.settings.LinuxEnvironmentsScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelProviderDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelProvidersScreen
@@ -24,7 +25,6 @@ import dev.ujhhgtg.wekit.ui.agent.settings.SkillsScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ToolPermissionListScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.TriggersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WeAgentHomeScreen
-import dev.ujhhgtg.wekit.ui.agent.settings.WorkspacesScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderDisplayName
 import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderTools
 import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
@@ -91,9 +91,9 @@ sealed interface AgentSettingsRoute : NavKey {
     @Serializable
     data object Prompts : AgentSettingsRoute
     @Serializable
-    data object Workspaces : AgentSettingsRoute
+    data object LinuxEnvironments : AgentSettingsRoute
     @Serializable
-    data object Memory : AgentSettingsRoute
+    data class LinuxEnvironmentDetail(val environmentId: String?) : AgentSettingsRoute
     @Serializable
     data object Skills : AgentSettingsRoute
     @Serializable
@@ -159,8 +159,15 @@ private fun WeAgentSettingsRoot(onFinish: () -> Unit) {
                 McpServerDetailScreen(serverId = key.serverId, onBack = { navigator.pop() })
             }
             entry<AgentSettingsRoute.Prompts>(swipeDismiss = NavSwipeDirection.LeftToRight) { PromptsScreen(onBack = { navigator.pop() }) }
-            entry<AgentSettingsRoute.Workspaces>(swipeDismiss = NavSwipeDirection.LeftToRight) { WorkspacesScreen(onBack = { navigator.pop() }) }
-            entry<AgentSettingsRoute.Memory>(swipeDismiss = NavSwipeDirection.LeftToRight) { MemoryScreen(onBack = { navigator.pop() }) }
+            entry<AgentSettingsRoute.LinuxEnvironments>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+                LinuxEnvironmentsScreen(
+                    onBack = { navigator.pop() },
+                    onOpen = { navigator.push(AgentSettingsRoute.LinuxEnvironmentDetail(it)) },
+                )
+            }
+            entry<AgentSettingsRoute.LinuxEnvironmentDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
+                LinuxEnvironmentDetailScreen(environmentId = key.environmentId, onBack = { navigator.pop() })
+            }
             entry<AgentSettingsRoute.Skills>(swipeDismiss = NavSwipeDirection.LeftToRight) { SkillsScreen(onBack = { navigator.pop() }) }
             entry<AgentSettingsRoute.Triggers>(swipeDismiss = NavSwipeDirection.LeftToRight) { TriggersScreen(onBack = { navigator.pop() }) }
             entry<AgentSettingsRoute.ExternalServices>(swipeDismiss = NavSwipeDirection.LeftToRight) { ExternalServicesScreen(onBack = { navigator.pop() }) }

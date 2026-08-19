@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.agent.engine
 
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode
+import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -11,15 +12,13 @@ import java.time.format.DateTimeFormatter
  * conditional prompts against model output. The "role/profile" concept was removed: prompts are
  * four flat lists.
  *
- * System message = default system prompt + [memory usage note + MEMORY.md] (memory on) +
+ * System message = default system prompt + effective Linux environment context +
  *   [skills catalog] (skills present) + the session's bound system prompt (if any).
  * Per-turn user message = all enabled per-turn prompts + the user's raw message (transient).
  */
 class PromptComposer(
     private val toolLoadingMode: ToolLoadingMode,
-    private val workspaceEnabled: Boolean,
-    private val memoryEnabled: Boolean,
-    private val memoryIndexContent: String?,
+    private val environment: EnvironmentSnapshot,
     /** Enabled skills as (name, description) pairs, advertised as a catalog (dynamic discovery). */
     private val skillCatalog: List<Pair<String, String>> = emptyList(),
     /**
@@ -36,14 +35,6 @@ class PromptComposer(
     /** Builds the full system message. [systemPromptContent] is the session's bound system prompt, or null. */
     fun composeSystemMessage(systemPromptContent: String?): String = buildString {
         append(defaultSystemPrompt())
-        if (memoryEnabled) {
-            append("\n\n")
-            append(MEMORY_USAGE_NOTE)
-            if (!memoryIndexContent.isNullOrBlank()) {
-                append("\n\n# MEMORY.md\n")
-                append(memoryIndexContent.trim())
-            }
-        }
         if (skillCatalog.isNotEmpty()) {
             append("\n\n")
             append(SKILLS_USAGE_NOTE)
@@ -115,13 +106,14 @@ class PromptComposer(
                 append("\n")
                 append("- 当前为动态工具发现模式：初始只提供 discover_tools 元工具。调用它 (action=list_providers/list_tools/search_tools) 来获取可用工具及其完整 JSON Schema，被发现的工具随后即可直接调用。")
             }
-            if (workspaceEnabled) {
-                append("\n")
-                append("- 工作区：以 /workspace/ 为根的虚拟文件系统，可用文件读写工具访问；路径必须以 /workspace/ 开头，越界访问会失败。")
-            }
-            if (memoryEnabled) {
-                append("\n")
-                append("- 记忆：以 /memory/ 为根的虚拟文件系统。MEMORY.md 是索引，已注入下方；需要某条记忆细节时用文件读取工具打开对应 .md 文件。MEMORY.md 应保持精简，每条一行，不要把细节写进索引，细节应写入对应的记忆文件。")
+            append("\n\n# 当前 Linux 执行环境\n")
+            append("- 名称与类型：${environment.displayName} (${environment.type})\n")
+            append("- 系统与架构：${environment.operatingSystem} / ${environment.architecture}\n")
+            append("- Shell 与工作目录：${environment.shell} / ${environment.workingDirectory}\n")
+            append("- 权限边界：${environment.privilegesAndCapabilities}\n")
+            append("- invoke_tool：${environment.bridgeLocation ?: "不可用"}")
+            if (environment.type == dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType.PROOT || environment.type == dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType.CHROOT) {
+                append("\n- 本地 Arch Linux 共享 Android 内核；${if (environment.type == dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType.PROOT) "PRoot 无内核级隔离" else "chroot 不是安全边界"}。")
             }
             append(
                 """
@@ -142,10 +134,6 @@ class PromptComposer(
     }
 
     companion object {
-        private const val MEMORY_USAGE_NOTE =
-            "# 记忆用途说明\n你拥有一个持久化记忆系统 (/memory/)。下面的 MEMORY.md 是记忆索引，" +
-                    "列出了每条记忆文件及其简介。需要具体细节时，用文件读取工具打开对应的 .md 文件。"
-
         private const val SKILLS_USAGE_NOTE =
             "# 技能用途说明\n你拥有一批「技能」——针对特定任务的操作手册。下方仅列出每个技能的名称与简介；" +
                     "当某个技能与当前任务相关时，调用 load_skill 工具（传入技能名称）加载它的完整说明后再据此操作。" +

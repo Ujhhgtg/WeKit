@@ -21,12 +21,10 @@ import com.composables.icons.materialsymbols.outlined.Cloud
 import com.composables.icons.materialsymbols.outlined.Construction
 import com.composables.icons.materialsymbols.outlined.Edit_note
 import com.composables.icons.materialsymbols.outlined.Extension
-import com.composables.icons.materialsymbols.outlined.Folder
-import com.composables.icons.materialsymbols.outlined.Folder_open
+import com.composables.icons.materialsymbols.outlined.Terminal
 import com.composables.icons.materialsymbols.outlined.Key
 import com.composables.icons.materialsymbols.outlined.Notes
 import com.composables.icons.materialsymbols.outlined.Notifications_active
-import com.composables.icons.materialsymbols.outlined.Psychology
 import com.composables.icons.materialsymbols.outlined.Search
 import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Smart_display
@@ -52,7 +50,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
     val scope = rememberCoroutineScope()
-    val memoryEnabled by WeAgentService.memoryEnabled
 
     var loaded by remember { mutableStateOf(false) }
     var dynamicTools by remember { mutableStateOf(false) }
@@ -61,7 +58,6 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
     var smallModelId by remember { mutableStateOf<String?>(null) }
     var defaultModelId by remember { mutableStateOf<String?>(null) }
     var defaultSystemPromptId by remember { mutableStateOf<String?>(null) }
-    var defaultWorkspaceId by remember { mutableStateOf<String?>(null) }
 
     // These must come from the live DB flows, not a one-shot read: a model/prompt/workspace added
     // on a child screen has to show up in these dropdowns as soon as the user comes back, no
@@ -72,8 +68,6 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
         .collectAsState(initial = null)
     val systemPrompts by remember { WeAgentRepository.observeSystemPrompts() }
         .collectAsState(initial = null)
-    val workspaces by remember { WeAgentRepository.observeWorkspaces() }
-        .collectAsState(initial = null)
 
     LaunchedEffect(Unit) {
         dynamicTools = WeAgentSettings.toolLoadingMode() == ToolLoadingMode.DYNAMIC
@@ -82,7 +76,6 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
         smallModelId = WeAgentSettings.smallModelId()
         defaultModelId = WeAgentSettings.defaultModelId()
         defaultSystemPromptId = WeAgentSettings.defaultSystemPromptId()
-        defaultWorkspaceId = WeAgentSettings.defaultWorkspaceId()
         loaded = true
     }
 
@@ -198,27 +191,12 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                 }
                 item {
                     BaseWidget(
-                        icon = MaterialSymbols.Outlined.Folder,
+                        icon = MaterialSymbols.Outlined.Terminal,
                         iconPlaceholder = false,
-                        title = stringResource(R.string.agent_workspaces_title),
-                        description = stringResource(R.string.agent_workspaces_summary),
-                        onClick = { onOpen(AgentSettingsRoute.Workspaces) },
+                        title = stringResource(R.string.agent_linux_environments_title),
+                        description = stringResource(R.string.agent_linux_environments_summary),
+                        onClick = { onOpen(AgentSettingsRoute.LinuxEnvironments) },
                         trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    )
-                }
-                item {
-                    SwitchWidget(
-                        icon = MaterialSymbols.Outlined.Psychology,
-                        iconPlaceholder = false,
-                        title = stringResource(R.string.agent_memory_title),
-                        description = stringResource(
-                            if (memoryEnabled) R.string.agent_memory_enabled_summary
-                            else R.string.agent_memory_disabled_summary
-                        ),
-                        onClick = { onOpen(AgentSettingsRoute.Memory) },
-                        trailingDivider = true,
-                        checked = memoryEnabled,
-                        onCheckedChange = { on -> scope.launch { WeAgentService.setMemoryEnabled(on) } },
                     )
                 }
                 item {
@@ -271,7 +249,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
         }
 
         // ---------- 默认 ----------
-        if (loaded && models != null && systemPrompts != null && workspaces != null) {
+        if (loaded && models != null && systemPrompts != null) {
             item {
                 SegmentedColumn(
                     title = stringResource(R.string.agent_section_defaults),
@@ -304,21 +282,6 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
                             onValueChange = { id ->
                                 defaultSystemPromptId = id
                                 scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_SYSTEM_PROMPT_ID, id.orEmpty()) }
-                            },
-                        )
-                    }
-                    item {
-                        DropDownMenuWidget(
-                            icon = MaterialSymbols.Outlined.Folder_open,
-                            iconPlaceholder = false,
-                            title = stringResource(R.string.agent_default_workspace_title),
-                            description = null,
-                            value = staleToNull(defaultWorkspaceId, workspaces!!.map { it.id }),
-                            options = listOf(DropdownOption<String?>(null, stringResource(R.string.common_none_parenthesized))) +
-                                workspaces!!.map { DropdownOption(it.id, it.name) },
-                            onValueChange = { id ->
-                                defaultWorkspaceId = id
-                                scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_WORKSPACE_ID, id.orEmpty()) }
                             },
                         )
                     }
