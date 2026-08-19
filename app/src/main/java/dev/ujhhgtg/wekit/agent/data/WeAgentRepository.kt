@@ -241,11 +241,8 @@ object WeAgentRepository : ToolPermissionSource {
     /** First configured model id, if any (used to seed a new session when no default is set). */
     suspend fun firstModelId(): String? = db.modelDao().first()?.id
 
-    /** Temporary source compatibility until workspace tool callers are replaced. */
-    suspend fun getWorkspaceName(workspaceId: String): String? = null
-
     /** Creates a new session with a placeholder title; returns its id. modelId null = "默认" (follow settings default). */
-    suspend fun createSession(modelId: String?, systemPromptId: String?, workspaceId: String?): String {
+    suspend fun createSession(modelId: String?, systemPromptId: String?): String {
         val now = nextStamp()
         val id = UUID.randomUUID().toString()
         db.sessionDao().upsert(
@@ -324,7 +321,7 @@ object WeAgentRepository : ToolPermissionSource {
 
     /**
      * Creates a branch of [sourceSessionId] containing all messages up to and including the one
-     * at [upToTimestamp]. Session metadata (model, system prompt, workspace, favorite) is copied;
+     * at [upToTimestamp]. Session metadata (model, system prompt, Linux environment, favorite) is copied;
      * token usage and triggers are not. Returns the new session id. The caller is responsible for
      * switching the foreground to the new session.
      *
@@ -433,9 +430,6 @@ object WeAgentRepository : ToolPermissionSource {
         val s = db.sessionDao().getById(id) ?: return
         db.sessionDao().upsert(s.copy(systemPromptId = systemPromptId, updatedAt = nextStamp()))
     }
-
-    /** Temporary source compatibility until workspace UI callers are replaced. */
-    suspend fun updateSessionWorkspace(id: String, workspaceId: String?) = Unit
 
     suspend fun updateSessionLinuxEnvironment(id: String, environmentId: String?) {
         if (environmentId != null) requireEnvironmentExists(environmentId)
@@ -667,9 +661,6 @@ object WeAgentRepository : ToolPermissionSource {
     fun observePerTurnPrompts(): Flow<List<PerTurnPromptEntity>> = db.perTurnPromptDao().observeAll()
     fun observeConditionalPrompts(): Flow<List<ConditionalPromptEntity>> = db.conditionalPromptDao().observeAll()
     fun observePresetPrompts(): Flow<List<PresetPromptEntity>> = db.presetPromptDao().observeAll()
-    /** Temporary source compatibility until workspace UI callers are replaced. */
-    fun observeWorkspaces(): Flow<List<dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity>> = flowOf(emptyList())
-
     fun observeLinuxEnvironments(): Flow<List<LinuxEnvironmentEntity>> =
         db.linuxEnvironmentDao().observeAll()
 
@@ -869,9 +860,6 @@ object WeAgentRepository : ToolPermissionSource {
         }
     }
 
-    /** Temporary source compatibility until workspace UI callers are replaced. */
-    suspend fun upsertWorkspace(w: dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity) = Unit
-
     suspend fun deleteLinuxEnvironment(
         id: String,
         deletedEnvironment: EnvironmentSnapshot,
@@ -922,11 +910,7 @@ object WeAgentRepository : ToolPermissionSource {
         return deleted
     }
 
-    /** Temporary source compatibility; old directories are deliberately preserved. */
-    suspend fun deleteWorkspace(id: String) = Unit
-
     suspend fun getAllModelsOnce(): List<ModelEntity> = db.modelDao().getAllOnce()
-    suspend fun observeWorkspacesOnce(): List<dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity> = emptyList()
 
     internal fun resolveEffectiveLinuxEnvironmentId(
         sessionEnvironmentId: String?,

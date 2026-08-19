@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.agent.data.entity
 
 import androidx.room.Entity
-import androidx.room.Ignore
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
@@ -42,11 +41,7 @@ data class SessionEntity(
     val completionTokens: Int? = null,
     val totalTokens: Int? = null,
     val contextWindow: Int? = null,
-) {
-    /** Temporary source compatibility until workspace UI/tool callers are replaced. */
-    @get:Ignore
-    val workspaceId: String? get() = null
-}
+)
 
 enum class MessageRole { USER, ASSISTANT, TOOL, SYSTEM }
 

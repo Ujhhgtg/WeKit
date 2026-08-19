@@ -152,10 +152,6 @@
     <string name="agent_mcp_servers_summary">添加 Streamable HTTP / SSE 服务器</string>
     <string name="agent_dynamic_tools_title">动态工具发现</string>
     <string name="agent_dynamic_tools_summary">仅提供 discover_tools 元工具，按需暴露其余工具（工具很多时省 token）</string>
-    <string name="agent_workspaces_title">工作区</string>
-    <string name="agent_workspaces_summary">文件工作区目录管理</string>
-    <string name="agent_memory_title">记忆</string>
-    <string name="agent_memory_summary">全局开关与记忆索引查看</string>
     <string name="agent_external_services_title">外部服务</string>
     <string name="agent_external_services_summary">Exa Search、Brave Search 等网络工具的 API Key</string>
     <string name="agent_section_context">上下文</string>
@@ -169,7 +165,6 @@
     <string name="agent_default_model_title">默认模型</string>
     <string name="agent_use_first_model">（使用第一个模型）</string>
     <string name="agent_default_system_prompt_title">默认系统提示词</string>
-    <string name="agent_default_workspace_title">默认工作区</string>
     <string name="common_none_parenthesized">（无）</string>
     <string name="common_loading">加载中…</string>
     <string name="action_save">保存</string>
@@ -177,11 +172,6 @@
     <string name="accessibility_hide">隐藏</string>
     <string name="external_service_exa_description">AI 语义搜索，需要 Exa API Key（exa.ai）</string>
     <string name="external_service_brave_description">隐私优先的网络搜索，需要 Brave Search API Key（api.search.brave.com）</string>
-    <string name="agent_memory_enable_title">启用记忆</string>
-    <string name="agent_memory_enable_summary">允许 AI 通过 /memory/ 读写持久记忆（MEMORY.md 索引 + 记忆文件）</string>
-    <string name="agent_memory_index_title">记忆索引（MEMORY.md）</string>
-    <string name="agent_memory_index_parse_failed">⚠ 记忆索引解析失败，仅影响此处的展示，不影响 AI 使用记忆的能力。</string>
-    <string name="agent_memory_index_empty">记忆索引为空。AI 会在需要时自行写入记忆。</string>
     <string name="agent_tool_count_summary">%1$s · %2$d 个工具</string>
     <string name="agent_no_provider_tools">该提供方暂无可用工具。</string>
     <string name="agent_tool_mode_enabled">直接允许</string>
@@ -1057,12 +1047,6 @@
     <string name="agent_skill_name_label">技能名称（同时作为目录名）</string>
     <string name="agent_skill_description_label">简介（决定 LLM 何时加载此技能）</string>
     <string name="agent_skill_body_label">技能正文（SKILL.md 指令内容）</string>
-    <string name="agent_workspace_path_summary">/workspace/ → %1$s</string>
-    <string name="agent_add_workspace">添加工作区</string>
-    <string name="agent_workspace_rename_failed">重命名失败：目标名称已存在或无效</string>
-    <string name="agent_edit_workspace">编辑工作区</string>
-    <string name="agent_workspace_edit_name_label">工作区名称（会重命名真实文件夹）</string>
-    <string name="agent_workspace_add_name_label">工作区名称（同时作为目录名）</string>
     <string name="agent_global_triggers">全局触发器</string>
     <string name="agent_session_triggers">会话触发器</string>
     <string name="agent_deleted_session">（会话已删除）</string>
@@ -3320,7 +3304,6 @@
     <string name="agent_delete_provider_confirm">删除该提供方及其所有模型？此操作无法撤销。</string>
     <string name="agent_delete_model_confirm">删除该模型？此操作无法撤销。</string>
     <string name="agent_delete_server_confirm">删除该服务器及其工具配置？此操作无法撤销。</string>
-    <string name="agent_delete_workspace_confirm">将永久删除工作区「%1$s」及其全部文件。此操作无法撤销。</string>
     <string name="agent_delete_prompt_confirm">删除该提示词？此操作无法撤销。</string>
     <string name="agent_delete_skill_confirm">删除该技能？此操作无法撤销。</string>
     <string name="agent_delete_trigger_confirm">删除该触发器？此操作无法撤销。</string>
@@ -3329,8 +3312,6 @@
     <string name="agent_regex_invalid">正则表达式无效：%1$s</string>
     <string name="agent_save_failed">保存失败:%1$s</string>
     <string name="agent_delete_failed">删除失败:%1$s</string>
-    <string name="agent_memory_disabled_summary">记忆已关闭</string>
-    <string name="agent_memory_enabled_summary">AI 可读写持久记忆</string>
     <string name="agent_empty_providers_title">暂无提供方</string>
     <string name="agent_empty_providers_message">添加一个模型提供方以配置 API 与模型。</string>
     <string name="agent_empty_models_message">为此提供方添加模型，或从其 API 获取并导入。</string>
@@ -3342,8 +3323,6 @@
     <string name="agent_empty_prompts_per_turn">暂无每轮提示词。</string>
     <string name="agent_empty_prompts_conditional">暂无条件提示词。</string>
     <string name="agent_empty_prompts_preset">暂无预设提示词。</string>
-    <string name="agent_empty_workspaces_title">暂无工作区</string>
-    <string name="agent_empty_workspaces_message">工作区让会话可以读写文件。</string>
     <string name="agent_empty_skills_title">暂无技能</string>
     <string name="agent_empty_skills_message">技能是 LLM 可按需加载的任务指南。</string>
     <string name="agent_empty_triggers_title">暂无触发器</string>

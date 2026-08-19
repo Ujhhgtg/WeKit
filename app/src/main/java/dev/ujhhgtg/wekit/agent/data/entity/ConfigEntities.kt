@@ -100,12 +100,6 @@ data class PresetPromptEntity(
 // Linux environments & global settings
 // ---------------------------------------------------------------------------
 
-/** Temporary source compatibility for workspace UI removed by a later task. */
-data class WorkspaceEntity(
-    val id: String,
-    val name: String,
-)
-
 @Entity(tableName = "linux_environments")
 data class LinuxEnvironmentEntity(
     @PrimaryKey val id: String,

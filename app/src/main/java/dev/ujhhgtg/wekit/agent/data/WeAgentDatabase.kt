@@ -129,6 +129,7 @@ abstract class WeAgentDatabase : RoomDatabase() {
             "ALTER TABLE `sessions_new` RENAME TO `sessions`",
             "DROP TABLE `workspaces`",
             "DELETE FROM `settings` WHERE `key` IN ('memory_enabled', 'default_workspace_id')",
+            "DELETE FROM `tool_permissions` WHERE `providerId` = 'builtin-fs' AND `toolName` IN ('read_file', 'list_dir', 'search_files', 'write_file', 'append_file', 'delete_file', 'move_file')",
         )
 
         internal val MIGRATION_13_14 = object : Migration(13, 14) {
@@ -190,7 +191,7 @@ abstract class WeAgentDatabase : RoomDatabase() {
             // Destructive fallback is scoped to the pre-release schemas (1–8) only, which no
             // migration path was ever written for. From 9 onwards every step must have a
             // migration: a missing one then fails loudly at open time instead of silently
-            // wiping every session, prompt, workspace, trigger and model provider (API keys
+            // wiping every session, prompt, trigger and model provider (API keys
             // included). If you bump `version`, add the matching migration — do NOT widen this
             // list.
             .fallbackToDestructiveMigrationFrom(true, 1, 2, 3, 4, 5, 6, 7, 8)

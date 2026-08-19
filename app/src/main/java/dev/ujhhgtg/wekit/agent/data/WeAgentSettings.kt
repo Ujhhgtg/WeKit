@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Typed accessor over the `settings` key-value table for WeAgent global configuration (§2.1, §3.3,
- * §5.4, §7, §8). Values are cached in memory after [load]; writes update both the DB and cache.
+ * §5.4). Values are cached in memory after [load]; writes update both the DB and cache.
  * Kept deliberately small — per-feature UI reads/writes go through the named helpers here.
  */
 object WeAgentSettings {
@@ -18,13 +18,9 @@ object WeAgentSettings {
     // Keys
     const val KEY_TOOL_LOADING_MODE = "tool_loading_mode"            // §3.3 STATIC | DYNAMIC
     const val KEY_SMALL_MODEL_ID = "small_model_id"                  // §5.4 ("" = same as main)
-    @Deprecated("Removed with workspace and memory persistence")
-    const val KEY_MEMORY_ENABLED = "memory_enabled"
     const val KEY_DEFAULT_MODEL_ID = "default_model_id"             // new-session default
     const val KEY_DEFAULT_SYSTEM_PROMPT_ID = "default_system_prompt_id" // new-session default binding
     const val KEY_DEFAULT_LINUX_ENVIRONMENT_ID = "default_linux_environment_id"
-    @Deprecated("Removed with workspace persistence")
-    const val KEY_DEFAULT_WORKSPACE_ID = "default_workspace_id"
     const val KEY_SEND_WHILE_RUNNING = "send_while_running"         // QUEUE_AFTER_TURN | QUEUE_AS_STEER
     const val KEY_OVERLAY_MODE = "overlay_mode"                     // DISABLED | FOREGROUND_ONLY | ALWAYS
 
@@ -38,11 +34,6 @@ object WeAgentSettings {
     private suspend fun get(key: String): String? = cache[key] ?: db.settingDao().getValue(key)?.also { cache[key] = it }
 
     suspend fun set(key: String, value: String) {
-        if (key == KEY_MEMORY_ENABLED || key == KEY_DEFAULT_WORKSPACE_ID) {
-            db.settingDao().delete(key)
-            cache.remove(key)
-            return
-        }
         db.settingDao().upsert(SettingEntity(key, value))
         cache[key] = value
     }
@@ -85,16 +76,10 @@ object WeAgentSettings {
     /** Small model id for smart-approval & title generation; blank means "same as main model" (§5.4). */
     suspend fun smallModelId(): String? = get(KEY_SMALL_MODEL_ID)?.takeIf { it.isNotBlank() }
 
-    /** Temporary source compatibility until memory UI/tool callers are removed. */
-    suspend fun memoryEnabled(): Boolean = false
-
     suspend fun defaultModelId(): String? = get(KEY_DEFAULT_MODEL_ID)?.takeIf { it.isNotBlank() }
     suspend fun defaultSystemPromptId(): String? = get(KEY_DEFAULT_SYSTEM_PROMPT_ID)?.takeIf { it.isNotBlank() }
     suspend fun defaultLinuxEnvironmentId(): String? =
         get(KEY_DEFAULT_LINUX_ENVIRONMENT_ID)?.takeIf { it.isNotBlank() }
-
-    /** Temporary source compatibility until workspace UI/tool callers are removed. */
-    suspend fun defaultWorkspaceId(): String? = null
 
     /**
      * When the floating ball should be attached. An explicit [KEY_OVERLAY_MODE] value is

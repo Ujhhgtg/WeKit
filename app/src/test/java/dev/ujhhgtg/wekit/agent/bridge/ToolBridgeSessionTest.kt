@@ -65,7 +65,7 @@ class ToolBridgeSessionTest {
             ManualApprovalHandler { ManualApprovalResult.Approved }, null,
         ))
         val session = ToolBridgeSession(
-            scopedRegistry, scopedExecutor, ToolVisibility(true, true), EmptyCoroutineContext,
+            scopedRegistry, scopedExecutor, ToolVisibility(true), EmptyCoroutineContext,
             "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", {}, "native", null,
         )
         val names = kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}"))
@@ -204,7 +204,7 @@ class ToolBridgeSessionTest {
             ManualApprovalHandler { ManualApprovalResult.Approved }, null,
         ))
         val session = ToolBridgeSession(
-            contextRegistry, contextExecutor, ToolVisibility(true, true),
+            contextRegistry, contextExecutor, ToolVisibility(true),
             completedParent + agentContext + imageSink,
             "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", {}, "native", null,
         )
@@ -228,7 +228,7 @@ class ToolBridgeSessionTest {
                 owner = "owner",
                 environmentId = "native",
                 parentToolCallId = "exec-call",
-                visibility = ToolVisibility(true, true),
+                visibility = ToolVisibility(true),
                 context = EmptyCoroutineContext,
             ) {
                 endpoint = it
@@ -251,7 +251,7 @@ class ToolBridgeSessionTest {
     }
 
     private fun session(audit: suspend (ToolBridgeSession.AuditEntry) -> Unit = {}) = ToolBridgeSession(
-        registry, executor, ToolVisibility(visionTools = true, fsTools = true), EmptyCoroutineContext,
+        registry, executor, ToolVisibility(visionTools = true), EmptyCoroutineContext,
         "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", audit, "native", null,
     )
 
@@ -263,7 +263,7 @@ class ToolBridgeSessionTest {
         val registry = ToolRegistry(ToolPermissionSource { _, _, mode -> mode }, listOf(provider))
         val executor = ToolCallExecutor(registry, ApprovalGateway(ManualApprovalHandler { approval }, null))
         return ToolBridgeSession(
-            registry, executor, ToolVisibility(true, true), EmptyCoroutineContext,
+            registry, executor, ToolVisibility(true), EmptyCoroutineContext,
             "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", audit, "native", null,
         )
     }

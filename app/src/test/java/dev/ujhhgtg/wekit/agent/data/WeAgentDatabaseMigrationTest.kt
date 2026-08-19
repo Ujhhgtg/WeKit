@@ -16,11 +16,13 @@ class WeAgentDatabaseMigrationTest {
                 statement.execute("CREATE TABLE tool_calls (id TEXT NOT NULL PRIMARY KEY, messageId TEXT NOT NULL, resultJson TEXT)")
                 statement.execute("CREATE TABLE workspaces (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL)")
                 statement.execute("CREATE TABLE settings (`key` TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL)")
+                statement.execute("CREATE TABLE tool_permissions (providerId TEXT NOT NULL, toolName TEXT NOT NULL, mode TEXT NOT NULL, PRIMARY KEY(providerId, toolName))")
                 statement.execute("INSERT INTO sessions VALUES ('session', 'Title', NULL, 'workspace', 'model', 1, 2, 1, 3, 4, 7, 8192)")
                 statement.execute("INSERT INTO messages VALUES ('message', 'session', 'kept')")
                 statement.execute("INSERT INTO tool_calls VALUES ('call', 'message', 'kept')")
                 statement.execute("INSERT INTO workspaces VALUES ('workspace', 'old-files-stay-on-disk')")
                 statement.execute("INSERT INTO settings VALUES ('memory_enabled', 'true'), ('default_workspace_id', 'workspace'), ('default_model_id', 'model')")
+                statement.execute("INSERT INTO tool_permissions VALUES ('builtin-fs', 'read_file', 'ENABLED'), ('builtin-fs', 'load_skill', 'ENABLED'), ('mcp', 'read_file', 'MANUAL_APPROVAL')")
                 WeAgentDatabase.migration12To13Sql.forEach(statement::execute)
             }
 
@@ -35,6 +37,9 @@ class WeAgentDatabaseMigrationTest {
                 assertEquals(1, statement.count("tool_calls"))
                 assertEquals(0, statement.count("settings", "`key` IN ('memory_enabled', 'default_workspace_id')"))
                 assertEquals(1, statement.count("settings", "`key` = 'default_model_id'"))
+                assertEquals(0, statement.count("tool_permissions", "providerId = 'builtin-fs' AND toolName = 'read_file'"))
+                assertEquals(1, statement.count("tool_permissions", "providerId = 'builtin-fs' AND toolName = 'load_skill'"))
+                assertEquals(1, statement.count("tool_permissions", "providerId = 'mcp' AND toolName = 'read_file'"))
                 assertFalse(statement.tableExists("workspaces"))
                 assertTrue(statement.tableExists("linux_environments"))
             }

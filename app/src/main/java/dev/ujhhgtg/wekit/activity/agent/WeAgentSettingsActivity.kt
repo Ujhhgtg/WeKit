@@ -42,7 +42,7 @@ import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 /**
  * Dedicated WeAgent configuration Activity (§8). Deliberately separate from the floating overlay:
  * the overlay stays lean while all detailed configuration (model providers, MCP servers, tool
- * permissions, prompts, workspaces, skills, global settings) lives here.
+ * permissions, prompts, Linux environments, skills, global settings) lives here.
  *
  * Navigation mirrors [dev.ujhhgtg.wekit.activity.settings.SettingsActivity]: a miuix-nav
  * [NavDisplay] stack with the predictive-back drill-down transition, supporting arbitrary depth.

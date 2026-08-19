@@ -385,7 +385,7 @@ private fun fmtTokens(n: Int): String =
  * Multiline input with a bottom action row: a [+] menu on the left and a send button on the right.
  * The [+] opens a nested two-level menu for in-session quick actions (§1.3): switch model, bind a
  * environment, switch the system-prompt profile, and insert a preset
- * prompt. Model/workspace/prompt/preset each open a submenu; memory toggles inline.
+ * prompt. Model/environment/prompt/preset each open a submenu.
  */
 @Composable
 private fun InputBar(
@@ -539,7 +539,7 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
         WeAgentService.ballState.value == WeAgentService.BallState.PENDING_APPROVAL
 
     // A null model id means "默认": the session follows the settings default model, resolved at turn
-    // time (mirrors workspace/systemPrompt). Show "默认" for null rather than "未选择".
+    // time (mirrors environment/systemPrompt). Show "默认" for null rather than "未选择".
     val defaultLabel = stringResource(R.string.agent_panel_default)
     val noneLabel = stringResource(R.string.agent_panel_none)
     val modelLabel = if (currentModelId == null) defaultLabel

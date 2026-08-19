@@ -1108,12 +1108,6 @@
     <string name="agent_skill_name_label">Skill name (also used as the directory name)</string>
     <string name="agent_skill_description_label">Description (determines when the LLM loads this skill)</string>
     <string name="agent_skill_body_label">Skill body (instructions in SKILL.md)</string>
-    <string name="agent_workspace_path_summary">/workspace/ → %1$s</string>
-    <string name="agent_add_workspace">Add workspace</string>
-    <string name="agent_workspace_rename_failed">Rename failed: the target name already exists or is invalid</string>
-    <string name="agent_edit_workspace">Edit workspace</string>
-    <string name="agent_workspace_edit_name_label">Workspace name (renames the actual folder)</string>
-    <string name="agent_workspace_add_name_label">Workspace name (also used as the directory name)</string>
     <string name="agent_global_triggers">Global triggers</string>
     <string name="agent_session_triggers">Session triggers</string>
     <string name="agent_deleted_session">(Session deleted)</string>
@@ -3570,7 +3564,6 @@
     <string name="agent_delete_provider_confirm">Delete this provider and all of its models? This action cannot be undone.</string>
     <string name="agent_delete_model_confirm">Delete this model? This action cannot be undone.</string>
     <string name="agent_delete_server_confirm">Delete this server and its tool configuration? This action cannot be undone.</string>
-    <string name="agent_delete_workspace_confirm">This will permanently delete workspace "%1$s" and all of its files. This action cannot be undone.</string>
     <string name="agent_delete_prompt_confirm">Delete this prompt? This action cannot be undone.</string>
     <string name="agent_delete_skill_confirm">Delete this skill? This action cannot be undone.</string>
     <string name="agent_delete_trigger_confirm">Delete this trigger? This action cannot be undone.</string>
@@ -3579,8 +3572,6 @@
     <string name="agent_regex_invalid">Invalid regular expression: %1$s</string>
     <string name="agent_save_failed">Save failed: %1$s</string>
     <string name="agent_delete_failed">Delete failed: %1$s</string>
-    <string name="agent_memory_disabled_summary">Memory is off</string>
-    <string name="agent_memory_enabled_summary">The AI can read and write persistent memory</string>
     <string name="agent_empty_providers_title">No providers yet</string>
     <string name="agent_empty_providers_message">Add a model provider to configure APIs and models.</string>
     <string name="agent_empty_models_message">Add a model for this provider, or fetch and import from its API.</string>
@@ -3592,8 +3583,6 @@
     <string name="agent_empty_prompts_per_turn">No per-turn prompts yet.</string>
     <string name="agent_empty_prompts_conditional">No conditional prompts yet.</string>
     <string name="agent_empty_prompts_preset">No preset prompts yet.</string>
-    <string name="agent_empty_workspaces_title">No workspaces yet</string>
-    <string name="agent_empty_workspaces_message">A workspace lets a session read and write files.</string>
     <string name="agent_empty_skills_title">No skills yet</string>
     <string name="agent_empty_skills_message">Skills are task playbooks the LLM loads on demand.</string>
     <string name="agent_empty_triggers_title">No triggers yet</string>

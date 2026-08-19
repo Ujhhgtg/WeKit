@@ -35,19 +35,14 @@ enum class ToolCallOrigin { DIRECT, ENVIRONMENT_BRIDGE }
 data class ToolVisibility(
     /** The turn's model declares vision support, so `ui-screenshot` may be advertised. */
     val visionTools: Boolean,
-    /** A workspace is resolved for this turn or memory is enabled, so the fs file tools may be advertised. */
-    val fsTools: Boolean,
 ) {
     companion object {
         /**
          * Visibility outside a resolved turn (settings previews, defaults). Vision is off — nothing
-         * has declared a vision model — and fs follows [BuiltinToolProvider.fsToolsVisible], which
-         * reflects the global memory setting only: within a running turn, fs visibility is resolved
-         * per turn from the session's effective workspace + memory and snapshotted into that turn's
-         * [ToolVisibility], so it can't be clobbered by a concurrent session.
+         * has declared a vision model.
          */
         fun fromGlobals(): ToolVisibility =
-            ToolVisibility(visionTools = false, fsTools = BuiltinToolProvider.fsToolsVisible)
+            ToolVisibility(visionTools = false)
     }
 }
 
@@ -120,7 +115,6 @@ class ToolRegistry(
      */
     private fun isAdvertised(provider: ToolProvider, bareName: String, visibility: ToolVisibility): Boolean {
         if (provider.kind != ProviderKind.BUILTIN) return true
-        if (!visibility.fsTools && bareName in BuiltinToolProvider.FS_TOOL_NAMES) return false
         if (!visibility.visionTools && bareName in BuiltinToolProvider.VISION_TOOL_NAMES) return false
         return true
     }

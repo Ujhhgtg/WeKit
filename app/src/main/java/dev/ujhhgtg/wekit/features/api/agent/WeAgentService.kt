@@ -34,8 +34,6 @@ import dev.ujhhgtg.wekit.agent.net.ExternalServiceId
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import dev.ujhhgtg.wekit.agent.ui.UiImageSink
-import dev.ujhhgtg.wekit.agent.workspace.VfsContext
-import dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ballState
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.handleEvent
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.init
@@ -257,7 +255,6 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         linuxEnvironmentManager.initialize()
         WeAgentSettings.load()
         toolBridgeServer.start()
-        BuiltinToolProvider.fsToolsVisible = true
 
         // Bring up MCP providers and keep the registry's MCP set in sync.
         McpClientManager.onProvidersChanged = {
@@ -359,12 +356,11 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             WeLogger.w(TAG, "cannot create session: no model configured")
             return null
         }
-        // Leave model / system prompt / workspace all unbound (null = "默认"): each resolves to the
+        // Leave model and system prompt unbound (null = "默认"): each resolves to the
         // settings default at turn time, so changing a default takes effect on existing sessions too.
         val id = WeAgentRepository.createSession(
             modelId = null,
             systemPromptId = null,
-            workspaceId = null,
         )
         switchSessionInternal(id)
         return id
@@ -381,11 +377,10 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             WeLogger.w(TAG, "cannot create background session: no model configured")
             return null
         }
-        // Unbound model / system prompt / workspace (null = "默认"), resolved at turn time.
+        // Unbound model and system prompt (null = "默认"), resolved at turn time.
         return WeAgentRepository.createSession(
             modelId = null,
             systemPromptId = null,
-            workspaceId = null,
         )
     }
 
@@ -501,7 +496,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     /**
      * Creates a branch of [sourceSessionId] from its beginning up to and including the message at
      * [messageTimestamp], then immediately switches the foreground to the new session. The branch
-     * title is "[分支] <original title>". Session metadata (model, system prompt, workspace,
+     * title is "[分支] <original title>". Session metadata (model, system prompt, Linux environment,
      * favorite) is copied; token usage and triggers are not.
      */
     fun branchSession(sourceSessionId: String, messageTimestamp: java.time.Instant) = scope.launch {
@@ -744,8 +739,8 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     }
 
     /**
-     * Shared turn launcher for both interactive sends and triggered runs. Builds the engine + VFS for
-     * [sessionId], installs the per-turn coroutine contexts (VFS / image sink / session id), collects
+     * Shared turn launcher for both interactive sends and triggered runs. Builds the engine for
+     * [sessionId], installs the per-turn coroutine contexts (image sink / session id), collects
      * the engine's event stream, and tracks the job in [runningTurns] keyed by session so multiple
      * sessions can run concurrently. [interactive] gates title generation + queued-message dequeue
      * (only meaningful for foreground sends).
@@ -782,9 +777,9 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         if (sessionId == currentSessionId.value) ballState.value = BallState.RUNNING
         val job = scope.launch {
             try {
-                // Install VFS (fs tools), UiImageSink (ui-screenshot), and AgentSessionContext (so the
+                // Install UiImageSink (ui-screenshot) and AgentSessionContext (so the
                 // trigger tools know which session "this session" refers to for SESSION-scoped triggers).
-                val visibility = config.toolVisibility.copy(fsTools = true)
+                val visibility = config.toolVisibility
                 withContext(UiImageSink() +
                     AgentSessionContext(sessionId, effectiveEnvironment, visibility)) {
                     engine.runTurn(
@@ -958,7 +953,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     private suspend fun resolveTurnConfig(sessionId: String): TurnConfig? {
         val session = WeAgentRepository.getSession(sessionId) ?: return null
         // null model / system prompt mean "默认": resolve to the live settings default at turn time
-        // (same semantics as the workspace), so changing a default applies to existing sessions too.
+        // so changing a default applies to existing sessions too.
         val effectiveModelId = session.modelId ?: WeAgentSettings.defaultModelId() ?: firstAvailableModelId()
         val model = effectiveModelId?.let { WeAgentRepository.getModel(it) } ?: return null
         // Persist the resolved model's context window on the session so the usage strip can restore the
@@ -986,11 +981,8 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         // tool list is rebuilt on every request, so a global would let whichever session resolved last
         // decide the vision gate for all of them — stripping ui-screenshot mid-turn from a vision
         // session, or advertising it to a non-vision model whose provider then 400s on the images.
-        // fsTools here is a placeholder: launchTurn overrides it per turn with the session's resolved
-        // workspace + the memory setting (workspace enablement is per turn, not global).
         val toolVisibility = dev.ujhhgtg.wekit.agent.tool.ToolVisibility(
             visionTools = model.supportsVision,
-            fsTools = false,
         )
         return TurnConfig(
             client = client,

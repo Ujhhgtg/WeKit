@@ -59,7 +59,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
     var defaultModelId by remember { mutableStateOf<String?>(null) }
     var defaultSystemPromptId by remember { mutableStateOf<String?>(null) }
 
-    // These must come from the live DB flows, not a one-shot read: a model/prompt/workspace added
+    // These must come from the live DB flows, not a one-shot read: a model/prompt/environment added
     // on a child screen has to show up in these dropdowns as soon as the user comes back, no
     // matter how the nav host composes covered entries.
     // Null until the flow's first emission: the selector rows below must not compose against a
