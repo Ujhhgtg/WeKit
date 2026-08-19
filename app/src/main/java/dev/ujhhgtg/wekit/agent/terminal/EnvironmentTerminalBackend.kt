@@ -4,14 +4,24 @@ import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.ChrootConfiguration
 import dev.ujhhgtg.wekit.agent.environment.ChrootMountRegistry
 import dev.ujhhgtg.wekit.agent.environment.ChrootRootHelper
+import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceLayout
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.ProotCommand
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
-class EnvironmentTerminalBackend(
-    private val native: NativeTerminalBackend = NativeTerminalBackend(),
+class EnvironmentTerminalBackend internal constructor(
+    private val native: TerminalBackend = NativeTerminalBackend(),
     private val approveChrootStart: suspend (EnvironmentSnapshot) -> Boolean = { false },
+    private val chrootInstancesRoot: Path = ArchLinuxInstanceLayout.canonicalInstancesRoot(),
+    private val resolveRootLauncher: suspend (ChrootRootHelper) -> Path = { helper ->
+        check(helper.hasRoot()) { "root access denied" }
+        helper.resolveSuExecutable()
+    },
 ) : TerminalBackend {
     override suspend fun start(
         environment: EnvironmentSnapshot,
@@ -42,10 +52,12 @@ class EnvironmentTerminalBackend(
         }
         LinuxEnvironmentType.CHROOT -> {
             check(approveChrootStart(environment)) { "rooted chroot terminal start requires explicit high-risk approval" }
-            val rootfs = Path.of(requireNotNull(environment.rootfsPath))
+            val rootfs = ArchLinuxInstanceLayout.validatePublishedRootfs(
+                Path.of(requireNotNull(environment.rootfsPath)), chrootInstancesRoot,
+            )
             val configuration = ChrootConfiguration(rootfs, workingDirectory ?: environment.workingDirectory)
-            check(ChrootRootHelper(configuration).hasRoot()) { "root access denied" }
-            val hostArgv = configuration.hostLaunchArgv(argv, environmentVariables)
+            val helper = ChrootRootHelper(configuration)
+            val hostArgv = configuration.hostLaunchArgv(resolveRootLauncher(helper), argv, environmentVariables)
             val hostEnvironment = environment.copy(
                 type = LinuxEnvironmentType.NATIVE,
                 workingDirectory = rootfs.parent.toString(),
@@ -54,9 +66,12 @@ class EnvironmentTerminalBackend(
             ChrootMountRegistry.begin(rootfs)
             try {
                 val started = native.start(hostEnvironment, hostArgv, hostEnvironment.workingDirectory, emptyMap(), cols, rows)
-                TerminalBackendStart(ChrootTerminalSession(started.session, rootfs), environment)
+                TerminalBackendStart(ChrootTerminalSession(started.session, rootfs, helper), environment)
             } catch (error: Throwable) {
-                ChrootMountRegistry.end(rootfs)
+                withContext(NonCancellable) {
+                    helper.cleanupNamespace()
+                    ChrootMountRegistry.end(rootfs)
+                }
                 throw error
             }
         }
@@ -66,13 +81,31 @@ class EnvironmentTerminalBackend(
     private class ChrootTerminalSession(
         private val delegate: TerminalBackendSession,
         private val rootfs: Path,
+        private val helper: ChrootRootHelper,
     ) : TerminalBackendSession by delegate {
-        private val closed = AtomicBoolean()
+        private val delegateClosed = AtomicBoolean()
+        private val cleanupMutex = Mutex()
+        private var cleaned = false
+        override suspend fun kill() {
+            try { delegate.kill() } finally { cleanup() }
+        }
         override suspend fun close() {
-            if (!closed.compareAndSet(false, true)) return
-            try { delegate.close() } finally {
-                ChrootMountRegistry.end(rootfs)
+            if (!delegateClosed.compareAndSet(false, true)) return
+            withContext(NonCancellable) {
+                var failure: Throwable? = null
+                try { delegate.close() } catch (error: Throwable) { failure = error }
+                try { cleanup() } catch (error: Throwable) {
+                    failure?.addSuppressed(error) ?: throw error
+                }
+                failure?.let { throw it }
             }
+        }
+
+        private suspend fun cleanup() = cleanupMutex.withLock {
+            if (cleaned) return@withLock
+            helper.cleanupNamespace()
+            ChrootMountRegistry.end(rootfs)
+            cleaned = true
         }
     }
 }

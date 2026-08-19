@@ -22,6 +22,7 @@ class LinuxEnvironmentManager(
     private val prootPackAvailable: () -> Boolean = { ArchLinuxPack.installedManifest() != null },
     private val installProot: suspend (String) -> ArchLinuxInstance = ArchLinuxPack::createInstance,
     private val persistEnvironment: suspend (LinuxEnvironmentEntity) -> Unit = WeAgentRepository::upsertLinuxEnvironment,
+    private val highRiskApproval: suspend (String, EnvironmentSnapshot?) -> Boolean = { _, _ -> false },
 ) {
     private val stateMutex = Mutex()
     private val executionMutexes = ConcurrentHashMap<String, Mutex>()
@@ -88,17 +89,19 @@ class LinuxEnvironmentManager(
 
     suspend fun createChrootEnvironment(
         name: String,
-        highRiskApproved: Boolean,
         instanceId: String = UUID.randomUUID().toString(),
     ): ChrootEnvironmentCreationResult {
-        check(highRiskApproved) { "rooted chroot creation requires explicit high-risk approval" }
+        check(highRiskApproval("create rooted chroot environment", null)) {
+            "rooted chroot creation requires explicit high-risk approval"
+        }
         val trimmedName = name.trim()
         require(trimmedName.isNotEmpty() && trimmedName.length <= 80) { "environment name must be 1-80 characters" }
         require(instanceId.matches(Regex("[A-Za-z0-9._-]{1,80}"))) { "invalid instance id" }
         if (!prootPackAvailable()) return ChrootEnvironmentCreationResult.MissingPack(ArchLinuxPack)
 
         val instance = installProot(instanceId)
-        val helper = ChrootRootHelper(ChrootConfiguration(instance.rootfs.toPath(), instance.workingDirectory))
+        val rootfs = ArchLinuxInstanceLayout.validatePublishedRootfs(instance.rootfs.toPath())
+        val helper = ChrootRootHelper(ChrootConfiguration(rootfs, instance.workingDirectory))
         val entity = LinuxEnvironmentEntity(
             id = instanceId,
             name = trimmedName,
@@ -150,9 +153,8 @@ class LinuxEnvironmentManager(
         command: String,
         timeoutMillis: Long,
         environmentVariables: Map<String, String> = emptyMap(),
-        highRiskApproved: Boolean = false,
     ): ExecResult {
-        requireChrootStartApproval(environmentId, highRiskApproved)
+        requireChrootStartApproval(environmentId)
         return withLease(environmentId) { it.exec(command, timeoutMillis, environmentVariables) }
     }
 
@@ -162,8 +164,8 @@ class LinuxEnvironmentManager(
     suspend fun edit(environmentId: String, request: FileEditRequest) =
         withLease(environmentId) { it.edit(request) }
 
-    suspend fun checkHealth(environmentId: String, highRiskApproved: Boolean = false): EnvironmentHealth {
-        if (isChroot(environmentId) && !highRiskApproved) {
+    suspend fun checkHealth(environmentId: String): EnvironmentHealth {
+        if (isChroot(environmentId) && !highRiskApproval("check rooted chroot health", snapshot(environmentId))) {
             return EnvironmentHealth(EnvironmentHealthState.DEGRADED, "high-risk chroot start approval required")
                 .also { publishHealth(environmentId, it) }
         }
@@ -183,8 +185,8 @@ class LinuxEnvironmentManager(
         }
     }
 
-    private suspend fun requireChrootStartApproval(environmentId: String, highRiskApproved: Boolean) {
-        check(!isChroot(environmentId) || highRiskApproved) {
+    private suspend fun requireChrootStartApproval(environmentId: String) {
+        check(!isChroot(environmentId) || highRiskApproval("execute in rooted chroot", snapshot(environmentId))) {
             "rooted chroot start requires explicit high-risk approval"
         }
     }
@@ -192,6 +194,9 @@ class LinuxEnvironmentManager(
     private suspend fun isChroot(environmentId: String): Boolean =
         environmentId != NATIVE_ENVIRONMENT_ID &&
             WeAgentRepository.getLinuxEnvironment(environmentId)?.type == LinuxEnvironmentType.CHROOT
+
+    private suspend fun snapshot(environmentId: String): EnvironmentSnapshot =
+        requireNotNull(WeAgentRepository.getLinuxEnvironment(environmentId)).toSnapshot()
 
     private suspend fun <T> withLease(
         environmentId: String,
@@ -226,7 +231,7 @@ class LinuxEnvironmentManager(
         val created = backendFactory?.invoke(snapshot) ?: when (snapshot.type) {
             LinuxEnvironmentType.NATIVE -> NativeBackend(snapshot)
             LinuxEnvironmentType.PROOT -> ProotBackend(snapshot)
-            LinuxEnvironmentType.CHROOT -> ChrootBackend(snapshot, approveStart = { true })
+            LinuxEnvironmentType.CHROOT -> ChrootBackend(snapshot)
             LinuxEnvironmentType.SSH -> error("SSH backend is not implemented")
         }
         val existing = backends.putIfAbsent(environmentId, created)

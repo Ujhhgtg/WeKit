@@ -905,6 +905,11 @@ object WeAgentRepository : ToolPermissionSource {
             LinuxEnvironmentType.PROOT, LinuxEnvironmentType.CHROOT -> {
                 require(!environment.rootfsPath.isNullOrBlank()) { "local environments require a rootfs path" }
                 require(environment.sshHost == null) { "local environments cannot contain SSH configuration" }
+                if (environment.type == LinuxEnvironmentType.CHROOT) {
+                    dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceLayout.validatePublishedRootfs(
+                        java.nio.file.Path.of(environment.rootfsPath)
+                    )
+                }
             }
             LinuxEnvironmentType.SSH -> {
                 require(environment.rootfsPath == null) { "SSH environments cannot contain a rootfs path" }

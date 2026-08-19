@@ -3,6 +3,10 @@ package dev.ujhhgtg.wekit.agent.environment
 import com.topjohnwu.superuser.Shell
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
+import java.nio.file.Path
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
+import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.coroutines.coroutineContext
@@ -26,11 +30,6 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
     }
 
     suspend fun prepareInstance() {
-        executeFixed(
-            "chown -R 0:0 ${ChrootConfiguration.shell(configuration.rootfs.toString())}",
-            PREPARE_TIMEOUT_MILLIS,
-            "chroot ownership preparation failed",
-        )
         val health = exec("test -x /bin/bash && test -x /usr/bin/invoke_tool", HEALTH_TIMEOUT_MILLIS, emptyMap())
         check(health.exitCode == 0) { health.stderr.ifBlank { "chroot health check failed" } }
     }
@@ -90,15 +89,117 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
             throw error
         } finally {
             withContext(NonCancellable) {
+                var cleanupFailure: Throwable? = null
                 try {
-                    closeBounded(shell)
+                    cleanupNamespace()
+                } catch (error: Throwable) {
+                    cleanupFailure = error
                 } finally {
-                    ChrootMountRegistry.end(configuration.rootfs)
+                    try { closeBounded(shell) } catch (error: Throwable) {
+                        cleanupFailure?.addSuppressed(error) ?: run { cleanupFailure = error }
+                    }
                     Files.deleteIfExists(configuration.pidFile)
                     Files.deleteIfExists(configuration.stageFile)
                     if (!timedOut && !spill) { Files.deleteIfExists(stdout); Files.deleteIfExists(stderr) }
                 }
+                cleanupFailure?.let { throw it }
+                ChrootMountRegistry.end(configuration.rootfs)
             }
+        }
+    }
+
+    suspend fun resolveSuExecutable(): Path = withContext(Dispatchers.IO) {
+        val shell = rootShell()
+        try {
+            val result = shell.newJob().add("command -v su").exec()
+            val value = result.out.singleOrNull()?.trim().orEmpty()
+            val path = runCatching { Path.of(value) }.getOrNull()
+            if (!result.isSuccess || path == null || !path.isAbsolute || !Files.isExecutable(path) ||
+                TRUSTED_SU_PATHS.none { path == it }
+            ) {
+                throw ChrootFailure.Root(IllegalStateException("trusted absolute su executable is unavailable"))
+            }
+            val verification = shell.newJob().add("${ChrootConfiguration.shell(path.toString())} -c 'test \"\$(id -u)\" = 0'").exec()
+            if (!verification.isSuccess) throw ChrootFailure.Root(IllegalStateException("resolved su executable cannot grant root"))
+            path
+        } finally {
+            closeBounded(shell)
+        }
+    }
+
+    suspend fun readUtf8(guestPath: String, maxBytes: Long): String = withContext(Dispatchers.IO) {
+        require(maxBytes in 0L..NativeBackend.MAX_EDIT_BYTES)
+        Files.createDirectories(configuration.instance.resolve("outputs"))
+        val output = Files.createTempFile(configuration.instance.resolve("outputs"), "read-", ".tmp")
+        try {
+            executeFixed(
+                "chroot ${ChrootConfiguration.shell(configuration.rootfs.toString())} /bin/sh -c " +
+                    ChrootConfiguration.shell("test -f \"\$1\" && test \$(stat -c %s \"\$1\") -le \"\$2\" && cat -- \"\$1\"") +
+                    " wekit-read ${ChrootConfiguration.shell(guestPath)} $maxBytes > ${ChrootConfiguration.shell(output.toString())}",
+                HEALTH_TIMEOUT_MILLIS,
+                "rooted file read failed",
+            )
+            val bytes = Files.readAllBytes(output)
+            StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
+        } finally {
+            Files.deleteIfExists(output)
+        }
+    }
+
+    suspend fun edit(request: FileEditRequest) = withContext(Dispatchers.IO) {
+        require(!request.replaceAll || request.oldString != null)
+        val original = if (pathExists(request.path)) readUtf8(request.path, NativeBackend.MAX_EDIT_BYTES) else ""
+        val updated = request.oldString?.let { old ->
+            require(old.isNotEmpty())
+            val count = Regex(Regex.escape(old)).findAll(original).count()
+            require(count > 0 && (request.replaceAll || count == 1)) { "oldString occurs $count times" }
+            if (request.replaceAll) original.replace(old, request.newString) else original.replaceFirst(old, request.newString)
+        } ?: request.newString.also { require(original.isEmpty()) { "creation requires a missing or empty file" } }
+        Files.createDirectories(configuration.instance.resolve("outputs"))
+        val input = Files.createTempFile(configuration.instance.resolve("outputs"), "edit-", ".tmp")
+        try {
+            Files.writeString(input, updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
+            executeFixed(editCommand(request.path, input), HEALTH_TIMEOUT_MILLIS, "rooted atomic edit failed")
+        } finally {
+            Files.deleteIfExists(input)
+        }
+    }
+
+    internal fun editCommand(guestPath: String, input: Path): String {
+        val stagedName = ".weagent-${input.fileName}"
+        val stagedHost = configuration.rootfs.resolve("tmp").resolve(stagedName)
+        val stagedGuest = "/tmp/$stagedName"
+        val script = """
+            set -eu
+            target="${'$'}1"; input="${'$'}2"; parent="${'$'}{target%/*}"; name="${'$'}{target##*/}"
+            test -d "${'$'}parent"
+            temporary="${'$'}parent/.${'$'}name.weagent.${'$'}${'$'}"
+            trap 'rm -f -- "${'$'}temporary"' EXIT HUP INT TERM
+            if test -e "${'$'}target"; then test -f "${'$'}target"; mode=${'$'}(stat -c %a "${'$'}target"); else mode=600; fi
+            umask 077; cat -- "${'$'}input" > "${'$'}temporary"; chmod "${'$'}mode" "${'$'}temporary"
+            mv -f -- "${'$'}temporary" "${'$'}target"; trap - EXIT HUP INT TERM
+        """.trimIndent()
+        return "mkdir -p ${ChrootConfiguration.shell(stagedHost.parent.toString())}; " +
+            "cp -- ${ChrootConfiguration.shell(input.toString())} ${ChrootConfiguration.shell(stagedHost.toString())}; " +
+            "trap 'rm -f -- ${ChrootConfiguration.shell(stagedHost.toString())}' EXIT HUP INT TERM; " +
+            "chroot ${ChrootConfiguration.shell(configuration.rootfs.toString())} /bin/sh -c ${ChrootConfiguration.shell(script)}" +
+            " wekit-edit ${ChrootConfiguration.shell(guestPath)} ${ChrootConfiguration.shell(stagedGuest)}"
+    }
+
+    private suspend fun pathExists(guestPath: String): Boolean = withContext(Dispatchers.IO) {
+        val shell = rootShell()
+        try {
+            val command = "chroot ${ChrootConfiguration.shell(configuration.rootfs.toString())} /bin/sh -c " +
+                "${ChrootConfiguration.shell("test -e \"\$1\"")} wekit-exists ${ChrootConfiguration.shell(guestPath)}"
+            val result = shell.newJob().add(command).exec()
+            when (result.code) {
+                0 -> true
+                1 -> false
+                else -> error((result.err + result.out).joinToString("\n").ifBlank { "rooted file existence check failed" })
+            }
+        } finally {
+            closeBounded(shell)
         }
     }
 
@@ -127,17 +228,31 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
     }
 
     private suspend fun terminate() {
-        val pid = runCatching { Files.readString(configuration.pidFile).trim().toInt() }.getOrNull() ?: return
-        withContext(NonCancellable + Dispatchers.IO) {
-            runCatching {
-                val control = rootShell()
-                try {
-                    control.newJob().add("kill -TERM -$pid 2>/dev/null || kill -TERM $pid 2>/dev/null || true").exec()
-                    Thread.sleep(250)
-                    control.newJob().add("kill -KILL -$pid 2>/dev/null || kill -KILL $pid 2>/dev/null || true").exec()
-                } finally { control.waitAndClose(CLEANUP_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS) }
-            }
+        cleanupNamespace()
+    }
+
+    suspend fun cleanupNamespace() = withContext(NonCancellable + Dispatchers.IO) {
+        val pid = runCatching { Files.readString(configuration.pidFile).trim().toInt() }.getOrNull() ?: return@withContext
+        val shell = rootShell()
+        try {
+            val result = shell.newJob().add(cleanupCommand(pid)).enqueue().get(CLEANUP_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+            if (!result.isSuccess) throw ChrootFailure.Cleanup((result.err + result.out).joinToString("\n").ifBlank { "namespace process $pid remains" })
+        } catch (error: TimeoutException) {
+            throw ChrootFailure.Cleanup("namespace cleanup timed out")
+        } finally {
+            closeBounded(shell)
         }
+    }
+
+    internal fun cleanupCommand(pid: Int): String {
+        val targets = configuration.mountArguments().asReversed().joinToString("; ") { mount ->
+            val guest = mount.last()
+            "umount -l ${ChrootConfiguration.shell(configuration.rootfs.resolve(guest.removePrefix("/")).toString())} 2>/dev/null || true"
+        }
+        return "kill -TERM -$pid 2>/dev/null || kill -TERM $pid 2>/dev/null || true; " +
+            "if test -e /proc/$pid/ns/mnt; then nsenter -t $pid -m -- /system/bin/sh -c ${ChrootConfiguration.shell(targets)} || true; fi; " +
+            "kill -KILL -$pid 2>/dev/null || kill -KILL $pid 2>/dev/null || true; " +
+            "i=0; while test -e /proc/$pid && test \$i -lt 50; do sleep 0.05; i=\$((i+1)); done; test ! -e /proc/$pid"
     }
 
     private fun awaitCleanup(future: java.util.concurrent.Future<Shell.Result>): Shell.Result = try {
@@ -148,21 +263,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
 
     private fun classifyFailure(code: Int, stderr: String) {
         if (code == 0) return
-        val stage = runCatching { Files.readString(configuration.stageFile) }.getOrDefault("")
-        if (stage == "EXEC" && CHROOT_DENIAL.containsMatchIn(stderr)) {
-            throw ChrootFailure.Selinux(stderr.trim().take(500))
-        }
-        if (stage == "EXEC" && code != 74) return
-        val detail = stderr.trim().take(500).ifBlank { "exit code $code" }
-        when {
-            code == 74 || stage == "CLEANUP" -> throw ChrootFailure.Cleanup(detail)
-            stage.isEmpty() || stage == "NAMESPACE" -> throw ChrootFailure.Namespace(detail)
-            stage == "MOUNT" && SELINUX_DENIAL.containsMatchIn(stderr) -> {
-                throw ChrootFailure.Selinux(detail)
-            }
-            stage == "MOUNT" -> throw ChrootFailure.Mount(detail)
-            else -> throw ChrootFailure.Namespace(detail)
-        }
+        classifyChrootFailure(runCatching { Files.readString(configuration.stageFile) }.getOrDefault(""), code, stderr)?.let { throw it }
     }
 
     private fun readBounded(path: java.nio.file.Path, maxBytes: Int): String {
@@ -184,7 +285,26 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         private const val PREPARE_TIMEOUT_MILLIS = 120_000L
         private const val HEALTH_TIMEOUT_MILLIS = 15_000L
         private const val CLEANUP_TIMEOUT_MILLIS = 5_000L
-        private val SELINUX_DENIAL = Regex("(?i)(avc:.*denied|permission denied|operation not permitted)")
-        private val CHROOT_DENIAL = Regex("(?i)chroot:.*(permission denied|operation not permitted)")
+        internal val SELINUX_DENIAL = Regex("(?i)(avc:.*denied|permission denied|operation not permitted)")
+        internal val CHROOT_DENIAL = Regex("(?i)chroot:.*(permission denied|operation not permitted)")
+        private val TRUSTED_SU_PATHS = listOf(
+            Path.of("/system/bin/su"), Path.of("/system/xbin/su"), Path.of("/sbin/su"),
+            Path.of("/vendor/bin/su"), Path.of("/debug_ramdisk/su"),
+        )
+    }
+}
+
+internal fun classifyChrootFailure(stage: String, code: Int, stderr: String): ChrootFailure? {
+    if (code == 0) return null
+    val detail = stderr.trim().take(500).ifBlank { "exit code $code" }
+    if (ChrootRootHelper.SELINUX_DENIAL.containsMatchIn(stderr) ||
+        stage == "EXEC" && ChrootRootHelper.CHROOT_DENIAL.containsMatchIn(stderr)
+    ) return ChrootFailure.Selinux(detail)
+    if (stage == "EXEC" && code != 74) return null
+    return when {
+        code == 74 || stage == "CLEANUP" -> ChrootFailure.Cleanup(detail)
+        stage.isEmpty() || stage == "NAMESPACE" -> ChrootFailure.Namespace(detail)
+        stage == "MOUNT" -> ChrootFailure.Mount(detail)
+        else -> ChrootFailure.Namespace(detail)
     }
 }

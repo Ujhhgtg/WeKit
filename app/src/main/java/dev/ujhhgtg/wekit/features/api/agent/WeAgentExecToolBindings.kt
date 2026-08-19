@@ -32,7 +32,6 @@ object WeAgentExecToolBindings {
                     "WEAGENT_INVOKE_TOOL" to artifact.executablePath,
                     "PATH" to "${artifact.binDirectory}:${System.getenv("PATH").orEmpty()}",
                 ),
-                highRiskApproved = true,
             )
         }
         return buildString {

@@ -115,6 +115,7 @@ object ArchLinuxInstanceInstaller {
                 outputReader.join(2_000)
                 healthPidFile.delete()
             }
+            File(staging, PUBLISHED_MARKER).writeText(contentVersion)
             require(staging.renameTo(destination)) { "cannot publish Arch Linux instance" }
             ArchLinuxInstance(File(destination, "rootfs"), contentVersion)
         } finally {
@@ -125,4 +126,5 @@ object ArchLinuxInstanceInstaller {
     private const val INSTALL_HEADROOM_BYTES = 512L * 1024 * 1024
     private const val HEALTH_TIMEOUT_MILLIS = 30_000L
     private const val MAX_HEALTH_OUTPUT_BYTES = 64 * 1024
+    internal const val PUBLISHED_MARKER = ".wekit-arch-published"
 }

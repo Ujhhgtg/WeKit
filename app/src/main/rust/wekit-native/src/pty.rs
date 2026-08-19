@@ -23,9 +23,7 @@ pub fn start(
     cols: i32,
     rows: i32,
 ) -> Result<Pty, String> {
-    if argv.is_empty() {
-        return Err("empty argv".into());
-    }
+    validate_argv(&argv)?;
     let cargs: Vec<CString> = argv
         .iter()
         .map(|value| CString::new(value.as_str()).map_err(|_| "argv contains NUL".to_owned()))
@@ -175,6 +173,30 @@ pub fn start(
         unsafe { libc::close(master) };
     }
     result
+}
+
+fn validate_argv(argv: &[String]) -> Result<(), String> {
+    if argv.is_empty() {
+        return Err("empty argv".into());
+    }
+    if !argv[0].starts_with('/') {
+        return Err("PTY executable must be an absolute path".into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_argv;
+
+    #[test]
+    fn launcher_requires_absolute_executable() {
+        assert!(validate_argv(&["/system/bin/sh".into()]).is_ok());
+        assert_eq!(
+            validate_argv(&["su".into()]).unwrap_err(),
+            "PTY executable must be an absolute path"
+        );
+    }
 }
 
 pub fn write(pty: &Pty, bytes: &[u8]) -> Result<(), String> {

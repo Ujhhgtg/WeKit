@@ -1,7 +1,9 @@
 package dev.ujhhgtg.wekit.agent.environment
 
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.Path
+import dev.ujhhgtg.wekit.utils.HostInfo
 
 data class ChrootBind(val host: Path, val guest: String)
 
@@ -9,6 +11,7 @@ class ChrootConfiguration(
     val rootfs: Path,
     val workingDirectory: String,
     val binds: List<ChrootBind> = emptyList(),
+    instancesRoot: Path? = null,
 ) {
     val instance: Path = rootfs.parent
     val pidFile: Path = instance.resolve("chroot.pid")
@@ -16,6 +19,7 @@ class ChrootConfiguration(
 
     init {
         require(rootfs.isAbsolute && rootfs.normalize() == rootfs) { "chroot rootfs must be an absolute normalized path" }
+        instancesRoot?.let { ArchLinuxInstanceLayout.validatePublishedRootfs(rootfs, it) }
         validateGuestPath(workingDirectory)
         binds.forEach { bind ->
             val host = bind.host.toAbsolutePath().normalize()
@@ -77,8 +81,10 @@ class ChrootConfiguration(
         """.trimIndent()
     }
 
-    internal fun hostLaunchArgv(argv: List<String>, environment: Map<String, String>): List<String> =
-        listOf("su", "-c", "exec setsid unshare -m -- /system/bin/sh -c ${shell(launchScript(argv, environment))}")
+    internal fun hostLaunchArgv(suExecutable: Path, argv: List<String>, environment: Map<String, String>): List<String> {
+        require(suExecutable.isAbsolute) { "root helper executable must be absolute" }
+        return listOf(suExecutable.toString(), "-c", "exec unshare -m -- /system/bin/sh -c ${shell(launchScript(argv, environment))}")
+    }
 
     fun mountArguments(): List<List<String>> = mountCommands().map(Mount::arguments)
 
@@ -116,6 +122,41 @@ class ChrootConfiguration(
     }
 }
 
+internal object ArchLinuxInstanceLayout {
+    fun canonicalInstancesRoot(): Path =
+        Path.of(HostInfo.application.filesDir.path, "wekit-agent/environment/instances")
+
+    fun validatePublishedRootfs(rootfs: Path, instancesRoot: Path = canonicalInstancesRoot()): Path {
+        require(rootfs.isAbsolute && rootfs.normalize() == rootfs && rootfs.fileName?.toString() == "rootfs") {
+            "invalid Arch rootfs path"
+        }
+        val canonicalRoot = instancesRoot.toRealPath(LinkOption.NOFOLLOW_LINKS)
+        val instance = rootfs.parent
+        require(instance.parent == instancesRoot.normalize() && !instance.fileName.toString().startsWith('.')) {
+            "chroot rootfs is outside the canonical instance root"
+        }
+        val realInstance = instance.toRealPath()
+        val realRootfs = rootfs.toRealPath()
+        require(realInstance.parent == canonicalRoot && realRootfs.parent == realInstance) {
+            "chroot rootfs escapes the canonical instance root"
+        }
+        require(Files.getOwner(realInstance) == Files.getOwner(canonicalRoot)) {
+            "Arch instance is not app-owned"
+        }
+        require(Files.isRegularFile(realInstance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER), LinkOption.NOFOLLOW_LINKS)) {
+            "Arch instance is not published"
+        }
+        require(
+            Files.isExecutable(realInstance.resolve("bin/proot")) &&
+                Files.isExecutable(realInstance.resolve("bin/loader")) &&
+                Files.isExecutable(realRootfs.resolve("bin/bash")) &&
+                Files.isExecutable(realRootfs.resolve("usr/bin/invoke_tool")) &&
+                Files.isRegularFile(realRootfs.resolve("etc/resolv.conf"), LinkOption.NOFOLLOW_LINKS)
+        ) { "published Arch instance is incomplete" }
+        return realRootfs
+    }
+}
+
 internal object ChrootMountRegistry {
     private val active = HashMap<String, Int>()
     private val deleting = HashSet<String>()
@@ -135,32 +176,34 @@ internal object ChrootMountRegistry {
         check(deleting.add(key)) { "chroot environment deletion is already in progress" }
     }
     @Synchronized fun endDeletion(rootfs: Path) { deleting.remove(rootfs.toString()) }
+    @Synchronized internal fun isBusy(rootfs: Path): Boolean = rootfs.toString() in active
 }
 
 class ChrootBackend internal constructor(
     override val snapshot: EnvironmentSnapshot,
     private val configuration: ChrootConfiguration = ChrootConfiguration(
-        Path.of(requireNotNull(snapshot.rootfsPath)), snapshot.workingDirectory,
+        ArchLinuxInstanceLayout.validatePublishedRootfs(Path.of(requireNotNull(snapshot.rootfsPath))),
+        snapshot.workingDirectory,
     ),
-    private val approveStart: suspend () -> Boolean = { false },
     private val rootHelper: ChrootRootHelper = ChrootRootHelper(configuration),
 ) : LinuxEnvironmentBackend {
-    private val files = ProotBackend(snapshot.copy(type = LinuxEnvironmentType.PROOT))
-
     init { require(snapshot.type == LinuxEnvironmentType.CHROOT) }
 
     override suspend fun exec(command: String, timeoutMillis: Long, environmentVariables: Map<String, String>): ExecResult {
-        check(approveStart()) { "rooted chroot start requires explicit high-risk approval" }
         return rootHelper.exec(command, timeoutMillis, environmentVariables)
     }
 
-    override suspend fun readUtf8(path: String, maxBytes: Long): String = files.readUtf8(path, maxBytes)
-    override suspend fun edit(request: FileEditRequest) = files.edit(request)
-    override fun resolvePath(path: String): String = files.resolvePath(path)
+    override suspend fun readUtf8(path: String, maxBytes: Long): String = rootHelper.readUtf8(resolvePath(path), maxBytes)
+    override suspend fun edit(request: FileEditRequest) = rootHelper.edit(request.copy(path = resolvePath(request.path)))
+    override fun resolvePath(path: String): String {
+        val requested = Path.of(path)
+        val guest = (if (requested.isAbsolute) requested else Path.of(snapshot.workingDirectory).resolve(requested)).normalize()
+        require(guest.isAbsolute && !guest.startsWith("/..")) { "path escapes guest root" }
+        require(listOf("/proc", "/sys", "/dev").none { guest.startsWith(it) }) { "virtual and device files are not supported" }
+        return guest.toString()
+    }
 
     override suspend fun ensureBridge(): BridgeInstallArtifact {
-        val bridge = configuration.rootfs.resolve("usr/bin/invoke_tool")
-        require(Files.isRegularFile(bridge) && Files.isExecutable(bridge)) { "invoke_tool is missing from chroot instance" }
         return BridgeInstallArtifact("/usr/bin/invoke_tool", "/usr/bin")
     }
 
@@ -169,7 +212,6 @@ class ChrootBackend internal constructor(
             return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "Arch rootfs is corrupt")
         }
         if (!rootHelper.hasRoot()) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "root access denied")
-        if (!approveStart()) return EnvironmentHealth(EnvironmentHealthState.DEGRADED, "high-risk chroot start approval required")
         return try {
             val result = rootHelper.exec("test -x /usr/bin/invoke_tool && test -w /root", 15_000, emptyMap())
             if (result.exitCode == 0) EnvironmentHealth(EnvironmentHealthState.HEALTHY)

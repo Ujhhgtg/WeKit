@@ -81,14 +81,15 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     // Permission resolution + persistence are unified in the repository.
     private val registry = ToolRegistry(permissions = WeAgentRepository, providers = BuiltinToolProvider.all)
 
-    val linuxEnvironmentManager = LinuxEnvironmentManager()
+    val linuxEnvironmentManager = LinuxEnvironmentManager(highRiskApproval = ::requestHighRiskApproval)
 
     suspend fun createProotEnvironment(name: String): ProotEnvironmentCreationResult =
         linuxEnvironmentManager.createProotEnvironment(name)
-    suspend fun createChrootEnvironment(name: String, highRiskApproved: Boolean): ChrootEnvironmentCreationResult =
-        linuxEnvironmentManager.createChrootEnvironment(name, highRiskApproved)
-    // terminal_start is side-effecting and reaches this backend only after ApprovalGateway.
-    val terminalManager = TerminalManager(EnvironmentTerminalBackend(approveChrootStart = { true }))
+    suspend fun createChrootEnvironment(name: String): ChrootEnvironmentCreationResult =
+        linuxEnvironmentManager.createChrootEnvironment(name)
+    val terminalManager = TerminalManager(EnvironmentTerminalBackend(approveChrootStart = { environment ->
+        requestHighRiskApproval("start rooted chroot terminal", environment)
+    }))
     val toolBridgeServer = ToolBridgeServer(
         registry = registry,
         executorFactory = { sessionId ->
@@ -873,6 +874,17 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             // Whether resolved by the user, session switch cleanup, or cancellation — drop it.
             pendingApprovals.remove(sessionId, ui)
         }
+    }
+
+    private suspend fun requestHighRiskApproval(operation: String, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot?): Boolean {
+        val target = environment?.let { "${it.displayName} (${it.id})" } ?: "new Arch instance"
+        val pending = PendingApproval(
+            toolName = "rooted_chroot_high_risk",
+            providerName = "WeAgent Security",
+            argumentsJson = "{\"operation\":${kotlinx.serialization.json.JsonPrimitive(operation)},\"target\":${kotlinx.serialization.json.JsonPrimitive(target)}}",
+            modelExplanation = "This operation grants a process device root and host mount namespace access.",
+        )
+        return manualApprovalHandler.requestApproval(pending) is ManualApprovalResult.Approved
     }
 
     private suspend fun resolveTurnConfig(sessionId: String): TurnConfig? {
