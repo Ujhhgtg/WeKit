@@ -23,10 +23,10 @@ object WeAgentTerminalToolBindings {
     @AgentTool(name = "terminal_list", description = "List terminal sessions owned by this conversation.", sideEffect = false, group = AgentTool.BUILTIN_TERMINAL)
     suspend fun list(): String = WeAgentService.terminalManager.list(owner()).joinToString("\n") { "id=${it.id}, environment=${it.environmentId}, state=${it.state}, size=${it.cols}x${it.rows}, cursor=${it.cursor}" }
     @AgentTool(name = "terminal_start", description = "Start an interactive PTY shell in the active Linux environment.", sideEffect = true, group = AgentTool.BUILTIN_TERMINAL)
-    suspend fun start(@AgentToolParam("Optional command") command: String?, @AgentToolParam("PTY columns") cols: Int?, @AgentToolParam("PTY rows") rows: Int?): String {
+    suspend fun start(@AgentToolParam("Optional command argv array. Each argument must be a separate item; omit for the environment's default login shell.") argv: List<String>?, @AgentToolParam("PTY columns") cols: Int?, @AgentToolParam("PTY rows") rows: Int?): String {
         val context = currentCoroutineContext()[AgentSessionContext] ?: error("no active agent session")
         val environment = context.environment ?: error("no active Linux environment")
-        val info = WeAgentService.terminalManager.start(owner(), environment, command?.let { listOf(it) } ?: listOf(environment.shell), cols = cols ?: 80, rows = rows ?: 24)
+        val info = WeAgentService.terminalManager.start(owner(), environment, argv, cols = cols ?: 80, rows = rows ?: 24)
         return "id=${info.id}, state=${info.state}, size=${info.cols}x${info.rows}"
     }
     @AgentTool(name = "terminal_write", description = "Write ordered terminal events.", sideEffect = true, group = AgentTool.BUILTIN_TERMINAL)
@@ -34,7 +34,7 @@ object WeAgentTerminalToolBindings {
     @AgentTool(name = "terminal_read", description = "Read raw terminal output from a cursor.", sideEffect = false, group = AgentTool.BUILTIN_TERMINAL)
     suspend fun read(@AgentToolParam("Terminal session id") sessionId: String, @AgentToolParam("Output cursor") cursor: Long?, @AgentToolParam("Maximum bytes") maxBytes: Int?, @AgentToolParam("Maximum wait in milliseconds") waitMs: Long?): String {
         val result = WeAgentService.terminalManager.read(owner(), sessionId, cursor, maxBytes ?: 64 * 1024, waitMs ?: 0)
-        return "cursor=${result.cursor}, end_cursor=${result.endCursor}, state=${result.state}, cursor_expired=${result.cursorExpired}, output=${result.bytes.toString(Charsets.ISO_8859_1)}"
+        return "cursor=${result.cursor}, end_cursor=${result.endCursor}, oldest_cursor=${result.oldestCursor}, state=${result.state}, cursor_expired=${result.cursorExpired}, output=${result.bytes.toString(Charsets.ISO_8859_1)}"
     }
     @AgentTool(name = "terminal_resize", description = "Resize a terminal PTY.", sideEffect = false, group = AgentTool.BUILTIN_TERMINAL)
     suspend fun resize(@AgentToolParam("Terminal session id") sessionId: String, @AgentToolParam("Columns") cols: Int, @AgentToolParam("Rows") rows: Int): String { WeAgentService.terminalManager.resize(owner(), sessionId, cols, rows); return "OK" }

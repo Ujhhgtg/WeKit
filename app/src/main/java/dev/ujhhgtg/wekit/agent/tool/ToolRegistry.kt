@@ -20,6 +20,8 @@ fun interface ToolPermissionSource {
 /** How tools are advertised to the model for a request (§3.3). */
 enum class ToolLoadingMode { STATIC, DYNAMIC }
 
+enum class ToolCallOrigin { DIRECT, ENVIRONMENT_BRIDGE }
+
 /**
  * Per-turn gating of the conditionally-advertised builtin tools (§3.4).
  *
@@ -174,6 +176,10 @@ class ToolRegistry(
     companion object {
         const val DISCOVER_TOOLS_NAME = "discover_tools"
         private val DYNAMIC_BASELINE_NAMES = setOf("edit", "exec", "load_skill")
+
+        /** Shared enforcement point for Task 5's bridge dispatcher. */
+        fun isCallAllowed(toolName: String, origin: ToolCallOrigin): Boolean =
+            origin == ToolCallOrigin.DIRECT || toolName !in BuiltinToolProvider.TERMINAL_TOOL_NAMES
 
         private val DISCOVER_TOOLS_SCHEMA: JsonObject = buildJsonObject {
             put("type", "object")

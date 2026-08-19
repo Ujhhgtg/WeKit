@@ -28,7 +28,7 @@ interface TerminalBackendSession {
     suspend fun resize(cols: Int, rows: Int)
     suspend fun waitForExit(): Int?
     suspend fun kill()
-    suspend fun close() = kill()
+    suspend fun close()
 }
 
 data class TerminalInfo(

@@ -1,85 +1,269 @@
 package dev.ujhhgtg.wekit.agent.terminal
 
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 class TerminalManager(
     private val backend: TerminalBackend,
     private val now: () -> Long = System::currentTimeMillis,
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
-    private val sessions = ConcurrentHashMap<String, Session>()
+    private val lock = Any()
+    private val sessions = LinkedHashMap<String, Session>()
 
-    suspend fun start(owner: String, environment: EnvironmentSnapshot, argv: List<String> = listOf(environment.shell), workingDirectory: String? = null, environmentVariables: Map<String, String> = emptyMap(), cols: Int = 80, rows: Int = 24): TerminalInfo {
-        require(cols in 1..500 && rows in 1..200)
-        require(sessions.values.count { it.owner == owner && it.state == TerminalState.RUNNING } < MAX_SESSIONS)
-        val started = backend.start(environment, argv, workingDirectory, environmentVariables, cols, rows)
-        val session = Session(UUID.randomUUID().toString(), owner, environment, started.session, cols, rows, now())
-        sessions[session.id] = session
-        session.reader = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { session.readLoop() }
-        session.waiter = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { session.finish(started.session.waitForExit()) }
-        return session.info()
-    }
-
-    fun list(owner: String): List<TerminalInfo> = sessions.values.filter { it.owner == owner }.map { it.info() }.sortedBy { it.id }
-
-    suspend fun write(owner: String, id: String, events: List<TerminalEvent>) {
-        val session = owned(owner, id)
-        require(events.size <= 256) { "too many terminal events" }
-        var total = 0L
-        session.writeMutex.withLock {
-            for (event in events) {
-                when (event.type) {
-                    TerminalEvent.Type.SLEEP -> {
-                        require(event.durationMs in 0..MAX_SLEEP_MS)
-                        total += event.durationMs
-                        require(total <= MAX_TOTAL_SLEEP_MS)
-                        delay(event.durationMs)
-                    }
-                    else -> {
-                        val bytes = encode(event)
-                        total += bytes.size
-                        require(total <= MAX_INPUT_BYTES)
-                        session.backend.write(bytes)
-                    }
-                }
-                session.lastActivity = now()
+    init {
+        scope.launch {
+            while (isActive) {
+                delay(MAINTENANCE_INTERVAL_MS)
+                expireSessions()
             }
         }
     }
 
-    suspend fun read(owner: String, id: String, cursor: Long? = null, maxBytes: Int = 64 * 1024, waitMs: Long = 0): TerminalReadResult {
-        require(maxBytes in 1..MAX_READ_BYTES && waitMs in 0..MAX_WAIT_MS)
+    suspend fun start(
+        owner: String,
+        environment: EnvironmentSnapshot,
+        argv: List<String>? = null,
+        workingDirectory: String? = null,
+        environmentVariables: Map<String, String> = emptyMap(),
+        cols: Int = 80,
+        rows: Int = 24,
+    ): TerminalInfo {
+        require(cols in 1..500 && rows in 1..200)
+        val command = argv ?: when (environment.type) {
+            LinuxEnvironmentType.NATIVE -> listOf("/system/bin/sh")
+            else -> listOf("/bin/bash", "-l")
+        }
+        require(command.isNotEmpty() && command.none(String::isEmpty)) { "terminal argv cannot be empty" }
+        expireSessions()
+        val createdAt = now()
+        val session = Session(UUID.randomUUID().toString(), owner, environment, cols, rows, createdAt)
+        synchronized(lock) {
+            require(sessions.values.count { it.state.isActive } < MAX_SESSIONS) { "global terminal session limit reached" }
+            sessions[session.id] = session
+        }
+
+        val started = try {
+            backend.start(environment, command, workingDirectory, environmentVariables, cols, rows)
+        } catch (error: CancellationException) {
+            synchronized(lock) { session.finish(TerminalState.FAILED, now()) }
+            throw error
+        } catch (_: Throwable) {
+            synchronized(lock) { session.finish(TerminalState.FAILED, now()) }
+            return synchronized(lock) { session.info() }
+        }
+
+        val shouldTerminate = synchronized(lock) {
+            session.backend = started.session
+            if (session.state == TerminalState.STARTING) session.state = TerminalState.RUNNING
+            session.state != TerminalState.RUNNING
+        }
+        launchWorkers(session, started.session)
+        if (shouldTerminate) runCatching { started.session.kill() }
+        return synchronized(lock) { session.info() }
+    }
+
+    suspend fun list(owner: String): List<TerminalInfo> {
+        expireSessions()
+        return synchronized(lock) {
+            sessions.values.filter { it.owner == owner }.map(Session::info).sortedBy(TerminalInfo::id)
+        }
+    }
+
+    suspend fun write(owner: String, id: String, events: List<TerminalEvent>) {
+        require(events.size <= 256) { "too many terminal events" }
+        expireSessions()
         val session = owned(owner, id)
-        if (waitMs > 0 && session.ring.end == (cursor ?: session.ring.end)) delay(waitMs)
-        return session.read(cursor, maxBytes)
+        var inputBytes = 0L
+        var sleepMillis = 0L
+        session.writeMutex.withLock {
+            for (event in events) {
+                synchronized(lock) { check(session.state == TerminalState.RUNNING) { "terminal is not running" } }
+                when (event.type) {
+                    TerminalEvent.Type.SLEEP -> {
+                        require(event.durationMs in 0..MAX_SLEEP_MS)
+                        sleepMillis += event.durationMs
+                        require(sleepMillis <= MAX_TOTAL_SLEEP_MS)
+                        delay(event.durationMs)
+                    }
+                    else -> {
+                        val bytes = encode(event)
+                        inputBytes += bytes.size
+                        require(inputBytes <= MAX_INPUT_BYTES)
+                        session.backend!!.write(bytes)
+                    }
+                }
+                synchronized(lock) { session.lastActivity = now() }
+            }
+        }
+    }
+
+    suspend fun read(
+        owner: String,
+        id: String,
+        cursor: Long? = null,
+        maxBytes: Int = 64 * 1024,
+        waitMs: Long = 0,
+    ): TerminalReadResult {
+        require(maxBytes in 1..MAX_READ_BYTES && waitMs in 0..MAX_WAIT_MS)
+        expireSessions()
+        val session = owned(owner, id)
+        while (session.changed.tryReceive().isSuccess) {
+            // Drain stale notifications before taking the snapshot used for this wait.
+        }
+        val initial = synchronized(lock) {
+            session.lastActivity = now()
+            session.read(cursor, maxBytes)
+        }
+        if (waitMs == 0L || initial.bytes.isNotEmpty() || initial.state.isFinished ||
+            cursor != null && cursor > initial.endCursor
+        ) return initial
+        withTimeoutOrNull(waitMs) { session.changed.receive() }
+        return synchronized(lock) {
+            session.lastActivity = now()
+            session.read(cursor, maxBytes)
+        }
     }
 
     suspend fun resize(owner: String, id: String, cols: Int, rows: Int) {
         require(cols in 1..500 && rows in 1..200)
+        expireSessions()
         val session = owned(owner, id)
-        session.writeMutex.withLock { session.backend.resize(cols, rows) }
-        session.cols = cols; session.rows = rows; session.lastActivity = now()
+        session.writeMutex.withLock {
+            synchronized(lock) { check(session.state == TerminalState.RUNNING) { "terminal is not running" } }
+            session.backend!!.resize(cols, rows)
+        }
+        synchronized(lock) {
+            session.cols = cols
+            session.rows = rows
+            session.lastActivity = now()
+        }
     }
 
     suspend fun kill(owner: String, id: String): TerminalInfo {
+        expireSessions()
         val session = owned(owner, id)
-        session.writeMutex.withLock { session.backend.kill() }
-        session.state = TerminalState.KILLED
-        session.reader?.cancel(); session.waiter?.cancel()
-        return session.info()
+        terminate(session, TerminalState.KILLED)
+        return synchronized(lock) { session.info() }
     }
 
-    private fun owned(owner: String, id: String): Session = sessions[id]?.also { check(it.owner == owner) { "terminal is owned by another conversation" } } ?: error("terminal not found")
+    /** Task 5 calls this when the capability token for a conversation is revoked. */
+    suspend fun revokeOwner(owner: String) {
+        val owned = synchronized(lock) { sessions.values.filter { it.owner == owner && it.state.isActive } }
+        owned.forEach { terminate(it, TerminalState.KILLED) }
+    }
+
+    /** Runs timeout and retention cleanup immediately; also used by the maintenance coroutine. */
+    suspend fun expireSessions() {
+        val timestamp = now()
+        val expired = synchronized(lock) {
+            sessions.entries.removeAll { (_, session) ->
+                session.finishedAt?.let { timestamp - it >= FINISHED_RETENTION_MS } == true
+            }
+            sessions.values.filter { session ->
+                session.state.isActive &&
+                    (timestamp - session.lastActivity >= IDLE_TIMEOUT_MS || timestamp - session.createdAt >= MAX_LIFETIME_MS)
+            }.onEach { it.finish(TerminalState.EXPIRED, timestamp) }
+        }
+        expired.forEach { session -> runCatching { session.backend?.kill() } }
+    }
+
+    private fun launchWorkers(session: Session, terminal: TerminalBackendSession) {
+        val reader = scope.launch(start = CoroutineStart.LAZY) {
+            try {
+                while (true) {
+                    val bytes = terminal.read(64 * 1024)
+                    if (bytes.isEmpty()) break
+                    synchronized(lock) {
+                        session.ring.append(bytes)
+                        trimGlobalOutput()
+                    }
+                    session.changed.trySend(Unit)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                synchronized(lock) {
+                    if (session.state.isActive) session.finish(TerminalState.FAILED, now())
+                }
+                session.changed.trySend(Unit)
+                runCatching { terminal.kill() }
+            }
+        }
+        val waiter = scope.launch(start = CoroutineStart.LAZY) {
+            try {
+                terminal.waitForExit()
+                synchronized(lock) {
+                    if (session.state == TerminalState.RUNNING) session.finish(TerminalState.EXITED, now())
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                synchronized(lock) {
+                    if (session.state.isActive) session.finish(TerminalState.FAILED, now())
+                }
+            } finally {
+                session.changed.trySend(Unit)
+                reader.join()
+                terminal.close()
+            }
+        }
+        synchronized(lock) {
+            session.reader = reader
+            session.waiter = waiter
+        }
+        reader.start()
+        waiter.start()
+    }
+
+    private suspend fun terminate(session: Session, state: TerminalState) {
+        val terminal = synchronized(lock) {
+            if (!session.state.isActive) return
+            session.finish(state, now())
+            session.backend
+        }
+        session.changed.trySend(Unit)
+        if (terminal != null) {
+            try {
+                terminal.kill()
+            } catch (_: Throwable) {
+                synchronized(lock) { session.finish(TerminalState.FAILED, now(), replaceFinished = true) }
+                session.changed.trySend(Unit)
+            }
+        }
+    }
+
+    private fun owned(owner: String, id: String): Session = synchronized(lock) {
+        sessions[id]?.also { check(it.owner == owner) { "terminal is owned by another conversation" } }
+            ?: error("terminal not found")
+    }
+
+    private fun trimGlobalOutput() {
+        var excess = sessions.values.sumOf { it.ring.size }.toLong() - MAX_GLOBAL_OUTPUT_BYTES
+        if (excess <= 0) return
+        for (session in sessions.values.sortedBy(Session::createdAt)) {
+            val discarded = session.ring.discard(excess.coerceAtMost(session.ring.size.toLong()).toInt())
+            excess -= discarded
+            if (excess == 0L) break
+        }
+    }
 
     private fun encode(event: TerminalEvent): ByteArray = when (event.type) {
-        TerminalEvent.Type.TEXT -> event.value.orEmpty().also { require(it.toByteArray().size <= MAX_TEXT_BYTES) }.toByteArray()
+        TerminalEvent.Type.TEXT -> event.value.orEmpty().toByteArray().also { require(it.size <= MAX_TEXT_BYTES) }
         TerminalEvent.Type.KEY -> key(event.value ?: error("key is required"))
         TerminalEvent.Type.CHORD -> chord(event.value ?: error("chord is required"))
         TerminalEvent.Type.SLEEP -> error("sleep has no bytes")
@@ -93,19 +277,88 @@ class TerminalManager(
         else -> error("unsupported chord: $value")
     }
 
-    private inner class Session(val id: String, val owner: String, val environment: EnvironmentSnapshot, val backend: TerminalBackendSession, var cols: Int, var rows: Int, var lastActivity: Long) {
-        val writeMutex = Mutex(); val ring = ByteRing(); var state = TerminalState.STARTING; var reader: kotlinx.coroutines.Job? = null; var waiter: kotlinx.coroutines.Job? = null
-        init { state = TerminalState.RUNNING }
-        suspend fun readLoop() { try { while (state == TerminalState.RUNNING) { val bytes = backend.read(64 * 1024); if (bytes.isEmpty()) break; ring.append(bytes) } } catch (_: CancellationException) { } }
-        suspend fun finish(exitCode: Int?) { if (state == TerminalState.RUNNING) state = if (exitCode == null) TerminalState.EXITED else TerminalState.EXITED }
-        fun read(cursor: Long?, max: Int): TerminalReadResult { val result = ring.read(cursor ?: ring.end, max); return TerminalReadResult(result.bytes, result.cursor, result.end, state, result.expired, result.oldest) }
+    private inner class Session(
+        val id: String,
+        val owner: String,
+        val environment: EnvironmentSnapshot,
+        var cols: Int,
+        var rows: Int,
+        val createdAt: Long,
+    ) {
+        val writeMutex = Mutex()
+        val ring = ByteRing()
+        val changed = Channel<Unit>(Channel.CONFLATED)
+        var backend: TerminalBackendSession? = null
+        var state = TerminalState.STARTING
+        var lastActivity = createdAt
+        var finishedAt: Long? = null
+        var reader: Job? = null
+        var waiter: Job? = null
+
+        fun finish(newState: TerminalState, timestamp: Long, replaceFinished: Boolean = false) {
+            if (state.isFinished && !replaceFinished) return
+            state = newState
+            finishedAt = timestamp
+            changed.trySend(Unit)
+        }
+
+        fun read(cursor: Long?, max: Int): TerminalReadResult {
+            val result = ring.read(cursor ?: ring.end, max)
+            return TerminalReadResult(result.bytes, result.cursor, result.end, state, result.expired, result.oldest)
+        }
+
         fun info() = TerminalInfo(id, environment.id, state, cols, rows, ring.end, ring.end)
     }
 
-    private data class RingRead(val bytes: ByteArray, val cursor: Long, val end: Long, val expired: Boolean, val oldest: Long)
-    private class ByteRing(private val capacity: Int = 8 * 1024 * 1024) {
-        private var data = ByteArray(0); var base = 0L; var end = 0L; fun append(bytes: ByteArray) { data = (data + bytes).takeLast(capacity).toByteArray(); end += bytes.size; base = end - data.size }
-        fun read(cursor: Long, max: Int): RingRead { val expired = cursor < base; val start = maxOf(cursor, base); val offset = (start - base).toInt(); val bytes = data.copyOfRange(offset, minOf(data.size, offset + max)); return RingRead(bytes, start, end, expired, base) }
+    internal data class RingRead(val bytes: ByteArray, val cursor: Long, val end: Long, val expired: Boolean, val oldest: Long)
+
+    internal class ByteRing(private val capacity: Int = MAX_SESSION_OUTPUT_BYTES) {
+        private var data = ByteArray(0)
+        var base = 0L
+            private set
+        var end = 0L
+            private set
+        val size: Int get() = data.size
+
+        fun append(bytes: ByteArray) {
+            if (bytes.isEmpty()) return
+            data = (data + bytes).takeLast(capacity).toByteArray()
+            end += bytes.size
+            base = end - data.size
+        }
+
+        fun discard(count: Int): Long {
+            val actual = count.coerceAtMost(data.size)
+            data = data.copyOfRange(actual, data.size)
+            base += actual
+            return actual.toLong()
+        }
+
+        fun read(cursor: Long, max: Int): RingRead {
+            val expired = cursor < base
+            val start = cursor.coerceIn(base, end)
+            val offset = (start - base).toInt()
+            val bytes = data.copyOfRange(offset, minOf(data.size, offset + max))
+            return RingRead(bytes, start, end, expired, base)
+        }
     }
-    companion object { const val MAX_SESSIONS = 4; const val MAX_TEXT_BYTES = 64 * 1024; const val MAX_INPUT_BYTES = 256 * 1024; const val MAX_SLEEP_MS = 10_000L; const val MAX_TOTAL_SLEEP_MS = 30_000L; const val MAX_READ_BYTES = 1024 * 1024; const val MAX_WAIT_MS = 30_000L }
+
+    private val TerminalState.isActive: Boolean get() = this == TerminalState.STARTING || this == TerminalState.RUNNING
+    private val TerminalState.isFinished: Boolean get() = !isActive
+
+    companion object {
+        const val MAX_SESSIONS = 4
+        const val MAX_TEXT_BYTES = 64 * 1024
+        const val MAX_INPUT_BYTES = 256 * 1024
+        const val MAX_SLEEP_MS = 10_000L
+        const val MAX_TOTAL_SLEEP_MS = 30_000L
+        const val MAX_READ_BYTES = 1024 * 1024
+        const val MAX_WAIT_MS = 30_000L
+        const val MAX_SESSION_OUTPUT_BYTES = 8 * 1024 * 1024
+        const val MAX_GLOBAL_OUTPUT_BYTES = 32L * 1024 * 1024
+        const val IDLE_TIMEOUT_MS = 10 * 60 * 1000L
+        const val MAX_LIFETIME_MS = 30 * 60 * 1000L
+        const val FINISHED_RETENTION_MS = 5 * 60 * 1000L
+        private const val MAINTENANCE_INTERVAL_MS = 60_000L
+    }
 }
