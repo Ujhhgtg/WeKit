@@ -39,6 +39,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.lang.ref.WeakReference
+import java.lang.reflect.Modifier as JavaModifier
 
 @Feature(
     id = "聊天界面消息菜单扩展",
@@ -171,14 +172,19 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
             }
     }
 
-    private fun getChattingContextFromOnSelectHandler(thisObject: Any): ChattingContext {
-        val viewOnLongClickListener = thisObject.reflekt()
+    private fun getLongClickListenerFromOnSelectHandler(thisObject: Any): View.OnLongClickListener {
+        return thisObject.reflekt()
             .firstField {
                 type {
                     it isSubclassOf View.OnLongClickListener::class
                 }
             }
             .get() as View.OnLongClickListener
+    }
+
+    private fun getChattingContextFromLongClickListener(
+        viewOnLongClickListener: View.OnLongClickListener
+    ): ChattingContext {
         val ctx = viewOnLongClickListener.reflekt()
             .firstField {
                 type = WeMessageApi.classChattingContext.clazz
@@ -186,6 +192,29 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
             }
             .get()!!
         return ChattingContext(ctx)
+    }
+
+    private fun finishMenuSelection(viewOnLongClickListener: View.OnLongClickListener) {
+        val cleanupFields = viewOnLongClickListener.reflekt().fields {
+            type { type ->
+                !type.isInterface &&
+                    JavaModifier.isAbstract(type.modifiers) &&
+                    type.declaredMethods.count { JavaModifier.isAbstract(it.modifiers) } == 1 &&
+                    type.declaredMethods.single { JavaModifier.isAbstract(it.modifiers) }.let {
+                        it.parameterCount == 0 && it.returnType == Void.TYPE
+                    }
+            }
+        }
+        check(cleanupFields.size == 2) {
+            "expected two message menu cleanup callbacks, found ${cleanupFields.size}"
+        }
+        for (field in cleanupFields) {
+            val callback = field.get() ?: continue
+            callback.reflekt().firstMethod {
+                parameterCount = 0
+                returnType = Void.TYPE
+            }.invoke()
+        }
     }
 
     // the multi-select handler (q4) has no OnLongClickListener; instead it reaches the
@@ -310,12 +339,14 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
 
             val menuItem = args[0] as android.view.MenuItem
             val msgInfoWrapper = MessageInfo(msgInfo)
-            val context = getChattingContextFromOnSelectHandler(thisObject!!)
+            val longClickListener = getLongClickListenerFromOnSelectHandler(thisObject!!)
+            val context = getChattingContextFromLongClickListener(longClickListener)
             try {
                 if (menuItem.itemId == MERGED_MENU_ITEM_ID) {
                     val applicableItems = currentMenuItems()
                         .filter { it.isSupported(msgInfoWrapper) }
                     showMergedMenuDialog(curView, context, msgInfoWrapper, applicableItems)
+                    finishMenuSelection(longClickListener)
                     result = null
                     return@hookBefore
                 }
@@ -323,6 +354,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                 for (item in currentMenuItems()) {
                     if (item.id == menuItem.itemId) {
                         item.onClick(curView, context, msgInfoWrapper)
+                        finishMenuSelection(longClickListener)
                         result = null
                         return@hookBefore
                     }
