@@ -19,6 +19,8 @@ import dev.ujhhgtg.wekit.agent.engine.PromptComposer
 import dev.ujhhgtg.wekit.agent.engine.SmallModelRef
 import dev.ujhhgtg.wekit.agent.engine.TurnConfig
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
+import dev.ujhhgtg.wekit.agent.terminal.NativeTerminalBackend
+import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
 import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
 import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
@@ -76,6 +78,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     private val registry = ToolRegistry(permissions = WeAgentRepository, providers = BuiltinToolProvider.all)
 
     val linuxEnvironmentManager = LinuxEnvironmentManager()
+    val terminalManager = TerminalManager(NativeTerminalBackend())
 
     /** Trigger runtime (schedule + message/SQL event triggers). Started in [init]. */
     val triggerManager = dev.ujhhgtg.wekit.agent.trigger.TriggerManager(scope, this)

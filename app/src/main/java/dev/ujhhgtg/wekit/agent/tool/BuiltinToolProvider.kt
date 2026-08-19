@@ -82,6 +82,10 @@ class BuiltinToolProvider(
         const val TRIGGER_ID = AgentTool.BUILTIN_TRIGGER
         const val INFO_ID = AgentTool.BUILTIN_INFO
         const val NET_ID = AgentTool.BUILTIN_NET
+        const val TERMINAL_ID = AgentTool.BUILTIN_TERMINAL
+        val TERMINAL_TOOL_NAMES = setOf("terminal_list", "terminal_start", "terminal_write", "terminal_read", "terminal_resize", "terminal_kill")
+        /** Terminal tools are callable only by direct model calls, never by an environment bridge. */
+        val INVOKE_TOOL_EXCLUDED_NAMES: Set<String> = TERMINAL_TOOL_NAMES
 
         private val DISPLAY_NAMES = mapOf(
             WECHAT_ID to "微信操作",

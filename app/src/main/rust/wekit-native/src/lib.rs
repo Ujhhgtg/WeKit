@@ -9,6 +9,7 @@ mod logging;
 mod read_receipts_server;
 mod telegram_sticker;
 mod utils;
+mod pty;
 
 use std::ffi::CString;
 
@@ -17,7 +18,7 @@ use crash_triggerer::trigger_test_crash;
 
 use jni::sys::{
     JNI_FALSE, JNI_TRUE, JNI_VERSION_1_6, JNIEnv as RawJNIEnv, JavaVM, jboolean, jint, jlong,
-    jobject, jstring,
+    jobject, jstring, jbyteArray,
 };
 use libc::c_void;
 
@@ -42,6 +43,37 @@ fn native_error_string(env: *mut RawJNIEnv, result: Result<(), String>) -> jstri
         Err(message) => native_string(env, &message),
     }
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_start(
+    env: *mut RawJNIEnv, _thiz: jobject, argv: jstring, environment: jstring, cwd: jstring,
+    cols: jint, rows: jint,
+) -> jlong {
+    let result = with_jstring(env, argv, |a| with_jstring(env, environment, |e| with_jstring(env, cwd, |c| {
+        pty::start(a.split('\0').map(str::to_owned).collect(), e.split('\0').filter(|v| !v.is_empty()).map(str::to_owned).collect(), c.to_owned(), cols, rows)
+    }).unwrap_or_else(|| Err("missing cwd".into()))).unwrap_or_else(|| Err("missing environment".into()))).unwrap_or_else(|| Err("missing argv".into()));
+    match result { Ok(handle) => Box::into_raw(Box::new(handle)) as jlong, Err(error) => { loge!("pty start failed: {error}"); 0 } }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_write(env: *mut RawJNIEnv, _thiz: jobject, handle: jlong, bytes: jbyteArray) {
+    if handle == 0 || bytes.is_null() { return; }
+    unsafe { let fns = *env; let len = ((*fns).v1_6.GetArrayLength)(env, bytes as jobject); let ptr = ((*fns).v1_6.GetByteArrayElements)(env, bytes, std::ptr::null_mut()); let result = pty::write(&mut *(handle as *mut pty::Pty), std::slice::from_raw_parts(ptr as *const u8, len as usize)); ((*fns).v1_6.ReleaseByteArrayElements)(env, bytes, ptr, 0); if let Err(error) = result { loge!("pty write failed: {error}"); } }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_read(env: *mut RawJNIEnv, _thiz: jobject, handle: jlong, max: jint) -> jbyteArray {
+    if handle == 0 || max <= 0 { return std::ptr::null_mut(); }
+    let bytes = pty::read(unsafe { &mut *(handle as *mut pty::Pty) }, max as usize).unwrap_or_default();
+    unsafe { let fns = *env; let out = ((*fns).v1_6.NewByteArray)(env, bytes.len() as jint); ((*fns).v1_6.SetByteArrayRegion)(env, out, 0, bytes.len() as jint, bytes.as_ptr() as *const i8); out }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_resize(_env: *mut RawJNIEnv, _thiz: jobject, handle: jlong, cols: jint, rows: jint) { if handle != 0 { let _ = pty::resize(unsafe { &mut *(handle as *mut pty::Pty) }, cols, rows); } }
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_waitForExit(_env: *mut RawJNIEnv, _thiz: jobject, handle: jlong) -> jlong { if handle == 0 { return -1; } pty::wait(unsafe { &mut *(handle as *mut pty::Pty) }).unwrap_or(-1) as jlong }
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_kill(_env: *mut RawJNIEnv, _thiz: jobject, handle: jlong) { if handle != 0 { let _ = pty::kill(unsafe { &mut *(handle as *mut pty::Pty) }); } }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JNI exports
