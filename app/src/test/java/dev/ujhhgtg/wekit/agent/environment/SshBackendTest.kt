@@ -1,10 +1,14 @@
 package dev.ujhhgtg.wekit.agent.environment
 
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayOutputStream
 import java.net.ServerSocket
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -20,7 +24,7 @@ class SshBackendTest {
         )
 
         assertEquals(2, result.exitCode)
-        assertTrue(result.stdout.trim().startsWith("{\"ok\":false,"))
+        assertJsonOutput(result)
     }
 
     @Test
@@ -32,19 +36,33 @@ class SshBackendTest {
         )
 
         assertEquals(7, result.exitCode, result.stdout)
-        assertTrue(result.stdout.contains("bridge unavailable"))
+        assertJsonOutput(result)
     }
 
     @Test
-    fun `bash helper rejects truncated response`() {
+    fun `bash helper returns parseable JSON for every nonzero response status`() {
+        listOf(
+            3 to "unauthorized",
+            4 to "unknown_tool",
+            5 to "approval_denied",
+            6 to "execution_failed",
+        ).forEach { (exitCode, error) ->
+            val result = withMockBridge("{\"ok\":false,\"error\":\"$error\"}") {
+                runHelper(it, "list")
+            }
+
+            assertEquals(exitCode, result.exitCode, result.stdout)
+            assertJsonOutput(result)
+        }
+    }
+
+    @Test
+    fun `bash helper rejects truncated response header with exit seven`() {
         ServerSocket(0).use { server ->
             val thread = Thread {
                 server.accept().use { socket ->
-                    val input = socket.getInputStream().bufferedReader(StandardCharsets.US_ASCII)
-                    val header = input.readLine()
-                    val length = header.substringAfterLast(' ').toInt()
-                    repeat(length) { input.read() }
-                    socket.getOutputStream().write("WBT/1 ${"a".repeat(64)} 10\n{}".toByteArray(StandardCharsets.US_ASCII))
+                    drainRequest(socket.getInputStream())
+                    socket.getOutputStream().write("WBT/1 ${"a".repeat(64)}".toByteArray(StandardCharsets.US_ASCII))
                     socket.getOutputStream().flush()
                 }
             }
@@ -55,9 +73,23 @@ class SshBackendTest {
             )
 
             assertEquals(7, result.exitCode)
-            assertTrue(result.stdout.trim().startsWith("{\"ok\":false,"))
+            assertJsonOutput(result)
             thread.join(TimeUnit.SECONDS.toMillis(2))
         }
+    }
+
+    @Test
+    fun `bash helper preserves escaped JSON input in captured request`() {
+        val json = "{\"text\":\"quote: \\\" slash: \\\\ newline: \\n\"}"
+        val result = withMockBridge("{\"ok\":true}") { port ->
+            runHelper(port, "call", "tool", "--json", json)
+        }
+
+        assertEquals(0, result.exitCode, result.stdout)
+        val captured = capturedRequest
+        val expected = "{\"op\":\"call\",\"name\":\"tool\",\"arguments\":$json}"
+        assertEquals(expected, captured.toString(StandardCharsets.UTF_8))
+        assertEquals(expected.toByteArray(StandardCharsets.UTF_8).toList(), captured.toList())
     }
 
     @Test
@@ -108,6 +140,50 @@ class SshBackendTest {
             Files.deleteIfExists(script)
         }
     }
+
+    private fun assertJsonOutput(result: ProcessResult) {
+        val json = Json.parseToJsonElement(result.stdout.trim()).jsonObject
+        assertEquals(false, json.getValue("ok").jsonPrimitive.booleanOrNull)
+    }
+
+    private fun withMockBridge(response: String, block: (Int) -> ProcessResult): ProcessResult {
+        ServerSocket(0).use { server ->
+            var captured: ByteArray? = null
+            val thread = Thread {
+                server.accept().use { socket ->
+                    captured = readRequest(socket.getInputStream())
+                    val output = socket.getOutputStream()
+                    val responseBytes = response.toByteArray(StandardCharsets.UTF_8)
+                    output.write("WBT/1 ${"a".repeat(64)} ${responseBytes.size}\n".toByteArray(StandardCharsets.US_ASCII))
+                    output.write(responseBytes)
+                    output.flush()
+                }
+            }
+            thread.start()
+            val result = block(server.localPort)
+            thread.join(TimeUnit.SECONDS.toMillis(2))
+            capturedRequest = captured ?: error("mock bridge did not capture a request")
+            return result
+        }
+    }
+
+    private fun readRequest(input: java.io.InputStream): ByteArray {
+        val header = ByteArrayOutputStream()
+        while (true) {
+            val byte = input.read()
+            check(byte >= 0) { "request header was truncated" }
+            header.write(byte)
+            if (byte == '\n'.code) break
+        }
+        val length = header.toString(StandardCharsets.US_ASCII).trim().substringAfterLast(' ').toInt()
+        return ByteArray(length) { input.read().also { check(it >= 0) { "request payload was truncated" } }.toByte() }
+    }
+
+    private fun drainRequest(input: java.io.InputStream) {
+        readRequest(input)
+    }
+
+    private var capturedRequest = ByteArray(0)
 
     private data class ProcessResult(val exitCode: Int, val stdout: String)
 }
