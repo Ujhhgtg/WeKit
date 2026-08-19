@@ -56,11 +56,7 @@ class ViewBackdropCaptureStateTest {
 
     @Test
     fun everyCaptureKeyDimensionTriggersOneNewCapture() {
-        val state = ViewBackdropCaptureState()
         val base = key()
-        state.decide(base)
-        state.captureSucceeded(base)
-
         val changed = listOf(
             key(generation = 2),
             key(width = 1200),
@@ -75,10 +71,37 @@ class ViewBackdropCaptureStateTest {
         )
 
         changed.forEach { next ->
+            val state = ViewBackdropCaptureState()
+            state.decide(base)
+            state.captureSucceeded(base)
+
             assertEquals(ViewBackdropCaptureDecision.CAPTURE, state.decide(next), next.toString())
             assertEquals(ViewBackdropCaptureDecision.SKIP, state.decide(next), next.toString())
-            state.captureSucceeded(next)
         }
+    }
+
+    @Test
+    fun windowIdentityChangesInvalidateOldCaptureAcrossFailedTransition() {
+        val state = ViewBackdropCaptureState()
+        val windows = ViewBackdropWindowIdentityState()
+        val windowA = Any()
+        val windowB = Any()
+        val capturedA = key(window = windowA)
+
+        windows.update(windowA, state::invalidate)
+        assertEquals(ViewBackdropCaptureDecision.CAPTURE, state.decide(capturedA))
+        state.captureSucceeded(capturedA)
+        assertTrue(state.canDrawFor(capturedA))
+
+        windows.update(windowB, state::invalidate)
+        assertFalse(state.canDrawFor(capturedA))
+        val failedB = key(window = windowB)
+        assertEquals(ViewBackdropCaptureDecision.CAPTURE, state.decide(failedB))
+        assertEquals(ViewBackdropCaptureDecision.SKIP, state.decide(failedB))
+
+        windows.update(windowA, state::invalidate)
+        assertFalse(state.canDrawFor(capturedA))
+        assertEquals(ViewBackdropCaptureDecision.CAPTURE, state.decide(capturedA))
     }
 
     @Test

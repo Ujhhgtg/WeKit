@@ -7,6 +7,29 @@ internal class ViewBackdropCaptureIdentity(val value: Any) {
     override fun hashCode(): Int = System.identityHashCode(value)
 }
 
+internal class ViewBackdropWindowIdentityState {
+    private var lastWindowIdentity: ViewBackdropCaptureIdentity? = null
+
+    fun update(windowToken: Any?, invalidateCapture: () -> Unit): ViewBackdropCaptureIdentity? {
+        if (windowToken == null) {
+            if (lastWindowIdentity != null) invalidateCapture()
+            lastWindowIdentity = null
+            return null
+        }
+
+        val windowIdentity = ViewBackdropCaptureIdentity(windowToken)
+        if (lastWindowIdentity != null && lastWindowIdentity != windowIdentity) {
+            invalidateCapture()
+        }
+        lastWindowIdentity = windowIdentity
+        return windowIdentity
+    }
+
+    fun reset() {
+        lastWindowIdentity = null
+    }
+}
+
 internal data class ViewBackdropCaptureKey(
     val source: ViewBackdropCaptureIdentity,
     val window: ViewBackdropCaptureIdentity,

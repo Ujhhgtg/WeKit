@@ -136,7 +136,7 @@ class ViewBackdrop internal constructor(
     private var captureInProgress = false
     private var lifecycleStarted = false
     private var sourceIdentity: ViewBackdropCaptureIdentity? = null
-    private var lastWindowIdentity: ViewBackdropCaptureIdentity? = null
+    private val windowIdentityState = ViewBackdropWindowIdentityState()
 
     // Coordinate lookups are done against the source view's window position, so the offset the
     // effect needs doesn't depend on Compose recomposition.
@@ -159,7 +159,7 @@ class ViewBackdrop internal constructor(
         if (sourceView !== view) {
             captureState.invalidate()
             sourceIdentity = ViewBackdropCaptureIdentity(view)
-            lastWindowIdentity = null
+            windowIdentityState.reset()
             generation++
         }
         sourceView = view
@@ -179,7 +179,7 @@ class ViewBackdrop internal constructor(
         captureState.invalidate()
         offsetResidualX = 0f
         offsetResidualY = 0f
-        lastWindowIdentity = null
+        windowIdentityState.reset()
         generation++
     }
 
@@ -194,18 +194,12 @@ class ViewBackdrop internal constructor(
 
     private fun currentCaptureKey(view: View): ViewBackdropCaptureKey? {
         if (!lifecycleStarted || !view.isAttachedToWindow) return null
-        val token = view.windowToken
-        if (token == null) {
-            if (lastWindowIdentity != null) {
-                captureState.invalidate()
-                offsetResidualX = 0f
-                offsetResidualY = 0f
-                lastWindowIdentity = null
-            }
-            return null
+        val windowIdentity = windowIdentityState.update(view.windowToken) {
+            captureState.invalidate()
+            offsetResidualX = 0f
+            offsetResidualY = 0f
         }
-        val windowIdentity = ViewBackdropCaptureIdentity(token)
-        lastWindowIdentity = windowIdentity
+            ?: return null
         return ViewBackdropCaptureKey(
             source = sourceIdentity!!,
             window = windowIdentity,
