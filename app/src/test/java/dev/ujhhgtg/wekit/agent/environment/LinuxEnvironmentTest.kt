@@ -346,6 +346,7 @@ class LinuxEnvironmentTest {
             entered.complete(Unit)
             proceed.await()
             releases.incrementAndGet()
+            LeaseReleaseResult.Committed
         }
 
         val release = launch { lease.release() }
@@ -356,6 +357,62 @@ class LinuxEnvironmentTest {
         lease.release()
 
         assertEquals(1, releases.get())
+    }
+
+    @Test
+    fun `lease remains released when stale backend close fails after decrement`(@TempDir directory: Path) = runBlocking {
+        val stored = environment(LinuxEnvironmentType.SSH).copy(rootfsPath = null)
+        var closes = 0
+        var deleted = false
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
+            getEnvironment = { stored },
+            persistEnvironment = {},
+            deleteEnvironment = { _, _, _ -> deleted = true; true },
+            backendFactory = { snapshot ->
+                object : LinuxEnvironmentBackend {
+                    override val snapshot = snapshot
+                    override suspend fun exec(command: String, timeoutMillis: Long, environmentVariables: Map<String, String>) =
+                        ExecResult("", "", 0, false, 1)
+                    override suspend fun readUtf8(path: String, maxBytes: Long) = ""
+                    override suspend fun edit(request: FileEditRequest) = Unit
+                    override fun resolvePath(path: String) = path
+                    override suspend fun ensureBridge(): BridgeInstallArtifact? = null
+                    override suspend fun checkHealth() = EnvironmentHealth(EnvironmentHealthState.HEALTHY)
+                    override suspend fun close() {
+                        closes++
+                        error("close failed")
+                    }
+                }
+            },
+        )
+        manager.exec(stored.id, "true", 1_000)
+        val lease = manager.acquirePersistentLease(stored.id)
+        manager.upsert(stored)
+
+        val closeFailure = assertThrows(IllegalStateException::class.java) { runBlocking { lease.release() } }
+        assertEquals("close failed", closeFailure.message)
+        lease.release()
+
+        assertEquals(1, closes)
+        assertTrue(manager.delete(stored.id))
+        assertTrue(deleted)
+    }
+
+    @Test
+    fun `lease release can retry a failure before commit`() = runBlocking {
+        var attempts = 0
+        val lease = EnvironmentLease {
+            attempts++
+            if (attempts == 1) error("decrement failed")
+            LeaseReleaseResult.Committed
+        }
+
+        assertThrows(IllegalStateException::class.java) { runBlocking { lease.release() } }
+        lease.release()
+        lease.release()
+
+        assertEquals(2, attempts)
     }
 
     @Test

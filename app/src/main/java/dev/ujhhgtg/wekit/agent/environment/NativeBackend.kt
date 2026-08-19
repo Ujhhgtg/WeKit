@@ -19,11 +19,12 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 
-class NativeBackend(
+class NativeBackend internal constructor(
     override val snapshot: EnvironmentSnapshot,
     private val environmentVariables: Map<String, String> = emptyMap(),
     private val maxOutputBytes: Int = DEFAULT_MAX_OUTPUT_BYTES,
     private val defaultFilePermissions: Set<PosixFilePermission> = DEFAULT_NEW_FILE_PERMISSIONS,
+    private val startProcess: OwnedProcessStarter = OwnedProcess::start,
 ) : LinuxEnvironmentBackend {
     init {
         require(snapshot.type == LinuxEnvironmentType.NATIVE)
@@ -47,7 +48,7 @@ class NativeBackend(
             putAll(this@NativeBackend.environmentVariables)
             putAll(environmentVariables)
         }
-        val process = OwnedProcess.start(listOf(snapshot.shell, "-c", command), processEnvironment, workingDirectory.toString())
+        val process = startProcess(listOf(snapshot.shell, "-c", command), processEnvironment, workingDirectory.toString())
         val streamFailure = AtomicReference<Throwable?>()
         var stdoutReader: Thread? = null
         var stderrReader: Thread? = null

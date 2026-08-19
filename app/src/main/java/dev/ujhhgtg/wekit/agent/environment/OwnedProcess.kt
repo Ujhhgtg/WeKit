@@ -5,6 +5,16 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicLong
 
+internal interface OwnedProcessHandle : AutoCloseable {
+    val outputStream: OutputStream
+    val inputStream: InputStream
+    val errorStream: InputStream
+    fun pollExit(): Int?
+    suspend fun terminateGroup(graceMillis: Long = ProcessTermination.TERM_GRACE_MILLIS)
+}
+
+internal typealias OwnedProcessStarter = (List<String>, Map<String, String>, String) -> OwnedProcessHandle
+
 internal class OwnedProcess private constructor(
     handle: Long,
     val pid: Int,
@@ -12,19 +22,19 @@ internal class OwnedProcess private constructor(
     private val stdinDescriptor: ParcelFileDescriptor,
     private val stdoutDescriptor: ParcelFileDescriptor,
     private val stderrDescriptor: ParcelFileDescriptor,
-) : AutoCloseable {
+) : OwnedProcessHandle {
     private val handle = AtomicLong(handle)
-    val outputStream: OutputStream = ParcelFileDescriptor.AutoCloseOutputStream(stdinDescriptor)
-    val inputStream: InputStream = ParcelFileDescriptor.AutoCloseInputStream(stdoutDescriptor)
-    val errorStream: InputStream = ParcelFileDescriptor.AutoCloseInputStream(stderrDescriptor)
+    override val outputStream: OutputStream = ParcelFileDescriptor.AutoCloseOutputStream(stdinDescriptor)
+    override val inputStream: InputStream = ParcelFileDescriptor.AutoCloseInputStream(stdoutDescriptor)
+    override val errorStream: InputStream = ParcelFileDescriptor.AutoCloseInputStream(stderrDescriptor)
 
-    fun pollExit(): Int? = when (val result = Native.pollExit(requireHandle())) {
+    override fun pollExit(): Int? = when (val result = Native.pollExit(requireHandle())) {
         Native.RUNNING -> null
         Native.ERROR -> error("owned process wait failed")
         else -> result
     }
 
-    fun terminateGroup(graceMillis: Long = ProcessTermination.TERM_GRACE_MILLIS) {
+    override suspend fun terminateGroup(graceMillis: Long) {
         check(Native.terminateGroup(requireHandle(), graceMillis)) { "owned process group termination failed" }
     }
 

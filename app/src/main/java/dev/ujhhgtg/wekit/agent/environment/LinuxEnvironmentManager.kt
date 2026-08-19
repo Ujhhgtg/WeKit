@@ -418,12 +418,9 @@ class LinuxEnvironmentManager(
             }
         } finally {
             withContext(NonCancellable) {
-                stateMutex.withLock {
-                    val remaining = leaseCounts.getValue(environmentId) - 1
-                    if (remaining == 0) leaseCounts.remove(environmentId) else leaseCounts[environmentId] = remaining
-                    if (remaining == 0 && staleBackends.remove(environmentId)) {
-                        backends.remove(environmentId)?.close()
-                    }
+                when (val result = releaseLease(environmentId)) {
+                    LeaseReleaseResult.Committed -> Unit
+                    is LeaseReleaseResult.CommittedWithCloseFailure -> throw result.error
                 }
             }
         }
@@ -438,13 +435,25 @@ class LinuxEnvironmentManager(
             leaseCounts[environmentId] = (leaseCounts[environmentId] ?: 0) + 1
         }
         return EnvironmentLease {
-            stateMutex.withLock {
-                val remaining = leaseCounts.getValue(environmentId) - 1
-                if (remaining == 0) leaseCounts.remove(environmentId) else leaseCounts[environmentId] = remaining
-                if (remaining == 0 && staleBackends.remove(environmentId)) {
-                    backends.remove(environmentId)?.close()
-                }
+            releaseLease(environmentId)
+        }
+    }
+
+    private suspend fun releaseLease(environmentId: String): LeaseReleaseResult {
+        var staleBackend: LinuxEnvironmentBackend? = null
+        stateMutex.withLock {
+            val remaining = leaseCounts.getValue(environmentId) - 1
+            if (remaining == 0) leaseCounts.remove(environmentId) else leaseCounts[environmentId] = remaining
+            if (remaining == 0 && staleBackends.remove(environmentId)) {
+                staleBackend = backends.remove(environmentId)
             }
+        }
+        return try {
+            staleBackend?.close()
+            LeaseReleaseResult.Committed
+        } catch (error: Throwable) {
+            WeLogger.e("LinuxEnvironmentManager", "lease released but stale backend close failed for $environmentId", error)
+            LeaseReleaseResult.CommittedWithCloseFailure(error)
         }
     }
 
@@ -519,15 +528,28 @@ class LinuxEnvironmentManager(
     }
 }
 
-class EnvironmentLease internal constructor(private val releaseBlock: suspend () -> Unit) {
-    private val released = java.util.concurrent.atomic.AtomicBoolean()
+internal sealed interface LeaseReleaseResult {
+    data object Committed : LeaseReleaseResult
+    data class CommittedWithCloseFailure(val error: Throwable) : LeaseReleaseResult
+}
+
+class EnvironmentLease internal constructor(private val releaseBlock: suspend () -> LeaseReleaseResult) {
+    private enum class State { ACTIVE, RELEASING, RELEASED }
+    private val state = java.util.concurrent.atomic.AtomicReference(State.ACTIVE)
+
     suspend fun release() {
-        if (!released.compareAndSet(false, true)) return
-        try {
-            withContext(NonCancellable) { releaseBlock() }
-        } catch (error: Throwable) {
-            released.set(false)
-            throw error
+        if (!state.compareAndSet(State.ACTIVE, State.RELEASING)) return
+        withContext(NonCancellable) {
+            val result = try {
+                releaseBlock()
+            } catch (error: Throwable) {
+                state.set(State.ACTIVE)
+                throw error
+            }
+            state.set(State.RELEASED)
+            if (result is LeaseReleaseResult.CommittedWithCloseFailure) {
+                throw result.error
+            }
         }
     }
 }

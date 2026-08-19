@@ -1,16 +1,21 @@
 use libc::{EINTR, SIGKILL, SIGTERM, c_char, pid_t};
 use std::ffi::CString;
+use std::fs;
 use std::io;
 use std::os::fd::RawFd;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 pub struct OwnedProcess {
     pid: pid_t,
     pgid: pid_t,
-    status: Mutex<Option<i32>>,
-    drained: AtomicBool,
+    state: Mutex<ProcessState>,
+}
+
+struct ProcessState {
+    status: Option<i32>,
+    reaped: bool,
+    drained: bool,
 }
 
 pub struct StartedProcess {
@@ -92,15 +97,18 @@ pub fn start(
             libc::close(stdout_pipe[0]);
             libc::close(stderr_pipe[0]);
             let _ = libc::kill(pid, SIGKILL);
-            reap(pid, false);
+            let _ = reap(pid);
             return Err(error);
         }
         Ok(StartedProcess {
             process: OwnedProcess {
                 pid,
                 pgid: pid,
-                status: Mutex::new(None),
-                drained: AtomicBool::new(false),
+                state: Mutex::new(ProcessState {
+                    status: None,
+                    reaped: false,
+                    drained: false,
+                }),
             },
             stdin: stdin_pipe[1],
             stdout: stdout_pipe[0],
@@ -118,53 +126,43 @@ impl OwnedProcess {
     }
 
     pub fn poll_exit(&self) -> Result<Option<i32>, String> {
-        let mut status = self
-            .status
+        let mut state = self
+            .state
             .lock()
             .map_err(|_| "owned process lock poisoned".to_owned())?;
-        if status.is_some() {
-            return Ok(*status);
+        if state.status.is_some() {
+            return Ok(state.status);
         }
-        let mut raw = 0;
-        let result = loop {
-            let result = unsafe { libc::waitpid(self.pid, &mut raw, libc::WNOHANG) };
-            if result < 0 && errno() == EINTR {
-                continue;
-            }
-            break result;
-        };
-        if result < 0 {
-            return Err(last_error());
-        }
-        if result == 0 {
-            return Ok(None);
-        }
-        *status = Some(exit_code(raw));
-        Ok(*status)
+        observe_exit(self.pid, &mut state.status)?;
+        Ok(state.status)
     }
 
     pub fn terminate_group(&self, grace: Duration) -> Result<(), String> {
-        if self.drained.load(Ordering::Acquire) {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| "owned process lock poisoned".to_owned())?;
+        if state.drained {
             return Ok(());
+        }
+        if state.reaped {
+            return Err("owned process leader was reaped before group cleanup".into());
         }
         signal_group(self.pgid, SIGTERM)?;
         let deadline = Instant::now() + grace;
         while Instant::now() < deadline {
-            let _ = self.poll_exit();
-            if !group_exists(self.pgid)? {
-                self.drained.store(true, Ordering::Release);
-                return Ok(());
+            observe_exit(self.pid, &mut state.status)?;
+            if !group_has_members_other_than(self.pgid, state.status.map(|_| self.pid))? {
+                return finish_cleanup(self.pid, &mut state);
             }
             std::thread::sleep(Duration::from_millis(25));
         }
-        signal_group(self.pgid, SIGKILL)
-            .or_else(|error| signal_pid(self.pid, SIGKILL).map_err(|_| error))?;
+        signal_group(self.pgid, SIGKILL)?;
         let deadline = Instant::now() + Duration::from_secs(2);
         while Instant::now() < deadline {
-            let _ = self.poll_exit();
-            if !group_exists(self.pgid)? {
-                self.drained.store(true, Ordering::Release);
-                return Ok(());
+            observe_exit(self.pid, &mut state.status)?;
+            if !group_has_members_other_than(self.pgid, state.status.map(|_| self.pid))? {
+                return finish_cleanup(self.pid, &mut state);
             }
             std::thread::sleep(Duration::from_millis(25));
         }
@@ -175,15 +173,6 @@ impl OwnedProcess {
 impl Drop for OwnedProcess {
     fn drop(&mut self) {
         let _ = self.terminate_group(Duration::from_millis(100));
-        if self
-            .status
-            .get_mut()
-            .ok()
-            .and_then(|status| *status)
-            .is_none()
-        {
-            reap(self.pid, true);
-        }
     }
 }
 
@@ -254,39 +243,89 @@ fn signal_group(pgid: pid_t, signal: i32) -> Result<(), String> {
     }
 }
 
-fn signal_pid(pid: pid_t, signal: i32) -> Result<(), String> {
-    let result = unsafe { libc::kill(pid, signal) };
-    if result == 0 || errno() == libc::ESRCH {
-        Ok(())
-    } else {
-        Err(last_error())
+fn group_has_members_other_than(pgid: pid_t, excluded_pid: Option<pid_t>) -> Result<bool, String> {
+    for entry in fs::read_dir("/proc").map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        if !entry
+            .file_name()
+            .as_encoded_bytes()
+            .iter()
+            .all(u8::is_ascii_digit)
+        {
+            continue;
+        }
+        let pid = entry.file_name().to_string_lossy().parse::<pid_t>().ok();
+        let Ok(stat) = fs::read_to_string(entry.path().join("stat")) else {
+            continue;
+        };
+        let Some(fields) = stat.rsplit_once(") ").map(|(_, fields)| fields) else {
+            continue;
+        };
+        let mut fields = fields.split_whitespace();
+        let _state = fields.next();
+        let _ppid = fields.next();
+        let process_group = fields.next().and_then(|value| value.parse::<pid_t>().ok());
+        if process_group == Some(pgid) && pid != excluded_pid {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn observe_exit(pid: pid_t, status: &mut Option<i32>) -> Result<(), String> {
+    if status.is_some() {
+        return Ok(());
+    }
+    let mut info = unsafe { std::mem::zeroed::<libc::siginfo_t>() };
+    loop {
+        let result = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                pid as libc::id_t,
+                &mut info,
+                libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+            )
+        };
+        if result == 0 {
+            if unsafe { info.si_pid() } != 0 {
+                *status = Some(exit_code(info.si_code, unsafe { info.si_status() }));
+            }
+            return Ok(());
+        }
+        if errno() != EINTR {
+            return Err(last_error());
+        }
     }
 }
 
-fn group_exists(pgid: pid_t) -> Result<bool, String> {
-    if unsafe { libc::kill(-pgid, 0) } == 0 {
-        return Ok(true);
+fn finish_cleanup(pid: pid_t, state: &mut ProcessState) -> Result<(), String> {
+    observe_exit(pid, &mut state.status)?;
+    if state.status.is_none() {
+        return Err("owned process group became empty before leader exit".into());
     }
-    match errno() {
-        libc::ESRCH => Ok(false),
-        libc::EPERM => Ok(true),
-        _ => Err(last_error()),
-    }
+    reap(pid)?;
+    state.reaped = true;
+    state.drained = true;
+    Ok(())
 }
 
-fn reap(pid: pid_t, no_hang: bool) {
+fn reap(pid: pid_t) -> Result<(), String> {
     let mut status = 0;
-    let options = if no_hang { libc::WNOHANG } else { 0 };
-    while unsafe { libc::waitpid(pid, &mut status, options) } < 0 && errno() == EINTR {}
+    loop {
+        if unsafe { libc::waitpid(pid, &mut status, 0) } == pid {
+            return Ok(());
+        }
+        if errno() != EINTR {
+            return Err(last_error());
+        }
+    }
 }
 
-fn exit_code(status: i32) -> i32 {
-    if libc::WIFEXITED(status) {
-        libc::WEXITSTATUS(status)
-    } else if libc::WIFSIGNALED(status) {
-        128 + libc::WTERMSIG(status)
-    } else {
-        -1
+fn exit_code(code: i32, status: i32) -> i32 {
+    match code {
+        libc::CLD_EXITED => status,
+        libc::CLD_KILLED | libc::CLD_DUMPED => 128 + status,
+        _ => -1,
     }
 }
 
@@ -329,16 +368,34 @@ mod tests {
         while started.process.poll_exit().unwrap().is_none() {
             std::thread::sleep(Duration::from_millis(10));
         }
-        assert!(group_exists(started.process.pgid()).unwrap());
+        let leader_stat =
+            fs::read_to_string(format!("/proc/{}/stat", started.process.pid())).unwrap();
+        assert_eq!(
+            Some("Z"),
+            leader_stat
+                .rsplit_once(") ")
+                .and_then(|(_, fields)| fields.split_whitespace().next())
+        );
+        assert!(
+            group_has_members_other_than(started.process.pgid(), Some(started.process.pid()))
+                .unwrap()
+        );
         started
             .process
             .terminate_group(Duration::from_millis(50))
             .unwrap();
         let deadline = Instant::now() + Duration::from_secs(2);
-        while Instant::now() < deadline && group_exists(started.process.pgid()).unwrap() {
+        while Instant::now() < deadline
+            && group_has_members_other_than(started.process.pgid(), Some(started.process.pid()))
+                .unwrap()
+        {
             std::thread::sleep(Duration::from_millis(10));
         }
-        assert!(!group_exists(started.process.pgid()).unwrap());
+        assert!(
+            !group_has_members_other_than(started.process.pgid(), Some(started.process.pid()))
+                .unwrap()
+        );
+        assert!(!std::path::Path::new(&format!("/proc/{}", started.process.pid())).exists());
         assert!(unsafe { libc::kill(child, 0) } < 0);
     }
 

@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 internal object ProcessTermination {
     const val TERM_GRACE_MILLIS = 500L
 
-    fun drain(process: OwnedProcess) = process.terminateGroup(TERM_GRACE_MILLIS)
+    suspend fun drain(process: OwnedProcessHandle) = process.terminateGroup(TERM_GRACE_MILLIS)
 
     fun terminateTree(process: Process, rootPid: Int?) {
         if (rootPid != null) {

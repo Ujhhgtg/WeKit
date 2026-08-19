@@ -17,10 +17,11 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-class ProotBackend(
+class ProotBackend internal constructor(
     override val snapshot: EnvironmentSnapshot,
     private val rootfs: Path = Path.of(requireNotNull(snapshot.rootfsPath)),
     private val storageBinds: List<ProotCommand.Bind> = emptyList(),
+    private val startProcess: OwnedProcessStarter = OwnedProcess::start,
 ) : LinuxEnvironmentBackend {
     private val instance = rootfs.parent
     private val launcher = instance.resolve("bin/proot")
@@ -47,7 +48,7 @@ class ProotBackend(
                 this["PROOT_LOADER"] = instance.resolve("bin/loader").toString()
                 this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
             }
-            val process = OwnedProcess.start(argv, processEnvironment, instance.toString())
+            val process = startProcess(argv, processEnvironment, instance.toString())
             val streamFailure = AtomicReference<Throwable?>()
             var stdoutReader: Thread? = null
             var stderrReader: Thread? = null

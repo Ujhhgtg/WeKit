@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.agent.terminal
 
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentLease
+import dev.ujhhgtg.wekit.agent.environment.LeaseReleaseResult
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.tool.ToolCallOrigin
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
@@ -256,7 +257,10 @@ class TerminalManagerTest {
         val startupBackend = EnvironmentTerminalBackend(
             native = FakeBackend(startGate = startGate, startEntered = startEntered),
             chrootInstancesRoot = Path.of("/tmp"),
-            acquireEnvironmentLease = { EnvironmentLease { startupReleases.incrementAndGet() } },
+            acquireEnvironmentLease = { EnvironmentLease {
+                startupReleases.incrementAndGet()
+                LeaseReleaseResult.Committed
+            } },
         )
         val startup = launch { startupBackend.start(environment, listOf("/system/bin/sh"), null, emptyMap(), 80, 24) }
         startEntered.await()
@@ -268,7 +272,10 @@ class TerminalManagerTest {
         val closeBackend = EnvironmentTerminalBackend(
             native = FakeBackend(closeGate = closeGate),
             chrootInstancesRoot = Path.of("/tmp"),
-            acquireEnvironmentLease = { EnvironmentLease { closeReleases.incrementAndGet() } },
+            acquireEnvironmentLease = { EnvironmentLease {
+                closeReleases.incrementAndGet()
+                LeaseReleaseResult.Committed
+            } },
         )
         val session = closeBackend.start(environment, listOf("/system/bin/sh"), null, emptyMap(), 80, 24).session
         assertEquals(null, withTimeoutOrNull(50) { session.close(); Unit })
