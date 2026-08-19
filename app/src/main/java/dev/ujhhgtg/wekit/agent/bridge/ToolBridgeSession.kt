@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.agent.tool.ToolCallOrigin
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import dev.ujhhgtg.wekit.agent.tool.ToolVisibility
 import dev.ujhhgtg.wekit.agent.ui.UiImageSink
+import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -105,6 +106,7 @@ class ToolBridgeSession(
             ?: JsonObject(emptyMap())
         val tool = tools().firstOrNull { it.exposedName == name } ?: return error("unknown_tool", name)
         val arguments = args.toString()
+        val callId = "bridge-${java.util.UUID.randomUUID()}"
         val result = try {
             withContext(sessionContext +
                 (sessionContext[AgentSessionContext] ?: AgentSessionContext(owner)) +
@@ -118,7 +120,7 @@ class ToolBridgeSession(
                 try {
                     sessionJob.ensureActive()
                     executor.execute(
-                        LlmToolCall("bridge-${java.util.UUID.randomUUID()}", name, arguments),
+                        LlmToolCall(callId, name, arguments),
                         ToolCallExecutor.Context(
                             visibility = visibility,
                             origin = ToolCallOrigin.ENVIRONMENT_BRIDGE,
@@ -130,12 +132,13 @@ class ToolBridgeSession(
             }
         } catch (error: CancellationException) {
             withContext(NonCancellable) {
-                audit(AuditEntry(owner, environmentId, parentToolCallId, tool.provider.id, name, arguments,
-                    null, "CANCELLED", error.message ?: "bridge call was cancelled"))
+                persistAudit(callId, AuditEntry(owner, environmentId, parentToolCallId,
+                    tool.provider.id, name, arguments, null, "CANCELLED",
+                    error.message ?: "bridge call was cancelled"))
             }
             throw error
         }
-        audit(AuditEntry(owner, environmentId, parentToolCallId, result.providerId, name, arguments,
+        persistAudit(callId, AuditEntry(owner, environmentId, parentToolCallId, result.providerId, name, arguments,
             result.status, when {
                 result.status.name.endsWith("REJECTED") -> "DENIED"
                 result.executionSucceeded -> "SUCCEEDED"
@@ -148,6 +151,21 @@ class ToolBridgeSession(
             put("status", result.status.name)
             put("result", result.text)
         }.toString()
+    }
+
+    private suspend fun persistAudit(callId: String, entry: AuditEntry) {
+        try {
+            audit(entry)
+        } catch (error: Throwable) {
+            runCatching {
+                WeLogger.e(
+                    "ToolBridgeSession",
+                    "audit persistence failed session=${entry.sessionId} call=$callId " +
+                        "environment=${entry.environmentId} tool=${entry.tool}",
+                    error,
+                )
+            }
+        }
     }
 
     private fun error(code: String, message: String) = buildJsonObject { put("ok", false); put("error", code); put("message", message) }.toString()
