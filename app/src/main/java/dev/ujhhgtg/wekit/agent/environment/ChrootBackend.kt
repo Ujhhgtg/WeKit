@@ -3,6 +3,8 @@ package dev.ujhhgtg.wekit.agent.environment
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
+import java.util.UUID
 import dev.ujhhgtg.wekit.utils.HostInfo
 
 data class ChrootBind(val host: Path, val guest: String)
@@ -14,8 +16,7 @@ class ChrootConfiguration(
     instancesRoot: Path? = null,
 ) {
     val instance: Path = rootfs.parent
-    val pidFile: Path = instance.resolve("chroot.pid")
-    val stageFile: Path = instance.resolve("chroot.stage")
+    val runsDirectory: Path = instance.resolve("chroot-runs")
 
     init {
         require(rootfs.isAbsolute && rootfs.normalize() == rootfs) { "chroot rootfs must be an absolute normalized path" }
@@ -31,10 +32,37 @@ class ChrootConfiguration(
         }
     }
 
-    fun execScript(command: String, environment: Map<String, String>): String =
-        launchScript(listOf("/bin/bash", "-lc", command), environment)
+    fun createRun(): ChrootRun {
+        Files.createDirectories(runsDirectory)
+        while (true) {
+            val nonce = UUID.randomUUID().toString()
+            val directory = runsDirectory.resolve(nonce)
+            try {
+                Files.createDirectory(directory)
+            } catch (_: java.nio.file.FileAlreadyExistsException) {
+                continue
+            }
+            try {
+                Files.writeString(directory.resolve("nonce"), nonce, StandardOpenOption.CREATE_NEW)
+                return ChrootRun(nonce, directory)
+            } catch (error: Throwable) {
+                Files.deleteIfExists(directory)
+                throw error
+            }
+        }
+    }
 
-    fun launchScript(argv: List<String>, environment: Map<String, String>): String {
+    fun pendingRuns(): List<ChrootRun> {
+        if (!Files.isDirectory(runsDirectory)) return emptyList()
+        return Files.newDirectoryStream(runsDirectory).use { entries ->
+            entries.filter(Files::isDirectory).map { directory -> ChrootRun(directory.fileName.toString(), directory) }
+        }
+    }
+
+    fun execScript(run: ChrootRun, command: String, environment: Map<String, String>): String =
+        launchScript(run, listOf("/bin/bash", "-lc", command), environment)
+
+    fun launchScript(run: ChrootRun, argv: List<String>, environment: Map<String, String>): String {
         require(argv.isNotEmpty() && argv.none(String::isEmpty)) { "chroot argv cannot be empty" }
         val mounts = mountCommands()
         val cleanup = mounts.indices.reversed().joinToString("\n") { index ->
@@ -58,32 +86,32 @@ class ChrootConfiguration(
         ).joinToString(" ", transform = ::shell)
         return """
             set -u
-            printf '%s' NAMESPACE > ${shell(stageFile.toString())}
-            echo $$ > ${shell(pidFile.toString())}
+            printf '%s' NAMESPACE > ${shell(run.stageFile.toString())}
+            printf '%s' "${'$'}${'$'}" > ${shell(run.pidFile.toString())}
+            sed 's/.*) //' /proc/${'$'}${'$'}/stat | cut -d ' ' -f 20 > ${shell(run.startTimeFile.toString())} || exit 70
             mount --make-rprivate / || exit 70
             cleanup_failed=0
             ${mounts.indices.joinToString("\n") { "mounted_$it=0" }}
             cleanup() {
               trap - EXIT HUP INT TERM
             $cleanup
-              rm -f ${shell(pidFile.toString())}
               if [ "${'$'}cleanup_failed" -ne 0 ]; then
-                printf '%s' CLEANUP > ${shell(stageFile.toString())}
+                printf '%s' CLEANUP > ${shell(run.stageFile.toString())}
                 exit 74
               fi
             }
             trap cleanup EXIT HUP INT TERM
-            printf '%s' MOUNT > ${shell(stageFile.toString())}
+            printf '%s' MOUNT > ${shell(run.stageFile.toString())}
             $prepareMounts
             test -r ${shell(rootfs.resolve("etc/resolv.conf").toString())} || exit 71
-            printf '%s' EXEC > ${shell(stageFile.toString())}
+            printf '%s' EXEC > ${shell(run.stageFile.toString())}
             $command
         """.trimIndent()
     }
 
-    internal fun hostLaunchArgv(suExecutable: Path, argv: List<String>, environment: Map<String, String>): List<String> {
+    internal fun hostLaunchArgv(run: ChrootRun, suExecutable: Path, argv: List<String>, environment: Map<String, String>): List<String> {
         require(suExecutable.isAbsolute) { "root helper executable must be absolute" }
-        return listOf(suExecutable.toString(), "-c", "exec unshare -m -- /system/bin/sh -c ${shell(launchScript(argv, environment))}")
+        return listOf(suExecutable.toString(), "-c", "exec unshare -m -- /system/bin/sh -c ${shell(launchScript(run, argv, environment))}")
     }
 
     fun mountArguments(): List<List<String>> = mountCommands().map(Mount::arguments)
@@ -120,6 +148,12 @@ class ChrootConfiguration(
 
         internal fun shell(value: String): String = "'${value.replace("'", "'\\''")}'"
     }
+}
+
+class ChrootRun internal constructor(val nonce: String, val directory: Path) {
+    val pidFile: Path = directory.resolve("pid")
+    val startTimeFile: Path = directory.resolve("starttime")
+    val stageFile: Path = directory.resolve("stage")
 }
 
 internal object ArchLinuxInstanceLayout {

@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.ChrootConfiguration
 import dev.ujhhgtg.wekit.agent.environment.ChrootMountRegistry
 import dev.ujhhgtg.wekit.agent.environment.ChrootRootHelper
+import dev.ujhhgtg.wekit.agent.environment.ChrootRun
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceLayout
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.ProotCommand
@@ -21,6 +22,9 @@ class EnvironmentTerminalBackend internal constructor(
     private val resolveRootLauncher: suspend (ChrootRootHelper) -> Path = { helper ->
         check(helper.hasRoot()) { "root access denied" }
         helper.resolveSuExecutable()
+    },
+    private val cleanupChrootRun: suspend (ChrootRootHelper, ChrootRun) -> Unit = { helper, run ->
+        helper.cleanupNamespace(run)
     },
 ) : TerminalBackend {
     override suspend fun start(
@@ -57,20 +61,31 @@ class EnvironmentTerminalBackend internal constructor(
             )
             val configuration = ChrootConfiguration(rootfs, workingDirectory ?: environment.workingDirectory)
             val helper = ChrootRootHelper(configuration)
-            val hostArgv = configuration.hostLaunchArgv(resolveRootLauncher(helper), argv, environmentVariables)
+            val launcher = resolveRootLauncher(helper)
             val hostEnvironment = environment.copy(
                 type = LinuxEnvironmentType.NATIVE,
                 workingDirectory = rootfs.parent.toString(),
-                shell = hostArgv.first(),
+                shell = launcher.toString(),
             )
             ChrootMountRegistry.begin(rootfs)
+            val run = try {
+                configuration.createRun()
+            } catch (error: Throwable) {
+                ChrootMountRegistry.end(rootfs)
+                throw error
+            }
+            val hostArgv = configuration.hostLaunchArgv(run, launcher, argv, environmentVariables)
             try {
                 val started = native.start(hostEnvironment, hostArgv, hostEnvironment.workingDirectory, emptyMap(), cols, rows)
-                TerminalBackendStart(ChrootTerminalSession(started.session, rootfs, helper), environment)
+                TerminalBackendStart(ChrootTerminalSession(started.session, rootfs, helper, run, cleanupChrootRun), environment)
             } catch (error: Throwable) {
                 withContext(NonCancellable) {
-                    helper.cleanupNamespace()
-                    ChrootMountRegistry.end(rootfs)
+                    try {
+                        cleanupChrootRun(helper, run)
+                        ChrootMountRegistry.end(rootfs)
+                    } catch (cleanupError: Throwable) {
+                        error.addSuppressed(cleanupError)
+                    }
                 }
                 throw error
             }
@@ -82,6 +97,8 @@ class EnvironmentTerminalBackend internal constructor(
         private val delegate: TerminalBackendSession,
         private val rootfs: Path,
         private val helper: ChrootRootHelper,
+        private val run: ChrootRun,
+        private val cleanupChrootRun: suspend (ChrootRootHelper, ChrootRun) -> Unit,
     ) : TerminalBackendSession by delegate {
         private val delegateClosed = AtomicBoolean()
         private val cleanupMutex = Mutex()
@@ -90,10 +107,11 @@ class EnvironmentTerminalBackend internal constructor(
             try { delegate.kill() } finally { cleanup() }
         }
         override suspend fun close() {
-            if (!delegateClosed.compareAndSet(false, true)) return
             withContext(NonCancellable) {
                 var failure: Throwable? = null
-                try { delegate.close() } catch (error: Throwable) { failure = error }
+                if (delegateClosed.compareAndSet(false, true)) {
+                    try { delegate.close() } catch (error: Throwable) { failure = error }
+                }
                 try { cleanup() } catch (error: Throwable) {
                     failure?.addSuppressed(error) ?: throw error
                 }
@@ -103,7 +121,7 @@ class EnvironmentTerminalBackend internal constructor(
 
         private suspend fun cleanup() = cleanupMutex.withLock {
             if (cleaned) return@withLock
-            helper.cleanupNamespace()
+            cleanupChrootRun(helper, run)
             ChrootMountRegistry.end(rootfs)
             cleaned = true
         }

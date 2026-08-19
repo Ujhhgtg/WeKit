@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.agent.terminal
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceInstaller
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
+import dev.ujhhgtg.wekit.agent.environment.ChrootMountRegistry
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.coroutines.runBlocking
@@ -41,6 +42,7 @@ class ChrootTerminalApprovalTest {
             approveChrootStart = { approvals++; true },
             chrootInstancesRoot = directory,
             resolveRootLauncher = { Path.of("/system/bin/su") },
+            cleanupChrootRun = { helper, run -> helper.removeRunMetadata(run) },
         )
 
         val started = backend.start(snapshot(rootfs), listOf("/bin/bash", "-l"), null, emptyMap(), 80, 24)
@@ -48,6 +50,60 @@ class ChrootTerminalApprovalTest {
         assertEquals("/system/bin/su", native.argv.single().first())
         assertFalse(native.argv.single().last().contains("setsid"))
         started.session.close()
+    }
+
+    @Test
+    fun `early startup failure uses only its new run and releases busy after confirmed cleanup`(@TempDir directory: Path) {
+        val rootfs = publishedRootfs(directory)
+        val stale = rootfs.parent.resolve("chroot.pid")
+        Files.writeString(stale, "1")
+        var cleanedNonce: String? = null
+        val backend = EnvironmentTerminalBackend(
+            native = FailingBackend(),
+            approveChrootStart = { true },
+            chrootInstancesRoot = directory,
+            resolveRootLauncher = { Path.of("/system/bin/su") },
+            cleanupChrootRun = { helper, run ->
+                cleanedNonce = run.nonce
+                assertFalse(Files.exists(run.pidFile))
+                helper.removeRunMetadata(run)
+            },
+        )
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { backend.start(snapshot(rootfs), listOf("/bin/bash"), null, emptyMap(), 80, 24) }
+        }
+        assertTrue(cleanedNonce != null)
+        assertEquals("1", Files.readString(stale))
+        assertFalse(ChrootMountRegistry.isBusy(rootfs))
+    }
+
+    @Test
+    fun `failed close keeps metadata and busy state for successful retry`(@TempDir directory: Path) = runBlocking {
+        val rootfs = publishedRootfs(directory)
+        var cleanups = 0
+        var runDirectory: Path? = null
+        val backend = EnvironmentTerminalBackend(
+            native = RecordingBackend(),
+            approveChrootStart = { true },
+            chrootInstancesRoot = directory,
+            resolveRootLauncher = { Path.of("/system/bin/su") },
+            cleanupChrootRun = { helper, run ->
+                cleanups++
+                runDirectory = run.directory
+                if (cleanups == 1) error("busy mount")
+                helper.removeRunMetadata(run)
+            },
+        )
+        val session = backend.start(snapshot(rootfs), listOf("/bin/bash"), null, emptyMap(), 80, 24).session
+
+        assertThrows(IllegalStateException::class.java) { runBlocking { session.close() } }
+        assertTrue(Files.isDirectory(runDirectory))
+        assertTrue(ChrootMountRegistry.isBusy(rootfs))
+        session.close()
+        assertEquals(2, cleanups)
+        assertFalse(Files.exists(runDirectory))
+        assertFalse(ChrootMountRegistry.isBusy(rootfs))
     }
 
     private fun publishedRootfs(instances: Path): Path {
@@ -85,6 +141,17 @@ class ChrootTerminalApprovalTest {
             this.argv += argv
             return TerminalBackendStart(Session(), environment)
         }
+    }
+
+    private class FailingBackend : TerminalBackend {
+        override suspend fun start(
+            environment: EnvironmentSnapshot,
+            argv: List<String>,
+            workingDirectory: String?,
+            environmentVariables: Map<String, String>,
+            cols: Int,
+            rows: Int,
+        ): TerminalBackendStart = error("PTY startup failed")
     }
 
     private class Session : TerminalBackendSession {

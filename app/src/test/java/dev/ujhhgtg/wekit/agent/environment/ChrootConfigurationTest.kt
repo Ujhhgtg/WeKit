@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.agent.environment
 
 import java.nio.file.Path
 import java.nio.file.Files
+import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -51,7 +52,9 @@ class ChrootConfigurationTest {
     @Test
     fun `launcher keeps argv opaque and installs bridge environment in clean guest env`() {
         val configuration = ChrootConfiguration(Path.of("/instances/arch/rootfs"), "/root")
+        val run = ChrootRun(UUID.randomUUID().toString(), Path.of("/instances/arch/chroot-runs/test"))
         val script = configuration.launchScript(
+            run,
             listOf("/bin/bash", "-lc", "printf '%s' 'a; b'"),
             mapOf("WEAGENT_BRIDGE_PORT" to "42831", "WEAGENT_BRIDGE_TOKEN" to "secret", "PATH" to "/host/bin"),
         )
@@ -63,7 +66,7 @@ class ChrootConfigurationTest {
         assertTrue(script.contains("mount --make-rprivate /"))
         assertTrue(script.contains("trap cleanup EXIT HUP INT TERM"))
         assertTrue(script.contains("test -r '/instances/arch/rootfs/etc/resolv.conf'"))
-        val hostArgv = configuration.hostLaunchArgv(Path.of("/system/bin/su"), listOf("/bin/bash"), emptyMap())
+        val hostArgv = configuration.hostLaunchArgv(run, Path.of("/system/bin/su"), listOf("/bin/bash"), emptyMap())
         assertEquals("/system/bin/su", hostArgv.first())
         assertFalse(hostArgv.last().contains("setsid"))
     }
@@ -140,10 +143,13 @@ class ChrootConfigurationTest {
     fun `cleanup orders term unmount kill and registry stays busy until confirmation`() {
         val rootfs = Path.of("/instances/arch/rootfs")
         val helper = ChrootRootHelper(ChrootConfiguration(rootfs, "/root"))
-        val command = helper.cleanupCommand(4321)
+        val run = ChrootRun("11111111-1111-1111-1111-111111111111", Path.of("/instances/arch/chroot-runs/11111111-1111-1111-1111-111111111111"))
+        val command = helper.cleanupCommand(run, 4321, "98765")
+        assertTrue(command.contains("/proc/4321/stat"))
+        assertTrue(command.contains("= '98765' || exit 75"))
         assertTrue(command.indexOf("kill -TERM") < command.indexOf("nsenter"))
         assertTrue(command.indexOf("nsenter") < command.indexOf("kill -KILL"))
-        assertTrue(command.indexOf("kill -KILL") < command.indexOf("test ! -e /proc/4321"))
+        assertTrue(command.indexOf("kill -KILL") < command.lastIndexOf("test ! -e /proc/4321"))
         ChrootMountRegistry.begin(rootfs)
         try {
             assertTrue(ChrootMountRegistry.isBusy(rootfs))
@@ -152,6 +158,41 @@ class ChrootConfigurationTest {
             ChrootMountRegistry.end(rootfs)
         }
         assertFalse(ChrootMountRegistry.isBusy(rootfs))
+    }
+
+    @Test
+    fun `launch metadata is nonce isolated from stale legacy files`(@TempDir directory: Path) {
+        val instance = Files.createDirectory(directory.resolve("arch"))
+        val configuration = ChrootConfiguration(Files.createDirectory(instance.resolve("rootfs")), "/root")
+        Files.writeString(instance.resolve("chroot.pid"), "1")
+        Files.writeString(instance.resolve("chroot.stage"), "EXEC")
+
+        val first = configuration.createRun()
+        val second = configuration.createRun()
+
+        assertFalse(first.directory == second.directory)
+        assertEquals(first.nonce, Files.readString(first.directory.resolve("nonce")))
+        assertEquals(second.nonce, Files.readString(second.directory.resolve("nonce")))
+        assertFalse(Files.exists(first.pidFile))
+        assertFalse(Files.exists(second.pidFile))
+        assertEquals("1", Files.readString(instance.resolve("chroot.pid")))
+    }
+
+    @Test
+    fun `run metadata remains until confirmed cleanup removes it`(@TempDir directory: Path) {
+        val instance = Files.createDirectory(directory.resolve("arch"))
+        val configuration = ChrootConfiguration(Files.createDirectory(instance.resolve("rootfs")), "/root")
+        val helper = ChrootRootHelper(configuration)
+        val run = configuration.createRun()
+        Files.writeString(run.pidFile, "4321")
+        Files.writeString(run.startTimeFile, "98765")
+        Files.writeString(run.stageFile, "MOUNT")
+
+        assertEquals(listOf(run.nonce), configuration.pendingRuns().map(ChrootRun::nonce))
+        assertTrue(Files.exists(run.stageFile))
+        helper.removeRunMetadata(run)
+        assertFalse(Files.exists(run.directory))
+        assertTrue(configuration.pendingRuns().isEmpty())
     }
 
     @Test
@@ -172,6 +213,8 @@ class ChrootConfigurationTest {
         assertTrue(classifyChrootFailure("NAMESPACE", 70, "mount: avc: denied { mounton }") is ChrootFailure.Selinux)
         assertTrue(classifyChrootFailure("MOUNT", 71, "mount --make-rprivate: Permission denied") is ChrootFailure.Selinux)
         assertTrue(classifyChrootFailure("MOUNT", 71, "mount failed") is ChrootFailure.Mount)
+        assertEquals(null, classifyChrootFailure("EXEC", 126, "/bin/bash: file: Permission denied"))
+        assertTrue(classifyChrootFailure("EXEC", 126, "chroot: Operation not permitted") is ChrootFailure.Selinux)
     }
 
     private fun publishedRootfs(instances: Path, name: String): Path {
