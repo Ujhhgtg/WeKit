@@ -152,9 +152,12 @@ fn run_with_paths(
         validate_recorded_leader(request, proc_root, &members)?;
         preserve_namespace(&members, &mut target_namespace)?;
         signal_members(&members, libc::SIGSTOP)?;
-        let stopped = members_stopped(proc_root, &members)?;
-        let pids = members.iter().map(|member| member.pid).collect();
-        if stability.observe(pids, stopped)? {
+        let rescanned = acquire_members(proc_root, request.mount_namespace, self_pid)?;
+        preserve_namespace(&rescanned, &mut target_namespace)?;
+        let stopped = members_stopped(proc_root, &rescanned)?;
+        let before = members.iter().map(NamespaceMember::identity).collect();
+        let after = rescanned.iter().map(NamespaceMember::identity).collect();
+        if stability.observe(before, after, stopped)? {
             break;
         }
         thread::sleep(SCAN_PAUSE);
@@ -208,16 +211,32 @@ fn validate_boot_id(request: &CleanupRequest, boot_id_path: &Path) -> Result<(),
 }
 
 struct NamespaceMember {
-    pid: i32,
+    tgid: i32,
+    tid: i32,
     pidfd: OwnedFd,
     namespace: OwnedFd,
 }
 
-fn namespace_member_pids(
+impl NamespaceMember {
+    fn identity(&self) -> TaskIdentity {
+        TaskIdentity {
+            tgid: self.tgid,
+            tid: self.tid,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct TaskIdentity {
+    tgid: i32,
+    tid: i32,
+}
+
+fn namespace_member_tasks(
     proc_root: &Path,
     expected: u64,
     self_pid: i32,
-) -> Result<BTreeSet<i32>, String> {
+) -> Result<BTreeSet<TaskIdentity>, String> {
     let mut members = BTreeSet::new();
     let entries = fs::read_dir(proc_root).map_err(|error| format!("cannot scan /proc: {error}"))?;
     for entry in entries {
@@ -232,16 +251,28 @@ fn namespace_member_pids(
         if pid <= 0 || pid == self_pid {
             continue;
         }
-        match namespace_inode(&entry.path().join("ns/mnt")) {
-            Ok(identity) if identity == expected => {
-                members.insert(pid);
-            }
-            Ok(_) => {}
-            Err(error) if process_disappeared(&error) => {}
-            Err(error) => {
-                return Err(format!(
-                    "cannot verify mount namespace for pid {pid}: {error}"
-                ));
+        let task_root = entry.path().join("task");
+        let tasks = match fs::read_dir(&task_root) {
+            Ok(tasks) => tasks,
+            Err(error) if process_disappeared(&error) => continue,
+            Err(error) => return Err(format!("cannot scan tasks for process {pid}: {error}")),
+        };
+        for task in tasks {
+            let task = task.map_err(|error| format!("cannot scan task for process {pid}: {error}"))?;
+            let Some(tid) = task.file_name().to_str().and_then(|name| name.parse::<i32>().ok()) else {
+                continue;
+            };
+            match namespace_inode(&task.path().join("ns/mnt")) {
+                Ok(identity) if identity == expected => {
+                    members.insert(TaskIdentity { tgid: pid, tid });
+                }
+                Ok(_) => {}
+                Err(error) if process_disappeared(&error) => {}
+                Err(error) => {
+                    return Err(format!(
+                        "cannot verify mount namespace for task {pid}/{tid}: {error}"
+                    ));
+                }
             }
         }
     }
@@ -254,8 +285,8 @@ fn acquire_members(
     self_pid: i32,
 ) -> Result<Vec<NamespaceMember>, String> {
     let mut members = Vec::new();
-    for pid in namespace_member_pids(proc_root, expected, self_pid)? {
-        if let Some(member) = bind_member(proc_root, pid, expected)? {
+    for task in namespace_member_tasks(proc_root, expected, self_pid)? {
+        if let Some(member) = bind_member(proc_root, task, expected)? {
             members.push(member);
         }
     }
@@ -264,21 +295,25 @@ fn acquire_members(
 
 fn bind_member(
     proc_root: &Path,
-    pid: i32,
+    task: TaskIdentity,
     expected: u64,
 ) -> Result<Option<NamespaceMember>, String> {
-    let pidfd = match pidfd_open(pid) {
+    let pidfd = match pidfd_open(task.tgid) {
         Ok(fd) => fd,
         Err(error) if error.raw_os_error() == Some(libc::ESRCH) => return Ok(None),
         Err(error) if unsupported_pidfd_error(&error).is_some() => {
             return Err(unsupported_pidfd_error(&error).unwrap());
         }
-        Err(error) => return Err(format!("pidfd_open failed for pid {pid}: {error}")),
+        Err(error) => return Err(format!("pidfd_open failed for process {}: {error}", task.tgid)),
     };
     if wait_pidfd(pidfd.as_raw_fd(), Duration::ZERO)? {
         return Ok(None);
     }
-    let path = proc_root.join(pid.to_string()).join("ns/mnt");
+    let path = proc_root
+        .join(task.tgid.to_string())
+        .join("task")
+        .join(task.tid.to_string())
+        .join("ns/mnt");
     let namespace = match open_read_only(&path) {
         Ok(fd) => fd,
         Err(error)
@@ -288,12 +323,12 @@ fn bind_member(
         }
         Err(error) => {
             return Err(format!(
-                "cannot bind mount namespace for pid {pid}: {error}"
+                "cannot bind mount namespace for task {}/{}: {error}", task.tgid, task.tid
             ));
         }
     };
     let actual = namespace_inode_fd(namespace.as_raw_fd())
-        .map_err(|error| format!("cannot verify bound mount namespace for pid {pid}: {error}"))?;
+        .map_err(|error| format!("cannot verify bound mount namespace for task {}/{}: {error}", task.tgid, task.tid))?;
     if wait_pidfd(pidfd.as_raw_fd(), Duration::ZERO)? {
         return Ok(None);
     }
@@ -301,7 +336,8 @@ fn bind_member(
         return Ok(None);
     }
     Ok(Some(NamespaceMember {
-        pid,
+        tgid: task.tgid,
+        tid: task.tid,
         pidfd,
         namespace,
     }))
@@ -312,7 +348,7 @@ fn validate_recorded_leader(
     proc_root: &Path,
     members: &[NamespaceMember],
 ) -> Result<(), String> {
-    if members.iter().all(|member| member.pid != request.pid) {
+    if members.iter().all(|member| member.tgid != request.pid) {
         return Ok(());
     }
     let process = proc_root.join(request.pid.to_string());
@@ -361,15 +397,23 @@ fn preserve_namespace(
 }
 
 fn signal_members(members: &[NamespaceMember], signal: i32) -> Result<(), String> {
+    let mut signalled = BTreeSet::new();
     for member in members {
-        pidfd_send_signal(member.pidfd.as_raw_fd(), signal)?;
+        if signalled.insert(member.tgid) {
+            pidfd_send_signal(member.pidfd.as_raw_fd(), signal)?;
+        }
     }
     Ok(())
 }
 
 fn members_stopped(proc_root: &Path, members: &[NamespaceMember]) -> Result<bool, String> {
     for member in members {
-        let stat = match fs::read_to_string(proc_root.join(member.pid.to_string()).join("stat")) {
+        let stat_path = proc_root
+            .join(member.tgid.to_string())
+            .join("task")
+            .join(member.tid.to_string())
+            .join("stat");
+        let stat = match fs::read_to_string(stat_path) {
             Ok(stat) => stat,
             Err(error)
                 if process_disappeared(&error)
@@ -379,15 +423,15 @@ fn members_stopped(proc_root: &Path, members: &[NamespaceMember]) -> Result<bool
             }
             Err(error) => {
                 return Err(format!(
-                    "cannot verify stopped state for pid {}: {error}",
-                    member.pid
+                    "cannot verify stopped state for task {}/{}: {error}",
+                    member.tgid, member.tid
                 ));
             }
         };
         let state = stat
             .rsplit_once(") ")
             .and_then(|(_, fields)| fields.as_bytes().first().copied())
-            .ok_or_else(|| format!("invalid process stat for pid {}", member.pid))?;
+            .ok_or_else(|| format!("invalid process stat for task {}/{}", member.tgid, member.tid))?;
         if !matches!(state, b'T' | b't') {
             return Ok(false);
         }
@@ -433,8 +477,6 @@ fn wait_for_empty(
 }
 
 struct FreezeStability {
-    previous: Option<BTreeSet<i32>>,
-    unchanged: usize,
     scans: usize,
     limit: usize,
 }
@@ -442,25 +484,22 @@ struct FreezeStability {
 impl FreezeStability {
     fn new(limit: usize) -> Self {
         Self {
-            previous: None,
-            unchanged: 0,
             scans: 0,
             limit,
         }
     }
 
-    fn observe(&mut self, current: BTreeSet<i32>, stopped: bool) -> Result<bool, String> {
+    fn observe(
+        &mut self,
+        before_stop: BTreeSet<TaskIdentity>,
+        after_stop: BTreeSet<TaskIdentity>,
+        stopped: bool,
+    ) -> Result<bool, String> {
         self.scans += 1;
         if self.scans > self.limit {
             return Err("mount namespace membership did not stabilize while freezing".into());
         }
-        if stopped && self.previous.as_ref() == Some(&current) {
-            self.unchanged += 1;
-        } else {
-            self.previous = Some(current);
-            self.unchanged = 0;
-        }
-        Ok(self.unchanged >= 1)
+        Ok(stopped && before_stop == after_stop)
     }
 }
 
@@ -646,36 +685,54 @@ mod tests {
     }
 
     #[test]
-    fn selects_only_exact_namespace_members_and_excludes_self() {
+    fn selects_thread_members_with_distinct_mount_namespaces_and_excludes_self() {
         let root = temp_root("selection");
         fs::create_dir_all(&root).unwrap();
         let expected = root.join("expected");
         let other = root.join("other");
         fs::write(&expected, "expected").unwrap();
         fs::write(&other, "other").unwrap();
-        for (pid, namespace) in [(41, &expected), (42, &expected), (43, &other)] {
-            let ns = root.join(pid.to_string()).join("ns");
+        for (tgid, tid, namespace) in [
+            (41, 41, &other),
+            (41, 45, &expected),
+            (42, 42, &expected),
+            (43, 43, &other),
+        ] {
+            let ns = root
+                .join(tgid.to_string())
+                .join("task")
+                .join(tid.to_string())
+                .join("ns");
             fs::create_dir_all(&ns).unwrap();
             fs::hard_link(namespace, ns.join("mnt")).unwrap();
         }
         let identity = namespace_inode(&expected).unwrap();
         assert_eq!(
-            namespace_member_pids(&root, identity, 42).unwrap(),
-            BTreeSet::from([41])
+            namespace_member_tasks(&root, identity, 42).unwrap(),
+            BTreeSet::from([TaskIdentity { tgid: 41, tid: 45 }])
         );
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
-    fn freeze_stability_resets_on_new_members_and_is_bounded() {
-        let mut stability = FreezeStability::new(4);
-        assert!(!stability.observe(BTreeSet::from([1]), false).unwrap());
-        assert!(stability.observe(BTreeSet::from([1]), true).unwrap());
+    fn freeze_requires_post_stop_rescan_without_new_or_running_members() {
+        let first = TaskIdentity { tgid: 1, tid: 1 };
+        let second = TaskIdentity { tgid: 2, tid: 2 };
+        let mut stability = FreezeStability::new(3);
+        assert!(!stability
+            .observe(BTreeSet::from([first]), BTreeSet::from([first, second]), false)
+            .unwrap());
+        assert!(stability
+            .observe(BTreeSet::from([first, second]), BTreeSet::from([first, second]), true)
+            .unwrap());
 
-        let mut changing = FreezeStability::new(2);
-        assert!(!changing.observe(BTreeSet::from([1]), true).unwrap());
-        assert!(!changing.observe(BTreeSet::from([1, 2]), true).unwrap());
-        assert!(changing.observe(BTreeSet::from([1, 2]), true).is_err());
+        let mut changing = FreezeStability::new(1);
+        assert!(!changing
+            .observe(BTreeSet::from([first]), BTreeSet::from([first, second]), true)
+            .unwrap());
+        assert!(changing
+            .observe(BTreeSet::from([first, second]), BTreeSet::from([first, second]), true)
+            .is_err());
     }
 
     #[test]
@@ -702,7 +759,8 @@ mod tests {
         validate_boot_id(&request, &boot_id_path).unwrap();
         let dummy = open_read_only(&process.join("stat")).unwrap();
         let members = [NamespaceMember {
-            pid: 42,
+            tgid: 42,
+            tid: 42,
             pidfd: dummy.try_clone().unwrap(),
             namespace: dummy,
         }];
