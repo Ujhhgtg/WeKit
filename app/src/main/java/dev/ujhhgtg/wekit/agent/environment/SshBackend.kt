@@ -93,12 +93,12 @@ class SshBackend(
         val install = connection.execute(
             """
             set -e
+            trap 'rm -f ${quote(upload)}' EXIT
             if [ "$(id -u)" = 0 ]; then
               install -m 755 ${quote(upload)} /usr/bin/invoke_tool
               printf '/usr/bin/invoke_tool\n'
             elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
               sudo -n install -m 755 ${quote(upload)} /usr/bin/invoke_tool
-              rm -f ${quote(upload)}
               printf '/usr/bin/invoke_tool\n'
             else
               mkdir -p "${'$'}HOME/.local/bin"

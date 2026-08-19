@@ -21,14 +21,14 @@ class SshTerminalBackend(
         val manager = connection(environment.id)
         val localBridgePort = environmentVariables["WEAGENT_BRIDGE_PORT"]?.toIntOrNull()
         val forward = localBridgePort?.let { manager.openReverseForward(it) }
-        val remoteEnvironment = if (forward == null) environmentVariables else {
-            environmentVariables + ToolBridgeServer.Endpoint(
-                localBridgePort,
-                environmentVariables.getValue("WEAGENT_BRIDGE_TOKEN"),
-            ).environment(forward.remotePort)
-        }
-        val command = buildCommand(argv, workingDirectory ?: environment.workingDirectory, remoteEnvironment)
         return try {
+            val remoteEnvironment = if (forward == null) environmentVariables else {
+                environmentVariables + ToolBridgeServer.Endpoint(
+                    localBridgePort,
+                    environmentVariables.getValue("WEAGENT_BRIDGE_TOKEN"),
+                ).environment(forward.remotePort)
+            }
+            val command = buildCommand(argv, workingDirectory ?: environment.workingDirectory, remoteEnvironment)
             val terminal = manager.openTerminal(command, emptyMap(), cols, rows)
             TerminalBackendStart(Session(terminal, forward), environment)
         } catch (error: Throwable) {

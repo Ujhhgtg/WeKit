@@ -206,6 +206,29 @@ class LinuxEnvironmentManager(
         return backend.connection
     }
 
+    /** Persists a host key only after the caller has explicitly approved [observed]. */
+    suspend fun confirmSshHostKey(environmentId: String, observed: SshHostKey) {
+        val environment = requireNotNull(getEnvironment(environmentId)) { "environment does not exist" }
+        require(environment.type == LinuxEnvironmentType.SSH) { "environment is not SSH" }
+        SshConfiguration(
+            requireNotNull(environment.sshHost),
+            requireNotNull(environment.sshPort),
+            requireNotNull(environment.sshUsername),
+            observed,
+        )
+        persistEnvironment(environment.copy(
+            sshHostKeyAlgorithm = observed.algorithm,
+            sshHostKeyFingerprint = observed.fingerprint,
+        ))
+        stateMutex.withLock {
+            staleBackends.add(environmentId)
+            if ((leaseCounts[environmentId] ?: 0) == 0) {
+                backends.remove(environmentId)?.close()
+                staleBackends.remove(environmentId)
+            }
+        }
+    }
+
     private suspend fun publishHealth(environmentId: String, value: EnvironmentHealth) {
         stateMutex.withLock {
             if (environmentId == NATIVE_ENVIRONMENT_ID ||
