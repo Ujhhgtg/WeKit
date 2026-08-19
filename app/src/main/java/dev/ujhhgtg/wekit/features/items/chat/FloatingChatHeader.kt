@@ -7,17 +7,14 @@ import android.content.ContextWrapper
 import android.graphics.Outline
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
-import android.os.SystemClock
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.ViewStub
 import android.view.ViewTreeObserver
-import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
@@ -42,6 +39,8 @@ import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -57,6 +56,7 @@ import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.reflection.int
 import java.lang.reflect.Field
 import java.util.WeakHashMap
 import kotlin.math.roundToInt
@@ -68,12 +68,9 @@ import kotlin.math.roundToInt
     categoryIds = [FeatureCategoryIds.CHAT],
     descriptionRes = "feature_floating_chat_header_description",
 )
-object FloatingChatHeader : ClickableFeature() {
+object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private const val TAG = "FloatingChatHeader"
-
-    /** 微信折叠置顶消息的动画时长 (与 ChatTipsBarGroup 内部 250ms 一致)。 */
-    private const val COLLAPSE_ANIM_MS = 250L
 
     private const val DEFAULT_CORNER_RADIUS = 24
     private const val DEFAULT_SIDE_MARGIN = 12
@@ -114,6 +111,71 @@ object FloatingChatHeader : ClickableFeature() {
 
     /** 置顶消息等提示条的宿主 (ViewStub p2f 展开, s3.xml)。 */
     private const val TIPS_BAR_GROUP_CLASS = "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
+
+    private val methodTipsExpandAnimationUpdate by dexMethod {
+        searchPackages("com.tencent.mm.ui.tipsbar")
+        matcher {
+            name = "onAnimationUpdate"
+            paramTypes("android.animation.ValueAnimator")
+            returnType = "void"
+            declaredClass {
+                addInterface {
+                    className = "android.animation.ValueAnimator\$AnimatorUpdateListener"
+                }
+                addFieldForType(TIPS_BAR_GROUP_CLASS)
+                addFieldForType(int)
+                fieldCount(2)
+            }
+            addInvoke {
+                declaredClass = "android.animation.ValueAnimator"
+                name = "getAnimatedFraction"
+                paramTypes()
+            }
+            addInvoke {
+                declaredClass = "android.view.View"
+                name = "setOutlineProvider"
+                paramTypes("android.view.ViewOutlineProvider")
+            }
+            addInvoke {
+                declaredClass = "android.view.View"
+                name = "invalidate"
+                paramTypes()
+            }
+        }
+    }
+
+    private val methodTipsFoldAnimationUpdate by dexMethod {
+        searchPackages("com.tencent.mm.ui.tipsbar")
+        matcher {
+            name = "onAnimationUpdate"
+            paramTypes("android.animation.ValueAnimator")
+            returnType = "void"
+            declaredClass {
+                addInterface {
+                    className = "android.animation.ValueAnimator\$AnimatorUpdateListener"
+                }
+                addFieldForType(TIPS_BAR_GROUP_CLASS)
+                addFieldForType(int)
+                addFieldForType(int)
+                fieldCount(3)
+            }
+            addInvoke {
+                declaredClass = "android.animation.ValueAnimator"
+                name = "getAnimatedFraction"
+                paramTypes()
+            }
+            addInvoke {
+                declaredClass = "android.view.View"
+                name = "setOutlineProvider"
+                paramTypes("android.view.ViewOutlineProvider")
+            }
+            addInvoke {
+                declaredClass = "android.view.View"
+                name = "invalidate"
+                paramTypes()
+            }
+        }
+    }
 
     private var cornerRadiusDp by prefOption("floating_chat_header_corner_radius", DEFAULT_CORNER_RADIUS)
     private var sideMarginDp by prefOption("floating_chat_header_side_margin", DEFAULT_SIDE_MARGIN)
@@ -184,7 +246,7 @@ object FloatingChatHeader : ClickableFeature() {
     /** 每个提示条组取到的分割线颜色 (原生 ovu 的 ColorDrawable)。 */
     private val tipsBarDividerColors = WeakHashMap<View, Int>()
 
-    /** 已装过行改造 (去背景/角标/分割线/触摸转发) 的置顶消息列表。 */
+    /** 已装过 adapter 数量 Hook 的置顶消息列表。 */
     private val tipsBarRowHooks = WeakHashMap<View, Boolean>()
 
     /** 每个置顶消息行根对应的 ×N 角标。 */
@@ -211,8 +273,11 @@ object FloatingChatHeader : ClickableFeature() {
     /** 已 hook 过 getItemCount 的 adapter 类, 避免重复 hook。 */
     private val tipsBarAdapterHooked = HashSet<Class<*>>()
 
-    /** 卡片轮廓动画状态 (展开/折叠时阴影与行裁剪共用同一个轮廓)。 */
-    private val tipsBarCardAnims = WeakHashMap<View, TipsBarCardAnim>()
+    /** 动画监听器类 → 唯一的 ChatTipsBarGroup 字段, 每类只解析一次。 */
+    private val animationGroupFields = HashMap<Class<*>, Field>()
+
+    /** 完整叠放计算中使用的提示条有效高度, 动画帧只按差量更新。 */
+    private val tipsBarEffectiveHeights = WeakHashMap<View, Int>()
 
     /** 折叠时 hyi (内容卡) 上次套用的裁剪轮廓高度。 */
     private val tipsBarBodyOutlineHeights = WeakHashMap<View, Int>()
@@ -222,12 +287,6 @@ object FloatingChatHeader : ClickableFeature() {
 
     /** 折叠稳态的卡片高, 展开动画的起点/折叠动画的终点。 */
     private val tipsBarFoldHeights = WeakHashMap<View, Int>()
-
-    private data class TipsBarCardAnim(
-        val startTime: Long,
-        val fromHeight: Int,
-        val toHeight: Int
-    )
 
     /** 提示条组的动画轮廓: 高度跟随展开/折叠进度, 阴影和行裁剪共用。 */
     private class TipsBarCardOutline : ViewOutlineProvider() {
@@ -247,12 +306,6 @@ object FloatingChatHeader : ClickableFeature() {
             outline.setRoundRect(0, 0, view.width, height.coerceAtLeast(1), 0f)
         }
     }
-
-    /** 折叠单条时, 列表把按在行外空隙上的触摸序列据为己有的标记。 */
-    private val pinnedTouchConsumed = WeakHashMap<View, Boolean>()
-
-    /** 每个置顶消息列表当前是否展开态, 触摸转发只在折叠态生效。 */
-    private val tipsBarExpandedFlags = WeakHashMap<View, Boolean>()
 
     /** 消息列表 RecyclerView 由微信自己设的原始 top padding。 */
     private val chatListBasePaddings = WeakHashMap<View, Int>()
@@ -287,6 +340,13 @@ object FloatingChatHeader : ClickableFeature() {
     private data class HeaderStyle(val cornerRadiusDp: Int, val elevationDp: Int)
 
     override fun onEnable() {
+        methodTipsExpandAnimationUpdate.hookAfter {
+            onTipsAnimationFrame(animationGroup(thisObject!!))
+        }
+        methodTipsFoldAnimationUpdate.hookAfter {
+            onTipsAnimationFrame(animationGroup(thisObject!!))
+        }
+
         ChattingUILayout::class.reflekt().firstConstructorOrNull {
             parameters(Context::class, AttributeSet::class)
         }?.hookAfter {
@@ -339,6 +399,16 @@ object FloatingChatHeader : ClickableFeature() {
             ensureTipsGroupAttachListener(group)
         } ?: WeLogger.w(TAG, "ChatTipsBarGroup constructor hook target not found")
 
+    }
+
+    private fun animationGroup(listener: Any): View {
+        val clazz = listener.javaClass
+        val field = animationGroupFields.getOrPut(clazz) {
+            listener.reflekt().firstField { type = TIPS_BAR_GROUP_CLASS }.self.apply {
+                isAccessible = true
+            }
+        }
+        return field.get(listener) as View
     }
 
     private fun ensureLayoutAttachListener(layout: View) {
@@ -672,13 +742,16 @@ object FloatingChatHeader : ClickableFeature() {
         if (tipsBarStyles[group] != style) {
             val density = group.resources.displayMetrics.density
             group.outlineProvider = group.outlineProvider as? TipsBarCardOutline
-                ?: TipsBarCardOutline().also { group.outlineProvider = it }
+                ?: TipsBarCardOutline().also {
+                    it.height = group.height
+                    group.outlineProvider = it
+                    tipsBarCardOutlineHeights[group] = group.height
+                }
             group.clipToOutline = true
             group.elevation = elevationDp * density
             tipsBarStyles[group] = style
             WeLogger.d(TAG, "applied tips bar card style: corner=${cornerRadiusDp}dp elev=${elevationDp}dp")
         }
-        setTipsBarCardOutline(group, group.height)
     }
 
     /** 左右留白 + 顶部间距; topMargin 以微信原本的位置为基准, 自动适配状态栏。 */
@@ -819,6 +892,7 @@ object FloatingChatHeader : ClickableFeature() {
                 )
             }
             val cardHeight = if (isTipsGroup) effectiveTipsBarHeight(child) else child.height
+            if (isTipsGroup) tipsBarEffectiveHeights[child] = cardHeight
             nextTopPx += cardHeight + gapPx
             bottomPx = nextTopPx - gapPx
         }
@@ -844,7 +918,9 @@ object FloatingChatHeader : ClickableFeature() {
                         "parent=${tracked.parent?.javaClass?.name} height=${tracked.height}px"
                 )
             }
-            nextTopPx += effectiveTipsBarHeight(tracked) + gapPx
+            val cardHeight = effectiveTipsBarHeight(tracked)
+            tipsBarEffectiveHeights[tracked] = cardHeight
+            nextTopPx += cardHeight + gapPx
             bottomPx = nextTopPx - gapPx
         }
         if (bottomPx != null) {
@@ -1020,7 +1096,6 @@ object FloatingChatHeader : ClickableFeature() {
         val collapsing = !expanded && tipsBarPlaceholder(group)?.height ?: 0 > 0
         // 行 2+ 是否被 getItemCount hook 保住; 没保住就不做轮廓动画, 阴影直接贴内容卡
         val rowsKept = (recycler as ViewGroup).childCount > 1
-        tipsBarExpandedFlags[recycler] = expanded
         // 灰色占位层只是微信用来撑折叠动画的, 会连同阴影呈现成全屏灰色边框, 背景清掉
         tipsBarPlaceholder(group)?.background = null
         // 行没保住时把占位层高度也压掉: 组高、列表 padding 立即回到折叠卡, 不出现全屏边框
@@ -1034,9 +1109,9 @@ object FloatingChatHeader : ClickableFeature() {
         }
         // 摘掉微信每行底部 8dp 的 item offset, 行距统一改由行内上下边距承担
         removePinnedItemOffsets(recycler)
-        installPinnedRowHooks(recycler)
+        installPinnedAdapterHook(recycler)
         refreshPinnedRows(recycler, group, expanded || collapsing)
-        updateTipsBarCardOutline(group, expanded, collapsing, rowsKept)
+        updateSteadyTipsBarOutline(group, expanded, collapsing, rowsKept)
         // 行铺满整卡: 去掉 s3.xml 里列表的 8dp 左右边距, 折叠单条时点击不会落在行外
         val lp = recycler.layoutParams as? ViewGroup.MarginLayoutParams
         if (lp != null && (lp.leftMargin != 0 || lp.rightMargin != 0 ||
@@ -1074,46 +1149,22 @@ object FloatingChatHeader : ClickableFeature() {
      * elevation 是用户设置的固定值; 全屏灰色边框来自微信 dim, 已由 suppressTipsBarDim
      * 清空背景处理。
      */
-    private fun updateTipsBarCardOutline(
+    private fun updateSteadyTipsBarOutline(
         group: View,
         expanded: Boolean,
         collapsing: Boolean,
         rowsKept: Boolean
     ) {
-        val now = SystemClock.uptimeMillis()
         val body = tipsBarCardBody(group) ?: return
         if (collapsing) {
-            if (!rowsKept) {
-                // hook 失效兜底: 不做动画, 阴影直接贴内容卡, 杜绝全屏边框
-                tipsBarCardAnims.remove(group)
-                setTipsBarBodyOutline(body, body.height)
-                setTipsBarCardOutline(group, body.height)
-                return
-            }
-            // hyi 裁剪轮廓和组阴影用同一个动画值: 行被逐行裁掉, 阴影贴着行, 严格 1:1
-            val anim = tipsBarCardAnims.getOrPut(group) {
-                TipsBarCardAnim(
-                    now,
-                    tipsBarBodyOutlineHeight(body) ?: group.height,
-                    tipsBarFoldHeights[group] ?: body.height
-                )
-            }
-            val fraction = ((now - anim.startTime) / COLLAPSE_ANIM_MS.toFloat()).coerceIn(0f, 1f)
-            val height = if (fraction >= 1f) anim.toHeight else {
-                val t = AccelerateDecelerateInterpolator().getInterpolation(fraction)
-                (anim.fromHeight + (anim.toHeight - anim.fromHeight) * t).toInt()
-            }
-            setTipsBarBodyOutline(body, height)
-            setTipsBarCardOutline(group, height)
-            if (fraction >= 1f && tipsBarPlaceholder(group)?.height ?: 0 == 0) {
-                tipsBarCardAnims.remove(group)
-            }
+            // 保留行时由微信折叠动画回调逐帧拥有轮廓; 行没保住则立即贴内容卡兜底。
+            if (rowsKept) return
+            setTipsBarBodyOutline(body, body.height)
+            setTipsBarCardOutline(group, body.height)
             return
         }
         if (expanded) {
-            // 展开: 不跑自己的动画, 直接读 hyi 当前 outline 的实际高度 (微信自己的
-            // reveal 动画在驱动它), 阴影跟着内容走, 比例不可能再超前
-            setTipsBarCardOutline(group, tipsBarBodyOutlineHeight(body) ?: group.height)
+            setTipsBarCardOutline(group, outlineHeight(body) ?: body.height.takeIf { it > 0 } ?: group.height)
             return
         } else {
             // 行 2+ 还在时组高是展开高; 只有列表真正只剩 1 行 (行已被摘掉) 才记录折叠
@@ -1122,22 +1173,57 @@ object FloatingChatHeader : ClickableFeature() {
             if (recycler == null || recycler.childCount <= 1) {
                 tipsBarFoldHeights[group] = group.height
             }
-            tipsBarCardAnims.remove(group)
             setTipsBarBodyOutline(body, body.height)
             setTipsBarCardOutline(group, group.height)
             return
         }
     }
 
-    /** 读取 hyi 当前 outline 的实际高度 (微信的 reveal 动画每帧在更新它)。 */
-    private fun tipsBarBodyOutlineHeight(body: View): Int? {
-        val provider = body.outlineProvider ?: return null
+    /** 读取 View 当前 outline 的实际高度。 */
+    private fun outlineHeight(view: View): Int? {
+        val provider = view.outlineProvider ?: return null
         val scratch = Outline()
-        provider.getOutline(body, scratch)
+        provider.getOutline(view, scratch)
         if (!scratch.canClip()) return null
         val rect = Rect()
         scratch.getRect(rect)
         return if (rect.height() > 0) rect.height() else null
+    }
+
+    private fun onTipsAnimationFrame(group: View) {
+        val layout = group.findAncestorChattingUILayout() ?: return
+        val tracker = layoutTrackers[layout] ?: return
+        if (!tracker.active) return
+        val body = tipsBarCardBodies[group]?.takeIf { it.parent != null } ?: return
+        val handle = tipsBarHandles[group]?.takeIf { it.parent != null } ?: return
+        val placeholder = tipsBarPlaceholders[group]?.takeIf { it.parent != null } ?: return
+        val header = headerViews[layout]?.takeIf { isCachedHeaderValid(layout, it) } ?: return
+        val recycler = chatListRecyclers[layout]?.takeIf {
+            it.isAttachedToWindow && it.findAncestorChattingUILayout() === layout
+        } ?: return
+        val source = if (handle.isVisible) body else placeholder
+        val height = outlineHeight(source) ?: return
+        setTipsBarBodyOutline(body, height)
+        setTipsBarCardOutline(group, height)
+        updateAnimatedTipsGeometry(layout, group, header, recycler, height)
+    }
+
+    private fun updateAnimatedTipsGeometry(
+        layout: View,
+        group: View,
+        header: View,
+        recycler: View,
+        height: Int,
+    ) {
+        val previous = tipsBarEffectiveHeights.put(group, height)
+        if (previous == null) {
+            scheduleReconcile(layout, RECONCILE_TIPS)
+            return
+        }
+        overlayCardBottoms[layout]?.let { bottom ->
+            overlayCardBottoms[layout] = bottom + height - previous
+        }
+        applyAnimatedChatListPadding(layout, header, recycler)
     }
 
     /** 折叠时驱动 hyi 的裁剪轮廓, 把行从底部逐行裁掉。 */
@@ -1160,13 +1246,11 @@ object FloatingChatHeader : ClickableFeature() {
         group.invalidateOutline()
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun installPinnedRowHooks(recycler: View) {
+    private fun installPinnedAdapterHook(recycler: View) {
         if (tipsBarRowHooks[recycler] != null) return
-        recycler.setOnTouchListener { view, event -> onPinnedRecyclerTouch(view, event) }
         installTipsBarAdapterCountHook(recycler)
         tipsBarRowHooks[recycler] = true
-        WeLogger.d(TAG, "pinned tips bar row hooks installed")
+        WeLogger.d(TAG, "pinned tips bar adapter hook installed")
     }
 
     /**
@@ -1189,9 +1273,7 @@ object FloatingChatHeader : ClickableFeature() {
         getItemCount.hookBefore {
             val hookAdapter = thisObject ?: return@hookBefore
             val group = tipsBarAdapterGroup(hookAdapter) ?: return@hookBefore
-            if (tipsBarPlaceholder(group)?.height ?: 0 > 0 ||
-                tipsBarCardAnims.containsKey(group)
-            ) {
+            if (tipsBarPlaceholder(group)?.height ?: 0 > 0) {
                 val count = pinnedMessageCount(group)
                 if (count > 1) result = count
             }
@@ -1224,40 +1306,6 @@ object FloatingChatHeader : ClickableFeature() {
             it.type.name == "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
         }?.apply { isAccessible = true }?.also { tipsBarAdapterGroupFields[clazz] = it }
         return field?.get(adapter) as? View
-    }
-
-    /**
-     * 折叠单条时整卡都是那一行, 正常情况下点击都落在行内; 这里兜底处理行外区域
-     * (例如 offset 摘除失败仍留空隙时): 把按在行外的触摸序列转发给唯一那行, 让整卡
-     * 点击都走微信原生跳转。多条/展开态不需要: 折叠多条时组自己拦截全部点击去展开。
-     */
-    private fun onPinnedRecyclerTouch(recycler: View, event: MotionEvent): Boolean {
-        val list = recycler as ViewGroup
-        if (list.childCount != 1 || tipsBarExpandedFlags[recycler] == true) return false
-        val row = list.getChildAt(0)
-        return when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                val onRow = event.x >= row.left && event.x <= row.right &&
-                    event.y >= row.top && event.y <= row.bottom
-                if (onRow) {
-                    pinnedTouchConsumed.remove(recycler)
-                    false
-                } else {
-                    pinnedTouchConsumed[recycler] = true
-                    true
-                }
-            }
-            MotionEvent.ACTION_UP -> {
-                val consumed = pinnedTouchConsumed.remove(recycler) == true
-                if (consumed) row.performClick()
-                consumed
-            }
-            MotionEvent.ACTION_CANCEL -> {
-                pinnedTouchConsumed.remove(recycler)
-                false
-            }
-            else -> pinnedTouchConsumed[recycler] == true
-        }
     }
 
     /** 每帧把已挂载的置顶消息行刷成新布局: 去背景、补角标/分割线并更新可见性。
@@ -1507,6 +1555,16 @@ object FloatingChatHeader : ClickableFeature() {
         WeLogger.d(TAG, "chat list top padding: ${recycler.paddingTop} -> $target (extra=$extra)")
     }
 
+    @Suppress("UNUSED_PARAMETER")
+    private fun applyAnimatedChatListPadding(layout: View, header: View, recycler: View) {
+        val overlayBottom = overlayCardBottoms[layout] ?: return
+        val base = chatListBasePaddings[recycler] ?: return
+        val extra = (overlayBottom - recycler.offsetTopIn(layout)).coerceAtLeast(0)
+        val target = base + extra
+        if (recycler.paddingTop == target) return
+        recycler.setPadding(recycler.paddingLeft, target, recycler.paddingRight, recycler.paddingBottom)
+    }
+
     private fun hasVisibleHeaderExtras(layout: View, header: View): Boolean {
         val host = contentHost(layout) ?: return false
         val group = layout as? ViewGroup ?: return false
@@ -1671,26 +1729,24 @@ object FloatingChatHeader : ClickableFeature() {
     }
 
     private fun clearTipsGroupCaches(group: View, recycler: View?) {
+        val body = tipsBarCardBodies.remove(group)
         dimWarned.remove(group)
         tipsBarDims.remove(group)
         tipsBarRecyclers.remove(group)
         tipsBarStyles.remove(group)
-        tipsBarCardBodies.remove(group)
         tipsBarBodyWarned.remove(group)
         tipsBarOverlapRects.remove(group)
         tipsBarDividers.remove(group)
         tipsBarHandles.remove(group)
         tipsBarDividerColors.remove(group)
         tipsBarPlaceholders.remove(group)
-        tipsBarCardAnims.remove(group)
-        tipsBarBodyOutlineHeights.remove(group)
+        tipsBarEffectiveHeights.remove(group)
+        body?.let { tipsBarBodyOutlineHeights.remove(it) }
         tipsBarCardOutlineHeights.remove(group)
         tipsBarFoldHeights.remove(group)
         recycler?.let {
             tipsBarRowHooks.remove(it)
             tipsBarOffsetsRemoved.remove(it)
-            pinnedTouchConsumed.remove(it)
-            tipsBarExpandedFlags.remove(it)
         }
     }
 
@@ -1735,12 +1791,11 @@ object FloatingChatHeader : ClickableFeature() {
         tipsBarOffsetsRemoved.clear()
         tipsBarAdapterHooked.clear()
         tipsBarAdapterGroupFields.clear()
-        tipsBarCardAnims.clear()
+        animationGroupFields.clear()
+        tipsBarEffectiveHeights.clear()
         tipsBarBodyOutlineHeights.clear()
         tipsBarCardOutlineHeights.clear()
         tipsBarFoldHeights.clear()
-        pinnedTouchConsumed.clear()
-        tipsBarExpandedFlags.clear()
         chatListBasePaddings.clear()
         reparentBlocked.clear()
         lookupWarned.clear()
