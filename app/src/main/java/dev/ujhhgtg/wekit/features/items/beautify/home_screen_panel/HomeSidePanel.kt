@@ -11,7 +11,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
-import android.view.ViewTreeObserver
 import android.view.Window
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
@@ -364,21 +363,22 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             },
         )
         private val outlineProvider = ProgressOutlineProvider()
-        private val preDrawListener = ViewTreeObserver.OnPreDrawListener {
-            absorbStrayChildren()
-            updateDrawerWidth()
-            resolveExternalChrome()
-            syncToolbarProfileBindings()
-            syncNativeContentBottomInset()
-            applyActionBarProgress(renderedProgress)
-            true
-        }
 
         private var animator: ValueAnimator? = null
         private var drawerWidthPx = 1
         private var renderedProgress = 0f
         private var dragging = false
         private var attached = false
+        private var pendingSyncFlags = 0
+        private var syncPosted = false
+        private val syncRunnable = Runnable {
+            syncPosted = false
+            if (!attached) {
+                pendingSyncFlags = 0
+                return@Runnable
+            }
+            runPendingSync()
+        }
         private var parentClipChildren = true
         private var parentClipToPadding = true
         private val actionBarContainers = linkedSetOf<View>()
@@ -472,11 +472,36 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                     FrameLayout.LayoutParams.MATCH_PARENT,
                 )
             )
-            parent.viewTreeObserver.addOnPreDrawListener(preDrawListener)
             installTabsAdapterHooks()
-            parent.post {
-                updateDrawerWidth()
-                applyProgress(0f)
+            requestSync(SYNC_ALL)
+        }
+
+        private fun requestSync(flags: Int) {
+            if (!attached) return
+            pendingSyncFlags = pendingSyncFlags or flags
+            if (syncPosted) return
+            syncPosted = true
+            parent.post(syncRunnable)
+        }
+
+        private fun runPendingSync() {
+            val flags = pendingSyncFlags
+            pendingSyncFlags = 0
+            if (flags and SYNC_HIERARCHY != 0) {
+                absorbStrayChildren()
+                resolveExternalChrome()
+                syncToolbarProfileBindings()
+            }
+            if (flags and SYNC_GEOMETRY != 0) {
+                if (updateDrawerWidth()) {
+                    applyProgress(renderedProgress)
+                }
+            }
+            if (flags and SYNC_INSETS != 0) {
+                syncNativeContentBottomInset()
+            }
+            if (flags and (SYNC_HIERARCHY or SYNC_GEOMETRY) != 0) {
+                applyActionBarProgress(renderedProgress)
             }
         }
 
@@ -578,9 +603,9 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             tabsAdapterHookHandles.forEach { it.unhook() }
             tabsAdapterHookHandles.clear()
             panelState.close()
-            if (parent.viewTreeObserver.isAlive) {
-                parent.viewTreeObserver.removeOnPreDrawListener(preDrawListener)
-            }
+            pendingSyncFlags = 0
+            parent.removeCallbacks(syncRunnable)
+            syncPosted = false
             clearToolbarProfileBindings()
             restoreActionBarTransform()
             restoreFabHostToOriginalParent()
@@ -855,6 +880,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
 
         private fun beginGesture(event: MotionEvent) {
+            requestSync(SYNC_HIERARCHY or SYNC_GEOMETRY)
             animator?.cancel()
             animator = null
             gesture.snapTo(renderedProgress)
@@ -874,6 +900,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             oneShot: Boolean = false,
             afterClosed: (() -> Unit)? = null,
         ) {
+            requestSync(SYNC_HIERARCHY or SYNC_GEOMETRY)
             animator?.cancel()
             animator = null
             if (kotlin.math.abs(from - target) < 0.001f) {
@@ -1111,8 +1138,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             if (becameVisible) panelState.onPanelOpened()
             if (becameHidden) panelState.onPanelClosed()
             wasPanelVisible = p > CLOSED_EPSILON
-            updateDrawerWidth()
-            resolveExternalChrome()
 
             val transform = homeSidePanelVisualTransform(
                 progress = p,
@@ -1142,17 +1167,18 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             overlayRoot.bringToFront()
         }
 
-        private fun updateDrawerWidth() {
+        private fun updateDrawerWidth(): Boolean {
             val width = parent.width
-            if (width <= 0) return
+            if (width <= 0) return false
             val nextWidth = (width * DRAWER_WIDTH_FRACTION).roundToInt().coerceAtLeast(1)
-            if (nextWidth == drawerWidthPx) return
+            if (nextWidth == drawerWidthPx) return false
             drawerWidthPx = nextWidth
             val params = panelView.layoutParams as? FrameLayout.LayoutParams
                 ?: FrameLayout.LayoutParams(drawerWidthPx, FrameLayout.LayoutParams.MATCH_PARENT)
             params.width = drawerWidthPx
             params.height = FrameLayout.LayoutParams.MATCH_PARENT
             panelView.layoutParams = params
+            return true
         }
 
         private fun applyActionBarProgress(
@@ -1340,6 +1366,10 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     }
 
     private const val HOME_TAB_INDEX = 0
+    private const val SYNC_HIERARCHY = 1
+    private const val SYNC_GEOMETRY = 1 shl 1
+    private const val SYNC_INSETS = 1 shl 2
+    private const val SYNC_ALL = SYNC_HIERARCHY or SYNC_GEOMETRY or SYNC_INSETS
     private const val DRAWER_WIDTH_FRACTION = 0.84f
     private const val DIM_MAX_ALPHA = 0.52f
     private const val CLOSED_EPSILON = 0.001f
