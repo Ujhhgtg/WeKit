@@ -27,6 +27,7 @@ object ArchLinuxPack : ExtensionPack {
     private const val PROOT = "proot"
     private const val PROOT_LOADER = "proot-loader"
     private const val BRIDGE = "invoke_tool"
+    private const val SOURCE_MANIFEST = "source-manifest.json"
 
     private val baseDir: File get() = File(HostInfo.application.filesDir, "wekit-extensions/$id")
     override fun installDir(): File = baseDir
@@ -38,8 +39,9 @@ object ArchLinuxPack : ExtensionPack {
         try {
             ZipFile(verifiedTmp).use { archive ->
                 val manifestEntry = archive.getEntry("manifest.json") ?: error("Arch pack has no inner manifest")
-                val hashes = Json.parseToJsonElement(archive.getInputStream(manifestEntry).readBytes().decodeToString())
-                    .jsonObject["files"]!!.jsonObject.mapValues { it.value.jsonPrimitive.content }
+                val manifestBytes = archive.getInputStream(manifestEntry).readBytes()
+                val hashes = Json.parseToJsonElement(manifestBytes.decodeToString()).jsonObject["files"]!!
+                    .jsonObject.mapValues { it.value.jsonPrimitive.content }
                 for (name in listOf(ROOTFS, PROOT, PROOT_LOADER, BRIDGE)) {
                     val entry = archive.getEntry(name) ?: error("Arch pack is missing $name")
                     require(!entry.isDirectory && entry.size >= 0) { "invalid Arch pack entry: $name" }
@@ -50,6 +52,7 @@ object ArchLinuxPack : ExtensionPack {
                     PackFs.atomicReplace(temporary, output)
                     if (name != ROOTFS) require(output.setExecutable(true, true)) { "cannot make $name executable" }
                 }
+                File(staging, SOURCE_MANIFEST).writeBytes(manifestBytes)
             }
             PackFs.writeManifest(staging, PackManifest(id, version, sha256, System.currentTimeMillis()))
             val destination = File(baseDir, version)
@@ -67,6 +70,8 @@ object ArchLinuxPack : ExtensionPack {
         }
         val manifest = installedManifest() ?: throw ArchLinuxPackNotInstalledException()
         val template = File(baseDir, manifest.version)
+        val source = Json.parseToJsonElement(File(template, SOURCE_MANIFEST).readText()).jsonObject["source"]!!.jsonObject
+        val maxExtractedBytes = source["rootfs_max_extracted_bytes"]!!.jsonPrimitive.content.toLong()
         return ArchLinuxInstanceInstaller.install(
             instanceId = instanceId,
             contentVersion = manifest.version,
@@ -75,6 +80,7 @@ object ArchLinuxPack : ExtensionPack {
             prootLoader = File(template, PROOT_LOADER),
             bridge = File(template, BRIDGE),
             instancesDirectory = File(HostInfo.application.filesDir, "wekit-agent/environment/instances"),
+            maxExtractedBytes = maxExtractedBytes,
         )
     }
 }

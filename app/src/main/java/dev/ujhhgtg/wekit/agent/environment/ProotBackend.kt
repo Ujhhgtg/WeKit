@@ -39,9 +39,10 @@ class ProotBackend(
             val outputs = rootfs.resolve("root/.weagent/outputs").also(Files::createDirectories)
             val stdout = Files.createTempFile(outputs, "exec-", ".stdout")
             val stderr = Files.createTempFile(outputs, "exec-", ".stderr")
+            val pidFile = Files.createTempFile(outputs, "exec-", ".pid")
             val startedAt = System.nanoTime()
             val argv = ProotCommand.execArgv(launcher, rootfs, snapshot.workingDirectory, command, environmentVariables, storageBinds)
-            val process = ProcessBuilder(argv).directory(instance.toFile()).redirectOutput(stdout.toFile()).redirectError(stderr.toFile()).apply {
+            val process = ProcessBuilder(processWithPidFile(pidFile, argv)).directory(instance.toFile()).redirectOutput(stdout.toFile()).redirectError(stderr.toFile()).apply {
                 environment()["PROOT_LOADER"] = instance.resolve("bin/loader").toString()
                 environment()["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
             }.start()
@@ -52,8 +53,7 @@ class ProotBackend(
                     coroutineContext.ensureActive()
                     if (System.nanoTime() >= deadline) {
                         timedOut = true
-                        process.destroy()
-                        if (process.isAlive) process.destroyForcibly()
+                        ProcessTermination.terminateTree(process, readPid(pidFile))
                         break
                     }
                     Thread.sleep(25)
@@ -73,10 +73,8 @@ class ProotBackend(
                 ExecResult(readPrefix(stdout, outLimit), readPrefix(stderr, errLimit), if (timedOut) null else process.exitValue(), timedOut,
                     (System.nanoTime() - startedAt) / 1_000_000, spillPath)
             } finally {
-                if (process.isAlive) {
-                    process.destroyForcibly()
-                }
-                Files.deleteIfExists(stdout); Files.deleteIfExists(stderr)
+                if (process.isAlive) ProcessTermination.terminateTree(process, readPid(pidFile))
+                Files.deleteIfExists(stdout); Files.deleteIfExists(stderr); Files.deleteIfExists(pidFile)
             }
         }
 
@@ -177,6 +175,8 @@ class ProotBackend(
         return output.toString(StandardCharsets.UTF_8.name())
     }
 
+    private fun readPid(path: Path): Int? = runCatching { Files.readString(path).trim().toInt() }.getOrNull()
+
     companion object {
         private val APPROVED_STORAGE_ROOTS = listOf(
             Path.of("/storage/emulated"), Path.of("/storage/self/primary"), Path.of("/sdcard"),
@@ -207,3 +207,6 @@ object ProotCommand {
         }
     }
 }
+
+internal fun processWithPidFile(pidFile: Path, argv: List<String>): List<String> =
+    listOf("/system/bin/sh", "-c", "echo \$\$ > \"\$1\"; shift; exec \"\$@\"", "wekit-proot", pidFile.toString()) + argv

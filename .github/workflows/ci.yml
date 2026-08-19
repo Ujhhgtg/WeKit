@@ -471,24 +471,31 @@ jobs:
           WEKIT_ARCH_ROOTFS: ${{ runner.temp }}/arch-pack/ArchLinuxARM-aarch64-rootfs.tar.gz
           WEKIT_ARCH_PROOT: ${{ runner.temp }}/arch-pack/proot
           WEKIT_ARCH_PROOT_LOADER: ${{ runner.temp }}/arch-pack/proot-loader
-          WEKIT_ARCH_PROOT_COMMIT: 6f8ebfd8e24887dfba64c3f2d7d5fe9dc059b60e
         run: |
+          SOURCE=extensions/archlinux-arm64-sources.json
+          ROOTFS_URL=$(jq -r '.rootfs.url' "$SOURCE")
+          ROOTFS_MD5=$(jq -r '.rootfs.md5' "$SOURCE")
+          ROOTFS_SIGNATURE_URL=$(jq -r '.rootfs.signature_url' "$SOURCE")
+          SIGNING_FINGERPRINT=$(jq -r '.rootfs.signing_fingerprint' "$SOURCE")
+          PROOT_SOURCE=$(jq -r '.proot.source' "$SOURCE")
+          WEKIT_ARCH_PROOT_COMMIT=$(jq -r '.proot.commit' "$SOURCE")
+          export WEKIT_ARCH_PROOT_COMMIT
           mkdir -p "$RUNNER_TEMP/arch-pack"
           curl --fail --location --retry 3 \
-            https://mirror.yandex.ru/archlinux-arm/os/multi/ArchLinuxARM-2026.08-aarch64-rootfs.tar.gz \
+            "$ROOTFS_URL" \
             -o "$WEKIT_ARCH_ROOTFS"
-          printf '%s  %s\n' 23eec86365b24f7913c403e8f4e8719b "$WEKIT_ARCH_ROOTFS" | md5sum --check --strict
+          printf '%s  %s\n' "$ROOTFS_MD5" "$WEKIT_ARCH_ROOTFS" | md5sum --check --strict
           curl --fail --location --retry 3 \
-            https://mirror.yandex.ru/archlinux-arm/os/multi/ArchLinuxARM-2026.08-aarch64-rootfs.tar.gz.sig \
+            "$ROOTFS_SIGNATURE_URL" \
             -o "$WEKIT_ARCH_ROOTFS.sig"
           curl --fail --location --retry 3 \
-            'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x68B3537F39A313B3E574D06777193F152BDBE6A6' \
+            "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$SIGNING_FINGERPRINT" \
             -o "$RUNNER_TEMP/arch-pack/signing-key.asc"
-          test "$(gpg --show-keys --with-colons "$RUNNER_TEMP/arch-pack/signing-key.asc" | awk -F: '$1 == "fpr" { print $10; exit }')" = 68B3537F39A313B3E574D06777193F152BDBE6A6
+          test "$(gpg --show-keys --with-colons "$RUNNER_TEMP/arch-pack/signing-key.asc" | awk -F: '$1 == "fpr" { print $10; exit }')" = "$SIGNING_FINGERPRINT"
           gpg --batch --import "$RUNNER_TEMP/arch-pack/signing-key.asc"
           gpg --batch --verify "$WEKIT_ARCH_ROOTFS.sig" "$WEKIT_ARCH_ROOTFS"
-          git clone https://github.com/berilevi/proot-static.git "$RUNNER_TEMP/proot-static"
-          git -C "$RUNNER_TEMP/proot-static" checkout --detach 6f8ebfd8e24887dfba64c3f2d7d5fe9dc059b60e
+          git clone "$PROOT_SOURCE" "$RUNNER_TEMP/proot-static"
+          git -C "$RUNNER_TEMP/proot-static" checkout --detach "$WEKIT_ARCH_PROOT_COMMIT"
           NDK="$ANDROID_HOME/ndk/$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)" \
             REPO_ARTIFACT_DIR="$RUNNER_TEMP/arch-pack/proot-output" \
             "$RUNNER_TEMP/proot-static/tools/build-static-aarch64.sh"

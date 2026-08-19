@@ -70,7 +70,7 @@ struct ArchSources {
 }
 
 #[derive(Debug, Deserialize)]
-struct ArchRootfsSource { release: String, url: String, md5: String, signature_url: String, signing_fingerprint: String }
+struct ArchRootfsSource { release: String, url: String, md5: String, max_extracted_bytes: u64, signature_url: String, signing_fingerprint: String }
 #[derive(Debug, Deserialize)]
 struct ArchProotSource { source: String, commit: String }
 #[derive(Debug, Deserialize)]
@@ -174,6 +174,7 @@ fn read_arch_sources(root: &Path) -> Result<ArchSources> {
     anyhow::ensure!(source.rootfs.release.chars().all(|c| c.is_ascii_digit() || c == '.'), "invalid Arch release");
     anyhow::ensure!(source.rootfs.url.starts_with("https://") && source.rootfs.signature_url.starts_with("https://"), "Arch inputs must use HTTPS");
     anyhow::ensure!(source.rootfs.md5.len() == 32 && source.rootfs.md5.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs checksum");
+    anyhow::ensure!(source.rootfs.max_extracted_bytes >= 1024 * 1024 * 1024, "invalid rootfs extracted-size limit");
     anyhow::ensure!(source.rootfs.signing_fingerprint.len() == 40 && source.rootfs.signing_fingerprint.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs signing fingerprint");
     anyhow::ensure!(source.proot.source.starts_with("https://") && source.proot.commit.len() == 40 && source.proot.commit.chars().all(|c| c.is_ascii_hexdigit()), "invalid pinned PRoot source");
     anyhow::ensure!(source.bridge.cargo_package == "invoke_tool" && source.bridge.target == "aarch64-linux-android", "invalid bridge identity");
@@ -208,6 +209,7 @@ fn build_archlinux_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
             "rootfs_release": source.rootfs.release,
             "rootfs_url": source.rootfs.url,
             "rootfs_md5": source.rootfs.md5,
+            "rootfs_max_extracted_bytes": source.rootfs.max_extracted_bytes,
             "rootfs_signature_url": source.rootfs.signature_url,
             "rootfs_signing_fingerprint": source.rootfs.signing_fingerprint,
             "proot_source": source.proot.source,

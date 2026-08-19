@@ -36,4 +36,14 @@ class ProotCommandTest {
             ProotCommand.launchArgv(Path.of("/proot"), Path.of("/rootfs"), "../host", listOf("bash"), emptyMap())
         }
     }
+
+    @Test
+    fun `pid wrapper preserves every proot argument as an opaque positional value`() {
+        val argv = listOf("/proot", "-r", "/path with spaces", "/bin/bash", "a; b")
+
+        val wrapped = processWithPidFile(Path.of("/tmp/process.pid"), argv)
+
+        assertEquals(argv, wrapped.takeLast(argv.size))
+        assertEquals("/tmp/process.pid", wrapped[4])
+    }
 }

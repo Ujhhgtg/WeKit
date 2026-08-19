@@ -3,12 +3,14 @@ package dev.ujhhgtg.wekit.agent.environment
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import java.nio.file.Files
+import java.nio.file.Path
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Path
 
 class LinuxEnvironmentTest {
     @Test
@@ -68,6 +70,55 @@ class LinuxEnvironmentTest {
                 parentOf = mapOf(2 to 1, 3 to 2, 4 to 3),
             ),
         )
+    }
+
+    @Test
+    fun `process termination orders descendants before their parents`() {
+        assertEquals(
+            listOf(4, 3, 2),
+            ProcessTermination.descendants(1, mapOf(2 to 1, 3 to 2, 4 to 3)),
+        )
+    }
+
+    @Test
+    fun `proot creation persists only after publish and removes published files on persistence failure`(@TempDir directory: Path) = runBlocking {
+        val instanceRoot = directory.resolve("instance")
+        val rootfs = instanceRoot.resolve("rootfs")
+        var persistedAfterPublish = false
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory.resolve("native").also(Files::createDirectories)),
+            prootPackAvailable = { true },
+            installProot = {
+                Files.createDirectories(rootfs)
+                ArchLinuxInstance(rootfs.toFile(), "version")
+            },
+            persistEnvironment = {
+                persistedAfterPublish = Files.isDirectory(rootfs)
+                error("database failure")
+            },
+        )
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { manager.createProotEnvironment("Arch", "instance") }
+        }
+        assertTrue(persistedAfterPublish)
+        assertFalse(Files.exists(instanceRoot))
+    }
+
+    @Test
+    fun `proot creation exposes missing extension pack without installing`(@TempDir directory: Path) = runBlocking {
+        var installCalled = false
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory),
+            prootPackAvailable = { false },
+            installProot = { installCalled = true; error("must not install") },
+            persistEnvironment = { error("must not persist") },
+        )
+
+        val result = manager.createProotEnvironment("Arch", "instance")
+
+        assertTrue(result is ProotEnvironmentCreationResult.MissingPack)
+        assertFalse(installCalled)
     }
 
     private fun environment(type: LinuxEnvironmentType) = LinuxEnvironmentEntity(

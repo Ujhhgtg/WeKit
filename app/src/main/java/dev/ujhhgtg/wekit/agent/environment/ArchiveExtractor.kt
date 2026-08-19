@@ -2,6 +2,9 @@ package dev.ujhhgtg.wekit.agent.environment
 
 import java.io.EOFException
 import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -25,10 +28,12 @@ object ArchiveExtractor {
         val root = destination.toAbsolutePath().normalize()
         var entries = 0
         var totalBytes = 0L
+        var globalPax = emptyMap<String, String>()
         var pax = emptyMap<String, String>()
         var longName: String? = null
         var longLink: String? = null
         val pendingHardLinks = mutableListOf<Pair<Path, String>>()
+        val regularFiles = mutableSetOf<Path>()
         val header = ByteArray(TAR_BLOCK)
         while (true) {
             checkActive()
@@ -39,8 +44,9 @@ object ArchiveExtractor {
             require(entries <= limits.maxEntries) { "archive has too many entries" }
             val rawName = string(header, 0, 100)
             val prefix = string(header, 345, 155)
-            val name = pax["path"] ?: longName ?: listOf(prefix, rawName).filter(String::isNotEmpty).joinToString("/")
-            val linkName = pax["linkpath"] ?: longLink ?: string(header, 157, 100)
+            val attributes = globalPax + pax
+            val name = attributes["path"] ?: longName ?: listOf(prefix, rawName).filter(String::isNotEmpty).joinToString("/")
+            val linkName = attributes["linkpath"] ?: longLink ?: string(header, 157, 100)
             val size = number(header, 124, 12)
             require(size in 0..limits.maxEntryBytes) { "archive entry is too large: $name" }
             totalBytes += size
@@ -48,12 +54,13 @@ object ArchiveExtractor {
             val type = header[156].toInt().toChar()
             if (type == 'x' || type == 'g' || type == 'L' || type == 'K') {
                 require(size <= MAX_METADATA_BYTES) { "archive metadata entry is too large" }
-                val metadata = readBytes(input, size).decodeToString().trimEnd('\u0000', '\n')
+                val metadata = readBytes(input, size)
                 skipPadding(input, size, checkActive)
                 when (type) {
-                    'x', 'g' -> pax = parsePax(metadata)
-                    'L' -> longName = metadata
-                    'K' -> longLink = metadata
+                    'x' -> pax = parsePax(metadata)
+                    'g' -> globalPax = globalPax + parsePax(metadata)
+                    'L' -> longName = decodeUtf8(metadata).trimEnd('\u0000', '\n')
+                    'K' -> longLink = decodeUtf8(metadata).trimEnd('\u0000', '\n')
                 }
                 continue
             }
@@ -66,6 +73,7 @@ object ArchiveExtractor {
                         copyExact(input, output::write, size, checkActive)
                     }
                     setMode(target, number(header, 100, 8), directory = false)
+                    regularFiles.add(target)
                 }
                 '5' -> {
                     require(size == 0L) { "directory entry has data: $name" }
@@ -80,7 +88,8 @@ object ArchiveExtractor {
                 }
                 '1' -> {
                     require(size == 0L) { "hardlink entry has data: $name" }
-                    validateLink(root, target.parent, linkName)
+                    safePath(root, linkName)
+                    Files.createDirectories(target.parent)
                     pendingHardLinks += target to linkName
                 }
                 else -> error("unsupported special archive entry type '$type': $name")
@@ -92,7 +101,8 @@ object ArchiveExtractor {
             longLink = null
         }
         for ((target, link) in pendingHardLinks) {
-            val source = resolveGuestLink(root, target.parent, link)
+            val source = safePath(root, link)
+            require(source in regularFiles) { "hardlink target does not name an archive regular file: $link" }
             require(Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) { "hardlink target is not a regular file: $link" }
             Files.createLink(target, source)
         }
@@ -159,18 +169,35 @@ object ArchiveExtractor {
         return bytes.copyOfRange(offset, end).decodeToString()
     }
 
-    private fun parsePax(value: String): Map<String, String> = buildMap {
+    private fun parsePax(value: ByteArray): Map<String, String> = buildMap {
         var position = 0
-        while (position < value.length) {
-            val space = value.indexOf(' ', position)
+        while (position < value.size) {
+            var space = position
+            while (space < value.size && value[space] != ' '.code.toByte()) space++
             require(space > position) { "invalid pax record" }
-            val length = value.substring(position, space).toInt()
-            val record = value.substring(space + 1, position + length).trimEnd('\n')
-            val equals = record.indexOf('=')
-            if (equals > 0) put(record.substring(0, equals), record.substring(equals + 1))
-            position += length
+            require(space < value.size) { "invalid pax record length" }
+            val lengthText = value.copyOfRange(position, space).decodeToString()
+            require(lengthText.all(Char::isDigit)) { "invalid pax record length" }
+            val length = lengthText.toIntOrNull() ?: throw IllegalArgumentException("invalid pax record length")
+            require(length > space - position + 2 && length <= value.size - position) { "invalid pax record length" }
+            val end = position + length
+            require(value[end - 1] == '\n'.code.toByte()) { "pax record is not newline terminated" }
+            val body = value.copyOfRange(space + 1, end - 1)
+            val equals = body.indexOf('='.code.toByte())
+            require(equals > 0) { "invalid pax record" }
+            put(
+                decodeUtf8(body.copyOfRange(0, equals)),
+                decodeUtf8(body.copyOfRange(equals + 1, body.size)),
+            )
+            position = end
         }
     }
+
+    private fun decodeUtf8(bytes: ByteArray): String = StandardCharsets.UTF_8.newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(ByteBuffer.wrap(bytes))
+        .toString()
 
     private fun readFullyOrEof(input: InputStream, bytes: ByteArray): Unit? {
         var offset = 0

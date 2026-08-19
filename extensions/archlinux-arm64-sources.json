@@ -3,6 +3,7 @@
     "release": "2026.08",
     "url": "https://mirror.yandex.ru/archlinux-arm/os/multi/ArchLinuxARM-2026.08-aarch64-rootfs.tar.gz",
     "md5": "23eec86365b24f7913c403e8f4e8719b",
+    "max_extracted_bytes": 12884901888,
     "signature_url": "https://mirror.yandex.ru/archlinux-arm/os/multi/ArchLinuxARM-2026.08-aarch64-rootfs.tar.gz.sig",
     "signing_fingerprint": "68B3537F39A313B3E574D06777193F152BDBE6A6"
   },

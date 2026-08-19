@@ -2,8 +2,11 @@ package dev.ujhhgtg.wekit.agent.environment
 
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
+import dev.ujhhgtg.wekit.extensions.ArchLinuxPack
+import dev.ujhhgtg.wekit.extensions.ExtensionPack
 import dev.ujhhgtg.wekit.utils.HostInfo
 import java.io.File
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +24,9 @@ class LinuxEnvironmentManager(
             else -> error("${snapshot.type} backend is not implemented")
         }
     },
+    private val prootPackAvailable: () -> Boolean = { ArchLinuxPack.installedManifest() != null },
+    private val installProot: suspend (String) -> ArchLinuxInstance = ArchLinuxPack::createInstance,
+    private val persistEnvironment: suspend (LinuxEnvironmentEntity) -> Unit = WeAgentRepository::upsertLinuxEnvironment,
 ) {
     private val stateMutex = Mutex()
     private val executionMutexes = ConcurrentHashMap<String, Mutex>()
@@ -54,6 +60,35 @@ class LinuxEnvironmentManager(
                 staleBackends.remove(environment.id)
             }
         }
+    }
+
+    suspend fun createProotEnvironment(
+        name: String,
+        instanceId: String = UUID.randomUUID().toString(),
+    ): ProotEnvironmentCreationResult {
+        val trimmedName = name.trim()
+        require(trimmedName.isNotEmpty() && trimmedName.length <= 80) { "environment name must be 1-80 characters" }
+        require(instanceId.matches(Regex("[A-Za-z0-9._-]{1,80}"))) { "invalid instance id" }
+        if (!prootPackAvailable()) return ProotEnvironmentCreationResult.MissingPack(ArchLinuxPack)
+
+        val instance = installProot(instanceId)
+        val entity = LinuxEnvironmentEntity(
+            id = instanceId,
+            name = trimmedName,
+            type = LinuxEnvironmentType.PROOT,
+            workingDirectory = instance.workingDirectory,
+            rootfsPath = instance.rootfs.absolutePath,
+            rootfsContentVersion = instance.contentVersion,
+            createdAt = System.currentTimeMillis(),
+            bridgePath = instance.bridgePath,
+        )
+        try {
+            persistEnvironment(entity)
+        } catch (error: Throwable) {
+            instance.rootfs.parentFile?.deleteRecursively()
+            throw error
+        }
+        return ProotEnvironmentCreationResult.Created(entity)
     }
 
     suspend fun delete(id: String): Boolean {
@@ -161,4 +196,9 @@ class LinuxEnvironmentManager(
             )
         }
     }
+}
+
+sealed interface ProotEnvironmentCreationResult {
+    data class Created(val environment: LinuxEnvironmentEntity) : ProotEnvironmentCreationResult
+    data class MissingPack(val pack: ExtensionPack) : ProotEnvironmentCreationResult
 }
