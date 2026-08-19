@@ -21,13 +21,13 @@ class SshBackend(
         val startedAt = System.nanoTime()
         val localBridgePort = environmentVariables["WEAGENT_BRIDGE_PORT"]?.toIntOrNull()
         val forward = localBridgePort?.let { connection.openReverseForward(it) }
-        val remoteEnvironment = if (forward == null) environmentVariables else {
-            environmentVariables + ToolBridgeServer.Endpoint(
-                localBridgePort,
-                environmentVariables.getValue("WEAGENT_BRIDGE_TOKEN"),
-            ).environment(forward.remotePort)
-        }
-        return try {
+        return withSshReverseForward(forward) {
+            val remoteEnvironment = if (forward == null) environmentVariables else {
+                environmentVariables + ToolBridgeServer.Endpoint(
+                    localBridgePort,
+                    environmentVariables.getValue("WEAGENT_BRIDGE_TOKEN"),
+                ).environment(forward.remotePort)
+            }
             val response = connection.execute(shellCommand(command, remoteEnvironment), timeoutMillis)
             ExecResult(
                 stdout = response.stdout.toString(StandardCharsets.UTF_8),
@@ -36,8 +36,6 @@ class SshBackend(
                 timedOut = response.timedOut,
                 elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000,
             )
-        } finally {
-            forward?.close()
         }
     }
 
@@ -186,4 +184,13 @@ class SshBackend(
             printf '\n'
         """.trimIndent() + "\n"
     }
+}
+
+internal suspend fun <T> withSshReverseForward(
+    forward: SshReverseForward?,
+    block: suspend () -> T,
+): T = try {
+    block()
+} finally {
+    forward?.close()
 }
