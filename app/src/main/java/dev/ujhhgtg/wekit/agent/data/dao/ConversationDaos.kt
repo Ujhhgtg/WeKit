@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SessionEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ToolCallEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ToolPermissionEntity
+import dev.ujhhgtg.wekit.agent.data.entity.BridgeToolAuditEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -117,6 +118,15 @@ interface ToolCallDao {
      */
     @Query("DELETE FROM tool_calls WHERE messageId = :messageId")
     suspend fun deleteForMessage(messageId: String)
+}
+
+@Dao
+interface BridgeToolAuditDao {
+    @Insert
+    suspend fun insert(entry: BridgeToolAuditEntity)
+
+    @Query("SELECT * FROM bridge_tool_audits WHERE sessionId = :sessionId ORDER BY executedAt ASC")
+    suspend fun getForSession(sessionId: String): List<BridgeToolAuditEntity>
 }
 
 @Dao

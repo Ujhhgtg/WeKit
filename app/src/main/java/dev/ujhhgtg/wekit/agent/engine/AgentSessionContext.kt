@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.agent.engine
 
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
+import dev.ujhhgtg.wekit.agent.tool.ToolVisibility
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
@@ -15,6 +16,7 @@ import kotlin.coroutines.CoroutineContext
 class AgentSessionContext(
     val sessionId: String,
     val environment: EnvironmentSnapshot? = null,
+    val toolVisibility: ToolVisibility = ToolVisibility.fromGlobals(),
 ) : AbstractCoroutineContextElement(AgentSessionContext) {
     companion object Key : CoroutineContext.Key<AgentSessionContext>
 }

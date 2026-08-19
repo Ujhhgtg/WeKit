@@ -8,6 +8,13 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.net.InetAddress
+import java.net.ServerSocket
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import java.net.SocketTimeoutException
 
 class ToolBridgeProtocolTest {
     private val token = "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH)
@@ -46,6 +53,71 @@ class ToolBridgeProtocolTest {
             assertEquals((0 until 64).map { "payload-$it" }, results.map { it.get(2, TimeUnit.SECONDS) })
         } finally {
             executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `client JSON-escapes provider IDs`() {
+        ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { server ->
+            Executors.newSingleThreadExecutor().use { executor ->
+                val response = executor.submit<String> {
+                    server.accept().use { socket ->
+                        val frame = ToolBridgeProtocol.read(socket.getInputStream())
+                        ToolBridgeProtocol.write(socket.getOutputStream(), frame.token, "{\"ok\":true}")
+                        frame.payload
+                    }
+                }
+                InvokeToolClient(server.localPort, token).list("provider\"\\line\n")
+                val request = Json.parseToJsonElement(response.get(2, TimeUnit.SECONDS)).jsonObject
+                assertEquals("provider\"\\line\n", request.getValue("provider").jsonPrimitive.content)
+            }
+        }
+    }
+
+    @Test
+    fun `client builds all requests structurally`() {
+        val requests = mutableListOf<String>()
+        val escaped = "value\"\\line\n"
+        ServerSocket(0, 4, InetAddress.getByName("127.0.0.1")).use { server ->
+            Executors.newSingleThreadExecutor().use { executor ->
+                val responses = executor.submit {
+                    repeat(4) {
+                        server.accept().use { socket ->
+                            val frame = ToolBridgeProtocol.read(socket.getInputStream())
+                            requests += frame.payload
+                            ToolBridgeProtocol.write(socket.getOutputStream(), frame.token, "{\"ok\":true}")
+                        }
+                    }
+                }
+                val client = InvokeToolClient(server.localPort, token)
+                client.list(escaped)
+                client.search(escaped)
+                client.schema(escaped)
+                client.call(escaped, kotlinx.serialization.json.buildJsonObject {
+                    put("nested", escaped)
+                }.toString())
+                responses.get(2, TimeUnit.SECONDS)
+            }
+        }
+        val decoded = requests.map { Json.parseToJsonElement(it).jsonObject }
+        assertEquals(escaped, decoded[0].getValue("provider").jsonPrimitive.content)
+        assertEquals(escaped, decoded[1].getValue("keyword").jsonPrimitive.content)
+        assertEquals(escaped, decoded[2].getValue("name").jsonPrimitive.content)
+        assertEquals(escaped, decoded[3].getValue("name").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `client read deadline is bounded`() {
+        ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { server ->
+            Executors.newSingleThreadExecutor().use { executor ->
+                val accepted = executor.submit {
+                    server.accept().use { Thread.sleep(250) }
+                }
+                assertThrows(SocketTimeoutException::class.java) {
+                    InvokeToolClient(server.localPort, token, responseTimeoutMs = 50).list()
+                }
+                accepted.get(1, TimeUnit.SECONDS)
+            }
         }
     }
 }

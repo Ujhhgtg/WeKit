@@ -196,6 +196,40 @@ class TerminalManagerTest {
     }
 
     @Test
+    fun `terminal bridge hook is installed before spawn and late hooks revoke immediately`() = runBlocking {
+        val backend = FakeBackend()
+        val manager = manager(backend)
+        var revoked = 0
+        val info = manager.start("owner", environment, prepareEnvironment = { id ->
+            manager.addRevocationHook(id) { revoked++ }
+            mapOf("WEAGENT_BRIDGE_TOKEN" to "token")
+        })
+        assertEquals("token", backend.environments.single()["WEAGENT_BRIDGE_TOKEN"])
+        backend.sessions.single().exit(0)
+        eventually { manager.list("owner").single().state == TerminalState.EXITED }
+        assertEquals(1, revoked)
+
+        manager.addRevocationHook(info.id) { revoked++ }
+        assertEquals(2, revoked)
+    }
+
+    @Test
+    fun `terminal startup failure revokes bridge hook`() = runBlocking {
+        val backend = FakeBackend()
+        val manager = manager(backend)
+        var revoked = 0
+
+        val info = manager.start("owner", environment, prepareEnvironment = { id ->
+            manager.addRevocationHook(id) { revoked++ }
+            error("bridge environment failed")
+        })
+
+        assertEquals(TerminalState.FAILED, info.state)
+        assertEquals(1, revoked)
+        assertEquals(0, backend.startCount)
+    }
+
+    @Test
     fun `idle and lifetime expiry retain then clean finished output`() = runBlocking {
         val clock = AtomicLong(1_000)
         val backend = FakeBackend()
@@ -255,7 +289,7 @@ class TerminalManagerTest {
     fun `terminal tools are direct only and revocation hook is public`() {
         assertTrue(ToolRegistry.isCallAllowed("terminal_read", ToolCallOrigin.DIRECT))
         assertFalse(ToolRegistry.isCallAllowed("terminal_read", ToolCallOrigin.ENVIRONMENT_BRIDGE))
-        assertTrue(ToolRegistry.isCallAllowed("exec", ToolCallOrigin.ENVIRONMENT_BRIDGE))
+        assertFalse(ToolRegistry.isCallAllowed("exec", ToolCallOrigin.ENVIRONMENT_BRIDGE))
         assertTrue(TerminalManager::class.java.methods.any { it.name == "revokeOwner" })
     }
 
@@ -279,10 +313,12 @@ class TerminalManagerTest {
     ) : TerminalBackend {
         val sessions = CopyOnWriteArrayList<FakeSession>()
         val argv = CopyOnWriteArrayList<List<String>>()
+        val environments = CopyOnWriteArrayList<Map<String, String>>()
         @Volatile var startCount = 0
 
         override suspend fun start(environment: EnvironmentSnapshot, argv: List<String>, workingDirectory: String?, environmentVariables: Map<String, String>, cols: Int, rows: Int): TerminalBackendStart {
             this.argv += argv
+            environments += environmentVariables
             startCount++
             startEntered?.complete(Unit)
             startGate?.await()

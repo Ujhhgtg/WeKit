@@ -1,10 +1,14 @@
 use serde_json::{Value, json};
 use std::env;
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+use std::time::Duration;
 
 const VERSION: &str = "WBT/1";
 const MAX_PAYLOAD: usize = 1024 * 1024;
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const READ_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 
 fn main() {
     if let Err(error) = run() {
@@ -45,8 +49,12 @@ fn run() -> Result<(), String> {
 
     let payload = request.to_string().into_bytes();
     if payload.len() > MAX_PAYLOAD { return Err("request too large".into()); }
-    let mut socket = TcpStream::connect(format!("127.0.0.1:{port}"))
+    let port: u16 = port.parse().map_err(|_| "invalid bridge port")?;
+    let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
+    let mut socket = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT)
         .map_err(|error| format!("bridge unavailable: {error}"))?;
+    socket.set_read_timeout(Some(READ_TIMEOUT)).map_err(|error| error.to_string())?;
+    socket.set_write_timeout(Some(WRITE_TIMEOUT)).map_err(|error| error.to_string())?;
     write!(socket, "{VERSION} {token} {}\n", payload.len()).map_err(|error| error.to_string())?;
     socket.write_all(&payload).map_err(|error| error.to_string())?;
     let (response_token, response) = read_frame(&mut socket)?;

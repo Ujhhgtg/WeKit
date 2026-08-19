@@ -12,6 +12,7 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import java.io.File
 import java.util.zip.ZipFile
+import dalvik.system.BaseDexClassLoader
 import kotlin.io.path.div
 import kotlin.io.path.exists
 
@@ -26,6 +27,8 @@ object NativeLoader {
     private var zygiskPayload: ZygiskPayload? = null
     private var zygiskNativeLibraries: Map<String, File> = emptyMap()
     private var nativeLibrariesLoaded = false
+    private var nativeArtifactDir: File? = null
+    private var materializedInvokeTool: File? = null
 
     /**
      * Configures native loading for the copied APK that the FunBox-style
@@ -43,6 +46,11 @@ object NativeLoader {
     }
 
     fun init(hostCtx: Context) {
+        synchronized(nativeLoadLock) {
+            nativeArtifactDir = File(hostCtx.filesDir, "wekit-native-artifacts").also {
+                if (!it.exists() && !it.mkdirs()) error("cannot create native artifact directory: $it")
+            }
+        }
         ensureNativeLibrariesLoaded()
         val mmkvDir = hostCtx.filesDir.toPath() / "mmkv"
         if (!mmkvDir.exists()) {
@@ -104,6 +112,30 @@ object NativeLoader {
         }
     }
 
+    fun invokeToolExecutable(): File = synchronized(nativeLoadLock) {
+        materializedInvokeTool ?: (zygiskNativeLibraries["invoke_tool"]
+            ?: (NativeLoader::class.java.classLoader as? BaseDexClassLoader)?.findLibrary("invoke_tool")
+                ?.let(::materializePackagedExecutable)
+            ?: error("packaged invoke_tool executable is unavailable")).also {
+                materializedInvokeTool = it
+            }
+    }.also { require(it.isFile && it.canExecute()) { "invoke_tool is not executable: $it" } }
+
+    private fun materializePackagedExecutable(path: String): File {
+        if (!path.contains("!/")) return File(path)
+        val apk = File(path.substringBefore("!/"))
+        val entryName = path.substringAfter("!/")
+        val destinationDir = nativeArtifactDir ?: error("native loader is not initialized")
+        val destination = File(destinationDir, "invoke_tool")
+        ZipFile(apk).use { archive ->
+            archive.getEntry(entryName) ?: error("packaged invoke_tool entry is missing")
+            destination.delete()
+            extractLibrary(archive, entryName, destinationDir, destination.name)
+        }
+        destination.setExecutable(true, true)
+        return destination
+    }
+
     /**
      * InMemoryDexClassLoader has no native-library directory on API 28. Match
      * FunBox's workaround: extract packaged libraries into app data, then use
@@ -125,13 +157,14 @@ object NativeLoader {
                 "dexkit" to "libdexkit.so",
                 "mmkv" to "libmmkv.so",
                 "wekit_native" to "libwekit_native.so",
+                "invoke_tool" to "libinvoke_tool.so",
             )
             for (name in names) {
                 val (libraryName, fileName) = name
                 val entry = archive.getEntry("lib/$abi/$fileName") ?: continue
                 val extracted = extractLibrary(archive, entry.name, libraryDir, fileName)
                 libraries[libraryName] = extracted
-                if (libraryName != "mmkv") {
+                if (libraryName != "mmkv" && libraryName != "invoke_tool") {
                     System.load(extracted.absolutePath)
                 }
             }

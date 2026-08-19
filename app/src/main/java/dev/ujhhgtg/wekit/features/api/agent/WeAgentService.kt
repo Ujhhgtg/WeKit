@@ -18,6 +18,8 @@ import dev.ujhhgtg.wekit.agent.engine.PendingApproval
 import dev.ujhhgtg.wekit.agent.engine.PromptComposer
 import dev.ujhhgtg.wekit.agent.engine.SmallModelRef
 import dev.ujhhgtg.wekit.agent.engine.TurnConfig
+import dev.ujhhgtg.wekit.agent.engine.ToolCallExecutor
+import dev.ujhhgtg.wekit.agent.bridge.ToolBridgeServer
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
 import dev.ujhhgtg.wekit.agent.terminal.NativeTerminalBackend
 import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
@@ -79,6 +81,14 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
 
     val linuxEnvironmentManager = LinuxEnvironmentManager()
     val terminalManager = TerminalManager(NativeTerminalBackend())
+    val toolBridgeServer = ToolBridgeServer(
+        registry = registry,
+        executorFactory = { sessionId ->
+            ToolCallExecutor(registry, ApprovalGateway(manualApprovalHandler, resolveSmallModel(sessionId)))
+        },
+        scope = scope,
+        audit = WeAgentRepository::appendBridgeToolAudit,
+    )
 
     /** Trigger runtime (schedule + message/SQL event triggers). Started in [init]. */
     val triggerManager = dev.ujhhgtg.wekit.agent.trigger.TriggerManager(scope, this)
@@ -233,6 +243,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         WeAgentDatabase.instance
         WeAgentRepository.seedAndLoad()
         WeAgentSettings.load()
+        toolBridgeServer.start()
         BuiltinToolProvider.fsToolsVisible = WeAgentSettings.memoryEnabled()
 
         // Bring up MCP providers and keep the registry's MCP set in sync.
@@ -694,7 +705,9 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             try {
                 // Install VFS (fs tools), UiImageSink (ui-screenshot), and AgentSessionContext (so the
                 // trigger tools know which session "this session" refers to for SESSION-scoped triggers).
-                withContext(VfsContext(vfs) + UiImageSink() + AgentSessionContext(sessionId, linuxEnvironmentManager.nativeSnapshot)) {
+                val visibility = config.toolVisibility.copy(fsTools = workspaceEnabled || memoryEnabled)
+                withContext(VfsContext(vfs) + UiImageSink() +
+                    AgentSessionContext(sessionId, linuxEnvironmentManager.nativeSnapshot, visibility)) {
                     engine.runTurn(
                         TurnConfig(
                             client = config.client,
@@ -706,7 +719,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                             perTurnPrompts = config.perTurnPrompts,
                             conditionalPrompts = config.conditionalPrompts,
                             toolLoadingMode = config.toolLoadingMode,
-                            toolVisibility = config.toolVisibility.copy(fsTools = workspaceEnabled || memoryEnabled),
+                            toolVisibility = visibility,
                             onFetchSteerMessage = onFetchSteer,
                         ), priorHistory, userText
                     )

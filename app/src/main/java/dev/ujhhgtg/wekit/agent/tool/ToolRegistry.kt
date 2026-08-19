@@ -179,9 +179,25 @@ class ToolRegistry(
 
         /** Shared enforcement point for Task 5's bridge dispatcher. */
         fun isCallAllowed(toolName: String, origin: ToolCallOrigin): Boolean =
-            origin == ToolCallOrigin.DIRECT ||
-                toolName != "edit" && toolName != "exec" && toolName != DISCOVER_TOOLS_NAME &&
-                toolName !in BuiltinToolProvider.TERMINAL_TOOL_NAMES
+            isCallAllowed(ProviderKind.BUILTIN, toolName, toolName, origin)
+
+        fun isCallAllowed(
+            providerKind: ProviderKind,
+            exposedName: String,
+            bareName: String,
+            origin: ToolCallOrigin,
+        ): Boolean {
+            if (origin == ToolCallOrigin.DIRECT) return true
+            val names = buildList {
+                add(exposedName)
+                add(bareName)
+                if (providerKind == ProviderKind.MCP) add(exposedName.substringAfterLast("__"))
+            }
+            return names.none { name ->
+                name == "edit" || name == "exec" || name == DISCOVER_TOOLS_NAME ||
+                    name.startsWith("terminal_")
+            }
+        }
 
         private val DISCOVER_TOOLS_SCHEMA: JsonObject = buildJsonObject {
             put("type", "object")

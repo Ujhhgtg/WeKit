@@ -24,9 +24,24 @@ object WeAgentTerminalToolBindings {
     suspend fun list(): String = WeAgentService.terminalManager.list(owner()).joinToString("\n") { "id=${it.id}, environment=${it.environmentId}, state=${it.state}, size=${it.cols}x${it.rows}, cursor=${it.cursor}" }
     @AgentTool(name = "terminal_start", description = "Start an interactive PTY shell in the active Linux environment.", sideEffect = true, group = AgentTool.BUILTIN_TERMINAL)
     suspend fun start(@AgentToolParam("Optional command argv array. Each argument must be a separate item; omit for the environment's default login shell.") argv: List<String>?, @AgentToolParam("PTY columns") cols: Int?, @AgentToolParam("PTY rows") rows: Int?): String {
-        val context = currentCoroutineContext()[AgentSessionContext] ?: error("no active agent session")
+        val coroutineContext = currentCoroutineContext()
+        val context = coroutineContext[AgentSessionContext] ?: error("no active agent session")
         val environment = context.environment ?: error("no active Linux environment")
-        val info = WeAgentService.terminalManager.start(owner(), environment, argv, cols = cols ?: 80, rows = rows ?: 24)
+        val artifact = WeAgentService.linuxEnvironmentManager.ensureBridge(environment.id)
+            ?: error("invoke_tool is unavailable in ${environment.displayName}")
+        val info = WeAgentService.terminalManager.start(
+            owner(), environment, argv, cols = cols ?: 80, rows = rows ?: 24,
+            prepareEnvironment = { terminalId ->
+                val (endpoint) = WeAgentService.toolBridgeServer.openForTerminal(
+                    WeAgentService.terminalManager, terminalId, context.sessionId, environment.id,
+                    context.toolVisibility, coroutineContext,
+                )
+                endpoint.environment() + mapOf(
+                    "WEAGENT_INVOKE_TOOL" to artifact.executablePath,
+                    "PATH" to "${artifact.binDirectory}:${System.getenv("PATH").orEmpty()}",
+                )
+            },
+        )
         return "id=${info.id}, state=${info.state}, size=${info.cols}x${info.rows}"
     }
     @AgentTool(name = "terminal_write", description = "Write ordered terminal events.", sideEffect = true, group = AgentTool.BUILTIN_TERMINAL)

@@ -74,8 +74,15 @@ class LinuxEnvironmentManager(
         }
     }
 
-    suspend fun exec(environmentId: String, command: String, timeoutMillis: Long): ExecResult =
-        withLease(environmentId) { it.exec(command, timeoutMillis) }
+    suspend fun exec(
+        environmentId: String,
+        command: String,
+        timeoutMillis: Long,
+        environmentVariables: Map<String, String> = emptyMap(),
+    ): ExecResult = withLease(environmentId) { it.exec(command, timeoutMillis, environmentVariables) }
+
+    suspend fun ensureBridge(environmentId: String): BridgeInstallArtifact? =
+        withLease(environmentId) { it.ensureBridge() }
 
     suspend fun edit(environmentId: String, request: FileEditRequest) =
         withLease(environmentId) { it.edit(request) }

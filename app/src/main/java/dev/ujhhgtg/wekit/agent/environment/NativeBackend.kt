@@ -16,6 +16,7 @@ import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 
 class NativeBackend(
     override val snapshot: EnvironmentSnapshot,
@@ -29,7 +30,11 @@ class NativeBackend(
         require(maxOutputBytes >= 0) { "max output bytes must not be negative" }
     }
 
-    override suspend fun exec(command: String, timeoutMillis: Long): ExecResult = withContext(Dispatchers.IO) {
+    override suspend fun exec(
+        command: String,
+        timeoutMillis: Long,
+        environmentVariables: Map<String, String>,
+    ): ExecResult = withContext(Dispatchers.IO) {
         require(timeoutMillis in 1..MAX_TIMEOUT_MILLIS) { "timeout must be between 1 and $MAX_TIMEOUT_MILLIS ms" }
         val workingDirectory = Paths.get(snapshot.workingDirectory).toRealPath()
         val outputDirectory = workingDirectory.resolve(".weagent/outputs")
@@ -43,7 +48,10 @@ class NativeBackend(
             .directory(workingDirectory.toFile())
             .redirectOutput(stdoutFile.toFile())
             .redirectError(stderrFile.toFile())
-            .apply { environment().putAll(environmentVariables) }
+            .apply {
+                environment().putAll(this@NativeBackend.environmentVariables)
+                environment().putAll(environmentVariables)
+            }
             .start()
         var timedOut = false
         try {
@@ -170,7 +178,17 @@ class NativeBackend(
 
     override fun resolvePath(path: String): String = resolve(path).toString()
 
-    override suspend fun ensureBridge(): String? = snapshot.bridgeLocation
+    override suspend fun ensureBridge(): BridgeInstallArtifact = withContext(Dispatchers.IO) {
+        val packaged = NativeLoader.invokeToolExecutable()
+        val bin = Paths.get(snapshot.workingDirectory).resolve(".weagent/bin")
+        Files.createDirectories(bin)
+        val link = bin.resolve("invoke_tool")
+        if (Files.isSymbolicLink(link) && Files.readSymbolicLink(link) != packaged.toPath()) {
+            Files.delete(link)
+        }
+        if (!Files.exists(link)) Files.createSymbolicLink(link, packaged.toPath())
+        BridgeInstallArtifact(link.toString(), bin.toString())
+    }
 
     override suspend fun checkHealth(): EnvironmentHealth = withContext(Dispatchers.IO) {
         val directory = Paths.get(snapshot.workingDirectory)

@@ -9,6 +9,13 @@ import dev.ujhhgtg.wekit.agent.tool.ToolVisibility
 import dev.ujhhgtg.wekit.agent.tool.ToolCallOrigin
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
+
+class ToolExecutionContext(val callId: String) : AbstractCoroutineContextElement(ToolExecutionContext) {
+    companion object Key : CoroutineContext.Key<ToolExecutionContext>
+}
 
 class ToolCallExecutor(
     private val registry: ToolRegistry,
@@ -21,15 +28,20 @@ class ToolCallExecutor(
         val onAwaitingApproval: suspend (String) -> Unit = {},
     )
 
-    data class Result(val text: String, val status: ApprovalStatus, val providerId: String)
+    data class Result(
+        val text: String,
+        val status: ApprovalStatus,
+        val providerId: String,
+        val executionSucceeded: Boolean = true,
+    )
 
     suspend fun execute(call: LlmToolCall, context: Context): Result {
         val args = runCatching { LlmJson.json.parseToJsonElement(call.argumentsJson).jsonObject }
             .getOrElse { JsonObject(emptyMap()) }
         val tool = registry.findByExposedName(call.name, context.visibility)
-            ?: return Result("Unknown tool: ${call.name}", ApprovalStatus.AUTO_ALLOWED, "")
-        if (!ToolRegistry.isCallAllowed(tool.exposedName, context.origin)) {
-            return Result("Tool is not available through the environment bridge: ${tool.exposedName}", ApprovalStatus.AUTO_ALLOWED, tool.provider.id)
+            ?: return Result("Unknown tool: ${call.name}", ApprovalStatus.AUTO_ALLOWED, "", false)
+        if (!ToolRegistry.isCallAllowed(tool.provider.kind, tool.exposedName, tool.bareName, context.origin)) {
+            return Result("Tool is not available through the environment bridge: ${tool.exposedName}", ApprovalStatus.AUTO_ALLOWED, tool.provider.id, false)
         }
         if (tool.mode == ToolMode.MANUAL_APPROVAL) context.onAwaitingApproval(call.name)
         return when (val decision = approvalGateway.decide(
@@ -41,14 +53,21 @@ class ToolCallExecutor(
                     ToolMode.SMART_APPROVAL -> ApprovalStatus.AI_APPROVED
                     else -> ApprovalStatus.AUTO_ALLOWED
                 }
-                val text = runCatching { registry.execute(tool, args) }
-                    .getOrElse { "工具执行失败：${it.message ?: it.javaClass.simpleName}" }
-                Result(text, status, tool.provider.id)
+                val execution = runCatching {
+                    withContext(ToolExecutionContext(call.id)) { registry.execute(tool, args) }
+                }
+                Result(
+                    execution.getOrElse { "工具执行失败：${it.message ?: it.javaClass.simpleName}" },
+                    status,
+                    tool.provider.id,
+                    execution.isSuccess,
+                )
             }
             is ApprovalDecision.Denied -> Result(
                 approvalGateway.deniedResultText(decision),
                 if (decision.bySmartReview) ApprovalStatus.AI_REJECTED else ApprovalStatus.USER_REJECTED,
                 tool.provider.id,
+                false,
             )
         }
     }

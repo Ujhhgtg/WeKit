@@ -61,6 +61,24 @@ object WeAgentRepository : ToolPermissionSource {
     override fun modeFor(providerId: String, toolName: String, factoryDefault: ToolMode): ToolMode =
         permissionCache[key(providerId, toolName)] ?: factoryDefault
 
+    suspend fun appendBridgeToolAudit(entry: dev.ujhhgtg.wekit.agent.bridge.ToolBridgeSession.AuditEntry) {
+        db.bridgeToolAuditDao().insert(
+            dev.ujhhgtg.wekit.agent.data.entity.BridgeToolAuditEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                sessionId = entry.sessionId,
+                environmentId = entry.environmentId,
+                parentToolCallId = entry.parentToolCallId,
+                providerId = entry.providerId,
+                toolName = entry.tool,
+                argumentsJson = entry.argumentsJson,
+                approvalStatus = entry.approvalStatus,
+                executionOutcome = entry.executionOutcome,
+                result = entry.result,
+                executedAt = java.time.Instant.now(),
+            )
+        )
+    }
+
     /**
      * Idempotent first-run/every-launch seeding:
      *  - ensures the builtin provider row exists,

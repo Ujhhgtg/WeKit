@@ -435,6 +435,13 @@ fn jni_libs_dir(root: &Path) -> PathBuf {
     root.join("app/src/main/jniLibs")
 }
 
+fn invoke_tool_artifact_paths(root: &Path, spec: &AbiSpec) -> (PathBuf, PathBuf) {
+    (
+        root.join("target").join(spec.cargo_triple).join("release/invoke_tool"),
+        jni_libs_dir(root).join(spec.android_name).join("libinvoke_tool.so"),
+    )
+}
+
 fn zygisk_dir(root: &Path) -> PathBuf {
     root.join("wekit-zygisk")
 }
@@ -733,10 +740,24 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
             format!("could not copy {} → {}", so_src.display(), so_dst.display())
         })?;
 
+        let (invoke_tool_src, invoke_tool_dst) = invoke_tool_artifact_paths(&root, spec);
+        fs::copy(&invoke_tool_src, &invoke_tool_dst).with_context(|| {
+            format!(
+                "could not copy invoke_tool PIE {} → {}",
+                invoke_tool_src.display(),
+                invoke_tool_dst.display()
+            )
+        })?;
+
         println!(
             "build(native):  {} → {}",
             so_src.display(),
             so_dst.display()
+        );
+        println!(
+            "build(native):  {} → {}",
+            invoke_tool_src.display(),
+            invoke_tool_dst.display()
         );
     }
 
@@ -1905,6 +1926,14 @@ mod tests {
                 ApkNativeBuildStep::WeKitNative,
             ],
         );
+    }
+
+    #[test]
+    fn invoke_tool_is_packaged_as_an_abi_native_artifact() {
+        let root = Path::new("/workspace");
+        let (source, destination) = invoke_tool_artifact_paths(root, &ABI_TABLE[0]);
+        assert_eq!(source, root.join("target/aarch64-linux-android/release/invoke_tool"));
+        assert_eq!(destination, root.join("app/src/main/jniLibs/arm64-v8a/libinvoke_tool.so"));
     }
 
     #[test]

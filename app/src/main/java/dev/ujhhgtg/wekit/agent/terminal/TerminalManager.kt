@@ -34,7 +34,14 @@ class TerminalManager(
 
     /** Called when a terminal-owned bridge capability must be revoked. */
     fun addRevocationHook(sessionId: String, hook: () -> Unit) {
-        synchronized(lock) { revocationHooks.getOrPut(sessionId, ::mutableListOf) += hook }
+        val revokeNow = synchronized(lock) {
+            val session = sessions[sessionId] ?: error("terminal not found")
+            if (session.state.isActive) {
+                revocationHooks.getOrPut(sessionId, ::mutableListOf) += hook
+                false
+            } else true
+        }
+        if (revokeNow) hook()
     }
 
     init {
@@ -52,6 +59,7 @@ class TerminalManager(
         argv: List<String>? = null,
         workingDirectory: String? = null,
         environmentVariables: Map<String, String> = emptyMap(),
+        prepareEnvironment: suspend (String) -> Map<String, String> = { emptyMap() },
         cols: Int = 80,
         rows: Int = 24,
     ): TerminalInfo {
@@ -70,7 +78,9 @@ class TerminalManager(
         }
 
         val started = try {
-            backend.start(environment, command, workingDirectory, environmentVariables, cols, rows)
+            val preparedEnvironment = prepareEnvironment(session.id)
+            backend.start(environment, command, workingDirectory,
+                environmentVariables + preparedEnvironment, cols, rows)
         } catch (error: CancellationException) {
             synchronized(lock) { session.finish(TerminalState.FAILED, now()) }
             throw error

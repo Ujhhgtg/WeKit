@@ -41,9 +41,26 @@ class WeAgentDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `migration 13 to 14 adds independent bridge audit storage`() {
+        DriverManager.getConnection("jdbc:sqlite::memory:").use { connection ->
+            connection.createStatement().use { statement ->
+                WeAgentDatabase.migration13To14Sql.forEach(statement::execute)
+                statement.execute("INSERT INTO bridge_tool_audits VALUES ('audit', 'session', 'native', 'call', 'builtin', 'read_only', '{}', 'AUTO_ALLOWED', 'SUCCEEDED', 'result', 1)")
+                statement.execute("INSERT INTO bridge_tool_audits VALUES ('cancelled', 'session', 'native', NULL, 'builtin', 'read_only', '{}', NULL, 'CANCELLED', 'revoked', 2)")
+                assertEquals(2, statement.count("bridge_tool_audits"))
+                assertTrue(statement.indexExists("index_bridge_tool_audits_sessionId"))
+                assertTrue(statement.indexExists("index_bridge_tool_audits_environmentId"))
+            }
+        }
+    }
+
     private fun java.sql.Statement.count(table: String, where: String = "1"): Int =
         executeQuery("SELECT COUNT(*) FROM $table WHERE $where").use { rows -> rows.next(); rows.getInt(1) }
 
     private fun java.sql.Statement.tableExists(name: String): Boolean =
         executeQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '$name'").use { it.next() }
+
+    private fun java.sql.Statement.indexExists(name: String): Boolean =
+        executeQuery("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = '$name'").use { it.next() }
 }

@@ -102,6 +102,24 @@ data class ToolCallEntity(
     val providerSignature: String? = null,
 )
 
+@Entity(
+    tableName = "bridge_tool_audits",
+    indices = [Index("sessionId"), Index("environmentId")],
+)
+data class BridgeToolAuditEntity(
+    @PrimaryKey val id: String,
+    val sessionId: String,
+    val environmentId: String,
+    val parentToolCallId: String?,
+    val providerId: String,
+    val toolName: String,
+    val argumentsJson: String,
+    val approvalStatus: ApprovalStatus?,
+    val executionOutcome: String,
+    val result: String,
+    val executedAt: Instant,
+)
+
 // ---------------------------------------------------------------------------
 // Tool providers & permissions (§10)
 // ---------------------------------------------------------------------------
