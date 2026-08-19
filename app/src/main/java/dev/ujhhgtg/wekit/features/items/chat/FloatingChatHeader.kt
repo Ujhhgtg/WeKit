@@ -364,6 +364,12 @@ object FloatingChatHeader : ClickableFeature() {
                 val layout = v.findAncestorChattingUILayout() ?: return
                 trackLayout(layout)
                 val tracker = layoutTrackers[layout] ?: return
+                tipsBarGroups[layout]?.takeIf { it !== v }?.let { previous ->
+                    val recycler = tipsBarRecyclers[previous]
+                    unobserveTrackedView(tracker, previous)
+                    recycler?.let { unobserveTrackedView(tracker, it) }
+                    clearTipsGroupCaches(previous, recycler)
+                }
                 tipsBarGroups[layout] = v
                 observeTrackedView(tracker, v, RECONCILE_TIPS)
                 tipsBarRecycler(v)?.let { observeTrackedView(tracker, it, RECONCILE_TIPS) }
