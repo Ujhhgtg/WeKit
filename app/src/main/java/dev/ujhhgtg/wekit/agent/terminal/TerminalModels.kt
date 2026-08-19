@@ -24,7 +24,8 @@ data class TerminalBackendStart(
 
 interface TerminalBackendSession {
     suspend fun write(bytes: ByteArray)
-    suspend fun read(maxBytes: Int): ByteArray
+    /** Returns null when no bytes are ready yet and an empty array at EOF. */
+    suspend fun read(maxBytes: Int): ByteArray?
     suspend fun resize(cols: Int, rows: Int)
     suspend fun waitForExit(): Int?
     suspend fun kill()

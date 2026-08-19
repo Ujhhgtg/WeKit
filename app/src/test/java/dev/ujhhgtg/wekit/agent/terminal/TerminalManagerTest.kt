@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.agent.tool.ToolCallOrigin
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -148,27 +149,37 @@ class TerminalManagerTest {
     }
 
     @Test
-    fun `wait failure kills retries joins reader closes before failed`() = runBlocking {
-        val backend = FakeBackend(waitFailure = true, killFailures = 1)
+    fun `wait failure unblocks reader and close failure cannot suppress failed state`() = runBlocking {
+        val closeGate = CompletableDeferred<Unit>()
+        val backend = FakeBackend(waitFailure = true, killFailures = 2, closeGate = closeGate, closeFailure = true)
         val manager = manager(backend)
         manager.start("one", environment)
         val session = backend.sessions.single()
-        eventually { session.closeCount == 1 }
+        withTimeout(5_000) { session.closeEntered.await() }
         assertEquals(2, session.killCount)
-        assertEquals(TerminalState.FAILED, manager.list("one").single().state)
+        assertTrue(session.readerStopped.isCompleted)
+        assertEquals(1, session.closeCount)
+        assertEquals(TerminalState.RUNNING, manager.list("one").single().state)
+        assertTrue(session.operations.indexOf("reader-stopped") < session.operations.indexOf("close"))
+        closeGate.complete(Unit)
+        eventually { manager.list("one").single().state == TerminalState.FAILED }
+        assertEquals(1, session.closeCount)
     }
 
     @Test
     fun `reader tail is retained before exit cleanup`() = runBlocking {
-        val backend = FakeBackend()
+        val closeGate = CompletableDeferred<Unit>()
+        val backend = FakeBackend(closeGate = closeGate)
         val manager = manager(backend)
         val id = manager.start("one", environment).id
         val session = backend.sessions.single()
-        session.emit("tail")
-        session.exit(0)
-        eventually { manager.list("one").single().state == TerminalState.EXITED }
+        session.waitStarted.await()
+        session.exitWithTail("tail", 0)
+        withTimeout(2_000) { session.closeEntered.await() }
         assertEquals("tail", manager.read("one", id, cursor = 0).bytes.toString(Charsets.UTF_8))
         assertEquals(1, session.closeCount)
+        closeGate.complete(Unit)
+        eventually { manager.list("one").single().state == TerminalState.EXITED }
     }
 
     @Test
@@ -263,6 +274,8 @@ class TerminalManagerTest {
         private val startEntered: CompletableDeferred<Unit>? = null,
         private val waitFailure: Boolean = false,
         private val killFailures: Int = 0,
+        private val closeGate: CompletableDeferred<Unit>? = null,
+        private val closeFailure: Boolean = false,
     ) : TerminalBackend {
         val sessions = CopyOnWriteArrayList<FakeSession>()
         val argv = CopyOnWriteArrayList<List<String>>()
@@ -274,17 +287,23 @@ class TerminalManagerTest {
             startEntered?.complete(Unit)
             startGate?.await()
             if (failStart) error("spawn failed")
-            return TerminalBackendStart(FakeSession(waitFailure, killFailures).also { sessions += it }, environment)
+            return TerminalBackendStart(FakeSession(waitFailure, killFailures, closeGate, closeFailure).also { sessions += it }, environment)
         }
     }
 
     private class FakeSession(
         private val waitFailure: Boolean = false,
         private var killFailures: Int = 0,
+        private val closeGate: CompletableDeferred<Unit>? = null,
+        private val closeFailure: Boolean = false,
     ) : TerminalBackendSession {
         val writes = CopyOnWriteArrayList<ByteArray>()
+        val operations = CopyOnWriteArrayList<String>()
         private val reads = Channel<ByteArray>(Channel.UNLIMITED)
         private val exit = CompletableDeferred<Int?>()
+        val waitStarted = CompletableDeferred<Unit>()
+        val readerStopped = CompletableDeferred<Unit>()
+        val closeEntered = CompletableDeferred<Unit>()
         @Volatile var killCount = 0
         @Volatile var closeCount = 0
 
@@ -297,22 +316,41 @@ class TerminalManagerTest {
             reads.trySend(ByteArray(0))
             exit.complete(code)
         }
+        suspend fun exitWithTail(value: String, code: Int?) {
+            exit.complete(code)
+            reads.send(value.toByteArray())
+            reads.send(ByteArray(0))
+        }
 
         override suspend fun write(bytes: ByteArray) { writes += bytes }
-        override suspend fun read(maxBytes: Int): ByteArray = reads.receive()
+        override suspend fun read(maxBytes: Int): ByteArray? = try {
+            reads.receive()
+        } catch (error: CancellationException) {
+            operations += "reader-stopped"
+            readerStopped.complete(Unit)
+            throw error
+        }
         override suspend fun resize(cols: Int, rows: Int) = Unit
         override suspend fun waitForExit(): Int? {
+            waitStarted.complete(Unit)
             if (waitFailure) error("wait failed")
             return exit.await()
         }
         override suspend fun kill() {
             killCount++
+            operations += "kill-$killCount"
             if (killFailures > 0) {
                 killFailures--
                 error("kill failed")
             }
             exit(null)
         }
-        override suspend fun close() { closeCount++ }
+        override suspend fun close() {
+            closeCount++
+            operations += "close"
+            closeEntered.complete(Unit)
+            closeGate?.await()
+            if (closeFailure) error("close failed")
+        }
     }
 }

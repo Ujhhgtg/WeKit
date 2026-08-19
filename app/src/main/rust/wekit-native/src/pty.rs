@@ -207,47 +207,47 @@ pub fn write(pty: &Pty, bytes: &[u8]) -> Result<(), String> {
     result
 }
 
-pub fn read(pty: &Pty, max: usize) -> Result<Vec<u8>, String> {
-    loop {
-        let fd = duplicate_master(pty)?;
-        let mut poll_fd = libc::pollfd {
-            fd,
-            events: POLLIN,
-            revents: 0,
-        };
-        let polled = unsafe { libc::poll(&mut poll_fd, 1, 100) };
-        if polled == 0 {
-            unsafe { libc::close(fd) };
-            std::thread::yield_now();
-            continue;
+pub enum ReadResult {
+    Data(usize),
+    Timeout,
+    Eof,
+}
+
+pub fn read(pty: &Pty, bytes: &mut [u8]) -> Result<ReadResult, String> {
+    let fd = duplicate_master(pty)?;
+    let mut poll_fd = libc::pollfd {
+        fd,
+        events: POLLIN,
+        revents: 0,
+    };
+    let polled = unsafe { libc::poll(&mut poll_fd, 1, 100) };
+    let result = if polled == 0 {
+        Ok(ReadResult::Timeout)
+    } else if polled < 0 {
+        if io::Error::last_os_error().raw_os_error() == Some(EINTR) {
+            Ok(ReadResult::Timeout)
+        } else {
+            Err(last_error())
         }
-        if polled < 0 {
-            if io::Error::last_os_error().raw_os_error() == Some(EINTR) {
-                unsafe { libc::close(fd) };
-                continue;
+    } else {
+        let count = unsafe { libc::read(fd, bytes.as_mut_ptr() as *mut _, bytes.len()) };
+        if count > 0 {
+            Ok(ReadResult::Data(count as usize))
+        } else if count == 0 {
+            Ok(ReadResult::Eof)
+        } else {
+            let error = io::Error::last_os_error();
+            if error.raw_os_error() == Some(EINTR) {
+                Ok(ReadResult::Timeout)
+            } else if error.raw_os_error() == Some(EIO) {
+                Ok(ReadResult::Eof)
+            } else {
+                Err(error.to_string())
             }
-            unsafe { libc::close(fd) };
-            return Err(last_error());
         }
-        let mut bytes = vec![0u8; max];
-        let result = unsafe { libc::read(fd, bytes.as_mut_ptr() as *mut _, max) };
-        if result >= 0 {
-            bytes.truncate(result as usize);
-            unsafe { libc::close(fd) };
-            return Ok(bytes);
-        }
-        let error = io::Error::last_os_error();
-        if error.raw_os_error() == Some(EINTR) {
-            unsafe { libc::close(fd) };
-            continue;
-        }
-        if error.raw_os_error() == Some(EIO) {
-            unsafe { libc::close(fd) };
-            return Ok(Vec::new());
-        }
-        unsafe { libc::close(fd) };
-        return Err(error.to_string());
-    }
+    };
+    unsafe { libc::close(fd) };
+    result
 }
 
 pub fn resize(pty: &Pty, cols: i32, rows: i32) -> Result<(), String> {

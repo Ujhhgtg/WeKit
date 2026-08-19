@@ -11,12 +11,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 
@@ -187,6 +190,8 @@ class TerminalManager(
             try {
                 while (true) {
                     val bytes = terminal.read(64 * 1024)
+                    coroutineContext.ensureActive()
+                    if (bytes == null) continue
                     if (bytes.isEmpty()) break
                     synchronized(lock) {
                         session.ring.append(bytes)
@@ -205,7 +210,7 @@ class TerminalManager(
             }
         }
         val waiter = scope.launch(start = CoroutineStart.LAZY) {
-            var failed = false
+            var primaryFailure: Throwable? = null
             try {
                 terminal.waitForExit()
                 reader.join()
@@ -213,18 +218,25 @@ class TerminalManager(
                     if (session.state == TerminalState.RUNNING) session.finish(TerminalState.EXITED, now())
                 }
             } catch (error: CancellationException) {
-                cleanupAfterWaitFailure(terminal, reader)
+                primaryFailure = error
                 throw error
-            } catch (_: Throwable) {
-                cleanupAfterWaitFailure(terminal, reader)
-                failed = true
+            } catch (error: Throwable) {
+                primaryFailure = error
             } finally {
                 withContext(NonCancellable) {
-                    withTimeoutOrNull(CLEANUP_TIMEOUT_MS) { terminal.close() }
+                    if (primaryFailure != null) cleanupAfterWaitFailure(terminal, reader, primaryFailure)
+                    val closeFailure = runCatching {
+                        withTimeout(CLEANUP_TIMEOUT_MS) { terminal.close() }
+                    }.exceptionOrNull()
+                    if (closeFailure != null && primaryFailure != null) {
+                        primaryFailure.addSuppressed(closeFailure)
+                    }
+                    if (primaryFailure !is CancellationException && primaryFailure != null) {
+                        synchronized(lock) {
+                            if (session.state.isActive) session.finish(TerminalState.FAILED, now())
+                        }
+                    }
                 }
-            }
-            if (failed) synchronized(lock) {
-                if (session.state.isActive) session.finish(TerminalState.FAILED, now())
             }
         }
         synchronized(lock) {
@@ -235,14 +247,24 @@ class TerminalManager(
         waiter.start()
     }
 
-    private suspend fun cleanupAfterWaitFailure(terminal: TerminalBackendSession, reader: Job) {
-        withContext(NonCancellable) {
-            val killed = withTimeoutOrNull(CLEANUP_TIMEOUT_MS) { runCatching { terminal.kill() }.isSuccess } == true
-            if (!killed) {
-                withTimeoutOrNull(CLEANUP_TIMEOUT_MS) { runCatching { terminal.kill() } }
-            }
+    private suspend fun cleanupAfterWaitFailure(
+        terminal: TerminalBackendSession,
+        reader: Job,
+        primaryFailure: Throwable,
+    ) {
+        val firstKill = runCatching {
+            withTimeout(CLEANUP_TIMEOUT_MS) { terminal.kill() }
+        }
+        firstKill.exceptionOrNull()?.let(primaryFailure::addSuppressed)
+        if (firstKill.isFailure) {
+            runCatching {
+                withTimeout(CLEANUP_TIMEOUT_MS) { terminal.kill() }
+            }.exceptionOrNull()?.let(primaryFailure::addSuppressed)
+        }
+        if (withTimeoutOrNull(CLEANUP_TIMEOUT_MS) { reader.join(); true } != true) {
+            reader.cancel()
             if (withTimeoutOrNull(CLEANUP_TIMEOUT_MS) { reader.join(); true } != true) {
-                reader.cancel()
+                primaryFailure.addSuppressed(IllegalStateException("terminal reader did not stop after cancellation"))
             }
         }
     }

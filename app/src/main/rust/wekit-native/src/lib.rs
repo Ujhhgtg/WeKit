@@ -127,29 +127,35 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00
     env: *mut RawJNIEnv,
     _thiz: jobject,
     handle: jlong,
-    max: jint,
-) -> jbyteArray {
-    if handle == 0 || max <= 0 {
-        return std::ptr::null_mut();
+    buffer: jbyteArray,
+) -> jint {
+    if handle == 0 || buffer.is_null() {
+        return -2;
     }
-    let bytes = match pty::read(unsafe { &*(handle as *const pty::Pty) }, max as usize) {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            loge!("pty read failed: {error}");
-            return std::ptr::null_mut();
-        }
-    };
     unsafe {
         let fns = *env;
-        let out = ((*fns).v1_6.NewByteArray)(env, bytes.len() as jint);
-        ((*fns).v1_6.SetByteArrayRegion)(
-            env,
-            out,
-            0,
-            bytes.len() as jint,
-            bytes.as_ptr() as *const i8,
+        let len = ((*fns).v1_6.GetArrayLength)(env, buffer);
+        if len <= 0 {
+            return -2;
+        }
+        let ptr = ((*fns).v1_6.GetByteArrayElements)(env, buffer, std::ptr::null_mut());
+        if ptr.is_null() {
+            return -2;
+        }
+        let result = pty::read(
+            &*(handle as *const pty::Pty),
+            std::slice::from_raw_parts_mut(ptr as *mut u8, len as usize),
         );
-        out
+        ((*fns).v1_6.ReleaseByteArrayElements)(env, buffer, ptr, 0);
+        match result {
+            Ok(pty::ReadResult::Data(count)) => count as jint,
+            Ok(pty::ReadResult::Timeout) => 0,
+            Ok(pty::ReadResult::Eof) => -1,
+            Err(error) => {
+                loge!("pty read failed: {error}");
+                -2
+            }
+        }
     }
 }
 
