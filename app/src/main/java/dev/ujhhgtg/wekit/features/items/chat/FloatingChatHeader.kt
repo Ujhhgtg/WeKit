@@ -1744,6 +1744,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         body?.let { tipsBarBodyOutlineHeights.remove(it) }
         tipsBarCardOutlineHeights.remove(group)
         tipsBarFoldHeights.remove(group)
+        animationGroupFields.clear()
         recycler?.let {
             tipsBarRowHooks.remove(it)
             tipsBarOffsetsRemoved.remove(it)
