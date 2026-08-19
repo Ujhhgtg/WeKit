@@ -136,60 +136,147 @@ fn run_with_paths(
     proc_root: &Path,
     boot_id_path: &Path,
 ) -> Result<(), String> {
-    validate_boot_id(request, boot_id_path)?;
     let self_pid = std::process::id() as i32;
-    verify_pidfd_support(self_pid)?;
     let self_namespace = namespace_inode(&proc_root.join("self/ns/mnt"))
         .map_err(|error| format!("cannot verify cleanup helper mount namespace: {error}"))?;
     if self_namespace == request.mount_namespace {
         return Err("cleanup helper is inside the target mount namespace".into());
     }
 
-    let mut target_namespace = None;
+    let mut runtime = SystemCleanupRuntime {
+        request,
+        proc_root,
+        boot_id_path,
+        self_pid,
+    };
+    cleanup_namespace(&mut runtime, request.mount_namespace)
+}
+
+trait CleanupRuntime {
+    fn acquire_members(&mut self, expected: u64) -> Result<Vec<NamespaceMember>, String>;
+    fn verify_pidfd_support(&mut self) -> Result<(), String>;
+    fn authenticate_leader(&mut self, members: &[NamespaceMember]) -> Result<(), String>;
+    fn pin_leader_namespace(&mut self, members: &[NamespaceMember]) -> Result<OwnedFd, String>;
+    fn namespace_identity(&mut self, namespace: &OwnedFd) -> Result<u64, String>;
+    fn signal_members(&mut self, members: &[NamespaceMember], signal: i32) -> Result<(), String>;
+    fn members_stopped(&mut self, members: &[NamespaceMember]) -> Result<bool, String>;
+    fn terminate_members(&mut self, expected: u64, signal: i32, resume: bool)
+    -> Result<(), String>;
+    fn wait_for_empty(&mut self, expected: u64, timeout: Duration) -> Result<bool, String>;
+    fn unmount_in_namespace(&mut self, namespace: &OwnedFd) -> Result<(), String>;
+    fn pause(&mut self);
+}
+
+fn cleanup_namespace(
+    runtime: &mut impl CleanupRuntime,
+    recorded_identity: u64,
+) -> Result<(), String> {
+    let mut members = runtime.acquire_members(recorded_identity)?;
+    if members.is_empty() {
+        return Ok(());
+    }
+
+    runtime.verify_pidfd_support()?;
+    runtime.authenticate_leader(&members)?;
+    let target_namespace = runtime.pin_leader_namespace(&members)?;
+    let target_identity = runtime.namespace_identity(&target_namespace)?;
+
     let mut stability = FreezeStability::new(FREEZE_SCAN_LIMIT);
     loop {
-        let members = acquire_members(proc_root, request.mount_namespace, self_pid)?;
-        validate_recorded_leader(request, proc_root, &members)?;
-        preserve_namespace(&members, &mut target_namespace)?;
-        signal_members(&members, libc::SIGSTOP)?;
-        let rescanned = acquire_members(proc_root, request.mount_namespace, self_pid)?;
-        preserve_namespace(&rescanned, &mut target_namespace)?;
-        let stopped = members_stopped(proc_root, &rescanned)?;
+        runtime.signal_members(&members, libc::SIGSTOP)?;
+        let rescanned = runtime.acquire_members(target_identity)?;
+        let stopped = runtime.members_stopped(&rescanned)?;
         let before = members.iter().map(NamespaceMember::identity).collect();
         let after = rescanned.iter().map(NamespaceMember::identity).collect();
         if stability.observe(before, after, stopped)? {
             break;
         }
-        thread::sleep(SCAN_PAUSE);
+        members = rescanned;
+        runtime.pause();
     }
 
-    terminate_members(
-        proc_root,
-        request.mount_namespace,
-        self_pid,
-        libc::SIGTERM,
-        true,
-    )?;
-    if !wait_for_empty(proc_root, request.mount_namespace, self_pid, MEMBER_WAIT)? {
-        terminate_members(
-            proc_root,
-            request.mount_namespace,
-            self_pid,
-            libc::SIGKILL,
-            false,
-        )?;
-        if !wait_for_empty(proc_root, request.mount_namespace, self_pid, MEMBER_WAIT)? {
+    runtime.terminate_members(target_identity, libc::SIGTERM, true)?;
+    if !runtime.wait_for_empty(target_identity, MEMBER_WAIT)? {
+        runtime.terminate_members(target_identity, libc::SIGKILL, false)?;
+        if !runtime.wait_for_empty(target_identity, MEMBER_WAIT)? {
             return Err("processes remain in mount namespace after SIGKILL".into());
         }
     }
 
-    if let Some(namespace) = target_namespace {
-        unmount_in_namespace(&namespace, &request.mount_targets, proc_root)?;
-    }
-    if !acquire_members(proc_root, request.mount_namespace, self_pid)?.is_empty() {
+    runtime.unmount_in_namespace(&target_namespace)?;
+    if !runtime.acquire_members(target_identity)?.is_empty() {
         return Err("process appeared in mount namespace after cleanup".into());
     }
     Ok(())
+}
+
+struct SystemCleanupRuntime<'a> {
+    request: &'a CleanupRequest,
+    proc_root: &'a Path,
+    boot_id_path: &'a Path,
+    self_pid: i32,
+}
+
+impl CleanupRuntime for SystemCleanupRuntime<'_> {
+    fn acquire_members(&mut self, expected: u64) -> Result<Vec<NamespaceMember>, String> {
+        acquire_members(self.proc_root, expected, self.self_pid)
+    }
+
+    fn verify_pidfd_support(&mut self) -> Result<(), String> {
+        verify_pidfd_support(self.self_pid)
+    }
+
+    fn authenticate_leader(&mut self, members: &[NamespaceMember]) -> Result<(), String> {
+        validate_boot_id(self.request, self.boot_id_path)?;
+        validate_recorded_leader(self.request, self.proc_root, members)?;
+        let leader = members
+            .iter()
+            .find(|member| member.tgid == self.request.pid && member.tid == self.request.pid)
+            .ok_or("recorded leader is absent; refusing inode-only namespace cleanup")?;
+        if wait_pidfd(leader.pidfd.as_raw_fd(), Duration::ZERO)? {
+            Err("process identity mismatch: recorded leader exited during authentication".into())
+        } else {
+            Ok(())
+        }
+    }
+
+    fn pin_leader_namespace(&mut self, members: &[NamespaceMember]) -> Result<OwnedFd, String> {
+        preserve_leader_namespace(members, self.request.pid)
+    }
+
+    fn namespace_identity(&mut self, namespace: &OwnedFd) -> Result<u64, String> {
+        namespace_inode_fd(namespace.as_raw_fd())
+            .map_err(|error| format!("cannot verify preserved mount namespace: {error}"))
+    }
+
+    fn signal_members(&mut self, members: &[NamespaceMember], signal: i32) -> Result<(), String> {
+        signal_members(members, signal)
+    }
+
+    fn members_stopped(&mut self, members: &[NamespaceMember]) -> Result<bool, String> {
+        members_stopped(self.proc_root, members)
+    }
+
+    fn terminate_members(
+        &mut self,
+        expected: u64,
+        signal: i32,
+        resume: bool,
+    ) -> Result<(), String> {
+        terminate_members(self.proc_root, expected, self.self_pid, signal, resume)
+    }
+
+    fn wait_for_empty(&mut self, expected: u64, timeout: Duration) -> Result<bool, String> {
+        wait_for_empty(self.proc_root, expected, self.self_pid, timeout)
+    }
+
+    fn unmount_in_namespace(&mut self, namespace: &OwnedFd) -> Result<(), String> {
+        unmount_in_namespace(namespace, &self.request.mount_targets, self.proc_root)
+    }
+
+    fn pause(&mut self) {
+        thread::sleep(SCAN_PAUSE);
+    }
 }
 
 fn verify_pidfd_support(self_pid: i32) -> Result<(), String> {
@@ -363,12 +450,11 @@ fn validate_recorded_leader(
     proc_root: &Path,
     members: &[NamespaceMember],
 ) -> Result<(), String> {
-    if members.iter().all(|member| member.tgid != request.pid) {
-        return if members.is_empty() {
-            Ok(())
-        } else {
-            Err("recorded leader is absent; refusing inode-only namespace cleanup".into())
-        };
+    if members
+        .iter()
+        .all(|member| member.tgid != request.pid || member.tid != request.pid)
+    {
+        return Err("recorded leader is absent; refusing inode-only namespace cleanup".into());
     }
     let process = proc_root.join(request.pid.to_string());
     let stat = fs::read_to_string(process.join("stat"))
@@ -398,19 +484,19 @@ fn validate_recorded_leader(
     Ok(())
 }
 
-fn preserve_namespace(
+fn preserve_leader_namespace(
     members: &[NamespaceMember],
-    saved: &mut Option<OwnedFd>,
-) -> Result<(), String> {
-    if saved.is_none() && let Some(member) = members.first() {
-        *saved = Some(
-            member
-                .namespace
-                .try_clone()
-                .map_err(|error| format!("cannot preserve mount namespace: {error}"))?,
-        );
-    }
-    Ok(())
+    leader_pid: i32,
+) -> Result<OwnedFd, String> {
+    members
+        .iter()
+        .find(|member| member.tgid == leader_pid && member.tid == leader_pid)
+        .ok_or_else(|| {
+            "recorded leader is absent; refusing inode-only namespace cleanup".to_owned()
+        })?
+        .namespace
+        .try_clone()
+        .map_err(|error| format!("cannot preserve leader mount namespace: {error}"))
 }
 
 fn signal_members(members: &[NamespaceMember], signal: i32) -> Result<(), String> {
@@ -643,6 +729,7 @@ fn wait_pidfd(pidfd: i32, timeout: Duration) -> Result<bool, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::VecDeque;
 
     fn request_args() -> Vec<String> {
         [
@@ -832,20 +919,190 @@ mod tests {
         fs::write(&identity, "identity").unwrap();
         let dummy = open_read_only(&identity).unwrap();
         let request = parse_request(request_args()).unwrap();
-        let unrelated = [NamespaceMember {
-            tgid: 99,
-            tid: 99,
-            pidfd: dummy.try_clone().unwrap(),
-            namespace: dummy,
-        }];
+        let unrelated = [member(99, &dummy)];
 
-        assert!(validate_recorded_leader(&request, &root.join("proc"), &[]).is_ok());
         assert!(
             validate_recorded_leader(&request, &root.join("proc"), &unrelated)
                 .unwrap_err()
                 .contains("inode-only")
         );
+        let mut runtime = ScriptedRuntime::new([vec![member(99, &dummy)]]);
+        assert!(
+            cleanup_namespace(&mut runtime, request.mount_namespace)
+                .unwrap_err()
+                .contains("inode-only")
+        );
+        assert_eq!(runtime.scan_count, 1);
+        assert_eq!(runtime.signals, 0);
+        assert_eq!(runtime.destructive_rescans, 0);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn empty_first_scan_is_terminal_before_same_inode_can_be_reused() {
+        let root = temp_root("empty-first");
+        fs::write(&root, "namespace").unwrap();
+        let fd = open_read_only(&root).unwrap();
+        let unrelated = member(99, &fd);
+        let mut runtime = ScriptedRuntime::new([vec![], vec![unrelated]]);
+
+        assert_eq!(cleanup_namespace(&mut runtime, 4026533001), Ok(()));
+        assert_eq!(runtime.scan_count, 1);
+        assert_eq!(runtime.pidfd_opens, 0);
+        assert_eq!(runtime.signals, 0);
+        assert_eq!(runtime.destructive_rescans, 0);
+        assert_eq!(runtime.scans.len(), 1);
+        fs::remove_file(root).unwrap();
+    }
+
+    #[test]
+    fn authenticates_and_pins_leader_before_destructive_cleanup() {
+        let root = temp_root("authenticated-acquisition");
+        fs::write(&root, "namespace").unwrap();
+        let fd = open_read_only(&root).unwrap();
+        let mut runtime =
+            ScriptedRuntime::new([vec![member(42, &fd)], vec![member(42, &fd)], vec![]]);
+
+        cleanup_namespace(&mut runtime, 4026533001).unwrap();
+
+        let authenticated = runtime
+            .events
+            .iter()
+            .position(|event| *event == "authenticate_boot_start_marker")
+            .unwrap();
+        let pinned = runtime
+            .events
+            .iter()
+            .position(|event| *event == "pin_leader_namespace")
+            .unwrap();
+        let pinned_identity = runtime
+            .events
+            .iter()
+            .position(|event| *event == "fstat_namespace")
+            .unwrap();
+        let first_signal = runtime
+            .events
+            .iter()
+            .position(|event| *event == "signal")
+            .unwrap();
+        let termination = runtime
+            .events
+            .iter()
+            .position(|event| *event == "terminate")
+            .unwrap();
+        assert!(authenticated < pinned);
+        assert!(pinned < pinned_identity);
+        assert!(pinned_identity < first_signal);
+        assert!(pinned_identity < termination);
+        assert_eq!(runtime.destructive_rescans, 2);
+        fs::remove_file(root).unwrap();
+    }
+
+    fn member(tgid: i32, namespace: &OwnedFd) -> NamespaceMember {
+        NamespaceMember {
+            tgid,
+            tid: tgid,
+            pidfd: namespace.try_clone().unwrap(),
+            namespace: namespace.try_clone().unwrap(),
+        }
+    }
+
+    struct ScriptedRuntime {
+        scans: VecDeque<Vec<NamespaceMember>>,
+        events: Vec<&'static str>,
+        scan_count: usize,
+        pidfd_opens: usize,
+        signals: usize,
+        destructive_rescans: usize,
+    }
+
+    impl ScriptedRuntime {
+        fn new(scans: impl IntoIterator<Item = Vec<NamespaceMember>>) -> Self {
+            Self {
+                scans: scans.into_iter().collect(),
+                events: Vec::new(),
+                scan_count: 0,
+                pidfd_opens: 0,
+                signals: 0,
+                destructive_rescans: 0,
+            }
+        }
+    }
+
+    impl CleanupRuntime for ScriptedRuntime {
+        fn acquire_members(&mut self, _expected: u64) -> Result<Vec<NamespaceMember>, String> {
+            if self.scan_count > 0 {
+                self.destructive_rescans += 1;
+            }
+            self.scan_count += 1;
+            self.events.push("scan");
+            let members = self.scans.pop_front().expect("unexpected member scan");
+            self.pidfd_opens += members.len();
+            Ok(members)
+        }
+
+        fn verify_pidfd_support(&mut self) -> Result<(), String> {
+            self.events.push("verify_pidfd");
+            Ok(())
+        }
+
+        fn authenticate_leader(&mut self, members: &[NamespaceMember]) -> Result<(), String> {
+            self.events.push("authenticate_boot_start_marker");
+            if members.iter().any(|member| member.tgid == 42) {
+                Ok(())
+            } else {
+                Err("recorded leader is absent; refusing inode-only namespace cleanup".into())
+            }
+        }
+
+        fn pin_leader_namespace(&mut self, members: &[NamespaceMember]) -> Result<OwnedFd, String> {
+            self.events.push("pin_leader_namespace");
+            preserve_leader_namespace(members, 42)
+        }
+
+        fn namespace_identity(&mut self, namespace: &OwnedFd) -> Result<u64, String> {
+            self.events.push("fstat_namespace");
+            namespace_inode_fd(namespace.as_raw_fd()).map_err(|error| error.to_string())
+        }
+
+        fn signal_members(
+            &mut self,
+            _members: &[NamespaceMember],
+            _signal: i32,
+        ) -> Result<(), String> {
+            self.events.push("signal");
+            self.signals += 1;
+            Ok(())
+        }
+
+        fn members_stopped(&mut self, _members: &[NamespaceMember]) -> Result<bool, String> {
+            self.events.push("members_stopped");
+            Ok(true)
+        }
+
+        fn terminate_members(
+            &mut self,
+            _expected: u64,
+            _signal: i32,
+            _resume: bool,
+        ) -> Result<(), String> {
+            self.events.push("terminate");
+            Ok(())
+        }
+
+        fn wait_for_empty(&mut self, _expected: u64, _timeout: Duration) -> Result<bool, String> {
+            self.events.push("wait_for_empty");
+            Ok(true)
+        }
+
+        fn unmount_in_namespace(&mut self, _namespace: &OwnedFd) -> Result<(), String> {
+            self.events.push("unmount");
+            Ok(())
+        }
+
+        fn pause(&mut self) {
+            self.events.push("pause");
+        }
     }
 
     fn temp_root(label: &str) -> PathBuf {
