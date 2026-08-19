@@ -11,7 +11,6 @@ import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
 import java.io.ByteArrayOutputStream
-import android.os.Process as AndroidProcess
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -54,16 +53,14 @@ class NativeBackend(
             }
             .start()
         var timedOut = false
+        var completedNormally = false
         try {
             val deadline = System.nanoTime() + timeoutMillis * 1_000_000
             while (process.isAlive) {
                 coroutineContext.ensureActive()
                 if (System.nanoTime() >= deadline) {
                     timedOut = true
-                    val rootPid = runCatching { Files.readString(pidFile).trim().toInt() }.getOrNull()
-                    if (rootPid != null) terminateProcessTree(rootPid)
-                    process.destroy()
-                    if (process.isAlive) process.destroyForcibly()
+                    ProcessTermination.terminateTree(process, readPid(pidFile))
                     break
                 }
                 Thread.sleep(25)
@@ -93,31 +90,22 @@ class NativeBackend(
                 timedOut = timedOut,
                 elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000,
                 spillPath = spillPath,
-            )
+            ).also { completedNormally = true }
         } finally {
-            if (process.isAlive) process.destroyForcibly()
+            if (!completedNormally || process.isAlive) {
+                ProcessTermination.terminateTree(
+                    process,
+                    readPid(pidFile),
+                )
+            }
             Files.deleteIfExists(stdoutFile)
             Files.deleteIfExists(stderrFile)
             Files.deleteIfExists(pidFile)
         }
     }
 
-    private fun terminateProcessTree(rootPid: Int) {
-        val parentOf = HashMap<Int, Int>()
-        runCatching {
-            Files.list(Paths.get("/proc")).use { entries ->
-                entries.filter { it.fileName.toString().all(Char::isDigit) }.forEach { pidPath ->
-                    val pid = pidPath.fileName.toString().toInt()
-                    val fields = Files.readString(pidPath.resolve("stat")).substringAfterLast(") ").split(' ')
-                    if (fields.size > 1) parentOf[pid] = fields[1].toInt()
-                }
-            }
-        }
-        for (pid in ProcessTree.descendants(rootPid, parentOf)) {
-            runCatching { AndroidProcess.killProcess(pid) }
-        }
-        runCatching { AndroidProcess.killProcess(rootPid) }
-    }
+    private fun readPid(pidFile: Path): Int? =
+        runCatching { Files.readString(pidFile).trim().toInt() }.getOrNull()
 
     private fun shellQuote(value: String): String = "'${value.replace("'", "'\\''")}'"
 

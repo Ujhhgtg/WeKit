@@ -21,6 +21,8 @@ object WeAgentSettings {
     const val KEY_DEFAULT_MODEL_ID = "default_model_id"             // new-session default
     const val KEY_DEFAULT_SYSTEM_PROMPT_ID = "default_system_prompt_id" // new-session default binding
     const val KEY_DEFAULT_LINUX_ENVIRONMENT_ID = "default_linux_environment_id"
+    const val KEY_NATIVE_LINUX_WORKING_DIRECTORY = "native_linux_working_directory"
+    const val KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES = "native_linux_environment_variables"
     const val KEY_SEND_WHILE_RUNNING = "send_while_running"         // QUEUE_AFTER_TURN | QUEUE_AS_STEER
     const val KEY_OVERLAY_MODE = "overlay_mode"                     // DISABLED | FOREGROUND_ONLY | ALWAYS
 
@@ -78,6 +80,8 @@ object WeAgentSettings {
 
     suspend fun defaultModelId(): String? = get(KEY_DEFAULT_MODEL_ID)?.takeIf { it.isNotBlank() }
     suspend fun defaultSystemPromptId(): String? = get(KEY_DEFAULT_SYSTEM_PROMPT_ID)?.takeIf { it.isNotBlank() }
+    suspend fun nativeLinuxWorkingDirectory(): String? = get(KEY_NATIVE_LINUX_WORKING_DIRECTORY)?.takeIf { it.isNotBlank() }
+    suspend fun nativeLinuxEnvironmentVariables(): String = get(KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES) ?: "{}"
     suspend fun defaultLinuxEnvironmentId(): String? =
         get(KEY_DEFAULT_LINUX_ENVIRONMENT_ID)?.takeIf { it.isNotBlank() }
 

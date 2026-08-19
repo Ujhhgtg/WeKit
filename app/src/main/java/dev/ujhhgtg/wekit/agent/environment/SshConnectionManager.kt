@@ -86,17 +86,29 @@ class SshConnectionManager(
 
     suspend fun execute(command: String, timeoutMillis: Long): SshExecResponse {
         require(timeoutMillis in 1..NativeBackend.MAX_TIMEOUT_MILLIS)
-        val channel = openChannel("exec") as ChannelExec
+        var channel = openChannel("exec") as ChannelExec
+        repeat(2) { attempt ->
+            channel.setCommand(command)
+            try {
+                runBlockingIo { channel.connect(CHANNEL_CONNECT_TIMEOUT_MS) }
+                return executeSubmitted(channel, timeoutMillis)
+            } catch (error: Throwable) {
+                channel.disconnect()
+                if (attempt != 0 || error is CancellationException) throw error
+                invalidate(channel.session)
+                channel = openChannel("exec") as ChannelExec
+            }
+        }
+        error("unreachable")
+    }
+
+    private suspend fun executeSubmitted(channel: ChannelExec, timeoutMillis: Long): SshExecResponse {
         val stdout = channel.inputStream
         val stderr = channel.errStream
-        channel.setCommand(command)
-        var submitted = false
         val out = ByteArrayOutputStream()
         val err = ByteArrayOutputStream()
         val deadline = System.nanoTime() + timeoutMillis * 1_000_000
         try {
-            submitted = true
-            runBlockingIo { channel.connect(CHANNEL_CONNECT_TIMEOUT_MS) }
             while (!channel.isClosed) {
                 coroutineContext.ensureActive()
                 drain(stdout, out)
@@ -120,10 +132,9 @@ class SshConnectionManager(
         } catch (error: SshIndeterminateExecutionException) {
             throw error
         } catch (error: Throwable) {
-            if (submitted) throw SshIndeterminateExecutionException(
+            throw SshIndeterminateExecutionException(
                 "SSH command state is unknown after submission; it was not replayed", error,
             )
-            throw error
         } finally {
             channel.disconnect()
             markUsed()

@@ -364,7 +364,11 @@ fn validate_recorded_leader(
     members: &[NamespaceMember],
 ) -> Result<(), String> {
     if members.iter().all(|member| member.tgid != request.pid) {
-        return Ok(());
+        return if members.is_empty() {
+            Ok(())
+        } else {
+            Err("recorded leader is absent; refusing inode-only namespace cleanup".into())
+        };
     }
     let process = proc_root.join(request.pid.to_string());
     let stat = fs::read_to_string(process.join("stat"))
@@ -398,15 +402,13 @@ fn preserve_namespace(
     members: &[NamespaceMember],
     saved: &mut Option<OwnedFd>,
 ) -> Result<(), String> {
-    if saved.is_none() {
-        if let Some(member) = members.first() {
-            *saved = Some(
-                member
-                    .namespace
-                    .try_clone()
-                    .map_err(|error| format!("cannot preserve mount namespace: {error}"))?,
-            );
-        }
+    if saved.is_none() && let Some(member) = members.first() {
+        *saved = Some(
+            member
+                .namespace
+                .try_clone()
+                .map_err(|error| format!("cannot preserve mount namespace: {error}"))?,
+        );
     }
     Ok(())
 }
@@ -818,6 +820,30 @@ mod tests {
             validate_recorded_leader(&request, &root.join("proc"), &members)
                 .unwrap_err()
                 .contains("command line")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn refuses_inode_only_identity_when_recorded_leader_is_absent() {
+        let root = temp_root("missing-leader");
+        fs::create_dir_all(root.join("proc")).unwrap();
+        let identity = root.join("identity");
+        fs::write(&identity, "identity").unwrap();
+        let dummy = open_read_only(&identity).unwrap();
+        let request = parse_request(request_args()).unwrap();
+        let unrelated = [NamespaceMember {
+            tgid: 99,
+            tid: 99,
+            pidfd: dummy.try_clone().unwrap(),
+            namespace: dummy,
+        }];
+
+        assert!(validate_recorded_leader(&request, &root.join("proc"), &[]).is_ok());
+        assert!(
+            validate_recorded_leader(&request, &root.join("proc"), &unrelated)
+                .unwrap_err()
+                .contains("inode-only")
         );
         fs::remove_dir_all(root).unwrap();
     }

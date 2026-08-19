@@ -30,12 +30,29 @@ class SshBackend(
                 ).environment(forward.remotePort)
             }
             val response = connection.execute(shellCommand(command, remoteEnvironment), timeoutMillis)
+            val totalBytes = response.stdout.size.toLong() + response.stderr.size
+            val stdoutLimit = minOf(response.stdout.size, NativeBackend.DEFAULT_MAX_OUTPUT_BYTES)
+            val stderrLimit = minOf(
+                response.stderr.size,
+                NativeBackend.DEFAULT_MAX_OUTPUT_BYTES - stdoutLimit,
+            )
+            val spillPath = if (totalBytes > NativeBackend.DEFAULT_MAX_OUTPUT_BYTES) {
+                val outputDirectory = "${snapshot.workingDirectory.trimEnd('/')}/.weagent/outputs"
+                val prepare = connection.execute("mkdir -p ${quote(outputDirectory)}", 15_000)
+                check(prepare.exitCode == 0) {
+                    prepare.stderr.toString(StandardCharsets.UTF_8).ifBlank { "cannot create remote output spill directory" }
+                }
+                val path = "$outputDirectory/exec-${System.currentTimeMillis()}.log"
+                connection.upload(path, buildSpill(response.stdout, response.stderr), 0b110_000_000)
+                path
+            } else null
             ExecResult(
-                stdout = response.stdout.toString(StandardCharsets.UTF_8),
-                stderr = response.stderr.toString(StandardCharsets.UTF_8),
+                stdout = response.stdout.copyOf(stdoutLimit).toString(StandardCharsets.UTF_8),
+                stderr = response.stderr.copyOf(stderrLimit).toString(StandardCharsets.UTF_8),
                 exitCode = response.exitCode,
                 timedOut = response.timedOut,
                 elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000,
+                spillPath = spillPath,
             )
         }
     }
@@ -157,6 +174,15 @@ class SshBackend(
         }
     }
 
+    private fun buildSpill(stdout: ByteArray, stderr: ByteArray): ByteArray =
+        java.io.ByteArrayOutputStream(stdout.size + stderr.size + 34).use { output ->
+            output.write("--- stdout ---\n".toByteArray())
+            output.write(stdout)
+            output.write("\n--- stderr ---\n".toByteArray())
+            output.write(stderr)
+            output.toByteArray()
+        }
+
     private fun quote(value: String) = "'${value.replace("'", "'\\''")}'"
 
     companion object {
@@ -183,8 +209,15 @@ class SshBackend(
             printf 'WBT/1 %s %s\n%s' "${'$'}WEAGENT_BRIDGE_TOKEN" "${'$'}{#payload}" "${'$'}payload" >&3
             IFS=' ' read -r version token length <&3
             [ "${'$'}version" = WBT/1 ] && [ "${'$'}token" = "${'$'}WEAGENT_BRIDGE_TOKEN" ] || exit 3
-            dd bs=1 count="${'$'}length" status=none <&3
-            printf '\n'
+            response=${'$'}(dd bs=1 count="${'$'}length" status=none <&3)
+            printf '%s\n' "${'$'}response"
+            case "${'$'}response" in
+              *'"ok":false'*'"error":"unauthorized"'*|*'"ok":false'*'"error":"token_revoked"'*) exit 3 ;;
+              *'"ok":false'*'"error":"unknown_tool"'*) exit 4 ;;
+              *'"ok":false'*'"error":"approval_denied"'*) exit 5 ;;
+              *'"ok":false'*'"error":"execution_failed"'*) exit 6 ;;
+              *'"ok":false'*) exit 2 ;;
+            esac
         """.trimIndent() + "\n"
     }
 }

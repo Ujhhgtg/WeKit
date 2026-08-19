@@ -1,6 +1,9 @@
 package dev.ujhhgtg.wekit.agent.environment
 
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 enum class LinuxEnvironmentType { NATIVE, PROOT, CHROOT, SSH }
 
@@ -15,6 +18,7 @@ data class EnvironmentSnapshot(
     val bridgeLocation: String?,
     val privilegesAndCapabilities: String,
     val rootfsPath: String? = null,
+    val environmentVariables: Map<String, String> = emptyMap(),
 )
 
 data class LinuxEnvironmentSessionState(
@@ -60,4 +64,7 @@ fun LinuxEnvironmentEntity.toSnapshot(): EnvironmentSnapshot = EnvironmentSnapsh
         LinuxEnvironmentType.SSH -> "Remote account privileges and server capabilities"
     },
     rootfsPath = rootfsPath,
+    environmentVariables = Json.parseToJsonElement(environmentVariablesJson).jsonObject.mapValues {
+        it.value.jsonPrimitive.content
+    },
 )

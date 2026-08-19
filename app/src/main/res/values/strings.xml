@@ -158,10 +158,16 @@
     <string name="agent_linux_environment_type_immutable">Type cannot be changed after creation</string>
     <string name="agent_linux_environment_selected">Selected for new sessions</string>
     <string name="agent_linux_environment_working_directory">Working directory</string>
+    <string name="agent_linux_environment_variables">Environment variables (JSON)</string>
     <string name="agent_linux_environment_host">SSH host</string>
     <string name="agent_linux_environment_port">SSH port</string>
     <string name="agent_linux_environment_username">SSH username</string>
     <string name="agent_linux_environment_password">SSH password</string>
+    <string name="agent_linux_environment_auth_password">Password authentication</string>
+    <string name="agent_linux_environment_auth_private_key">Private key authentication</string>
+    <string name="agent_linux_environment_private_key">SSH private key</string>
+    <string name="agent_linux_environment_import_private_key">Import private key</string>
+    <string name="agent_linux_environment_passphrase">Private key passphrase</string>
     <string name="agent_linux_environment_save">Save</string>
     <string name="agent_linux_environment_test">Test connection</string>
     <string name="agent_linux_environment_error">Environment error</string>
@@ -174,6 +180,8 @@
     <string name="agent_linux_environment_deleting">Deleting environment…</string>
     <string name="agent_linux_environment_trusting">Trusting host key and retrying…</string>
     <string name="agent_linux_environment_healthy">Connection healthy</string>
+    <string name="agent_linux_environment_chroot_confirm_title">Allow rooted chroot operation?</string>
+    <string name="agent_linux_environment_chroot_confirm_message">This operation runs with device root privileges and chroot is not a security boundary.</string>
     <string name="agent_overlay_mode_title">Floating overlay mode</string>
     <string name="agent_overlay_mode_disabled">Disabled</string>
     <string name="agent_overlay_mode_foreground_only">Only while WeChat is in the foreground</string>

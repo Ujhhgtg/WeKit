@@ -146,8 +146,9 @@ class ToolBridgeSession(
             }, result.text))
         val denied = result.status.name.endsWith("REJECTED")
         return buildJsonObject {
-            put("ok", !denied)
+            put("ok", result.executionSucceeded)
             if (denied) put("error", "approval_denied")
+            else if (!result.executionSucceeded) put("error", "execution_failed")
             put("status", result.status.name)
             put("result", result.text)
         }.toString()

@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
+import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.ssh.EncryptedSshCredentials
 import dev.ujhhgtg.wekit.agent.ssh.SshCredentialStore
@@ -13,6 +14,8 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.io.File
 import java.nio.file.Path
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.Flow
@@ -23,9 +26,11 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class LinuxEnvironmentManager(
-    val nativeSnapshot: EnvironmentSnapshot = defaultNativeSnapshot(),
+    nativeSnapshot: EnvironmentSnapshot = defaultNativeSnapshot(),
     private val backendFactory: ((EnvironmentSnapshot) -> LinuxEnvironmentBackend)? = null,
     private val prootPackAvailable: () -> Boolean = { ArchLinuxPack.installedManifest() != null },
     private val installProot: suspend (String) -> ArchLinuxInstance = ArchLinuxPack::createInstance,
@@ -41,7 +46,12 @@ class LinuxEnvironmentManager(
     private val recoverChroot: suspend (Path, String) -> ChrootRecoveryResult = { rootfs, workingDirectory ->
         ChrootRootHelper(ChrootConfiguration(rootfs, workingDirectory)).recoverPendingRuns()
     },
+    private val loadNativeConfiguration: suspend () -> Pair<String?, String> = {
+        WeAgentSettings.nativeLinuxWorkingDirectory() to WeAgentSettings.nativeLinuxEnvironmentVariables()
+    },
 ) {
+    var nativeSnapshot: EnvironmentSnapshot = nativeSnapshot
+        private set
     private val stateMutex = Mutex()
     private val executionMutexes = ConcurrentHashMap<String, Mutex>()
     private val leaseCounts = HashMap<String, Int>()
@@ -51,10 +61,22 @@ class LinuxEnvironmentManager(
     private val mutableHealth = MutableStateFlow<Map<String, EnvironmentHealth>>(
         mapOf(NATIVE_ENVIRONMENT_ID to EnvironmentHealth(EnvironmentHealthState.UNKNOWN))
     )
+    private val mutableNativeSnapshot = MutableStateFlow(nativeSnapshot)
 
     val health: Flow<Map<String, EnvironmentHealth>> = mutableHealth
 
     suspend fun initialize() {
+        val (nativeWorkingDirectory, nativeEnvironmentVariablesJson) = loadNativeConfiguration()
+        val nativeEnvironmentVariables = parseEnvironmentVariables(nativeEnvironmentVariablesJson)
+        if (nativeWorkingDirectory != null || nativeEnvironmentVariables.isNotEmpty()) {
+            val workingDirectory = File(nativeWorkingDirectory ?: nativeSnapshot.workingDirectory).apply { mkdirs() }
+            nativeSnapshot = nativeSnapshot.copy(
+                workingDirectory = workingDirectory.absolutePath,
+                bridgeLocation = workingDirectory.resolve(".weagent/bin/invoke_tool").absolutePath,
+                environmentVariables = nativeEnvironmentVariables,
+            )
+            mutableNativeSnapshot.value = nativeSnapshot
+        }
         storedEnvironments().filter { it.type == LinuxEnvironmentType.CHROOT }.forEach { environment ->
             val result = runCatching {
                 recoverChroot(Path.of(requireNotNull(environment.rootfsPath)), environment.workingDirectory)
@@ -66,9 +88,35 @@ class LinuxEnvironmentManager(
     }
 
     fun observeEnvironments(): Flow<List<EnvironmentSnapshot>> =
-        WeAgentRepository.observeLinuxEnvironments().map { stored ->
-            listOf(nativeSnapshot) + stored.map(LinuxEnvironmentEntity::toSnapshot)
+        kotlinx.coroutines.flow.combine(
+            mutableNativeSnapshot,
+            WeAgentRepository.observeLinuxEnvironments(),
+        ) { native, stored -> listOf(native) + stored.map(LinuxEnvironmentEntity::toSnapshot) }
+
+    suspend fun updateNativeConfiguration(workingDirectory: String, environmentVariablesJson: String) {
+        val directory = File(workingDirectory).absoluteFile
+        require(directory.isDirectory || directory.mkdirs()) { "native working directory cannot be created" }
+        require(directory.canWrite()) { "native working directory is not writable" }
+        val variables = parseEnvironmentVariables(environmentVariablesJson)
+        WeAgentSettings.set(WeAgentSettings.KEY_NATIVE_LINUX_WORKING_DIRECTORY, directory.path)
+        WeAgentSettings.set(
+            WeAgentSettings.KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES,
+            kotlinx.serialization.json.JsonObject(variables.mapValues { kotlinx.serialization.json.JsonPrimitive(it.value) }).toString(),
+        )
+        nativeSnapshot = nativeSnapshot.copy(
+            workingDirectory = directory.path,
+            bridgeLocation = directory.resolve(".weagent/bin/invoke_tool").path,
+            environmentVariables = variables,
+        )
+        mutableNativeSnapshot.value = nativeSnapshot
+        stateMutex.withLock {
+            staleBackends.add(NATIVE_ENVIRONMENT_ID)
+            if ((leaseCounts[NATIVE_ENVIRONMENT_ID] ?: 0) == 0) {
+                backends.remove(NATIVE_ENVIRONMENT_ID)?.close()
+                staleBackends.remove(NATIVE_ENVIRONMENT_ID)
+            }
         }
+    }
 
     fun observeEffectiveEnvironmentId(sessionId: String): Flow<String> =
         WeAgentRepository.observeSessionEffectiveLinuxEnvironmentId(sessionId)
@@ -100,10 +148,14 @@ class LinuxEnvironmentManager(
     suspend fun createProotEnvironment(
         name: String,
         instanceId: String = UUID.randomUUID().toString(),
+        workingDirectory: String = "/root",
+        environmentVariablesJson: String = "{}",
     ): ProotEnvironmentCreationResult {
         val trimmedName = name.trim()
         require(trimmedName.isNotEmpty() && trimmedName.length <= 80) { "environment name must be 1-80 characters" }
         require(instanceId.matches(Regex("[A-Za-z0-9._-]{1,80}"))) { "invalid instance id" }
+        validateGuestWorkingDirectory(workingDirectory)
+        parseEnvironmentVariables(environmentVariablesJson)
         if (!prootPackAvailable()) return ProotEnvironmentCreationResult.MissingPack(ArchLinuxPack)
 
         val instance = installProot(instanceId)
@@ -111,7 +163,8 @@ class LinuxEnvironmentManager(
             id = instanceId,
             name = trimmedName,
             type = LinuxEnvironmentType.PROOT,
-            workingDirectory = instance.workingDirectory,
+            workingDirectory = workingDirectory,
+            environmentVariablesJson = environmentVariablesJson,
             rootfsPath = instance.rootfs.absolutePath,
             rootfsContentVersion = instance.contentVersion,
             createdAt = System.currentTimeMillis(),
@@ -129,23 +182,29 @@ class LinuxEnvironmentManager(
     suspend fun createChrootEnvironment(
         name: String,
         instanceId: String = UUID.randomUUID().toString(),
+        workingDirectory: String = "/root",
+        environmentVariablesJson: String = "{}",
+        highRiskApproved: Boolean = false,
     ): ChrootEnvironmentCreationResult {
-        check(highRiskApproval("create rooted chroot environment", null)) {
+        check(highRiskApproved || highRiskApproval("create rooted chroot environment", null)) {
             "rooted chroot creation requires explicit high-risk approval"
         }
         val trimmedName = name.trim()
         require(trimmedName.isNotEmpty() && trimmedName.length <= 80) { "environment name must be 1-80 characters" }
         require(instanceId.matches(Regex("[A-Za-z0-9._-]{1,80}"))) { "invalid instance id" }
+        validateGuestWorkingDirectory(workingDirectory)
+        parseEnvironmentVariables(environmentVariablesJson)
         if (!prootPackAvailable()) return ChrootEnvironmentCreationResult.MissingPack(ArchLinuxPack)
 
         val instance = installProot(instanceId)
         val rootfs = ArchLinuxInstanceLayout.validatePublishedRootfs(instance.rootfs.toPath())
-        val helper = ChrootRootHelper(ChrootConfiguration(rootfs, instance.workingDirectory))
+        val helper = ChrootRootHelper(ChrootConfiguration(rootfs, workingDirectory))
         val entity = LinuxEnvironmentEntity(
             id = instanceId,
             name = trimmedName,
             type = LinuxEnvironmentType.CHROOT,
-            workingDirectory = instance.workingDirectory,
+            workingDirectory = workingDirectory,
+            environmentVariablesJson = environmentVariablesJson,
             rootfsPath = instance.rootfs.absolutePath,
             rootfsContentVersion = instance.contentVersion,
             createdAt = System.currentTimeMillis(),
@@ -172,6 +231,8 @@ class LinuxEnvironmentManager(
         }
         var registryLocked = false
         var deleted = false
+        var quarantinedInstance: Path? = null
+        var originalInstance: Path? = null
         try {
             if (chrootRootfs != null) {
                 check(!ChrootMountRegistry.hasActiveRuns(chrootRootfs)) { "chroot environment has an active run" }
@@ -184,9 +245,33 @@ class LinuxEnvironmentManager(
                 val rootfs = Path.of(requireNotNull(environment.rootfsPath))
                 val instance = rootfs.parent
                 check(instance.fileName.toString() == id) { "invalid local environment layout" }
-                check(!instance.toFile().exists() || instance.toFile().deleteRecursively()) { "cannot remove local environment files" }
+                if (Files.exists(instance)) {
+                    val quarantine = instance.resolveSibling(".${instance.fileName}.deleting-${UUID.randomUUID()}")
+                    Files.move(instance, quarantine, StandardCopyOption.ATOMIC_MOVE)
+                    originalInstance = instance
+                    quarantinedInstance = quarantine
+                }
             }
-            deleted = environment != null && deleteEnvironment(id, environment.toSnapshot(), nativeSnapshot)
+            try {
+                deleted = environment != null && deleteEnvironment(id, environment.toSnapshot(), nativeSnapshot)
+                if (!deleted && quarantinedInstance != null) {
+                    Files.move(quarantinedInstance, originalInstance, StandardCopyOption.ATOMIC_MOVE)
+                    quarantinedInstance = null
+                }
+            } catch (error: Throwable) {
+                quarantinedInstance?.let { quarantine ->
+                    runCatching { Files.move(quarantine, originalInstance, StandardCopyOption.ATOMIC_MOVE) }
+                        .exceptionOrNull()?.let(error::addSuppressed)
+                }
+                quarantinedInstance = null
+                throw error
+            }
+            quarantinedInstance?.let { quarantine ->
+                check(quarantine.toFile().deleteRecursively()) {
+                    "environment was deleted but quarantined files could not be removed: $quarantine"
+                }
+                quarantinedInstance = null
+            }
             return deleted
         } finally {
             withContext(NonCancellable) {
@@ -219,13 +304,19 @@ class LinuxEnvironmentManager(
     }
 
     suspend fun ensureBridge(environmentId: String): BridgeInstallArtifact? =
-        withLease(environmentId) { it.ensureBridge() }
+        withLease(environmentId) { it.ensureBridge() }.also { artifact ->
+            if (artifact != null && environmentId != NATIVE_ENVIRONMENT_ID) {
+                getEnvironment(environmentId)?.takeIf { it.bridgePath != artifact.executablePath }?.let {
+                    upsert(it.copy(bridgePath = artifact.executablePath))
+                }
+            }
+        }
 
     suspend fun edit(environmentId: String, request: FileEditRequest) =
         withLease(environmentId) { it.edit(request) }
 
-    suspend fun checkHealth(environmentId: String): EnvironmentHealth {
-        if (isChroot(environmentId) && !highRiskApproval("check rooted chroot health", snapshot(environmentId))) {
+    suspend fun checkHealth(environmentId: String, highRiskApproved: Boolean = false): EnvironmentHealth {
+        if (isChroot(environmentId) && !highRiskApproved && !highRiskApproval("check rooted chroot health", snapshot(environmentId))) {
             return EnvironmentHealth(EnvironmentHealthState.DEGRADED, "high-risk chroot start approval required")
                 .also { publishHealth(environmentId, it) }
         }
@@ -336,6 +427,25 @@ class LinuxEnvironmentManager(
         }
     }
 
+    suspend fun acquirePersistentLease(environmentId: String): EnvironmentLease {
+        stateMutex.withLock {
+            check(environmentId !in deleting) { "environment is being deleted" }
+            if (environmentId != NATIVE_ENVIRONMENT_ID) {
+                requireNotNull(getEnvironment(environmentId)) { "environment $environmentId does not exist" }
+            }
+            leaseCounts[environmentId] = (leaseCounts[environmentId] ?: 0) + 1
+        }
+        return EnvironmentLease {
+            stateMutex.withLock {
+                val remaining = leaseCounts.getValue(environmentId) - 1
+                if (remaining == 0) leaseCounts.remove(environmentId) else leaseCounts[environmentId] = remaining
+                if (remaining == 0 && staleBackends.remove(environmentId)) {
+                    backends.remove(environmentId)?.close()
+                }
+            }
+        }
+    }
+
     private suspend fun backend(environmentId: String): LinuxEnvironmentBackend {
         backends[environmentId]?.let { return it }
         val entity = if (environmentId == NATIVE_ENVIRONMENT_ID) null else getEnvironment(environmentId)
@@ -377,6 +487,18 @@ class LinuxEnvironmentManager(
     }
 
     companion object {
+        private fun validateGuestWorkingDirectory(path: String) {
+            require(path.startsWith('/')) { "local environment working directory must be absolute" }
+            require(path.split('/').none { it == ".." }) { "local environment working directory cannot traverse upward" }
+        }
+
+        internal fun parseEnvironmentVariables(json: String): Map<String, String> =
+            kotlinx.serialization.json.Json.parseToJsonElement(json).jsonObject.mapValues { (key, value) ->
+                require(key.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) { "invalid environment variable name: $key" }
+                require(value.jsonPrimitive.isString) { "environment variable $key must be a string" }
+                value.jsonPrimitive.content
+            }
+
         private fun defaultNativeSnapshot(): EnvironmentSnapshot {
             val workingDirectory = File(HostInfo.application.filesDir, "wekit-agent/environment/native")
                 .apply { mkdirs() }
@@ -388,10 +510,17 @@ class LinuxEnvironmentManager(
                 architecture = System.getProperty("os.arch") ?: "unknown",
                 shell = "/system/bin/sh",
                 workingDirectory = workingDirectory.absolutePath,
-                bridgeLocation = null,
+                bridgeLocation = workingDirectory.resolve(".weagent/bin/invoke_tool").absolutePath,
                 privilegesAndCapabilities = "WeChat UID and SELinux domain; no additional root privileges",
             )
         }
+    }
+}
+
+class EnvironmentLease internal constructor(private val releaseBlock: suspend () -> Unit) {
+    private val released = java.util.concurrent.atomic.AtomicBoolean()
+    suspend fun release() {
+        if (released.compareAndSet(false, true)) releaseBlock()
     }
 }
 

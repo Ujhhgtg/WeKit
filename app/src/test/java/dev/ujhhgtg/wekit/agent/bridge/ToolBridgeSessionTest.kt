@@ -172,7 +172,8 @@ class ToolBridgeSessionTest {
         val response = session.handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":{}}")
         val json = kotlinx.serialization.json.Json.parseToJsonElement(response).jsonObject
 
-        assertTrue(json.getValue("ok").jsonPrimitive.content.toBoolean())
+        assertFalse(json.getValue("ok").jsonPrimitive.content.toBoolean())
+        assertEquals("execution_failed", json.getValue("error").jsonPrimitive.content)
         assertEquals("AUTO_ALLOWED", json.getValue("status").jsonPrimitive.content)
         assertTrue(json.getValue("result").jsonPrimitive.content.contains("target failed"))
         assertEquals(1, executions)

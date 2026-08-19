@@ -1,4 +1,4 @@
-use libc::{EINTR, EIO, POLLIN, SIGKILL, TIOCSCTTY, TIOCSWINSZ, c_char, ioctl, pid_t, winsize};
+use libc::{EINTR, EIO, POLLIN, SIGKILL, SIGTERM, TIOCSCTTY, TIOCSWINSZ, c_char, ioctl, pid_t, winsize};
 use std::ffi::CString;
 use std::io;
 use std::os::fd::RawFd;
@@ -313,17 +313,30 @@ pub fn kill(pty: &Pty) -> Result<(), String> {
     if pty.killed.load(Ordering::Acquire) {
         return Ok(());
     }
-    let result = unsafe { libc::kill(-pty.pgid, SIGKILL) };
+    let result = unsafe { libc::kill(-pty.pgid, SIGTERM) };
     if result < 0 {
         let error = io::Error::last_os_error();
         if error.raw_os_error() != Some(libc::ESRCH) {
             return Err(error.to_string());
         }
-        if unsafe { libc::kill(pty.pid, SIGKILL) } < 0
-            && io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
-        {
-            return Err(last_error());
+    } else {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
+        while std::time::Instant::now() < deadline {
+            if unsafe { libc::kill(-pty.pgid, 0) } < 0
+                && io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+            {
+                pty.killed.store(true, Ordering::Release);
+                return Ok(());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(25));
         }
+    }
+    if unsafe { libc::kill(-pty.pgid, SIGKILL) } < 0
+        && io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
+        && unsafe { libc::kill(pty.pid, SIGKILL) } < 0
+        && io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
+    {
+        return Err(last_error());
     }
     pty.killed.store(true, Ordering::Release);
     Ok(())
@@ -348,10 +361,8 @@ fn close_master(pty: &Pty) -> Result<(), String> {
         .master
         .lock()
         .map_err(|_| "PTY lock poisoned".to_owned())?;
-    if let Some(fd) = guard.take() {
-        if unsafe { libc::close(fd) } < 0 {
-            return Err(last_error());
-        }
+    if let Some(fd) = guard.take() && unsafe { libc::close(fd) } < 0 {
+        return Err(last_error());
     }
     Ok(())
 }

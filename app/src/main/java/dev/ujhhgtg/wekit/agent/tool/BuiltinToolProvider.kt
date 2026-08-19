@@ -79,7 +79,7 @@ class BuiltinToolProvider(
         const val INFO_ID = AgentTool.BUILTIN_INFO
         const val NET_ID = AgentTool.BUILTIN_NET
         const val TERMINAL_ID = AgentTool.BUILTIN_TERMINAL
-        val TERMINAL_TOOL_NAMES = setOf("terminal_list", "terminal_start", "terminal_write", "terminal_read", "terminal_resize", "terminal_kill")
+        val TERMINAL_TOOL_NAMES = setOf("terminal_list", "terminal_start", "terminal_write", "terminal_control", "terminal_read", "terminal_resize", "terminal_kill")
 
         private val DISPLAY_NAMES = mapOf(
             WECHAT_ID to "微信操作",

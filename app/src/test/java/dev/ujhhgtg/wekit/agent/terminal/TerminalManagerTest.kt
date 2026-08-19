@@ -37,6 +37,20 @@ class TerminalManagerTest {
     }
 
     @Test
+    fun `function keys F1 through F12 use xterm sequences`() = runBlocking {
+        val backend = FakeBackend()
+        val manager = manager(backend)
+        val id = manager.start("conversation", environment).id
+        manager.write("conversation", id, (1..12).map {
+            TerminalEvent(TerminalEvent.Type.KEY, "F$it")
+        })
+        assertEquals(
+            "\u001bOP\u001bOQ\u001bOR\u001bOS\u001b[15~\u001b[17~\u001b[18~\u001b[19~\u001b[20~\u001b[21~\u001b[23~\u001b[24~",
+            backend.sessions.single().writes.flatMap { it.asList() }.toByteArray().toString(Charsets.UTF_8),
+        )
+    }
+
+    @Test
     fun `default commands and explicit argv stay separated`() = runBlocking {
         val backend = FakeBackend()
         val manager = manager(backend)

@@ -28,7 +28,7 @@ object WeAgentExecToolBindings {
                 environment.id,
                 command,
                 timeout_ms ?: 60_000L,
-                endpoint.environment() + mapOf(
+                environment.environmentVariables + endpoint.environment() + mapOf(
                     "WEAGENT_INVOKE_TOOL" to artifact.executablePath,
                     "PATH" to "${artifact.binDirectory}:${System.getenv("PATH").orEmpty()}",
                 ),

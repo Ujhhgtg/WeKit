@@ -53,9 +53,10 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
     suspend fun exec(command: String, timeoutMillis: Long, environment: Map<String, String>): ExecResult = withContext(Dispatchers.IO) {
         require(timeoutMillis in 1..NativeBackend.MAX_TIMEOUT_MILLIS)
         if (!hasRoot()) throw ChrootFailure.Root()
-        Files.createDirectories(configuration.instance.resolve("outputs"))
-        val stdout = Files.createTempFile(configuration.instance.resolve("outputs"), "chroot-", ".stdout")
-        val stderr = Files.createTempFile(configuration.instance.resolve("outputs"), "chroot-", ".stderr")
+        val outputDirectory = configuration.rootfs.resolve("root/.weagent/outputs")
+        Files.createDirectories(outputDirectory)
+        val stdout = Files.createTempFile(outputDirectory, "chroot-", ".stdout")
+        val stderr = Files.createTempFile(outputDirectory, "chroot-", ".stderr")
         val startedAt = System.nanoTime()
         var timedOut = false
         var spill = false
@@ -97,11 +98,21 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
             spill = stdoutSize + stderrSize > NativeBackend.DEFAULT_MAX_OUTPUT_BYTES
             val outLimit = minOf(stdoutSize, NativeBackend.DEFAULT_MAX_OUTPUT_BYTES.toLong()).toInt()
             val errLimit = minOf(stderrSize, (NativeBackend.DEFAULT_MAX_OUTPUT_BYTES - outLimit).toLong()).toInt()
+            val spillPath = if (spill) {
+                val spillFile = outputDirectory.resolve("exec-${System.currentTimeMillis()}.log")
+                Files.newOutputStream(spillFile, StandardOpenOption.CREATE_NEW).use { stream ->
+                    stream.write("--- stdout ---\n".toByteArray())
+                    Files.copy(stdout, stream)
+                    stream.write("\n--- stderr ---\n".toByteArray())
+                    Files.copy(stderr, stream)
+                }
+                "/root/.weagent/outputs/${spillFile.fileName}"
+            } else null
             ExecResult(
                 readBounded(stdout, outLimit), readBounded(stderr, errLimit),
                 if (timedOut) null else result.code, timedOut,
                 (System.nanoTime() - startedAt) / 1_000_000,
-                if (spill) stdout.toString() else null,
+                spillPath,
             )
         } catch (error: CancellationException) {
             withContext(NonCancellable) { cleanupNamespace(run) }
@@ -119,7 +130,8 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
                             cleanupFailure?.addSuppressed(error) ?: run { cleanupFailure = error }
                         }
                     }
-                    if (!timedOut && !spill) { Files.deleteIfExists(stdout); Files.deleteIfExists(stderr) }
+                    Files.deleteIfExists(stdout)
+                    Files.deleteIfExists(stderr)
                 }
                 cleanupFailure?.let { throw it }
                 ChrootMountRegistry.end(configuration.rootfs, run.nonce)

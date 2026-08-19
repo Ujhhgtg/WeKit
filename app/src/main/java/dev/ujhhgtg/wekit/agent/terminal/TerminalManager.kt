@@ -324,7 +324,15 @@ class TerminalManager(
         TerminalEvent.Type.SLEEP -> error("sleep has no bytes")
     }
 
-    private fun key(value: String): ByteArray = mapOf("ENTER" to "\r", "ESC" to "\u001b", "TAB" to "\t", "BACKSPACE" to "\u007f", "UP" to "\u001b[A", "DOWN" to "\u001b[B", "LEFT" to "\u001b[D", "RIGHT" to "\u001b[C", "HOME" to "\u001b[H", "END" to "\u001b[F", "INSERT" to "\u001b[2~", "DELETE" to "\u001b[3~", "PAGE_UP" to "\u001b[5~", "PAGE_DOWN" to "\u001b[6~").getValue(value).toByteArray()
+    private fun key(value: String): ByteArray = mapOf(
+        "ENTER" to "\r", "ESC" to "\u001b", "TAB" to "\t", "BACKSPACE" to "\u007f",
+        "UP" to "\u001b[A", "DOWN" to "\u001b[B", "LEFT" to "\u001b[D", "RIGHT" to "\u001b[C",
+        "HOME" to "\u001b[H", "END" to "\u001b[F", "INSERT" to "\u001b[2~", "DELETE" to "\u001b[3~",
+        "PAGE_UP" to "\u001b[5~", "PAGE_DOWN" to "\u001b[6~",
+        "F1" to "\u001bOP", "F2" to "\u001bOQ", "F3" to "\u001bOR", "F4" to "\u001bOS",
+        "F5" to "\u001b[15~", "F6" to "\u001b[17~", "F7" to "\u001b[18~", "F8" to "\u001b[19~",
+        "F9" to "\u001b[20~", "F10" to "\u001b[21~", "F11" to "\u001b[23~", "F12" to "\u001b[24~",
+    ).getValue(value).toByteArray()
     private fun chord(value: String): ByteArray = when {
         value.startsWith("CTRL-") -> byteArrayOf((value.removePrefix("CTRL-").single().uppercaseChar().code - 'A'.code + 1).toByte())
         value.startsWith("ALT-") -> byteArrayOf(0x1b, value.removePrefix("ALT-").single().code.toByte())

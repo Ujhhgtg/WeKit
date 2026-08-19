@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.agent.environment.ChrootRootHelper
 import dev.ujhhgtg.wekit.agent.environment.ChrootRun
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceLayout
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
+import dev.ujhhgtg.wekit.agent.environment.EnvironmentLease
 import dev.ujhhgtg.wekit.agent.environment.ProotCommand
 import java.nio.file.Files
 import java.nio.file.Path
@@ -28,8 +29,30 @@ class EnvironmentTerminalBackend internal constructor(
     private val cleanupChrootRun: suspend (ChrootRootHelper, ChrootRun) -> Unit = { helper, run ->
         helper.cleanupNamespace(run)
     },
+    private val acquireEnvironmentLease: suspend (String) -> EnvironmentLease? = { null },
 ) : TerminalBackend {
     override suspend fun start(
+        environment: EnvironmentSnapshot,
+        argv: List<String>,
+        workingDirectory: String?,
+        environmentVariables: Map<String, String>,
+        cols: Int,
+        rows: Int,
+    ): TerminalBackendStart {
+        val lease = acquireEnvironmentLease(environment.id)
+        return try {
+            val started = startUnleased(environment, argv, workingDirectory, environmentVariables, cols, rows)
+            if (lease == null) started else TerminalBackendStart(
+                LeasedTerminalSession(started.session, lease),
+                started.environment,
+            )
+        } catch (error: Throwable) {
+            lease?.release()
+            throw error
+        }
+    }
+
+    private suspend fun startUnleased(
         environment: EnvironmentSnapshot,
         argv: List<String>,
         workingDirectory: String?,
@@ -99,6 +122,21 @@ class EnvironmentTerminalBackend internal constructor(
         }
         LinuxEnvironmentType.SSH -> requireNotNull(ssh) { "SSH terminal backend is not configured" }
             .start(environment, argv, workingDirectory, environmentVariables, cols, rows)
+    }
+
+    private class LeasedTerminalSession(
+        private val delegate: TerminalBackendSession,
+        private val lease: EnvironmentLease,
+    ) : TerminalBackendSession by delegate {
+        private val closed = AtomicBoolean()
+        override suspend fun close() {
+            if (!closed.compareAndSet(false, true)) return
+            try {
+                delegate.close()
+            } finally {
+                lease.release()
+            }
+        }
     }
 
     private class ChrootTerminalSession(

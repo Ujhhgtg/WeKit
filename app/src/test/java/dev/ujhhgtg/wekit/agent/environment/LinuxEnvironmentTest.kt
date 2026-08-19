@@ -215,6 +215,7 @@ class LinuxEnvironmentTest {
         val manager = LinuxEnvironmentManager(
             nativeSnapshot = nativeSnapshot(directory.resolve("native")),
             storedEnvironments = { listOf(environment(LinuxEnvironmentType.CHROOT).copy(rootfsPath = rootfs.toString())) },
+            loadNativeConfiguration = { null to "{}" },
             recoverChroot = { recoveredRootfs, _ ->
                 assertEquals(rootfs, recoveredRootfs)
                 recoveries++
@@ -310,6 +311,42 @@ class LinuxEnvironmentTest {
         }
         assertTrue(error.message!!.contains("missing process identity"))
         assertFalse(backendCreated)
+    }
+
+    @Test
+    fun `persistent environment lease blocks deletion until released`(@TempDir directory: Path) = runBlocking {
+        val stored = environment(LinuxEnvironmentType.SSH).copy(rootfsPath = null)
+        var deleted = false
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
+            getEnvironment = { stored },
+            deleteEnvironment = { _, _, _ -> deleted = true; true },
+        )
+
+        val lease = manager.acquirePersistentLease(stored.id)
+        assertThrows(IllegalStateException::class.java) { runBlocking { manager.delete(stored.id) } }
+        assertFalse(deleted)
+
+        lease.release()
+        assertTrue(manager.delete(stored.id))
+        assertTrue(deleted)
+    }
+
+    @Test
+    fun `failed local database deletion restores quarantined instance`(@TempDir directory: Path) = runBlocking {
+        val instance = directory.resolve("environment")
+        val rootfs = Files.createDirectories(instance.resolve("rootfs"))
+        Files.writeString(rootfs.resolve("kept"), "data")
+        val stored = environment(LinuxEnvironmentType.PROOT).copy(rootfsPath = rootfs.toString())
+        val manager = LinuxEnvironmentManager(
+            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
+            getEnvironment = { stored },
+            deleteEnvironment = { _, _, _ -> error("database failure") },
+        )
+
+        assertThrows(IllegalStateException::class.java) { runBlocking { manager.delete(stored.id) } }
+        assertEquals("data", Files.readString(rootfs.resolve("kept")))
+        assertTrue(Files.list(directory).use { entries -> entries.noneMatch { it.fileName.toString().contains(".deleting-") } })
     }
 
     private fun environment(type: LinuxEnvironmentType) = LinuxEnvironmentEntity(

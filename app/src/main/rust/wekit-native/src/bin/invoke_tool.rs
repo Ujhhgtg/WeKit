@@ -55,11 +55,23 @@ fn run() -> Result<(), String> {
         .map_err(|error| format!("bridge unavailable: {error}"))?;
     socket.set_read_timeout(Some(READ_TIMEOUT)).map_err(|error| error.to_string())?;
     socket.set_write_timeout(Some(WRITE_TIMEOUT)).map_err(|error| error.to_string())?;
-    write!(socket, "{VERSION} {token} {}\n", payload.len()).map_err(|error| error.to_string())?;
+    writeln!(socket, "{VERSION} {token} {}", payload.len()).map_err(|error| error.to_string())?;
     socket.write_all(&payload).map_err(|error| error.to_string())?;
     let (response_token, response) = read_frame(&mut socket)?;
     if response_token != token { return Err("response token mismatch".into()); }
-    println!("{}", String::from_utf8(response).map_err(|_| "response is not UTF-8")?);
+    let response = String::from_utf8(response).map_err(|_| "response is not UTF-8")?;
+    println!("{response}");
+    let json: Value = serde_json::from_str(&response).map_err(|_| "response is not JSON")?;
+    if json.get("ok").and_then(Value::as_bool) == Some(false) {
+        let exit_code = match json.get("error").and_then(Value::as_str).unwrap_or("") {
+            "unauthorized" | "token_revoked" => 3,
+            "unknown_tool" => 4,
+            "approval_denied" => 5,
+            "execution_failed" => 6,
+            _ => 2,
+        };
+        std::process::exit(exit_code);
+    }
     Ok(())
 }
 

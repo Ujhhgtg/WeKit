@@ -36,7 +36,7 @@ object WeAgentTerminalToolBindings {
                     WeAgentService.terminalManager, terminalId, context.sessionId, environment.id,
                     context.toolVisibility, coroutineContext,
                 )
-                endpoint.environment() + mapOf(
+                environment.environmentVariables + endpoint.environment() + mapOf(
                     "WEAGENT_INVOKE_TOOL" to artifact.executablePath,
                     "PATH" to "${artifact.binDirectory}:${System.getenv("PATH").orEmpty()}",
                 )
@@ -45,7 +45,19 @@ object WeAgentTerminalToolBindings {
         return "id=${info.id}, state=${info.state}, size=${info.cols}x${info.rows}"
     }
     @AgentTool(name = "terminal_write", description = "Write ordered terminal events.", sideEffect = true, group = AgentTool.BUILTIN_TERMINAL)
-    suspend fun write(@AgentToolParam("Terminal session id") sessionId: String, @AgentToolParam("Events: text:value, key:ENTER, chord:CTRL-C, sleep:milliseconds") events: List<String>): String { WeAgentService.terminalManager.write(owner(), sessionId, events.map(::event)); return "OK" }
+    suspend fun write(@AgentToolParam("Terminal session id") sessionId: String, @AgentToolParam("Events: text:value, key:ENTER, chord:CTRL-C, sleep:milliseconds") events: List<String>): String {
+        val parsed = events.map(::event)
+        require(parsed.any { it.type == TerminalEvent.Type.TEXT }) { "control-only input must use terminal_control" }
+        WeAgentService.terminalManager.write(owner(), sessionId, parsed)
+        return "OK"
+    }
+    @AgentTool(name = "terminal_control", description = "Send control-only key, chord, and bounded sleep events to a terminal.", sideEffect = false, group = AgentTool.BUILTIN_TERMINAL)
+    suspend fun control(@AgentToolParam("Terminal session id") sessionId: String, @AgentToolParam("Events: key:ENTER, chord:CTRL-C, sleep:milliseconds") events: List<String>): String {
+        val parsed = events.map(::event)
+        require(parsed.none { it.type == TerminalEvent.Type.TEXT }) { "terminal_control does not accept arbitrary text" }
+        WeAgentService.terminalManager.write(owner(), sessionId, parsed)
+        return "OK"
+    }
     @AgentTool(name = "terminal_read", description = "Read raw terminal output from a cursor.", sideEffect = false, group = AgentTool.BUILTIN_TERMINAL)
     suspend fun read(@AgentToolParam("Terminal session id") sessionId: String, @AgentToolParam("Output cursor") cursor: Long?, @AgentToolParam("Maximum bytes") maxBytes: Int?, @AgentToolParam("Maximum wait in milliseconds") waitMs: Long?): String {
         val result = WeAgentService.terminalManager.read(owner(), sessionId, cursor, maxBytes ?: 64 * 1024, waitMs ?: 0)

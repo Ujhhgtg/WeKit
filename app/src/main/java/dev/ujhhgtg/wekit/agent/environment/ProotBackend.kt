@@ -47,6 +47,7 @@ class ProotBackend(
                 environment()["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
             }.start()
             var timedOut = false
+            var completedNormally = false
             try {
                 val deadline = System.nanoTime() + timeoutMillis * 1_000_000
                 while (process.isAlive) {
@@ -71,9 +72,9 @@ class ProotBackend(
                     }
                 }.let { "/root/" + rootfs.resolve("root").relativize(it) } else null
                 ExecResult(readPrefix(stdout, outLimit), readPrefix(stderr, errLimit), if (timedOut) null else process.exitValue(), timedOut,
-                    (System.nanoTime() - startedAt) / 1_000_000, spillPath)
+                    (System.nanoTime() - startedAt) / 1_000_000, spillPath).also { completedNormally = true }
             } finally {
-                if (process.isAlive) ProcessTermination.terminateTree(process, readPid(pidFile))
+                if (!completedNormally || process.isAlive) ProcessTermination.terminateTree(process, readPid(pidFile))
                 Files.deleteIfExists(stdout); Files.deleteIfExists(stderr); Files.deleteIfExists(pidFile)
             }
         }

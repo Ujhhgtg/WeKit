@@ -89,6 +89,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         linuxEnvironmentManager.createChrootEnvironment(name)
     val terminalManager = TerminalManager(EnvironmentTerminalBackend(
         ssh = SshTerminalBackend(linuxEnvironmentManager::sshConnection),
+        acquireEnvironmentLease = linuxEnvironmentManager::acquirePersistentLease,
         approveChrootStart = { environment ->
         requestHighRiskApproval("start rooted chroot terminal", environment)
     }))
@@ -456,6 +457,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         pendingApprovals.remove(id)?.let { p ->
             if (!p.deferred.isCompleted) p.deferred.complete(ManualApprovalResult.Rejected("会话已删除"))
         }
+        terminalManager.revokeOwner(id)
         WeAgentRepository.deleteSession(id)
         val deletedForeground = withContext(Dispatchers.Main) {
             if (currentSessionId.value == id) {

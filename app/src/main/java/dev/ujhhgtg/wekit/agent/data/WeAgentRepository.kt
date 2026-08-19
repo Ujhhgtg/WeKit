@@ -969,6 +969,9 @@ object WeAgentRepository : ToolPermissionSource {
     private fun validateLinuxEnvironment(environment: LinuxEnvironmentEntity) {
         require(environment.name.isNotBlank()) { "environment name is required" }
         require(environment.workingDirectory.isNotBlank()) { "working directory is required" }
+        dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager.parseEnvironmentVariables(
+            environment.environmentVariablesJson,
+        )
         require(environment.type != LinuxEnvironmentType.NATIVE) { "native environment is built in" }
         require(
             (environment.sshCredentialCiphertext == null) == (environment.sshCredentialIv == null)
