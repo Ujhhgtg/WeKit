@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.withLock
 
 class EnvironmentTerminalBackend internal constructor(
     private val native: TerminalBackend = NativeTerminalBackend(),
+    private val ssh: TerminalBackend? = null,
     private val approveChrootStart: suspend (EnvironmentSnapshot) -> Boolean = { false },
     private val chrootInstancesRoot: Path = ArchLinuxInstanceLayout.canonicalInstancesRoot(),
     private val resolveRootLauncher: suspend (ChrootRootHelper) -> Path = { helper ->
@@ -96,7 +97,8 @@ class EnvironmentTerminalBackend internal constructor(
                 throw error
             }
         }
-        else -> error("${environment.type} terminal backend is not implemented")
+        LinuxEnvironmentType.SSH -> requireNotNull(ssh) { "SSH terminal backend is not configured" }
+            .start(environment, argv, workingDirectory, environmentVariables, cols, rows)
     }
 
     private class ChrootTerminalSession(

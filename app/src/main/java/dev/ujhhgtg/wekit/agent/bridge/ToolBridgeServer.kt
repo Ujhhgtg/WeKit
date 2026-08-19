@@ -89,6 +89,14 @@ class ToolBridgeServer(
             "WEAGENT_BRIDGE_PORT" to port.toString(),
             "WEAGENT_BRIDGE_TOKEN" to token,
         )
+
+        fun environment(remoteForwardPort: Int): Map<String, String> {
+            require(remoteForwardPort in 1..65535)
+            return mapOf(
+                "WEAGENT_BRIDGE_PORT" to remoteForwardPort.toString(),
+                "WEAGENT_BRIDGE_TOKEN" to token,
+            )
+        }
     }
 
     fun close() { server?.close(); server = null; tokens.values.forEach(ToolBridgeSession::revoke); tokens.clear() }

@@ -2,6 +2,9 @@ package dev.ujhhgtg.wekit.agent.environment
 
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
+import dev.ujhhgtg.wekit.agent.ssh.EncryptedSshCredentials
+import dev.ujhhgtg.wekit.agent.ssh.SshCredentialStore
+import dev.ujhhgtg.wekit.agent.ssh.SshHostKey
 import dev.ujhhgtg.wekit.extensions.ArchLinuxPack
 import dev.ujhhgtg.wekit.extensions.ExtensionPack
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -197,6 +200,12 @@ class LinuxEnvironmentManager(
             .also { result -> publishHealth(environmentId, result) }
     }
 
+    suspend fun sshConnection(environmentId: String): SshConnectionManager {
+        val backend = backend(environmentId)
+        require(backend is SshBackend) { "environment is not SSH" }
+        return backend.connection
+    }
+
     private suspend fun publishHealth(environmentId: String, value: EnvironmentHealth) {
         stateMutex.withLock {
             if (environmentId == NATIVE_ENVIRONMENT_ID ||
@@ -259,15 +268,35 @@ class LinuxEnvironmentManager(
 
     private suspend fun backend(environmentId: String): LinuxEnvironmentBackend {
         backends[environmentId]?.let { return it }
-        val snapshot = if (environmentId == NATIVE_ENVIRONMENT_ID) nativeSnapshot else {
-            getEnvironment(environmentId)?.toSnapshot()
-                ?: error("environment $environmentId does not exist")
-        }
+        val entity = if (environmentId == NATIVE_ENVIRONMENT_ID) null else getEnvironment(environmentId)
+            ?: error("environment $environmentId does not exist")
+        val snapshot = entity?.toSnapshot() ?: nativeSnapshot
         val created = backendFactory?.invoke(snapshot) ?: when (snapshot.type) {
             LinuxEnvironmentType.NATIVE -> NativeBackend(snapshot)
             LinuxEnvironmentType.PROOT -> ProotBackend(snapshot)
             LinuxEnvironmentType.CHROOT -> ChrootBackend(snapshot)
-            LinuxEnvironmentType.SSH -> error("SSH backend is not implemented")
+            LinuxEnvironmentType.SSH -> {
+                val stored = requireNotNull(entity)
+                val encrypted = EncryptedSshCredentials(
+                    requireNotNull(stored.sshCredentialCiphertext) { "SSH credentials are missing" },
+                    requireNotNull(stored.sshCredentialIv) { "SSH credential IV is missing" },
+                )
+                val confirmed = stored.sshHostKeyFingerprint?.let { fingerprint ->
+                    SshHostKey(requireNotNull(stored.sshHostKeyAlgorithm), fingerprint)
+                }
+                SshBackend(
+                    snapshot,
+                    SshConnectionManager(
+                        SshConfiguration(
+                            requireNotNull(stored.sshHost),
+                            requireNotNull(stored.sshPort),
+                            requireNotNull(stored.sshUsername),
+                            confirmed,
+                        ),
+                        SshCredentialStore.decrypt(encrypted),
+                    ),
+                )
+            }
         }
         val existing = backends.putIfAbsent(environmentId, created)
         if (existing != null) {

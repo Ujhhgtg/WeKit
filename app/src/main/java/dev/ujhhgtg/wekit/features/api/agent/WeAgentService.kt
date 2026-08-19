@@ -24,6 +24,7 @@ import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
 import dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult
 import dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult
 import dev.ujhhgtg.wekit.agent.terminal.EnvironmentTerminalBackend
+import dev.ujhhgtg.wekit.agent.terminal.SshTerminalBackend
 import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
 import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
@@ -87,7 +88,9 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         linuxEnvironmentManager.createProotEnvironment(name)
     suspend fun createChrootEnvironment(name: String): ChrootEnvironmentCreationResult =
         linuxEnvironmentManager.createChrootEnvironment(name)
-    val terminalManager = TerminalManager(EnvironmentTerminalBackend(approveChrootStart = { environment ->
+    val terminalManager = TerminalManager(EnvironmentTerminalBackend(
+        ssh = SshTerminalBackend(linuxEnvironmentManager::sshConnection),
+        approveChrootStart = { environment ->
         requestHighRiskApproval("start rooted chroot terminal", environment)
     }))
     val toolBridgeServer = ToolBridgeServer(
