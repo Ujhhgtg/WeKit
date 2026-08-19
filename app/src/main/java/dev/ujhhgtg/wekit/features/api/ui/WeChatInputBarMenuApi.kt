@@ -54,14 +54,14 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
     )
 
     private const val TAG = "WeChatInputBarMenuApi"
-    private val providers = mutableMapOf<String, IActionItemsProvider>()
+    private val providers = mutableSetOf<IActionItemsProvider>()
 
     fun addProvider(provider: IActionItemsProvider) {
-        providers[provider.javaClass.name] = provider
+        providers += provider
     }
 
     fun removeProvider(provider: IActionItemsProvider) {
-        providers.remove(provider.javaClass.name)
+        providers -= provider
     }
 
     val methodSendMessage by dexMethod {
@@ -102,7 +102,7 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
     }
 
     fun showMenu(context: Context, chatFooter: ChatFooter) {
-        val applicableItems = providers.values
+        val applicableItems = providers
             .flatMap { it.getActionItems() }
             .filter { it.isSupported(context, chatFooter) }
 

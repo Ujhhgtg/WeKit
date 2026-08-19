@@ -30,14 +30,14 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
         val onClick: (HookParam, Int, List<JSONObject>) -> Unit
     )
 
-    private val menuItems = mutableMapOf<String, List<MenuItem>>()
+    private val menuItems = mutableMapOf<IMenuItemsProvider, List<MenuItem>>()
 
     fun addProvider(provider: IMenuItemsProvider) {
-        menuItems[provider.javaClass.name] = provider.getMenuItems()
+        menuItems[provider] = provider.getMenuItems()
     }
 
     fun removeProvider(provider: IMenuItemsProvider) {
-        menuItems.remove(provider.javaClass.name)
+        menuItems.remove(provider)
     }
 
     private val methodCreateMenu1 by dexMethod {

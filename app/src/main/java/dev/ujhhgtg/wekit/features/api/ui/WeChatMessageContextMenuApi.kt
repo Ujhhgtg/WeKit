@@ -93,18 +93,18 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     // id of the single merged entry shown when MergeChatMessageContextMenuItems is enabled
     private const val MERGED_MENU_ITEM_ID = 777000
 
-    private val providers = mutableMapOf<String, IMenuItemsProvider>()
+    private val providers = mutableSetOf<IMenuItemsProvider>()
 
     fun addProvider(provider: IMenuItemsProvider) {
-        providers[provider.javaClass.name] = provider
+        providers += provider
     }
 
     fun removeProvider(provider: IMenuItemsProvider) {
-        providers.remove(provider.javaClass.name)
+        providers -= provider
     }
 
     private fun currentMenuItems(): List<MenuItem> =
-        providers.values.flatMap(IMenuItemsProvider::getMenuItems)
+        providers.flatMap(IMenuItemsProvider::getMenuItems)
 
     private val methodCreateMenu by dexMethod {
         searchPackages("com.tencent.mm.ui.chatting.viewitems")

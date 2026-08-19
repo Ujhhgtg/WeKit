@@ -33,14 +33,14 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
         fun getMenuItems(): List<MenuItem>
     }
 
-    private val menuItems = mutableMapOf<String, List<MenuItem>>()
+    private val menuItems = mutableMapOf<IMenuItemsProvider, List<MenuItem>>()
 
     fun addProvider(provider: IMenuItemsProvider) {
-        menuItems[provider.javaClass.name] = provider.getMenuItems()
+        menuItems[provider] = provider.getMenuItems()
     }
 
     fun removeProvider(provider: IMenuItemsProvider) {
-        menuItems.remove(provider.javaClass.name)
+        menuItems.remove(provider)
     }
 
     data class MenuItem(
