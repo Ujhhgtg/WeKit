@@ -30,6 +30,12 @@ class TerminalManager(
 ) {
     private val lock = Any()
     private val sessions = LinkedHashMap<String, Session>()
+    private val revocationHooks = mutableMapOf<String, MutableList<() -> Unit>>()
+
+    /** Called when a terminal-owned bridge capability must be revoked. */
+    fun addRevocationHook(sessionId: String, hook: () -> Unit) {
+        synchronized(lock) { revocationHooks.getOrPut(sessionId, ::mutableListOf) += hook }
+    }
 
     init {
         scope.launch {
@@ -333,12 +339,17 @@ class TerminalManager(
         var finishedAt: Long? = null
         var reader: Job? = null
         var waiter: Job? = null
+        private var revocationNotified = false
 
         fun finish(newState: TerminalState, timestamp: Long, replaceFinished: Boolean = false) {
             if (state.isFinished && !replaceFinished) return
             state = newState
             finishedAt = timestamp
             changed.value = changed.value + 1
+            if (!revocationNotified) {
+                revocationNotified = true
+                revocationHooks.remove(id).orEmpty().forEach { runCatching { it() } }
+            }
         }
 
         fun read(cursor: Long?, max: Int): TerminalReadResult {

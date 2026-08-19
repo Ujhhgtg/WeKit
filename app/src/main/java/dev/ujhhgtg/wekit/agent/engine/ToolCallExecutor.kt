@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.agent.model.LlmToolCall
 import dev.ujhhgtg.wekit.agent.tool.ToolMode
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import dev.ujhhgtg.wekit.agent.tool.ToolVisibility
+import dev.ujhhgtg.wekit.agent.tool.ToolCallOrigin
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
@@ -16,6 +17,7 @@ class ToolCallExecutor(
     data class Context(
         val modelExplanation: String? = null,
         val visibility: ToolVisibility = ToolVisibility.fromGlobals(),
+        val origin: ToolCallOrigin = ToolCallOrigin.DIRECT,
         val onAwaitingApproval: suspend (String) -> Unit = {},
     )
 
@@ -26,6 +28,9 @@ class ToolCallExecutor(
             .getOrElse { JsonObject(emptyMap()) }
         val tool = registry.findByExposedName(call.name, context.visibility)
             ?: return Result("Unknown tool: ${call.name}", ApprovalStatus.AUTO_ALLOWED, "")
+        if (!ToolRegistry.isCallAllowed(tool.exposedName, context.origin)) {
+            return Result("Tool is not available through the environment bridge: ${tool.exposedName}", ApprovalStatus.AUTO_ALLOWED, tool.provider.id)
+        }
         if (tool.mode == ToolMode.MANUAL_APPROVAL) context.onAwaitingApproval(call.name)
         return when (val decision = approvalGateway.decide(
             tool.mode, tool.exposedName, tool.provider.name, call.argumentsJson, context.modelExplanation,

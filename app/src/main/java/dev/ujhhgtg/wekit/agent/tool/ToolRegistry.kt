@@ -179,7 +179,9 @@ class ToolRegistry(
 
         /** Shared enforcement point for Task 5's bridge dispatcher. */
         fun isCallAllowed(toolName: String, origin: ToolCallOrigin): Boolean =
-            origin == ToolCallOrigin.DIRECT || toolName !in BuiltinToolProvider.TERMINAL_TOOL_NAMES
+            origin == ToolCallOrigin.DIRECT ||
+                toolName != "edit" && toolName != "exec" && toolName != DISCOVER_TOOLS_NAME &&
+                toolName !in BuiltinToolProvider.TERMINAL_TOOL_NAMES
 
         private val DISCOVER_TOOLS_SCHEMA: JsonObject = buildJsonObject {
             put("type", "object")
