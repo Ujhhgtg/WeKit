@@ -901,7 +901,7 @@ private fun StickerPanelContent(
                     StickerReorderTarget.PACKS -> actions.savePackOrder(requested)
                     StickerReorderTarget.ITEMS -> packId?.let {
                         actions.saveItemOrder(it, requested)
-                    } ?: Result.failure(IllegalStateException(localizedContext.getString(R.string.sticker_panel_error_no_pack_selected)))
+                    } ?: Result.failure(IllegalStateException(currentLocalizedContext.getString(R.string.sticker_panel_error_no_pack_selected)))
                 }
             }
             if (result.isSuccess) {
@@ -1930,7 +1930,7 @@ private fun StickerPanelContent(
                                 failures.size,
                                 firstFailure?.first.orEmpty(),
                                 firstFailure?.second?.message
-                                    ?: localizedContext.getString(R.string.panel_unknown_error),
+                                    ?: currentLocalizedContext.getString(R.string.panel_unknown_error),
                             )
                             if (succeeded > 0) refreshLocal()
                         } finally {

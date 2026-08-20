@@ -1073,7 +1073,7 @@ private fun VoicePanelContent(
                 when (target) {
                     VoiceReorderTarget.PACKS -> actions.savePackOrder(requested)
                     VoiceReorderTarget.ITEMS -> packId?.let { actions.saveItemOrder(it, requested) }
-                        ?: Result.failure(IllegalStateException(localizedContext.getString(R.string.voice_panel_error_no_pack_selected)))
+                        ?: Result.failure(IllegalStateException(currentLocalizedContext.getString(R.string.voice_panel_error_no_pack_selected)))
                 }
             }
             if (result.isSuccess) {
