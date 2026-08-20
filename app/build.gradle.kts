@@ -361,6 +361,7 @@ val dexTestWorkerProperties = listOf(
     "wekit.dexTest.versionName",
     "wekit.dexTest.buildTag",
     "wekit.dexTest.isGooglePlay",
+    "wekit.dexTest.features",
 )
 val dexTestWorker = providers.gradleProperty("dexTestWorker").map(String::toBoolean).orElse(false)
 

@@ -32,6 +32,10 @@ pub struct DexTestArgs {
     #[arg(long, value_name = "DIR")]
     pub output_dir: Option<PathBuf>,
 
+    /// Comma-separated exact feature class names or fully qualified class names.
+    #[arg(long, value_name = "FEATURES", value_parser = parse_feature_filter)]
+    pub features: Option<String>,
+
     /// Print every successful delegate and descriptor.
     #[arg(long)]
     pub verbose: bool,
@@ -204,7 +208,14 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             }
         };
         println!("\n--- [{} / {}] {} ---", index + 1, apks.len(), apk.display());
-        let status = run_worker(&root, apk, &metadata, &native, &report_path);
+        let status = run_worker(
+            &root,
+            apk,
+            &metadata,
+            &native,
+            &report_path,
+            args.features.as_deref(),
+        );
         let report = match (status, read_report(&report_path)) {
             (_, Ok(report)) => report,
             (Ok(status), Err(error)) => infrastructure_report(apk, &native, &anyhow::anyhow!("worker exited {status}; report unavailable: {error}")),
@@ -233,6 +244,14 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
     } else {
         bail!("dex resolution test found failures; reports: {}", run_dir.display())
     }
+}
+
+fn parse_feature_filter(value: &str) -> std::result::Result<String, String> {
+    let selectors = value.split(',').map(str::trim).collect::<Vec<_>>();
+    if selectors.is_empty() || selectors.iter().any(|selector| selector.is_empty()) {
+        return Err("features must be a comma-separated list of non-empty class names".to_string());
+    }
+    Ok(selectors.join(","))
 }
 
 fn discover_apks() -> Result<Vec<PathBuf>> {
@@ -406,9 +425,16 @@ fn manifest_attribute(xml: &str, name: &str, attribute: &str) -> Option<String> 
     Some(section[value_start..value_end].to_string())
 }
 
-fn run_worker(root: &Path, apk: &Path, metadata: &ApkMetadata, native: &DexKitNative, report: &Path) -> Result<i32> {
+fn run_worker(
+    root: &Path,
+    apk: &Path,
+    metadata: &ApkMetadata,
+    native: &DexKitNative,
+    report: &Path,
+    features: Option<&str>,
+) -> Result<i32> {
     let gradle = root.join("gradlew");
-    let properties = [
+    let mut properties = vec![
         ("wekit.dexTest.apk", apk.to_string_lossy().to_string()),
         ("wekit.dexTest.nativeLibrary", native.library_path.to_string_lossy().to_string()),
         ("wekit.dexTest.report", report.to_string_lossy().to_string()),
@@ -419,6 +445,9 @@ fn run_worker(root: &Path, apk: &Path, metadata: &ApkMetadata, native: &DexKitNa
         ("wekit.dexTest.buildTag", metadata.build_tag.clone()),
         ("wekit.dexTest.isGooglePlay", metadata.is_google_play.to_string()),
     ];
+    if let Some(features) = features {
+        properties.push(("wekit.dexTest.features", features.to_string()));
+    }
     let mut command = Command::new(&gradle);
     command.current_dir(root).args([":app:testStandardDebugUnitTest", "-PdexTestWorker=true"]);
     for (key, value) in properties { command.arg(format!("-P{key}={value}")); }
@@ -539,6 +568,25 @@ fn now_rfc3339() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::Parser;
+
+    #[derive(Parser)]
+    struct TestCli {
+        #[command(flatten)]
+        args: DexTestArgs,
+    }
+
+    #[test]
+    fn parses_feature_filter() {
+        let cli = TestCli::try_parse_from(["dex-test", "--features", "AntiReadReceipts, AntiSecMsg"]).unwrap();
+        assert_eq!(cli.args.features.as_deref(), Some("AntiReadReceipts,AntiSecMsg"));
+    }
+
+    #[test]
+    fn rejects_empty_feature_filter_entries() {
+        assert!(TestCli::try_parse_from(["dex-test", "--features", "AntiReadReceipts,"]).is_err());
+        assert!(TestCli::try_parse_from(["dex-test", "--features", ""]).is_err());
+    }
 
     #[test]
     fn natural_sort_orders_version_numbers() {

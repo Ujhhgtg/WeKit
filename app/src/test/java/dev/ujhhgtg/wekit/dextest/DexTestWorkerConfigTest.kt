@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.dextest
 import java.util.Properties
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
@@ -13,6 +14,19 @@ class DexTestWorkerConfigTest {
         assertEquals(3040L, config.versionCode)
         assertEquals("8.0.69", config.versionName)
         assertFalse(config.isGooglePlay)
+        assertNull(config.featureSelectors)
+    }
+
+    @Test
+    fun parsesFeatureSelectors() {
+        val properties = properties().apply {
+            setProperty("wekit.dexTest.features", "AntiReadReceipts, AntiSecMsg")
+        }
+
+        assertEquals(
+            listOf("AntiReadReceipts", "AntiSecMsg"),
+            DexTestWorkerConfig.fromSystemProperties(properties).featureSelectors,
+        )
     }
 
     @Test
