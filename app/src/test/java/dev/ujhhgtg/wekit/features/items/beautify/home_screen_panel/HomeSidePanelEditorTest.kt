@@ -151,6 +151,24 @@ class HomeSidePanelEditorTest {
     }
 
     @Test
+    fun updatingOneDuplicateDateCardLeavesTheOtherUntouched() {
+        val editor = HomeSidePanelEditSession(
+            HomeSidePanelLayout(
+                cards = listOf(
+                    DateTimeCardConfig("first"),
+                    DateTimeCardConfig("second"),
+                ),
+            ),
+            SequenceIds(),
+        )
+
+        editor.updateDateTime("second") { it.copy(showLunarCalendar = true) }
+
+        assertFalse((editor.draft.cards[0] as DateTimeCardConfig).showLunarCalendar)
+        assertTrue((editor.draft.cards[1] as DateTimeCardConfig).showLunarCalendar)
+    }
+
+    @Test
     fun invalidIdsTypesAndIndicesFailLoudly() {
         val editor = HomeSidePanelEditSession(
             HomeSidePanelLayout(cards = listOf(WalletCardConfig("wallet"))),

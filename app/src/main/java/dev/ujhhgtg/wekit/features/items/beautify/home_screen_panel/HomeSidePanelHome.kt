@@ -199,6 +199,7 @@ private fun HomeSidePanelLayoutCard(
             content = DateTimeCardContent.Runtime,
             editMode = editMode,
             modifier = modifier,
+            onEditCard = panelState::openDateTimeSettings,
             onDeleteCard = panelState::removeCard,
         )
 

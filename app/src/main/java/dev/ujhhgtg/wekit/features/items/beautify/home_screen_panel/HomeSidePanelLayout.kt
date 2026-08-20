@@ -66,6 +66,7 @@ internal sealed class HomeSidePanelCardConfig {
 @SerialName("date_time")
 internal data class DateTimeCardConfig(
     override val id: String,
+    val showLunarCalendar: Boolean = false,
 ) : HomeSidePanelCardConfig() {
     @Transient
     override val type: HomeSidePanelCardType = HomeSidePanelCardType.DATE_TIME

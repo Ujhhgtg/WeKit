@@ -5,6 +5,7 @@ internal sealed interface HomeSidePanelRoute {
     data object PanelSettings : HomeSidePanelRoute
     data object EditHome : HomeSidePanelRoute
     sealed interface EditorDetail : HomeSidePanelRoute
+    data class DateTimeSettings(val cardId: String) : EditorDetail
     data class WeatherSettings(val cardId: String) : EditorDetail
     data class WalletSettings(val cardId: String) : EditorDetail
     data class HitokotoSettings(val cardId: String) : EditorDetail
@@ -68,6 +69,14 @@ internal class HomeSidePanelEditSession(
         val card = card(cardId)
         require(card is WeatherCardConfig) {
             "Card '$cardId' is ${card.type}; expected Weather card"
+        }
+        replaceCard(transform(card).copy(id = card.id))
+    }
+
+    fun updateDateTime(cardId: String, transform: (DateTimeCardConfig) -> DateTimeCardConfig) {
+        val card = card(cardId)
+        require(card is DateTimeCardConfig) {
+            "Card '$cardId' is ${card.type}; expected Date & time card"
         }
         replaceCard(transform(card).copy(id = card.id))
     }

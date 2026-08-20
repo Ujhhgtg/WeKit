@@ -301,6 +301,15 @@ internal class HomeSidePanelState(
         mutateDraft { removeAction(cardId, actionId) }
     }
 
+    fun openDateTimeSettings(cardId: String) {
+        requireDraftDateTimeCard(cardId)
+        setRoute(HomeSidePanelRoute.DateTimeSettings(cardId))
+    }
+
+    fun updateDateTimeLunarCalendar(cardId: String, show: Boolean) {
+        mutateDraft { updateDateTime(cardId) { it.copy(showLunarCalendar = show) } }
+    }
+
     fun openWeatherSettings(cardId: String) {
         val card = requireDraftWeatherCard(cardId)
         _weatherSettings.update { current ->
@@ -394,6 +403,7 @@ internal class HomeSidePanelState(
     fun closeCardSettings() {
         when (_uiState.value.route) {
             HomeSidePanelRoute.PanelSettings -> setRoute(HomeSidePanelRoute.Home)
+            is HomeSidePanelRoute.DateTimeSettings,
             is HomeSidePanelRoute.WeatherSettings,
             is HomeSidePanelRoute.WalletSettings,
             is HomeSidePanelRoute.HitokotoSettings,
@@ -422,6 +432,7 @@ internal class HomeSidePanelState(
             true
         }
 
+        is HomeSidePanelRoute.DateTimeSettings,
         is HomeSidePanelRoute.WeatherSettings,
         is HomeSidePanelRoute.WalletSettings,
         is HomeSidePanelRoute.HitokotoSettings,
@@ -591,6 +602,14 @@ internal class HomeSidePanelState(
     private fun requireDraftWeatherCard(cardId: String): WeatherCardConfig {
         val card = requireDraftCard(cardId)
         require(card is WeatherCardConfig) { "Card '$cardId' is ${card.type}; expected Weather card" }
+        return card
+    }
+
+    private fun requireDraftDateTimeCard(cardId: String): DateTimeCardConfig {
+        val card = requireDraftCard(cardId)
+        require(card is DateTimeCardConfig) {
+            "Card '$cardId' is ${card.type}; expected Date & time card"
+        }
         return card
     }
 

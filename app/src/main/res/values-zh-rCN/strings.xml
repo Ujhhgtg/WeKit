@@ -2856,6 +2856,57 @@
     <string name="home_side_panel_fetch_failed">获取失败</string>
     <string name="home_side_panel_refresh_status">刷新状态</string>
     <string name="home_side_panel_date_pattern">M月d日 E</string>
+    <string name="home_side_panel_date_time_settings">日期与时间设置</string>
+    <string name="home_side_panel_show_lunar_calendar">显示农历</string>
+    <string name="home_side_panel_lunar_prefix">农历</string>
+    <string name="home_side_panel_lunar_leap_prefix">闰</string>
+    <string name="home_side_panel_lunar_separator"></string>
+    <string-array name="home_side_panel_lunar_month_names">
+        <item>正月</item>
+        <item>二月</item>
+        <item>三月</item>
+        <item>四月</item>
+        <item>五月</item>
+        <item>六月</item>
+        <item>七月</item>
+        <item>八月</item>
+        <item>九月</item>
+        <item>十月</item>
+        <item>冬月</item>
+        <item>腊月</item>
+    </string-array>
+    <string-array name="home_side_panel_lunar_day_names">
+        <item>初一</item>
+        <item>初二</item>
+        <item>初三</item>
+        <item>初四</item>
+        <item>初五</item>
+        <item>初六</item>
+        <item>初七</item>
+        <item>初八</item>
+        <item>初九</item>
+        <item>初十</item>
+        <item>十一</item>
+        <item>十二</item>
+        <item>十三</item>
+        <item>十四</item>
+        <item>十五</item>
+        <item>十六</item>
+        <item>十七</item>
+        <item>十八</item>
+        <item>十九</item>
+        <item>二十</item>
+        <item>廿一</item>
+        <item>廿二</item>
+        <item>廿三</item>
+        <item>廿四</item>
+        <item>廿五</item>
+        <item>廿六</item>
+        <item>廿七</item>
+        <item>廿八</item>
+        <item>廿九</item>
+        <item>三十</item>
+    </string-array>
     <string name="home_side_panel_greeting_morning">早上好，今天也要保持好心情。</string>
     <string name="home_side_panel_greeting_afternoon">下午好，愿今天一切顺利。</string>
     <string name="home_side_panel_greeting_evening">晚上好，愿你今晚安心入睡。</string>

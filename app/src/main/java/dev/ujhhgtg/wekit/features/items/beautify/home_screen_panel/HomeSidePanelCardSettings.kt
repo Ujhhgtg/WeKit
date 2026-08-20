@@ -105,6 +105,37 @@ internal fun HomeSidePanelPanelSettings(
 }
 
 @Composable
+internal fun HomeSidePanelDateTimeSettings(
+    card: DateTimeCardConfig,
+    panelState: HomeSidePanelState,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom).asPaddingValues())
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SettingsHeader(
+            stringResource(R.string.home_side_panel_date_time_settings),
+            panelState::closeCardSettings,
+        )
+        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_lunar_calendar),
+                    checked = card.showLunarCalendar,
+                    onCheckedChange = {
+                        panelState.updateDateTimeLunarCalendar(card.id, it)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
 internal fun HomeSidePanelWeatherSettings(
     card: WeatherCardConfig,
     panelState: HomeSidePanelState,

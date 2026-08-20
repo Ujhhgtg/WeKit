@@ -85,6 +85,31 @@ class HomeSidePanelLayoutTest {
     }
 
     @Test
+    fun dateTimeLunarSettingDefaultsOffAndRoundTripsWhenEnabled() {
+        val legacyRaw = """
+            {
+              "version": 1,
+              "cards": [
+                {"cardType": "date_time", "id": "legacy-date"}
+              ]
+            }
+        """.trimIndent()
+
+        assertFalse(
+            (HomeSidePanelLayoutCodec.decode(legacyRaw).cards.single() as DateTimeCardConfig)
+                .showLunarCalendar,
+        )
+
+        val enabled = HomeSidePanelLayout(
+            cards = listOf(DateTimeCardConfig("date", showLunarCalendar = true)),
+        )
+        assertEquals(
+            enabled,
+            HomeSidePanelLayoutCodec.decode(HomeSidePanelLayoutCodec.encode(enabled)),
+        )
+    }
+
+    @Test
     fun invalidRawIsPreservedAndDuplicateIdsFail() {
         val fallback = HomeSidePanelLayoutCodec.load(
             "{not-json",

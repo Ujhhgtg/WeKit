@@ -133,6 +133,13 @@ internal fun HomeSidePanelContent(
                         onLongPressAction = panelState::emitAddActionCandidate,
                     )
 
+                    is HomeSidePanelRoute.DateTimeSettings -> HomeSidePanelDateTimeSettings(
+                        card = state.renderedLayout.cards.single {
+                            it.id == route.cardId
+                        } as DateTimeCardConfig,
+                        panelState = panelState,
+                    )
+
                     is HomeSidePanelRoute.WeatherSettings -> HomeSidePanelWeatherSettings(
                         card = state.renderedLayout.cards.single { it.id == route.cardId } as WeatherCardConfig,
                         panelState = panelState,

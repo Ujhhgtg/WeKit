@@ -3003,6 +3003,57 @@
     <string name="home_side_panel_fetch_failed">Failed to load</string>
     <string name="home_side_panel_refresh_status">Refresh status</string>
     <string name="home_side_panel_date_pattern">MMM d, EEE</string>
+    <string name="home_side_panel_date_time_settings">Date &amp; time settings</string>
+    <string name="home_side_panel_show_lunar_calendar">Show lunar calendar</string>
+    <string name="home_side_panel_lunar_prefix">Lunar\u0020</string>
+    <string name="home_side_panel_lunar_leap_prefix">leap\u0020</string>
+    <string name="home_side_panel_lunar_separator">,\u0020</string>
+    <string-array name="home_side_panel_lunar_month_names">
+        <item>1st month</item>
+        <item>2nd month</item>
+        <item>3rd month</item>
+        <item>4th month</item>
+        <item>5th month</item>
+        <item>6th month</item>
+        <item>7th month</item>
+        <item>8th month</item>
+        <item>9th month</item>
+        <item>10th month</item>
+        <item>11th month</item>
+        <item>12th month</item>
+    </string-array>
+    <string-array name="home_side_panel_lunar_day_names">
+        <item>day 1</item>
+        <item>day 2</item>
+        <item>day 3</item>
+        <item>day 4</item>
+        <item>day 5</item>
+        <item>day 6</item>
+        <item>day 7</item>
+        <item>day 8</item>
+        <item>day 9</item>
+        <item>day 10</item>
+        <item>day 11</item>
+        <item>day 12</item>
+        <item>day 13</item>
+        <item>day 14</item>
+        <item>day 15</item>
+        <item>day 16</item>
+        <item>day 17</item>
+        <item>day 18</item>
+        <item>day 19</item>
+        <item>day 20</item>
+        <item>day 21</item>
+        <item>day 22</item>
+        <item>day 23</item>
+        <item>day 24</item>
+        <item>day 25</item>
+        <item>day 26</item>
+        <item>day 27</item>
+        <item>day 28</item>
+        <item>day 29</item>
+        <item>day 30</item>
+    </string-array>
     <string name="home_side_panel_greeting_morning">Good morning. Keep your spirits up today.</string>
     <string name="home_side_panel_greeting_afternoon">Good afternoon. Hope everything goes smoothly today.</string>
     <string name="home_side_panel_greeting_evening">Good evening. Rest well tonight.</string>

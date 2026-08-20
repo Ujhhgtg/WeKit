@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -92,6 +93,7 @@ internal fun HomeSidePanelDateTimeCard(
     editMode: Boolean,
     modifier: Modifier = Modifier,
     cardDragModifier: Modifier = Modifier,
+    onEditCard: ((String) -> Unit)? = null,
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
     val now = when (content) {
@@ -99,6 +101,29 @@ internal fun HomeSidePanelDateTimeCard(
         is DateTimeCardContent.Preview -> content.now
     }
     val localizedContext = LocalWeKitLocalizedContext.current
+    val dateText = now.format(
+        DateTimeFormatter.ofPattern(
+            stringResource(R.string.home_side_panel_date_pattern),
+            localizedContext.resources.configuration.locales[0],
+        ),
+    )
+    val lunarDate = if (card.showLunarCalendar) {
+        remember(now.toLocalDate()) { homeSidePanelLunarDate(now) }
+    } else {
+        null
+    }
+    val lunarText = lunarDate?.let {
+        formatHomeSidePanelLunarDate(
+            date = it,
+            text = HomeSidePanelLunarDateText(
+                prefix = stringResource(R.string.home_side_panel_lunar_prefix),
+                leapPrefix = stringResource(R.string.home_side_panel_lunar_leap_prefix),
+                separator = stringResource(R.string.home_side_panel_lunar_separator),
+                monthNames = stringArrayResource(R.array.home_side_panel_lunar_month_names).asList(),
+                dayNames = stringArrayResource(R.array.home_side_panel_lunar_day_names).asList(),
+            ),
+        )
+    }
     HomeSidePanelCardFrame(
         cardId = card.id,
         modifier = modifier.fillMaxWidth(),
@@ -108,7 +133,7 @@ internal fun HomeSidePanelDateTimeCard(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         editMode = editMode,
-        onEdit = null,
+        onEdit = onEditCard?.let { edit -> { edit(card.id) } },
         onDelete = onDeleteCard?.let { delete -> { delete(card.id) } },
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -119,16 +144,16 @@ internal fun HomeSidePanelDateTimeCard(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    now.format(
-                        DateTimeFormatter.ofPattern(
-                            stringResource(R.string.home_side_panel_date_pattern),
-                            localizedContext.resources.configuration.locales[0],
-                        )
-                    ),
-                    modifier = Modifier.padding(start = 10.dp, bottom = 5.dp),
+                    buildString {
+                        append(dateText)
+                        lunarText?.let { append(" · ").append(it) }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 10.dp, bottom = 5.dp),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
