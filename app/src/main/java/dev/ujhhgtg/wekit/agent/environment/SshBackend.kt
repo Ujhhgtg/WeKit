@@ -293,6 +293,61 @@ class SshBackend(
               json_skip_ws
               [ "${'$'}json_pos" -eq "${'$'}json_len" ]
             }
+            json_response_valid() {
+              json_text=${'$'}1; json_len=${'$'}{#json_text}; json_pos=0
+              response_ok_seen=0; response_error_seen=0; response_ok=''; response_error=''
+              [ "${'$'}json_len" -le 1048576 ] || return 1
+              json_skip_ws
+              [ "${'$'}{json_text:json_pos:1}" = '{' ] || return 1
+              json_pos=${'$'}((json_pos + 1)); json_skip_ws
+              [ "${'$'}{json_text:json_pos:1}" != '}' ] || return 1
+              while true; do
+                local key_start=${'$'}json_pos key
+                json_string || return 1
+                key=${'$'}{json_text:key_start + 1:json_pos - key_start - 2}
+                json_skip_ws
+                [ "${'$'}{json_text:json_pos:1}" = ':' ] || return 1
+                json_pos=${'$'}((json_pos + 1)); json_skip_ws
+                case "${'$'}key" in
+                  ok)
+                    [ "${'$'}response_ok_seen" -eq 0 ] || return 1
+                    response_ok_seen=1
+                    if [ "${'$'}{json_text:json_pos:4}" = true ]; then
+                      response_ok=true; json_pos=${'$'}((json_pos + 4))
+                    elif [ "${'$'}{json_text:json_pos:5}" = false ]; then
+                      response_ok=false; json_pos=${'$'}((json_pos + 5))
+                    else return 1; fi ;;
+                  error)
+                    [ "${'$'}response_error_seen" -eq 0 ] || return 1
+                    response_error_seen=1
+                    local error_start=${'$'}json_pos
+                    json_string || return 1
+                    response_error=${'$'}{json_text:error_start + 1:json_pos - error_start - 2} ;;
+                  *) json_value 1 || return 1 ;;
+                esac
+                json_skip_ws
+                case "${'$'}{json_text:json_pos:1}" in
+                  ',') json_pos=${'$'}((json_pos + 1)); json_skip_ws ;;
+                  '}') json_pos=${'$'}((json_pos + 1)); break ;;
+                  *) return 1 ;;
+                esac
+              done
+              json_skip_ws
+              [ "${'$'}json_pos" -eq "${'$'}json_len" ] || return 1
+              [ "${'$'}response_ok_seen" -eq 1 ] || return 1
+              if [ "${'$'}response_ok" = false ]; then
+                [ "${'$'}response_error_seen" -eq 1 ] || return 1
+                case "${'$'}response_error" in
+                  unauthorized|token_revoked|authentication_failed) response_exit=3 ;;
+                  unknown_tool|tool_disabled|disabled_tool) response_exit=4 ;;
+                  approval_denied) response_exit=5 ;;
+                  execution_failed) response_exit=6 ;;
+                  *) response_exit=2 ;;
+                esac
+              else
+                response_exit=0
+              fi
+            }
             port=${'$'}{WEAGENT_BRIDGE_PORT:-}
             token=${'$'}{WEAGENT_BRIDGE_TOKEN:-}
             [ -n "${'$'}port" ] || fail 7 'WEAGENT_BRIDGE_PORT is not set'
@@ -319,14 +374,9 @@ class SshBackend(
               if ! IFS= read -r -N "${'$'}length" -t 600 response <&3; then fail 7 'bridge response payload is truncated'; fi
               [ "${'$'}{#response}" -eq "${'$'}length" ] || fail 7 'bridge response payload is truncated'
             fi
+            json_response_valid "${'$'}response" || fail 7 'invalid bridge response JSON'
             printf '%s\n' "${'$'}response"
-            case "${'$'}response" in
-              *'"ok":false'*'"error":"unauthorized"'*|*'"ok":false'*'"error":"token_revoked"'*|*'"ok":false'*'"error":"authentication_failed"'*) exit 3 ;;
-              *'"ok":false'*'"error":"unknown_tool"'*|*'"ok":false'*'"error":"tool_disabled"'*|*'"ok":false'*'"error":"disabled_tool"'*) exit 4 ;;
-              *'"ok":false'*'"error":"approval_denied"'*) exit 5 ;;
-              *'"ok":false'*'"error":"execution_failed"'*) exit 6 ;;
-              *'"ok":false'*) exit 2 ;;
-            esac
+            exit "${'$'}response_exit"
         """.trimIndent() + "\n"
     }
 }

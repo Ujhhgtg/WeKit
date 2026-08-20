@@ -43,9 +43,14 @@ class SshBackendTest {
     fun `bash helper returns parseable JSON for every nonzero response status`() {
         listOf(
             3 to "unauthorized",
+            3 to "token_revoked",
+            3 to "authentication_failed",
             4 to "unknown_tool",
+            4 to "tool_disabled",
+            4 to "disabled_tool",
             5 to "approval_denied",
             6 to "execution_failed",
+            2 to "invalid_request",
         ).forEach { (exitCode, error) ->
             val result = withMockBridge("{\"ok\":false,\"error\":\"$error\"}") {
                 runHelper(it, "list")
@@ -54,6 +59,33 @@ class SshBackendTest {
             assertEquals(exitCode, result.exitCode, result.stdout)
             assertJsonOutput(result)
         }
+    }
+
+    @Test
+    fun `bash helper rejects invalid response JSON with exit seven`() {
+        listOf(
+            "",
+            "{malformed",
+            "[]",
+            "true",
+            "{}",
+            "{\"message\":\"missing ok\"}",
+            "{\"ok\":false}",
+        ).forEach { response ->
+            val result = withMockBridge(response) { runHelper(it, "list") }
+
+            assertEquals(7, result.exitCode, "response=$response stdout=${result.stdout}")
+            assertJsonOutput(result)
+        }
+    }
+
+    @Test
+    fun `bash helper ignores nested error codes when top level succeeds`() {
+        val response = " { \"ok\" : true, \"result\" : {\"ok\":false,\"error\":\"unauthorized\"} } "
+        val result = withMockBridge(response) { runHelper(it, "list") }
+
+        assertEquals(0, result.exitCode, result.stdout)
+        assertEquals("$response\n", result.stdout)
     }
 
     @Test
