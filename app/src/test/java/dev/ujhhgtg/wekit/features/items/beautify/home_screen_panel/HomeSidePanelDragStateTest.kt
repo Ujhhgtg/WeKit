@@ -109,6 +109,57 @@ class HomeSidePanelDragStateTest {
     }
 
     @Test
+    fun existingSourcesUseOneNormalizedVisualInsertionGap() {
+        val cards = listOf(
+            DateTimeCardConfig("first"),
+            DateTimeCardConfig("dragged"),
+            DateTimeCardConfig("last"),
+        )
+        val cardSnapshot = dragSnapshot(
+            payload = HomeSidePanelDragPayload.ExistingCard("dragged"),
+            target = HomeSidePanelDragTarget.Card(3),
+        )
+        assertEquals(2, cardSnapshot.visualCardInsertionIndex(cards))
+
+        val actions = listOf(
+            HomeSidePanelActionConfig("first", HomeSidePanelActionKind.SCAN),
+            HomeSidePanelActionConfig("dragged", HomeSidePanelActionKind.WALLET),
+            HomeSidePanelActionConfig("last", HomeSidePanelActionKind.FAVORITES),
+        )
+        val actionSnapshot = dragSnapshot(
+            payload = HomeSidePanelDragPayload.ExistingAction("card", "dragged"),
+            target = HomeSidePanelDragTarget.Action("card", 3),
+        )
+        assertEquals(2, actionSnapshot.visualActionInsertionIndex("card", actions))
+        assertNull(actionSnapshot.visualActionInsertionIndex("other", actions))
+    }
+
+    @Test
+    fun geometryChangesDoNotRetargetUntilExplicitRefresh() {
+        val state = HomeSidePanelDragState()
+        state.registerViewport(RootDragBounds(0f, 0f, 300f, 500f))
+        state.registerCardBounds("first", 0, RootDragBounds(0f, 0f, 300f, 100f))
+        state.registerCardBounds("second", 1, RootDragBounds(0f, 110f, 300f, 210f))
+        state.begin(
+            payload = HomeSidePanelDragPayload.NewCard(HomeSidePanelCardType.WEATHER),
+            pointerId = 40L,
+            rootPosition = RootDragPosition(150f, 80f),
+        )
+        assertEquals(HomeSidePanelDragTarget.Card(1), state.snapshot!!.target)
+
+        state.registerCardBounds("first", 0, RootDragBounds(0f, 100f, 300f, 200f))
+        state.registerCardBounds("second", 1, RootDragBounds(0f, 210f, 300f, 310f))
+
+        assertEquals(HomeSidePanelDragTarget.Card(1), state.snapshot!!.target)
+        assertEquals(0L, state.snapshot!!.targetChangeToken)
+
+        state.refreshTarget()
+
+        assertEquals(HomeSidePanelDragTarget.Card(0), state.snapshot!!.target)
+        assertEquals(1L, state.snapshot!!.targetChangeToken)
+    }
+
+    @Test
     fun cancelledExternalCandidateDoesNotCommit() {
         val state = HomeSidePanelDragState()
         state.begin(
@@ -405,4 +456,19 @@ class HomeSidePanelDragStateTest {
                 registerActionBounds("target", "action-$index", index, bounds)
             }
         }
+
+    private fun dragSnapshot(
+        payload: HomeSidePanelDragPayload,
+        target: HomeSidePanelDragTarget,
+    ) = HomeSidePanelDragSnapshot(
+        payload = payload,
+        pointerId = 1L,
+        rootPosition = RootDragPosition(0f, 0f),
+        anchor = RootDragPosition(0f, 0f),
+        sourceBounds = RootDragBounds(0f, 0f, 100f, 100f),
+        target = target,
+        targetBounds = null,
+        startToken = 1L,
+        targetChangeToken = 0L,
+    )
 }

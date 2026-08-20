@@ -174,6 +174,52 @@ internal data class HomeSidePanelDragSnapshot(
     val targetChangeToken: Long,
 )
 
+internal fun HomeSidePanelDragSnapshot.visualCardInsertionIndex(
+    cards: List<HomeSidePanelCardConfig>,
+): Int? {
+    val insertionIndex = (target as? HomeSidePanelDragTarget.Card)?.insertionIndex ?: return null
+    return when (val activePayload = payload) {
+        is HomeSidePanelDragPayload.NewCard -> insertionIndex
+        is HomeSidePanelDragPayload.ExistingCard -> {
+            val sourceIndex = cards.indexOfFirst { it.id == activePayload.cardId }
+            require(sourceIndex >= 0) {
+                "Card '${activePayload.cardId}' does not exist in the rendered layout"
+            }
+            normalizedMoveDestination(sourceIndex, insertionIndex)
+        }
+
+        is HomeSidePanelDragPayload.ExistingAction,
+        is HomeSidePanelDragPayload.NewAction,
+        -> null
+    }
+}
+
+internal fun HomeSidePanelDragSnapshot.visualActionInsertionIndex(
+    cardId: String,
+    actions: List<HomeSidePanelActionConfig>,
+): Int? {
+    val actionTarget = target as? HomeSidePanelDragTarget.Action ?: return null
+    if (actionTarget.cardId != cardId) return null
+    return when (val activePayload = payload) {
+        is HomeSidePanelDragPayload.NewAction -> {
+            if (activePayload.cardId == cardId) actionTarget.insertionIndex else null
+        }
+
+        is HomeSidePanelDragPayload.ExistingAction -> {
+            if (activePayload.cardId != cardId) return null
+            val sourceIndex = actions.indexOfFirst { it.id == activePayload.actionId }
+            require(sourceIndex >= 0) {
+                "Action '${activePayload.actionId}' does not exist in card '$cardId'"
+            }
+            normalizedMoveDestination(sourceIndex, actionTarget.insertionIndex)
+        }
+
+        is HomeSidePanelDragPayload.ExistingCard,
+        is HomeSidePanelDragPayload.NewCard,
+        -> null
+    }
+}
+
 internal class HomeSidePanelDragState(
     private val onDragActiveChanged: (Boolean) -> Unit = {},
 ) {
@@ -220,12 +266,10 @@ internal class HomeSidePanelDragState(
     fun registerViewport(bounds: RootDragBounds) {
         if (viewportBounds == bounds) return
         viewportBounds = bounds
-        updateTargetForGeometryChange()
     }
 
     fun unregisterViewport() {
         viewportBounds = null
-        updateTargetForGeometryChange()
     }
 
     fun registerCardBounds(
@@ -236,11 +280,10 @@ internal class HomeSidePanelDragState(
         val registered = RegisteredBounds(index, bounds)
         if (cardBounds[cardId] == registered) return
         cardBounds[cardId] = registered
-        updateTargetForGeometryChange()
     }
 
     fun unregisterCardBounds(cardId: String) {
-        if (cardBounds.remove(cardId) != null) updateTargetForGeometryChange()
+        cardBounds.remove(cardId)
     }
 
     fun registerActionContainer(
@@ -251,11 +294,10 @@ internal class HomeSidePanelDragState(
         val registered = ActionContainer(axis, bounds)
         if (actionContainers[cardId] == registered) return
         actionContainers[cardId] = registered
-        updateTargetForGeometryChange()
     }
 
     fun unregisterActionContainer(cardId: String) {
-        if (actionContainers.remove(cardId) != null) updateTargetForGeometryChange()
+        actionContainers.remove(cardId)
     }
 
     fun registerActionBounds(
@@ -268,14 +310,12 @@ internal class HomeSidePanelDragState(
         val cardActions = actionBounds.getOrPut(cardId) { mutableMapOf() }
         if (cardActions[actionId] == registered) return
         cardActions[actionId] = registered
-        updateTargetForGeometryChange()
     }
 
     fun unregisterActionBounds(cardId: String, actionId: String) {
         val cardActions = actionBounds[cardId] ?: return
         if (cardActions.remove(actionId) == null) return
         if (cardActions.isEmpty()) actionBounds.remove(cardId)
-        updateTargetForGeometryChange()
     }
 
     fun registerActionTerminalBounds(
@@ -286,11 +326,10 @@ internal class HomeSidePanelDragState(
         val registered = RegisteredBounds(insertionIndex, bounds)
         if (actionTerminalBounds[cardId] == registered) return
         actionTerminalBounds[cardId] = registered
-        updateTargetForGeometryChange()
     }
 
     fun unregisterActionTerminalBounds(cardId: String) {
-        if (actionTerminalBounds.remove(cardId) != null) updateTargetForGeometryChange()
+        actionTerminalBounds.remove(cardId)
     }
 
     fun claimSource(pointerId: Long, payload: HomeSidePanelDragPayload) {
@@ -351,6 +390,13 @@ internal class HomeSidePanelDragState(
         updateSnapshotTarget(active.copy(rootPosition = position), targetFor(active.payload, position))
     }
 
+    // Bounds registration is deliberately passive. Recomputing from onGloballyPositioned would
+    // feed the insertion gap's own reflow back into targeting and make the target oscillate.
+    fun refreshTarget() {
+        val active = snapshot ?: return
+        updateSnapshotTarget(active, targetFor(active.payload, active.rootPosition))
+    }
+
     fun cancel() {
         sourceClaims.clear()
         val wasActive = snapshot != null
@@ -394,11 +440,6 @@ internal class HomeSidePanelDragState(
                 )
             }
         }
-    }
-
-    private fun updateTargetForGeometryChange() {
-        val active = snapshot ?: return
-        updateSnapshotTarget(active, targetFor(active.payload, active.rootPosition))
     }
 
     private fun updateSnapshotTarget(

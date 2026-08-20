@@ -169,6 +169,7 @@ internal fun HomeSidePanelWeatherCard(
     editMode: Boolean,
     modifier: Modifier = Modifier,
     cardDragModifier: Modifier = Modifier,
+    interactionEnabled: Boolean = true,
     onRefresh: (String) -> Unit = {},
     onEditCard: ((String) -> Unit)? = null,
     onDeleteCard: ((String) -> Unit)? = null,
@@ -181,7 +182,7 @@ internal fun HomeSidePanelWeatherCard(
         is WeatherCardContent.Preview -> content.snapshot
     }
     val shape = RoundedCornerShape(24.dp)
-    val clickModifier = if (!editMode && runtime != null) {
+    val clickModifier = if (interactionEnabled && !editMode && runtime != null) {
         Modifier.clickable { onRefresh(card.id) }
     } else {
         Modifier
@@ -380,6 +381,7 @@ internal fun HomeSidePanelWalletCard(
     editMode: Boolean,
     modifier: Modifier = Modifier,
     cardDragModifier: Modifier = Modifier,
+    interactionEnabled: Boolean = true,
     onToggleBalance: (String) -> Unit = {},
     onRunAction: (HomeSidePanelActionKind) -> Unit = {},
     onOpenPaymentCode: () -> Unit = {},
@@ -392,7 +394,7 @@ internal fun HomeSidePanelWalletCard(
         is WalletCardContent.Preview -> content.displayBalance
     }
     val isMasked = runtime?.state?.displayState?.isMasked == true
-    val interactive = !editMode && runtime != null
+    val interactive = interactionEnabled && !editMode && runtime != null
     val clickModifier = if (interactive) {
         Modifier.clickable { onToggleBalance(card.id) }
     } else {
@@ -487,6 +489,7 @@ internal fun HomeSidePanelHitokotoCard(
     editMode: Boolean,
     modifier: Modifier = Modifier,
     cardDragModifier: Modifier = Modifier,
+    interactionEnabled: Boolean = true,
     onRefresh: (String) -> Unit = {},
     onEditCard: ((String) -> Unit)? = null,
     onDeleteCard: ((String) -> Unit)? = null,
@@ -503,7 +506,7 @@ internal fun HomeSidePanelHitokotoCard(
 
         is HitokotoCardContent.Preview -> content.snapshot
     }
-    val clickModifier = if (!editMode && runtime != null) {
+    val clickModifier = if (interactionEnabled && !editMode && runtime != null) {
         Modifier.clickable { onRefresh(card.id) }
     } else {
         Modifier

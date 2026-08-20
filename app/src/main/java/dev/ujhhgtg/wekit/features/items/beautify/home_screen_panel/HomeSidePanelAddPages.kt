@@ -170,10 +170,19 @@ private fun HomeSidePanelCardCandidate(
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
+    HomeSidePanelCardCandidateVisual(
+        type = type,
+        modifier = modifier.clickable(onClick = onClick),
+    )
+}
+
+@Composable
+internal fun HomeSidePanelCardCandidateVisual(
+    type: HomeSidePanelCardType,
+    modifier: Modifier = Modifier,
+) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(

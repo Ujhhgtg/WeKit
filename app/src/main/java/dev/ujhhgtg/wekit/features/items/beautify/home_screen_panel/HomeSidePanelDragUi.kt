@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import androidx.annotation.StringRes
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -15,15 +14,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -33,9 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -54,8 +48,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Drag_indicator
 import dev.ujhhgtg.wekit.R
 import kotlin.math.roundToInt
 
@@ -122,6 +114,12 @@ internal fun HomeSidePanelDragHost(
             }
         }
     }
+    LaunchedEffect(snapshot?.startToken, state.route, dragState.viewportBounds) {
+        if (snapshot != null && state.route == HomeSidePanelRoute.EditHome) {
+            withFrameNanos { }
+            dragState.refreshTarget()
+        }
+    }
     LaunchedEffect(
         snapshot?.startToken,
         snapshot?.rootPosition?.y,
@@ -151,6 +149,7 @@ internal fun HomeSidePanelDragHost(
             if (step == 0f) break
             listState.scrollBy(step)
             withFrameNanos { }
+            dragState.refreshTarget()
         }
     }
 
@@ -164,7 +163,8 @@ internal fun HomeSidePanelDragHost(
         snapshot?.let {
             HomeSidePanelDragOverlay(
                 snapshot = it,
-                layout = state.renderedLayout,
+                state = state,
+                panelState = panelState,
             )
         }
     }
@@ -285,18 +285,11 @@ internal fun Modifier.homeSidePanelDragSource(
 
 @Composable
 internal fun HomeSidePanelCardInsertionGap(
-    visible: Boolean,
-    snapshot: HomeSidePanelDragSnapshot?,
+    snapshot: HomeSidePanelDragSnapshot,
 ) {
-    if (!visible || snapshot == null) return
     val density = LocalDensity.current
-    val bounds = snapshot.targetBounds ?: snapshot.sourceBounds
-    val height = with(density) { bounds.height.toDp() }.coerceAtLeast(32.dp)
-    val expansion = remember(snapshot.startToken, snapshot.targetChangeToken) { Animatable(0f) }
-    LaunchedEffect(expansion) {
-        expansion.animateTo(1f, tween(HOME_SIDE_PANEL_GAP_ANIMATION_MILLIS))
-    }
-    Spacer(Modifier.fillMaxWidth().height(height * expansion.value))
+    val height = with(density) { snapshot.sourceBounds.height.toDp() }.coerceAtLeast(32.dp)
+    Spacer(Modifier.fillMaxWidth().height(height))
 }
 
 @Composable
@@ -308,9 +301,8 @@ internal fun HomeSidePanelActionInsertionGap(
     val bounds = snapshot.targetBounds ?: snapshot.sourceBounds
     when (axis) {
         HomeSidePanelDragAxis.Horizontal -> {
-            val width = with(density) { bounds.width.toDp() }.coerceAtLeast(48.dp)
             val height = with(density) { bounds.height.toDp() }.coerceAtLeast(52.dp)
-            Spacer(Modifier.width(width).height(height))
+            Spacer(Modifier.fillMaxWidth().height(height))
         }
 
         HomeSidePanelDragAxis.Vertical -> {
@@ -323,39 +315,17 @@ internal fun HomeSidePanelActionInsertionGap(
 @Composable
 private fun HomeSidePanelDragOverlay(
     snapshot: HomeSidePanelDragSnapshot,
-    layout: HomeSidePanelLayout,
+    state: HomeSidePanelUiState,
+    panelState: HomeSidePanelState,
 ) {
     val density = LocalDensity.current
     val sourceWidth = with(density) { snapshot.sourceBounds.width.toDp() }.coerceAtLeast(72.dp)
     val sourceHeight = with(density) { snapshot.sourceBounds.height.toDp() }.coerceAtLeast(52.dp)
-    val targetWidth = snapshot.targetBounds?.let { bounds ->
-        with(density) { bounds.width.toDp() }.coerceAtLeast(72.dp)
-    } ?: sourceWidth
-    val targetHeight = snapshot.targetBounds?.let { bounds ->
-        with(density) { bounds.height.toDp() }.coerceAtLeast(52.dp)
-    } ?: sourceHeight
     var lifted by remember(snapshot.startToken) { mutableStateOf(false) }
-    var morphToTarget by remember(snapshot.startToken) { mutableStateOf(false) }
     LaunchedEffect(snapshot.startToken) {
         withFrameNanos { }
         lifted = true
     }
-    LaunchedEffect(snapshot.startToken, snapshot.targetBounds) {
-        if (snapshot.targetBounds != null) {
-            withFrameNanos { }
-            morphToTarget = true
-        }
-    }
-    val width by animateDpAsState(
-        targetValue = if (morphToTarget) targetWidth else sourceWidth,
-        animationSpec = tween(220),
-        label = "HomeSidePanelDragWidth",
-    )
-    val height by animateDpAsState(
-        targetValue = if (morphToTarget) targetHeight else sourceHeight,
-        animationSpec = tween(220),
-        label = "HomeSidePanelDragHeight",
-    )
     val scale by animateFloatAsState(
         targetValue = if (lifted) 1.035f else 1f,
         animationSpec = tween(150),
@@ -366,33 +336,15 @@ private fun HomeSidePanelDragOverlay(
         animationSpec = tween(170),
         label = "HomeSidePanelDragElevation",
     )
-    val labelRes = when (val payload = snapshot.payload) {
-        is HomeSidePanelDragPayload.NewCard -> homeSidePanelCardNameRes(payload.type)
-        is HomeSidePanelDragPayload.ExistingCard -> {
-            val card = layout.cards.single { it.id == payload.cardId }
-            homeSidePanelCardNameRes(card.type)
-        }
-
-        is HomeSidePanelDragPayload.NewAction -> homeSidePanelActionSpec(payload.kind).labelRes
-        is HomeSidePanelDragPayload.ExistingAction -> {
-            val card = layout.cards.single { it.id == payload.cardId }
-            val actions = when (card) {
-                is HorizontalActionsCardConfig -> card.actions
-                is VerticalActionsCardConfig -> card.actions
-                else -> error("Action drag payload points at non-action card '${card.id}'")
-            }
-            homeSidePanelActionSpec(actions.single { it.id == payload.actionId }.kind).labelRes
-        }
-    }
     val anchorFractionX = snapshot.anchor.x / snapshot.sourceBounds.width.coerceAtLeast(1f)
     val anchorFractionY = snapshot.anchor.y / snapshot.sourceBounds.height.coerceAtLeast(1f)
-    val left = snapshot.rootPosition.x - with(density) { width.toPx() } * anchorFractionX
-    val top = snapshot.rootPosition.y - with(density) { height.toPx() } * anchorFractionY
+    val left = snapshot.rootPosition.x - with(density) { sourceWidth.toPx() } * anchorFractionX
+    val top = snapshot.rootPosition.y - with(density) { sourceHeight.toPx() } * anchorFractionY
     Surface(
         modifier = Modifier
             .zIndex(1f)
             .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
-            .size(width, height)
+            .size(sourceWidth, sourceHeight)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -400,25 +352,120 @@ private fun HomeSidePanelDragOverlay(
             }
             .clearAndSetSemantics { },
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 8.dp,
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
         shadowElevation = elevation,
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                MaterialSymbols.Outlined.Drag_indicator,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.TopStart),
-            )
-            Text(
-                text = stringResource(labelRes),
-                style = MaterialTheme.typography.titleSmall,
+        HomeSidePanelDragVisual(snapshot.payload, state, panelState)
+    }
+}
+
+@Composable
+private fun HomeSidePanelDragVisual(
+    payload: HomeSidePanelDragPayload,
+    state: HomeSidePanelUiState,
+    panelState: HomeSidePanelState,
+) {
+    when (payload) {
+        is HomeSidePanelDragPayload.NewCard -> HomeSidePanelCardCandidateVisual(payload.type)
+        is HomeSidePanelDragPayload.ExistingCard -> HomeSidePanelDraggedCard(
+            card = state.renderedLayout.cards.single { it.id == payload.cardId },
+            panelState = panelState,
+        )
+
+        is HomeSidePanelDragPayload.NewAction -> {
+            val card = state.renderedLayout.cards.single { it.id == payload.cardId }
+            HomeSidePanelDraggedActionItem(
+                card = card,
+                action = HomeSidePanelActionConfig("drag-preview-action", payload.kind),
             )
         }
+
+        is HomeSidePanelDragPayload.ExistingAction -> {
+            val card = state.renderedLayout.cards.single { it.id == payload.cardId }
+            val actions = when (card) {
+                is HorizontalActionsCardConfig -> card.actions
+                is VerticalActionsCardConfig -> card.actions
+                else -> error("Action drag payload points at non-action card '${card.id}'")
+            }
+            HomeSidePanelDraggedActionItem(
+                card = card,
+                action = actions.single { it.id == payload.actionId },
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeSidePanelDraggedCard(
+    card: HomeSidePanelCardConfig,
+    panelState: HomeSidePanelState,
+) {
+    when (card) {
+        is DateTimeCardConfig -> HomeSidePanelDateTimeCard(
+            card = card,
+            content = DateTimeCardContent.Runtime,
+            editMode = false,
+        )
+
+        is WeatherCardConfig -> {
+            val runtime = checkNotNull(panelState.runtimeState(card.id)) {
+                "Weather card '${card.id}' has no runtime state"
+            }
+            require(runtime is HomeSidePanelCardRuntimeState.Weather) {
+                "Weather card '${card.id}' has mismatched runtime state $runtime"
+            }
+            HomeSidePanelWeatherCard(
+                card = card,
+                content = WeatherCardContent.Runtime(runtime.state),
+                editMode = false,
+                interactionEnabled = false,
+            )
+        }
+
+        is WalletCardConfig -> {
+            val runtime = checkNotNull(panelState.runtimeState(card.id)) {
+                "Wallet card '${card.id}' has no runtime state"
+            }
+            require(runtime is HomeSidePanelCardRuntimeState.Wallet) {
+                "Wallet card '${card.id}' has mismatched runtime state $runtime"
+            }
+            HomeSidePanelWalletCard(
+                card = card,
+                content = WalletCardContent.Runtime(runtime.state),
+                editMode = false,
+                interactionEnabled = false,
+            )
+        }
+
+        is HitokotoCardConfig -> {
+            val runtime = checkNotNull(panelState.runtimeState(card.id)) {
+                "Hitokoto card '${card.id}' has no runtime state"
+            }
+            require(runtime is HomeSidePanelCardRuntimeState.Hitokoto) {
+                "Hitokoto card '${card.id}' has mismatched runtime state $runtime"
+            }
+            HomeSidePanelHitokotoCard(
+                card = card,
+                content = HitokotoCardContent.Runtime(runtime.state),
+                editMode = false,
+                interactionEnabled = false,
+            )
+        }
+
+        is HorizontalActionsCardConfig -> HomeSidePanelHorizontalActionsCard(
+            card = card,
+            content = HomeSidePanelActionCardContent.Runtime,
+            editMode = true,
+            interactionEnabled = false,
+        )
+
+        is VerticalActionsCardConfig -> HomeSidePanelVerticalActionsCard(
+            card = card,
+            content = HomeSidePanelActionCardContent.Runtime,
+            editMode = true,
+            interactionEnabled = false,
+        )
     }
 }
 
@@ -468,4 +515,3 @@ private fun androidx.compose.ui.geometry.Rect.toRootDragBounds(): RootDragBounds
 
 private val HOME_SIDE_PANEL_EDGE_SCROLL_ZONE = 56.dp
 private val HOME_SIDE_PANEL_EDGE_SCROLL_STEP = 14.dp
-private const val HOME_SIDE_PANEL_GAP_ANIMATION_MILLIS = 150

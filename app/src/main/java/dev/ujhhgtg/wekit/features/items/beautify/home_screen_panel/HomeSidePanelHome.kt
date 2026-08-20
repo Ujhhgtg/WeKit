@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,7 +77,11 @@ internal fun HomeSidePanelHome(
     listState: LazyListState,
 ) {
     val dragSnapshot = dragState.snapshot
-    val cardInsertionIndex = (dragSnapshot?.target as? HomeSidePanelDragTarget.Card)?.insertionIndex
+    val draggedCardId = (dragSnapshot?.payload as? HomeSidePanelDragPayload.ExistingCard)?.cardId
+    val displayedCards = state.renderedLayout.cards
+        .withIndex()
+        .filterNot { it.value.id == draggedCardId }
+    val cardInsertionIndex = dragSnapshot?.visualCardInsertionIndex(state.renderedLayout.cards)
     val editorMotion = remember { Animatable(0f) }
     var editorMotionDirection by remember { mutableStateOf(1f) }
     var previousRoute by remember { mutableStateOf<HomeSidePanelRoute?>(null) }
@@ -127,14 +130,19 @@ internal fun HomeSidePanelHome(
                 modifier = Modifier.padding(start = 18.dp, top = 14.dp, end = 18.dp),
             )
         }
-        itemsIndexed(
-            items = state.renderedLayout.cards,
-            key = { _, card -> card.id },
-        ) { index, card ->
-            HomeSidePanelCardInsertionGap(
-                visible = cardInsertionIndex == index,
-                snapshot = dragSnapshot,
-            )
+        displayedCards.forEachIndexed { visualIndex, indexedCard ->
+            if (cardInsertionIndex == visualIndex) {
+                val gapSnapshot = checkNotNull(dragSnapshot)
+                item(
+                    key = "card-insertion-${gapSnapshot.startToken}-${gapSnapshot.targetChangeToken}",
+                ) {
+                    HomeSidePanelCardInsertionGap(
+                        snapshot = gapSnapshot,
+                    )
+                }
+            }
+            val index = indexedCard.index
+            val card = indexedCard.value
             val actionAxis = when (card) {
                 is HorizontalActionsCardConfig -> HomeSidePanelDragAxis.Horizontal
                 is VerticalActionsCardConfig -> HomeSidePanelDragAxis.Vertical
@@ -144,39 +152,45 @@ internal fun HomeSidePanelHome(
                 cardId = card.id,
                 source = HomeSidePanelExistingDragSource.CardBackground,
             )
-            HomeSidePanelLayoutCard(
-                card = card,
-                editMode = state.editing,
-                panelState = panelState,
-                dragState = dragState,
-                dragSnapshot = dragSnapshot,
-                modifier = Modifier
-                    .animateItem()
-                    .padding(horizontal = 18.dp)
-                    .homeSidePanelCardDragTarget(
-                        dragState = dragState,
-                        cardId = card.id,
-                        index = index,
-                        actionAxis = actionAxis,
-                    )
-                    .then(
-                        if (state.editing) {
-                            Modifier.homeSidePanelDragSource(
-                                dragState = dragState,
-                                payload = cardDragPayload,
-                                descriptionRes = R.string.home_side_panel_drag_card,
-                            )
-                        } else {
-                            Modifier
-                        },
-                    ),
-            )
+            item(key = card.id) {
+                HomeSidePanelLayoutCard(
+                    card = card,
+                    editMode = state.editing,
+                    panelState = panelState,
+                    dragState = dragState,
+                    dragSnapshot = dragSnapshot,
+                    modifier = Modifier
+                        .animateItem(fadeOutSpec = null)
+                        .padding(horizontal = 18.dp)
+                        .homeSidePanelCardDragTarget(
+                            dragState = dragState,
+                            cardId = card.id,
+                            index = index,
+                            actionAxis = actionAxis,
+                        )
+                        .then(
+                            if (state.editing) {
+                                Modifier.homeSidePanelDragSource(
+                                    dragState = dragState,
+                                    payload = cardDragPayload,
+                                    descriptionRes = R.string.home_side_panel_drag_card,
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ),
+                )
+            }
         }
-        item(key = "card-insertion-end") {
-            HomeSidePanelCardInsertionGap(
-                visible = cardInsertionIndex == state.renderedLayout.cards.size,
-                snapshot = dragSnapshot,
-            )
+        if (cardInsertionIndex == displayedCards.size) {
+            val gapSnapshot = checkNotNull(dragSnapshot)
+            item(
+                key = "card-insertion-${gapSnapshot.startToken}-${gapSnapshot.targetChangeToken}",
+            ) {
+                HomeSidePanelCardInsertionGap(
+                    snapshot = gapSnapshot,
+                )
+            }
         }
         item(key = "bottom-space") {
             Box(Modifier.size(4.dp))
@@ -264,9 +278,6 @@ private fun HomeSidePanelLayoutCard(
             content = HomeSidePanelActionCardContent.Runtime,
             editMode = editMode,
             modifier = modifier,
-            actionInsertionIndex = (
-                dragSnapshot?.target as? HomeSidePanelDragTarget.Action
-                )?.takeIf { it.cardId == card.id }?.insertionIndex,
             insertionSnapshot = dragSnapshot,
             actionDragModifier = { cardId, actionId ->
                 val index = card.actions.indexOfFirst { it.id == actionId }
@@ -306,9 +317,6 @@ private fun HomeSidePanelLayoutCard(
             content = HomeSidePanelActionCardContent.Runtime,
             editMode = editMode,
             modifier = modifier,
-            actionInsertionIndex = (
-                dragSnapshot?.target as? HomeSidePanelDragTarget.Action
-                )?.takeIf { it.cardId == card.id }?.insertionIndex,
             insertionSnapshot = dragSnapshot,
             actionDragModifier = { cardId, actionId ->
                 val index = card.actions.indexOfFirst { it.id == actionId }
