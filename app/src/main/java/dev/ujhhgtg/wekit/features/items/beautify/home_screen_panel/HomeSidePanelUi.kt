@@ -179,11 +179,18 @@ internal fun HomeSidePanelContent(
         shape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
     ) {
         when (panelState.route) {
-            HomeSidePanelRoute.HOME -> HomeSidePanelHome(state, panelState)
-            HomeSidePanelRoute.WEATHER_SETTINGS -> HomeSidePanelWeatherSettings(state, panelState)
-            HomeSidePanelRoute.WALLET_SETTINGS -> HomeSidePanelWalletSettings(state.wallet, panelState)
-            HomeSidePanelRoute.HITOKOTO_SETTINGS -> HomeSidePanelHitokotoSettings(state, panelState)
-            HomeSidePanelRoute.PANEL_SETTINGS -> HomeSidePanelPanelSettings(state, panelState)
+            HomeSidePanelRoute.Home -> HomeSidePanelHome(state, panelState)
+            HomeSidePanelRoute.LegacyWeatherSettings -> HomeSidePanelWeatherSettings(state, panelState)
+            HomeSidePanelRoute.LegacyWalletSettings -> HomeSidePanelWalletSettings(state.wallet, panelState)
+            HomeSidePanelRoute.LegacyHitokotoSettings -> HomeSidePanelHitokotoSettings(state, panelState)
+            HomeSidePanelRoute.PanelSettings -> HomeSidePanelPanelSettings(state, panelState)
+            HomeSidePanelRoute.EditHome,
+            HomeSidePanelRoute.AddCard,
+            is HomeSidePanelRoute.WeatherSettings,
+            is HomeSidePanelRoute.WalletSettings,
+            is HomeSidePanelRoute.HitokotoSettings,
+            is HomeSidePanelRoute.AddAction,
+            -> error("Route ${panelState.route} is not integrated into the legacy panel UI")
         }
     }
 }

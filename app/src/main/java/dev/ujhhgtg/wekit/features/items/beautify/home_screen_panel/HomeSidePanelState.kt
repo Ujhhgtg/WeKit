@@ -83,7 +83,7 @@ internal class HomeSidePanelState(
         ),
     )
 
-    var route by mutableStateOf(HomeSidePanelRoute.HOME)
+    var route by mutableStateOf<HomeSidePanelRoute>(HomeSidePanelRoute.Home)
         private set
 
     val uiState: StateFlow<HomeSidePanelUiState> = _uiState.asStateFlow()
@@ -225,11 +225,11 @@ internal class HomeSidePanelState(
     }
 
     fun openWeatherSettings() {
-        route = HomeSidePanelRoute.WEATHER_SETTINGS
+        route = HomeSidePanelRoute.LegacyWeatherSettings
     }
 
     fun openWalletSettings() {
-        route = HomeSidePanelRoute.WALLET_SETTINGS
+        route = HomeSidePanelRoute.LegacyWalletSettings
     }
 
     fun toggleWalletBalance() {
@@ -258,19 +258,19 @@ internal class HomeSidePanelState(
     }
 
     fun openHitokotoSettings() {
-        route = HomeSidePanelRoute.HITOKOTO_SETTINGS
+        route = HomeSidePanelRoute.LegacyHitokotoSettings
     }
 
     fun openPanelSettings() {
-        route = HomeSidePanelRoute.PANEL_SETTINGS
+        route = HomeSidePanelRoute.PanelSettings
     }
 
     fun closeCardSettings() {
-        route = HomeSidePanelRoute.HOME
+        route = HomeSidePanelRoute.Home
     }
 
     fun consumeSettingsBack(): Boolean {
-        if (route == HomeSidePanelRoute.HOME) return false
+        if (route == HomeSidePanelRoute.Home) return false
         closeCardSettings()
         return true
     }
@@ -309,7 +309,7 @@ internal class HomeSidePanelState(
                     hitokotoSettings = settings,
                 )
             }
-            route = HomeSidePanelRoute.HOME
+            route = HomeSidePanelRoute.Home
             scope.launch { fetchHitokotoInternal() }
         } catch (error: InvalidHitokotoSettingsException) {
             _uiState.update { state ->
@@ -686,14 +686,6 @@ internal class HomeSidePanelState(
 }
 
 internal const val HOME_SIDE_PANEL_LOCATION_REQUEST_CODE = 0x574B
-
-internal enum class HomeSidePanelRoute {
-    HOME,
-    WEATHER_SETTINGS,
-    WALLET_SETTINGS,
-    HITOKOTO_SETTINGS,
-    PANEL_SETTINGS,
-}
 
 internal enum class HomeSidePanelShortcut {
     SCAN,
