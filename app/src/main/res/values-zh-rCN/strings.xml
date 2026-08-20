@@ -664,6 +664,8 @@
     <string name="send_sec_msg_trigger_prefix">触发前缀</string>
     <string name="feature_anti_sec_msg_name">反安全消息</string>
     <string name="feature_anti_sec_msg_description">无视自己或别人发送的消息中的安全属性，长按消息始终显示正常、完整菜单</string>
+    <string name="feature_anti_read_receipts_name">反已读追踪</string>
+    <string name="feature_anti_read_receipts_description">拦截嵌入视频号缩略图链接中的追踪像素请求</string>
     <string name="feature_auto_add_nearby_friends_name">自动添加附近的人</string>
     <string name="feature_auto_add_nearby_friends_description">在附近的人菜单中添加菜单项, 可全自动向附近的人按模板发送消息 (没写完)</string>
     <string name="feature_auto_dnd_after_join_group_name">加入群聊自动免打扰</string>

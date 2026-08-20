@@ -697,6 +697,8 @@
     <string name="send_sec_msg_trigger_prefix">Trigger prefix</string>
     <string name="feature_anti_sec_msg_name">Anti secure messages</string>
     <string name="feature_anti_sec_msg_description">Ignore the sec_msg_node marker of incoming and outgoing messages so the long-press menu always shows the normal, complete options</string>
+    <string name="feature_anti_read_receipts_name">Anti read receipts</string>
+    <string name="feature_anti_read_receipts_description">Block tracking pixel requests embedded in Finder thumbnail URLs</string>
     <string name="feature_auto_add_nearby_friends_name">Automatically add nearby people</string>
     <string name="feature_auto_add_nearby_friends_description">Add a menu item to the nearby people menu to automatically send messages to nearby people according to the template (not finished yet)</string>
     <string name="feature_auto_dnd_after_join_group_name">Auto-mute newly joined groups</string>

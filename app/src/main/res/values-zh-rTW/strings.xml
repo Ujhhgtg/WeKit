@@ -659,6 +659,8 @@
     <string name="send_sec_msg_trigger_prefix">觸發前綴</string>
     <string name="feature_anti_sec_msg_name">反安全消息</string>
     <string name="feature_anti_sec_msg_description">無視自己或別人發送的消息中的安全屬性，長按消息始終顯示正常、完整菜單</string>
+    <string name="feature_anti_read_receipts_name">反已讀追蹤</string>
+    <string name="feature_anti_read_receipts_description">攔截嵌入視頻號縮略圖鏈接中的追蹤像素請求</string>
     <string name="feature_auto_add_nearby_friends_name">自動添加附近的人</string>
     <string name="feature_auto_add_nearby_friends_description">在附近的人菜單中添加菜單項, 可全自動向附近的人按模板發送消息 (沒寫完)</string>
     <string name="feature_auto_dnd_after_join_group_name">加入羣聊自動免打擾</string>
