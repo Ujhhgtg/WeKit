@@ -443,9 +443,9 @@ jobs:
           cache: gradle
 
       - name: Set up Rust
-        # xtask is host-only Rust; the Android targets/nightly channel used by
-        # the build job are not needed here.
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
 
       - name: Set up Go
         uses: actions/setup-go@v6
