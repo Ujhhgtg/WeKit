@@ -69,7 +69,7 @@ internal sealed interface HitokotoResult {
     data class Error(val message: BeautifyText, val cached: HitokotoSnapshot?) : HitokotoResult
 }
 
-private fun validateHitokotoSettings(
+internal fun validateHitokotoSettings(
     minLength: Int?,
     maxLength: Int?,
     categories: Set<String> = HITOKOTO_CATEGORY_CODES,

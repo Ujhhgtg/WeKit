@@ -6,6 +6,9 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 
 internal object HomeSidePanelPreferenceKeys {
+    const val LAYOUT = "home_side_panel_layout"
+    const val CARD_WEATHER_CACHE_PREFIX = "home_side_panel_card_weather_cache_"
+    const val CARD_HITOKOTO_CACHE_PREFIX = "home_side_panel_card_hitokoto_cache_"
     const val WEATHER_CITY = "home_side_panel_weather_city"
     const val WEATHER_LAST_SUCCESS = "home_side_panel_weather_last_success"
     const val WEATHER_PROFILE_INITIALIZED = "home_side_panel_weather_profile_initialized"
@@ -25,6 +28,16 @@ internal object HomeSidePanelPreferences {
     var showToolbarProfile by prefOption(HomeSidePanelPreferenceKeys.SHOW_TOOLBAR_PROFILE, true)
     var hideWeChatTitle by prefOption(HomeSidePanelPreferenceKeys.HIDE_WECHAT_TITLE, false)
     var hideWalletBalance by prefOption(HomeSidePanelPreferenceKeys.HIDE_WALLET_BALANCE, false)
+
+    var layoutRaw: String?
+        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.LAYOUT)
+        set(value) {
+            if (value == null) {
+                WePrefs.remove(HomeSidePanelPreferenceKeys.LAYOUT)
+            } else {
+                WePrefs.putString(HomeSidePanelPreferenceKeys.LAYOUT, value)
+            }
+        }
 
     var selectedWeatherCity: WeatherCity
         get() = decode(HomeSidePanelPreferenceKeys.WEATHER_CITY) ?: DEFAULT_WEATHER_CITY

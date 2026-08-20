@@ -1,0 +1,233 @@
+package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
+
+import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.JsonClassDiscriminator
+import java.util.UUID
+
+internal const val HOME_SIDE_PANEL_LAYOUT_VERSION = 1
+
+internal fun interface HomeSidePanelIdGenerator {
+    fun nextId(): String
+}
+
+internal object UuidHomeSidePanelIdGenerator : HomeSidePanelIdGenerator {
+    override fun nextId(): String = UUID.randomUUID().toString()
+}
+
+@Serializable
+internal data class HomeSidePanelLayout(
+    val version: Int = HOME_SIDE_PANEL_LAYOUT_VERSION,
+    val cards: List<HomeSidePanelCardConfig>,
+)
+
+@Serializable
+internal enum class HomeSidePanelActionKind {
+    SCAN,
+    MOMENTS,
+    WALLET,
+    CHANNELS,
+    WECHAT_SETTINGS,
+    FAVORITES,
+    WEKIT_SETTINGS,
+    RESTART_WECHAT,
+    FORCE_STOP_WECHAT,
+    MARK_ALL_READ,
+}
+
+@Serializable
+internal enum class HomeSidePanelCardType {
+    DATE_TIME,
+    WEATHER,
+    WALLET,
+    HITOKOTO,
+    HORIZONTAL_ACTIONS,
+    VERTICAL_ACTIONS,
+}
+
+@Serializable
+internal data class HomeSidePanelActionConfig(
+    val id: String,
+    val kind: HomeSidePanelActionKind,
+)
+
+@Serializable
+@OptIn(ExperimentalSerializationApi::class)
+@JsonClassDiscriminator("cardType")
+internal sealed class HomeSidePanelCardConfig {
+    abstract val id: String
+    abstract val type: HomeSidePanelCardType
+}
+
+@Serializable
+@SerialName("date_time")
+internal data class DateTimeCardConfig(
+    override val id: String,
+) : HomeSidePanelCardConfig() {
+    override val type: HomeSidePanelCardType = HomeSidePanelCardType.DATE_TIME
+}
+
+@Serializable
+@SerialName("weather")
+internal data class WeatherCardConfig(
+    override val id: String,
+    val city: WeatherCity,
+) : HomeSidePanelCardConfig() {
+    override val type: HomeSidePanelCardType = HomeSidePanelCardType.WEATHER
+}
+
+@Serializable
+@SerialName("wallet")
+internal data class WalletCardConfig(
+    override val id: String,
+    val hideBalanceByDefault: Boolean = false,
+) : HomeSidePanelCardConfig() {
+    override val type: HomeSidePanelCardType = HomeSidePanelCardType.WALLET
+}
+
+@Serializable
+@SerialName("hitokoto")
+internal data class HitokotoCardConfig(
+    override val id: String,
+    val settings: HitokotoSettings = HitokotoSettings(),
+) : HomeSidePanelCardConfig() {
+    override val type: HomeSidePanelCardType = HomeSidePanelCardType.HITOKOTO
+}
+
+@Serializable
+@SerialName("horizontal_actions")
+internal data class HorizontalActionsCardConfig(
+    override val id: String,
+    val actions: List<HomeSidePanelActionConfig>,
+) : HomeSidePanelCardConfig() {
+    override val type: HomeSidePanelCardType = HomeSidePanelCardType.HORIZONTAL_ACTIONS
+}
+
+@Serializable
+@SerialName("vertical_actions")
+internal data class VerticalActionsCardConfig(
+    override val id: String,
+    val actions: List<HomeSidePanelActionConfig>,
+) : HomeSidePanelCardConfig() {
+    override val type: HomeSidePanelCardType = HomeSidePanelCardType.VERTICAL_ACTIONS
+}
+
+internal class InvalidHomeSidePanelLayoutException(message: String) : IllegalArgumentException(message)
+
+internal fun validateHomeSidePanelLayout(layout: HomeSidePanelLayout) {
+    if (layout.version != HOME_SIDE_PANEL_LAYOUT_VERSION) {
+        throw InvalidHomeSidePanelLayoutException("Unsupported layout version: ${layout.version}")
+    }
+    val cardIds = layout.cards.map(HomeSidePanelCardConfig::id)
+    if (cardIds.any(String::isBlank)) {
+        throw InvalidHomeSidePanelLayoutException("Card IDs must not be blank")
+    }
+    if (cardIds.size != cardIds.toSet().size) {
+        throw InvalidHomeSidePanelLayoutException("Card IDs must be unique")
+    }
+    layout.cards.forEach { card ->
+        when (card) {
+            is HitokotoCardConfig -> validateHitokotoSettings(
+                minLength = card.settings.minLength,
+                maxLength = card.settings.maxLength,
+                categories = card.settings.categories,
+            )?.let { throw InvalidHomeSidePanelLayoutException("Invalid hitokoto settings: $it") }
+
+            is HorizontalActionsCardConfig -> validateActionIds(card.actions)
+            is VerticalActionsCardConfig -> validateActionIds(card.actions)
+            else -> Unit
+        }
+    }
+}
+
+private fun validateActionIds(actions: List<HomeSidePanelActionConfig>) {
+    val actionIds = actions.map(HomeSidePanelActionConfig::id)
+    if (actionIds.any(String::isBlank)) {
+        throw InvalidHomeSidePanelLayoutException("Action IDs must not be blank")
+    }
+    if (actionIds.size != actionIds.toSet().size) {
+        throw InvalidHomeSidePanelLayoutException("Action IDs must be unique within a card")
+    }
+}
+
+internal object HomeSidePanelLayoutCodec {
+
+    fun encode(layout: HomeSidePanelLayout): String {
+        validateHomeSidePanelLayout(layout)
+        return DefaultJson.encodeToString(layout)
+    }
+
+    fun decode(raw: String): HomeSidePanelLayout =
+        DefaultJson.decodeFromString<HomeSidePanelLayout>(raw).also(::validateHomeSidePanelLayout)
+
+    fun load(
+        raw: String,
+        legacy: LegacyHomeSidePanelSnapshot,
+        idGenerator: HomeSidePanelIdGenerator,
+    ): HomeSidePanelLayoutLoad = try {
+        HomeSidePanelLayoutLoad.Stored(decode(raw))
+    } catch (error: Exception) {
+        HomeSidePanelLayoutLoad.Fallback(
+            layout = defaultHomeSidePanelLayout(legacy, idGenerator),
+            invalidRaw = raw,
+            reason = error.message ?: error::class.simpleName.orEmpty(),
+        )
+    }
+}
+
+internal data class LegacyHomeSidePanelSnapshot(
+    val weatherCity: WeatherCity,
+    val hideWalletBalance: Boolean,
+    val hitokotoSettings: HitokotoSettings,
+) {
+    companion object {
+        fun defaults() = LegacyHomeSidePanelSnapshot(
+            DEFAULT_WEATHER_CITY,
+            false,
+            HitokotoSettings(),
+        )
+    }
+}
+
+internal sealed interface HomeSidePanelLayoutLoad {
+    val layout: HomeSidePanelLayout
+
+    data class Stored(override val layout: HomeSidePanelLayout) : HomeSidePanelLayoutLoad
+    data class Migrated(override val layout: HomeSidePanelLayout) : HomeSidePanelLayoutLoad
+    data class Fallback(
+        override val layout: HomeSidePanelLayout,
+        val invalidRaw: String,
+        val reason: String,
+    ) : HomeSidePanelLayoutLoad
+}
+
+internal fun defaultHomeSidePanelLayout(
+    legacy: LegacyHomeSidePanelSnapshot,
+    idGenerator: HomeSidePanelIdGenerator = UuidHomeSidePanelIdGenerator,
+): HomeSidePanelLayout = HomeSidePanelLayout(
+    cards = listOf(
+        DateTimeCardConfig(idGenerator.nextId()),
+        WeatherCardConfig(idGenerator.nextId(), legacy.weatherCity),
+        WalletCardConfig(idGenerator.nextId(), legacy.hideWalletBalance),
+        HorizontalActionsCardConfig(
+            idGenerator.nextId(),
+            listOf(
+                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.SCAN),
+                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.WALLET),
+                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.FAVORITES),
+            ),
+        ),
+        VerticalActionsCardConfig(
+            idGenerator.nextId(),
+            listOf(
+                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.MOMENTS),
+                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.CHANNELS),
+                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.MARK_ALL_READ),
+                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.WEKIT_SETTINGS),
+            ),
+        ),
+        HitokotoCardConfig(idGenerator.nextId(), legacy.hitokotoSettings),
+    ),
+)
