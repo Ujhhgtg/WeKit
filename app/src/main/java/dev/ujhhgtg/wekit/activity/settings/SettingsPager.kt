@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -153,8 +154,8 @@ import android.graphics.Color as AndroidColor
 @Composable
 fun SettingsPager(onOpenLicense: () -> Unit) {
     val context = LocalComponentActivity.current
-    val localizedContext = LocalWeKitLocalizedContext.current
-    val currentLocalizedContext = rememberUpdatedState(localizedContext)
+    val platformContext = LocalContext.current
+    val currentLocalizedContext = rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
     var showClearConfirm by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateResult.UpdateAvailable?>(null) }
@@ -246,7 +247,11 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         title = stringResource(R.string.settings_export_config_title),
                         summary = stringResource(R.string.settings_export_config_summary),
                         icon = MaterialSymbols.Outlined.Upload,
-                        onClick = { SettingsConfigActions.export(context) },
+                        onClick = {
+                            SettingsConfigActions.export(platformContext) {
+                                currentLocalizedContext.value
+                            }
+                        },
                     )
                 }
                 item {
@@ -254,7 +259,11 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         title = stringResource(R.string.settings_import_config_title),
                         summary = stringResource(R.string.settings_import_config_summary),
                         icon = MaterialSymbols.Outlined.Download,
-                        onClick = { SettingsConfigActions.importFromDocument(context) },
+                        onClick = {
+                            SettingsConfigActions.importFromDocument(platformContext) {
+                                currentLocalizedContext.value
+                            }
+                        },
                     )
                 }
                 item {

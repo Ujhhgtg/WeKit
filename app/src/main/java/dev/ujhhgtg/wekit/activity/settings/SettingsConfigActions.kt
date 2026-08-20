@@ -3,11 +3,9 @@ package dev.ujhhgtg.wekit.activity.settings
 import android.content.Context
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
-import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
@@ -34,8 +32,8 @@ import kotlinx.serialization.json.put
 
 /** Shared configuration I/O used by both settings engines. */
 object SettingsConfigActions {
-    fun export(context: Context) {
-        TransparentActivity.launch(context) {
+    fun export(platformContext: Context, localizedContext: () -> Context) {
+        TransparentActivity.launch(platformContext) {
             val exportLauncher = registerForActivityResult(
                 ActivityResultContracts.CreateDocument("application/json"),
             ) { uri ->
@@ -62,14 +60,14 @@ object SettingsConfigActions {
                         }
                     })
                     runCatching {
-                        HostInfo.application.contentResolver.openOutputStream(uri, "w")!!.use { stream ->
+                        platformContext.contentResolver.openOutputStream(uri, "w")!!.use { stream ->
                             stream.writer().use { it.write(exportJson) }
                         }
                     }.onFailure {
-                        showToastSuspend(context.getString(R.string.config_export_failed))
+                        showToastSuspend(localizedContext().getString(R.string.config_export_failed))
                         WeLogger.e("WePrefs", "failed to export", it)
                     }.onSuccess {
-                        showToastSuspend(context.getString(R.string.config_export_success))
+                        showToastSuspend(localizedContext().getString(R.string.config_export_success))
                     }
                     withContext(Dispatchers.Main) { finish() }
                 }
@@ -78,8 +76,8 @@ object SettingsConfigActions {
         }
     }
 
-    fun importFromDocument(context: Context) {
-        TransparentActivity.launch(context) {
+    fun importFromDocument(platformContext: Context, localizedContext: () -> Context) {
+        TransparentActivity.launch(platformContext) {
             val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri == null) {
                     finish()
@@ -87,7 +85,7 @@ object SettingsConfigActions {
                 }
                 lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
-                        val jsonString = LauncherUI.getInstance()!!.contentResolver
+                        val jsonString = platformContext.contentResolver
                             .openInputStream(uri)
                             ?.use { it.reader().readText() }
                             ?: return@launch
@@ -115,10 +113,10 @@ object SettingsConfigActions {
                             }
                         }
                     }.onFailure {
-                        showToastSuspend(context.getString(R.string.config_import_failed))
+                        showToastSuspend(localizedContext().getString(R.string.config_import_failed))
                         WeLogger.e("WePrefs", "failed to import", it)
                     }.onSuccess {
-                        showToastSuspend(context.getString(R.string.config_import_success))
+                        showToastSuspend(localizedContext().getString(R.string.config_import_success))
                     }
                     withContext(Dispatchers.Main) { finish() }
                 }

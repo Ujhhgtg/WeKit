@@ -250,6 +250,7 @@ private fun NukeFeatureStatusDialog(feature: BaseFeature, onDismiss: () -> Unit)
 private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
     val context = LocalContext.current
     val activity = LocalComponentActivity.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     var showClearConfirmation by remember { mutableStateOf(false) }
 
     NukePageScaffold(title = stringResource(R.string.settings_general_title), onBack = onBack) {
@@ -339,7 +340,9 @@ private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
                     description = stringResource(R.string.settings_export_config_summary),
                     leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Upload) },
                     trailing = { NukeCountAndChevron(text = null) },
-                    onClick = { SettingsConfigActions.export(context) },
+                    onClick = {
+                        SettingsConfigActions.export(context) { localizedContext }
+                    },
                 )
                 NukeDivider()
                 NukePreferenceRow(
@@ -347,7 +350,9 @@ private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
                     description = stringResource(R.string.settings_import_config_summary),
                     leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Download) },
                     trailing = { NukeCountAndChevron(text = null) },
-                    onClick = { SettingsConfigActions.importFromDocument(context) },
+                    onClick = {
+                        SettingsConfigActions.importFromDocument(context) { localizedContext }
+                    },
                 )
                 NukeDivider()
                 NukePreferenceRow(
