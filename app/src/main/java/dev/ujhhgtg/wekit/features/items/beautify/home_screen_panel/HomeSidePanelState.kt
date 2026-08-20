@@ -23,9 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeApi
-import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
@@ -61,6 +59,12 @@ internal class HomeSidePanelState(
     private var locationJob: Job? = null
     private var statusSyncJob: Job? = null
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    private val actionExecutor = HomeSidePanelActionExecutor(
+        activity = activity,
+        scope = scope,
+        closePanel = closePanel,
+        publishMessage = { message -> publishMessage(message) },
+    )
     private val _uiState = MutableStateFlow(
         HomeSidePanelUiState(
             profile = HomeSidePanelProfile(
@@ -323,13 +327,13 @@ internal class HomeSidePanelState(
         }
     }
 
+    fun runAction(kind: HomeSidePanelActionKind) {
+        actionExecutor.execute(kind)
+    }
+
+    // Temporary pre-Task-6 compatibility bridge. Task 7/8 cleanup must remove this old shortcut API.
     fun runShortcut(shortcut: HomeSidePanelShortcut) {
-        if (shortcut == HomeSidePanelShortcut.MARK_ALL_READ) {
-            closePanel(null)
-            openShortcut(shortcut)
-        } else {
-            closePanel { openShortcut(shortcut) }
-        }
+        runAction(shortcut.toActionKind())
     }
 
     fun close() {
@@ -596,23 +600,6 @@ internal class HomeSidePanelState(
         publishMessage(activity.resolveBeautifyText(message))
     }
 
-    private fun openShortcut(shortcut: HomeSidePanelShortcut) {
-        when (shortcut) {
-            HomeSidePanelShortcut.SCAN -> startExplicit("${activity.packageName}.plugin.scanner.ui.BaseScanUI")
-            HomeSidePanelShortcut.PAYMENTS -> {
-                if (!startExplicit("${activity.packageName}.plugin.offline.ui.WalletOfflineCoinPurseUI")) {
-                    startExplicit("${activity.packageName}.plugin.mall.ui.MallIndexUIv2")
-                }
-            }
-
-            HomeSidePanelShortcut.FAVORITES -> startExplicit("${activity.packageName}.plugin.fav.ui.FavoriteIndexUI")
-            HomeSidePanelShortcut.MOMENTS -> WeApi.openMoments(activity, WeApi.selfWxId)
-            HomeSidePanelShortcut.VIDEO_CHANNELS -> startExplicit("${activity.packageName}.plugin.finder.ui.FinderHomeAffinityUI")
-            HomeSidePanelShortcut.MARK_ALL_READ -> scope.launch(Dispatchers.IO) { WeConversationApi.markAllAsRead() }
-            HomeSidePanelShortcut.WEKIT_SETTINGS -> activity.startActivity(Intent(activity, SettingsActivity::class.java))
-        }
-    }
-
     private fun openPersonalProfileActivity() {
         val opened = startExplicit(PERSONAL_PROFILE_NEW_CLASS) {
             putExtra("key_config_item", "SettingGroup_Main_PersonalInfo")
@@ -699,4 +686,14 @@ internal enum class HomeSidePanelShortcut {
     VIDEO_CHANNELS,
     MARK_ALL_READ,
     WEKIT_SETTINGS,
+}
+
+private fun HomeSidePanelShortcut.toActionKind(): HomeSidePanelActionKind = when (this) {
+    HomeSidePanelShortcut.SCAN -> HomeSidePanelActionKind.SCAN
+    HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelActionKind.WALLET
+    HomeSidePanelShortcut.FAVORITES -> HomeSidePanelActionKind.FAVORITES
+    HomeSidePanelShortcut.MOMENTS -> HomeSidePanelActionKind.MOMENTS
+    HomeSidePanelShortcut.VIDEO_CHANNELS -> HomeSidePanelActionKind.CHANNELS
+    HomeSidePanelShortcut.MARK_ALL_READ -> HomeSidePanelActionKind.MARK_ALL_READ
+    HomeSidePanelShortcut.WEKIT_SETTINGS -> HomeSidePanelActionKind.WEKIT_SETTINGS
 }
