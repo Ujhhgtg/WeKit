@@ -62,6 +62,7 @@ internal class HomeSidePanelState(
 
     private val started = AtomicBoolean()
     private var editing: ActiveEditing? = null
+    private var cancelDrag: (() -> Unit)? = null
     private var pendingLocationCardId: String? = null
     private val weatherActionJobs = mutableMapOf<String, Job>()
     private var statusSyncJob: Job? = null
@@ -181,6 +182,7 @@ internal class HomeSidePanelState(
     }
 
     fun discardEditing() {
+        cancelDrag?.invoke()
         val active = requireEditing()
         _uiState.update { it.copy(initialized = false) }
         runtimeStore.discardDraft(active.sessionId)
@@ -200,6 +202,7 @@ internal class HomeSidePanelState(
     }
 
     fun saveEditing() {
+        cancelDrag?.invoke()
         val active = requireEditing()
         val result = commitHomeSidePanelEdit(
             editor = active.editor,
@@ -237,6 +240,7 @@ internal class HomeSidePanelState(
     }
 
     fun openAddCard() {
+        cancelDrag?.invoke()
         requireEditing()
         setRoute(HomeSidePanelRoute.AddCard)
     }
@@ -252,6 +256,19 @@ internal class HomeSidePanelState(
     ) {
         requireEditing()
         _addCandidates.tryEmit(HomeSidePanelAddCandidate.Card(type, pointer))
+    }
+
+    fun openEditHomeForDrag() {
+        requireEditing()
+        setRoute(HomeSidePanelRoute.EditHome)
+    }
+
+    fun commitDrag(commit: HomeSidePanelDragCommit) {
+        mutateDraft { applyHomeSidePanelDragCommit(commit) }
+    }
+
+    fun setDragCancellation(cancel: (() -> Unit)?) {
+        cancelDrag = cancel
     }
 
     fun removeCard(cardId: String) {
@@ -465,6 +482,8 @@ internal class HomeSidePanelState(
     }
 
     fun close() {
+        cancelDrag?.invoke()
+        cancelDrag = null
         editing?.let { runtimeStore.discardDraft(it.sessionId) }
         editing = null
         pendingLocationCardId = null

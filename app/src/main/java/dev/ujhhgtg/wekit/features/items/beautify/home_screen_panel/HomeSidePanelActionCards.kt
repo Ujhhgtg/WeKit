@@ -39,6 +39,8 @@ internal fun HomeSidePanelHorizontalActionsCard(
     content: HomeSidePanelActionCardContent,
     editMode: Boolean,
     modifier: Modifier = Modifier,
+    actionInsertionIndex: Int? = null,
+    insertionSnapshot: HomeSidePanelDragSnapshot? = null,
     actionDragModifier: (cardId: String, actionId: String) -> Modifier = { _, _ -> Modifier },
     cardDragModifier: Modifier = Modifier,
     onRunAction: (cardId: String, actionId: String, kind: HomeSidePanelActionKind) -> Unit = { _, _, _ -> },
@@ -53,7 +55,17 @@ internal fun HomeSidePanelHorizontalActionsCard(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            card.actions.forEach { action ->
+            card.actions.forEachIndexed { index, action ->
+                if (actionInsertionIndex == index && insertionSnapshot != null) {
+                    key("action-gap-$index") {
+                        Box(modifier = Modifier.weight(1f)) {
+                            HomeSidePanelActionInsertionGap(
+                                insertionSnapshot,
+                                HomeSidePanelDragAxis.Horizontal,
+                            )
+                        }
+                    }
+                }
                 key(action.id) {
                     Box(modifier = Modifier.weight(1f)) {
                         HomeSidePanelActionItem(
@@ -65,6 +77,16 @@ internal fun HomeSidePanelHorizontalActionsCard(
                             modifier = if (editMode) actionDragModifier(card.id, action.id) else Modifier,
                             onRunAction = onRunAction,
                             onDeleteAction = onDeleteAction,
+                        )
+                    }
+                }
+            }
+            if (actionInsertionIndex == card.actions.size && insertionSnapshot != null) {
+                key("action-gap-end") {
+                    Box(modifier = Modifier.weight(1f)) {
+                        HomeSidePanelActionInsertionGap(
+                            insertionSnapshot,
+                            HomeSidePanelDragAxis.Horizontal,
                         )
                     }
                 }
@@ -99,6 +121,8 @@ internal fun HomeSidePanelVerticalActionsCard(
     content: HomeSidePanelActionCardContent,
     editMode: Boolean,
     modifier: Modifier = Modifier,
+    actionInsertionIndex: Int? = null,
+    insertionSnapshot: HomeSidePanelDragSnapshot? = null,
     actionDragModifier: (cardId: String, actionId: String) -> Modifier = { _, _ -> Modifier },
     cardDragModifier: Modifier = Modifier,
     onRunAction: (cardId: String, actionId: String, kind: HomeSidePanelActionKind) -> Unit = { _, _, _ -> },
@@ -109,6 +133,14 @@ internal fun HomeSidePanelVerticalActionsCard(
     val showAdd = editMode || content == HomeSidePanelActionCardContent.Preview
     HomeSidePanelActionsCardFrame(card.id, modifier) {
         card.actions.forEachIndexed { index, action ->
+            if (actionInsertionIndex == index && insertionSnapshot != null) {
+                key("action-gap-$index") {
+                    HomeSidePanelActionInsertionGap(
+                        insertionSnapshot,
+                        HomeSidePanelDragAxis.Vertical,
+                    )
+                }
+            }
             key(action.id) {
                 HomeSidePanelActionItem(
                     cardId = card.id,
@@ -123,6 +155,14 @@ internal fun HomeSidePanelVerticalActionsCard(
                 if (index != card.actions.lastIndex || showAdd) {
                     HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                 }
+            }
+        }
+        if (actionInsertionIndex == card.actions.size && insertionSnapshot != null) {
+            key("action-gap-end") {
+                HomeSidePanelActionInsertionGap(
+                    insertionSnapshot,
+                    HomeSidePanelDragAxis.Vertical,
+                )
             }
         }
         if (showAdd) {

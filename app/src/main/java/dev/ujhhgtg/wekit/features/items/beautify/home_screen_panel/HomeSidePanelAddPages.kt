@@ -43,6 +43,8 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
@@ -152,9 +154,9 @@ internal fun HomeSidePanelAddCardPage(
             items(HOME_SIDE_PANEL_CARD_TYPES, key = HomeSidePanelCardType::name) { type ->
                 HomeSidePanelCardCandidate(
                     type = type,
-                    modifier = Modifier.homeSidePanelCandidateLongPress { pointer ->
-                        onLongPressCard(type, pointer)
-                    },
+                    modifier = Modifier.homeSidePanelCandidateLongPress(
+                        descriptionRes = R.string.home_side_panel_drag_add_card,
+                    ) { pointer -> onLongPressCard(type, pointer) },
                     onClick = { onAddCard(type) },
                 )
             }
@@ -281,9 +283,9 @@ internal fun HomeSidePanelAddActionPage(
                                 kind = kind,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .homeSidePanelCandidateLongPress { pointer ->
-                                        onLongPressAction(card.id, kind, pointer)
-                                    },
+                                    .homeSidePanelCandidateLongPress(
+                                        descriptionRes = R.string.home_side_panel_drag_add_action,
+                                    ) { pointer -> onLongPressAction(card.id, kind, pointer) },
                                 onClick = { onAddAction(card.id, kind) },
                             )
                         }
@@ -348,9 +350,9 @@ private fun HomeSidePanelActionCandidateList(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .homeSidePanelCandidateLongPress { pointer ->
-                        onLongPressAction(cardId, kind, pointer)
-                    }
+                    .homeSidePanelCandidateLongPress(
+                        descriptionRes = R.string.home_side_panel_drag_add_action,
+                    ) { pointer -> onLongPressAction(cardId, kind, pointer) }
                     .clickable { onAddAction(cardId, kind) },
             )
             if (index != HOME_SIDE_PANEL_ACTION_KINDS.lastIndex) {
@@ -371,10 +373,13 @@ internal fun homeSidePanelCardNameRes(type: HomeSidePanelCardType): Int = when (
 }
 
 private fun Modifier.homeSidePanelCandidateLongPress(
+    @StringRes descriptionRes: Int,
     onLongPress: (HomeSidePanelCandidatePointer) -> Unit,
 ): Modifier = composed {
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val description = stringResource(descriptionRes)
     onGloballyPositioned { coordinates = it }
+        .semantics { contentDescription = description }
         .pointerInput(onLongPress) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
