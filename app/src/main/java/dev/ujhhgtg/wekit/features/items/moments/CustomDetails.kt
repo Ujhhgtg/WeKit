@@ -2,17 +2,18 @@ package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.Context
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
@@ -90,7 +91,7 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         showComposeDialog(context) {
             var textInput by remember { mutableStateOf(TextFieldValue(getCustomText(snsId).orEmpty())) }
             var isFocused by remember { mutableStateOf(false) }
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.moments_custom_details_title)) },

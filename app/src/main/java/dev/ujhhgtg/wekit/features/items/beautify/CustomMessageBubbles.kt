@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.beautify
 
 import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.Bitmap
@@ -42,7 +43,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.graphics.get
 import androidx.core.graphics.toColorInt
@@ -659,7 +659,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            val localizedContext = LocalContext.current
+            val localizedContext = LocalWeKitLocalizedContext.current
             var selectedSide by remember { mutableStateOf(BubbleSide.OTHER) }
             var pendingDeletion by remember { mutableStateOf<BubbleSide?>(null) }
             var otherForm by remember {

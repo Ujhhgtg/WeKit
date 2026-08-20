@@ -61,7 +61,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -115,6 +114,7 @@ import com.composables.icons.materialsymbols.outlined.Weather_hail
 import com.composables.icons.materialsymbols.outlined.Weather_snowy
 import dev.ujhhgtg.wekit.features.api.core.TextStatus
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -315,7 +315,7 @@ private fun HomeSidePanelStatus(
 @Composable
 private fun HomeSidePanelDateTimeCard() {
     val now = rememberHomeSidePanelNow()
-    val localizedContext = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -1326,7 +1326,7 @@ private fun HomeSidePanelHitokotoSettings(
         }
         if (state.hitokoto is HitokotoUiState.Error) {
             Text(
-                LocalContext.current.resolveBeautifyText(state.hitokoto.message),
+                LocalWeKitLocalizedContext.current.resolveBeautifyText(state.hitokoto.message),
                 color = MaterialTheme.colorScheme.error,
             )
         }

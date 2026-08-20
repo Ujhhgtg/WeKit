@@ -2,11 +2,11 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Info
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -58,7 +58,7 @@ object DisplayMessageDetails : SwitchFeature(),
                     msgInfo.content
 
                 showComposeDialog(view.context) {
-                    val localizedContext = LocalContext.current
+                    val localizedContext = LocalWeKitLocalizedContext.current
                     AlertDialogContent(
                         title = { Text(stringResource(R.string.chat_message_details_title)) },
                         text = {

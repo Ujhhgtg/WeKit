@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,10 +14,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -143,7 +144,7 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
                 mutableFloatStateOf(minutesToSliderPosition(initialInterval))
             }
             var intervalInput by remember { mutableIntStateOf(initialInterval) }
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.moments_auto_refresh_title)) },

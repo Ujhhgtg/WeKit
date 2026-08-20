@@ -28,13 +28,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.launch
 
@@ -86,7 +86,7 @@ private fun PanelPackPickerContent(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val currentLocalizedContext by rememberUpdatedState(LocalContext.current)
+    val currentLocalizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     var creating by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf(false) }
 

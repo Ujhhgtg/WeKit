@@ -63,7 +63,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
@@ -95,6 +94,7 @@ import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.conversation.BaseConversationUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
@@ -424,7 +424,7 @@ object AddMainScreenFab : ClickableFeature() {
 
                     setContent {
                         InjectedUiTheme {
-                            val localizedContext = LocalContext.current
+                            val localizedContext = LocalWeKitLocalizedContext.current
                             val menuItems = configList.map { item ->
                                 val icon = iconPool[item.iconName] ?: MaterialSymbols.OutlinedFilled.Add
                                 val action: () -> Unit = when (item.type) {
@@ -899,7 +899,7 @@ object AddMainScreenFab : ClickableFeature() {
     @OptIn(ExperimentalFoundationApi::class)
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            val localizedContext = LocalContext.current
+            val localizedContext = LocalWeKitLocalizedContext.current
             var currentItems by remember { mutableStateOf(loadConfig()) }
 
             fun moveItem(from: Int, to: Int) {

@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +42,7 @@ import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Drag_handle
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -185,7 +187,7 @@ internal object AutoReplySettings {
         showComposeDialog(context) {
             var draft by remember { mutableStateOf(globalRules()) }
             val validationError = validate(draft)
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
             AlertDialogContent(
                 modifier = Modifier
@@ -237,7 +239,7 @@ internal object AutoReplySettings {
             val groupSettings = stringResource(R.string.chat_auto_reply_group_settings)
             val followsGlobal = stringResource(R.string.chat_auto_reply_follows_global)
             val globalSettings = stringResource(R.string.chat_auto_reply_global_settings)
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             AutomationContactSettingsSelector(
                 title = contactSettingsTitle,
                 contacts = contacts,
@@ -365,7 +367,7 @@ internal object AutoReplySettings {
                     .getOrDefault(emptyList())
             }
             val groupName = remember(groupId) { WeDatabaseApi.getDisplayName(groupId) }
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             val groupGlobalSettings = stringResource(R.string.chat_auto_reply_group_global_settings)
 
             AutomationContactSettingsSelector(
@@ -418,7 +420,7 @@ internal object AutoReplySettings {
             var draft by remember { mutableStateOf(initial) }
             val effective = parent.apply(draft)
             val validationError = validate(effective, draft.keys())
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
             AlertDialogContent(
                 modifier = Modifier

@@ -102,6 +102,7 @@ import com.composables.icons.materialsymbols.outlined.Travel_explore
 import com.composables.icons.materialsymbols.outlined.Upload
 import com.composables.icons.materialsymbols.outlined.Upload_file
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
@@ -284,7 +285,8 @@ private fun StickerPanelContent(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val currentLocalizedContext by rememberUpdatedState(context)
+    val localizedContext = LocalWeKitLocalizedContext.current
+    val currentLocalizedContext by rememberUpdatedState(localizedContext)
     val scope = rememberCoroutineScope()
     val rememberedNavigation = remember {
         PanelNavigationMemory.sticker.takeIf { PanelSettings.rememberPanelNavigation }
@@ -645,7 +647,7 @@ private fun StickerPanelContent(
         sourceRecoveryProgress = StickerOnlineSourceRecoveryProgress(
             completed = 0,
             total = packs.size,
-            message = context.getString(R.string.sticker_panel_progress_prepare_recovery),
+            message = localizedContext.getString(R.string.sticker_panel_progress_prepare_recovery),
         )
         sourceRecoveryJob = scope.launch {
             try {
@@ -678,11 +680,10 @@ private fun StickerPanelContent(
         scope.launch {
             val result = onSend(item)
             sending = false
-            val toastContext = currentLocalizedContext
             showToastSuspend(
-                toastContext,
+                context,
                 result.exceptionOrNull()?.message
-                    ?: toastContext.getString(R.string.sticker_panel_send_success),
+                    ?: currentLocalizedContext.getString(R.string.sticker_panel_send_success),
             )
             if (result.isSuccess) {
                 refreshLocal()
@@ -798,9 +799,9 @@ private fun StickerPanelContent(
         if (items.isEmpty()) return
         showPanelPackPicker(
             context = context,
-            title = context.getString(R.string.sticker_panel_save_to_pack),
-            createLabel = context.getString(R.string.sticker_panel_new_pack),
-            itemCountLabel = { count -> context.resources.getQuantityString(R.plurals.sticker_count, count, count) },
+            title = localizedContext.getString(R.string.sticker_panel_save_to_pack),
+            createLabel = localizedContext.getString(R.string.sticker_panel_new_pack),
+            itemCountLabel = { count -> localizedContext.resources.getQuantityString(R.plurals.sticker_count, count, count) },
             packIcon = MaterialSymbols.Outlined.Folder,
             packs = editablePacks.map { PanelPackChoice(it.id, it.title, it.itemCount) },
             onCreatePack = actions.createPack,
@@ -855,7 +856,7 @@ private fun StickerPanelContent(
                 PanelSettings.stickerPackSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.stickerPackCustomSortHintShown) {
                     PanelSettings.stickerPackCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, context.getString(R.string.panel_sort_custom_hint)) }
+                    scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.panel_sort_custom_hint)) }
                 }
             }
 
@@ -864,7 +865,7 @@ private fun StickerPanelContent(
                 PanelSettings.stickerItemSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.stickerItemCustomSortHintShown) {
                     PanelSettings.stickerItemCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, context.getString(R.string.panel_sort_custom_hint)) }
+                    scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.panel_sort_custom_hint)) }
                 }
             }
         }
@@ -900,7 +901,7 @@ private fun StickerPanelContent(
                     StickerReorderTarget.PACKS -> actions.savePackOrder(requested)
                     StickerReorderTarget.ITEMS -> packId?.let {
                         actions.saveItemOrder(it, requested)
-                    } ?: Result.failure(IllegalStateException(context.getString(R.string.sticker_panel_error_no_pack_selected)))
+                    } ?: Result.failure(IllegalStateException(localizedContext.getString(R.string.sticker_panel_error_no_pack_selected)))
                 }
             }
             if (result.isSuccess) {
@@ -1450,9 +1451,9 @@ private fun StickerPanelContent(
                     if (mode == StickerImportMode.WECHAT_CUSTOM) {
                         showPanelPackPicker(
                             context = context,
-                            title = context.getString(R.string.sticker_wechat_import_title),
-                            createLabel = context.getString(R.string.sticker_panel_new_pack),
-                            itemCountLabel = { count -> context.resources.getQuantityString(R.plurals.sticker_count, count, count) },
+                            title = localizedContext.getString(R.string.sticker_wechat_import_title),
+                            createLabel = localizedContext.getString(R.string.sticker_panel_new_pack),
+                            itemCountLabel = { count -> localizedContext.resources.getQuantityString(R.plurals.sticker_count, count, count) },
                             packIcon = MaterialSymbols.Outlined.Folder,
                             packs = editablePacks.map { PanelPackChoice(it.id, it.title, it.itemCount) },
                             onCreatePack = actions.createPack,
@@ -1482,7 +1483,7 @@ private fun StickerPanelContent(
                         )
                     } else if (mode == StickerImportMode.TELEGRAM_SINGLE || mode == StickerImportMode.TELEGRAM_BATCH) {
                         if (!PanelSettings.isValidTelegramBotToken(PanelSettings.telegramBotToken)) {
-                            scope.launch { showToastSuspend(context, context.getString(R.string.sticker_telegram_token_required)) }
+                            scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.sticker_telegram_token_required)) }
                         } else if (mode == StickerImportMode.TELEGRAM_BATCH) {
                             telegramSourcePrompt = true
                         } else {
@@ -1491,7 +1492,7 @@ private fun StickerPanelContent(
                     } else {
                         val pack = currentPrompt.pack
                         if (pack == null) {
-                            scope.launch { showToastSuspend(context, context.getString(R.string.sticker_local_pack_required)) }
+                            scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.sticker_local_pack_required)) }
                         } else {
                             actions.importSticker(
                                 pack.id,
@@ -1929,7 +1930,7 @@ private fun StickerPanelContent(
                                 failures.size,
                                 firstFailure?.first.orEmpty(),
                                 firstFailure?.second?.message
-                                    ?: context.getString(R.string.panel_unknown_error),
+                                    ?: localizedContext.getString(R.string.panel_unknown_error),
                             )
                             if (succeeded > 0) refreshLocal()
                         } finally {

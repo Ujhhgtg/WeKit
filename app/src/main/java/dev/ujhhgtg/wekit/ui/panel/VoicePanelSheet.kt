@@ -76,6 +76,7 @@ import com.composables.icons.materialsymbols.outlined.Text_to_speech
 import com.composables.icons.materialsymbols.outlined.Travel_explore
 import com.composables.icons.materialsymbols.outlined.Upload_file
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
@@ -226,7 +227,8 @@ private fun VoicePanelContent(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val currentLocalizedContext by rememberUpdatedState(context)
+    val localizedContext = LocalWeKitLocalizedContext.current
+    val currentLocalizedContext by rememberUpdatedState(localizedContext)
     val scope = rememberCoroutineScope()
     val rememberedNavigation = remember {
         PanelNavigationMemory.voice.takeIf { PanelSettings.rememberPanelNavigation }
@@ -683,11 +685,10 @@ private fun VoicePanelContent(
         scope.launch {
             val result = actions.send(item)
             progressMessage = null
-            val toastContext = currentLocalizedContext
             showToastSuspend(
-                toastContext,
+                context,
                 result.exceptionOrNull()?.message
-                    ?: toastContext.getString(R.string.voice_panel_send_success),
+                    ?: currentLocalizedContext.getString(R.string.voice_panel_send_success),
             )
             if (result.isSuccess) {
                 refreshLocal()
@@ -825,11 +826,10 @@ private fun VoicePanelContent(
         scope.launch {
             val result = actions.sendConverted(generated, requireNotNull(resolvedConvertedTtsTitle))
             progressMessage = null
-            val toastContext = currentLocalizedContext
             showToastSuspend(
-                toastContext,
+                context,
                 result.exceptionOrNull()?.message
-                    ?: toastContext.getString(R.string.voice_panel_send_success),
+                    ?: currentLocalizedContext.getString(R.string.voice_panel_send_success),
             )
             if (result.isSuccess) {
                 clearConvertedTts()
@@ -969,9 +969,9 @@ private fun VoicePanelContent(
         if (items.isEmpty()) return
         showPanelPackPicker(
             context = context,
-            title = context.getString(R.string.voice_panel_save_to_pack),
-            createLabel = context.getString(R.string.voice_panel_new_pack),
-            itemCountLabel = { count -> context.resources.getQuantityString(R.plurals.voice_count, count, count) },
+            title = localizedContext.getString(R.string.voice_panel_save_to_pack),
+            createLabel = localizedContext.getString(R.string.voice_panel_new_pack),
+            itemCountLabel = { count -> localizedContext.resources.getQuantityString(R.plurals.voice_count, count, count) },
             packIcon = MaterialSymbols.Outlined.Folder,
             packs = editableLocalPacks.map { PanelPackChoice(it.id, it.title, it.itemCount) },
             onCreatePack = actions.createLocalPack,
@@ -1029,7 +1029,7 @@ private fun VoicePanelContent(
                 PanelSettings.voicePackSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.voicePackCustomSortHintShown) {
                     PanelSettings.voicePackCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, context.getString(R.string.panel_sort_custom_hint)) }
+                    scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.panel_sort_custom_hint)) }
                 }
             }
 
@@ -1038,7 +1038,7 @@ private fun VoicePanelContent(
                 PanelSettings.voiceItemSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.voiceItemCustomSortHintShown) {
                     PanelSettings.voiceItemCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, context.getString(R.string.panel_sort_custom_hint)) }
+                    scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.panel_sort_custom_hint)) }
                 }
             }
         }
@@ -1073,7 +1073,7 @@ private fun VoicePanelContent(
                 when (target) {
                     VoiceReorderTarget.PACKS -> actions.savePackOrder(requested)
                     VoiceReorderTarget.ITEMS -> packId?.let { actions.saveItemOrder(it, requested) }
-                        ?: Result.failure(IllegalStateException(context.getString(R.string.voice_panel_error_no_pack_selected)))
+                        ?: Result.failure(IllegalStateException(localizedContext.getString(R.string.voice_panel_error_no_pack_selected)))
                 }
             }
             if (result.isSuccess) {

@@ -24,7 +24,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -36,6 +35,7 @@ import coil3.load
 import coil3.request.crossfade
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
@@ -222,7 +222,7 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
             var transparentStatusBarInput by remember { mutableStateOf(transparentStatusBar) }
             var restartRequired by remember { mutableStateOf(false) }
             val currentRestartRequired by rememberUpdatedState(restartRequired)
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
             DisposableEffect(Unit) {
                 onDispose {

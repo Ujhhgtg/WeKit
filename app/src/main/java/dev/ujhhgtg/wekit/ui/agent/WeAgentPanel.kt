@@ -89,6 +89,7 @@ import com.composables.icons.materialsymbols.outlined.Stop
 import com.composables.icons.materialsymbols.outlinedfilled.Star
 import dev.ujhhgtg.wekit.activity.agent.WeAgentSettingsActivity
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ChatRow
@@ -785,6 +786,7 @@ private fun MessageBubble(
     prevAssistantTimestamp: java.time.Instant? = null,
 ) {
     val context = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
     when (row.role) {
         ChatRow.Role.TOOL -> ToolCard(row)
         else -> {
@@ -873,7 +875,7 @@ private fun MessageBubble(
                                         copyToClipboard(row.text)
                                         showToast(
                                             context,
-                                            context.getString(R.string.copied_to_clipboard),
+                                            localizedContext.getString(R.string.copied_to_clipboard),
                                         )
                                         menuOpen = false
                                     },
@@ -951,6 +953,7 @@ private fun ToolCard(row: ChatRow) {
     var expanded by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
     val caretRotation by animateFloatAsState(if (expanded) 180f else 0f, tween(220), label = "caret")
 
     Card(
@@ -998,19 +1001,19 @@ private fun ToolCard(row: ChatRow) {
                         onClick = {
                             val content = buildString {
                                 row.toolInput?.let {
-                                    append(context.getString(R.string.agent_panel_tool_input_copy, it))
+                                    append(localizedContext.getString(R.string.agent_panel_tool_input_copy, it))
                                 }
                                 if (row.text.isNotEmpty()) {
                                     if (row.toolInput != null) {
                                         append("\n\n")
-                                        append(context.getString(R.string.agent_panel_tool_output_copy))
+                                        append(localizedContext.getString(R.string.agent_panel_tool_output_copy))
                                         append('\n')
                                     }
                                     append(row.text)
                                 }
                             }
                             copyToClipboard(content)
-                            showToast(context, context.getString(R.string.copied_to_clipboard))
+                            showToast(context, localizedContext.getString(R.string.copied_to_clipboard))
                             menuOpen = false
                         },
                     )
@@ -1074,6 +1077,7 @@ private fun ReasoningCard(
     containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
     val context = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
     // expanded tracks the user's manual preference. effectiveExpanded also opens the body
     // automatically while streaming so reasoning text is visible as it arrives.
     var expanded by remember { mutableStateOf(false) }
@@ -1177,7 +1181,7 @@ private fun ReasoningCard(
                         leadingIcon = { Icon(MaterialSymbols.Outlined.Copy_all, contentDescription = null) },
                         onClick = {
                             copyToClipboard(reasoning ?: "")
-                            showToast(context, context.getString(R.string.copied_to_clipboard))
+                            showToast(context, localizedContext.getString(R.string.copied_to_clipboard))
                             menuOpen = false
                         },
                     )

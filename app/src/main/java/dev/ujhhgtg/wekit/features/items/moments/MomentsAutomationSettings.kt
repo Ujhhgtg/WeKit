@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.moments
 import android.content.Context
 import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -19,9 +20,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -257,7 +258,7 @@ internal class MomentsAutomationSettings private constructor(
         showComposeDialog(context) {
             var draft by remember { mutableStateOf(store.get().global) }
             var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             val validationError = validate(localizedContext, draft)
             val editMode = editText
             if (editMode != null) {
@@ -301,7 +302,7 @@ internal class MomentsAutomationSettings private constructor(
         showComposeDialog(context) {
             var revision by remember { mutableIntStateOf(0) }
             val contacts = remember { loadContacts() }
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             AutomationContactSettingsSelector(
                 title = stringResource(R.string.moments_automation_contact_settings),
                 contacts = contacts,
@@ -350,7 +351,7 @@ internal class MomentsAutomationSettings private constructor(
             var draft by remember { mutableStateOf(initial) }
             var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val effective = parent.apply(draft)
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             val validationError = validate(localizedContext, effective, draft.keys())
             val editMode = editText
             if (editMode != null) {

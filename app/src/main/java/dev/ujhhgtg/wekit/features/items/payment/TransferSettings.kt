@@ -13,14 +13,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
@@ -197,7 +198,7 @@ internal object TransferSettings {
 
     private fun showGlobalDialog(context: Context) {
         showComposeDialog(context) {
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             var draft by remember { mutableStateOf(store.get().global) }
             var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val validationError = validate(localizedContext, draft)
@@ -242,7 +243,7 @@ internal object TransferSettings {
 
     private fun showContactSelector(context: Context) {
         showComposeDialog(context) {
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             var revision by remember { mutableIntStateOf(0) }
             val contacts = remember { loadContacts() }
             AutomationContactSettingsSelector(
@@ -357,7 +358,7 @@ internal object TransferSettings {
 
     private fun showGroupMemberSelector(context: Context, groupId: String, onUpdated: () -> Unit) {
         showComposeDialog(context) {
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             var revision by remember { mutableIntStateOf(0) }
             val members = remember(groupId) {
                 runCatching { WeDatabaseApi.getGroupMembers(groupId) }
@@ -412,7 +413,7 @@ internal object TransferSettings {
         onSave: (RuleOverrides) -> Unit
     ) {
         showComposeDialog(context) {
-            val localizedContext = LocalContext.current
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             var draft by remember { mutableStateOf(initial) }
             var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val effective = parent.apply(draft)
