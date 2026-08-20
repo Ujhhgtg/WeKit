@@ -452,6 +452,10 @@ jobs:
         with:
           go-version-file: app/src/main/go/wekit-cloudflared/go.mod
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y gcc-multilib
+
       - name: Grant execute permission
         run: chmod +x gradlew
 
