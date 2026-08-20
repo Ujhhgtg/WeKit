@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 
 internal enum class HomeSidePanelActionPlacement {
@@ -285,6 +286,13 @@ private fun HomeSidePanelActionItem(
             HomeSidePanelActionPlacement.LIST_ITEM -> ListItem(
                 leadingContent = {
                     Icon(spec.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                },
+                trailingContent = if (editMode) {
+                    null
+                } else {
+                    {
+                        Icon(MaterialSymbols.Outlined.Chevron_right, contentDescription = null)
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
