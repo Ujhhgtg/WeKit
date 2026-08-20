@@ -16,7 +16,7 @@ internal object HomeSidePanelLayoutStore {
         if (raw != null) {
             return HomeSidePanelLayoutCodec.load(raw, legacy, UuidHomeSidePanelIdGenerator).also { loaded ->
                 if (loaded is HomeSidePanelLayoutLoad.Fallback) {
-                    WeLogger.w(TAG, "invalid saved side panel layout; using an in-memory fallback: ${loaded.reason}")
+                    WeLogger.w(TAG, "invalid saved side panel layout; using an in-memory fallback")
                 }
             }
         }
