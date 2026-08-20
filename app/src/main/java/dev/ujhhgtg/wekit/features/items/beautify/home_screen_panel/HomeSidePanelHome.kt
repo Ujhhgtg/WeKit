@@ -116,11 +116,15 @@ private fun HomeSidePanelLayoutCard(
         )
 
         is WeatherCardConfig -> {
-            val runtime = (panelState.runtimeState(card.id) as? HomeSidePanelCardRuntimeState.Weather)
-                ?.state ?: WeatherUiState.Loading
+            val runtime = checkNotNull(panelState.runtimeState(card.id)) {
+                "Weather card '${card.id}' has no runtime state"
+            }
+            require(runtime is HomeSidePanelCardRuntimeState.Weather) {
+                "Weather card '${card.id}' has mismatched runtime state $runtime"
+            }
             HomeSidePanelWeatherCard(
                 card = card,
-                content = WeatherCardContent.Runtime(runtime),
+                content = WeatherCardContent.Runtime(runtime.state),
                 editMode = editMode,
                 modifier = modifier,
                 onRefresh = panelState::refreshWeather,
@@ -130,13 +134,15 @@ private fun HomeSidePanelLayoutCard(
         }
 
         is WalletCardConfig -> {
-            val runtime = (panelState.runtimeState(card.id) as? HomeSidePanelCardRuntimeState.Wallet)
-                ?.state ?: HomeSidePanelWalletUiState(
-                displayState = HomeSidePanelWalletDisplayState(card.hideBalanceByDefault),
-            )
+            val runtime = checkNotNull(panelState.runtimeState(card.id)) {
+                "Wallet card '${card.id}' has no runtime state"
+            }
+            require(runtime is HomeSidePanelCardRuntimeState.Wallet) {
+                "Wallet card '${card.id}' has mismatched runtime state $runtime"
+            }
             HomeSidePanelWalletCard(
                 card = card,
-                content = WalletCardContent.Runtime(runtime),
+                content = WalletCardContent.Runtime(runtime.state),
                 editMode = editMode,
                 modifier = modifier,
                 onToggleBalance = panelState::toggleWallet,
@@ -147,11 +153,15 @@ private fun HomeSidePanelLayoutCard(
         }
 
         is HitokotoCardConfig -> {
-            val runtime = (panelState.runtimeState(card.id) as? HomeSidePanelCardRuntimeState.Hitokoto)
-                ?.state ?: HitokotoUiState.Loading
+            val runtime = checkNotNull(panelState.runtimeState(card.id)) {
+                "Hitokoto card '${card.id}' has no runtime state"
+            }
+            require(runtime is HomeSidePanelCardRuntimeState.Hitokoto) {
+                "Hitokoto card '${card.id}' has mismatched runtime state $runtime"
+            }
             HomeSidePanelHitokotoCard(
                 card = card,
-                content = HitokotoCardContent.Runtime(runtime),
+                content = HitokotoCardContent.Runtime(runtime.state),
                 editMode = editMode,
                 modifier = modifier,
                 onRefresh = panelState::refreshHitokoto,

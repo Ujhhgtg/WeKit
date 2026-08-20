@@ -1,10 +1,13 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -18,7 +21,11 @@ internal fun HomeSidePanelContent(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
     ) {
-        when (val route = state.route) {
+        if (!state.initialized) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else when (val route = state.route) {
             HomeSidePanelRoute.Home,
             HomeSidePanelRoute.EditHome,
             -> HomeSidePanelHome(state, panelState)
@@ -49,11 +56,15 @@ internal fun HomeSidePanelContent(
 
             is HomeSidePanelRoute.HitokotoSettings -> {
                 val card = state.renderedLayout.cards.single { it.id == route.cardId } as HitokotoCardConfig
-                val runtime = (panelState.runtimeState(card.id) as? HomeSidePanelCardRuntimeState.Hitokoto)
-                    ?.state ?: HitokotoUiState.Loading
+                val runtime = checkNotNull(panelState.runtimeState(card.id)) {
+                    "Hitokoto card '${card.id}' has no runtime state"
+                }
+                require(runtime is HomeSidePanelCardRuntimeState.Hitokoto) {
+                    "Hitokoto card '${card.id}' has mismatched runtime state $runtime"
+                }
                 HomeSidePanelHitokotoSettings(
                     card = card,
-                    runtime = runtime,
+                    runtime = runtime.state,
                     panelState = panelState,
                 )
             }

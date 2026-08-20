@@ -104,7 +104,11 @@ internal class HomeSidePanelRuntimeStore(
         val fingerprint = weatherCacheFingerprint(card.city)
         val cached = weatherCache(namespace, card)?.snapshot
         _states.update { current ->
-            val previous = (current[key] as? HomeSidePanelCardRuntimeState.Weather)?.state
+            val runtime = checkNotNull(current[key]) { "Weather runtime is missing for $key" }
+            require(runtime is HomeSidePanelCardRuntimeState.Weather) {
+                "Weather card $key has mismatched runtime state $runtime"
+            }
+            val previous = runtime.state
             val loading = when (previous) {
                 is WeatherUiState.Ready -> previous.copy(refreshing = true)
                 is WeatherUiState.Error -> previous.cached?.let { WeatherUiState.Ready(it, refreshing = true) }
@@ -139,7 +143,11 @@ internal class HomeSidePanelRuntimeStore(
         val fingerprint = hitokotoCacheFingerprint(card.settings)
         val cached = hitokotoCache(namespace, card)?.snapshot
         _states.update { current ->
-            val previous = (current[key] as? HomeSidePanelCardRuntimeState.Hitokoto)?.state
+            val runtime = checkNotNull(current[key]) { "Hitokoto runtime is missing for $key" }
+            require(runtime is HomeSidePanelCardRuntimeState.Hitokoto) {
+                "Hitokoto card $key has mismatched runtime state $runtime"
+            }
+            val previous = runtime.state
             val loading = when (previous) {
                 is HitokotoUiState.Ready -> previous.copy(refreshing = true)
                 is HitokotoUiState.Error -> previous.cached?.let { HitokotoUiState.Ready(it, refreshing = true) }
@@ -172,7 +180,10 @@ internal class HomeSidePanelRuntimeStore(
         if (activeCard(namespace, card.id) != card) return
         val key = HomeSidePanelRuntimeKey(namespace, card.id)
         _states.update { current ->
-            val wallet = current[key] as? HomeSidePanelCardRuntimeState.Wallet ?: return@update current
+            val wallet = checkNotNull(current[key]) { "Wallet runtime is missing for $key" }
+            require(wallet is HomeSidePanelCardRuntimeState.Wallet) {
+                "Wallet card $key has mismatched runtime state $wallet"
+            }
             current + (key to wallet.copy(state = wallet.state.copy(
                 displayState = wallet.state.displayState.toggleFromCard(),
             )))
@@ -240,6 +251,50 @@ internal class HomeSidePanelRuntimeStore(
         }
     }
 
+    fun recoverCommittedLayout(sessionId: String, committed: HomeSidePanelLayout) {
+        val draft = HomeSidePanelRuntimeNamespace.Draft(sessionId)
+        jobs.keys.filter { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
+            .toList().forEach(::cancelJob)
+        weatherCaches.keys.removeAll { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
+        hitokotoCaches.keys.removeAll { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
+        activeLayouts.remove(draft)
+        activeLayouts[HomeSidePanelRuntimeNamespace.Live] = committed
+
+        val recovered = committed.cards.mapNotNull { card ->
+            val runtime = when (card) {
+                is WeatherCardConfig -> HomeSidePanelCardRuntimeState.Weather(WeatherUiState.Loading)
+                is WalletCardConfig -> HomeSidePanelCardRuntimeState.Wallet(
+                    HomeSidePanelWalletUiState(
+                        balanceFen = walletBalance.updates.value,
+                        displayState = HomeSidePanelWalletDisplayState(card.hideBalanceByDefault),
+                    ),
+                )
+
+                is HitokotoCardConfig -> HomeSidePanelCardRuntimeState.Hitokoto(HitokotoUiState.Loading)
+                else -> null
+            }
+            runtime?.let {
+                HomeSidePanelRuntimeKey(HomeSidePanelRuntimeNamespace.Live, card.id) to it
+            }
+        }.toMap()
+        _states.update { current ->
+            current.filterKeys { it.namespace != draft && it.namespace != HomeSidePanelRuntimeNamespace.Live } + recovered
+        }
+
+        committed.cards.forEach { card ->
+            runCatching {
+                when (card) {
+                    is WeatherCardConfig -> refreshWeather(HomeSidePanelRuntimeNamespace.Live, card)
+                    is WalletCardConfig -> walletBalance.refresh()
+                    is HitokotoCardConfig -> refreshHitokoto(HomeSidePanelRuntimeNamespace.Live, card)
+                    else -> Unit
+                }
+            }.onFailure {
+                WeLogger.w(TAG, "failed to restart runtime for committed card ${card.id}", it)
+            }
+        }
+    }
+
     fun discardDraft(sessionId: String) {
         val namespace = HomeSidePanelRuntimeNamespace.Draft(sessionId)
         jobs.keys.filter { it.namespace == namespace }.toList().forEach(::cancelJob)
@@ -277,7 +332,11 @@ internal class HomeSidePanelRuntimeStore(
 
             is WalletCardConfig -> {
                 val key = HomeSidePanelRuntimeKey(namespace, card.id)
-                val existing = (_states.value[key] as? HomeSidePanelCardRuntimeState.Wallet)?.state
+                val current = _states.value[key]
+                require(current == null || current is HomeSidePanelCardRuntimeState.Wallet) {
+                    "Wallet card $key has mismatched runtime state $current"
+                }
+                val existing = current?.state
                 val displayState = existing?.displayState?.takeIf {
                     it.defaultMaskEnabled == card.hideBalanceByDefault
                 } ?: HomeSidePanelWalletDisplayState(card.hideBalanceByDefault)
@@ -287,7 +346,9 @@ internal class HomeSidePanelRuntimeStore(
                         HomeSidePanelWalletUiState(walletBalance.updates.value, displayState),
                     ),
                 )
-                walletBalance.refresh()
+                runCatching(walletBalance::refresh).onFailure {
+                    WeLogger.w(TAG, "failed to refresh wallet balance for card ${card.id}", it)
+                }
             }
 
             is HitokotoCardConfig -> {

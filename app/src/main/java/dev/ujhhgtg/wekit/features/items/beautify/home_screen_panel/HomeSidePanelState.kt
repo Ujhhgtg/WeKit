@@ -37,6 +37,7 @@ internal data class HomeSidePanelUiState(
     val runtimeStates: Map<HomeSidePanelRuntimeKey, HomeSidePanelCardRuntimeState>,
     val route: HomeSidePanelRoute,
     val editing: Boolean,
+    val initialized: Boolean,
     val showToolbarProfile: Boolean,
     val hideWeChatTitle: Boolean,
 )
@@ -87,6 +88,7 @@ internal class HomeSidePanelState(
             runtimeStates = emptyMap(),
             route = HomeSidePanelRoute.Home,
             editing = false,
+            initialized = false,
             showToolbarProfile = HomeSidePanelPreferences.showToolbarProfile,
             hideWeChatTitle = HomeSidePanelPreferences.hideWeChatTitle,
         ),
@@ -105,13 +107,15 @@ internal class HomeSidePanelState(
             }
         }
         val layout = layoutStore.load().layout
+        runtimeStore.reconcile(HomeSidePanelRuntimeNamespace.Live, old = null, new = layout)
         _uiState.update {
             it.copy(
                 formalLayout = layout,
                 renderedLayout = layout,
+                runtimeStates = runtimeStore.states.value,
+                initialized = true,
             )
         }
-        runtimeStore.reconcile(HomeSidePanelRuntimeNamespace.Live, old = null, new = layout)
         scheduleIdentitySync(
             waitForChange = false,
             maxAttempts = INITIAL_STATUS_SYNC_ATTEMPTS,
@@ -163,18 +167,22 @@ internal class HomeSidePanelState(
         )
         editing = active
         val namespace = HomeSidePanelRuntimeNamespace.Draft(active.sessionId)
+        _uiState.update { it.copy(initialized = false) }
         runtimeStore.reconcile(namespace, old = null, new = active.editor.draft)
         _uiState.update {
             it.copy(
                 renderedLayout = active.editor.draft,
+                runtimeStates = runtimeStore.states.value,
                 route = HomeSidePanelRoute.EditHome,
                 editing = true,
+                initialized = true,
             )
         }
     }
 
     fun discardEditing() {
         val active = requireEditing()
+        _uiState.update { it.copy(initialized = false) }
         runtimeStore.discardDraft(active.sessionId)
         editing = null
         pendingLocationCardId = null
@@ -183,23 +191,34 @@ internal class HomeSidePanelState(
         _uiState.update {
             it.copy(
                 renderedLayout = it.formalLayout,
+                runtimeStates = runtimeStore.states.value,
                 route = HomeSidePanelRoute.Home,
                 editing = false,
+                initialized = true,
             )
         }
     }
 
     fun saveEditing() {
         val active = requireEditing()
-        val committed = runCatching {
-            active.editor.committedLayout().also {
-                layoutStore.save(it).getOrThrow()
+        val result = commitHomeSidePanelEdit(
+            editor = active.editor,
+            persist = layoutStore::save,
+            promote = {
+                _uiState.update { state -> state.copy(initialized = false) }
                 runtimeStore.promoteDraft(active.sessionId, it)
-            }
-        }.onFailure { error ->
-            WeLogger.w(TAG, "failed to save side panel layout", error)
+            },
+        )
+        if (result is HomeSidePanelEditCommit.Retained) {
+            WeLogger.w(TAG, "failed to save side panel layout", result.failure)
             publishMessage(beautifyText(R.string.home_side_panel_save_failed))
-        }.getOrNull() ?: return
+            return
+        }
+        result as HomeSidePanelEditCommit.Committed
+        result.promotionFailure?.let { failure ->
+            WeLogger.w(TAG, "layout saved; recovering failed runtime promotion", failure)
+            runtimeStore.recoverCommittedLayout(active.sessionId, result.layout)
+        }
 
         editing = null
         pendingLocationCardId = null
@@ -207,10 +226,12 @@ internal class HomeSidePanelState(
         _weatherSettings.value = emptyMap()
         _uiState.update {
             it.copy(
-                formalLayout = committed,
-                renderedLayout = committed,
+                formalLayout = result.layout,
+                renderedLayout = result.layout,
+                runtimeStates = runtimeStore.states.value,
                 route = HomeSidePanelRoute.Home,
                 editing = false,
+                initialized = true,
             )
         }
     }
@@ -528,8 +549,15 @@ internal class HomeSidePanelState(
         val old = active.editor.draft
         val result = active.editor.block()
         val new = active.editor.draft
+        _uiState.update { it.copy(initialized = false) }
         runtimeStore.reconcile(HomeSidePanelRuntimeNamespace.Draft(active.sessionId), old, new)
-        _uiState.update { it.copy(renderedLayout = new) }
+        _uiState.update {
+            it.copy(
+                renderedLayout = new,
+                runtimeStates = runtimeStore.states.value,
+                initialized = true,
+            )
+        }
         return result
     }
 

@@ -24,11 +24,8 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -231,7 +228,7 @@ internal class HomeSidePanelWeather(
 ) {
 
     private val requestScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val inFlight = ConcurrentHashMap<String, Deferred<WeatherResult>>()
+    private val requests = HomeSidePanelRequestPool<String, WeatherResult>(requestScope)
     private val lastRequestStartedAt = ConcurrentHashMap<String, Long>()
 
     suspend fun refresh(
@@ -242,34 +239,30 @@ internal class HomeSidePanelWeather(
             return WeatherResult.Error(beautifyText(R.string.home_side_panel_weather_no_city), cached)
         }
         val requestKey = city.cityNum
-        inFlight[requestKey]?.let { return it.await() }
-        val now = System.currentTimeMillis()
-        val previousStart = lastRequestStartedAt[requestKey]
-        if (previousStart != null && now - previousStart < MIN_REFRESH_INTERVAL_MS) {
-            return if (cached?.city?.cityNum == requestKey) {
-                WeatherResult.Success(cached)
-            } else {
-                WeatherResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), cached)
+        return requests.await(requestKey) request@{
+            val now = System.currentTimeMillis()
+            val previousStart = lastRequestStartedAt[requestKey]
+            if (previousStart != null && now - previousStart < MIN_REFRESH_INTERVAL_MS) {
+                return@request if (cached?.city?.cityNum == requestKey) {
+                    WeatherResult.Success(cached)
+                } else {
+                    WeatherResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), cached)
+                }
+            }
+            lastRequestStartedAt[requestKey] = now
+            try {
+                performRefresh(city, cached)
+            } catch (error: CancellationException) {
+                lastRequestStartedAt.remove(requestKey, now)
+                throw error
             }
         }
-
-        val created = requestScope.async(start = CoroutineStart.LAZY) {
-            performRefresh(city, cached)
-        }
-        val current = inFlight.putIfAbsent(requestKey, created)
-        if (current != null) {
-            created.cancel()
-            return current.await()
-        }
-        lastRequestStartedAt[requestKey] = now
-        created.invokeOnCompletion { inFlight.remove(requestKey, created) }
-        created.start()
-        return created.await()
     }
 
     suspend fun searchCities(query: String): List<WeatherCity> = cityIndex.search(query)
 
     fun close() {
+        requests.close()
         requestScope.cancel()
     }
 

@@ -71,6 +71,7 @@ import com.composables.icons.materialsymbols.outlined.Wallet
 import com.composables.icons.materialsymbols.outlined.Weather_hail
 import com.composables.icons.materialsymbols.outlined.Weather_snowy
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import kotlinx.coroutines.delay
 import java.time.Duration
@@ -147,6 +148,7 @@ internal fun HomeSidePanelWeatherCard(
     onEditCard: ((String) -> Unit)? = null,
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
+    val localizedContext = LocalWeKitLocalizedContext.current
     val runtime = content as? WeatherCardContent.Runtime
     val weather = runtime?.state
     val snapshot = when (content) {
@@ -214,6 +216,16 @@ internal fun HomeSidePanelWeatherCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+            if (weather is WeatherUiState.Error) {
+                Text(
+                    text = localizedContext.resolveBeautifyText(weather.message),
+                    modifier = Modifier.padding(start = 18.dp, top = 5.dp, end = 18.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column {
@@ -453,6 +465,7 @@ internal fun HomeSidePanelHitokotoCard(
     onEditCard: ((String) -> Unit)? = null,
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
+    val localizedContext = LocalWeKitLocalizedContext.current
     val runtime = content as? HitokotoCardContent.Runtime
     val hitokoto = runtime?.state
     val snapshot = when (content) {
@@ -545,6 +558,13 @@ internal fun HomeSidePanelHitokotoCard(
                         )
                     }
                 }
+            }
+            if (hitokoto is HitokotoUiState.Error) {
+                Text(
+                    text = localizedContext.resolveBeautifyText(hitokoto.message),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         }
     }

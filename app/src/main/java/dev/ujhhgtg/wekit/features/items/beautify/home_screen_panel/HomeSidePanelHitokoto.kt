@@ -7,11 +7,8 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.SerialName
@@ -117,7 +114,7 @@ internal class HomeSidePanelHitokoto(
 ) {
 
     private val requestScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val inFlight = ConcurrentHashMap<HitokotoRequestKey, Deferred<HitokotoResult>>()
+    private val requests = HomeSidePanelRequestPool<HitokotoRequestKey, HitokotoResult>(requestScope)
     private val lastRequestStartedAt = ConcurrentHashMap<HitokotoRequestKey, Long>()
     private val lastError = ConcurrentHashMap<HitokotoRequestKey, HitokotoResult.Error>()
 
@@ -136,36 +133,31 @@ internal class HomeSidePanelHitokoto(
             return HitokotoResult.Error(validationError, cached)
         }
         val requestKey = settings.requestKey()
-        inFlight[requestKey]?.let { return it.await() }
-
-        val now = System.currentTimeMillis()
-        val previousStart = lastRequestStartedAt[requestKey]
-        if (previousStart != null && now - previousStart < MIN_REFRESH_INTERVAL_MS) {
-            return cached?.let(HitokotoResult::Success)
-                ?: lastError[requestKey]
-                ?: HitokotoResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), null)
+        return requests.await(requestKey) request@{
+            val now = System.currentTimeMillis()
+            val previousStart = lastRequestStartedAt[requestKey]
+            if (previousStart != null && now - previousStart < MIN_REFRESH_INTERVAL_MS) {
+                return@request cached?.let(HitokotoResult::Success)
+                    ?: lastError[requestKey]
+                    ?: HitokotoResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), null)
+            }
+            lastRequestStartedAt[requestKey] = now
+            try {
+                performFetch(settings, cached).also { result ->
+                    when (result) {
+                        is HitokotoResult.Success -> lastError.remove(requestKey)
+                        is HitokotoResult.Error -> lastError[requestKey] = result
+                    }
+                }
+            } catch (error: CancellationException) {
+                lastRequestStartedAt.remove(requestKey, now)
+                throw error
+            }
         }
-
-        val created = requestScope.async(start = CoroutineStart.LAZY) {
-            performFetch(settings, cached)
-        }
-        val current = inFlight.putIfAbsent(requestKey, created)
-        if (current != null) {
-            created.cancel()
-            return current.await()
-        }
-        lastRequestStartedAt[requestKey] = now
-        created.invokeOnCompletion { inFlight.remove(requestKey, created) }
-        created.start()
-        val result = created.await()
-        when (result) {
-            is HitokotoResult.Success -> lastError.remove(requestKey)
-            is HitokotoResult.Error -> lastError[requestKey] = result
-        }
-        return result
     }
 
     fun close() {
+        requests.close()
         requestScope.cancel()
     }
 

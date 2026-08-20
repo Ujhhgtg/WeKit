@@ -11,6 +11,31 @@ internal sealed interface HomeSidePanelRoute {
     data class AddAction(val cardId: String) : HomeSidePanelRoute
 }
 
+internal sealed interface HomeSidePanelEditCommit {
+    data class Retained(val failure: Throwable) : HomeSidePanelEditCommit
+    data class Committed(
+        val layout: HomeSidePanelLayout,
+        val promotionFailure: Throwable?,
+    ) : HomeSidePanelEditCommit
+}
+
+internal inline fun commitHomeSidePanelEdit(
+    editor: HomeSidePanelEditSession,
+    persist: (HomeSidePanelLayout) -> Result<Unit>,
+    promote: (HomeSidePanelLayout) -> Unit,
+): HomeSidePanelEditCommit {
+    val layout = runCatching(editor::committedLayout).getOrElse {
+        return HomeSidePanelEditCommit.Retained(it)
+    }
+    runCatching { persist(layout).getOrThrow() }.exceptionOrNull()?.let {
+        return HomeSidePanelEditCommit.Retained(it)
+    }
+    return HomeSidePanelEditCommit.Committed(
+        layout = layout,
+        promotionFailure = runCatching { promote(layout) }.exceptionOrNull(),
+    )
+}
+
 internal class HomeSidePanelEditSession(
     private val original: HomeSidePanelLayout,
     private val idGenerator: HomeSidePanelIdGenerator,
