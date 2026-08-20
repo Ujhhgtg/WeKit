@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
-import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.size
@@ -18,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -62,7 +61,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
     var operation by remember { mutableStateOf<EnvironmentOperation?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
     var pendingChrootOperation by remember { mutableStateOf<EnvironmentOperation?>(null) }
-    val activity = LocalContext.current as Activity
+    val activity = LocalActivity.current ?: error("activity not provided")
     val privateKeyImporter = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             runCatching { activity.contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() } }
