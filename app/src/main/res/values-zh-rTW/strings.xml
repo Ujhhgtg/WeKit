@@ -1244,7 +1244,7 @@
     <string name="fab_delete_description">刪除 %1$s</string>
     <string name="agent_name_required">名稱不能爲空</string>
     <string name="agent_name_dot_invalid">名稱不能爲“.”或“..”</string>
-    <string name="agent_name_illegal_characters">名稱不能包含 / \ : * ? &quot; &lt; &gt; | 等字符</string>
+    <string name="agent_name_illegal_characters">名稱不能包含 / \ : * ? " &lt; &gt; | 等字符</string>
     <string name="panel_action_back">返回</string>
     <string name="panel_action_create">創建</string>
     <string name="panel_action_delete">刪除</string>
@@ -1459,10 +1459,14 @@
     <string name="sticker_telegram_batch_description">從 Telegram 數據庫選擇多個已安裝的表情包</string>
     <string name="sticker_telegram_batch_pack_progress">第 %1$d/%2$d 個 · %3$s</string>
     <string name="sticker_telegram_batch_progress_title">正在批量導入 Telegram 表情包</string>
-    <plurals name="sticker_telegram_batch_result"><item quantity="other">已導入 %1$d 個 Telegram 表情包，%2$d 個失敗；%3$s：%4$s</item></plurals>
+    <plurals name="sticker_telegram_batch_result">
+        <item quantity="other">已導入 %1$d 個 Telegram 表情包，%2$d 個失敗；%3$s：%4$s</item>
+    </plurals>
     <string name="sticker_telegram_batch_title">從 Telegram 實例批量導入包</string>
     <string name="sticker_telegram_empty_database">所選數據庫中沒有可導入的 Telegram 表情包</string>
-    <plurals name="sticker_telegram_import_result"><item quantity="other">已導入 %1$d 個表情到“%2$s”，%3$d 個無需更新，%4$d 個失敗</item></plurals>
+    <plurals name="sticker_telegram_import_result">
+        <item quantity="other">已導入 %1$d 個表情到“%2$s”，%3$d 個無需更新，%4$d 個失敗</item>
+    </plurals>
     <string name="sticker_telegram_input_invalid">請輸入有效的 Telegram 表情包名稱或鏈接</string>
     <string name="sticker_telegram_input_label">表情包名稱或鏈接</string>
     <string name="sticker_telegram_instance_title">選擇 Telegram 實例</string>
@@ -1967,7 +1971,9 @@
     <string name="chat_emoji_game_random">隨機</string>
     <string name="chat_emoji_game_send">發送</string>
     <string name="chat_emoji_game_send_index_failed">第 %1$d 次發送失敗</string>
-    <plurals name="chat_emoji_game_sent_count"><item quantity="other">已發送 %1$d 次</item></plurals>
+    <plurals name="chat_emoji_game_sent_count">
+        <item quantity="other">已發送 %1$d 次</item>
+    </plurals>
     <string name="chat_markdown_render_engine">解析與渲染引擎</string>
     <string name="chat_markdown_native">微信原生</string>
     <string name="chat_markdown_native_description">使用微信 OpenClaw 路徑執行原生 Markdown 渲染</string>
@@ -1984,15 +1990,25 @@
     <string name="chat_save_to_panel_menu">保存到面板</string>
     <string name="chat_save_to_panel_select_sticker_pack">選擇表情包</string>
     <string name="chat_save_to_panel_new_sticker_pack">新建表情包</string>
-    <plurals name="chat_save_to_panel_sticker_count"><item quantity="other">%1$d 張表情</item></plurals>
+    <plurals name="chat_save_to_panel_sticker_count">
+        <item quantity="other">%1$d 張表情</item>
+    </plurals>
     <string name="chat_save_to_panel_select_voice_pack">選擇語音包</string>
     <string name="chat_save_to_panel_new_voice_pack">新建語音包</string>
-    <plurals name="chat_save_to_panel_voice_count"><item quantity="other">%1$d 條語音</item></plurals>
+    <plurals name="chat_save_to_panel_voice_count">
+        <item quantity="other">%1$d 條語音</item>
+    </plurals>
     <string name="chat_save_to_panel_sticker_success">已保存貼紙到「%1$s」</string>
     <string name="chat_save_to_panel_voice_success">已保存語音到「%1$s」</string>
-    <plurals name="chat_save_to_panel_messages_result"><item quantity="other">已保存 %1$d/%2$d 條消息到面板</item></plurals>
-    <plurals name="chat_save_to_panel_stickers_result"><item quantity="other">已保存 %1$d/%2$d 張貼紙到「%3$s」</item></plurals>
-    <plurals name="chat_save_to_panel_voices_result"><item quantity="other">已保存 %1$d/%2$d 條語音到「%3$s」</item></plurals>
+    <plurals name="chat_save_to_panel_messages_result">
+        <item quantity="other">已保存 %1$d/%2$d 條消息到面板</item>
+    </plurals>
+    <plurals name="chat_save_to_panel_stickers_result">
+        <item quantity="other">已保存 %1$d/%2$d 張貼紙到「%3$s」</item>
+    </plurals>
+    <plurals name="chat_save_to_panel_voices_result">
+        <item quantity="other">已保存 %1$d/%2$d 條語音到「%3$s」</item>
+    </plurals>
     <string name="chat_swipe_action_edit">編輯</string>
     <string name="chat_swipe_secondary">啓用次要操作</string>
     <string name="chat_swipe_secondary_description">啓用後，在支持的消息上可調用次要操作以%1$s</string>
@@ -2023,7 +2039,9 @@
     <string name="chat_sticker_manager_invert">反選</string>
     <string name="chat_sticker_manager_export">導出</string>
     <string name="chat_sticker_manager_exporting">正在導出…</string>
-    <plurals name="chat_sticker_manager_exported"><item quantity="other">已保存 %1$d 張貼紙到 %2$s</item></plurals>
+    <plurals name="chat_sticker_manager_exported">
+        <item quantity="other">已保存 %1$d 張貼紙到 %2$s</item>
+    </plurals>
     <string name="mention_members_settings_title">@所有人設置</string>
     <string name="mention_members_stealth_label">隱蔽@所有人</string>
     <string name="mention_members_stealth_description">開啓時確認成員選擇後以原生方式發送輸入框文本（不附帶@暱稱前綴），接收方會收到「有人@我」提醒但消息內不顯示@文本；羣成員超過 200 人時僅提醒前 200 人。關閉時在消息頭部附帶@暱稱文本</string>
@@ -2155,15 +2173,23 @@
     <string name="chat_message_details_content">內容</string>
     <string name="chat_message_details_title">消息詳情</string>
     <string name="chat_message_details_copied">已複製</string>
-    <plurals name="chat_message_time_days_ago"><item quantity="other">%1$d 天前</item></plurals>
+    <plurals name="chat_message_time_days_ago">
+        <item quantity="other">%1$d 天前</item>
+    </plurals>
     <string name="chat_message_time_yesterday">昨天</string>
     <string name="chat_message_time_just_now">剛剛</string>
-    <plurals name="chat_message_time_minutes_ago"><item quantity="other">%1$d 分鐘前</item></plurals>
-    <plurals name="chat_message_time_hours_ago"><item quantity="other">%1$d 小時前</item></plurals>
+    <plurals name="chat_message_time_minutes_ago">
+        <item quantity="other">%1$d 分鐘前</item>
+    </plurals>
+    <plurals name="chat_message_time_hours_ago">
+        <item quantity="other">%1$d 小時前</item>
+    </plurals>
     <string name="chat_message_time_group_announcement">羣公告</string>
     <string name="chat_message_time_everyone">@所有人</string>
     <string name="chat_message_time_me">@我</string>
-    <plurals name="chat_message_time_mentioned_people"><item quantity="other">@%1$d 人</item></plurals>
+    <plurals name="chat_message_time_mentioned_people">
+        <item quantity="other">@%1$d 人</item>
+    </plurals>
     <string name="chat_message_time_title">消息時間增強</string>
     <string name="chat_message_time_display_template">顯示格式模板</string>
     <string name="chat_message_time_insert_placeholder">點擊插入佔位符：</string>
@@ -2212,8 +2238,12 @@
     <string name="chat_real_name_bruteforce_found">命中！實名首字爲“%1$s”\n\n校驗掩碼：?%2$s</string>
     <string name="chat_real_name_bruteforce_no_check">該成員無需姓名校驗即可轉賬，無法通過此方式獲取首字</string>
     <string name="chat_real_name_bruteforce_failed">失敗：%1$s</string>
-    <plurals name="chat_real_name_bruteforce_aborted"><item quantity="other">已終止（嘗試了 %1$d 個）</item></plurals>
-    <plurals name="chat_real_name_bruteforce_paused"><item quantity="other">已暫停（觸發風控，嘗試了 %1$d 個）。進度已保存，下次打開將從“%2$s”繼續。</item></plurals>
+    <plurals name="chat_real_name_bruteforce_aborted">
+        <item quantity="other">已終止（嘗試了 %1$d 個）</item>
+    </plurals>
+    <plurals name="chat_real_name_bruteforce_paused">
+        <item quantity="other">已暫停（觸發風控，嘗試了 %1$d 個）。進度已保存，下次打開將從“%2$s”繼續。</item>
+    </plurals>
     <string name="chat_real_name_bruteforce_continue_progress">繼續（%1$d/%2$d）</string>
     <string name="chat_real_name_bruteforce_start">開始</string>
     <string name="chat_real_name_bruteforce_restart">重新開始</string>
@@ -2231,7 +2261,9 @@
     <string name="chat_fabricate_record_missing_datalist">未找到 datalist</string>
     <string name="chat_fabricate_record_missing_items">未找到消息條目</string>
     <string name="chat_fabricate_record_no_valid_messages">未能解析出有效消息</string>
-    <plurals name="chat_fabricate_record_loaded_count"><item quantity="other">已從剪貼板加載 %1$d 條消息</item></plurals>
+    <plurals name="chat_fabricate_record_loaded_count">
+        <item quantity="other">已從剪貼板加載 %1$d 條消息</item>
+    </plurals>
     <string name="chat_fabricate_record_parse_failed">解析失敗：%1$s</string>
     <string name="chat_fabricate_record_load_clipboard">從剪貼板加載</string>
     <string name="chat_fabricate_record_message_list">消息列表</string>
@@ -2265,23 +2297,39 @@
     <string name="chat_aggregation_mode_all_groups">自動所有羣聊</string>
     <string name="chat_aggregation_mode_all_officials">自動所有公衆號</string>
     <string name="chat_aggregation_mode_sql">自定義 SQL 規則</string>
-    <plurals name="chat_aggregation_manual_conversation_count"><item quantity="other">手動選擇：%1$d 個對話</item></plurals>
-    <plurals name="chat_aggregation_groups_conversation_count"><item quantity="other">所有羣聊：%1$d 個對話</item></plurals>
-    <plurals name="chat_aggregation_officials_conversation_count"><item quantity="other">所有公衆號：%1$d 個對話</item></plurals>
-    <plurals name="chat_aggregation_sql_conversation_count"><item quantity="other">SQL 規則：%1$d 個對話</item></plurals>
+    <plurals name="chat_aggregation_manual_conversation_count">
+        <item quantity="other">手動選擇：%1$d 個對話</item>
+    </plurals>
+    <plurals name="chat_aggregation_groups_conversation_count">
+        <item quantity="other">所有羣聊：%1$d 個對話</item>
+    </plurals>
+    <plurals name="chat_aggregation_officials_conversation_count">
+        <item quantity="other">所有公衆號：%1$d 個對話</item>
+    </plurals>
+    <plurals name="chat_aggregation_sql_conversation_count">
+        <item quantity="other">SQL 規則：%1$d 個對話</item>
+    </plurals>
     <string name="chat_aggregation_folder_name">文件夾名稱</string>
     <string name="chat_aggregation_mode">歸攏模式</string>
-    <plurals name="chat_aggregation_selected_count"><item quantity="other">已選擇 %1$d 個對話</item></plurals>
+    <plurals name="chat_aggregation_selected_count">
+        <item quantity="other">已選擇 %1$d 個對話</item>
+    </plurals>
     <string name="chat_aggregation_choose_conversations">選擇對話</string>
     <string name="chat_aggregation_clear_avatar">清除頭像</string>
     <string name="chat_aggregation_enable_custom_avatar">請啓用“自定義好友本地頭像”以使用頭像相關功能</string>
     <string name="chat_aggregation_change_avatar">更換頭像</string>
     <string name="chat_aggregation_set_avatar">設置頭像</string>
-    <plurals name="chat_aggregation_auto_groups_count"><item quantity="other">自動歸攏所有羣聊（當前匹配到 %1$d 個對話）</item></plurals>
-    <plurals name="chat_aggregation_auto_officials_count"><item quantity="other">自動歸攏所有公衆號（當前匹配到 %1$d 個對話）</item></plurals>
+    <plurals name="chat_aggregation_auto_groups_count">
+        <item quantity="other">自動歸攏所有羣聊（當前匹配到 %1$d 個對話）</item>
+    </plurals>
+    <plurals name="chat_aggregation_auto_officials_count">
+        <item quantity="other">自動歸攏所有公衆號（當前匹配到 %1$d 個對話）</item>
+    </plurals>
     <string name="chat_aggregation_select_fields">SELECT 字段</string>
     <string name="chat_aggregation_where_clause">WHERE 條件</string>
-    <plurals name="chat_aggregation_current_match_count"><item quantity="other">當前匹配到 %1$d 個對話</item></plurals>
+    <plurals name="chat_aggregation_current_match_count">
+        <item quantity="other">當前匹配到 %1$d 個對話</item>
+    </plurals>
     <string name="chat_aggregation_sql_help" formatted="false">數據源自 rcontact r, img_flag i, rconversation c\n示例：c.unReadCount &gt; 0 AND r.username LIKE \'%@chatroom\'</string>
     <string name="chat_aggregation_saved">已保存</string>
     <string name="voice_edge_xiaoxiao">曉曉（女，溫柔）</string>
@@ -2333,7 +2381,9 @@
     <string name="chat_voice_system_tts_start_failed">系統 TTS 無法開始合成</string>
     <string name="chat_voice_no_supported_selected">所選內容中沒有支持的語音文件</string>
     <string name="chat_voice_selected_tone_read_failed">無法讀取所選音色文件</string>
-    <plurals name="chat_voice_import_partial_failed"><item quantity="other">已導入 %1$d 個語音文件，%2$d 個失敗；%3$s：%4$s</item></plurals>
+    <plurals name="chat_voice_import_partial_failed">
+        <item quantity="other">已導入 %1$d 個語音文件，%2$d 個失敗；%3$s：%4$s</item>
+    </plurals>
     <string name="chat_voice_pack_not_found">語音包不存在</string>
     <string name="chat_voice_not_in_pack">語音不屬於當前語音包</string>
     <string name="chat_voice_tone_not_found">音色不存在</string>
@@ -2428,7 +2478,9 @@
     <string name="chat_sticker_server_empty">服務器未返回表情數據</string>
     <string name="chat_sticker_no_supported_selected">所選內容中沒有支持的圖片文件</string>
     <string name="chat_sticker_file_read_failed">無法讀取所選圖片文件</string>
-    <plurals name="chat_sticker_import_partial_failed"><item quantity="other">已導入 %1$d 張圖片，%2$d 個失敗；%3$s：%4$s</item></plurals>
+    <plurals name="chat_sticker_import_partial_failed">
+        <item quantity="other">已導入 %1$d 張圖片，%2$d 個失敗；%3$s：%4$s</item>
+    </plurals>
     <string name="chat_telegram_database_read_failed">無法讀取所選 Telegram 數據庫</string>
     <string name="chat_telegram_sticker_empty">Telegram 未返回表情數據</string>
     <string name="chat_telegram_sticker_unsupported_format">Telegram 表情轉換結果格式不受支持</string>
@@ -2437,7 +2489,9 @@
     <string name="chat_wechat_sticker_export_failed">無法導出微信表情</string>
     <string name="chat_wechat_sticker_import_failed">微信原生表情導入失敗：%1$s</string>
     <string name="chat_wechat_sticker_no_custom">微信沒有「添加的單個表情」</string>
-    <plurals name="chat_wechat_sticker_import_result"><item quantity="other">已更新「%1$s」：新增 %2$d 個，%3$d 個無需更新，%4$d 個失敗</item></plurals>
+    <plurals name="chat_wechat_sticker_import_result">
+        <item quantity="other">已更新「%1$s」：新增 %2$d 個，%3$d 個無需更新，%4$d 個失敗</item>
+    </plurals>
     <string name="chat_wechat_sticker_empty">微信未返回表情數據</string>
     <string name="chat_wechat_sticker_unsupported_format">微信表情導出結果格式不受支持</string>
     <string name="chat_sticker_object_unavailable">沒有可用表情對象</string>
@@ -2472,27 +2526,51 @@
     <string name="batch_add_label_create_failed">創建標籤“%1$s”失敗</string>
     <string name="batch_add_label_done_title">打標籤完成</string>
     <string name="batch_add_label_progress_title">正在打標籤</string>
-    <plurals name="batch_add_label_done"><item quantity="other">已爲 %1$d/%2$d 位好友添加標籤“%3$s”</item></plurals>
-    <plurals name="batch_add_label_progress"><item quantity="other">正在添加標籤“%1$s”，請稍等…\n已完成：%2$d/%3$d</item></plurals>
+    <plurals name="batch_add_label_done">
+        <item quantity="other">已爲 %1$d/%2$d 位好友添加標籤“%3$s”</item>
+    </plurals>
+    <plurals name="batch_add_label_progress">
+        <item quantity="other">正在添加標籤“%1$s”，請稍等…\n已完成：%2$d/%3$d</item>
+    </plurals>
     <string name="batch_delete_friends_select">選擇要刪除的好友</string>
     <string name="batch_delete_friends_confirm_title">確認刪除</string>
-    <plurals name="batch_delete_friends_confirm_message"><item quantity="other">確定要刪除選中的 %1$d 位好友嗎？此操作不可逆！可選擇同時將其拉黑。</item></plurals>
+    <plurals name="batch_delete_friends_confirm_message">
+        <item quantity="other">確定要刪除選中的 %1$d 位好友嗎？此操作不可逆！可選擇同時將其拉黑。</item>
+    </plurals>
     <string name="batch_delete_friends_block_and_delete">拉黑並刪除</string>
-    <plurals name="batch_delete_friends_progress"><item quantity="other">正在刪除 %1$d 位好友…</item></plurals>
-    <plurals name="batch_delete_friends_done"><item quantity="other">已刪除 %1$d 位好友</item></plurals>
-    <plurals name="batch_delete_friends_partial"><item quantity="other">已刪除 %1$d/%2$d 位好友</item></plurals>
+    <plurals name="batch_delete_friends_progress">
+        <item quantity="other">正在刪除 %1$d 位好友…</item>
+    </plurals>
+    <plurals name="batch_delete_friends_done">
+        <item quantity="other">已刪除 %1$d 位好友</item>
+    </plurals>
+    <plurals name="batch_delete_friends_partial">
+        <item quantity="other">已刪除 %1$d/%2$d 位好友</item>
+    </plurals>
     <string name="batch_delete_history_select">選擇要刪除聊天記錄的對話</string>
     <string name="batch_delete_history_title">刪除聊天記錄</string>
-    <plurals name="batch_delete_history_confirm"><item quantity="other">確定要刪除選中的 %1$d 個對話的全部聊天記錄嗎？此操作不可逆！</item></plurals>
-    <plurals name="batch_delete_history_progress"><item quantity="other">正在刪除 %1$d 個對話的聊天記錄…</item></plurals>
-    <plurals name="batch_delete_history_done"><item quantity="other">已刪除 %1$d 個對話的聊天記錄（共 %2$d 條消息）</item></plurals>
+    <plurals name="batch_delete_history_confirm">
+        <item quantity="other">確定要刪除選中的 %1$d 個對話的全部聊天記錄嗎？此操作不可逆！</item>
+    </plurals>
+    <plurals name="batch_delete_history_progress">
+        <item quantity="other">正在刪除 %1$d 個對話的聊天記錄…</item>
+    </plurals>
+    <plurals name="batch_delete_history_done">
+        <item quantity="other">已刪除 %1$d 個對話的聊天記錄（共 %2$d 條消息）</item>
+    </plurals>
     <string name="batch_hide_conversations_select">選擇要隱藏的對話</string>
     <string name="batch_hide_conversations_title">隱藏對話</string>
-    <plurals name="batch_hide_conversations_confirm"><item quantity="other">確定要從對話列表移除選中的 %1$d 個對話嗎？聊天記錄將保留，重新收到消息時對話會再次出現。</item></plurals>
+    <plurals name="batch_hide_conversations_confirm">
+        <item quantity="other">確定要從對話列表移除選中的 %1$d 個對話嗎？聊天記錄將保留，重新收到消息時對話會再次出現。</item>
+    </plurals>
     <string name="batch_hide_conversations_action">隱藏</string>
-    <plurals name="batch_hide_conversations_done"><item quantity="other">已隱藏 %1$d/%2$d 個對話</item></plurals>
+    <plurals name="batch_hide_conversations_done">
+        <item quantity="other">已隱藏 %1$d/%2$d 個對話</item>
+    </plurals>
     <string name="batch_mark_read_select">選擇要標爲已讀的對話</string>
-    <plurals name="batch_mark_read_done"><item quantity="other">已將 %1$d 個對話標爲已讀</item></plurals>
+    <plurals name="batch_mark_read_done">
+        <item quantity="other">已將 %1$d 個對話標爲已讀</item>
+    </plurals>
     <string name="batch_mute_title">批量免打擾</string>
     <string name="batch_mute_enable">開啓免打擾</string>
     <string name="batch_mute_enable_description">選擇要靜音的對話</string>
@@ -2500,9 +2578,15 @@
     <string name="batch_mute_disable_description">選擇要取消靜音的對話</string>
     <string name="batch_mute_select_enable">選擇要靜音的對話</string>
     <string name="batch_mute_select_disable">選擇要取消靜音的對話</string>
-    <plurals name="batch_mute_progress"><item quantity="other">正在對 %1$d 個對話設置免打擾…</item></plurals>
-    <plurals name="batch_mute_enabled"><item quantity="other">已對 %1$d 個對話開啓免打擾</item></plurals>
-    <plurals name="batch_mute_disabled"><item quantity="other">已對 %1$d 個對話關閉免打擾</item></plurals>
+    <plurals name="batch_mute_progress">
+        <item quantity="other">正在對 %1$d 個對話設置免打擾…</item>
+    </plurals>
+    <plurals name="batch_mute_enabled">
+        <item quantity="other">已對 %1$d 個對話開啓免打擾</item>
+    </plurals>
+    <plurals name="batch_mute_disabled">
+        <item quantity="other">已對 %1$d 個對話關閉免打擾</item>
+    </plurals>
     <string name="batch_mass_send_text_mode">文本消息</string>
     <string name="batch_mass_send_text_hint">編寫要羣發的文本消息，點擊“選擇對象”挑選發送目標</string>
     <string name="batch_mass_send_text_label">消息內容</string>
@@ -2513,9 +2597,15 @@
     <string name="batch_mass_send_select_recipients">選擇對象</string>
     <string name="batch_mass_send_select_title">選擇羣發對象</string>
     <string name="batch_mass_send_select_at_least_one">請選擇至少一個對象</string>
-    <plurals name="batch_mass_send_progress"><item quantity="other">正在羣發到 %1$d 個對象…</item></plurals>
-    <plurals name="batch_mass_send_done"><item quantity="other">已羣發到 %1$d 個對象</item></plurals>
-    <plurals name="batch_mass_send_partial"><item quantity="other">已羣發到 %1$d/%2$d 個對象</item></plurals>
+    <plurals name="batch_mass_send_progress">
+        <item quantity="other">正在羣發到 %1$d 個對象…</item>
+    </plurals>
+    <plurals name="batch_mass_send_done">
+        <item quantity="other">已羣發到 %1$d 個對象</item>
+    </plurals>
+    <plurals name="batch_mass_send_partial">
+        <item quantity="other">已羣發到 %1$d/%2$d 個對象</item>
+    </plurals>
     <string name="contacts_auto_add_nearby_menu">自動加好友</string>
     <string name="contacts_auto_remark_format">備註格式</string>
     <string name="contacts_auto_remark_insert_placeholder">點擊插入佔位符：</string>
@@ -2537,11 +2627,17 @@
     <string name="contacts_copy">複製</string>
     <string name="contacts_group_message_history">查看羣消息歷史</string>
     <string name="contacts_delete_fake_none">未發現假羣組！</string>
-    <plurals name="contacts_delete_fake_select_title"><item quantity="other">刪除假羣組（共 %1$d 個）</item></plurals>
+    <plurals name="contacts_delete_fake_select_title">
+        <item quantity="other">刪除假羣組（共 %1$d 個）</item>
+    </plurals>
     <string name="contacts_delete_fake_select_one">請選擇至少一個假羣</string>
     <string name="contacts_delete_fake_confirm_title">確認刪除</string>
-    <plurals name="contacts_delete_fake_confirm_message"><item quantity="other">確定要刪除選中的 %1$d 個假羣組嗎？此操作不可逆，原羣不受影響。</item></plurals>
-    <plurals name="contacts_delete_fake_done"><item quantity="other">已清除 %1$d 個假羣組</item></plurals>
+    <plurals name="contacts_delete_fake_confirm_message">
+        <item quantity="other">確定要刪除選中的 %1$d 個假羣組嗎？此操作不可逆，原羣不受影響。</item>
+    </plurals>
+    <plurals name="contacts_delete_fake_done">
+        <item quantity="other">已清除 %1$d 個假羣組</item>
+    </plurals>
     <string name="contacts_custom_avatar_add">添加自定義頭像</string>
     <string name="contacts_custom_avatar_change">更換自定義頭像</string>
     <string name="contacts_custom_avatar_title">自定義頭像</string>
@@ -2554,20 +2650,34 @@
     <string name="contacts_custom_avatar_select">選擇</string>
     <string name="contacts_detect_create_label_failed">創建標籤“%1$s”失敗</string>
     <string name="contacts_detect_marking_done">標記完成</string>
-    <plurals name="contacts_detect_delete_done"><item quantity="other">刪除完成：成功 %1$d，失敗 %2$d</item></plurals>
+    <plurals name="contacts_detect_delete_done">
+        <item quantity="other">刪除完成：成功 %1$d，失敗 %2$d</item>
+    </plurals>
     <string name="contacts_detect_warning_title">警告</string>
     <string name="contacts_detect_warning_message">此功能可能導致賬號異常，確定要執行嗎？</string>
-    <plurals name="contacts_detect_scanning"><item quantity="other">正在掃描，請稍等…\n已完成：%1$d/%2$d</item></plurals>
-    <plurals name="contacts_detect_scan_done"><item quantity="other">掃描完成，有 %1$d 個狀態異常的好友</item></plurals>
+    <plurals name="contacts_detect_scanning">
+        <item quantity="other">正在掃描，請稍等…\n已完成：%1$d/%2$d</item>
+    </plurals>
+    <plurals name="contacts_detect_scan_done">
+        <item quantity="other">掃描完成，有 %1$d 個狀態異常的好友</item>
+    </plurals>
     <string name="contacts_detect_status_abnormal">狀態：異常</string>
     <string name="contacts_detect_nickname">暱稱：%1$s</string>
     <string name="contacts_detect_remark">備註：%1$s</string>
     <string name="contacts_detect_wechat_number">微信號：%1$s</string>
-    <plurals name="contacts_detect_confirm_delete"><item quantity="other">確定要刪除選中的 %1$d 個好友嗎？\n此操作不可逆，刪除後聊天記錄將被清除，需對方重新添加。</item></plurals>
-    <plurals name="contacts_detect_deleting"><item quantity="other">正在刪除好友，請稍等…\n已完成：%1$d/%2$d</item></plurals>
-    <plurals name="contacts_detect_select_label"><item quantity="other">選擇一個標籤，將應用到全部 %1$d 個異常好友</item></plurals>
+    <plurals name="contacts_detect_confirm_delete">
+        <item quantity="other">確定要刪除選中的 %1$d 個好友嗎？\n此操作不可逆，刪除後聊天記錄將被清除，需對方重新添加。</item>
+    </plurals>
+    <plurals name="contacts_detect_deleting">
+        <item quantity="other">正在刪除好友，請稍等…\n已完成：%1$d/%2$d</item>
+    </plurals>
+    <plurals name="contacts_detect_select_label">
+        <item quantity="other">選擇一個標籤，將應用到全部 %1$d 個異常好友</item>
+    </plurals>
     <string name="contacts_detect_new_label">新建標籤</string>
-    <plurals name="contacts_detect_marking"><item quantity="other">正在標記爲“%1$s”，請稍等…\n已完成：%2$d/%3$d</item></plurals>
+    <plurals name="contacts_detect_marking">
+        <item quantity="other">正在標記爲“%1$s”，請稍等…\n已完成：%2$d/%3$d</item>
+    </plurals>
     <string name="contacts_detect_stop">終止</string>
     <string name="contacts_detect_back">返回</string>
     <string name="contacts_detect_suggested_label">WeKit_單刪好友_%1$s</string>
@@ -2579,7 +2689,9 @@
     <string name="contacts_hide_shown_command_hint">已臨時顯示所有隱藏的聯繫人，輸入 #hide 恢復隱藏</string>
     <string name="contacts_hide_nothing_to_restore">沒有需要恢復的隱藏聯繫人</string>
     <string name="contacts_hide_select">選擇要隱藏的聯繫人</string>
-    <plurals name="contacts_hide_saved"><item quantity="other">已保存 %1$d 個聯繫人</item></plurals>
+    <plurals name="contacts_hide_saved">
+        <item quantity="other">已保存 %1$d 個聯繫人</item>
+    </plurals>
     <string name="contacts_hide_configure">配置隱藏列表</string>
     <string name="contacts_hide_configure_description">點擊配置聯繫人隱藏列表</string>
     <string name="contacts_hide_auto_reject">自動拒絕音視頻通話</string>
@@ -2609,7 +2721,9 @@
     <string name="contacts_schedule_empty">暫無定時任務，點擊右上角“添加”創建</string>
     <string name="contacts_schedule_edit_title">編輯定時</string>
     <string name="contacts_schedule_delete">刪除定時</string>
-    <plurals name="contacts_schedule_dropped"><item quantity="other">%1$d 個單次定時在編輯期間已觸發並自動刪除，對它們的修改未保存</item></plurals>
+    <plurals name="contacts_schedule_dropped">
+        <item quantity="other">%1$d 個單次定時在編輯期間已觸發並自動刪除，對它們的修改未保存</item>
+    </plurals>
     <string name="contacts_schedule_time">時間</string>
     <string name="contacts_schedule_select_day">請至少選擇一天</string>
     <string name="contacts_schedule_date_time">日期與時間</string>
@@ -2621,8 +2735,12 @@
     <string name="contacts_split_call_repeat_count">重複次數</string>
     <string name="contacts_split_call_invalid_repeat">請輸入大於 0 的重複次數</string>
     <string name="contacts_split_call_already_running">已有分裂羣組通話任務正在執行</string>
-    <plurals name="contacts_split_call_done_cleaned"><item quantity="other">任務結束：成功 %1$d 次，失敗 %2$d 次，已自動清理 %3$d 個假羣</item></plurals>
-    <plurals name="contacts_split_call_done_cleanup_failed"><item quantity="other">任務結束：成功 %1$d 次，失敗 %2$d 次，自動清理 %3$d 個假羣失敗</item></plurals>
+    <plurals name="contacts_split_call_done_cleaned">
+        <item quantity="other">任務結束：成功 %1$d 次，失敗 %2$d 次，已自動清理 %3$d 個假羣</item>
+    </plurals>
+    <plurals name="contacts_split_call_done_cleanup_failed">
+        <item quantity="other">任務結束：成功 %1$d 次，失敗 %2$d 次，自動清理 %3$d 個假羣失敗</item>
+    </plurals>
     <string name="home_menu_force_stop">強行停止</string>
     <string name="home_menu_mark_all_read">清空未讀</string>
     <string name="home_menu_all_marked_read">已將全部未讀消息標爲已讀</string>
@@ -2734,11 +2852,15 @@
     <string name="moments_fake_likes_method_title">僞點贊方式</string>
     <string name="moments_fake_likes_select_users">選擇僞點贊用戶</string>
     <string name="moments_fake_likes_cleared">已清除僞點贊配置</string>
-    <plurals name="moments_fake_likes_set_count"><item quantity="other">已設置 %1$d 個僞點贊</item></plurals>
+    <plurals name="moments_fake_likes_set_count">
+        <item quantity="other">已設置 %1$d 個僞點贊</item>
+    </plurals>
     <string name="moments_fake_likes_select_contacts">選擇指定聯繫人</string>
     <string name="moments_fake_likes_random_count">隨機數量</string>
     <string name="moments_fake_likes_invalid_count">請輸入有效數量</string>
-    <plurals name="moments_fake_likes_random_set_count"><item quantity="other">已隨機設置 %1$d 個僞點贊</item></plurals>
+    <plurals name="moments_fake_likes_random_set_count">
+        <item quantity="other">已隨機設置 %1$d 個僞點贊</item>
+    </plurals>
     <string name="moments_forward_messages_menu">轉圈</string>
     <string name="moments_repost_menu">轉發</string>
     <string name="moments_quick_repost_menu">一鍵轉發</string>
@@ -2779,7 +2901,9 @@
     <string name="moments_automation_contact_summary">爲單個好友覆蓋全局設置</string>
     <string name="moments_automation_global_saved">全局設置已保存</string>
     <string name="moments_automation_follow_global">跟隨全局設置</string>
-    <plurals name="moments_automation_overridden_count"><item quantity="other">已覆蓋 %1$d 項</item></plurals>
+    <plurals name="moments_automation_overridden_count">
+        <item quantity="other">已覆蓋 %1$d 項</item>
+    </plurals>
     <string name="moments_automation_default_auto_like">默認自動點贊</string>
     <string name="moments_automation_default_auto_repost">默認自動轉發</string>
     <string name="moments_automation_process_all">默認處理所有好友，分聯繫人設置可單獨關閉</string>
@@ -2804,7 +2928,9 @@
     <string name="moments_automation_content_keywords">內容關鍵詞</string>
     <string name="moments_automation_keyword_unrestricted">不限制朋友圈文案</string>
     <string name="moments_automation_content_type">朋友圈類型</string>
-    <plurals name="moments_automation_selected_type_count"><item quantity="other">已選擇 %1$d 種類型</item></plurals>
+    <plurals name="moments_automation_selected_type_count">
+        <item quantity="other">已選擇 %1$d 種類型</item>
+    </plurals>
     <string name="moments_automation_type_unrestricted">不限制朋友圈類型</string>
     <string name="moments_automation_maximum_age">最大發布時間</string>
     <string name="moments_automation_maximum_age_value">僅處理 %1$s 小時內發佈的朋友圈</string>
@@ -2882,7 +3008,6 @@
     <string name="home_side_panel_show_lunar_calendar">顯示農曆</string>
     <string name="home_side_panel_lunar_prefix">農曆</string>
     <string name="home_side_panel_lunar_leap_prefix">閏</string>
-    <string name="home_side_panel_lunar_separator"></string>
     <string-array name="home_side_panel_lunar_month_names">
         <item>正月</item>
         <item>二月</item>
@@ -3331,7 +3456,9 @@
     <string name="debug_send_packet_integer_ids_required">cmdId、funcId 和 routeId 必須爲整數</string>
     <string name="debug_send_packet_success_title">發送成功，響應結果：</string>
     <string name="debug_send_packet_success_result">JSON：%1$s\n\nbyteArray：%2$s</string>
-    <plurals name="debug_send_packet_byte_count"><item quantity="other">%1$d 字節</item></plurals>
+    <plurals name="debug_send_packet_byte_count">
+        <item quantity="other">%1$d 字節</item>
+    </plurals>
     <string name="debug_send_packet_failure_title">發送失敗，響應結果：</string>
     <string name="debug_send_packet_failure_result">type: %1$d, code: %2$d, msg: %3$s</string>
     <string name="clear_profile_details_confirmation">確定要清空資料信息嗎？清空後仍可重新選擇。</string>
@@ -3499,7 +3626,6 @@
     <string name="telegram_parsing_database">正在解析數據庫…</string>
     <string name="telegram_retry">重試</string>
     <string name="telegram_current_account">當前賬戶</string>
-
     <string name="agent_delete_provider_confirm">刪除該提供方及其所有模型？此操作無法撤銷。</string>
     <string name="agent_delete_model_confirm">刪除該模型？此操作無法撤銷。</string>
     <string name="agent_delete_server_confirm">刪除該服務器及其工具配置？此操作無法撤銷。</string>
