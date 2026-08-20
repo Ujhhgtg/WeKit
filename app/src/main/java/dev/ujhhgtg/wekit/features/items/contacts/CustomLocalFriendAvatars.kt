@@ -59,6 +59,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.BaseContactSelector
@@ -658,7 +659,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     ) {
         var searchQuery by remember { mutableStateOf("") }
         val chinaCollator = remember { Collator.getInstance(Locale.CHINA) }
-        val localizedContext = LocalContext.current
+        val localizedContext = LocalWeKitLocalizedContext.current
 
         val fullContactsList = remember(contacts, entries) {
             val entryContacts = entries.keys.map { wxId ->

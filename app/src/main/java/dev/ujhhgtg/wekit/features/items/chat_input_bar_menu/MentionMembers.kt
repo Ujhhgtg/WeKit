@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -157,7 +158,8 @@ object MentionMembers : SwitchFeature(), IResolveDex {
                     }
 
                     showComposeDialog(context) {
-                        val localizedContext = LocalContext.current
+                        val dialogContext = LocalContext.current
+                        val localizedContext = LocalWeKitLocalizedContext.current
                         ContactsSelector(
                             title = stringResource(R.string.feature_mention_members_name),
                             contacts = allMembers,
@@ -166,7 +168,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
                             onConfirm = { selectedWxIds ->
                                 if (selectedWxIds.isEmpty()) {
                                     showToast(
-                                        localizedContext,
+                                        dialogContext,
                                         localizedContext.localizedChatInputString(
                                             R.string.mention_members_select_one,
                                         ),

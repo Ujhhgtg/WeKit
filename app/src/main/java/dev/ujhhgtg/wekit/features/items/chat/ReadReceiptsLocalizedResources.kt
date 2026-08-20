@@ -1,11 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import android.content.Context
 import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 
 @get:StringRes
 internal val ReadReceiptsTunnelErrorCode.messageRes: Int
@@ -44,10 +40,3 @@ internal val ReadReceiptsTunnelState.notificationDetailRes: Int
         ReadReceiptsTunnelState.FAILED -> R.string.read_receipts_state_failed
         ReadReceiptsTunnelState.STOPPING -> R.string.read_receipts_state_stopping
     }
-
-internal fun Context.readReceiptsModuleLocalizedContext(): Context =
-    LocalizedContextFactory.create(
-        this,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.ModuleApp,
-    )

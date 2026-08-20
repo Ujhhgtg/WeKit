@@ -7,6 +7,10 @@ import android.view.ContextThemeWrapper
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 
+/**
+ * Adapts explicit injected dialog and panel entry points to module resources and a host window.
+ * Resource-only localization must use LocalizedContextFactory instead.
+ */
 class CommonContextWrapper(
     val base: Context,
     internal val windowContext: Context? = base.resolveWindowContext(),
@@ -18,9 +22,7 @@ class CommonContextWrapper(
 
     override fun getClassLoader(): ClassLoader = ClassLoaders.MODULE
 
-    // A `createConfigurationContext`-derived context has no window token, so showing a Dialog
-    // with it throws BadTokenException. Delegate WINDOW_SERVICE to the nearest Activity (if any)
-    // so dialogs opened with such a context still get a valid token.
+    // Explicit dialog/panel contexts need the host window service so their windows get a valid token.
     override fun getSystemService(name: String): Any? {
         if (name == WINDOW_SERVICE) {
             windowContext?.let { return it.getSystemService(name) }
