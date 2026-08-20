@@ -335,6 +335,10 @@ internal class HomeSidePanelState(
     fun close() {
         resetWalletDisplay()
         scope.coroutineContext.cancel()
+        // Temporary pre-Task-6 ownership bridge: this fixed state exclusively owns both services.
+        // Task 6 moves their lifecycle under HomeSidePanelRuntimeStore.close().
+        weather.close()
+        hitokoto.close()
     }
 
     private fun refreshWalletBalance() {
