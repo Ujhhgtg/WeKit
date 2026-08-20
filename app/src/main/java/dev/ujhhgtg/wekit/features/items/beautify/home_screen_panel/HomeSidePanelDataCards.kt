@@ -357,6 +357,7 @@ internal fun HomeSidePanelWalletCard(
     cardDragModifier: Modifier = Modifier,
     onToggleBalance: (String) -> Unit = {},
     onRunAction: (HomeSidePanelActionKind) -> Unit = {},
+    onOpenPaymentCode: () -> Unit = {},
     onEditCard: ((String) -> Unit)? = null,
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
@@ -436,7 +437,7 @@ internal fun HomeSidePanelWalletCard(
                 }
                 Button(
                     onClick = {
-                        if (interactive) onRunAction(HomeSidePanelActionKind.WALLET)
+                        if (interactive) onOpenPaymentCode()
                     },
                     modifier = Modifier.weight(1f),
                     enabled = interactive,

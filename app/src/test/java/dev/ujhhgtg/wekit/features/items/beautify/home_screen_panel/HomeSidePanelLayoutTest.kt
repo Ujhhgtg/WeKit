@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -176,5 +177,65 @@ class HomeSidePanelLayoutTest {
         ) as HomeSidePanelLayoutLoad.Fallback
 
         assertEquals(raw, fallback.invalidRaw)
+    }
+
+    @Test
+    fun legacyRedundantTypeCannotOverrideTheSealedCardSubtype() {
+        val raw = """
+            {
+              "version": 1,
+              "cards": [
+                {
+                  "cardType": "weather",
+                  "id": "weather",
+                  "city": {
+                    "countryCode": "CN",
+                    "province": "\u5317\u4eac",
+                    "city": "\u5317\u4eac",
+                    "district": null,
+                    "cityNum": "101010100",
+                    "latitude": null,
+                    "longitude": null
+                  },
+                  "type": "WALLET"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val decoded = HomeSidePanelLayoutCodec.decode(raw)
+        val card = decoded.cards.single()
+
+        assertTrue(card is WeatherCardConfig)
+        assertEquals(HomeSidePanelCardType.WEATHER, card.type)
+        val reencoded = HomeSidePanelLayoutCodec.encode(decoded)
+        assertFalse("\"type\"" in reencoded)
+        assertEquals(decoded, HomeSidePanelLayoutCodec.decode(reencoded))
+    }
+
+    @Test
+    fun discriminatorAndPayloadShapeMismatchBecomesFallback() {
+        val raw = """
+            {
+              "version": 1,
+              "cards": [
+                {
+                  "cardType": "weather",
+                  "id": "mismatched",
+                  "hideBalanceByDefault": true,
+                  "type": "WALLET"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val loaded = HomeSidePanelLayoutCodec.load(
+            raw = raw,
+            legacy = LegacyHomeSidePanelSnapshot.defaults(),
+            idGenerator = SequenceIds(),
+        )
+
+        assertTrue(loaded is HomeSidePanelLayoutLoad.Fallback)
+        assertEquals(raw, (loaded as HomeSidePanelLayoutLoad.Fallback).invalidRaw)
     }
 }

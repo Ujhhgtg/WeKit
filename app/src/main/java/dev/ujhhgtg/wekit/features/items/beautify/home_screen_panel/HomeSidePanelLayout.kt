@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.JsonClassDiscriminator
 import java.util.UUID
 
@@ -66,6 +67,7 @@ internal sealed class HomeSidePanelCardConfig {
 internal data class DateTimeCardConfig(
     override val id: String,
 ) : HomeSidePanelCardConfig() {
+    @Transient
     override val type: HomeSidePanelCardType = HomeSidePanelCardType.DATE_TIME
 }
 
@@ -75,6 +77,7 @@ internal data class WeatherCardConfig(
     override val id: String,
     val city: WeatherCity,
 ) : HomeSidePanelCardConfig() {
+    @Transient
     override val type: HomeSidePanelCardType = HomeSidePanelCardType.WEATHER
 }
 
@@ -84,6 +87,7 @@ internal data class WalletCardConfig(
     override val id: String,
     val hideBalanceByDefault: Boolean = false,
 ) : HomeSidePanelCardConfig() {
+    @Transient
     override val type: HomeSidePanelCardType = HomeSidePanelCardType.WALLET
 }
 
@@ -93,6 +97,7 @@ internal data class HitokotoCardConfig(
     override val id: String,
     val settings: HitokotoSettings = HitokotoSettings(),
 ) : HomeSidePanelCardConfig() {
+    @Transient
     override val type: HomeSidePanelCardType = HomeSidePanelCardType.HITOKOTO
 }
 
@@ -102,6 +107,7 @@ internal data class HorizontalActionsCardConfig(
     override val id: String,
     val actions: List<HomeSidePanelActionConfig>,
 ) : HomeSidePanelCardConfig() {
+    @Transient
     override val type: HomeSidePanelCardType = HomeSidePanelCardType.HORIZONTAL_ACTIONS
 }
 
@@ -111,6 +117,7 @@ internal data class VerticalActionsCardConfig(
     override val id: String,
     val actions: List<HomeSidePanelActionConfig>,
 ) : HomeSidePanelCardConfig() {
+    @Transient
     override val type: HomeSidePanelCardType = HomeSidePanelCardType.VERTICAL_ACTIONS
 }
 

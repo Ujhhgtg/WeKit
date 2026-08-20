@@ -282,6 +282,111 @@ class HomeSidePanelDragStateTest {
         assertEquals(action, state.snapshot!!.payload)
     }
 
+    @Test
+    fun activeDragOwnsAndReleasesParentInterceptionExactlyOnce() {
+        val activeChanges = mutableListOf<Boolean>()
+        val state = HomeSidePanelDragState(activeChanges::add)
+        state.registerViewport(RootDragBounds(0f, 0f, 300f, 300f))
+
+        assertTrue(
+            state.begin(
+                payload = HomeSidePanelDragPayload.NewCard(HomeSidePanelCardType.WEATHER),
+                pointerId = 20L,
+                rootPosition = RootDragPosition(150f, 150f),
+            ),
+        )
+        assertEquals(listOf(true), activeChanges)
+
+        state.finish()
+        state.cancel()
+
+        assertEquals(listOf(true, false), activeChanges)
+
+        assertTrue(
+            state.begin(
+                payload = HomeSidePanelDragPayload.NewCard(HomeSidePanelCardType.WALLET),
+                pointerId = 21L,
+                rootPosition = RootDragPosition(150f, 150f),
+            ),
+        )
+        state.cancel()
+
+        assertEquals(listOf(true, false, true, false), activeChanges)
+    }
+
+    @Test
+    fun tapAndFailedDragClaimNeverOwnParentInterception() {
+        val activeChanges = mutableListOf<Boolean>()
+        val state = HomeSidePanelDragState(activeChanges::add)
+        val card = HomeSidePanelDragPayload.ExistingCard("card")
+        val action = HomeSidePanelDragPayload.ExistingAction("card", "action")
+
+        state.claimSource(21L, card)
+        state.releaseSourceClaim(21L)
+        state.claimSource(22L, action)
+
+        assertFalse(state.begin(card, 22L))
+        assertTrue(activeChanges.isEmpty())
+    }
+
+    @Test
+    fun horizontalVirtualAddBoundsAppendAtFullRows() {
+        listOf(0, 3, 6, 9).forEach { actionCount ->
+            val state = HomeSidePanelDragState()
+            val actionRows = actionCount / 3
+            val addTop = actionRows * 100f
+            state.registerActionContainer(
+                cardId = "target",
+                axis = HomeSidePanelDragAxis.Horizontal,
+                bounds = RootDragBounds(0f, 0f, 300f, addTop + 80f),
+            )
+            repeat(actionCount) { index ->
+                val row = index / 3
+                val column = index % 3
+                state.registerActionBounds(
+                    cardId = "target",
+                    actionId = "action-$index",
+                    index = index,
+                    bounds = RootDragBounds(
+                        left = column * 100f,
+                        top = row * 100f,
+                        right = column * 100f + 80f,
+                        bottom = row * 100f + 80f,
+                    ),
+                )
+            }
+            state.registerActionTerminalBounds(
+                cardId = "target",
+                insertionIndex = actionCount,
+                bounds = RootDragBounds(0f, addTop, 300f, addTop + 80f),
+            )
+
+            state.begin(
+                payload = HomeSidePanelDragPayload.NewAction(
+                    "target",
+                    HomeSidePanelActionKind.SCAN,
+                ),
+                pointerId = 30L + actionCount,
+                rootPosition = RootDragPosition(290f, addTop + 40f),
+            )
+
+            assertEquals(
+                HomeSidePanelDragTarget.Action("target", actionCount),
+                state.snapshot!!.target,
+                "action count $actionCount",
+            )
+            assertEquals(
+                HomeSidePanelDragCommit.InsertAction(
+                    "target",
+                    HomeSidePanelActionKind.SCAN,
+                    actionCount,
+                ),
+                state.finish(),
+                "action count $actionCount",
+            )
+        }
+    }
+
     private fun horizontalTwoRowState(): HomeSidePanelDragState =
         HomeSidePanelDragState().apply {
             registerActionContainer(

@@ -111,6 +111,19 @@ internal class HomeSidePanelActionExecutor(
         }
     }
 
+    fun openPaymentCode() {
+        closePanel {
+            val opened = tryStartActivity(
+                Intent().setClassName(activity.packageName, PAYMENT_CODE_CLASS),
+            ) || tryStartActivity(
+                Intent().setClassName(activity.packageName, PAYMENT_CODE_FALLBACK_CLASS),
+            )
+            if (!opened) {
+                publishMessage(beautifyText(R.string.home_side_panel_action_launch_failed))
+            }
+        }
+    }
+
     private fun executeAfterPanelClosed(kind: HomeSidePanelActionKind) {
         when (kind) {
             HomeSidePanelActionKind.SCAN -> {
@@ -161,10 +174,24 @@ internal class HomeSidePanelActionExecutor(
     }
 
     private fun startActivity(intent: Intent) {
-        try {
-            activity.startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
+        if (!tryStartActivity(intent)) {
             publishMessage(beautifyText(R.string.home_side_panel_action_launch_failed))
         }
+    }
+
+    private fun tryStartActivity(intent: Intent): Boolean {
+        try {
+            activity.startActivity(intent)
+            return true
+        } catch (_: ActivityNotFoundException) {
+            return false
+        }
+    }
+
+    private companion object {
+        const val PAYMENT_CODE_CLASS =
+            "com.tencent.mm.plugin.offline.ui.WalletOfflineCoinPurseUI"
+        const val PAYMENT_CODE_FALLBACK_CLASS =
+            "com.tencent.mm.plugin.mall.ui.MallIndexUIv2"
     }
 }

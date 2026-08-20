@@ -234,6 +234,7 @@ private fun HomeSidePanelLayoutCard(
                 modifier = modifier,
                 onToggleBalance = panelState::toggleWallet,
                 onRunAction = panelState::runAction,
+                onOpenPaymentCode = panelState::openPaymentCode,
                 onEditCard = panelState::openWalletSettings,
                 onDeleteCard = panelState::removeCard,
             )
@@ -279,6 +280,11 @@ private fun HomeSidePanelLayoutCard(
                         descriptionRes = R.string.home_side_panel_drag_action,
                     )
             },
+            actionTerminalModifier = Modifier.homeSidePanelActionTerminalDragTarget(
+                dragState = dragState,
+                cardId = card.id,
+                insertionIndex = card.actions.size,
+            ),
             cardDragModifier = Modifier.homeSidePanelDragSource(
                 dragState = dragState,
                 payload = homeSidePanelExistingDragPayload(
@@ -316,6 +322,11 @@ private fun HomeSidePanelLayoutCard(
                         descriptionRes = R.string.home_side_panel_drag_action,
                     )
             },
+            actionTerminalModifier = Modifier.homeSidePanelActionTerminalDragTarget(
+                dragState = dragState,
+                cardId = card.id,
+                insertionIndex = card.actions.size,
+            ),
             cardDragModifier = Modifier.homeSidePanelDragSource(
                 dragState = dragState,
                 payload = homeSidePanelExistingDragPayload(

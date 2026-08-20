@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
+import android.view.ViewParent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
@@ -25,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 
 internal enum class HomeSidePanelTransitionKind {
@@ -66,7 +68,21 @@ internal fun HomeSidePanelContent(
     state: HomeSidePanelUiState,
     panelState: HomeSidePanelState,
 ) {
-    val dragState = remember { HomeSidePanelDragState() }
+    val platformView = LocalView.current
+    val dragState = remember(platformView) {
+        var interceptingParent: ViewParent? = null
+        HomeSidePanelDragState { active ->
+            if (active) {
+                check(interceptingParent == null) { "Parent interception is already owned" }
+                interceptingParent = checkNotNull(platformView.parent) {
+                    "The Compose host must be attached when a side-panel drag begins"
+                }.also { it.requestDisallowInterceptTouchEvent(true) }
+            } else {
+                interceptingParent?.requestDisallowInterceptTouchEvent(false)
+                interceptingParent = null
+            }
+        }
+    }
     val listState = rememberLazyListState()
     Surface(
         modifier = Modifier.fillMaxSize(),

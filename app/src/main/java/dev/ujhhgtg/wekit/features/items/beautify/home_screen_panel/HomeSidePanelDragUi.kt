@@ -221,6 +221,23 @@ internal fun Modifier.homeSidePanelActionDragTarget(
     }
 }
 
+internal fun Modifier.homeSidePanelActionTerminalDragTarget(
+    dragState: HomeSidePanelDragState,
+    cardId: String,
+    insertionIndex: Int,
+): Modifier = composed {
+    DisposableEffect(dragState, cardId) {
+        onDispose { dragState.unregisterActionTerminalBounds(cardId) }
+    }
+    onGloballyPositioned { coordinates ->
+        dragState.registerActionTerminalBounds(
+            cardId = cardId,
+            insertionIndex = insertionIndex,
+            bounds = coordinates.boundsInRoot().toRootDragBounds(),
+        )
+    }
+}
+
 internal fun Modifier.homeSidePanelDragSource(
     dragState: HomeSidePanelDragState,
     payload: HomeSidePanelDragPayload,

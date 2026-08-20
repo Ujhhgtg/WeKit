@@ -174,7 +174,9 @@ internal data class HomeSidePanelDragSnapshot(
     val targetChangeToken: Long,
 )
 
-internal class HomeSidePanelDragState {
+internal class HomeSidePanelDragState(
+    private val onDragActiveChanged: (Boolean) -> Unit = {},
+) {
     private data class RegisteredBounds(
         val index: Int,
         val bounds: RootDragBounds,
@@ -205,6 +207,7 @@ internal class HomeSidePanelDragState {
     private val cardBounds = mutableMapOf<String, RegisteredBounds>()
     private val actionContainers = mutableMapOf<String, ActionContainer>()
     private val actionBounds = mutableMapOf<String, MutableMap<String, RegisteredBounds>>()
+    private val actionTerminalBounds = mutableMapOf<String, RegisteredBounds>()
     private val sourceClaims = mutableMapOf<Long, HomeSidePanelDragPayload>()
     private var nextStartToken = 0L
 
@@ -275,6 +278,21 @@ internal class HomeSidePanelDragState {
         updateTargetForGeometryChange()
     }
 
+    fun registerActionTerminalBounds(
+        cardId: String,
+        insertionIndex: Int,
+        bounds: RootDragBounds,
+    ) {
+        val registered = RegisteredBounds(insertionIndex, bounds)
+        if (actionTerminalBounds[cardId] == registered) return
+        actionTerminalBounds[cardId] = registered
+        updateTargetForGeometryChange()
+    }
+
+    fun unregisterActionTerminalBounds(cardId: String) {
+        if (actionTerminalBounds.remove(cardId) != null) updateTargetForGeometryChange()
+    }
+
     fun claimSource(pointerId: Long, payload: HomeSidePanelDragPayload) {
         val claimed = sourceClaims[pointerId]
         if (claimed == null || payloadPriority(payload) > payloadPriority(claimed)) {
@@ -323,6 +341,7 @@ internal class HomeSidePanelDragState {
             startToken = active?.startToken ?: ++nextStartToken,
             targetChangeToken = active?.targetChangeToken ?: 0L,
         )
+        if (active == null) onDragActiveChanged(true)
         return active == null
     }
 
@@ -334,13 +353,16 @@ internal class HomeSidePanelDragState {
 
     fun cancel() {
         sourceClaims.clear()
+        val wasActive = snapshot != null
         snapshot = null
+        if (wasActive) onDragActiveChanged(false)
     }
 
     fun finish(): HomeSidePanelDragCommit? {
         val active = snapshot ?: return null
         sourceClaims.remove(active.pointerId)
         snapshot = null
+        onDragActiveChanged(false)
         return when (val payload = active.payload) {
             is HomeSidePanelDragPayload.ExistingCard -> {
                 val target = active.target as? HomeSidePanelDragTarget.Card ?: return null
@@ -423,8 +445,9 @@ internal class HomeSidePanelDragState {
         }
 
         target is HomeSidePanelDragTarget.Action -> {
-            val ordered = actionBounds[target.cardId].orEmpty().values.sortedBy(RegisteredBounds::index)
-            ordered.getOrNull(target.insertionIndex)?.bounds ?: ordered.lastOrNull()?.bounds ?: run {
+            val ordered = registeredActionTargets(target.cardId)
+            ordered.firstOrNull { it.index >= target.insertionIndex }?.bounds
+                ?: ordered.lastOrNull()?.bounds ?: run {
                 val container = actionContainers[target.cardId] ?: return null
                 val width = when (container.axis) {
                     HomeSidePanelDragAxis.Horizontal -> container.bounds.width / 3f
@@ -455,7 +478,8 @@ internal class HomeSidePanelDragState {
     ): HomeSidePanelDragTarget.Action? {
         val container = actionContainers[cardId] ?: return null
         if (!container.bounds.contains(position)) return null
-        val ordered = actionBounds[cardId].orEmpty().values.sortedBy(RegisteredBounds::index)
+        val ordered = registeredActionTargets(cardId)
+        val terminalIndex = actionTerminalBounds[cardId]?.index
         val insertion = if (ordered.isEmpty()) {
             0
         } else {
@@ -466,9 +490,14 @@ internal class HomeSidePanelDragState {
                 HomeSidePanelDragAxis.Vertical ->
                     modelInsertionIndex(position.y, ordered, HomeSidePanelDragAxis.Vertical)
             }
-        }
+        }.let { index -> terminalIndex?.let(index::coerceAtMost) ?: index }
         return HomeSidePanelDragTarget.Action(cardId, insertion)
     }
+
+    private fun registeredActionTargets(cardId: String): List<RegisteredBounds> = buildList {
+        addAll(actionBounds[cardId].orEmpty().values)
+        actionTerminalBounds[cardId]?.let(::add)
+    }.sortedBy(RegisteredBounds::index)
 
     private fun modelInsertionIndex(
         position: Float,

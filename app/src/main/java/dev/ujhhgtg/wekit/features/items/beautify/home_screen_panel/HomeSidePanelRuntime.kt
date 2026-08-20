@@ -56,6 +56,7 @@ internal class HomeSidePanelRuntimeStore(
     private val jobs = mutableMapOf<HomeSidePanelRuntimeKey, Job>()
     private val weatherCaches = mutableMapOf<HomeSidePanelRuntimeKey, WeatherCardCacheRecord>()
     private val hitokotoCaches = mutableMapOf<HomeSidePanelRuntimeKey, HitokotoCardCacheRecord>()
+    private var liveCachePolicy = HomeSidePanelLiveCachePolicy.FALLBACK
 
     val states: StateFlow<Map<HomeSidePanelRuntimeKey, HomeSidePanelCardRuntimeState>> =
         _states.asStateFlow()
@@ -76,15 +77,37 @@ internal class HomeSidePanelRuntimeStore(
         }
     }
 
-    fun reconcile(
+    fun initializeLive(load: HomeSidePanelLayoutLoad) {
+        check(HomeSidePanelRuntimeNamespace.Live !in activeLayouts) {
+            "The live side-panel runtime is already initialized"
+        }
+        liveCachePolicy = homeSidePanelLiveCachePolicy(load)
+        if (liveCachePolicy.importLegacyCaches) {
+            cacheStore.migrateLegacyCaches(load.layout)
+        }
+        reconcile(
+            namespace = HomeSidePanelRuntimeNamespace.Live,
+            old = null,
+            new = load.layout,
+        )
+    }
+
+    fun reconcileDraft(
+        sessionId: String,
+        old: HomeSidePanelLayout?,
+        new: HomeSidePanelLayout,
+    ) = reconcile(
+        namespace = HomeSidePanelRuntimeNamespace.Draft(sessionId),
+        old = old,
+        new = new,
+    )
+
+    private fun reconcile(
         namespace: HomeSidePanelRuntimeNamespace,
         old: HomeSidePanelLayout?,
         new: HomeSidePanelLayout,
     ) {
         validateHomeSidePanelLayout(new)
-        if (namespace == HomeSidePanelRuntimeNamespace.Live) {
-            cacheStore.migrateLegacyCaches(new)
-        }
         activeLayouts[namespace] = new
         val delta = homeSidePanelRuntimeDelta(old, new)
         (delta.deactivate + delta.reconfigure).forEach { cardId ->
@@ -204,6 +227,7 @@ internal class HomeSidePanelRuntimeStore(
 
     fun promoteDraft(sessionId: String, committed: HomeSidePanelLayout) {
         validateHomeSidePanelLayout(committed)
+        liveCachePolicy = HomeSidePanelLiveCachePolicy.STORED
         val draft = HomeSidePanelRuntimeNamespace.Draft(sessionId)
         val oldLive = activeLayouts[HomeSidePanelRuntimeNamespace.Live]
         val draftWeather = entriesForNamespace(weatherCaches, draft)
@@ -252,6 +276,7 @@ internal class HomeSidePanelRuntimeStore(
     }
 
     fun recoverCommittedLayout(sessionId: String, committed: HomeSidePanelLayout) {
+        liveCachePolicy = HomeSidePanelLiveCachePolicy.STORED
         val draft = HomeSidePanelRuntimeNamespace.Draft(sessionId)
         jobs.keys.filter { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
             .toList().forEach(::cancelJob)
@@ -372,7 +397,12 @@ internal class HomeSidePanelRuntimeStore(
         _states.update { it - key }
         weatherCaches.remove(key)
         hitokotoCaches.remove(key)
-        if (key.namespace == HomeSidePanelRuntimeNamespace.Live) cacheStore.removeCardCaches(key.cardId)
+        if (
+            key.namespace == HomeSidePanelRuntimeNamespace.Live &&
+            liveCachePolicy.persistLiveCaches
+        ) {
+            cacheStore.removeCardCaches(key.cardId)
+        }
     }
 
     private fun weatherCache(
@@ -432,7 +462,12 @@ internal class HomeSidePanelRuntimeStore(
         cardId: String,
         record: WeatherCardCacheRecord,
     ) {
-        if (namespace != HomeSidePanelRuntimeNamespace.Live) return
+        if (
+            namespace != HomeSidePanelRuntimeNamespace.Live ||
+            !liveCachePolicy.persistLiveCaches
+        ) {
+            return
+        }
         cacheStore.saveWeatherCache(cardId, record).onFailure {
             WeLogger.w(TAG, "failed to persist weather cache for card $cardId", it)
         }
@@ -443,7 +478,12 @@ internal class HomeSidePanelRuntimeStore(
         cardId: String,
         record: HitokotoCardCacheRecord,
     ) {
-        if (namespace != HomeSidePanelRuntimeNamespace.Live) return
+        if (
+            namespace != HomeSidePanelRuntimeNamespace.Live ||
+            !liveCachePolicy.persistLiveCaches
+        ) {
+            return
+        }
         cacheStore.saveHitokotoCache(cardId, record).onFailure {
             WeLogger.w(TAG, "failed to persist hitokoto cache for card $cardId", it)
         }

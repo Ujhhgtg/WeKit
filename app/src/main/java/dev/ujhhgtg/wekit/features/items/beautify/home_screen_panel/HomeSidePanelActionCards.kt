@@ -65,6 +65,7 @@ internal fun HomeSidePanelHorizontalActionsCard(
     actionInsertionIndex: Int? = null,
     insertionSnapshot: HomeSidePanelDragSnapshot? = null,
     actionDragModifier: (cardId: String, actionId: String) -> Modifier = { _, _ -> Modifier },
+    actionTerminalModifier: Modifier = Modifier,
     cardDragModifier: Modifier = Modifier,
     onRunAction: (cardId: String, actionId: String, kind: HomeSidePanelActionKind) -> Unit = { _, _, _ -> },
     onDeleteAction: ((cardId: String, actionId: String) -> Unit)? = null,
@@ -188,6 +189,7 @@ internal fun HomeSidePanelHorizontalActionsCard(
                                 } else {
                                     null
                                 },
+                                actionTerminalModifier = if (editMode) actionTerminalModifier else Modifier,
                                 wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
                             )
                         }
@@ -207,6 +209,7 @@ internal fun HomeSidePanelVerticalActionsCard(
     actionInsertionIndex: Int? = null,
     insertionSnapshot: HomeSidePanelDragSnapshot? = null,
     actionDragModifier: (cardId: String, actionId: String) -> Modifier = { _, _ -> Modifier },
+    actionTerminalModifier: Modifier = Modifier,
     cardDragModifier: Modifier = Modifier,
     onRunAction: (cardId: String, actionId: String, kind: HomeSidePanelActionKind) -> Unit = { _, _, _ -> },
     onDeleteAction: ((cardId: String, actionId: String) -> Unit)? = null,
@@ -325,6 +328,7 @@ internal fun HomeSidePanelVerticalActionsCard(
                             } else {
                                 null
                             },
+                            actionTerminalModifier = if (editMode) actionTerminalModifier else Modifier,
                             wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
                         )
                     }
@@ -339,6 +343,7 @@ internal fun HomeSidePanelAddActionItem(
     placement: HomeSidePanelActionPlacement,
     onClick: (() -> Unit)?,
     onDeleteCard: (() -> Unit)?,
+    actionTerminalModifier: Modifier = Modifier,
     wholeCardDragModifier: Modifier,
 ) {
     when (placement) {
@@ -349,6 +354,7 @@ internal fun HomeSidePanelAddActionItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+                    .then(actionTerminalModifier)
                     .then(wholeCardDragModifier),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -392,6 +398,7 @@ internal fun HomeSidePanelAddActionItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+                    .then(actionTerminalModifier)
                     .then(wholeCardDragModifier),
             ) {
                 Text(stringResource(R.string.action_add))

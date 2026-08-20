@@ -107,8 +107,9 @@ internal class HomeSidePanelState(
                 _uiState.update { it.copy(runtimeStates = runtimeStates) }
             }
         }
-        val layout = layoutStore.load().layout
-        runtimeStore.reconcile(HomeSidePanelRuntimeNamespace.Live, old = null, new = layout)
+        val loaded = layoutStore.load()
+        val layout = loaded.layout
+        runtimeStore.initializeLive(loaded)
         _uiState.update {
             it.copy(
                 formalLayout = layout,
@@ -167,9 +168,8 @@ internal class HomeSidePanelState(
             editor = HomeSidePanelEditSession(formal, idGenerator),
         )
         editing = active
-        val namespace = HomeSidePanelRuntimeNamespace.Draft(active.sessionId)
         _uiState.update { it.copy(initialized = false) }
-        runtimeStore.reconcile(namespace, old = null, new = active.editor.draft)
+        runtimeStore.reconcileDraft(active.sessionId, old = null, new = active.editor.draft)
         _uiState.update {
             it.copy(
                 renderedLayout = active.editor.draft,
@@ -459,6 +459,10 @@ internal class HomeSidePanelState(
         actionExecutor.execute(kind)
     }
 
+    fun openPaymentCode() {
+        actionExecutor.openPaymentCode()
+    }
+
     fun setShowToolbarProfile(show: Boolean) {
         HomeSidePanelPreferences.showToolbarProfile = show
         _uiState.update { it.copy(showToolbarProfile = show) }
@@ -569,7 +573,7 @@ internal class HomeSidePanelState(
         val result = active.editor.block()
         val new = active.editor.draft
         _uiState.update { it.copy(initialized = false) }
-        runtimeStore.reconcile(HomeSidePanelRuntimeNamespace.Draft(active.sessionId), old, new)
+        runtimeStore.reconcileDraft(active.sessionId, old, new)
         _uiState.update {
             it.copy(
                 renderedLayout = new,

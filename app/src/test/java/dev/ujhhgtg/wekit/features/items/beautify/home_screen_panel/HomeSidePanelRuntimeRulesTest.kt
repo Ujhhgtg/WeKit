@@ -1,7 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class HomeSidePanelRuntimeRulesTest {
@@ -97,5 +99,35 @@ class HomeSidePanelRuntimeRulesTest {
         assertEquals(sharedBalance, hidden.balanceFen)
         assertEquals(sharedBalance, visible.balanceFen)
         assertNotEquals(hidden.displayState.isMasked, visible.displayState.isMasked)
+    }
+
+    @Test
+    fun layoutProvenanceSelectsOneTimeMigrationAndPersistencePolicy() {
+        val layout = HomeSidePanelLayout(cards = emptyList())
+
+        assertEquals(
+            HomeSidePanelLiveCachePolicy.STORED,
+            homeSidePanelLiveCachePolicy(HomeSidePanelLayoutLoad.Stored(layout)),
+        )
+        assertEquals(
+            HomeSidePanelLiveCachePolicy.MIGRATED,
+            homeSidePanelLiveCachePolicy(HomeSidePanelLayoutLoad.Migrated(layout)),
+        )
+        assertEquals(
+            HomeSidePanelLiveCachePolicy.FALLBACK,
+            homeSidePanelLiveCachePolicy(
+                HomeSidePanelLayoutLoad.Fallback(
+                    layout = layout,
+                    invalidRaw = "preserved invalid source",
+                    reason = "invalid layout",
+                ),
+            ),
+        )
+        assertFalse(HomeSidePanelLiveCachePolicy.STORED.importLegacyCaches)
+        assertTrue(HomeSidePanelLiveCachePolicy.STORED.persistLiveCaches)
+        assertTrue(HomeSidePanelLiveCachePolicy.MIGRATED.importLegacyCaches)
+        assertTrue(HomeSidePanelLiveCachePolicy.MIGRATED.persistLiveCaches)
+        assertFalse(HomeSidePanelLiveCachePolicy.FALLBACK.importLegacyCaches)
+        assertFalse(HomeSidePanelLiveCachePolicy.FALLBACK.persistLiveCaches)
     }
 }
