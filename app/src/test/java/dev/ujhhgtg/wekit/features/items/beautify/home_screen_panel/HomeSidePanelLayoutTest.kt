@@ -102,4 +102,79 @@ class HomeSidePanelLayoutTest {
             )
         }
     }
+
+    @Test
+    fun validationRejectsUnsupportedVersionAndBlankCardId() {
+        assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
+            validateHomeSidePanelLayout(HomeSidePanelLayout(version = 2, cards = emptyList()))
+        }
+        assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
+            validateHomeSidePanelLayout(
+                HomeSidePanelLayout(cards = listOf(DateTimeCardConfig(" "))),
+            )
+        }
+    }
+
+    @Test
+    fun validationRejectsBlankAndDuplicateActionIdsWithinOneCard() {
+        assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
+            validateHomeSidePanelLayout(
+                HomeSidePanelLayout(
+                    cards = listOf(
+                        HorizontalActionsCardConfig(
+                            "actions",
+                            listOf(HomeSidePanelActionConfig("", HomeSidePanelActionKind.SCAN)),
+                        ),
+                    ),
+                ),
+            )
+        }
+        assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
+            validateHomeSidePanelLayout(
+                HomeSidePanelLayout(
+                    cards = listOf(
+                        HorizontalActionsCardConfig(
+                            "actions",
+                            listOf(
+                                HomeSidePanelActionConfig("same", HomeSidePanelActionKind.SCAN),
+                                HomeSidePanelActionConfig("same", HomeSidePanelActionKind.WALLET),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun validationRejectsInvalidHitokotoSettings() {
+        assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
+            validateHomeSidePanelLayout(
+                HomeSidePanelLayout(
+                    cards = listOf(
+                        HitokotoCardConfig(
+                            "hitokoto",
+                            HitokotoSettings(categories = emptySet()),
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun semanticallyInvalidJsonBecomesFallback() {
+        val raw = """{"version":2,"cards":[]}"""
+
+        assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
+            HomeSidePanelLayoutCodec.decode(raw)
+        }
+        val fallback = HomeSidePanelLayoutCodec.load(
+            raw,
+            LegacyHomeSidePanelSnapshot.defaults(),
+            SequenceIds(),
+        ) as HomeSidePanelLayoutLoad.Fallback
+
+        assertEquals(raw, fallback.invalidRaw)
+    }
 }

@@ -13,7 +13,7 @@ internal object HomeSidePanelLayoutStore {
             return HomeSidePanelLayoutCodec.load(raw, legacy, UuidHomeSidePanelIdGenerator)
         }
         val layout = defaultHomeSidePanelLayout(legacy)
-        save(layout)
+        save(layout).getOrThrow()
         return HomeSidePanelLayoutLoad.Migrated(layout)
     }
 
