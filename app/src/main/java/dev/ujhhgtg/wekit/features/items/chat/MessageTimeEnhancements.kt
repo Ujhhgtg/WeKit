@@ -422,10 +422,7 @@ object MessageTimeEnhancements : ClickableFeature(),
                     Button(onClick = {
                         val textSizeInput = textSizeInputRaw.toIntOrNull()
                         if (textSizeInput == null || textSizeInput <= 0) {
-                            showToast(
-                                localizedContext,
-                                localizedContext.getString(R.string.chat_message_time_invalid_number),
-                            )
+                            showToast(localizedContext.getString(R.string.chat_message_time_invalid_number))
                             return@Button
                         }
 
